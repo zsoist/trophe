@@ -50,7 +50,8 @@ export function calculatePlateLoad(input: PlateLoadInput): PlateLoad {
   }
   let bestSide = 0;
   let bestDistance = Math.abs(barTicks - totalTicks);
-  for (let side = 1; side <= MAX_SIDE_TICKS; side += 1) {
+  const maxAchievableSide = Math.min(MAX_SIDE_TICKS, Math.floor((MAX_TOTAL * SCALE - barTicks) / 2));
+  for (let side = 1; side <= maxAchievableSide; side += 1) {
     if (!seen[side]) continue;
     const achieved = barTicks + side * 2;
     const distance = Math.abs(achieved - totalTicks);

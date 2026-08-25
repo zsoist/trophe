@@ -27,12 +27,14 @@ export default function PainFlagModal({ exerciseId, exerciseName = exerciseId, s
   onClose: () => void;
 }) {
   const { t } = useI18n();
+  const regionKey = ({ chest: 'painflag.region_chest', back: 'painflag.region_back', shoulders: 'painflag.region_shoulders', arms: 'painflag.region_arms', legs: 'painflag.region_legs', core: 'painflag.region_core' } as Record<string, string>)[suggestedBodyPart.toLowerCase()];
+  const suggestedRegion = regionKey ? t(regionKey) : ['full_body', 'cardio'].includes(suggestedBodyPart.toLowerCase()) ? '' : suggestedBodyPart;
   const reducedMotion = useReducedMotion();
   const dialogRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   const mutationIdRef = useRef(globalThis.crypto.randomUUID());
   const titleId = useId();
-  const [bodyPart, setBodyPart] = useState(suggestedBodyPart);
+  const [bodyPart, setBodyPart] = useState(suggestedRegion);
   const [severity, setSeverity] = useState(1);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);

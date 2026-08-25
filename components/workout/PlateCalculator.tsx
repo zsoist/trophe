@@ -40,22 +40,25 @@ export default function PlateCalculator({ weightKg, unit, onClose = noop, exerci
   const dialogRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   const defaults = RACKS[unit];
-  const [total, setTotal] = useState(() => kgToDisplay(weightKg, unit));
-  const [bar, setBar] = useState(defaults.bar);
+  const [totalText, setTotalText] = useState(() => String(kgToDisplay(weightKg, unit)));
+  const [barText, setBarText] = useState(() => String(defaults.bar));
   const [inventoryText, setInventoryText] = useState(() => defaults.plates.join('; '));
   const [addingWarmups, setAddingWarmups] = useState(false);
+  const addingRef = useRef(false);
   const [warmupError, setWarmupError] = useState(false);
-  useEffect(() => { onCloseRef.current = onClose; });
+  useEffect(() => { onCloseRef.current = onClose; addingRef.current = addingWarmups; });
+  const total = inputNumber(totalText, 2000);
+  const bar = inputNumber(barText, 100);
   const plates = useMemo(() => parseInventory(inventoryText), [inventoryText]);
   const load = useMemo(() => calculatePlateLoad({ total, bar, plates }), [total, bar, plates]);
   const warmupRamp = useMemo(() => buildWarmupRamp({ workingWeight: total, bar, plates, unit }), [total, bar, plates, unit]);
   const canInsertWarmups = Boolean(exerciseContext && onAddWarmupSets);
-  const impossible = total < bar || (total > bar && (!plates.length || load.achievedTotal <= bar));
+  const impossible = total < bar || load.achievedTotal <= 0;
 
   useEffect(() => {
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const frame = requestAnimationFrame(() => dialogRef.current?.focus());
-    const closeOnEscape = (event: KeyboardEvent) => event.key === 'Escape' && onCloseRef.current();
+    const closeOnEscape = (event: KeyboardEvent) => event.key === 'Escape' && !addingRef.current && onCloseRef.current();
     document.addEventListener('keydown', closeOnEscape);
     return () => { cancelAnimationFrame(frame); document.removeEventListener('keydown', closeOnEscape); previousFocus?.focus(); };
   }, []);
@@ -79,17 +82,17 @@ export default function PlateCalculator({ weightKg, unit, onClose = noop, exerci
   );
 
   return (
-    <motion.div initial={reducedMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={reducedMotion ? undefined : { opacity: 0 }} className="fixed inset-0 z-[var(--z-modal,60)] flex items-end justify-center" style={{ background: 'var(--surface-overlay)' }} onClick={() => onCloseRef.current()}>
+    <motion.div initial={reducedMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={reducedMotion ? undefined : { opacity: 0 }} className="fixed inset-0 z-[var(--z-modal,60)] flex items-end justify-center" style={{ background: 'var(--surface-overlay)' }} onClick={() => { if (!addingWarmups) onCloseRef.current(); }}>
       <motion.div ref={dialogRef} role="dialog" aria-modal="true" aria-label={t('workout.plate_title')} tabIndex={-1} onKeyDown={(event) => trapFocus(event, dialogRef.current)} initial={reducedMotion ? false : { y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={reducedMotion ? undefined : { y: 80, opacity: 0 }} transition={{ type: 'spring', damping: 28, stiffness: 320 }} className="glass-elevated safe-bottom w-full max-w-md rounded-t-3xl px-5 pt-4 pb-[calc(5rem+env(safe-area-inset-bottom))] outline-none" onClick={(event) => event.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-base font-bold text-[var(--content-primary)]">{t('workout.plate_title')}</h3>
-          <button type="button" onClick={() => onCloseRef.current()} aria-label={t('workout.custom_cancel')} className="min-h-11 min-w-11 rounded-lg bg-[var(--surface-subtle)] p-1.5 text-[var(--content-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"><X size={16} aria-hidden="true" /></button>
+          <button type="button" disabled={addingWarmups} onClick={() => onCloseRef.current()} aria-label={t('workout.custom_cancel')} className="min-h-11 min-w-11 rounded-lg bg-[var(--surface-subtle)] p-1.5 text-[var(--content-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-50"><X size={16} aria-hidden="true" /></button>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <label className="text-xs font-semibold text-[var(--content-secondary)]">{totalLabel}<input aria-label={totalLabel} type="text" inputMode="decimal" value={total} onChange={(event) => setTotal(inputNumber(event.target.value, 2000))} className="input-dark mt-1 min-h-11 w-full text-base" /></label>
-          <label className="text-xs font-semibold text-[var(--content-secondary)]">{barLabel}<input aria-label={barLabel} type="text" inputMode="decimal" value={bar} onChange={(event) => setBar(inputNumber(event.target.value, 100))} className="input-dark mt-1 min-h-11 w-full text-base" /></label>
+          <label className="text-xs font-semibold text-[var(--content-secondary)]">{totalLabel}<input disabled={addingWarmups} aria-label={totalLabel} type="text" inputMode="decimal" value={totalText} onChange={(event) => setTotalText(event.target.value)} className="input-dark mt-1 min-h-11 w-full text-base disabled:opacity-50" /></label>
+          <label className="text-xs font-semibold text-[var(--content-secondary)]">{barLabel}<input disabled={addingWarmups} aria-label={barLabel} type="text" inputMode="decimal" value={barText} onChange={(event) => setBarText(event.target.value)} className="input-dark mt-1 min-h-11 w-full text-base disabled:opacity-50" /></label>
         </div>
-        <label className="mt-3 block text-xs font-semibold text-[var(--content-secondary)]">{t('workout.plate_inventory_label')}<input aria-label={t('workout.plate_inventory_label')} value={inventoryText} onChange={(event) => setInventoryText(event.target.value)} className="input-dark mt-1 min-h-11 w-full text-base" /></label>
+        <label className="mt-3 block text-xs font-semibold text-[var(--content-secondary)]">{t('workout.plate_inventory_label')}<input disabled={addingWarmups} aria-label={t('workout.plate_inventory_label')} value={inventoryText} onChange={(event) => setInventoryText(event.target.value)} className="input-dark mt-1 min-h-11 w-full text-base disabled:opacity-50" /></label>
         <p className="mt-1 text-xs text-[var(--content-muted)]">{t('workout.plate_inventory_help')}</p>
         <div className="mt-4 rounded-xl border border-[var(--border-subtle)] p-3">
           <p className="text-center text-sm font-semibold text-[var(--content-primary)]">{impossible ? t('workout.plate_impossible') : load.exact ? t('workout.plate_exact') : t('workout.plate_nearest')}{!impossible ? ` · ${load.achievedTotal} ${unit}` : ''}</p>

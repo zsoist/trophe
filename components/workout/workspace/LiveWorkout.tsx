@@ -442,6 +442,7 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
         }
         setPersistedSets((current) => [...current.filter((item) => !saved.some((set) => set.exercise_id === item.exercise_id && set.set_number === item.set_number)), ...saved]);
         setExtraRows((current) => [...current, ...numbers.filter((setNumber) => !rows.some((row) => row.exerciseId === plateContext.exerciseId && row.setNumber === setNumber)).map((setNumber) => ({ exerciseId: plateContext.exerciseId, setNumber }))]);
+        warmupNumbersRef.current.delete(key);
         return true;
       }} onClose={() => setPlateContext(null)} /> : null}
     </main>

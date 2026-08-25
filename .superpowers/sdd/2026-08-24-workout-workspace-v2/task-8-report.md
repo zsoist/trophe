@@ -64,3 +64,12 @@ npm run typecheck
 npm run lint
 # exit 0; 46 pre-existing warnings, 0 errors
 ```
+
+## Fix round 2
+
+- Overlay Task 8 additions are one property per line and pass the repository's regex-based overlay coverage invariant.
+- Calculator input retains raw decimal-comma text, blocks close/editing while a warm-up insertion is pending, and treats bar-only nearest results as valid.
+- The fixed search cap also constrains returned candidates to the advertised maximum total.
+- Successful live insertions clear their retry-only logical-number cache; raw `full_body` and `cardio` suggestions are suppressed while known muscle groups are localized.
+
+Verification: overlay coverage + Task 8 parity + live/retrospective/Task 7 regression command passed (8 files, 69 tests); typecheck and scoped lint passed; diff check passed.
