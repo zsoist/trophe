@@ -26,7 +26,7 @@ let workspace = { state: liveState, pause: vi.fn(), resume: vi.fn(), ...harness 
 vi.mock('@/components/workout/workspace/WorkoutWorkspaceProvider', () => ({ useWorkoutWorkspace: () => workspace }));
 vi.mock('@/components/workout/ExerciseInfoSheet', () => ({ default: () => null }));
 vi.mock('@/components/workout/PainFlagModal', () => ({ default: ({ onSave }: { onSave: (flag: { exercise_id: string; body_part: string; severity: number }, mutationId: string) => Promise<boolean> }) => <button type="button" onClick={() => void onSave({ exercise_id: 'bench', body_part: 'shoulder', severity: 2 }, '33333333-3333-4333-8333-333333333333')}>Save pain note</button> }));
-vi.mock('framer-motion', () => ({ motion: { div: ({ children, initial: _initial, animate: _animate, exit: _exit, transition: _transition, ...props }: React.HTMLAttributes<HTMLDivElement> & { initial?: unknown; animate?: unknown; exit?: unknown; transition?: unknown }) => { void _initial; void _animate; void _exit; void _transition; return <div {...props}>{children}</div>; } }, useReducedMotion: () => true }));
+vi.mock('framer-motion', () => ({ AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>, motion: { div: ({ children, initial: _initial, animate: _animate, exit: _exit, transition: _transition, ...props }: React.HTMLAttributes<HTMLDivElement> & { initial?: unknown; animate?: unknown; exit?: unknown; transition?: unknown }) => { void _initial; void _animate; void _exit; void _transition; return <div {...props}>{children}</div>; } }, useReducedMotion: () => true }));
 vi.mock('@/components/workout/workspace/ExerciseSetLogger', () => ({
   ExerciseSetLogger: ({ exercise, disabled, onComplete, onSuperset, onRemove, onPain, onPlateCalculator }: { exercise: { name: string }; disabled?: boolean; onComplete: (value: { weight: number; reps: number; rpe: number | null; isWarmup: boolean }) => Promise<string | null>; onSuperset?: () => void; onRemove?: () => void; onPain?: () => void; onPlateCalculator?: (weight: number) => void }) => (
     <div>
@@ -93,10 +93,11 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.clearAllMocks(); workspace = { state: liveState, pause: vi.fn(), resume: vi.fn(), ...harness }; });
 
 describe('LiveWorkout', () => {
-  it('shows the verified completion summary until the user acknowledges it', () => {
+  it('shows the verified completion summary only after recovery, until the user acknowledges it', async () => {
     workspace = { ...workspace, state: { ...liveState, stage: 'completed', clock: { runningSince: null, accumulatedMs: 60_000 } } };
     render(<LiveWorkout exercises={[]} />);
-    expect(screen.getByRole('heading', { name: 'Workout complete' })).toBeTruthy();
+    expect(screen.getByRole('status', { name: 'workout.loading_live_session' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Workout complete' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Finish workout' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Done' }));
     expect(harness.acknowledgeCompleted).toHaveBeenCalledTimes(1);
@@ -254,7 +255,7 @@ describe('LiveWorkout', () => {
     ])));
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove Bench Press' }));
-    expect(screen.getByRole('dialog', { name: 'Remove Bench Press' })).toBeTruthy();
+    expect(screen.getByRole('alertdialog', { name: 'Remove Bench Press' })).toBeTruthy();
     expect(screen.getByText('0 completed sets')).toBeTruthy();
     expect(harness.updateLiveStructure).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
@@ -278,7 +279,7 @@ describe('LiveWorkout', () => {
     }] });
     render(<LiveWorkout exercises={[]} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Remove Bench Press' }));
-    expect(screen.getByRole('dialog', { name: 'Remove Bench Press' })).toBeTruthy();
+    expect(screen.getByRole('alertdialog', { name: 'Remove Bench Press' })).toBeTruthy();
     expect(screen.getByText('1 completed sets')).toBeTruthy();
     expect(harness.updateLiveStructure).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Remove exercise' }));

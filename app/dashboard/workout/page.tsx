@@ -112,6 +112,10 @@ export default function WorkoutPage() {
   useEffect(() => {
     const normalizedRepeatId = normalizeUuid(repeatId);
     if (!normalizedRepeatId || handledRepeat.current === normalizedRepeatId) return;
+    if (workspaceState.startRequest) {
+      router.replace(workoutRouteForStage(workspaceState.stage));
+      return;
+    }
     handledRepeat.current = normalizedRepeatId;
     let active = true;
 
@@ -143,7 +147,7 @@ export default function WorkoutPage() {
       const repeatedTemplate: WorkoutDraftTemplateInput = {
         templateKey: `repeat:${sessionResult.data.id}`,
         templateId: sessionResult.data.template_id,
-        name: sessionResult.data.name ?? 'Workout',
+        name: sessionResult.data.name ?? t('workout.title'),
         exercises: repeatedExercises((setsResult.data as unknown as RepeatedSetRow[] | null) ?? []),
       };
       if ((workspaceState.stage === 'draft' || workspaceState.stage === 'review')
@@ -157,10 +161,10 @@ export default function WorkoutPage() {
 
     void loadRepeatedWorkout();
     return () => { active = false; };
-  }, [createDraftFromTemplate, repeatId, router, workspaceState.draft, workspaceState.stage]);
+  }, [createDraftFromTemplate, repeatId, router, t, workspaceState.draft, workspaceState.stage, workspaceState.startRequest]);
 
   const confirmRepeatReplacement = () => {
-    if (!pendingRepeat || (workspaceState.stage !== 'draft' && workspaceState.stage !== 'review')) return;
+    if (!pendingRepeat || workspaceState.startRequest || (workspaceState.stage !== 'draft' && workspaceState.stage !== 'review')) return;
     replaceDraftFromTemplate(pendingRepeat);
     setPendingRepeat(null);
     router.push(WORKOUT_ROUTES.build);
@@ -223,7 +227,7 @@ export default function WorkoutPage() {
 
   const routines = useMemo(() => storedRoutines.map((routine) => toTemplate(routine)), [storedRoutines, toTemplate]);
 
-  if (pendingRepeat) {
+  if (pendingRepeat && !workspaceState.startRequest) {
     return (
       <main className="mx-auto max-w-2xl px-4 py-6">
         <section aria-labelledby="repeat-replace-title" aria-describedby="repeat-replace-message" className="rounded-2xl border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] p-5">

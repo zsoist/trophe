@@ -159,7 +159,6 @@ describe('workout workspace recovery', () => {
   it.each([
     ['zero target sets', { draft: { exercises: [{ exerciseId: 'bench', targetSets: 0, targetReps: '8' }] } }],
     ['fractional target sets', { draft: { exercises: [{ exerciseId: 'bench', targetSets: 2.5, targetReps: '8' }] } }],
-    ['blank target reps', { draft: { exercises: [{ exerciseId: 'bench', targetSets: 3, targetReps: '   ' }] } }],
     ['negative accumulated clock', { clock: { runningSince: null, accumulatedMs: -1 } }],
     ['untrimmed session id', { sessionId: ' session-1 ' }],
   ])('rejects invalid recovery values: %s', (_name, patch) => {
@@ -180,6 +179,20 @@ describe('workout workspace recovery', () => {
 
     expect(loadWorkspaceState(storage, 'nik')).toBeNull();
     expect(storage.getItem(workspaceStorageKey('nik'))).toBeNull();
+  });
+
+  it('normalizes the former blank-reps transient without discarding the recoverable workspace', () => {
+    const storage = new MapStorage();
+    storage.setItem(workspaceStorageKey('nik'), JSON.stringify({
+      version: 2,
+      stage: 'paused',
+      draft: { version: 2, name: 'Push', kind: 'strength', updatedAt: 0, exercises: [{ exerciseId: 'bench', targetSets: 3, targetReps: '   ' }] },
+      sessionId: 'session-1',
+      clock: { runningSince: null, accumulatedMs: 1000 },
+    }));
+    expect(loadWorkspaceState(storage, 'nik')?.draft).toMatchObject({
+      exercises: [{ exerciseId: 'bench', targetSets: 3, targetReps: '8-12' }],
+    });
   });
 
   it.each([

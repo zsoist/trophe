@@ -38,9 +38,10 @@ export default function WorkoutReviewPage() {
   }, []);
 
   useEffect(() => {
-    if (!workspace.ready || workspace.state.stage === 'review') return;
+    if (!workspace.ready || workspace.state.stage === 'review'
+      || (workspace.state.stage === 'draft' && Boolean(workspace.state.startRequest))) return;
     router.replace(workoutRouteForStage(workspace.state.stage));
-  }, [router, workspace.ready, workspace.state.stage]);
+  }, [router, workspace.ready, workspace.state.stage, workspace.state.startRequest]);
 
   useEffect(() => {
     if (saveState !== 'success' || savedRevisionRef.current === null) return;
@@ -67,7 +68,9 @@ export default function WorkoutReviewPage() {
     }
   };
 
-  if (!workspace.ready || workspace.state.stage !== 'review') {
+  const reviewableStage = workspace.state.stage === 'review'
+    || (workspace.state.stage === 'draft' && Boolean(workspace.state.startRequest));
+  if (!workspace.ready || !reviewableStage) {
     return <main role="status" aria-label={t('workout.loading_review')} className="mx-auto min-h-24 max-w-2xl animate-pulse rounded-xl bg-[var(--surface-subtle)]" />;
   }
 

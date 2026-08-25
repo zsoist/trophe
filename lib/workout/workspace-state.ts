@@ -114,6 +114,15 @@ export function elapsedActiveMs(clock: LiveClock | null, now: number): number {
   return clock.accumulatedMs + (clock.runningSince === null ? 0 : Math.max(0, now - clock.runningSince));
 }
 
+export function isWorkoutDraftReady(draft: WorkoutDraft): boolean {
+  if (!draft.name.trim()) return false;
+  if (draft.kind === 'cardio') return Number.isFinite(draft.durationMinutes) && draft.durationMinutes > 0;
+  return draft.exercises.length > 0 && draft.exercises.every((exercise) =>
+    Number.isInteger(exercise.targetSets)
+    && exercise.targetSets > 0
+    && exercise.targetReps.trim().length > 0);
+}
+
 function requireDraft(state: WorkoutWorkspaceState): WorkoutDraft {
   if (!state.draft) throw new Error('A workout draft is required');
   return state.draft;
@@ -134,14 +143,17 @@ export function workoutWorkspaceReducer(
       return { stage: 'draft', draft: createEmptyDraft(event.payload.kind, event.payload.name, event.payload.templateKey, event.payload.updatedAt ?? 0, event.payload.templateId), sessionId: null, clock: null, finishingFrom: null, clientRequestId: null, startRequest: null };
     case 'draft.updated':
       if (state.stage !== 'draft' && state.stage !== 'review') throw new Error(`Cannot update a draft from ${state.stage}`);
+      if (state.startRequest) throw new Error('Cannot update a draft while its start request is pending');
       return { ...state, draft: event.payload.draft };
     case 'draft.reviewed':
       requireDraft(state);
       if (state.stage !== 'draft') throw new Error(`Cannot review a draft from ${state.stage}`);
+      if (state.startRequest) throw new Error('Cannot review a draft while its start request is pending');
       return { ...state, stage: 'review' };
     case 'draft.reopened':
       requireDraft(state);
       if (state.stage !== 'review') throw new Error(`Cannot reopen a draft from ${state.stage}`);
+      if (state.startRequest) throw new Error('Cannot reopen a draft while its start request is pending');
       return { ...state, stage: 'draft' };
     case 'request.keyed':
       requireDraft(state);
@@ -153,6 +165,9 @@ export function workoutWorkspaceReducer(
       if (state.stage !== 'draft' && state.stage !== 'review') throw new Error(`Cannot prepare a request from ${state.stage}`);
       if (!event.payload.startRequest.idempotencyKey.trim() || !event.payload.startRequest.draftFingerprint.trim()) {
         throw new Error('A complete client request is required');
+      }
+      if (state.startRequest && JSON.stringify(state.startRequest) !== JSON.stringify(event.payload.startRequest)) {
+        throw new Error('Cannot replace a pending start request');
       }
       return {
         ...state,

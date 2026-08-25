@@ -115,9 +115,10 @@ export function ConfirmSheet({
 
   // Same portal pattern as FeedbackWidget: `open` is client state (false during
   // SSR), so the portal only ever renders in the browser.
-  return (
-    <AnimatePresence>
-      {open && typeof document !== 'undefined' && createPortal(
+  return typeof document !== 'undefined'
+    ? createPortal(
+      <AnimatePresence>
+        {open && (
         <motion.div
           initial={reducedMotion ? false : { opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -221,11 +222,12 @@ export function ConfirmSheet({
               </div>
             </div>
           </motion.div>
-        </motion.div>,
-        document.body,
-      )}
-    </AnimatePresence>
-  );
+        </motion.div>
+        )}
+      </AnimatePresence>,
+      document.body,
+    )
+    : null;
 }
 
 export default ConfirmSheet;

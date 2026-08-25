@@ -7,7 +7,7 @@ import { useWorkoutWorkspace } from '@/components/workout/workspace/WorkoutWorks
 import { useI18n } from '@/lib/i18n';
 import { supabase } from '@/lib/supabase';
 import { saveWorkoutRoutine } from '@/lib/workout/routine-repository';
-import { workoutRouteForStage } from '@/lib/workout/workspace-routes';
+import { WORKOUT_ROUTES, workoutRouteForStage } from '@/lib/workout/workspace-routes';
 import type { WorkoutDraft } from '@/lib/workout/workspace-state';
 
 export default function WorkoutBuildPage() {
@@ -20,9 +20,14 @@ export default function WorkoutBuildPage() {
   const savedRevisionRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!workspace.ready || workspace.state.stage === 'draft' || workspace.state.stage === 'review') return;
+    if (!workspace.ready) return;
+    if (workspace.state.startRequest && (workspace.state.stage === 'draft' || workspace.state.stage === 'review')) {
+      router.replace(WORKOUT_ROUTES.review);
+      return;
+    }
+    if (workspace.state.stage === 'draft' || workspace.state.stage === 'review') return;
     router.replace(workoutRouteForStage(workspace.state.stage));
-  }, [router, workspace.ready, workspace.state.stage]);
+  }, [router, workspace.ready, workspace.state.stage, workspace.state.startRequest]);
 
   useEffect(() => {
     let active = true;
@@ -60,7 +65,7 @@ export default function WorkoutBuildPage() {
     }
   };
 
-  if (!workspace.ready || (workspace.state.stage !== 'draft' && workspace.state.stage !== 'review')) {
+  if (!workspace.ready || workspace.state.startRequest || (workspace.state.stage !== 'draft' && workspace.state.stage !== 'review')) {
     return <main role="status" aria-label={t('workout.loading_build')} className="mx-auto min-h-24 max-w-2xl animate-pulse rounded-xl bg-[var(--surface-subtle)]" />;
   }
 

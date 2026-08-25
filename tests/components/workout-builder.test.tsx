@@ -31,6 +31,7 @@ vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ lang: 'en', t: (key: string, pa
   'workout.muscle_chest': 'Chest', 'workout.muscle_shoulders': 'Shoulders',
   'workout.equipment_label': `Equipment: ${params?.equipment}`, 'workout.primary_muscle_label': `Primary muscle: ${params?.muscle}`,
   'workout.name_required': 'Enter a workout name.',
+  'workout.invalid_prescription': 'Every exercise needs at least one set and a reps target.',
 }[key] ?? key) }) }));
 
 import { WorkoutBuilder } from '@/components/workout/workspace/WorkoutBuilder';
@@ -130,6 +131,14 @@ describe('WorkoutBuilder', () => {
     expect(screen.getByRole('button', { name: 'Review workout' }).hasAttribute('disabled')).toBe(true);
     expect(screen.getByRole('button', { name: 'Save plan' }).hasAttribute('disabled')).toBe(true);
     expect(screen.getByRole('alert').textContent).toBe('Enter a workout name.');
+  });
+
+  it('blocks Review and Save for an invalid strength prescription', () => {
+    workspace.state.draft = { ...pushDraft, exercises: [{ ...pushDraft.exercises[0], targetReps: ' ' }] };
+    render(<WorkoutBuilder exercises={exercises} onSavePlan={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Review workout' }).hasAttribute('disabled')).toBe(true);
+    expect(screen.getByRole('button', { name: 'Save plan' }).hasAttribute('disabled')).toBe(true);
+    expect(screen.getByRole('alert').textContent).toMatch(/reps target/i);
   });
 
   it('opens the routed exercise browser from a strength draft', () => {

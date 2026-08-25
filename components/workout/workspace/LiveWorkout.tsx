@@ -6,6 +6,7 @@ import { CheckCircle2, Pause, Play, Plus, Square } from 'lucide-react';
 import ExerciseInfoSheet from '@/components/workout/ExerciseInfoSheet';
 import PainFlagModal from '@/components/workout/PainFlagModal';
 import PlateCalculator from '@/components/workout/PlateCalculator';
+import { ConfirmSheet } from '@/components/ui/ConfirmSheet';
 import { useWorkoutWorkspace } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
 import { ExerciseSetLogger, type SetLoggerValue } from '@/components/workout/workspace/ExerciseSetLogger';
 import { FinishWorkoutDialog } from '@/components/workout/workspace/FinishWorkoutDialog';
@@ -214,6 +215,19 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
 
   if (!draft || !sessionId || (state.stage !== 'live' && state.stage !== 'paused' && state.stage !== 'finishing' && state.stage !== 'completed')) {
     return <main className="mx-auto max-w-2xl px-4 py-8"><p className="text-[var(--content-secondary)]">{t('workout.no_live_session')}</p></main>;
+  }
+
+  if (state.stage === 'completed' && !recoveryLoaded) {
+    return (
+      <main className="mx-auto max-w-2xl px-4 py-8">
+        {recoveryError ? (
+          <div role="alert" className="rounded-xl bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]">
+            <p>{t('workout.recovery_failed')}</p>
+            <button type="button" onClick={() => { setRecoveryError(false); setRecoveryAttempt((current) => current + 1); }} className="mt-2 min-h-11 underline">{t('workout.retry_recovery')}</button>
+          </div>
+        ) : <div role="status" className="min-h-24 animate-pulse rounded-xl bg-[var(--surface-subtle)]" aria-label={t('workout.loading_live_session')} />}
+      </main>
+    );
   }
 
   if (state.stage === 'completed') {
@@ -502,33 +516,21 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
         />
       ) : null}
 
-      {removeCandidate ? (
-        <section
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="remove-live-exercise-title"
-          className="fixed inset-x-4 bottom-6 z-50 mx-auto max-w-md rounded-2xl border border-[var(--status-danger-border)] bg-[var(--surface-raised)] p-5 shadow-xl"
-        >
-          <h2 id="remove-live-exercise-title" className="text-lg font-bold text-[var(--content-primary)]">
-            {t('workout.remove_named', { name: removeCandidate.name })}
-          </h2>
-          <p className="mt-2 text-sm text-[var(--content-secondary)]">
-            {t('workout.finish_completed_sets', { n: removeCandidate.savedSetCount })}
-          </p>
-          <div className="mt-5 grid grid-cols-2 gap-3">
-            <button type="button" className="btn-ghost min-h-11 rounded-xl" onClick={() => setRemoveCandidate(null)}>
-              {t('workout.cancel')}
-            </button>
-            <button type="button" className="min-h-11 rounded-xl bg-[var(--status-danger-bg)] font-semibold text-[var(--status-danger-fg)]" onClick={() => {
-              const exerciseId = removeCandidate.exerciseId;
-              setRemoveCandidate(null);
-              void removeExercise(exerciseId);
-            }}>
-              {t('workout.remove_exercise')}
-            </button>
-          </div>
-        </section>
-      ) : null}
+      <ConfirmSheet
+        open={Boolean(removeCandidate)}
+        danger
+        title={removeCandidate ? t('workout.remove_named', { name: removeCandidate.name }) : ''}
+        message={removeCandidate ? t('workout.finish_completed_sets', { n: removeCandidate.savedSetCount }) : undefined}
+        cancelLabel={t('workout.cancel')}
+        confirmLabel={t('workout.remove_exercise')}
+        onCancel={() => setRemoveCandidate(null)}
+        onConfirm={async () => {
+          if (!removeCandidate) return;
+          const exerciseId = removeCandidate.exerciseId;
+          await removeExercise(exerciseId);
+          setRemoveCandidate(null);
+        }}
+      />
 
       {painExerciseId ? <PainFlagModal exerciseId={painExerciseId} exerciseName={exerciseById.get(painExerciseId)?.name ?? draft.exercises.find((exercise) => exercise.exerciseId === painExerciseId)?.exerciseName ?? t('painflag.current_exercise')} suggestedBodyPart={exerciseById.get(painExerciseId)?.muscle_group ?? ''} onSave={async (flag, mutationId) => {
         const saved = await runMutation('pain', () => appendLivePainFlag(sessionId, mutationId, flag), (candidate) => candidate.ok);

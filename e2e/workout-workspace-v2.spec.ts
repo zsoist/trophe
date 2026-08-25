@@ -177,6 +177,30 @@ test.describe('Workout Workspace V2', () => {
       await expect(firstBuildCard.getByText(/^Equipment:/)).toBeVisible();
       await captureWorkout(page, testInfo, `${theme}-evidence-03-build.png`, { atTop: true });
 
+      // Returning Home keeps the draft dominant. Choosing another plan is an
+      // explicit, named replace decision: Cancel preserves it; Confirm swaps it.
+      await page.getByRole('link', { name: 'Workout Home', exact: true }).click();
+      await waitForWorkoutHomeSettled(page);
+      await expect(currentWorkspace(page).getByRole('button', { name: 'Continue editing' })).toBeVisible();
+      await currentWorkspace(page).getByRole('button', { name: 'Preview Pull' }).click();
+      await currentWorkspace(page).getByRole('button', { name: 'Use this template' }).click();
+      const replaceDraft = page.getByRole('alertdialog', { name: 'Replace this draft?' });
+      await expect(replaceDraft).toContainText(`Replace ${routineName} with Pull`);
+      await replaceDraft.getByRole('button', { name: 'Keep current draft' }).click();
+      await expect(currentWorkspace(page).getByRole('button', { name: 'Continue editing' })).toBeVisible();
+      await currentWorkspace(page).getByRole('button', { name: 'Use this template' }).click();
+      await page.getByRole('alertdialog', { name: 'Replace this draft?' }).getByRole('button', { name: 'Replace draft' }).click();
+      await waitForWorkoutBuildAtTop(page);
+      await expect(currentWorkspace(page).getByRole('textbox', { name: 'Workout name' })).toHaveValue('Pull');
+
+      await page.getByRole('link', { name: 'Workout Home', exact: true }).click();
+      await waitForWorkoutHomeSettled(page);
+      await currentWorkspace(page).getByRole('button', { name: 'Preview Push' }).click();
+      await currentWorkspace(page).getByRole('button', { name: 'Use this template' }).click();
+      await page.getByRole('alertdialog', { name: 'Replace this draft?' }).getByRole('button', { name: 'Replace draft' }).click();
+      await waitForWorkoutBuildAtTop(page);
+      await currentWorkspace(page).getByRole('textbox', { name: 'Workout name' }).fill(routineName);
+
       await currentWorkspace(page).getByRole('button', { name: 'Save plan' }).click();
       await expect(currentWorkspace(page).getByRole('status')).toHaveText('Plan saved to My routines.');
       await page.getByRole('link', { name: 'Workout Home', exact: true }).click();
@@ -185,8 +209,17 @@ test.describe('Workout Workspace V2', () => {
       await waitForWorkoutHomeSettled(page);
       const routines = currentWorkspace(page).getByRole('heading', { name: 'My routines' }).locator('..');
       await expect(routines.getByRole('button', { name: routineName, exact: true })).toBeVisible();
-      await page.goBack();
+      await currentWorkspace(page).getByRole('button', { name: 'Build cardio workout' }).click();
+      await page.getByRole('alertdialog', { name: 'Replace this draft?' }).getByRole('button', { name: 'Replace draft' }).click();
       await waitForWorkoutBuildAtTop(page);
+      await expect(currentWorkspace(page).getByRole('textbox', { name: 'Workout name' })).toHaveValue('Cardio');
+      await page.getByRole('link', { name: 'Workout Home', exact: true }).click();
+      await waitForWorkoutHomeSettled(page);
+      await currentWorkspace(page).getByRole('button', { name: routineName, exact: true }).click();
+      await currentWorkspace(page).getByRole('button', { name: 'Use this template' }).click();
+      await page.getByRole('alertdialog', { name: 'Replace this draft?' }).getByRole('button', { name: 'Replace draft' }).click();
+      await waitForWorkoutBuildAtTop(page);
+      await expect(currentWorkspace(page).getByRole('textbox', { name: 'Workout name' })).toHaveValue(routineName);
 
       await currentWorkspace(page).getByRole('button', { name: 'Add exercise' }).click();
       await waitForRouteSettled(page, '/dashboard/workout/exercises');

@@ -6,7 +6,7 @@ import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
 import { useWorkoutWorkspace } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
 import { useI18n } from '@/lib/i18n';
 import type { MuscleGroup } from '@/lib/types';
-import type { WorkoutDraft } from '@/lib/workout/workspace-state';
+import { isWorkoutDraftReady, type WorkoutDraft } from '@/lib/workout/workspace-state';
 import { pushWorkoutRoute, WORKOUT_ROUTES } from '@/lib/workout/workspace-routes';
 import { resolveWorkoutAsset } from '@/lib/workout-assets';
 import { MovementVisual } from '@/components/workout/MovementVisual';
@@ -53,7 +53,8 @@ export function WorkoutBuilder({ exercises, onSavePlan, saveState = 'idle', save
 
   const hasName = draft.name.trim().length > 0;
   const hasContent = draft.kind === 'strength' ? draft.exercises.length > 0 : draft.durationMinutes > 0;
-  const canReview = hasName && hasContent;
+  const validPrescription = draft.kind !== 'strength' || draft.exercises.every((exercise) => Number.isInteger(exercise.targetSets) && exercise.targetSets > 0 && exercise.targetReps.trim().length > 0);
+  const canReview = isWorkoutDraftReady(draft);
   const review = () => {
     if (!canReview) return;
     workspace.goToReview();
@@ -141,11 +142,12 @@ export function WorkoutBuilder({ exercises, onSavePlan, saveState = 'idle', save
 
       {!hasName ? <p role="alert" className="text-sm text-[var(--status-danger-fg)]">{t('workout.name_required')}</p> : null}
       {!hasContent ? <p className="text-sm text-[var(--content-secondary)]">{t(draft.kind === 'strength' ? 'workout.empty_strength_hint' : 'workout.empty_cardio_hint')}</p> : null}
+      {!validPrescription ? <p role="alert" className="text-sm text-[var(--status-danger-fg)]">{t('workout.invalid_prescription')}</p> : null}
       {draft.kind === 'cardio' ? <p className="text-sm text-[var(--content-muted)]">{t('workout.save_plan_strength_only')}</p> : null}
       {saveState === 'error' ? <p role="alert" className="rounded-xl border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]">{t('workout.save_plan_failed')}</p> : null}
       {saveState === 'success' ? <p role="status" className="rounded-xl border border-[var(--status-success-border)] bg-[var(--status-success-bg)] p-3 text-sm text-[var(--status-success-fg)]">{t('workout.save_plan_success')}</p> : null}
       <div className="grid grid-cols-2 gap-3">
-        <button type="button" disabled={!hasName || draft.kind !== 'strength' || !hasContent || saveDisabled || saveState === 'pending'} onClick={() => void onSavePlan(draft)} className="btn-ghost min-h-11 rounded-xl disabled:opacity-40">{t(saveState === 'pending' ? 'workout.save_plan_pending' : 'workout.save_plan')}</button>
+        <button type="button" disabled={!hasName || draft.kind !== 'strength' || !hasContent || !validPrescription || saveDisabled || saveState === 'pending'} onClick={() => void onSavePlan(draft)} className="btn-ghost min-h-11 rounded-xl disabled:opacity-40">{t(saveState === 'pending' ? 'workout.save_plan_pending' : 'workout.save_plan')}</button>
         <button type="button" disabled={!canReview} onClick={review} className="btn-gold min-h-11 rounded-xl disabled:opacity-40">{t('workout.review_workout')}</button>
       </div>
     </main>

@@ -20,7 +20,7 @@ interface SessionWithSets extends WorkoutSession {
 
 // ─── Volume bar chart (last 10 sessions) ───
 function VolumeChart({ sessions }: { sessions: SessionWithSets[] }) {
-  const last10 = sessions.slice(0, 10).reverse();
+  const last10 = sessions.filter((session) => session.workout_kind !== 'cardio').slice(0, 10).reverse();
   const volumes = last10.map((s) =>
     s.sets.reduce((acc, set) => acc + (set.weight_kg || 0) * (set.reps || 0), 0)
   );
@@ -81,6 +81,7 @@ function SessionCard({
 
   const exerciseCount = new Set(session.sets.map((s) => s.exercise_id)).size;
   const prCount = session.sets.filter((s) => s.is_pr).length;
+  const isCardio = session.workout_kind === 'cardio';
 
   // Group sets by exercise
   const grouped = useMemo(() => {
@@ -134,7 +135,7 @@ function SessionCard({
         <div className="flex-1 text-left min-w-0">
           <div className="flex items-center gap-2">
             <p className="text-sm font-semibold text-[var(--content-primary)] truncate">
-              {session.name || 'Workout'}
+              {session.name || t('workout.title')}
             </p>
             {prCount > 0 && (
               <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-bold"
@@ -154,15 +155,23 @@ function SessionCard({
                 {session.duration_minutes}{t('workout.min')}
               </span>
             )}
-            <span>{exerciseCount} {t('workout.exercises')}</span>
+            {isCardio ? (
+              <span>{t(`workout.cardio_${session.cardio_activity ?? 'other'}`)}</span>
+            ) : <span>{exerciseCount} {t('workout.exercises')}</span>}
           </div>
         </div>
 
         <div className="text-right shrink-0">
           <p className="text-sm font-semibold gold-text">
-            {totalVolume > 1000 ? `${(totalVolume / 1000).toFixed(1)}k` : totalVolume}
+            {isCardio
+              ? session.cardio_distance_km !== null && session.cardio_distance_km !== undefined
+                ? `${session.cardio_distance_km} km`
+                : session.cardio_effort !== null && session.cardio_effort !== undefined
+                  ? t('workout.effort_summary', { effort: session.cardio_effort })
+                  : '—'
+              : totalVolume > 1000 ? `${(totalVolume / 1000).toFixed(1)}k` : totalVolume}
           </p>
-          <p className="text-xs text-[var(--content-muted)]">kg vol</p>
+          <p className="text-xs text-[var(--content-muted)]">{isCardio ? t('workout.cardio_summary') : t('workout.volume_kg')}</p>
           {expanded ? <ChevronUp size={14} className="text-[var(--content-muted)] mt-1" /> : <ChevronDown size={14} className="text-[var(--content-muted)] mt-1" />}
         </div>
       </button>
@@ -177,6 +186,14 @@ function SessionCard({
             className="overflow-hidden"
           >
             <div className="px-4 pb-4 space-y-3">
+              {isCardio ? (
+                <dl className="grid grid-cols-2 gap-2 rounded-xl bg-[var(--surface-subtle)] p-3 text-xs">
+                  <div><dt className="text-[var(--content-muted)]">{t('workout.activity')}</dt><dd className="mt-1 font-semibold text-[var(--content-primary)]">{t(`workout.cardio_${session.cardio_activity ?? 'other'}`)}</dd></div>
+                  <div><dt className="text-[var(--content-muted)]">{t('workout.duration_minutes')}</dt><dd className="mt-1 font-semibold text-[var(--content-primary)]">{session.duration_minutes ?? 0} {t('workout.min')}</dd></div>
+                  {session.cardio_distance_km !== null && session.cardio_distance_km !== undefined ? <div><dt className="text-[var(--content-muted)]">{t('workout.distance')}</dt><dd className="mt-1 font-semibold text-[var(--content-primary)]">{session.cardio_distance_km} km</dd></div> : null}
+                  {session.cardio_effort !== null && session.cardio_effort !== undefined ? <div><dt className="text-[var(--content-muted)]">{t('workout.effort')}</dt><dd className="mt-1 font-semibold text-[var(--content-primary)]">{session.cardio_effort}/10</dd></div> : null}
+                </dl>
+              ) : null}
               {grouped.map(({ exercise, sets }) => (
                 <div key={exercise.id}>
                   <p className="text-xs font-medium text-[var(--content-secondary)] mb-1">

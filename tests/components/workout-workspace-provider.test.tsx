@@ -241,6 +241,10 @@ describe('WorkoutWorkspaceProvider', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add Bench Press' }));
     fireEvent.click(screen.getByRole('button', { name: 'Start live workout' }));
     await waitFor(() => expect(startLiveSession).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole('button', { name: 'Rename draft' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Return to draft' }));
+    expect(screen.getByText(/Push:bench-press-3x8-12/)).toBeTruthy();
+    expect(screen.queryByText(/Push A:/)).toBeNull();
     dateHarness.today = '2026-08-25';
     fireEvent.click(screen.getByRole('button', { name: 'Start live workout' }));
     await waitFor(() => expect(startLiveSession).toHaveBeenCalledTimes(2));

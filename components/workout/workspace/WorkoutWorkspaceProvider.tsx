@@ -28,6 +28,7 @@ export interface WorkoutWorkspaceContextValue {
   ready: boolean;
   state: WorkoutWorkspaceState;
   createDraft(input: { name: string; kind: WorkoutKind; templateKey?: string; templateId?: string | null }): void;
+  replaceDraft(input: { name: string; kind: WorkoutKind; templateKey?: string; templateId?: string | null }): void;
   createDraftFromTemplate(input: WorkoutDraftTemplateInput): void;
   replaceDraftFromTemplate(input: WorkoutDraftTemplateInput): void;
   updateDraftName(name: string): void;
@@ -190,7 +191,7 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
 
   const updateDraft = useCallback((updater: (draft: NonNullable<WorkoutWorkspaceState['draft']>) => NonNullable<WorkoutWorkspaceState['draft']>) => {
     setState((current) => {
-      if ((current.stage !== 'draft' && current.stage !== 'review') || !current.draft) return current;
+      if ((current.stage !== 'draft' && current.stage !== 'review') || !current.draft || current.startRequest) return current;
       return workoutWorkspaceReducer(current, { type: 'draft.updated', payload: { draft: updater(current.draft) } });
     });
   }, []);
@@ -207,11 +208,23 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
     setState((current) => current.stage === 'home' ? templateWorkspaceState(input) : current);
   }, []);
 
+  const replaceDraft = useCallback((input: { name: string; kind: WorkoutKind; templateKey?: string; templateId?: string | null }) => {
+    setState((current) => {
+      if ((current.stage !== 'draft' && current.stage !== 'review') || !current.draft || current.startRequest) return current;
+      clientRequestIdRef.current = null;
+      return workoutWorkspaceReducer(createInitialWorkspaceState(), {
+        type: 'draft.created',
+        payload: { ...input, templateId: normalizeUuid(input.templateId), updatedAt: Date.now() },
+      });
+    });
+  }, []);
+
   const replaceDraftFromTemplate = useCallback((input: WorkoutDraftTemplateInput) => {
-    clientRequestIdRef.current = null;
-    setState((current) => (current.stage === 'draft' || current.stage === 'review') && current.draft
-      ? templateWorkspaceState(input)
-      : current);
+    setState((current) => {
+      if ((current.stage !== 'draft' && current.stage !== 'review') || !current.draft || current.startRequest) return current;
+      clientRequestIdRef.current = null;
+      return templateWorkspaceState(input);
+    });
   }, []);
 
   const updateDraftName = useCallback((name: string) => {
@@ -262,6 +275,8 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
   }, [updateDraft]);
 
   const updateDraftExercise = useCallback((exerciseId: string, patch: Partial<Pick<DraftExercise, 'targetSets' | 'targetReps'>>) => {
+    if (patch.targetReps !== undefined && !patch.targetReps.trim()) return;
+    if (patch.targetSets !== undefined && (!Number.isInteger(patch.targetSets) || patch.targetSets <= 0)) return;
     updateDraft((draft) => draft.kind !== 'strength'
       ? draft
       : {
@@ -284,13 +299,13 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
   }, [updateDraft]);
 
   const goToReview = useCallback(() => {
-    setState((current) => current.stage === 'draft'
+    setState((current) => current.stage === 'draft' && !current.startRequest
       ? workoutWorkspaceReducer(current, { type: 'draft.reviewed' })
       : current);
   }, []);
 
   const returnToDraft = useCallback(() => {
-    setState((current) => current.stage === 'review'
+    setState((current) => current.stage === 'review' && !current.startRequest
       ? workoutWorkspaceReducer(current, { type: 'draft.reopened' })
       : current);
   }, []);
@@ -410,13 +425,14 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
   }, [resetWorkspace, state.stage]);
 
   const discardDraft = useCallback(() => {
-    if (state.stage === 'draft' || state.stage === 'review') resetWorkspace();
-  }, [resetWorkspace, state.stage]);
+    if ((state.stage === 'draft' || state.stage === 'review') && !state.startRequest) resetWorkspace();
+  }, [resetWorkspace, state.stage, state.startRequest]);
 
   const value = useMemo<WorkoutWorkspaceContextValue>(() => ({
     ready: !loading && ownerId !== undefined,
     state,
     createDraft,
+    replaceDraft,
     createDraftFromTemplate,
     replaceDraftFromTemplate,
     updateDraftName,
@@ -439,7 +455,7 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
     discardLive,
     acknowledgeCompleted,
     discardDraft,
-  }), [acknowledgeCompleted, addDraftExercise, cancelFinish, commitLiveStrengthStructure, completeFinish, createDraft, createDraftFromTemplate, discardDraft, discardLive, ensureClientRequestId, goToReview, loading, ownerId, pause, removeDraftExercise, reorderDraftExercise, replaceDraftFromTemplate, requestFinish, resume, returnToDraft, startLive, state, updateCardioDraft, updateDraftExercise, updateDraftName, updateLiveCardioDraft]);
+  }), [acknowledgeCompleted, addDraftExercise, cancelFinish, commitLiveStrengthStructure, completeFinish, createDraft, createDraftFromTemplate, discardDraft, discardLive, ensureClientRequestId, goToReview, loading, ownerId, pause, removeDraftExercise, reorderDraftExercise, replaceDraft, replaceDraftFromTemplate, requestFinish, resume, returnToDraft, startLive, state, updateCardioDraft, updateDraftExercise, updateDraftName, updateLiveCardioDraft]);
 
   if (loading || ownerId === undefined) {
     return <div role="status" aria-label={t('workout.loading_workspace')} className="min-h-24 animate-pulse rounded-xl bg-[var(--surface-subtle)]" />;

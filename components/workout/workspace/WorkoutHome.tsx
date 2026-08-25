@@ -5,10 +5,12 @@ import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import WorkoutEntryPanel from '@/components/workout/WorkoutEntryPanel';
 import { RestDayCard, TodayProgramCard } from '@/components/workout/TodayProgramCard';
+import { ConfirmSheet } from '@/components/ui/ConfirmSheet';
 import { muscleLabelKey, WORKOUT_SPLITS } from '@/components/workout/muscle-groups';
 import { useWorkoutWorkspace, type WorkoutDraftTemplateInput } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
 import { useI18n } from '@/lib/i18n';
 import type { Exercise, MuscleGroup, WorkoutSession } from '@/lib/types';
+import type { WorkoutKind } from '@/lib/workout/workspace-state';
 import { pushWorkoutRoute, WORKOUT_ROUTES } from '@/lib/workout/workspace-routes';
 
 export interface WorkoutHomeTemplate extends WorkoutDraftTemplateInput {
@@ -33,6 +35,14 @@ interface WorkoutHomeProps {
   routines: WorkoutHomeTemplate[];
   disabled?: boolean;
 }
+
+type ReplacementChoice = {
+  name: string;
+  destination: 'build' | 'review';
+  input:
+    | { type: 'draft'; value: { name: string; kind: WorkoutKind } }
+    | { type: 'template'; value: WorkoutHomeTemplate };
+};
 
 function splitTemplate(key: string, exercises: Exercise[], name: string): WorkoutHomeTemplate | null {
   const split = WORKOUT_SPLITS.find((candidate) => candidate.key === key);
@@ -69,21 +79,41 @@ export function WorkoutHome({
   const { t } = useI18n();
   const workspace = useWorkoutWorkspace();
   const [preview, setPreview] = useState<WorkoutHomeTemplate | null>(null);
+  const [replacement, setReplacement] = useState<ReplacementChoice | null>(null);
   const exerciseNames = useMemo(() => new Map(exercises.map((exercise) => [exercise.id, exercise.name])), [exercises]);
   const recoveryAction = workspace.state.stage === 'completed'
     ? t('workout.view_completed_summary')
     : workspace.state.stage === 'live' || workspace.state.stage === 'paused' || workspace.state.stage === 'finishing'
       ? t('workout.continue_active')
       : null;
+  const hasDraft = (workspace.state.stage === 'draft' || workspace.state.stage === 'review') && Boolean(workspace.state.draft);
+
+  const finishChoice = (choice: ReplacementChoice, replace: boolean) => {
+    if (choice.input.type === 'template') {
+      if (replace) workspace.replaceDraftFromTemplate(choice.input.value);
+      else workspace.createDraftFromTemplate(choice.input.value);
+    } else if (replace) {
+      workspace.replaceDraft(choice.input.value);
+    } else {
+      workspace.createDraft(choice.input.value);
+    }
+    if (choice.destination === 'review') workspace.goToReview();
+    setReplacement(null);
+    setPreview(null);
+    pushWorkoutRoute(router, choice.destination === 'review' ? WORKOUT_ROUTES.review : WORKOUT_ROUTES.build);
+  };
+
+  const choose = (choice: ReplacementChoice) => {
+    if (hasDraft) setReplacement(choice);
+    else finishChoice(choice, false);
+  };
 
   const buildStrength = () => {
-    workspace.createDraft({ name: t('workout.strength'), kind: 'strength' });
-    pushWorkoutRoute(router, WORKOUT_ROUTES.build);
+    choose({ name: t('workout.strength'), destination: 'build', input: { type: 'draft', value: { name: t('workout.strength'), kind: 'strength' } } });
   };
 
   const buildCardio = () => {
-    workspace.createDraft({ name: t('workout.cardio'), kind: 'cardio' });
-    pushWorkoutRoute(router, WORKOUT_ROUTES.build);
+    choose({ name: t('workout.cardio'), destination: 'build', input: { type: 'draft', value: { name: t('workout.cardio'), kind: 'cardio' } } });
   };
 
   const previewSplit = (key: string) => {
@@ -92,15 +122,11 @@ export function WorkoutHome({
   };
 
   const confirmTemplate = (template: WorkoutHomeTemplate) => {
-    workspace.createDraftFromTemplate(template);
-    setPreview(null);
-    pushWorkoutRoute(router, WORKOUT_ROUTES.build);
+    choose({ name: template.name, destination: 'build', input: { type: 'template', value: template } });
   };
 
   const reviewProgram = (template: WorkoutHomeTemplate) => {
-    workspace.createDraftFromTemplate(template);
-    workspace.goToReview();
-    pushWorkoutRoute(router, WORKOUT_ROUTES.review);
+    choose({ name: template.name, destination: 'review', input: { type: 'template', value: template } });
   };
 
   if (recoveryAction) {
@@ -123,8 +149,35 @@ export function WorkoutHome({
     );
   }
 
+  if (hasDraft && workspace.state.startRequest && workspace.state.draft) {
+    return (
+      <main className="mx-auto max-w-2xl px-4 py-5">
+        <section className="rounded-2xl border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] p-5">
+          <p className="text-sm leading-6 text-[var(--content-primary)]">{t('workout.start_request_locked')}</p>
+          <h2 className="mt-1 text-xl font-semibold text-[var(--content-primary)]">{workspace.state.draft.name}</h2>
+          <button type="button" onClick={() => pushWorkoutRoute(router, WORKOUT_ROUTES.review)} className="btn-gold mt-4 min-h-11 w-full rounded-xl px-4 font-semibold">
+            {t('workout.continue_review')}
+          </button>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="mx-auto max-w-2xl space-y-5 px-4 py-5">
+      {hasDraft && workspace.state.draft ? (
+        <section className="rounded-2xl border border-[var(--action-primary)] bg-[var(--surface-raised)] p-5 shadow-[var(--shadow-low)]">
+          <p className="text-sm text-[var(--content-secondary)]">{t('workout.draft_waiting')}</p>
+          <h2 className="mt-1 text-xl font-semibold text-[var(--content-primary)]">{workspace.state.draft.name || t('workout.title')}</h2>
+          <button
+            type="button"
+            onClick={() => pushWorkoutRoute(router, workspace.state.stage === 'review' ? WORKOUT_ROUTES.review : WORKOUT_ROUTES.build)}
+            className="btn-gold mt-4 min-h-11 w-full rounded-xl px-4 font-semibold"
+          >
+            {t(workspace.state.stage === 'review' ? 'workout.continue_review' : 'workout.continue_editing')}
+          </button>
+        </section>
+      ) : null}
       {programLoading ? (
         <div role="status" aria-label={t('workout.loading_program')} data-loading-skeleton className="h-36 animate-pulse rounded-2xl bg-[var(--surface-subtle)]" />
       ) : programError ? (
@@ -210,6 +263,17 @@ export function WorkoutHome({
           </ul>
         </section>
       ) : null}
+      <ConfirmSheet
+        open={Boolean(replacement)}
+        title={t('workout.replace_choice_title')}
+        message={replacement && workspace.state.draft
+          ? t('workout.replace_choice_message', { current: workspace.state.draft.name || t('workout.title'), next: replacement.name })
+          : undefined}
+        confirmLabel={t('workout.replace_choice_confirm')}
+        cancelLabel={t('workout.replace_choice_cancel')}
+        onCancel={() => setReplacement(null)}
+        onConfirm={() => { if (replacement) finishChoice(replacement, true); }}
+      />
     </main>
   );
 }

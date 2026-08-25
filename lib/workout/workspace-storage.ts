@@ -149,8 +149,8 @@ function persistDraft(draft: WorkoutDraft | null): WorkoutDraft | null {
         exerciseId,
         ...(exerciseName === undefined ? {} : { exerciseName }),
         ...(muscleGroup === undefined ? {} : { muscleGroup }),
-        targetSets,
-        targetReps,
+        targetSets: Number.isInteger(targetSets) && targetSets > 0 ? targetSets : 1,
+        targetReps: targetReps.trim() || '8-12',
         ...(linkedBelow === undefined ? {} : { linkedBelow }),
       })),
     };
@@ -174,7 +174,17 @@ export function loadWorkspaceState(storage: WorkspaceStorage, userId: string): W
   const raw = storage.getItem(key);
   if (raw === null) return null;
   try {
-    const state = parseState(JSON.parse(raw));
+    const parsed: unknown = JSON.parse(raw);
+    // Recover drafts written by the former controlled input while it briefly
+    // persisted an empty reps prescription. Preserve the rest of the draft and
+    // normalize only that unsafe transient value.
+    if (isRecord(parsed) && isRecord(parsed.draft) && parsed.draft.kind === 'strength' && Array.isArray(parsed.draft.exercises)) {
+      parsed.draft.exercises = parsed.draft.exercises.map((exercise) => isRecord(exercise)
+        && typeof exercise.targetReps === 'string' && !exercise.targetReps.trim()
+        ? { ...exercise, targetReps: '8-12' }
+        : exercise);
+    }
+    const state = parseState(parsed);
     if (state) return state;
   } catch {
     // Corrupt storage is discarded below.

@@ -26,7 +26,7 @@ function statusKeyForStage(stage: WorkoutStage): string | null {
   return 'workout.workspace_status_draft';
 }
 
-function WorkoutWorkspaceHeaderContent({ stage, onBack }: { stage: WorkoutStage; onBack?: () => void }) {
+function WorkoutWorkspaceHeaderContent({ stage, onBack, backDisabled = false }: { stage: WorkoutStage; onBack?: () => void; backDisabled?: boolean }) {
   const pathname = usePathname();
   const { t } = useI18n();
   const [unit, setUnit] = useWeightUnit();
@@ -47,10 +47,17 @@ function WorkoutWorkspaceHeaderContent({ stage, onBack }: { stage: WorkoutStage;
   return (
     <header className="flex min-h-16 items-center gap-2 border-b border-[var(--workout-rail)] px-3 py-2 min-[375px]:gap-3 min-[375px]:px-4">
       {!isHome && (
-        <Link href={backHref} onClick={() => { onBack?.(); resetWorkoutScroll(); }} aria-label={t('workout.workspace_back')} className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1 rounded-xl text-sm font-medium hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] min-[375px]:px-2">
-          <ChevronLeft size={18} strokeWidth={2} aria-hidden="true" />
-          <span className="hidden min-[430px]:inline">{t('workout.workspace_back')}</span>
-        </Link>
+        backDisabled ? (
+          <button type="button" disabled aria-label={t('workout.edit_locked')} className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1 rounded-xl text-sm font-medium opacity-40 min-[375px]:px-2">
+            <ChevronLeft size={18} strokeWidth={2} aria-hidden="true" />
+            <span className="hidden min-[430px]:inline">{t('workout.workspace_back')}</span>
+          </button>
+        ) : (
+          <Link href={backHref} onClick={() => { onBack?.(); resetWorkoutScroll(); }} aria-label={t('workout.workspace_back')} className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1 rounded-xl text-sm font-medium hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] min-[375px]:px-2">
+            <ChevronLeft size={18} strokeWidth={2} aria-hidden="true" />
+            <span className="hidden min-[430px]:inline">{t('workout.workspace_back')}</span>
+          </Link>
+        )
       )}
       <Dumbbell className="hidden shrink-0 min-[430px]:block" size={18} strokeWidth={2} aria-hidden="true" />
       <h1 className="min-w-0 flex-1 truncate text-sm font-semibold min-[375px]:text-base">{title}</h1>
@@ -79,7 +86,7 @@ function WorkoutWorkspaceHeaderContent({ stage, onBack }: { stage: WorkoutStage;
 function ConnectedWorkoutWorkspaceHeader() {
   const { state, returnToDraft } = useWorkoutWorkspace();
   const pathname = usePathname();
-  return <WorkoutWorkspaceHeaderContent stage={state.stage} onBack={pathname === WORKOUT_ROUTES.review ? returnToDraft : undefined} />;
+  return <WorkoutWorkspaceHeaderContent stage={state.stage} onBack={pathname === WORKOUT_ROUTES.review ? returnToDraft : undefined} backDisabled={pathname === WORKOUT_ROUTES.review && Boolean(state.startRequest)} />;
 }
 
 export function WorkoutWorkspaceHeader({ stage }: { stage?: WorkoutStage }) {

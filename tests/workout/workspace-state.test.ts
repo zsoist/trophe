@@ -56,6 +56,8 @@ describe('workout workspace state', () => {
     state = workoutWorkspaceReducer(state, { type: 'request.prepared', payload: { startRequest } });
     expect(state.startRequest).toEqual(startRequest);
     expect(state.clientRequestId).toBe(startRequest.idempotencyKey);
+    expect(() => workoutWorkspaceReducer(state, { type: 'draft.updated', payload: { draft: { ...state.draft!, name: 'Edited' } as never } })).toThrow(/pending/i);
+    expect(() => workoutWorkspaceReducer(state, { type: 'draft.reviewed' })).toThrow(/pending/i);
   });
 
   it('updates recoverable live cardio metrics and strength structure', () => {

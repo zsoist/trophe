@@ -306,6 +306,10 @@ export interface WorkoutSession {
   template_id: string | null;
   duration_minutes: number | null;
   notes: string | null;
+  workout_kind?: 'strength' | 'cardio' | null;
+  cardio_activity?: 'walk' | 'run' | 'cycle' | 'hiit' | 'swim' | 'other' | null;
+  cardio_distance_km?: number | null;
+  cardio_effort?: number | null;
   pain_flags: PainFlag[];
   created_at: string;
 }

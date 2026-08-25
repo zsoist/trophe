@@ -13,6 +13,11 @@ const keys = [
   'workout.repeat_replace_title', 'workout.repeat_replace_message',
   'workout.repeat_replace_confirm', 'workout.repeat_replace_cancel',
   'workout.invalid_cardio_metrics',
+  'workout.draft_waiting', 'workout.continue_editing', 'workout.continue_review',
+  'workout.replace_choice_title', 'workout.replace_choice_message', 'workout.replace_choice_confirm',
+  'workout.replace_choice_cancel', 'workout.edit_locked', 'workout.start_request_locked',
+  'workout.retry_same_start', 'workout.cardio_summary', 'workout.volume_kg', 'workout.distance',
+  'workout.invalid_prescription',
 ] as const;
 
 describe('workout workspace copy coverage', () => {

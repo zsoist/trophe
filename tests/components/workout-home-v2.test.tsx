@@ -9,6 +9,11 @@ const { startLiveSession, push } = vi.hoisted(() => ({ startLiveSession: vi.fn()
 vi.mock('@/lib/workout/live-session', () => ({ startLiveSession, discardEmptyLiveSession: vi.fn() }));
 vi.mock('@/lib/supabase', () => ({ supabase: { auth: { getUser: vi.fn() } } }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }));
+vi.mock('framer-motion', () => ({
+  AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  motion: new Proxy({}, { get: (_target, tag: string) => ({ children, ...props }: React.HTMLAttributes<HTMLElement>) => React.createElement(tag, props, children) }),
+  useReducedMotion: () => true,
+}));
 vi.mock('@/lib/i18n', () => ({
   useI18n: () => ({ lang: 'en', t: (key: string, params?: Record<string, string | number>) => ({
     'workout.strength': 'Strength', 'workout.strength_sub': 'Build sets and rep targets',
@@ -43,6 +48,12 @@ vi.mock('@/lib/i18n', () => ({
     'workout.start_live_failed': 'Workout could not start. Try again.',
     'workout.program_load_failed': 'Your workout program could not be loaded.',
     'workout.continue_active': 'Continue workout', 'workout.view_completed_summary': 'View workout summary',
+    'workout.draft_waiting': 'You have a workout in progress.',
+    'workout.start_request_locked': 'This exact start request is waiting for a safe retry.',
+    'workout.continue_editing': 'Continue editing', 'workout.continue_review': 'Continue review',
+    'workout.replace_choice_title': 'Replace this draft?',
+    'workout.replace_choice_message': `Replace ${params?.current} with ${params?.next}? Your current draft will be removed.`,
+    'workout.replace_choice_confirm': 'Replace draft', 'workout.replace_choice_cancel': 'Keep current draft',
   }[key] ?? key) }),
 }));
 
@@ -80,25 +91,26 @@ const coachProgram: WorkoutHomeProgram = {
   alsoToday: [],
 };
 
-function WorkoutHomeHarness({ program = null, programLoading = false, programError = false, initialState }: {
+function WorkoutHomeHarness({ program = null, programLoading = false, programError = false, initialState, forceHome = false }: {
   program?: WorkoutHomeProgram | null;
   programLoading?: boolean;
   programError?: boolean;
   initialState?: WorkoutWorkspaceState;
+  forceHome?: boolean;
 }) {
   const storage = new MemoryStorage();
   if (initialState) saveWorkspaceState(storage, 'nik', initialState);
   return (
     <WorkoutWorkspaceProvider userId="nik" storage={storage}>
-      <RoutedWorkspace program={program} programLoading={programLoading} programError={programError} />
+      <RoutedWorkspace program={program} programLoading={programLoading} programError={programError} forceHome={forceHome} />
     </WorkoutWorkspaceProvider>
   );
 }
 
-function RoutedWorkspace(props: { program: WorkoutHomeProgram | null; programLoading: boolean; programError: boolean }) {
+function RoutedWorkspace(props: { program: WorkoutHomeProgram | null; programLoading: boolean; programError: boolean; forceHome: boolean }) {
   const { state } = useWorkoutWorkspace();
-  if (state.stage === 'draft') return <WorkoutBuilder exercises={exercises} onSavePlan={vi.fn()} />;
-  if (state.stage === 'review') return <WorkoutReview exercises={exercises} onSavePlan={vi.fn()} onLogCompleted={vi.fn()} />;
+  if (!props.forceHome && state.stage === 'draft') return <WorkoutBuilder exercises={exercises} onSavePlan={vi.fn()} />;
+  if (!props.forceHome && state.stage === 'review') return <WorkoutReview exercises={exercises} onSavePlan={vi.fn()} onLogCompleted={vi.fn()} />;
   return <WorkoutHome {...props} exercises={exercises} recents={[]} routines={[]} />;
 }
 
@@ -139,6 +151,64 @@ describe('WorkoutHome', () => {
     expect(screen.getByText('3 exercises')).toBeTruthy();
     expect(startLiveSession).not.toHaveBeenCalled();
     expect(screen.queryByRole('dialog', { name: 'Add exercise' })).toBeNull();
+  });
+
+  it('keeps Push on Cancel and replaces it with Pull only after named confirmation', async () => {
+    const initialState: WorkoutWorkspaceState = {
+      stage: 'draft', sessionId: null, clock: null, clientRequestId: null, startRequest: null,
+      draft: { version: 2, name: 'Push', kind: 'strength', updatedAt: 1, exercises: [{ exerciseId: 'bench', targetSets: 3, targetReps: '8' }] },
+    };
+    render(<WorkoutHomeHarness initialState={initialState} forceHome />);
+    expect(await screen.findByRole('button', { name: 'Continue editing' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Preview Pull' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Use this template' }));
+    expect(await screen.findByRole('alertdialog', { name: 'Replace this draft?' })).toBeTruthy();
+    expect(screen.getByText(/Replace Push with Pull/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Keep current draft' }));
+    expect(screen.getByRole('heading', { name: 'Push' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Preview Pull' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Use this template' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Replace draft' }));
+    expect(await screen.findByRole('heading', { name: 'Pull' })).toBeTruthy();
+    expect(push).toHaveBeenLastCalledWith('/dashboard/workout/build');
+  });
+
+  it('offers only the immutable review path while an ambiguous start request is pending', async () => {
+    const initialState: WorkoutWorkspaceState = {
+      stage: 'review', sessionId: null, clock: null,
+      clientRequestId: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+      startRequest: {
+        idempotencyKey: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+        draftFingerprint: 'locked-push', sessionDate: '2026-08-24', name: 'Push', templateId: null, kind: 'strength',
+        liveStructure: [{ exerciseId: 'bench', targetSets: 3, targetReps: '8', supersetGroup: null }],
+      },
+      draft: { version: 2, name: 'Push', kind: 'strength', updatedAt: 1, exercises: [{ exerciseId: 'bench', targetSets: 3, targetReps: '8' }] },
+    };
+    render(<WorkoutHomeHarness initialState={initialState} forceHome />);
+
+    expect(await screen.findByText('This exact start request is waiting for a safe retry.')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Build strength workout' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Build cardio workout' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Preview Pull' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Continue review' }));
+    expect(push).toHaveBeenCalledWith('/dashboard/workout/review');
+  });
+
+  it('replaces an existing routine with the named coach plan before entering Review', async () => {
+    const initialState: WorkoutWorkspaceState = {
+      stage: 'review', sessionId: null, clock: null, clientRequestId: null, startRequest: null,
+      draft: { version: 2, name: 'My routine', kind: 'strength', updatedAt: 1, exercises: [{ exerciseId: 'bench', targetSets: 3, targetReps: '8' }] },
+    };
+    render(<WorkoutHomeHarness initialState={initialState} forceHome program={coachProgram} />);
+    expect(await screen.findByRole('button', { name: 'Continue review' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Review today’s workout' }));
+    expect(await screen.findByRole('alertdialog', { name: 'Replace this draft?' })).toBeTruthy();
+    expect(screen.getByText(/Replace My routine with Coach Push/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Replace draft' }));
+    expect(await screen.findByRole('heading', { name: 'Coach Push' })).toBeTruthy();
+    expect(push).toHaveBeenLastCalledWith('/dashboard/workout/review');
   });
 
   it('creates the template draft only after the user confirms the preview', async () => {

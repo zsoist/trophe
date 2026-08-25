@@ -10,6 +10,7 @@ const harness = vi.hoisted(() => ({
   discardDraft: vi.fn(),
   ensureClientRequestId: vi.fn(() => '11111111-1111-4111-8111-111111111111'),
   push: vi.fn(), replace: vi.fn(), refresh: vi.fn(), getUser: vi.fn(), saveRoutine: vi.fn(), stage: 'review',
+  startRequest: null as null | { idempotencyKey: string },
 }));
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: harness.push, replace: harness.replace, refresh: harness.refresh }) }));
@@ -20,14 +21,14 @@ vi.mock('@/lib/supabase', () => ({
   },
 }));
 vi.mock('@/lib/workout/routine-repository', () => ({ saveWorkoutRoutine: harness.saveRoutine }));
-vi.mock('@/components/workout/workspace/WorkoutWorkspaceProvider', () => ({ useWorkoutWorkspace: () => ({ ready: true, state: { stage: harness.stage, draft }, discardDraft: harness.discardDraft, ensureClientRequestId: harness.ensureClientRequestId }) }));
+vi.mock('@/components/workout/workspace/WorkoutWorkspaceProvider', () => ({ useWorkoutWorkspace: () => ({ ready: true, state: { stage: harness.stage, draft, startRequest: harness.startRequest }, discardDraft: harness.discardDraft, ensureClientRequestId: harness.ensureClientRequestId }) }));
 vi.mock('@/components/workout/workspace/WorkoutReview', () => ({ WorkoutReview: ({ onLogCompleted, onSavePlan, saveDisabled, saveState }: { onLogCompleted: (value: WorkoutDraft) => void; onSavePlan: (value: WorkoutDraft) => void; saveDisabled: boolean; saveState: string }) => <div><button onClick={() => onLogCompleted(draft)}>Log completed workout</button><button disabled={saveDisabled} onClick={() => onSavePlan(draft)}>Save plan</button><output data-testid="save-state">{saveState}</output></div> }));
 vi.mock('@/components/workout/workspace/RetrospectiveWorkoutLogger', () => ({ RetrospectiveWorkoutLogger: ({ onSaved, onCancel }: { onSaved: () => void; onCancel: () => void }) => <div><p>Retrospective logger</p><button onClick={onSaved}>Simulate saved</button><button onClick={onCancel}>Cancel logging</button></div> }));
 vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
 
 import WorkoutReviewPage from '@/app/dashboard/workout/review/page';
 
-afterEach(() => { cleanup(); vi.clearAllMocks(); harness.stage = 'review'; draft.updatedAt = 1; });
+afterEach(() => { cleanup(); vi.clearAllMocks(); harness.stage = 'review'; harness.startRequest = null; draft.updatedAt = 1; });
 
 describe('WorkoutReviewPage retrospective seam', () => {
   it('opens durable retrospective logging and clears the draft only after save succeeds', async () => {
@@ -89,5 +90,15 @@ describe('WorkoutReviewPage retrospective seam', () => {
 
     await waitFor(() => expect(harness.replace).toHaveBeenCalledWith('/dashboard/workout/build'));
     expect(screen.queryByRole('button', { name: 'Save plan' })).toBeNull();
+  });
+
+  it('keeps immutable Review available when a recovered pending request still has draft stage', async () => {
+    harness.stage = 'draft';
+    harness.startRequest = { idempotencyKey: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee' };
+    harness.getUser.mockResolvedValue({ data: { user: { id: 'nik' } } });
+    render(<WorkoutReviewPage />);
+
+    expect(await screen.findByRole('button', { name: 'Log completed workout' })).toBeTruthy();
+    expect(harness.replace).not.toHaveBeenCalled();
   });
 });

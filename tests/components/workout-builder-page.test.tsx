@@ -14,12 +14,12 @@ const draft: WorkoutDraft = {
 };
 
 const harness = vi.hoisted(() => ({
-  stage: 'draft', ready: true, replace: vi.fn(), refresh: vi.fn(), getUser: vi.fn(), saveRoutine: vi.fn(),
+  stage: 'draft', ready: true, startRequest: null as null | { idempotencyKey: string }, replace: vi.fn(), refresh: vi.fn(), getUser: vi.fn(), saveRoutine: vi.fn(),
 }));
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), replace: harness.replace, refresh: harness.refresh }) }));
 vi.mock('@/components/workout/workspace/WorkoutWorkspaceProvider', () => ({
-  useWorkoutWorkspace: () => ({ ready: harness.ready, state: { stage: harness.stage, draft } }),
+  useWorkoutWorkspace: () => ({ ready: harness.ready, state: { stage: harness.stage, draft, startRequest: harness.startRequest } }),
 }));
 vi.mock('@/components/workout/workspace/WorkoutBuilder', () => ({
   WorkoutBuilder: ({ onSavePlan, saveDisabled, saveState }: { onSavePlan: (value: WorkoutDraft) => void; saveDisabled: boolean; saveState: string }) => <div><button disabled={saveDisabled} onClick={() => onSavePlan(draft)}>Save plan</button><output data-testid="save-state">{saveState}</output></div>,
@@ -40,6 +40,7 @@ afterEach(() => {
   vi.clearAllMocks();
   harness.stage = 'draft';
   harness.ready = true;
+  harness.startRequest = null;
   draft.updatedAt = 1;
 });
 
@@ -111,5 +112,14 @@ describe('WorkoutBuildPage save and route boundaries', () => {
 
     await waitFor(() => expect(screen.getByRole('button', { name: 'Save plan' })).toBeTruthy());
     expect(harness.replace).not.toHaveBeenCalled();
+  });
+
+  it('redirects a direct Build URL to immutable Review while a start envelope is pending', async () => {
+    harness.stage = 'review';
+    harness.startRequest = { idempotencyKey: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee' };
+    render(<WorkoutBuildPage />);
+
+    await waitFor(() => expect(harness.replace).toHaveBeenCalledWith('/dashboard/workout/review'));
+    expect(screen.queryByRole('button', { name: 'Save plan' })).toBeNull();
   });
 });

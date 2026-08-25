@@ -9,6 +9,7 @@ const harness = vi.hoisted(() => ({
   programData: null as unknown,
   failureTable: '' as string,
   push: vi.fn(),
+  replace: vi.fn(),
   createWorkoutSession: vi.fn(),
   queries: [] as Array<{ table: string; filters: Array<[string, unknown]> }>,
   userId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
@@ -23,7 +24,7 @@ const customExerciseId = harness.customExerciseId;
 const templateId = harness.templateId;
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: harness.push }),
+  useRouter: () => ({ push: harness.push, replace: harness.replace }),
   useSearchParams: () => new URLSearchParams(harness.repeatId ? `repeat=${harness.repeatId}` : ''),
 }));
 vi.mock('@/lib/utils/dates', () => ({ localToday: () => '2026-08-24' }));
@@ -136,11 +137,38 @@ afterEach(() => {
   harness.programData = null;
   harness.failureTable = '';
   harness.push.mockReset();
+  harness.replace.mockReset();
   harness.createWorkoutSession.mockReset();
   harness.queries.length = 0;
 });
 
 describe('Workout home data flows', () => {
+  it('keeps an ambiguous start envelope immutable when a repeat link targets the Home route', async () => {
+    harness.repeatId = repeatedSessionId;
+    const initialState = {
+      ...recoveredWorkspace('review'),
+      clientRequestId: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+      startRequest: {
+        idempotencyKey: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+        draftFingerprint: 'locked-draft-fingerprint',
+        sessionDate: '2026-08-24',
+        name: 'Unfinished legs',
+        templateId: null,
+        kind: 'strength',
+        liveStructure: [{ exerciseId: 'old-squat', targetSets: 5, targetReps: '5', supersetGroup: null }],
+      },
+    };
+    renderPage(initialState);
+
+    await waitFor(() => expect(harness.replace).toHaveBeenCalledWith('/dashboard/workout/review'));
+    expect(screen.queryByRole('heading', { name: 'Replace current draft?' })).toBeNull();
+    const state = JSON.parse(screen.getByLabelText('Draft state').textContent ?? '{}');
+    expect(state.draft.name).toBe('Unfinished legs');
+    expect(state.startRequest).toEqual(initialState.startRequest);
+    expect(harness.queries.filter((query) => query.table === 'workout_sessions' && query.filters.some(([key]) => key === 'id'))).toHaveLength(0);
+    expect(harness.push).not.toHaveBeenCalled();
+  });
+
   it('loads only the signed-in user’s repeated session into a local Build draft without creating a session', async () => {
     harness.repeatId = repeatedSessionId;
     renderPage();

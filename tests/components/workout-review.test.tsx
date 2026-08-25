@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { WorkoutDraft } from '@/lib/workout/workspace-state';
 
 const workspace = vi.hoisted(() => ({
-  state: { stage: 'review', draft: null as WorkoutDraft | null },
+  state: { stage: 'review', draft: null as WorkoutDraft | null, startRequest: null as { idempotencyKey: string } | null },
   startLive: vi.fn(), updateDraftExercise: vi.fn(),
 }));
 const push = vi.hoisted(() => vi.fn());
@@ -29,6 +29,9 @@ vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ t: (key: string, params?: Recor
   'workout.muscle_chest': 'Chest', 'workout.equipment_label': `Equipment: ${params?.equipment}`,
   'workout.primary_muscle_label': `Primary muscle: ${params?.muscle}`,
   'workout.target_sets': 'Target sets', 'workout.target_reps': 'Target reps',
+  'workout.invalid_prescription': 'Every exercise needs at least one set and a reps target.',
+  'workout.start_request_locked': 'Retry the same start before editing.',
+  'workout.retry_same_start': 'Retry same start',
 }[key] ?? key) }) }));
 
 import { WorkoutReview } from '@/components/workout/workspace/WorkoutReview';
@@ -38,7 +41,7 @@ const pushDraft: WorkoutDraft = {
   exercises: [{ exerciseId: 'bench', targetSets: 4, targetReps: '6-8' }],
 };
 
-afterEach(() => { cleanup(); vi.clearAllMocks(); });
+afterEach(() => { cleanup(); vi.clearAllMocks(); workspace.state.startRequest = null; });
 
 describe('WorkoutReview', () => {
   it('explains persistence before starting live', () => {
@@ -104,6 +107,21 @@ describe('WorkoutReview', () => {
     expect(screen.getByRole('button', { name: 'Log completed workout' }).hasAttribute('disabled')).toBe(true);
     expect(screen.getByRole('button', { name: 'Save plan' }).hasAttribute('disabled')).toBe(true);
     expect(screen.getByRole('alert').textContent).toBe('Enter a workout name.');
+  });
+
+  it('blocks invalid strength prescriptions and freezes final edits for a pending exact start', () => {
+    workspace.state.draft = { ...pushDraft, exercises: [{ ...pushDraft.exercises[0], targetReps: ' ' }] };
+    render(<WorkoutReview exercises={[{ id: 'bench', name: 'Bench Press' }]} onSavePlan={vi.fn()} onLogCompleted={vi.fn()} />);
+    expect(screen.getByRole('alert').textContent).toMatch(/reps target/i);
+    expect(screen.getByRole('button', { name: 'Start live workout' }).hasAttribute('disabled')).toBe(true);
+    cleanup();
+
+    workspace.state.draft = pushDraft;
+    workspace.state.startRequest = { idempotencyKey: 'request-1' };
+    render(<WorkoutReview exercises={[{ id: 'bench', name: 'Bench Press' }]} onSavePlan={vi.fn()} onLogCompleted={vi.fn()} />);
+    expect(screen.getByLabelText('Target reps for Bench Press').hasAttribute('disabled')).toBe(true);
+    expect(screen.getByRole('button', { name: 'Retry same start' }).hasAttribute('disabled')).toBe(false);
+    expect(screen.getByRole('button', { name: 'Log completed workout' }).hasAttribute('disabled')).toBe(true);
   });
 
   it('shows a recoverable error and re-enables start when the provider returns false', async () => {
