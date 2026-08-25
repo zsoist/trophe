@@ -10,8 +10,11 @@ vi.mock('@/lib/workout/live-session', () => live);
 vi.mock('@/lib/workout/units', () => ({ useWeightUnit: () => ['kg', vi.fn()], displayToKg: (value: number) => value, kgToDisplay: (value: number) => value }));
 vi.mock('@/components/workout/PainFlagModal', () => ({ default: () => null }));
 vi.mock('@/components/workout/ExerciseInfoSheet', () => ({ default: () => null }));
-vi.mock('@/components/workout/PlateCalculator', () => ({ default: () => null }));
-vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ t: (key: string) => ({
+vi.mock('framer-motion', () => ({ motion: { div: ({ children, initial: _initial, animate: _animate, exit: _exit, transition: _transition, ...props }: React.HTMLAttributes<HTMLDivElement> & { initial?: unknown; animate?: unknown; exit?: unknown; transition?: unknown }) => {
+  void _initial; void _animate; void _exit; void _transition;
+  return <div {...props}>{children}</div>;
+} }, useReducedMotion: () => true }));
+vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ t: (key: string, values?: { n?: number }) => ({
   'workout.cardio_run': 'Run', 'workout.duration_minutes': 'Duration in minutes', 'workout.distance_optional': 'Distance optional',
   'workout.effort': 'Effort', 'workout.log_completed': 'Log completed workout',
   'workout.save_completed_question': 'Save completed workout?', 'workout.save_workout': 'Save workout',
@@ -19,7 +22,8 @@ vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ t: (key: string) => ({
   'workout.cancel': 'Cancel', 'workout.save_failed': 'Save failed', 'workout.strength_duration': 'Workout duration in minutes',
   'workout.weight_in_unit': 'Weight in kg', 'workout.reps': 'Reps', 'workout.rpe_optional': 'RPE optional',
   'workout.complete_set': 'Complete set', 'workout.undo_set': 'Undo set', 'workout.more_exercise_options': 'More exercise options',
-  'workout.more': 'More', 'workout.set_number': 'Set 1', 'workout.warmup': 'Warm-up', 'workout.resting': 'Resting',
+  'workout.more': 'More', 'workout.warmup': 'Warm-up', 'workout.resting': 'Resting',
+  'workout.set_number': `Set ${String(values?.n ?? 1)}`,
 }[key] ?? key) }) }));
 
 import { RetrospectiveWorkoutLogger } from '@/components/workout/workspace/RetrospectiveWorkoutLogger';
@@ -65,6 +69,7 @@ describe('RetrospectiveWorkoutLogger', () => {
 
   it('preserves adjacent superset groups in confirmed retrospective strength sets', async () => {
     render(<RetrospectiveWorkoutLogger userId="nik" idempotencyKey={idempotencyKey} draft={strengthSuperset} exercises={[bench, row]} onSaved={vi.fn()} onCancel={vi.fn()} />);
+    fireEvent.change(await screen.findAllByLabelText('Weight in kg').then((inputs) => inputs[0]), { target: { value: '80' } });
     const moreButtons = await screen.findAllByRole('button', { name: 'More exercise options' });
     fireEvent.click(moreButtons[0]);
     fireEvent.click(screen.getByRole('button', { name: 'workout.superset_link' }));
@@ -85,6 +90,29 @@ describe('RetrospectiveWorkoutLogger', () => {
       sets: expect.arrayContaining([
         expect.objectContaining({ exercise_id: 'bench', superset_group: 1 }),
         expect.objectContaining({ exercise_id: 'row', superset_group: 1 }),
+      ]),
+    })));
+  });
+
+  it('inserts a retrospective exercise warm-up block before that exercise working rows', async () => {
+    render(<RetrospectiveWorkoutLogger userId="nik" idempotencyKey={idempotencyKey} draft={strengthSuperset} exercises={[bench, row]} onSaved={vi.fn()} onCancel={vi.fn()} />);
+    fireEvent.change((await screen.findAllByLabelText('Weight in kg'))[0], { target: { value: '80' } });
+    const moreButtons = await screen.findAllByRole('button', { name: 'More exercise options' });
+    fireEvent.click(moreButtons[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'workout.plate_title' }));
+    fireEvent.click(screen.getByRole('button', { name: 'workout.add_warmup_sets' }));
+
+    await vi.waitFor(() => {
+      const names = screen.getAllByRole('article').map((article) => article.querySelector('h3')?.textContent);
+      expect(names.at(-1)).toBe('Row');
+      expect(names.slice(0, -1)).toEqual(names.slice(0, -1).map(() => 'Bench Press'));
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save completed workout' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save workout' }));
+    await vi.waitFor(() => expect(live.saveRetrospectiveWorkout).toHaveBeenCalledWith(expect.objectContaining({
+      sets: expect.arrayContaining([
+        expect.objectContaining({ exercise_id: 'bench', set_number: 1, is_warmup: true }),
+        expect.objectContaining({ exercise_id: 'bench', set_number: 2, is_warmup: true }),
       ]),
     })));
   });

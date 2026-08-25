@@ -1354,4 +1354,12 @@ export const de: Record<string, string> = {
   'painflag.region_arms': 'Arme',
   'painflag.region_legs': 'Beine',
   'painflag.region_core': 'Rumpf',
+  'painflag.region_biceps': 'Bizepsbereich',
+  'painflag.region_triceps': 'Trizepsbereich',
+  'painflag.region_forearms': 'Unterarme',
+  'painflag.region_quads': 'Vorderer Oberschenkel',
+  'painflag.region_hamstrings': 'Hinterer Oberschenkel',
+  'painflag.region_glutes': 'Gesäß',
+  'painflag.region_calves': 'Waden',
+  'painflag.region_prompt': 'Körperbereich auswählen',
 };

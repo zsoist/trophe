@@ -77,7 +77,13 @@ export function RetrospectiveWorkoutLogger({ userId, idempotencyKey, draft, exer
     );
   }
 
-  const rows = [...draft.exercises.flatMap((exercise) => Array.from({ length: exercise.targetSets }, (_, index) => ({ exerciseId: exercise.exerciseId, setNumber: index + 1 }))), ...warmupRows];
+  const rows = draft.exercises.flatMap((exercise) => {
+    const warmupCount = warmupRows.filter((row) => row.exerciseId === exercise.exerciseId).length;
+    return [
+      ...Array.from({ length: warmupCount }, (_, index) => ({ exerciseId: exercise.exerciseId, setNumber: index + 1 })),
+      ...Array.from({ length: exercise.targetSets }, (_, index) => ({ exerciseId: exercise.exerciseId, setNumber: warmupCount + index + 1 })),
+    ];
+  });
   const keyFor = (exerciseId: string, setNumber: number) => `${exerciseId}:${setNumber}`;
   const resolvedSets: CompletedSetInput[] = Object.entries(completed).map(([key, value]) => {
     const [exerciseId, rawSetNumber] = key.split(':');
@@ -160,10 +166,20 @@ export function RetrospectiveWorkoutLogger({ userId, idempotencyKey, draft, exer
       {painExerciseId ? <PainFlagModal exerciseId={painExerciseId} exerciseName={exerciseById.get(painExerciseId)?.name ?? draft.exercises.find((exercise) => exercise.exerciseId === painExerciseId)?.exerciseName ?? t('painflag.current_exercise')} suggestedBodyPart={exerciseById.get(painExerciseId)?.muscle_group ?? ''} onSave={(flag) => setPainFlags((current) => [...current, flag])} onClose={() => setPainExerciseId(null)} /> : null}
       {infoExercise ? <ExerciseInfoSheet exercise={infoExercise} userId={userId} onClose={() => setInfoExercise(null)} /> : null}
       {plateContext ? <PlateCalculator weightKg={plateContext.weightKg} unit={unit} exerciseContext={{ exerciseId: plateContext.exerciseId, mode: 'draft' }} onAddWarmupSets={async (sets) => {
-        const base = rows.filter((row) => row.exerciseId === plateContext.exerciseId).reduce((max, row) => Math.max(max, row.setNumber), 0);
-        const next = sets.map((set, index) => ({ exerciseId: plateContext.exerciseId, setNumber: base + index + 1 }));
+        const existingWarmups = warmupRows.filter((row) => row.exerciseId === plateContext.exerciseId).length;
+        const next = sets.map((_, index) => ({ exerciseId: plateContext.exerciseId, setNumber: existingWarmups + index + 1 }));
         setWarmupRows((current) => [...current, ...next]);
-        setCompleted((current) => ({ ...current, ...Object.fromEntries(next.map((row, index) => [`${row.exerciseId}:${row.setNumber}`, { weight: sets[index].weight, reps: sets[index].reps, rpe: null, isWarmup: true }])) }));
+        setCompleted((current) => {
+          const renumbered: Record<string, SetLoggerValue> = {};
+          for (const [key, value] of Object.entries(current)) {
+            const [exerciseId, rawSetNumber] = key.split(':');
+            const setNumber = Number(rawSetNumber);
+            const nextNumber = exerciseId === plateContext.exerciseId && setNumber > existingWarmups ? setNumber + sets.length : setNumber;
+            renumbered[keyFor(exerciseId, nextNumber)] = value;
+          }
+          for (const [index, row] of next.entries()) renumbered[keyFor(row.exerciseId, row.setNumber)] = { weight: sets[index].weight, reps: sets[index].reps, rpe: null, isWarmup: true };
+          return renumbered;
+        });
         return true;
       }} onClose={() => setPlateContext(null)} /> : null}
     </section>

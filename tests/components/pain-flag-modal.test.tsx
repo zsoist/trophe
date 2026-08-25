@@ -15,6 +15,7 @@ vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ t: (key: string) => ({
   'painflag.severity_prefix': 'Severity', 'painflag.severity_mild': 'Mild', 'painflag.severity_moderate': 'Moderate', 'painflag.severity_stop': 'Stop', 'painflag.notes_placeholder': 'Notes',
   'painflag.notes_label': 'Notes', 'painflag.cancel': 'Cancel', 'painflag.save': 'Save pain note', 'painflag.saving': 'Saving…',
   'painflag.save_failed': 'Pain note could not be saved. Try again.',
+  'painflag.region_biceps': 'Biceps area', 'painflag.region_prompt': 'Choose a body region',
 }[key] ?? key) }) }));
 
 import PainFlagModal from '@/components/workout/PainFlagModal';
@@ -63,5 +64,15 @@ describe('PainFlagModal durable save', () => {
     fireEvent.change(screen.getByPlaceholderText('Body part'), { target: { value: 'Shoulder' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save pain note' }));
     await vi.waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+  });
+
+  it('turns muscle-group tokens into human anatomical suggestions and never exposes generic tokens', () => {
+    render(<PainFlagModal exerciseId="curl" exerciseName="Curl" suggestedBodyPart="biceps" onSave={vi.fn()} onClose={vi.fn()} />);
+    expect((screen.getByLabelText('Body region') as HTMLInputElement).value).toBe('Biceps area');
+
+    cleanup();
+    render(<PainFlagModal exerciseId="bike" exerciseName="Bike" suggestedBodyPart="cardio" onSave={vi.fn()} onClose={vi.fn()} />);
+    expect((screen.getByLabelText('Body region') as HTMLInputElement).value).toBe('Choose a body region');
+    expect(screen.queryByDisplayValue('cardio')).toBeNull();
   });
 });

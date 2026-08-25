@@ -73,3 +73,14 @@ npm run lint
 - Successful live insertions clear their retry-only logical-number cache; raw `full_body` and `cardio` suggestions are suppressed while known muscle groups are localized.
 
 Verification: overlay coverage + Task 8 parity + live/retrospective/Task 7 regression command passed (8 files, 69 tests); typecheck and scoped lint passed; diff check passed.
+
+## Fix round 3
+
+- Live row construction now places each exercise's warm-up prefix before its planned working rows. Live insertion is refused once a working set for that exercise exists, avoiding historical identity rewrites.
+- An unresolved warm-up payload keeps its allocated logical identities only for an exact retry; a changed payload is rejected. Successful insertion clears that retry cache so a later intentional ramp receives fresh identities.
+- Added localized mappings for concrete muscle tokens and suppresses non-anatomical `full_body`/`cardio` suggestions.
+- Retrospective row construction now inserts warm-ups before the selected exercise’s working rows, shifts local working identities deterministically, and persists the warm-up prefix with its exercise-local set numbers. Its regression test opens the real plate calculator rather than a null component mock.
+
+RED/GREEN evidence: the new retrospective placement test first failed with `Bench, Row, Bench, Bench`; it passes after exercise-local prefix construction. The new anatomical-token test first failed because `biceps` was shown raw; it passes after localized token mapping.
+
+Verification: overlay coverage, parity, focused Task 8, and affected Task 7 commands passed (8 files, 71 tests); `npm run typecheck` passed; full `npm run lint` exited 0 with 46 existing warnings and no errors; `git diff --check` passed.

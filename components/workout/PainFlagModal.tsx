@@ -27,8 +27,11 @@ export default function PainFlagModal({ exerciseId, exerciseName = exerciseId, s
   onClose: () => void;
 }) {
   const { t } = useI18n();
-  const regionKey = ({ chest: 'painflag.region_chest', back: 'painflag.region_back', shoulders: 'painflag.region_shoulders', arms: 'painflag.region_arms', legs: 'painflag.region_legs', core: 'painflag.region_core' } as Record<string, string>)[suggestedBodyPart.toLowerCase()];
-  const suggestedRegion = regionKey ? t(regionKey) : ['full_body', 'cardio'].includes(suggestedBodyPart.toLowerCase()) ? '' : suggestedBodyPart;
+  const regionKey = ({
+    chest: 'painflag.region_chest', back: 'painflag.region_back', shoulders: 'painflag.region_shoulders', arms: 'painflag.region_arms', legs: 'painflag.region_legs', core: 'painflag.region_core',
+    biceps: 'painflag.region_biceps', triceps: 'painflag.region_triceps', forearms: 'painflag.region_forearms', quads: 'painflag.region_quads', hamstrings: 'painflag.region_hamstrings', glutes: 'painflag.region_glutes', calves: 'painflag.region_calves',
+  } as Record<string, string>)[suggestedBodyPart.toLowerCase()];
+  const suggestedRegion = regionKey ? t(regionKey) : ['full_body', 'cardio'].includes(suggestedBodyPart.toLowerCase()) ? t('painflag.region_prompt') : suggestedBodyPart;
   const reducedMotion = useReducedMotion();
   const dialogRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);

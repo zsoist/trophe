@@ -1354,4 +1354,12 @@ export const nl: Record<string, string> = {
   'painflag.region_arms': 'Armen',
   'painflag.region_legs': 'Benen',
   'painflag.region_core': 'Core',
+  'painflag.region_biceps': 'Bicepsgebied',
+  'painflag.region_triceps': 'Tricepsgebied',
+  'painflag.region_forearms': 'Onderarmen',
+  'painflag.region_quads': 'Voorkant bovenbeen',
+  'painflag.region_hamstrings': 'Achterkant bovenbeen',
+  'painflag.region_glutes': 'Bilspieren',
+  'painflag.region_calves': 'Kuiten',
+  'painflag.region_prompt': 'Kies een lichaamsgebied',
 };

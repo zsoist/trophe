@@ -62,7 +62,8 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
   const [painExerciseId, setPainExerciseId] = useState<string | null>(null);
   const [infoExercise, setInfoExercise] = useState<Exercise | null>(null);
   const [plateContext, setPlateContext] = useState<{ exerciseId: string; weightKg: number } | null>(null);
-  const warmupNumbersRef = useRef(new Map<string, number[]>());
+  const warmupNumbersRef = useRef(new Map<string, { fingerprint: string; numbers: number[] }>());
+  const [warmupCounts, setWarmupCounts] = useState<Record<string, number>>({});
   const [finishRequested, setFinishRequested] = useState(false);
   const [savingFinish, setSavingFinish] = useState(false);
   const [finishError, setFinishError] = useState(false);
@@ -172,9 +173,15 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
   const exerciseById = useMemo(() => new Map(exercises.map((exercise) => [exercise.id, exercise])), [exercises]);
   const rows = useMemo(() => {
     if (!draft || draft.kind !== 'strength') return [];
-    const planned = draft.exercises.flatMap((exercise) => Array.from({ length: exercise.targetSets }, (_, index) => ({ exerciseId: exercise.exerciseId, setNumber: index + 1 })));
-    return [...planned, ...extraRows];
-  }, [draft, extraRows]);
+    return draft.exercises.flatMap((exercise) => {
+      const recoveredWarmups = persistedSets.filter((set) => set.exercise_id === exercise.exerciseId && set.is_warmup).length;
+      const warmupCount = Math.max(warmupCounts[exercise.exerciseId] ?? 0, recoveredWarmups);
+      const warmups = Array.from({ length: warmupCount }, (_, index) => ({ exerciseId: exercise.exerciseId, setNumber: index + 1 }));
+      const planned = Array.from({ length: exercise.targetSets }, (_, index) => ({ exerciseId: exercise.exerciseId, setNumber: warmupCount + index + 1 }));
+      const extras = extraRows.filter((row) => row.exerciseId === exercise.exerciseId && row.setNumber > warmupCount + exercise.targetSets);
+      return [...warmups, ...planned, ...extras];
+    });
+  }, [draft, extraRows, persistedSets, warmupCounts]);
   const completedSets = persistedSets.length;
   const prCount = persistedSets.filter((set) => set.is_pr).length;
   const elapsedMs = elapsedActiveMs(state.clock, now);
@@ -430,9 +437,14 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
       }} onClose={() => setPainExerciseId(null)} /> : null}
       {infoExercise ? <ExerciseInfoSheet exercise={infoExercise} userId={userId} onClose={() => setInfoExercise(null)} /> : null}
       {plateContext ? <PlateCalculator weightKg={plateContext.weightKg} unit={unit} exerciseContext={{ exerciseId: plateContext.exerciseId, mode: 'live' }} onAddWarmupSets={async (sets) => {
-        const key = `${plateContext.exerciseId}:${sets.map((set) => `${set.weight}:${set.reps}`).join(',')}`;
-        const numbers = warmupNumbersRef.current.get(key) ?? sets.map((_, index) => rows.filter((row) => row.exerciseId === plateContext.exerciseId).reduce((max, row) => Math.max(max, row.setNumber), 0) + index + 1);
-        warmupNumbersRef.current.set(key, numbers);
+        if (persistedSets.some((set) => set.exercise_id === plateContext.exerciseId && !set.is_warmup)) return false;
+        const fingerprint = sets.map((set) => `${set.weight}:${set.reps}`).join(',');
+        const pending = warmupNumbersRef.current.get(plateContext.exerciseId);
+        if (pending && pending.fingerprint !== fingerprint) return false;
+        const existing = warmupCounts[plateContext.exerciseId] ?? persistedSets.filter((set) => set.exercise_id === plateContext.exerciseId && set.is_warmup).length;
+        const numbers = pending?.numbers ?? sets.map((_, index) => existing + index + 1);
+        if (!pending) setWarmupCounts((current) => ({ ...current, [plateContext.exerciseId]: existing + sets.length }));
+        warmupNumbersRef.current.set(plateContext.exerciseId, { fingerprint, numbers });
         const saved: PersistedWorkoutSet[] = [];
         for (let index = 0; index < sets.length; index += 1) {
           const set = sets[index]; const setNumber = numbers[index];
@@ -441,8 +453,7 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
           saved.push({ id: result.setId, session_id: sessionId, exercise_id: plateContext.exerciseId, set_number: setNumber, weight_kg: displayToKg(set.weight, unit), reps: set.reps, rpe: null, is_warmup: true, is_pr: false, superset_group: supersetGroup(plateContext.exerciseId), notes: null });
         }
         setPersistedSets((current) => [...current.filter((item) => !saved.some((set) => set.exercise_id === item.exercise_id && set.set_number === item.set_number)), ...saved]);
-        setExtraRows((current) => [...current, ...numbers.filter((setNumber) => !rows.some((row) => row.exerciseId === plateContext.exerciseId && row.setNumber === setNumber)).map((setNumber) => ({ exerciseId: plateContext.exerciseId, setNumber }))]);
-        warmupNumbersRef.current.delete(key);
+        warmupNumbersRef.current.delete(plateContext.exerciseId);
         return true;
       }} onClose={() => setPlateContext(null)} /> : null}
     </main>
