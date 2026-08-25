@@ -28,7 +28,7 @@ export function RoutedExerciseDetail({ exercise, userId }: { exercise: Exercise;
         isAdded={added}
         onAdd={acceptsExercises ? () => {
           workspace.addDraftExercise(exercise.id);
-          router.push(WORKOUT_ROUTES.build);
+          router.push(workspace.state.stage === 'review' ? WORKOUT_ROUTES.review : WORKOUT_ROUTES.build);
         } : undefined}
         alternateAction={acceptsExercises ? undefined : {
           label: canCreate ? t('workout.create_strength_draft') : t('workout.resume_current_workout'),

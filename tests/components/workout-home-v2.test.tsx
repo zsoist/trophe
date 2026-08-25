@@ -42,6 +42,7 @@ vi.mock('@/lib/i18n', () => ({
     'workout.start_live_explanation': 'Starting live starts the active timer and creates your workout session.',
     'workout.start_live_failed': 'Workout could not start. Try again.',
     'workout.program_load_failed': 'Your workout program could not be loaded.',
+    'workout.continue_active': 'Continue workout', 'workout.view_completed_summary': 'View workout summary',
   }[key] ?? key) }),
 }));
 
@@ -50,6 +51,8 @@ import { WorkoutHome, type WorkoutHomeProgram } from '@/components/workout/works
 import { WorkoutBuilder } from '@/components/workout/workspace/WorkoutBuilder';
 import { WorkoutReview } from '@/components/workout/workspace/WorkoutReview';
 import type { Exercise } from '@/lib/types';
+import { saveWorkspaceState } from '@/lib/workout/workspace-storage';
+import type { WorkoutStage, WorkoutWorkspaceState } from '@/lib/workout/workspace-state';
 
 class MemoryStorage {
   private readonly values = new Map<string, string>();
@@ -77,13 +80,16 @@ const coachProgram: WorkoutHomeProgram = {
   alsoToday: [],
 };
 
-function WorkoutHomeHarness({ program = null, programLoading = false, programError = false }: {
+function WorkoutHomeHarness({ program = null, programLoading = false, programError = false, initialState }: {
   program?: WorkoutHomeProgram | null;
   programLoading?: boolean;
   programError?: boolean;
+  initialState?: WorkoutWorkspaceState;
 }) {
+  const storage = new MemoryStorage();
+  if (initialState) saveWorkspaceState(storage, 'nik', initialState);
   return (
-    <WorkoutWorkspaceProvider userId="nik" storage={new MemoryStorage()}>
+    <WorkoutWorkspaceProvider userId="nik" storage={storage}>
       <RoutedWorkspace program={program} programLoading={programLoading} programError={programError} />
     </WorkoutWorkspaceProvider>
   );
@@ -99,6 +105,30 @@ function RoutedWorkspace(props: { program: WorkoutHomeProgram | null; programLoa
 afterEach(() => { cleanup(); startLiveSession.mockReset(); push.mockReset(); });
 
 describe('WorkoutHome', () => {
+  it.each([
+    ['live', 'Continue workout'],
+    ['paused', 'Continue workout'],
+    ['finishing', 'Continue workout'],
+    ['completed', 'View workout summary'],
+  ] as const)('offers one dominant recovery action for %s and hides new-workout actions', async (stage, actionLabel) => {
+    const initialState: WorkoutWorkspaceState = {
+      stage: stage as WorkoutStage,
+      draft: { version: 2, name: 'Push', kind: 'strength', updatedAt: 1, exercises: [{ exerciseId: 'bench', targetSets: 3, targetReps: '8' }] },
+      sessionId: 'session-1',
+      clock: { runningSince: stage === 'live' ? 1 : null, accumulatedMs: 1000 },
+      ...(stage === 'finishing' ? { finishingFrom: 'live' as const } : {}),
+      clientRequestId: null,
+    };
+    render(<WorkoutHomeHarness initialState={initialState} />);
+
+    const recovery = await screen.findByRole('button', { name: actionLabel });
+    expect(screen.queryByRole('button', { name: 'Build strength workout' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Build cardio workout' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Preview Push' })).toBeNull();
+    fireEvent.click(recovery);
+    expect(push).toHaveBeenCalledWith('/dashboard/workout/live');
+  });
+
   it('previews Push without starting or opening the exercise picker', async () => {
     render(<WorkoutHomeHarness />);
     await waitFor(() => expect(screen.getByRole('button', { name: 'Preview Push' }).hasAttribute('disabled')).toBe(false));

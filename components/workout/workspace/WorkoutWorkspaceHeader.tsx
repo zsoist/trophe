@@ -7,7 +7,7 @@ import { ChevronLeft, Dumbbell, House } from 'lucide-react';
 import { useWorkoutWorkspace } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
 import { useI18n } from '@/lib/i18n';
 import { useWeightUnit } from '@/lib/workout/units';
-import { applyPendingWorkoutScrollReset, resetWorkoutScroll, WORKOUT_ROUTES } from '@/lib/workout/workspace-routes';
+import { applyPendingWorkoutScrollReset, resetWorkoutScroll, workoutBackRoute, WORKOUT_ROUTES } from '@/lib/workout/workspace-routes';
 import type { WorkoutStage } from '@/lib/workout/workspace-state';
 
 const titleKeys: Record<string, string> = {
@@ -26,7 +26,7 @@ function statusKeyForStage(stage: WorkoutStage): string | null {
   return 'workout.workspace_status_draft';
 }
 
-function WorkoutWorkspaceHeaderContent({ stage }: { stage: WorkoutStage }) {
+function WorkoutWorkspaceHeaderContent({ stage, onBack }: { stage: WorkoutStage; onBack?: () => void }) {
   const pathname = usePathname();
   const { t } = useI18n();
   const [unit, setUnit] = useWeightUnit();
@@ -36,6 +36,7 @@ function WorkoutWorkspaceHeaderContent({ stage }: { stage: WorkoutStage }) {
     : titleKeys[pathname] ?? 'workout.title';
   const title = t(titleKey);
   const isHome = pathname === WORKOUT_ROUTES.home;
+  const backHref = workoutBackRoute(pathname, stage);
   const statusKey = isHome ? null : statusKeyForStage(stage);
   const status = statusKey ? t(statusKey) : null;
 
@@ -46,7 +47,7 @@ function WorkoutWorkspaceHeaderContent({ stage }: { stage: WorkoutStage }) {
   return (
     <header className="flex min-h-16 items-center gap-2 border-b border-[var(--workout-rail)] px-3 py-2 min-[375px]:gap-3 min-[375px]:px-4">
       {!isHome && (
-        <Link href={WORKOUT_ROUTES.home} onClick={resetWorkoutScroll} aria-label={t('workout.back_home')} className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1 rounded-xl text-sm font-medium hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] min-[375px]:px-2">
+        <Link href={backHref} onClick={() => { onBack?.(); resetWorkoutScroll(); }} aria-label={t('workout.workspace_back')} className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1 rounded-xl text-sm font-medium hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] min-[375px]:px-2">
           <ChevronLeft size={18} strokeWidth={2} aria-hidden="true" />
           <span className="hidden min-[375px]:inline">{t('workout.workspace_back')}</span>
         </Link>
@@ -76,8 +77,9 @@ function WorkoutWorkspaceHeaderContent({ stage }: { stage: WorkoutStage }) {
 }
 
 function ConnectedWorkoutWorkspaceHeader() {
-  const { state } = useWorkoutWorkspace();
-  return <WorkoutWorkspaceHeaderContent stage={state.stage} />;
+  const { state, returnToDraft } = useWorkoutWorkspace();
+  const pathname = usePathname();
+  return <WorkoutWorkspaceHeaderContent stage={state.stage} onBack={pathname === WORKOUT_ROUTES.review ? returnToDraft : undefined} />;
 }
 
 export function WorkoutWorkspaceHeader({ stage }: { stage?: WorkoutStage }) {

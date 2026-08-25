@@ -70,6 +70,11 @@ export function WorkoutHome({
   const workspace = useWorkoutWorkspace();
   const [preview, setPreview] = useState<WorkoutHomeTemplate | null>(null);
   const exerciseNames = useMemo(() => new Map(exercises.map((exercise) => [exercise.id, exercise.name])), [exercises]);
+  const recoveryAction = workspace.state.stage === 'completed'
+    ? t('workout.view_completed_summary')
+    : workspace.state.stage === 'live' || workspace.state.stage === 'paused' || workspace.state.stage === 'finishing'
+      ? t('workout.continue_active')
+      : null;
 
   const buildStrength = () => {
     workspace.createDraft({ name: t('workout.strength'), kind: 'strength' });
@@ -97,6 +102,26 @@ export function WorkoutHome({
     workspace.goToReview();
     pushWorkoutRoute(router, WORKOUT_ROUTES.review);
   };
+
+  if (recoveryAction) {
+    return (
+      <main className="mx-auto max-w-2xl px-4 py-5">
+        <section className="rounded-2xl border border-[var(--action-primary)] bg-[var(--surface-raised)] p-5 shadow-[var(--shadow-low)]">
+          <p className="text-sm text-[var(--content-secondary)]">
+            {workspace.state.stage === 'completed' ? t('workout.completed_message') : t('workout.resume_current_workout')}
+          </p>
+          {workspace.state.draft?.name ? <h2 className="mt-1 text-xl font-semibold text-[var(--content-primary)]">{workspace.state.draft.name}</h2> : null}
+          <button
+            type="button"
+            onClick={() => pushWorkoutRoute(router, WORKOUT_ROUTES.live)}
+            className="btn-gold mt-4 min-h-11 w-full rounded-xl px-4 font-semibold"
+          >
+            {recoveryAction}
+          </button>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto max-w-2xl space-y-5 px-4 py-5">
@@ -159,9 +184,9 @@ export function WorkoutHome({
       {routines.length > 0 ? (
         <section>
           <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-[var(--content-secondary)]">{t('workout.my_routines')}</h2>
-          <div className="flex gap-2 overflow-x-auto pb-1">
+          <div className="grid grid-cols-1 gap-2 min-[375px]:grid-cols-2">
             {routines.map((routine) => (
-              <button key={routine.templateKey} type="button" onClick={() => setPreview(routine)} className="min-h-11 shrink-0 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-4 text-sm font-medium">
+              <button key={routine.templateKey} type="button" onClick={() => setPreview(routine)} className="min-h-11 min-w-0 max-w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-4 py-2 text-left text-sm font-medium break-words">
                 {routine.name}
               </button>
             ))}

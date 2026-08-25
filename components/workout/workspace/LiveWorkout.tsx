@@ -30,6 +30,7 @@ import {
   type CompleteLiveSetInput,
 } from '@/lib/workout/live-session';
 import { elapsedActiveMs } from '@/lib/workout/workspace-state';
+import { resetWorkoutScroll } from '@/lib/workout/workspace-routes';
 import { getRestTarget } from '@/lib/workout/rest-targets';
 import { supersetGroupFor } from '@/lib/workout/supersets';
 import { displayToKg, kgToDisplay, useWeightUnit } from '@/lib/workout/units';
@@ -268,7 +269,10 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
       ...(draft.kind === 'cardio' && currentCardio ? {
         cardio: { activity: draft.activity, distanceKm: currentCardio.distanceKm, effort: currentCardio.effort },
       } : {}),
-    }, workspace.completeFinish);
+    }, () => {
+      workspace.completeFinish();
+      resetWorkoutScroll();
+    });
     setSavingFinish(false);
     if (!result.ok) setFinishError(true);
   };

@@ -104,4 +104,12 @@ describe('WorkoutBuildPage save and route boundaries', () => {
     await waitFor(() => expect(harness.replace).toHaveBeenCalledWith('/dashboard/workout/live'));
     expect(screen.queryByRole('button', { name: 'Save plan' })).toBeNull();
   });
+
+  it('keeps Build available while Review transitions back to its editable draft', async () => {
+    harness.stage = 'review';
+    render(<WorkoutBuildPage />);
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Save plan' })).toBeTruthy());
+    expect(harness.replace).not.toHaveBeenCalled();
+  });
 });

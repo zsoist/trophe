@@ -16,6 +16,7 @@ export function ExerciseBrowser({ initialExercises = [], initialRecentIds = [] }
   const [exercises, setExercises] = useState(initialExercises);
   const acceptsExercises = (workspace.state.stage === 'draft' || workspace.state.stage === 'review')
     && workspace.state.draft?.kind === 'strength';
+  const parentRoute = workspace.state.stage === 'review' ? WORKOUT_ROUTES.review : WORKOUT_ROUTES.build;
 
   if (!acceptsExercises) {
     const canCreate = workspace.state.stage === 'home';
@@ -40,9 +41,9 @@ export function ExerciseBrowser({ initialExercises = [], initialRecentIds = [] }
       recentIds={initialRecentIds}
       lang={lang}
       onSelect={() => undefined}
-      onClose={() => pushWorkoutRoute(router, WORKOUT_ROUTES.build)}
+      onClose={() => pushWorkoutRoute(router, parentRoute)}
       onAddToDraft={workspace.addDraftExercise}
-      onReturnToBuild={() => pushWorkoutRoute(router, WORKOUT_ROUTES.build)}
+      onReturnToBuild={() => pushWorkoutRoute(router, parentRoute)}
       addedExerciseIds={workspace.state.draft?.kind === 'strength'
         ? workspace.state.draft.exercises.map(({ exerciseId }) => exerciseId)
         : []}

@@ -39,8 +39,8 @@ function isDraftExercise(value: unknown): value is DraftExercise {
   return typeof value.exerciseId === 'string'
     && (value.exerciseName === undefined || typeof value.exerciseName === 'string')
     && (value.muscleGroup === undefined || typeof value.muscleGroup === 'string')
-    && typeof value.targetSets === 'number' && Number.isFinite(value.targetSets)
-    && typeof value.targetReps === 'string'
+    && typeof value.targetSets === 'number' && Number.isInteger(value.targetSets) && value.targetSets > 0
+    && typeof value.targetReps === 'string' && value.targetReps.trim().length > 0
     && (value.linkedBelow === undefined || typeof value.linkedBelow === 'boolean');
 }
 
@@ -57,8 +57,8 @@ function isDraft(value: unknown): value is WorkoutDraft {
   }
   if (value.kind === 'cardio') {
     return CARDIO_ACTIVITIES.includes(value.activity as CardioDraft['activity'])
-      && typeof value.durationMinutes === 'number' && Number.isFinite(value.durationMinutes)
-      && (value.distanceKm === null || (typeof value.distanceKm === 'number' && Number.isFinite(value.distanceKm)))
+      && typeof value.durationMinutes === 'number' && Number.isFinite(value.durationMinutes) && value.durationMinutes >= 0
+      && (value.distanceKm === null || (typeof value.distanceKm === 'number' && Number.isFinite(value.distanceKm) && value.distanceKm >= 0))
       && (value.effort === null || (typeof value.effort === 'number' && Number.isFinite(value.effort)));
   }
   return false;
@@ -66,8 +66,8 @@ function isDraft(value: unknown): value is WorkoutDraft {
 
 function isClock(value: unknown): value is LiveClock {
   return isRecord(value) && hasOnlyKeys(value, ['runningSince', 'accumulatedMs'])
-    && (value.runningSince === null || (typeof value.runningSince === 'number' && Number.isFinite(value.runningSince)))
-    && typeof value.accumulatedMs === 'number' && Number.isFinite(value.accumulatedMs);
+    && (value.runningSince === null || (typeof value.runningSince === 'number' && Number.isFinite(value.runningSince) && value.runningSince >= 0))
+    && typeof value.accumulatedMs === 'number' && Number.isFinite(value.accumulatedMs) && value.accumulatedMs >= 0;
 }
 
 function isIsoDate(value: unknown): value is string {
@@ -103,7 +103,7 @@ function parseState(value: unknown): WorkoutWorkspaceState | null {
     || !hasOnlyKeys(value, ['version', 'stage', 'draft', 'sessionId', 'clock', 'finishingFrom', 'clientRequestId', 'startRequest'])
     || !WORKOUT_STAGES.includes(value.stage as WorkoutStage)
     || (value.draft !== null && !isDraft(value.draft))
-    || (value.sessionId !== null && typeof value.sessionId !== 'string')
+    || (value.sessionId !== null && (typeof value.sessionId !== 'string' || value.sessionId !== value.sessionId.trim() || !value.sessionId))
     || (value.clock !== null && !isClock(value.clock))
     || (value.finishingFrom !== undefined && value.finishingFrom !== null && value.finishingFrom !== 'live' && value.finishingFrom !== 'paused')
     || (value.clientRequestId !== undefined && value.clientRequestId !== null && normalizeUuid(value.clientRequestId as string) === null)

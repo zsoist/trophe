@@ -59,6 +59,7 @@ export function BotNav({ routes, className = '', onActiveRouteSelect }: BotNavPr
           <Link
             key={route.href}
             href={route.href}
+            aria-label={route.label}
             aria-current={active ? 'page' : undefined}
             onClick={(event) => {
               if (
@@ -85,6 +86,7 @@ export function BotNav({ routes, className = '', onActiveRouteSelect }: BotNavPr
             ].join(' ')}
           >
             <span
+              data-bot-nav-icon
               className={[
                 'absolute top-0 h-0.5 w-9 rounded-full bg-[var(--action-primary)]',
                 'transition-opacity motion-reduce:transition-none',
@@ -97,10 +99,11 @@ export function BotNav({ routes, className = '', onActiveRouteSelect }: BotNavPr
                 'text-base leading-none transition-opacity motion-reduce:transition-none',
                 active ? 'opacity-100' : 'opacity-75',
               ].join(' ')}
+              aria-hidden="true"
             >
               {route.icon}
             </span>
-            <span className="font-medium">{route.label}</span>
+            <span data-bot-nav-label className="hidden font-medium min-[341px]:inline">{route.label}</span>
             {route.badge !== undefined && (
               <span className="absolute right-1 top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--status-danger-fg)] px-1 text-xs font-semibold text-[var(--content-inverse)]">
                 {route.badge}

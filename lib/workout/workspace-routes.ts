@@ -55,9 +55,16 @@ export function workoutRouteForStage(stage: WorkoutStage): string {
     case 'live':
     case 'paused':
     case 'finishing':
+    case 'completed':
       return WORKOUT_ROUTES.live;
     case 'home':
-    case 'completed':
       return WORKOUT_ROUTES.home;
   }
+}
+
+export function workoutBackRoute(pathname: string, stage?: WorkoutStage): string {
+  if (pathname.startsWith(`${WORKOUT_ROUTES.exercises}/`)) return WORKOUT_ROUTES.exercises;
+  if (pathname === WORKOUT_ROUTES.exercises) return stage === 'review' ? WORKOUT_ROUTES.review : WORKOUT_ROUTES.build;
+  if (pathname === WORKOUT_ROUTES.review) return WORKOUT_ROUTES.build;
+  return WORKOUT_ROUTES.home;
 }

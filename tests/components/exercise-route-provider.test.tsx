@@ -164,6 +164,10 @@ function strengthState(exercises: string[] = []): WorkoutWorkspaceState {
   };
 }
 
+function reviewState(exercises: string[] = []): WorkoutWorkspaceState {
+  return { ...strengthState(exercises), stage: 'review' };
+}
+
 const cardioState: WorkoutWorkspaceState = {
   stage: 'draft',
   draft: {
@@ -247,6 +251,16 @@ describe('exercise routes with the real workout workspace provider', () => {
     await waitFor(() => expect(screen.getByTestId('workspace-state').textContent).toBe('draft:strength:bench'));
     expect(push).toHaveBeenCalledWith('/dashboard/workout/build');
     expect(createWorkoutSession).not.toHaveBeenCalled();
+  });
+
+  it('closes the browser back to Review when final editing opened it from Review', async () => {
+    renderWithWorkspace(<ExerciseBrowser initialExercises={[bench]} />, reviewState());
+    await screen.findByRole('heading', { name: 'What are you training?' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'workout.picker_close' }));
+
+    expect(push).toHaveBeenCalledWith('/dashboard/workout/review');
+    expect(screen.getByTestId('workspace-state').textContent).toBe('review:strength:');
   });
 
   it('shows an already-added browser row as disabled and stays on the browser route', async () => {
@@ -333,6 +347,16 @@ describe('exercise routes with the real workout workspace provider', () => {
 
     await waitFor(() => expect(screen.getByTestId('workspace-state').textContent).toBe('draft:strength:bench'));
     expect(push).toHaveBeenCalledWith('/dashboard/workout/build');
+    expect(createWorkoutSession).not.toHaveBeenCalled();
+  });
+
+  it('adds from detail back to Review when final editing opened it from Review', async () => {
+    renderWithWorkspace(<RoutedExerciseDetail exercise={bench} userId={null} />, reviewState());
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Add Bench Press' }));
+
+    await waitFor(() => expect(screen.getByTestId('workspace-state').textContent).toBe('review:strength:bench'));
+    expect(push).toHaveBeenCalledWith('/dashboard/workout/review');
     expect(createWorkoutSession).not.toHaveBeenCalled();
   });
 

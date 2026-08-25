@@ -17,6 +17,20 @@ async function assertWorkoutSurface(page: Page, theme: ThemeMode) {
   const nav = page.getByRole('navigation', { name: 'Primary' });
   await expect(nav).toBeVisible();
   await expect(nav).toHaveCSS('bottom', '0px');
+  const viewport = page.viewportSize();
+  if (viewport?.width === 320) {
+    const labels = nav.locator('[data-bot-nav-label]');
+    await expect(labels.first()).toBeHidden();
+    const icons = await nav.locator('[data-bot-nav-icon]').evaluateAll((elements) => elements.map((element) => {
+      const box = element.getBoundingClientRect();
+      return { left: box.left, right: box.right, width: box.width };
+    }));
+    expect(icons).toHaveLength(5);
+    for (let index = 0; index < icons.length - 1; index += 1) {
+      expect(icons[index].width).toBeGreaterThan(0);
+      expect(icons[index + 1].left - icons[index].right).toBeGreaterThanOrEqual(16);
+    }
+  }
 }
 
 function currentWorkspace(page: Page): Locator {
@@ -30,13 +44,57 @@ async function waitForRouteSettled(page: Page, pathname: string) {
 
 async function waitForWorkoutRouteAtTop(page: Page, message: string) {
   await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))));
-  await expect.poll(() => page.evaluate(() => window.scrollY), { message }).toBe(0);
+  await expect.poll(() => page.evaluate(() => ({
+    documentTop: document.scrollingElement?.scrollTop ?? -1,
+    windowTop: window.scrollY,
+    visualPageTop: window.visualViewport?.pageTop ?? 0,
+    visualOffsetTop: window.visualViewport?.offsetTop ?? 0,
+  })), { message }).toEqual({ documentTop: 0, windowTop: 0, visualPageTop: 0, visualOffsetTop: 0 });
+}
+
+async function assertCanonicalWorkoutChrome(page: Page, workspaceTitle: string) {
+  const appTitle = page.getByRole('heading', { name: 'Trophē', exact: true });
+  const toolbarTitle = page.getByRole('heading', { name: workspaceTitle, exact: true });
+  const back = page.getByRole('link', { name: 'Back', exact: true });
+  const home = page.getByRole('link', { name: 'Workout Home', exact: true });
+  await expect(appTitle).toBeInViewport();
+  await expect(toolbarTitle).toBeInViewport();
+  await expect(back).toBeInViewport();
+  await expect(home).toBeInViewport();
+  const geometry = await page.evaluate(({ appText, toolbarText }) => {
+    const heading = (text: string) => [...document.querySelectorAll('h1')].find((element) => element.textContent?.trim() === text);
+    const rect = (element: Element | null | undefined) => {
+      const box = element?.getBoundingClientRect();
+      return box ? { top: box.top, bottom: box.bottom, left: box.left, right: box.right, width: box.width, height: box.height } : null;
+    };
+    const appHeader = heading(appText)?.closest('header');
+    const toolbar = heading(toolbarText)?.closest('header');
+    return {
+      viewportHeight: window.visualViewport?.height ?? window.innerHeight,
+      app: rect(appHeader),
+      toolbar: rect(toolbar),
+      back: rect(document.querySelector('a[aria-label="Back"]')),
+      home: rect(document.querySelector('a[aria-label="Workout Home"]')),
+    };
+  }, { appText: 'Trophē', toolbarText: workspaceTitle });
+  expect(geometry.app).not.toBeNull();
+  expect(geometry.toolbar).not.toBeNull();
+  expect(geometry.app!.top).toBeGreaterThanOrEqual(0);
+  expect(geometry.toolbar!.top).toBeGreaterThanOrEqual(geometry.app!.bottom - 1);
+  expect(geometry.toolbar!.bottom).toBeLessThanOrEqual(geometry.viewportHeight);
+  for (const target of [geometry.back, geometry.home]) {
+    expect(target).not.toBeNull();
+    expect(target!.width).toBeGreaterThanOrEqual(44);
+    expect(target!.height).toBeGreaterThanOrEqual(44);
+    expect(target!.top).toBeGreaterThanOrEqual(0);
+    expect(target!.bottom).toBeLessThanOrEqual(geometry.viewportHeight);
+  }
 }
 
 async function waitForWorkoutBuildAtTop(page: Page) {
   await waitForRouteSettled(page, '/dashboard/workout/build');
   const heading = page.getByRole('heading', { name: 'Build Workout' });
-  const back = page.getByRole('link', { name: 'Back to Workout Home' });
+  const back = page.getByRole('link', { name: 'Back', exact: true });
   const home = page.getByRole('link', { name: 'Workout Home', exact: true });
   await expect(heading).toBeVisible();
   await expect(back).toBeVisible();
@@ -83,6 +141,7 @@ test.describe('Workout Workspace V2', () => {
 
   for (const theme of ['light', 'dark'] as const) {
     test(`${theme}: complete release evidence journey`, async ({ page }, testInfo) => {
+      const routineName = `E2E ${theme} ${testInfo.project.name} ${Date.now().toString(36)} Push`;
       await page.setViewportSize({ width: 390, height: 844 });
       const assertNoPaidRequests = await blockPaidRequests(page);
       await loginAs(page, 'client');
@@ -99,13 +158,31 @@ test.describe('Workout Workspace V2', () => {
       await waitForWorkoutBuildAtTop(page);
       await expect(currentWorkspace(page).getByText('Draft · Not started')).toBeVisible();
       await expect(page.getByLabel('Workout status: Draft')).toBeVisible();
+      await currentWorkspace(page).getByRole('textbox', { name: 'Workout name' }).fill(routineName);
+      await assertCanonicalWorkoutChrome(page, 'Build Workout');
+      const firstBuildCard = currentWorkspace(page).locator('article').first();
+      await expect(firstBuildCard.locator('img[data-alpha="true"]')).toBeVisible();
+      await expect(firstBuildCard.getByText(/^Primary muscle:/)).toBeVisible();
+      await expect(firstBuildCard.getByText(/^Equipment:/)).toBeVisible();
       await captureWorkout(page, testInfo, `${theme}-evidence-03-build.png`, { atTop: true });
+
+      await currentWorkspace(page).getByRole('button', { name: 'Save plan' }).click();
+      await expect(currentWorkspace(page).getByRole('status')).toHaveText('Plan saved to My routines.');
+      await page.getByRole('link', { name: 'Workout Home', exact: true }).click();
+      await waitForWorkoutHomeSettled(page);
+      await page.reload();
+      await waitForWorkoutHomeSettled(page);
+      const routines = currentWorkspace(page).getByRole('heading', { name: 'My routines' }).locator('..');
+      await expect(routines.getByRole('button', { name: routineName, exact: true })).toBeVisible();
+      await page.goBack();
+      await waitForWorkoutBuildAtTop(page);
 
       await currentWorkspace(page).getByRole('button', { name: 'Add exercise' }).click();
       await waitForRouteSettled(page, '/dashboard/workout/exercises');
       await waitForWorkoutRouteAtTop(page, 'exercise browser must open at the top');
       const search = page.getByRole('searchbox', { name: 'Search exercises...' });
       await expect(search).toBeVisible();
+      await expect(page.getByRole('link', { name: 'Back', exact: true })).toHaveAttribute('href', '/dashboard/workout/build');
       await captureWorkout(page, testInfo, `${theme}-evidence-04-browser.png`, { atTop: true });
       await search.fill('Bench Press');
       const exerciseInfo = page.getByRole('button', { name: /^Exercise info:/ }).first();
@@ -115,6 +192,7 @@ test.describe('Workout Workspace V2', () => {
       await exerciseInfo.click();
       await expect(page).toHaveURL(/\/dashboard\/workout\/exercises\/[^/]+$/);
       await expect(page.getByRole('heading', { name: detailName!, exact: true })).toBeVisible();
+      await expect(page.getByRole('link', { name: 'Back', exact: true })).toHaveAttribute('href', '/dashboard/workout/exercises');
       await captureWorkout(page, testInfo, `${theme}-evidence-05-detail.png`, { atTop: true });
       await page.getByRole('link', { name: 'Back to exercises' }).click();
       await waitForRouteSettled(page, '/dashboard/workout/exercises');
@@ -127,18 +205,41 @@ test.describe('Workout Workspace V2', () => {
       await page.goBack();
       await waitForRouteSettled(page, '/dashboard/workout/build');
       await expect(page.getByLabel('Workout status: Draft')).toBeVisible();
-      await expect(currentWorkspace(page).getByRole('textbox', { name: 'Workout name' })).toHaveValue('Push');
+      await expect(currentWorkspace(page).getByRole('textbox', { name: 'Workout name' })).toHaveValue(routineName);
       await currentWorkspace(page).getByRole('button', { name: 'Review workout' }).click();
       await waitForRouteSettled(page, '/dashboard/workout/review');
       await waitForWorkoutRouteAtTop(page, 'review must open at the top');
+      await expect(page.getByRole('link', { name: 'Back', exact: true })).toHaveAttribute('href', '/dashboard/workout/build');
+      const firstReviewExercise = currentWorkspace(page).locator('details').first();
+      await expect(firstReviewExercise).not.toHaveAttribute('open', '');
+      await expect(firstReviewExercise.locator('img[data-alpha="true"]')).toBeVisible();
+      await firstReviewExercise.locator('summary').click();
+      await expect(firstReviewExercise).toHaveAttribute('open', '');
+      await firstReviewExercise.getByRole('spinbutton', { name: /^Target sets for/ }).fill('4');
       await captureWorkout(page, testInfo, `${theme}-evidence-06-review.png`, { atTop: true });
+      await page.getByRole('link', { name: 'Back', exact: true }).click();
+      await waitForWorkoutBuildAtTop(page);
+      await expect(currentWorkspace(page).getByRole('spinbutton', { name: /^Target sets for/ }).first()).toHaveValue('4');
+      await currentWorkspace(page).getByRole('button', { name: 'Review workout' }).click();
+      await waitForRouteSettled(page, '/dashboard/workout/review');
       await currentWorkspace(page).getByRole('button', { name: 'Start live workout' }).click();
       await waitForRouteSettled(page, '/dashboard/workout/live');
       await waitForWorkoutRouteAtTop(page, 'live workout must open at the top');
       const weight = currentWorkspace(page).getByRole('spinbutton', { name: 'Weight in kg' }).first();
       const reps = currentWorkspace(page).getByRole('spinbutton', { name: 'Reps' }).first();
       await expect(weight).toBeEnabled();
+      await assertCanonicalWorkoutChrome(page, 'Live Workout');
       await captureWorkout(page, testInfo, `${theme}-evidence-07-live.png`, { atTop: true });
+
+      await page.goto('/dashboard/workout');
+      await expect(page.getByRole('button', { name: 'Continue workout' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Build strength workout' })).toHaveCount(0);
+      await page.getByRole('button', { name: 'Continue workout' }).click();
+      await waitForRouteSettled(page, '/dashboard/workout/live');
+      await page.goto('/dashboard/workout/build');
+      await waitForRouteSettled(page, '/dashboard/workout/live');
+      await page.goto('/dashboard/workout/review');
+      await waitForRouteSettled(page, '/dashboard/workout/live');
 
       await weight.fill('60');
       await reps.fill('8');
@@ -167,7 +268,26 @@ test.describe('Workout Workspace V2', () => {
       await expect(page.getByRole('heading', { name: 'Workout complete' })).toBeVisible();
       await expect(page.getByLabel('Workout status: Completed')).toBeVisible();
       await assertWorkoutSurface(page, theme);
+      await assertCanonicalWorkoutChrome(page, 'Live Workout');
       await captureWorkout(page, testInfo, `${theme}-evidence-12-completed.png`, { atTop: true });
+
+      await page.reload();
+      await expect(page.getByRole('heading', { name: 'Workout complete' })).toBeVisible();
+      await expect(page.getByLabel('Workout status: Completed')).toBeVisible();
+      await page.goto('/dashboard/workout/build');
+      await waitForRouteSettled(page, '/dashboard/workout/live');
+      await expect(page.getByRole('heading', { name: 'Workout complete' })).toBeVisible();
+      await page.getByRole('link', { name: 'History' }).click();
+      await waitForRouteSettled(page, '/dashboard/workout/history');
+      await page.getByRole('navigation', { name: 'Primary' }).getByRole('link', { name: 'Workout' }).click();
+      await waitForRouteSettled(page, '/dashboard/workout');
+      await expect(page.getByRole('button', { name: 'View workout summary' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Build strength workout' })).toHaveCount(0);
+      await page.getByRole('button', { name: 'View workout summary' }).click();
+      await waitForRouteSettled(page, '/dashboard/workout/live');
+      await page.getByRole('button', { name: 'Done' }).click();
+      await waitForWorkoutHomeSettled(page);
+      await expect(page.getByRole('button', { name: 'Build strength workout' })).toBeEnabled();
       assertNoPaidRequests();
     });
   }
@@ -183,16 +303,23 @@ test.describe('Workout Workspace V2', () => {
         await waitForWorkoutHomeSettled(page);
         await assertWorkoutSurface(page, theme);
         await captureWorkout(page, testInfo, `${theme}-${viewport.width}x${viewport.height}.png`);
-        if (viewport.width === 320) {
+        if (viewport.width <= 375) {
           await page.getByRole('button', { name: 'Preview Push' }).click();
           const useTemplate = page.getByRole('button', { name: 'Use this template' });
           await useTemplate.scrollIntoViewIfNeeded();
-          await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+          if (viewport.width === 320) await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
           await useTemplate.click();
           await waitForWorkoutBuildAtTop(page);
+          await assertCanonicalWorkoutChrome(page, 'Build Workout');
           await expect(currentWorkspace(page).getByText('Draft · Not started')).toBeVisible();
           await assertWorkoutSurface(page, theme);
           await captureWorkout(page, testInfo, `${theme}-${viewport.width}x${viewport.height}-build.png`);
+          await currentWorkspace(page).getByRole('button', { name: 'Review workout' }).click();
+          await waitForRouteSettled(page, '/dashboard/workout/review');
+          await waitForWorkoutRouteAtTop(page, `${viewport.width}px Review must keep the canonical chrome visible`);
+          await assertCanonicalWorkoutChrome(page, 'Review Workout');
+          await assertWorkoutSurface(page, theme);
+          await captureWorkout(page, testInfo, `${theme}-${viewport.width}x${viewport.height}-review.png`);
         }
         assertNoPaidRequests();
       });

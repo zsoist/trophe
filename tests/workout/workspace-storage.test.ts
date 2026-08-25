@@ -155,4 +155,47 @@ describe('workout workspace recovery', () => {
     storage.setItem(workspaceStorageKey('nik'), JSON.stringify(stored));
     expect(loadWorkspaceState(storage, 'nik')).toBeNull();
   });
+
+  it.each([
+    ['zero target sets', { draft: { exercises: [{ exerciseId: 'bench', targetSets: 0, targetReps: '8' }] } }],
+    ['fractional target sets', { draft: { exercises: [{ exerciseId: 'bench', targetSets: 2.5, targetReps: '8' }] } }],
+    ['blank target reps', { draft: { exercises: [{ exerciseId: 'bench', targetSets: 3, targetReps: '   ' }] } }],
+    ['negative accumulated clock', { clock: { runningSince: null, accumulatedMs: -1 } }],
+    ['untrimmed session id', { sessionId: ' session-1 ' }],
+  ])('rejects invalid recovery values: %s', (_name, patch) => {
+    const storage = new MapStorage();
+    const base = {
+      version: 2,
+      stage: 'paused',
+      draft: { version: 2, name: 'Run', kind: 'strength', updatedAt: 0, exercises: [{ exerciseId: 'bench', targetSets: 3, targetReps: '8' }] },
+      sessionId: 'session-1',
+      clock: { runningSince: null, accumulatedMs: 1000 },
+    };
+    const value = {
+      ...base,
+      ...patch,
+      draft: 'draft' in patch ? { ...base.draft, ...patch.draft } : base.draft,
+    };
+    storage.setItem(workspaceStorageKey('nik'), JSON.stringify(value));
+
+    expect(loadWorkspaceState(storage, 'nik')).toBeNull();
+    expect(storage.getItem(workspaceStorageKey('nik'))).toBeNull();
+  });
+
+  it.each([
+    ['negative duration', -1, null],
+    ['negative distance', 30, -0.1],
+  ])('rejects cardio recovery with %s', (_name, durationMinutes, distanceKm) => {
+    const storage = new MapStorage();
+    storage.setItem(workspaceStorageKey('nik'), JSON.stringify({
+      version: 2,
+      stage: 'paused',
+      draft: { version: 2, name: 'Run', kind: 'cardio', updatedAt: 0, activity: 'run', durationMinutes, distanceKm, effort: null },
+      sessionId: 'session-1',
+      clock: { runningSince: null, accumulatedMs: 1000 },
+    }));
+
+    expect(loadWorkspaceState(storage, 'nik')).toBeNull();
+    expect(storage.getItem(workspaceStorageKey('nik'))).toBeNull();
+  });
 });

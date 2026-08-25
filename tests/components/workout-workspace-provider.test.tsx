@@ -56,6 +56,7 @@ function WorkspaceControls() {
         exercises: [{ exerciseId: 'bench-press', targetSets: 3, targetReps: '8-12' }],
       })}>Create built-in Push draft</button>
       <button onClick={() => workspace.goToReview()}>Review draft</button>
+      <button onClick={() => workspace.returnToDraft()}>Return to draft</button>
       <button onClick={() => workspace.updateDraftName('Push A')}>Rename draft</button>
       <button onClick={() => workspace.reorderDraftExercise('shoulder-press', 'up')}>Move Shoulder Press up</button>
       <button onClick={() => workspace.replaceDraftFromTemplate({
@@ -86,6 +87,20 @@ afterEach(() => {
 });
 
 describe('WorkoutWorkspaceProvider', () => {
+  it('returns Review to Build while preserving the draft', async () => {
+    render(<ProviderHarness userId="nik" />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Create Push draft' })).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Create Push draft' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add Bench Press' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Review draft' }));
+
+    expect(screen.getByText('review')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Return to draft' }));
+
+    expect(screen.getByText('Draft · Not started')).toBeTruthy();
+    expect(screen.getByText(/bench-press-3x8-12/)).toBeTruthy();
+  });
+
   it('does not call createWorkoutSession when creating or editing a draft', async () => {
     render(<ProviderHarness userId="nik" />);
     await waitFor(() => expect(screen.getByRole('button', { name: 'Create Push draft' })).toBeTruthy());
@@ -188,8 +203,9 @@ describe('WorkoutWorkspaceProvider', () => {
   });
 
   it('keeps the verified completed state visible until the summary is acknowledged', async () => {
+    const storage = new MemoryStorage();
     startLiveSession.mockResolvedValue({ ok: true, sessionId: 'session-1' });
-    render(<ProviderHarness userId="nik" />);
+    const mounted = render(<ProviderHarness userId="nik" storage={storage} />);
     await waitFor(() => expect(screen.getByRole('button', { name: 'Create Push draft' })).toBeTruthy());
     fireEvent.click(screen.getByRole('button', { name: 'Create Push draft' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add Bench Press' }));
@@ -199,8 +215,15 @@ describe('WorkoutWorkspaceProvider', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Complete verified finish' }));
 
     expect(screen.getByText('completed')).toBeTruthy();
+    await waitFor(() => expect(JSON.parse(storage.getItem('trophe:workout-workspace:nik') ?? '{}').stage).toBe('completed'));
+
+    mounted.unmount();
+    render(<ProviderHarness userId="nik" storage={storage} />);
+    expect(await screen.findByText('completed')).toBeTruthy();
+
     fireEvent.click(screen.getByRole('button', { name: 'Acknowledge completed summary' }));
     expect(screen.getByText('home')).toBeTruthy();
+    await waitFor(() => expect(storage.getItem('trophe:workout-workspace:nik')).toBeNull());
   });
 
   it('persists the complete start envelope before send and replays its original date', async () => {

@@ -56,6 +56,12 @@ function credential(role) {
   };
 }
 
+/** Deletes fixture-owned rows whose legacy foreign keys intentionally do not cascade. */
+export async function cleanupUserOwnedRows(service, userId) {
+  const { error } = await service.from('workout_templates').delete().eq('created_by', userId);
+  if (error) throw new Error('local E2E owned rows cleanup failed');
+}
+
 function adminAdapter(service) {
   return {
     async createUser(user) {
@@ -103,6 +109,7 @@ function adminAdapter(service) {
     },
 
     async deleteUser(id) {
+      await cleanupUserOwnedRows(service, id);
       const { error } = await service.auth.admin.deleteUser(id);
       if (error) throw new Error('local E2E user cleanup failed');
       assertAuthUserAbsent(

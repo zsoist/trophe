@@ -85,6 +85,7 @@ export type WorkoutWorkspaceEvent =
   | { type: 'draft.created'; payload: DraftCreatedPayload }
   | { type: 'draft.updated'; payload: { draft: WorkoutDraft } }
   | { type: 'draft.reviewed' }
+  | { type: 'draft.reopened' }
   | { type: 'request.keyed'; payload: { clientRequestId: string } }
   | { type: 'request.prepared'; payload: { startRequest: LiveStartRequestEnvelope } }
   | { type: 'live.started'; payload: { sessionId: string; now: number } }
@@ -138,6 +139,10 @@ export function workoutWorkspaceReducer(
       requireDraft(state);
       if (state.stage !== 'draft') throw new Error(`Cannot review a draft from ${state.stage}`);
       return { ...state, stage: 'review' };
+    case 'draft.reopened':
+      requireDraft(state);
+      if (state.stage !== 'review') throw new Error(`Cannot reopen a draft from ${state.stage}`);
+      return { ...state, stage: 'draft' };
     case 'request.keyed':
       requireDraft(state);
       if (state.stage !== 'draft' && state.stage !== 'review') throw new Error(`Cannot key a request from ${state.stage}`);

@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useI18n } from '@/lib/i18n';
 import { discardEmptyLiveSession, startLiveSession } from '@/lib/workout/live-session';
 import {
   createInitialWorkspaceState,
@@ -24,6 +25,7 @@ import { supersetGroupFor } from '@/lib/workout/supersets';
 import { localToday } from '@/lib/utils/dates';
 
 export interface WorkoutWorkspaceContextValue {
+  ready: boolean;
   state: WorkoutWorkspaceState;
   createDraft(input: { name: string; kind: WorkoutKind; templateKey?: string; templateId?: string | null }): void;
   createDraftFromTemplate(input: WorkoutDraftTemplateInput): void;
@@ -38,6 +40,7 @@ export interface WorkoutWorkspaceContextValue {
   updateDraftExercise(exerciseId: string, patch: Partial<Pick<DraftExercise, 'targetSets' | 'targetReps'>>): void;
   reorderDraftExercise(exerciseId: string, direction: 'up' | 'down'): void;
   goToReview(): void;
+  returnToDraft(): void;
   startLive(): Promise<boolean>;
   pause(now?: number): void;
   resume(now?: number): void;
@@ -143,6 +146,7 @@ function createLiveStartRequest(draft: WorkoutDraft, idempotencyKey: string): Li
 }
 
 export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutWorkspaceProviderProps) {
+  const { t } = useI18n();
   const [state, setState] = useState<WorkoutWorkspaceState>(createInitialWorkspaceState);
   const [ownerId, setOwnerId] = useState<string | null | undefined>(undefined);
   const [loading, setLoading] = useState(true);
@@ -285,6 +289,12 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
       : current);
   }, []);
 
+  const returnToDraft = useCallback(() => {
+    setState((current) => current.stage === 'review'
+      ? workoutWorkspaceReducer(current, { type: 'draft.reopened' })
+      : current);
+  }, []);
+
   const ensureClientRequestId = useCallback((): string | null => {
     if (!ownerId || !state.draft || (state.stage !== 'draft' && state.stage !== 'review')) return state.clientRequestId;
     const existing = clientRequestIdRef.current ?? state.clientRequestId;
@@ -378,7 +388,6 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
   }, []);
 
   const completeFinish = useCallback(() => {
-    skipNextPersistRef.current = true;
     setState((current) => current.stage === 'finishing'
       ? workoutWorkspaceReducer(current, { type: 'live.completed' })
       : current);
@@ -405,6 +414,7 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
   }, [resetWorkspace, state.stage]);
 
   const value = useMemo<WorkoutWorkspaceContextValue>(() => ({
+    ready: !loading && ownerId !== undefined,
     state,
     createDraft,
     createDraftFromTemplate,
@@ -419,6 +429,7 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
     updateDraftExercise,
     reorderDraftExercise,
     goToReview,
+    returnToDraft,
     startLive,
     pause,
     resume,
@@ -428,10 +439,10 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
     discardLive,
     acknowledgeCompleted,
     discardDraft,
-  }), [acknowledgeCompleted, addDraftExercise, cancelFinish, commitLiveStrengthStructure, completeFinish, createDraft, createDraftFromTemplate, discardDraft, discardLive, ensureClientRequestId, goToReview, pause, removeDraftExercise, reorderDraftExercise, replaceDraftFromTemplate, requestFinish, resume, startLive, state, updateCardioDraft, updateDraftExercise, updateDraftName, updateLiveCardioDraft]);
+  }), [acknowledgeCompleted, addDraftExercise, cancelFinish, commitLiveStrengthStructure, completeFinish, createDraft, createDraftFromTemplate, discardDraft, discardLive, ensureClientRequestId, goToReview, loading, ownerId, pause, removeDraftExercise, reorderDraftExercise, replaceDraftFromTemplate, requestFinish, resume, returnToDraft, startLive, state, updateCardioDraft, updateDraftExercise, updateDraftName, updateLiveCardioDraft]);
 
   if (loading || ownerId === undefined) {
-    return <div role="status" aria-label="Loading workout workspace" className="min-h-24 animate-pulse rounded-xl bg-[var(--surface-subtle)]" />;
+    return <div role="status" aria-label={t('workout.loading_workspace')} className="min-h-24 animate-pulse rounded-xl bg-[var(--surface-subtle)]" />;
   }
 
   return <WorkoutWorkspaceContext.Provider value={value}>{children}</WorkoutWorkspaceContext.Provider>;

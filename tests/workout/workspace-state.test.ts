@@ -17,6 +17,22 @@ describe('workout workspace state', () => {
     expect(state.clientRequestId).toBeNull();
   });
 
+  it('returns Review to the editable draft without losing its work', () => {
+    let state = workoutWorkspaceReducer(createInitialWorkspaceState(), {
+      type: 'draft.created', payload: { name: 'Push', kind: 'strength' },
+    });
+    state = workoutWorkspaceReducer(state, { type: 'draft.updated', payload: { draft: {
+      ...state.draft!,
+      exercises: [{ exerciseId: 'bench', targetSets: 4, targetReps: '6-8' }],
+    } as never } });
+    state = workoutWorkspaceReducer(state, { type: 'draft.reviewed' });
+
+    const reopened = workoutWorkspaceReducer(state, { type: 'draft.reopened' });
+
+    expect(reopened.stage).toBe('draft');
+    expect(reopened.draft).toEqual(state.draft);
+  });
+
   it('persists an idempotency key before the live request and carries it into recovery', () => {
     let state = workoutWorkspaceReducer(createInitialWorkspaceState(), {
       type: 'draft.created', payload: { name: 'Push', kind: 'strength' },

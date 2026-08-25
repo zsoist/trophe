@@ -3,7 +3,7 @@
 import React from 'react';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { WORKOUT_ROUTES, workoutRouteForStage } from '@/lib/workout/workspace-routes';
+import { workoutBackRoute, WORKOUT_ROUTES, workoutRouteForStage } from '@/lib/workout/workspace-routes';
 
 let pathname: string = WORKOUT_ROUTES.live;
 const storageValues = new Map<string, string>();
@@ -79,17 +79,27 @@ describe('workout workspace navigation', () => {
     expect(workoutRouteForStage('review')).toBe(WORKOUT_ROUTES.review);
     expect(workoutRouteForStage('live')).toBe(WORKOUT_ROUTES.live);
     expect(workoutRouteForStage('paused')).toBe(WORKOUT_ROUTES.live);
-    expect(workoutRouteForStage('completed')).toBe(WORKOUT_ROUTES.home);
+    expect(workoutRouteForStage('completed')).toBe(WORKOUT_ROUTES.live);
   });
 
-  it('renders a labeled Back action, the title, Workout Home, and live status', () => {
-    pathname = WORKOUT_ROUTES.live;
-    render(<WorkoutWorkspaceHeader stage="live" />);
+  it.each([
+    [WORKOUT_ROUTES.build, 'draft', WORKOUT_ROUTES.home],
+    [WORKOUT_ROUTES.review, 'review', WORKOUT_ROUTES.build],
+    [WORKOUT_ROUTES.exercises, 'draft', WORKOUT_ROUTES.build],
+    [WORKOUT_ROUTES.exercises, 'review', WORKOUT_ROUTES.review],
+    [`${WORKOUT_ROUTES.exercises}/bench`, 'review', WORKOUT_ROUTES.exercises],
+  ] as const)('maps visible Back from %s in %s to its previous workspace stage', (route, stage, expected) => {
+    expect(workoutBackRoute(route, stage)).toBe(expected);
+  });
 
-    expect(screen.getByRole('link', { name: /Back/i }).getAttribute('href')).toBe(WORKOUT_ROUTES.home);
-    expect(screen.getByRole('heading', { name: 'Live Workout' })).toBeTruthy();
+  it('keeps route-aware Back distinct from the explicit Workout Home action', () => {
+    pathname = WORKOUT_ROUTES.review;
+    render(<WorkoutWorkspaceHeader stage="review" />);
+
+    expect(screen.getByRole('link', { name: /^Back$/i }).getAttribute('href')).toBe(WORKOUT_ROUTES.build);
+    expect(screen.getByRole('heading', { name: 'Review Workout' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Workout Home' }).getAttribute('href')).toBe(WORKOUT_ROUTES.home);
-    expect(screen.getByText('Live')).toBeTruthy();
+    expect(screen.getByText('Draft')).toBeTruthy();
   });
 
   it('does not repeat home controls on the workspace landing route', () => {
@@ -148,7 +158,7 @@ describe('workout workspace navigation', () => {
 
     await waitFor(() => expect(screen.getByRole('heading', { name: title })).toBeTruthy());
     const backLink = screen.getByText(back).closest('a');
-    expect(backLink?.getAttribute('href')).toBe(WORKOUT_ROUTES.home);
+    expect(backLink?.getAttribute('href')).toBe(WORKOUT_ROUTES.build);
     expect(backLink?.getAttribute('aria-label')).toBeTruthy();
     if (language !== 'en') expect(backLink?.getAttribute('aria-label')).not.toContain('Workout Home');
     expect(screen.getByRole('link', { name: home })).toBeTruthy();
