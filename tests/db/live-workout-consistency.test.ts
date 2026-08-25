@@ -432,12 +432,17 @@ describe('live workout transactional consistency', () => {
       let settled = false;
       const pendingUndo = undoer.query(`
         SELECT public.delete_live_workout_set($1::uuid, $2::uuid)
-      `, [started.sessionId, started.setId]).finally(() => { settled = true; });
+      `, [started.sessionId, started.setId]).then(
+        (value) => ({ status: 'fulfilled' as const, value }),
+        (error: unknown) => ({ status: 'rejected' as const, error }),
+      ).finally(() => { settled = true; });
       await new Promise((resolve) => setTimeout(resolve, 40));
       expect(settled).toBe(false);
 
       await finisher.query('COMMIT');
-      await expect(pendingUndo).rejects.toMatchObject({ code: '22023' });
+      const undoResult = await pendingUndo;
+      expect(undoResult.status).toBe('rejected');
+      if (undoResult.status === 'rejected') expect(undoResult.error).toMatchObject({ code: '22023' });
       await undoer.query('ROLLBACK');
     } finally {
       await finisher.query('ROLLBACK').catch(() => undefined);

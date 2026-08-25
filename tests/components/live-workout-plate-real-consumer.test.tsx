@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WorkoutWorkspaceState } from '@/lib/workout/workspace-state';
 
 const api = vi.hoisted(() => ({
-  saveLiveWorkoutSetAtomic: vi.fn(), loadWorkoutSessionSets: vi.fn(), loadWorkoutSessionPainFlags: vi.fn(), loadPrMap: vi.fn(), loadWorkoutSessionStructure: vi.fn(),
+  saveLiveWorkoutSetAtomic: vi.fn(), deleteLiveWorkoutSetAtomic: vi.fn(), loadWorkoutSessionSets: vi.fn(), loadWorkoutSessionPainFlags: vi.fn(), loadPrMap: vi.fn(), loadWorkoutSessionStructure: vi.fn(),
 }));
 
 const state: WorkoutWorkspaceState = {
@@ -29,7 +29,7 @@ vi.mock('@/lib/workout/units', async (importOriginal) => {
   return { ...actual, useWeightUnit: () => ['lb', vi.fn()] };
 });
 vi.mock('@/components/workout/workout-persistence', () => ({
-  deleteEmptyWorkoutSession: vi.fn(), deleteWorkoutSet: vi.fn(), appendWorkoutSessionPainFlag: vi.fn(), finishLiveWorkoutSessionAtomic: vi.fn(),
+  deleteEmptyWorkoutSession: vi.fn(), deleteWorkoutSet: vi.fn(), deleteLiveWorkoutSetAtomic: api.deleteLiveWorkoutSetAtomic, appendWorkoutSessionPainFlag: vi.fn(), finishLiveWorkoutSessionAtomic: vi.fn(),
   loadWorkoutSessionSets: api.loadWorkoutSessionSets, loadWorkoutSessionStructure: api.loadWorkoutSessionStructure, resumeLegacyLiveWorkoutStructureAtomic: vi.fn(),
   loadPrMap: api.loadPrMap, loadWorkoutSessionPainFlags: api.loadWorkoutSessionPainFlags, saveRetrospectiveWorkoutAtomic: vi.fn(),
   saveLiveWorkoutSetAtomic: api.saveLiveWorkoutSetAtomic, startWorkoutSessionAtomic: vi.fn(), updateLiveWorkoutStructureAtomic: vi.fn(), updateWorkoutSupersetGroups: vi.fn(), deleteWorkoutSets: vi.fn(),
@@ -52,12 +52,14 @@ async function openCalculatorForRow(index = 0) {
 }
 
 beforeEach(() => {
-  api.saveLiveWorkoutSetAtomic.mockReset(); api.loadWorkoutSessionSets.mockReset(); api.loadWorkoutSessionPainFlags.mockReset(); api.loadPrMap.mockReset(); api.loadWorkoutSessionStructure.mockReset();
+  api.saveLiveWorkoutSetAtomic.mockReset(); api.deleteLiveWorkoutSetAtomic.mockReset(); api.loadWorkoutSessionSets.mockReset(); api.loadWorkoutSessionPainFlags.mockReset(); api.loadPrMap.mockReset(); api.loadWorkoutSessionStructure.mockReset();
   api.loadWorkoutSessionSets.mockResolvedValue({ ok: true, sets: [] });
   api.loadWorkoutSessionPainFlags.mockResolvedValue({ ok: true, flags: [] });
   api.loadPrMap.mockResolvedValue({});
   api.loadWorkoutSessionStructure.mockResolvedValue({ ok: true, version: 0, structure: [{ exercise_id: 'bench', target_sets: 1, target_reps: '8', superset_group: null }] });
   api.saveLiveWorkoutSetAtomic.mockImplementation(async (input: { setNumber: number }) => `set-${input.setNumber}`);
+  api.deleteLiveWorkoutSetAtomic.mockResolvedValue(true);
+  if (state.draft?.kind === 'strength') state.draft.exercises[0].targetSets = 1;
 });
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
@@ -114,6 +116,44 @@ describe('LiveWorkout warm-up real consumer', () => {
     expect(screen.getAllByLabelText('Weight in lb').slice(-2).map((input) => (input as HTMLInputElement).value)).toEqual(['220', '150']);
     expect(screen.getAllByLabelText('Reps').slice(-2).map((input) => (input as HTMLInputElement).value)).toEqual(['8', '6']);
     expect(screen.getAllByText(/Set [1-5]/).map((item) => item.textContent)).toEqual(['Set 1', 'Set 2', 'Set 3', 'Set 4', 'Set 5']);
+  });
+
+  it('materializes a manually completed warm-up without lending its database identity to shifted work rows', async () => {
+    if (state.draft?.kind !== 'strength') throw new Error('strength fixture required');
+    state.draft.exercises[0].targetSets = 2;
+    api.loadWorkoutSessionStructure.mockResolvedValue({ ok: true, version: 0, structure: [{ exercise_id: 'bench', target_sets: 2, target_reps: '8', superset_group: null }] });
+
+    const first = render(<LiveWorkout exercises={[bench]} />);
+    fireEvent.change((await screen.findAllByLabelText('Weight in lb'))[0], { target: { value: '100' } });
+    fireEvent.change(screen.getAllByLabelText('Reps')[0], { target: { value: '10' } });
+    fireEvent.click(screen.getAllByRole('checkbox', { name: 'Warm-up' })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Complete set' })[0]);
+
+    await vi.waitFor(() => expect(screen.getAllByRole('article')).toHaveLength(3));
+    expect(screen.getAllByRole('button', { name: 'Undo set' })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: 'Complete set' })).toHaveLength(2);
+    expect((screen.getAllByLabelText('Weight in lb')[1] as HTMLInputElement).value).toBe('');
+    expect((screen.getAllByLabelText('Reps')[1] as HTMLInputElement).value).toBe('');
+
+    fireEvent.change(screen.getAllByLabelText('Weight in lb')[1], { target: { value: '120' } });
+    fireEvent.change(screen.getAllByLabelText('Reps')[1], { target: { value: '8' } });
+    fireEvent.click(screen.getAllByRole('button', { name: 'Complete set' })[0]);
+    await vi.waitFor(() => expect(api.saveLiveWorkoutSetAtomic).toHaveBeenCalledTimes(2));
+    expect(api.saveLiveWorkoutSetAtomic.mock.calls.map(([input]) => ({ setNumber: input.setNumber, isWarmup: input.isWarmup }))).toEqual([
+      { setNumber: 1, isWarmup: true },
+      { setNumber: 2, isWarmup: false },
+    ]);
+    await vi.waitFor(() => expect(screen.getAllByRole('button', { name: 'Undo set' })).toHaveLength(2));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Undo set' })[1]);
+    await vi.waitFor(() => expect(api.deleteLiveWorkoutSetAtomic).toHaveBeenCalledWith('session-real', 'set-2'));
+
+    first.unmount();
+    api.loadWorkoutSessionSets.mockResolvedValueOnce({ ok: true, sets: [persisted(1, true, 'warmup-1'), persisted(2, false, 'work-2')] });
+    render(<LiveWorkout exercises={[bench]} />);
+    await vi.waitFor(() => expect(screen.getAllByRole('article')).toHaveLength(3));
+    expect(screen.getAllByRole('button', { name: 'Undo set' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Complete set' })).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Finish workout' }).hasAttribute('disabled')).toBe(false);
   });
 
   it('uses real recovery to show only warm-ups one through three and work four', async () => {

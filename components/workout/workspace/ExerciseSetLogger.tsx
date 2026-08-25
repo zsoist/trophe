@@ -66,6 +66,7 @@ export function ExerciseSetLogger({
   const [rpe, setRpe] = useState(initialValue?.rpe == null ? '' : String(initialValue.rpe));
   const [isWarmup, setIsWarmup] = useState(initialValue?.isWarmup ?? false);
   const [setId, setSetId] = useState<string | null>(initialSetId);
+  const [completedSetNumber, setCompletedSetNumber] = useState<number | null>(initialSetId ? setNumber : null);
   const [saving, setSaving] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const recoveredRestStartedAt = initialSetId && initialCompletedAt
@@ -81,6 +82,41 @@ export function ExerciseSetLogger({
   ));
 
   useEffect(() => {
+    const recoveredRest = initialSetId && initialCompletedAt
+      ? Date.parse(initialCompletedAt)
+      : Number.NaN;
+    if (initialSetId) {
+      // Prop-driven row recovery is an external workspace synchronization;
+      // keep the persisted database row authoritative after remount/reorder.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setWeight(initialValue?.weight == null ? '' : String(initialValue.weight));
+      setReps(initialValue?.reps == null ? '' : String(initialValue.reps));
+      setRpe(initialValue?.rpe == null ? '' : String(initialValue.rpe));
+      setIsWarmup(initialValue?.isWarmup ?? false);
+      setSetId(initialSetId);
+      setCompletedSetNumber(setNumber);
+      setRestStartedAt(Number.isFinite(recoveredRest) ? recoveredRest : null);
+      setRestElapsed(Number.isFinite(recoveredRest) ? Math.max(0, Math.floor((Date.now() - recoveredRest) / 1_000)) : 0);
+      return;
+    }
+
+    // A manually saved warm-up is inserted before planned work. React keeps
+    // the planned row key so unsaved typed work survives ordinary prefix
+    // insertion, but a completion accepted for the old number must never move
+    // with that row and lend its database id to the new work set.
+    if (setId && completedSetNumber !== null && completedSetNumber !== setNumber) {
+      setWeight(initialValue?.weight == null ? '' : String(initialValue.weight));
+      setReps(initialValue?.reps == null ? '' : String(initialValue.reps));
+      setRpe(initialValue?.rpe == null ? '' : String(initialValue.rpe));
+      setIsWarmup(initialValue?.isWarmup ?? false);
+      setSetId(null);
+      setCompletedSetNumber(null);
+      setRestStartedAt(null);
+      setRestElapsed(0);
+    }
+  }, [completedSetNumber, initialCompletedAt, initialSetId, initialValue?.isWarmup, initialValue?.reps, initialValue?.rpe, initialValue?.weight, setId, setNumber]);
+
+  useEffect(() => {
     if (!setId || restStartedAt === null) return;
     const timer = window.setInterval(() => setRestElapsed(Math.floor((Date.now() - restStartedAt) / 1000)), 1_000);
     return () => window.clearInterval(timer);
@@ -94,6 +130,7 @@ export function ExerciseSetLogger({
         const removed = onUndo ? await onUndo(setId) : false;
         if (removed) {
           setSetId(null);
+          setCompletedSetNumber(null);
           setRestStartedAt(null);
           setRestElapsed(0);
         }
@@ -107,6 +144,7 @@ export function ExerciseSetLogger({
       });
       if (savedId) {
         setSetId(savedId);
+        setCompletedSetNumber(setNumber);
         setRestStartedAt(Date.now());
       }
     } catch {

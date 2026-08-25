@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import pg from 'pg';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL
@@ -17,6 +19,9 @@ const IDS = {
   concurrentKey: 'a7000000-0000-4000-8000-000000000008',
   retrospectiveCollisionKey: 'a7000000-0000-4000-8000-000000000009',
   laterLiveKey: 'a7000000-0000-4000-8000-000000000010',
+  terminalDeleteStrengthKey: 'a7000000-0000-4000-8000-000000000011',
+  terminalDeleteCardioKey: 'a7000000-0000-4000-8000-000000000012',
+  activeDiscardKey: 'a7000000-0000-4000-8000-000000000013',
 };
 
 let dbAvailable = false;
@@ -77,6 +82,15 @@ async function retrospective(client: pg.PoolClient, key: string, sets: unknown[]
       30::integer, '[]'::jsonb, NULL::text, NULL::real, NULL::real, $3::jsonb
     ) AS id
   `, [key, '2026-08-24', JSON.stringify(sets)]);
+}
+
+async function retrospectiveCardio(client: pg.PoolClient, key: string) {
+  return client.query<{ id: string }>(`
+    SELECT public.save_retrospective_workout(
+      $1::uuid, $2::date, 'cardio'::text, 'Run'::text, NULL::uuid,
+      30::integer, '[]'::jsonb, 'run'::text, 5::real, 7::real, '[]'::jsonb
+    ) AS id
+  `, [key, '2026-08-24']);
 }
 
 beforeAll(async () => {
@@ -150,6 +164,43 @@ describe('workout atomic RPC security and behavior', () => {
     }
   });
 
+  it('replays the terminal delete migration and exposes only the discard RPC', async () => {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const migration = readFileSync(join(process.cwd(), 'drizzle/0081_workout_terminal_delete_guard.sql'), 'utf8');
+      await client.query(migration);
+      await client.query(migration);
+      const catalog = await client.query(`
+        SELECT trigger_row.tgname,
+          (trigger_row.tgtype & 2) = 2 AS before_trigger,
+          (trigger_row.tgtype & 8) = 8 AS delete_trigger,
+          guard.prosecdef AS guard_definer,
+          guard.proconfig AS guard_config,
+          has_function_privilege('authenticated', guard.oid, 'EXECUTE') AS guard_authenticated,
+          has_function_privilege('authenticated', discard_fn.oid, 'EXECUTE') AS discard_authenticated
+        FROM pg_catalog.pg_trigger AS trigger_row
+        JOIN pg_catalog.pg_proc AS guard ON guard.oid = trigger_row.tgfoid
+        JOIN pg_catalog.pg_proc AS discard_fn
+          ON discard_fn.oid = 'public.discard_empty_workout_session(uuid)'::regprocedure
+        WHERE trigger_row.tgrelid = 'public.workout_sessions'::regclass
+          AND trigger_row.tgname = 'workout_sessions_terminal_delete_guard'
+          AND NOT trigger_row.tgisinternal
+      `);
+      expect(catalog.rows).toEqual([{
+        tgname: 'workout_sessions_terminal_delete_guard', before_trigger: true, delete_trigger: true,
+        guard_definer: false, guard_config: ['search_path=""'], guard_authenticated: false,
+        discard_authenticated: true,
+      }]);
+      await client.query('ROLLBACK');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  });
+
   it('retries live start idempotently per user and enforces owned atomic discard', async () => {
     await asUser(IDS.userA, async (client) => {
       const first = await start(client, IDS.liveKey);
@@ -165,6 +216,80 @@ describe('workout atomic RPC security and behavior', () => {
       await switchUser(client, IDS.userA);
       expect((await client.query(`SELECT public.discard_empty_workout_session($1::uuid) AS discarded`, [first.rows[0].id])).rows[0].discarded).toBe(true);
     });
+  });
+
+  it('rejects direct owner deletion of terminal strength and cardio history', async () => {
+    await asUser(IDS.userA, async (client) => {
+      const strength = await retrospective(client, IDS.terminalDeleteStrengthKey, [{
+        exercise_id: IDS.exerciseA, set_number: 1, weight_kg: 60, reps: 8,
+        rpe: 8, is_warmup: false, is_pr: false, superset_group: null,
+      }]);
+      const cardio = await retrospectiveCardio(client, IDS.terminalDeleteCardioKey);
+
+      for (const [label, sessionId] of [['strength', strength.rows[0].id], ['cardio', cardio.rows[0].id]] as const) {
+        await client.query(`SAVEPOINT direct_terminal_${label}`);
+        try {
+          await expect(client.query(`DELETE FROM public.workout_sessions WHERE id = $1`, [sessionId]), label)
+            .rejects.toMatchObject({ code: '22023' });
+        } finally {
+          await client.query(`ROLLBACK TO SAVEPOINT direct_terminal_${label}`);
+        }
+      }
+
+      const retained = await client.query(`
+        SELECT count(*)::integer AS count
+        FROM public.workout_sessions
+        WHERE id = ANY($1::uuid[])
+      `, [[strength.rows[0].id, cardio.rows[0].id]]);
+      expect(retained.rows[0].count).toBe(2);
+    });
+  });
+
+  it('refuses completed cardio discard but still removes an active empty live creation', async () => {
+    await asUser(IDS.userA, async (client) => {
+      const cardio = await retrospectiveCardio(client, IDS.terminalDeleteCardioKey);
+      expect((await client.query(
+        `SELECT public.discard_empty_workout_session($1::uuid) AS discarded`,
+        [cardio.rows[0].id],
+      )).rows[0].discarded).toBe(false);
+
+      const active = await start(client, IDS.activeDiscardKey, 'Empty active');
+      expect((await client.query(
+        `SELECT public.discard_empty_workout_session($1::uuid) AS discarded`,
+        [active.rows[0].id],
+      )).rows[0].discarded).toBe(true);
+    });
+  });
+
+  it('preserves account-erasure cascade semantics for terminal history', async () => {
+    const client = await pool.connect();
+    const userId = 'a7000000-0000-4000-8000-000000000014';
+    const sessionId = 'a7000000-0000-4000-8000-000000000015';
+    try {
+      await client.query('BEGIN');
+      await client.query(`INSERT INTO auth.users (id, email) VALUES ($1, 'workout-cascade@test.local')`, [userId]);
+      await client.query(`
+        INSERT INTO public.profiles (id, full_name, email, role)
+        VALUES ($1, 'Workout Cascade', 'workout-cascade@test.local', 'client')
+      `, [userId]);
+      await client.query(`
+        INSERT INTO public.workout_sessions (
+          id, user_id, session_date, name, duration_minutes, workout_kind, cardio_activity
+        ) VALUES ($1, $2, '2026-08-24', 'Run', 30, 'cardio', 'run')
+      `, [sessionId, userId]);
+
+      await client.query(`DELETE FROM public.profiles WHERE id = $1`, [userId]);
+      expect((await client.query(
+        `SELECT count(*)::integer AS count FROM public.workout_sessions WHERE id = $1`,
+        [sessionId],
+      )).rows[0].count).toBe(0);
+      await client.query('ROLLBACK');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   });
 
   it('coalesces concurrent live starts with the same user request key', async () => {

@@ -285,8 +285,27 @@ test.describe('Workout Workspace V2', () => {
       await page.goto('/dashboard/workout/review');
       await waitForRouteSettled(page, '/dashboard/workout/live');
 
+      const firstLiveExerciseName = (await currentWorkspace(page).locator('article').first().getByRole('heading').textContent())?.trim();
+      expect(firstLiveExerciseName).toBeTruthy();
       await weight.fill('60');
       await reps.fill('8');
+      await currentWorkspace(page).getByRole('checkbox', { name: 'Warmup' }).first().click();
+      await currentWorkspace(page).getByRole('button', { name: 'Complete set' }).first().click();
+      await expect(currentWorkspace(page).getByRole('button', { name: 'Undo set' })).toHaveCount(1);
+      const shiftedWorkWeight = currentWorkspace(page).getByRole('spinbutton', { name: 'Weight in kg' }).nth(1);
+      const shiftedWorkReps = currentWorkspace(page).getByRole('spinbutton', { name: 'Reps' }).nth(1);
+      await expect(shiftedWorkWeight).toHaveValue('');
+      await expect(shiftedWorkReps).toHaveValue('');
+      await shiftedWorkWeight.fill('65');
+      await shiftedWorkReps.fill('8');
+      await currentWorkspace(page).getByRole('button', { name: 'Complete set' }).first().click();
+      await expect(currentWorkspace(page).getByRole('button', { name: 'Undo set' })).toHaveCount(2);
+      await page.reload();
+      await expect(currentWorkspace(page).getByRole('button', { name: 'Undo set' })).toHaveCount(2);
+      const recoveredFirstExerciseRows = currentWorkspace(page).locator('article').filter({ hasText: firstLiveExerciseName! });
+      await expect(recoveredFirstExerciseRows).toHaveCount(5);
+      await expect(recoveredFirstExerciseRows.getByRole('button', { name: 'Complete set' })).toHaveCount(3);
+
       await currentWorkspace(page).getByRole('button', { name: 'More exercise options' }).first().click();
       await currentWorkspace(page).getByRole('button', { name: 'Report pain' }).first().click();
       await expect(page.getByRole('dialog', { name: 'Report pain' })).toBeVisible();
@@ -297,8 +316,7 @@ test.describe('Workout Workspace V2', () => {
       await expect(page.getByRole('dialog', { name: 'Plate calculator' })).toBeVisible();
       await captureWorkout(page, testInfo, `${theme}-evidence-10-plate.png`);
       await page.getByRole('button', { name: 'Cancel' }).click();
-      await currentWorkspace(page).getByRole('button', { name: 'Complete set' }).first().click();
-      await expect(currentWorkspace(page).getByRole('button', { name: 'Undo set' }).first()).toBeVisible();
+      await expect(currentWorkspace(page).getByRole('button', { name: 'Undo set' })).toHaveCount(2);
 
       await currentWorkspace(page).getByRole('button', { name: 'Pause' }).click();
       await expect(page.getByText('Paused')).toBeVisible();
@@ -396,6 +414,7 @@ test.describe('Workout Workspace V2', () => {
     await page.reload();
     await expect(page.getByRole('heading', { name: 'Workout complete' })).toBeVisible();
     await expect(page.getByText('Workout recovery could not be verified.')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Discard empty workout' })).toHaveCount(0);
 
     await page.getByRole('link', { name: 'History' }).click();
     await waitForRouteSettled(page, '/dashboard/workout/history');
