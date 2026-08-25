@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import ExerciseInfoSheet from '@/components/workout/ExerciseInfoSheet';
 import PainFlagModal from '@/components/workout/PainFlagModal';
 import PlateCalculator from '@/components/workout/PlateCalculator';
+import { ConfirmSheet } from '@/components/ui';
 import type { CompletedSetInput } from '@/components/workout/workout-persistence';
 import { ExerciseSetLogger, type SetLoggerValue } from '@/components/workout/workspace/ExerciseSetLogger';
 import { LiveCardio, type CardioLogValues } from '@/components/workout/workspace/LiveCardio';
@@ -110,13 +111,14 @@ export function RetrospectiveWorkoutLogger({ userId, draft, exercises, onSaveReq
     }];
   }).sort((a, b) => a.exercise_id.localeCompare(b.exercise_id) || a.set_number - b.set_number);
 
-  const saveStrength = async () => {
-    if (saving || resolvedSets.length === 0) return;
+  const saveStrength = async (): Promise<boolean> => {
+    if (saving || resolvedSets.length === 0) return false;
     setSaving(true);
     setSaveError(false);
     const saved = await onSaveRequest({ draft, sets: resolvedSets, durationMinutes, painFlags });
     setSaving(false);
     if (!saved) setSaveError(true);
+    return saved;
   };
 
   return (
@@ -155,17 +157,17 @@ export function RetrospectiveWorkoutLogger({ userId, draft, exercises, onSaveReq
       <button type="button" disabled={saving || resolvedSets.length === 0} onClick={() => setConfirming(true)} className="btn-gold min-h-12 w-full rounded-xl disabled:opacity-50">{t('workout.save_completed')}</button>
       <button type="button" disabled={saving} onClick={onCancel} className="btn-ghost min-h-11 w-full rounded-xl">{t('workout.cancel')}</button>
 
-      {confirming ? (
-        <div role="dialog" aria-modal="true" aria-label={t('workout.save_completed_question')} className="fixed inset-0 z-[var(--z-modal,60)] flex items-end justify-center bg-[var(--surface-overlay)] px-4 sm:items-center" onClick={() => setConfirming(false)}>
-          <div className="glass-elevated safe-bottom w-full max-w-sm rounded-t-3xl p-5 sm:rounded-3xl" onClick={(event) => event.stopPropagation()}>
-            <h3 className="text-lg font-bold text-[var(--content-primary)]">{t('workout.save_completed_question')}</h3>
-            <div className="mt-5 space-y-3">
-              <button type="button" disabled={saving} onClick={() => void saveStrength()} className="btn-gold min-h-12 w-full rounded-xl disabled:opacity-50">{saving ? t('workout.saving') : t('workout.save_workout')}</button>
-              <button type="button" disabled={saving} onClick={() => setConfirming(false)} className="btn-ghost min-h-12 w-full rounded-xl">{t('workout.keep_editing')}</button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <ConfirmSheet
+        open={confirming}
+        title={t('workout.save_completed_question')}
+        confirmLabel={t('workout.save_workout')}
+        cancelLabel={t('workout.keep_editing')}
+        loading={saving}
+        onCancel={() => setConfirming(false)}
+        onConfirm={async () => {
+          if (await saveStrength()) setConfirming(false);
+        }}
+      />
 
       {painExerciseId ? <PainFlagModal exerciseId={painExerciseId} exerciseName={exerciseById.get(painExerciseId)?.name ?? draft.exercises.find((exercise) => exercise.exerciseId === painExerciseId)?.exerciseName ?? t('painflag.current_exercise')} suggestedBodyPart={exerciseById.get(painExerciseId)?.muscle_group ?? ''} onSave={(flag) => setPainFlags((current) => [...current, flag])} onClose={() => setPainExerciseId(null)} /> : null}
       {infoExercise ? <ExerciseInfoSheet exercise={infoExercise} userId={userId} onClose={() => setInfoExercise(null)} /> : null}

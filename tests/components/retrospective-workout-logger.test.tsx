@@ -15,10 +15,10 @@ vi.mock('@/lib/workout/units', async (importOriginal) => {
 });
 vi.mock('@/components/workout/PainFlagModal', () => ({ default: () => null }));
 vi.mock('@/components/workout/ExerciseInfoSheet', () => ({ default: () => null }));
-vi.mock('framer-motion', () => ({ motion: { div: ({ children, initial: _initial, animate: _animate, exit: _exit, transition: _transition, ...props }: React.HTMLAttributes<HTMLDivElement> & { initial?: unknown; animate?: unknown; exit?: unknown; transition?: unknown }) => {
+vi.mock('framer-motion', () => ({ AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>, useReducedMotion: () => true, motion: { div: ({ children, initial: _initial, animate: _animate, exit: _exit, transition: _transition, ...props }: React.HTMLAttributes<HTMLDivElement> & { initial?: unknown; animate?: unknown; exit?: unknown; transition?: unknown }) => {
   void _initial; void _animate; void _exit; void _transition;
   return <div {...props}>{children}</div>;
-} }, useReducedMotion: () => true }));
+} } }));
 vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ t: (key: string, values?: { n?: number; unit?: string }) => ({
   'workout.cardio_run': 'Run', 'workout.duration_minutes': 'Duration in minutes', 'workout.distance_optional': 'Distance optional',
   'workout.effort': 'Effort', 'workout.log_completed': 'Log completed workout',
@@ -48,10 +48,27 @@ describe('RetrospectiveWorkoutLogger', () => {
   it('does not create retrospective cardio until the final save confirmation', async () => {
     render(<RetrospectiveWorkoutLogger userId="nik" draft={cardio} exercises={[]} onSaveRequest={saveRequest} onCancel={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: 'Log completed workout' }));
-    expect(screen.getByRole('dialog', { name: 'Save completed workout?' })).toBeTruthy();
+    expect(screen.getByRole('alertdialog', { name: 'Save completed workout?' })).toBeTruthy();
     expect(saveRequest).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Save workout' }));
     await vi.waitFor(() => expect(saveRequest).toHaveBeenCalledTimes(1));
+  });
+
+  it('uses the shared accessible strength confirmation with trapped focus', async () => {
+    render(<RetrospectiveWorkoutLogger userId="nik" draft={strength} exercises={[bench]} onSaveRequest={saveRequest} onCancel={vi.fn()} />);
+    fireEvent.change(await screen.findByLabelText('Weight in kg'), { target: { value: '60' } });
+    fireEvent.change(screen.getByLabelText('Reps'), { target: { value: '8' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Complete set' }));
+    const trigger = await screen.findByRole('button', { name: 'Save completed workout' });
+    trigger.focus();
+    fireEvent.click(trigger);
+    const dialog = screen.getByRole('alertdialog', { name: 'Save completed workout?' });
+    await vi.waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
+    fireEvent.keyDown(dialog, { key: 'Tab' });
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
   });
 
   it('collects strength sets locally and creates one durable session only after confirmation', async () => {

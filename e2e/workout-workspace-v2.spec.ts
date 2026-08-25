@@ -331,9 +331,24 @@ test.describe('Workout Workspace V2', () => {
       await expect(page.getByRole('button', { name: 'Build strength workout' })).toHaveCount(0);
       await page.getByRole('button', { name: 'View workout summary' }).click();
       await waitForRouteSettled(page, '/dashboard/workout/live');
-      await page.getByRole('button', { name: 'Done' }).click();
-      await waitForWorkoutHomeSettled(page);
-      await expect(page.getByRole('button', { name: 'Build strength workout' })).toBeEnabled();
+      if (theme === 'light') {
+        await page.getByRole('link', { name: 'History' }).click();
+        await waitForRouteSettled(page, '/dashboard/workout/history');
+        const completedCard = page.locator('[data-history-card]').filter({ hasText: routineName }).first();
+        await expect(completedCard).toBeVisible();
+        await completedCard.getByRole('button').first().click();
+        await completedCard.getByRole('button', { name: 'Repeat' }).click();
+        await waitForRouteSettled(page, '/dashboard/workout/build');
+        await expect(currentWorkspace(page).getByRole('textbox', { name: 'Workout name' })).toHaveValue(routineName);
+        await currentWorkspace(page).getByRole('button', { name: 'Review workout' }).click();
+        await waitForRouteSettled(page, '/dashboard/workout/review');
+        await expect(currentWorkspace(page).getByText(routineName, { exact: true })).toBeVisible();
+        await expect(currentWorkspace(page).getByRole('button', { name: 'Start live workout' })).toBeEnabled();
+      } else {
+        await page.getByRole('button', { name: 'Done' }).click();
+        await waitForWorkoutHomeSettled(page);
+        await expect(page.getByRole('button', { name: 'Build strength workout' })).toBeEnabled();
+      }
       assertNoPaidRequests();
     });
   }
@@ -368,7 +383,7 @@ test.describe('Workout Workspace V2', () => {
       await route.abort('failed');
     });
     await currentWorkspace(page).getByRole('button', { name: 'Log completed workout' }).click();
-    await page.getByRole('dialog', { name: 'Save completed workout?' }).getByRole('button', { name: 'Save workout' }).click();
+    await page.getByRole('alertdialog', { name: 'Save completed workout?' }).getByRole('button', { name: 'Save workout' }).click();
     await expect.poll(() => committedResponseLost).toBe(true);
     await expect(page.getByRole('heading', { name: 'Completed workout awaiting confirmation' })).toBeVisible();
 
@@ -440,6 +455,10 @@ test.describe('Workout Workspace V2', () => {
             await expect(page.getByRole('heading', { name: title, exact: true })).toHaveCount(1);
             await assertCanonicalWorkoutChrome(page, title);
             await assertWorkoutSurface(page, theme);
+            if (route === '/dashboard/workout/form-check' && viewport.width === 390) {
+              await expect(page.getByText('Analyze your movement in real time. Choose an exercise, stand side-on, and record your repetitions to compare your angles with the reference.')).toBeVisible();
+              await expect(page.getByText('Analiza tu movimiento', { exact: false })).toHaveCount(0);
+            }
             if (route === '/dashboard/workout/history' && viewport.width === 320) {
               const historyCard = page.locator('[data-history-card]').first();
               await expect(historyCard).toBeVisible();

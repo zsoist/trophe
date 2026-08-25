@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Pause, Play, Square } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
+import { ConfirmSheet } from '@/components/ui';
 import type { CardioDraft } from '@/lib/workout/workspace-state';
 
 export interface CardioLogValues {
@@ -84,17 +85,19 @@ export function LiveCardio({ draft, mode, paused = false, elapsedMs = 0, saving 
         <button type="button" disabled={saving} onClick={() => { if (validate(values())) setConfirming(true); }} className="btn-gold min-h-12 w-full rounded-xl disabled:opacity-50">{t('workout.log_completed')}</button>
       )}
 
-      {confirming ? (
-        <div role="dialog" aria-modal="true" aria-label={t('workout.save_completed_question')} className="fixed inset-0 z-[var(--z-modal,60)] flex items-end justify-center bg-[var(--surface-overlay)] px-4 sm:items-center" onClick={() => setConfirming(false)}>
-          <div className="glass-elevated safe-bottom w-full max-w-sm rounded-t-3xl p-5 sm:rounded-3xl" onClick={(event) => event.stopPropagation()}>
-            <h3 className="text-lg font-bold text-[var(--content-primary)]">{t('workout.save_completed_question')}</h3>
-            <div className="mt-5 space-y-3">
-              <button type="button" disabled={saving} onClick={() => { const candidate = values(); if (validate(candidate)) void onSaveRetrospective?.(candidate); }} className="btn-gold min-h-12 w-full rounded-xl disabled:opacity-50">{saving ? t('workout.saving') : t('workout.save_workout')}</button>
-              <button type="button" disabled={saving} onClick={() => setConfirming(false)} className="btn-ghost min-h-12 w-full rounded-xl">{t('workout.keep_editing')}</button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <ConfirmSheet
+        open={confirming}
+        title={t('workout.save_completed_question')}
+        confirmLabel={t('workout.save_workout')}
+        cancelLabel={t('workout.keep_editing')}
+        loading={saving}
+        onCancel={() => setConfirming(false)}
+        onConfirm={async () => {
+          const candidate = values();
+          if (!validate(candidate)) return;
+          await onSaveRetrospective?.(candidate);
+        }}
+      />
     </section>
   );
 }

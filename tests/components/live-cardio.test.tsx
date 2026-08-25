@@ -46,11 +46,24 @@ describe('LiveCardio', () => {
     const onSave = vi.fn();
     render(<LiveCardio draft={runDraft} mode="retrospective" onSaveRetrospective={onSave} />);
     fireEvent.click(screen.getByRole('button', { name: 'Log completed workout' }));
-    expect(screen.getByRole('dialog', { name: 'Save completed workout?' })).toBeTruthy();
+    expect(screen.getByRole('alertdialog', { name: 'Save completed workout?' })).toBeTruthy();
     expect(onSave).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Save workout' }));
     expect(onSave).toHaveBeenCalledTimes(1);
     expect(onSave).toHaveBeenCalledWith({ durationMinutes: 30, distanceKm: 5, effort: 7 });
+  });
+
+  it('uses the shared accessible confirmation and restores focus after Escape', async () => {
+    render(<LiveCardio draft={runDraft} mode="retrospective" onSaveRetrospective={vi.fn()} />);
+    const trigger = screen.getByRole('button', { name: 'Log completed workout' });
+    trigger.focus();
+    fireEvent.click(trigger);
+    const dialog = screen.getByRole('alertdialog', { name: 'Save completed workout?' });
+    expect(dialog).toBeTruthy();
+    await vi.waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+    await vi.waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    await vi.waitFor(() => expect(document.activeElement).toBe(trigger));
   });
 
   it('retains invalid cardio input and shows feedback before a live finish', () => {

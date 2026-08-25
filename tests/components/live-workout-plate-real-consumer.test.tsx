@@ -79,6 +79,9 @@ describe('LiveWorkout warm-up real consumer', () => {
     fireEvent.change(screen.getByLabelText('Reps'), { target: { value: '8' } });
     fireEvent.click(screen.getByRole('button', { name: 'Complete set' }));
     await vi.waitFor(() => expect(api.saveLiveWorkoutSetAtomic).toHaveBeenCalledTimes(1));
+    // The transport invocation precedes the component's mutation-barrier
+    // release; wait for the accepted-set UI before opening another control.
+    await screen.findByRole('button', { name: 'Undo set' });
     await openCalculatorForRow();
     fireEvent.click(screen.getByRole('button', { name: 'Add warm-up sets' }));
     expect((await screen.findByRole('alert')).textContent).toBe('Warm-up sets could not be added. Retry.');

@@ -90,7 +90,7 @@ describe('accessible UI primitive contract', () => {
     expect(sheetSource).toContain('aria-labelledby');
     expect(sheetSource).toContain('aria-describedby');
     expect(sheetSource).toContain("event.key === 'Escape'");
-    expect(sheetSource).toContain('dialogRef.current?.focus()');
+    expect(sheetSource).toContain('getFocusableElements(dialog)[0]');
     expect(sheetSource).toContain('activeElement?.focus()');
   });
 
@@ -222,13 +222,11 @@ describe('accessible UI primitive contract', () => {
       }),
     ));
 
-    const dialog = screen.getByRole('alertdialog');
+    expect(screen.getByRole('alertdialog')).toBeTruthy();
     const cancel = screen.getByRole('button', { name: 'Cancel' });
     const confirm = screen.getByRole('button', { name: 'Confirm' });
-    expect(document.activeElement).toBe(dialog);
-
-    fireEvent.keyDown(dialog, { key: 'Tab' });
     expect(document.activeElement).toBe(cancel);
+
     fireEvent.keyDown(cancel, { key: 'Tab', shiftKey: true });
     expect(document.activeElement).toBe(confirm);
     fireEvent.keyDown(confirm, { key: 'Tab' });

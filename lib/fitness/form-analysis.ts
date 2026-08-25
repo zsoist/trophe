@@ -56,6 +56,19 @@ export interface FormAnalysisResult {
   repScores: RepScore[];
 }
 
+/** Maps stable scoring labels to localized presentation keys. */
+export function formAssessmentKey(label: string): string {
+  const keys: Record<string, string> = {
+    'buen ejercicio': 'formCheck.assessment.excellent',
+    'aun se puede mejorar': 'formCheck.assessment.improve',
+    'es necesario ajustar': 'formCheck.assessment.adjust',
+    'realizar ajustes profundos': 'formCheck.assessment.deep_adjust',
+    'riesgo de lesion': 'formCheck.assessment.injury_risk',
+    'sin repeticiones detectadas': 'formCheck.assessment.no_reps',
+  };
+  return keys[label] ?? 'formCheck.assessment.adjust';
+}
+
 // ═══════════════════════════════════════════════
 // CONSTANTS (matching gym_input.py)
 // ═══════════════════════════════════════════════

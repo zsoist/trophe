@@ -121,7 +121,13 @@ export function ConfirmSheet({
 
     const activeElement = document.activeElement;
     returnFocusRef.current = activeElement instanceof HTMLElement ? activeElement : null;
-    const animationFrame = window.requestAnimationFrame(() => dialogRef.current?.focus());
+    const animationFrame = window.requestAnimationFrame(() => {
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+      // Safe initial focus: cancellation is first for destructive or durable
+      // confirmations, while the dialog remains the fallback.
+      (getFocusableElements(dialog)[0] ?? dialog).focus();
+    });
 
     return () => {
       window.cancelAnimationFrame(animationFrame);
