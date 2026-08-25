@@ -121,18 +121,19 @@ function SessionCard({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className="glass overflow-hidden"
+      data-history-card
     >
       {/* Card header */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full p-4 flex items-start gap-3 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+        className="grid w-full grid-cols-[2.5rem_minmax(0,1fr)] items-start gap-x-3 gap-y-2 p-4 text-left min-h-11 min-w-11 min-[375px]:grid-cols-[2.5rem_minmax(0,1fr)_auto] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
       >
         <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
           style={{ background: 'color-mix(in srgb, var(--action-primary) 10%, transparent)' }}>
           <Dumbbell size={18} className="gold-text" />
         </div>
 
-        <div className="flex-1 text-left min-w-0">
+        <div className="min-w-0" data-history-primary>
           <div className="flex items-center gap-2">
             <p className="text-sm font-semibold text-[var(--content-primary)] truncate">
               {session.name || t('workout.title')}
@@ -144,7 +145,7 @@ function SessionCard({
               </span>
             )}
           </div>
-          <div className="flex items-center gap-3 mt-0.5 text-xs text-[var(--content-muted)]">
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--content-muted)]">
             <span className="flex items-center gap-1">
               <Calendar size={10} />
               {formatDate(session.session_date)}
@@ -161,8 +162,8 @@ function SessionCard({
           </div>
         </div>
 
-        <div className="text-right shrink-0">
-          <p className="text-sm font-semibold gold-text">
+        <div className="col-start-2 flex min-w-0 items-center justify-between gap-2 text-xs min-[375px]:col-start-3 min-[375px]:row-start-1 min-[375px]:block min-[375px]:shrink-0 min-[375px]:text-right" data-history-summary>
+          <p className="shrink-0 text-sm font-semibold gold-text">
             {isCardio
               ? session.cardio_distance_km !== null && session.cardio_distance_km !== undefined
                 ? `${session.cardio_distance_km} km`
@@ -171,8 +172,8 @@ function SessionCard({
                   : '—'
               : totalVolume > 1000 ? `${(totalVolume / 1000).toFixed(1)}k` : totalVolume}
           </p>
-          <p className="text-xs text-[var(--content-muted)]">{isCardio ? t('workout.cardio_summary') : t('workout.volume_kg')}</p>
-          {expanded ? <ChevronUp size={14} className="text-[var(--content-muted)] mt-1" /> : <ChevronDown size={14} className="text-[var(--content-muted)] mt-1" />}
+          <p className="min-w-0 truncate text-[var(--content-muted)]">{isCardio ? t('workout.cardio_summary') : t('workout.volume_kg')}</p>
+          {expanded ? <ChevronUp size={14} className="shrink-0 text-[var(--content-muted)] min-[375px]:mt-1" /> : <ChevronDown size={14} className="shrink-0 text-[var(--content-muted)] min-[375px]:mt-1" />}
         </div>
       </button>
 

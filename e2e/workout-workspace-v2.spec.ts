@@ -440,6 +440,23 @@ test.describe('Workout Workspace V2', () => {
             await expect(page.getByRole('heading', { name: title, exact: true })).toHaveCount(1);
             await assertCanonicalWorkoutChrome(page, title);
             await assertWorkoutSurface(page, theme);
+            if (route === '/dashboard/workout/history' && viewport.width === 320) {
+              const historyCard = page.locator('[data-history-card]').first();
+              await expect(historyCard).toBeVisible();
+              const geometry = await historyCard.evaluate((card) => {
+                const primary = card.querySelector('[data-history-primary]')?.getBoundingClientRect();
+                const summary = card.querySelector('[data-history-summary]')?.getBoundingClientRect();
+                return primary && summary ? {
+                  primaryBottom: primary.bottom,
+                  summaryTop: summary.top,
+                  cardRight: card.getBoundingClientRect().right,
+                  summaryRight: summary.right,
+                } : null;
+              });
+              expect(geometry).not.toBeNull();
+              expect(geometry!.summaryTop).toBeGreaterThanOrEqual(geometry!.primaryBottom);
+              expect(geometry!.summaryRight).toBeLessThanOrEqual(geometry!.cardRight);
+            }
             await captureWorkout(page, testInfo, `${theme}-${viewport.width}x${viewport.height}-${slug}.png`, { atTop: true });
           }
         }
