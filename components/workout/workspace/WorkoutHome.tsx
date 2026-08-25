@@ -9,7 +9,7 @@ import { muscleLabelKey, WORKOUT_SPLITS } from '@/components/workout/muscle-grou
 import { useWorkoutWorkspace, type WorkoutDraftTemplateInput } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
 import { useI18n } from '@/lib/i18n';
 import type { Exercise, MuscleGroup, WorkoutSession } from '@/lib/types';
-import { WORKOUT_ROUTES } from '@/lib/workout/workspace-routes';
+import { pushWorkoutRoute, WORKOUT_ROUTES } from '@/lib/workout/workspace-routes';
 
 export interface WorkoutHomeTemplate extends WorkoutDraftTemplateInput {
   muscleSummary: MuscleGroup[];
@@ -73,12 +73,12 @@ export function WorkoutHome({
 
   const buildStrength = () => {
     workspace.createDraft({ name: t('workout.strength'), kind: 'strength' });
-    router.push(WORKOUT_ROUTES.build);
+    pushWorkoutRoute(router, WORKOUT_ROUTES.build);
   };
 
   const buildCardio = () => {
     workspace.createDraft({ name: t('workout.cardio'), kind: 'cardio' });
-    router.push(WORKOUT_ROUTES.build);
+    pushWorkoutRoute(router, WORKOUT_ROUTES.build);
   };
 
   const previewSplit = (key: string) => {
@@ -89,13 +89,13 @@ export function WorkoutHome({
   const confirmTemplate = (template: WorkoutHomeTemplate) => {
     workspace.createDraftFromTemplate(template);
     setPreview(null);
-    router.push(WORKOUT_ROUTES.build);
+    pushWorkoutRoute(router, WORKOUT_ROUTES.build);
   };
 
   const reviewProgram = (template: WorkoutHomeTemplate) => {
     workspace.createDraftFromTemplate(template);
     workspace.goToReview();
-    router.push(WORKOUT_ROUTES.review);
+    pushWorkoutRoute(router, WORKOUT_ROUTES.review);
   };
 
   return (

@@ -28,6 +28,20 @@ async function waitForRouteSettled(page: Page, pathname: string) {
   await expect(page.locator('.client-shell__content')).toHaveCount(1);
 }
 
+async function waitForWorkoutBuildAtTop(page: Page) {
+  await waitForRouteSettled(page, '/dashboard/workout/build');
+  const heading = page.getByRole('heading', { name: 'Build Workout' });
+  const back = page.getByRole('link', { name: 'Back to Workout Home' });
+  const home = page.getByRole('link', { name: 'Workout Home', exact: true });
+  await expect(heading).toBeVisible();
+  await expect(back).toBeVisible();
+  await expect(home).toBeVisible();
+  await expect(heading).toBeInViewport();
+  await expect(back).toBeInViewport();
+  await expect(home).toBeInViewport();
+  await expect.poll(() => page.evaluate(() => window.scrollY), { message: 'explicit workout navigation must land at the top' }).toBe(0);
+}
+
 async function waitForWorkoutHomeSettled(page: Page) {
   await waitForRouteSettled(page, '/dashboard/workout');
   await expect(page.getByRole('button', { name: 'Preview Push' })).toBeEnabled();
@@ -63,8 +77,16 @@ test.describe('Workout Workspace V2', () => {
       await waitForWorkoutHomeSettled(page);
       await page.getByRole('button', { name: 'Preview Push' }).click();
       await page.getByRole('button', { name: 'Use this template' }).click();
-      await waitForRouteSettled(page, '/dashboard/workout/build');
+      await waitForWorkoutBuildAtTop(page);
       await expect(currentWorkspace(page).getByText('Draft · Not started')).toBeVisible();
+      await expect(page.getByLabel('Workout status: Draft')).toBeVisible();
+      await page.getByRole('link', { name: 'Workout Home', exact: true }).click();
+      await waitForWorkoutHomeSettled(page);
+      await expect(page.getByLabel('Workout status: Draft')).toHaveCount(0);
+      await page.goBack();
+      await waitForRouteSettled(page, '/dashboard/workout/build');
+      await expect(page.getByLabel('Workout status: Draft')).toBeVisible();
+      await expect(currentWorkspace(page).getByRole('textbox', { name: 'Workout name' })).toHaveValue('Push');
       await currentWorkspace(page).getByRole('button', { name: 'Review workout' }).click();
       await waitForRouteSettled(page, '/dashboard/workout/review');
       await currentWorkspace(page).getByRole('button', { name: 'Start live workout' }).click();
@@ -92,8 +114,11 @@ test.describe('Workout Workspace V2', () => {
         await captureWorkout(page, testInfo, `${theme}-${viewport.width}x${viewport.height}.png`);
         if (viewport.width === 320) {
           await page.getByRole('button', { name: 'Preview Push' }).click();
-          await page.getByRole('button', { name: 'Use this template' }).click();
-          await waitForRouteSettled(page, '/dashboard/workout/build');
+          const useTemplate = page.getByRole('button', { name: 'Use this template' });
+          await useTemplate.scrollIntoViewIfNeeded();
+          await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+          await useTemplate.click();
+          await waitForWorkoutBuildAtTop(page);
           await expect(currentWorkspace(page).getByText('Draft · Not started')).toBeVisible();
           await assertWorkoutSurface(page, theme);
           await captureWorkout(page, testInfo, `${theme}-${viewport.width}x${viewport.height}-build.png`);

@@ -7,7 +7,7 @@ import { useWorkoutWorkspace } from '@/components/workout/workspace/WorkoutWorks
 import type { WorkoutExerciseOption } from '@/components/workout/workspace/WorkoutBuilder';
 import { useI18n } from '@/lib/i18n';
 import type { WorkoutDraft } from '@/lib/workout/workspace-state';
-import { WORKOUT_ROUTES } from '@/lib/workout/workspace-routes';
+import { pushWorkoutRoute, WORKOUT_ROUTES } from '@/lib/workout/workspace-routes';
 
 interface WorkoutReviewProps {
   exercises: WorkoutExerciseOption[];
@@ -25,13 +25,13 @@ export function WorkoutReview({ exercises, onSavePlan, onLogCompleted }: Workout
   const mainRef = useRef<HTMLElement>(null);
   const names = new Map(exercises.map((exercise) => [exercise.id, exercise.name]));
 
-  useEffect(() => { mainRef.current?.focus(); }, []);
+  useEffect(() => { mainRef.current?.focus({ preventScroll: true }); }, []);
 
   if (!draft) {
     return (
       <main ref={mainRef} tabIndex={-1} aria-label={t('workout.workspace_review_title')} className="mx-auto max-w-2xl px-4 py-8 text-center focus:outline-none">
         <p className="text-[var(--content-secondary)]">{t('workout.no_draft')}</p>
-        <button type="button" className="btn-gold mt-4 min-h-11 rounded-xl px-4" onClick={() => router.push(WORKOUT_ROUTES.home)}>{t('workout.back_home')}</button>
+        <button type="button" className="btn-gold mt-4 min-h-11 rounded-xl px-4" onClick={() => pushWorkoutRoute(router, WORKOUT_ROUTES.home)}>{t('workout.back_home')}</button>
       </main>
     );
   }
@@ -52,7 +52,7 @@ export function WorkoutReview({ exercises, onSavePlan, onLogCompleted }: Workout
     } finally {
       setStarting(false);
     }
-    if (started) router.push(WORKOUT_ROUTES.live);
+    if (started) pushWorkoutRoute(router, WORKOUT_ROUTES.live);
   };
 
   return (

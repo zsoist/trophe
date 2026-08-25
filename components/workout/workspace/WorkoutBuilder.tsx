@@ -6,7 +6,7 @@ import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
 import { useWorkoutWorkspace } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
 import { useI18n } from '@/lib/i18n';
 import type { WorkoutDraft } from '@/lib/workout/workspace-state';
-import { WORKOUT_ROUTES } from '@/lib/workout/workspace-routes';
+import { pushWorkoutRoute, WORKOUT_ROUTES } from '@/lib/workout/workspace-routes';
 
 export interface WorkoutExerciseOption {
   id: string;
@@ -28,13 +28,13 @@ export function WorkoutBuilder({ exercises, onSavePlan }: WorkoutBuilderProps) {
   const mainRef = useRef<HTMLElement>(null);
   const names = new Map(exercises.map((exercise) => [exercise.id, exercise.name]));
 
-  useEffect(() => { mainRef.current?.focus(); }, []);
+  useEffect(() => { mainRef.current?.focus({ preventScroll: true }); }, []);
 
   if (!draft) {
     return (
       <main ref={mainRef} tabIndex={-1} aria-label={t('workout.workspace_build_title')} className="mx-auto max-w-2xl px-4 py-8 text-center focus:outline-none">
         <p className="text-[var(--content-secondary)]">{t('workout.no_draft')}</p>
-        <button type="button" className="btn-gold mt-4 min-h-11 rounded-xl px-4" onClick={() => router.push(WORKOUT_ROUTES.home)}>{t('workout.back_home')}</button>
+        <button type="button" className="btn-gold mt-4 min-h-11 rounded-xl px-4" onClick={() => pushWorkoutRoute(router, WORKOUT_ROUTES.home)}>{t('workout.back_home')}</button>
       </main>
     );
   }
@@ -45,7 +45,7 @@ export function WorkoutBuilder({ exercises, onSavePlan }: WorkoutBuilderProps) {
   const review = () => {
     if (!canReview) return;
     workspace.goToReview();
-    router.push(WORKOUT_ROUTES.review);
+    pushWorkoutRoute(router, WORKOUT_ROUTES.review);
   };
 
   return (
@@ -89,7 +89,7 @@ export function WorkoutBuilder({ exercises, onSavePlan }: WorkoutBuilderProps) {
             );
           })}
 
-          <button type="button" onClick={() => router.push(WORKOUT_ROUTES.exercises)} className="btn-ghost inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl"><Plus size={17} aria-hidden="true" />{t('workout.add_exercise')}</button>
+          <button type="button" onClick={() => pushWorkoutRoute(router, WORKOUT_ROUTES.exercises)} className="btn-ghost inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl"><Plus size={17} aria-hidden="true" />{t('workout.add_exercise')}</button>
         </section>
       ) : (
         <section className="grid grid-cols-1 gap-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4 sm:grid-cols-2">

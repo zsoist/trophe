@@ -95,7 +95,7 @@ export default function PlateCalculator({ weightKg, unit, onClose = noop, exerci
         <label className="mt-3 block text-xs font-semibold text-[var(--content-secondary)]">{t('workout.plate_inventory_label')}<input disabled={addingWarmups} aria-label={t('workout.plate_inventory_label')} value={inventoryText} onChange={(event) => setInventoryText(event.target.value)} className="input-dark mt-1 min-h-11 w-full font-mono text-base tabular-nums disabled:opacity-50" /></label>
         <p className="mt-1 text-xs text-[var(--content-muted)]">{t('workout.plate_inventory_help')}</p>
         <div className="mt-4 rounded-xl border border-[var(--border-subtle)] p-3">
-          <p className="text-center text-sm font-semibold text-[var(--content-primary)]">{impossible ? t('workout.plate_impossible') : load.exact ? t('workout.plate_exact') : t('workout.plate_nearest')}{!impossible ? ` · ${load.achievedTotal} ${unit}` : ''}</p>
+          <p className="text-center text-sm font-semibold text-[var(--content-primary)]">{impossible ? t('workout.plate_impossible') : load.exact ? t('workout.plate_exact') : t('workout.plate_nearest')}{!impossible ? <>{' · '}<span className="font-mono tabular-nums">{load.achievedTotal} {unit}</span></> : null}</p>
           <p className="mt-1 text-center text-xs text-[var(--content-muted)]">{t('workout.plate_per_side')}</p>
           <div className="mt-3 flex gap-3">{stack('left')}{stack('right')}</div>
         </div>

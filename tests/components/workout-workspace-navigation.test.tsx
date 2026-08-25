@@ -35,6 +35,7 @@ vi.mock('@/lib/i18n', () => ({
         'workout.workspace_live_title': liveTitle,
         'workout.workspace_exercises_title': 'Exercises',
         'workout.workspace_status_live': live,
+        'workout.workspace_status_draft': 'Draft',
         'workout.workspace_status_label': String(params?.status ?? ''),
       };
       return values[key] ?? key;
@@ -80,13 +81,21 @@ describe('workout workspace navigation', () => {
 
   it('does not repeat home controls on the workspace landing route', () => {
     pathname = WORKOUT_ROUTES.home;
-    render(<WorkoutWorkspaceHeader stage="home" />);
+    render(<WorkoutWorkspaceHeader stage="draft" />);
 
     expect(screen.queryByRole('link', { name: /Back/i })).toBeNull();
     expect(screen.queryByRole('link', { name: 'Workout Home' })).toBeNull();
     expect(screen.getByRole('heading', { name: 'Workout Home' })).toBeTruthy();
-    expect(screen.queryByText('workout.workspace_status_draft')).toBeNull();
-    expect(screen.queryByLabelText(/Workout status/i)).toBeNull();
+    expect(screen.queryByText('Draft')).toBeNull();
+    expect(screen.queryByLabelText('Draft')).toBeNull();
+  });
+
+  it('shows a preserved draft status on Build instead of leaking it onto Home', () => {
+    pathname = WORKOUT_ROUTES.build;
+    render(<WorkoutWorkspaceHeader stage="draft" />);
+
+    expect(screen.getByRole('heading', { name: 'workout.workspace_build_title' })).toBeTruthy();
+    expect(screen.getByLabelText('Draft')).toBeTruthy();
   });
 
   it('keeps the Exercises workspace title on an addressable exercise detail route', () => {
