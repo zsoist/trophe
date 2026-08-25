@@ -5,6 +5,7 @@ export interface ResolvedWorkoutAsset {
   kind: 'technique' | 'anatomy' | 'cardio';
   fit: 'contain';
   background: 'neutral';
+  alpha: true;
 }
 
 const exerciseAssets: Array<{ matches: RegExp; slug: string }> = [
@@ -54,6 +55,7 @@ export function resolveWorkoutAsset({
       kind: 'technique',
       fit: 'contain',
       background: 'neutral',
+      alpha: true,
     };
   }
 
@@ -63,5 +65,6 @@ export function resolveWorkoutAsset({
     kind: fallback === 'cardio' ? 'cardio' : 'anatomy',
     fit: 'contain',
     background: 'neutral',
+    alpha: true,
   };
 }

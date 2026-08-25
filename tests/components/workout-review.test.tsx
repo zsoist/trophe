@@ -7,7 +7,7 @@ import type { WorkoutDraft } from '@/lib/workout/workspace-state';
 
 const workspace = vi.hoisted(() => ({
   state: { stage: 'review', draft: null as WorkoutDraft | null },
-  startLive: vi.fn(),
+  startLive: vi.fn(), updateDraftExercise: vi.fn(),
 }));
 const push = vi.hoisted(() => vi.fn());
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }));
@@ -22,6 +22,13 @@ vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ t: (key: string, params?: Recor
   'workout.empty_cardio_hint': 'Add a duration to review this workout.',
   'workout.start_live_failed': 'Workout could not start. Try again.',
   'workout.name_required': 'Enter a workout name.',
+  'workout.save_plan_pending': 'Saving plan…', 'workout.save_plan_failed': 'Plan could not be saved. Try again.',
+  'workout.save_plan_success': 'Plan saved to My routines.', 'workout.review_edit_exercise': `Edit ${params?.name}`,
+  'workout.target_sets_named': `Target sets for ${params?.name}`, 'workout.target_reps_named': `Target reps for ${params?.name}`,
+  'workout.movement_anatomy_alt': `Anatomy highlighting muscles used by ${params?.name}`,
+  'workout.muscle_chest': 'Chest', 'workout.equipment_label': `Equipment: ${params?.equipment}`,
+  'workout.primary_muscle_label': `Primary muscle: ${params?.muscle}`,
+  'workout.target_sets': 'Target sets', 'workout.target_reps': 'Target reps',
 }[key] ?? key) }) }));
 
 import { WorkoutReview } from '@/components/workout/workspace/WorkoutReview';
@@ -58,6 +65,26 @@ describe('WorkoutReview', () => {
     expect(onSavePlan).toHaveBeenCalledWith(pushDraft);
     expect(onLogCompleted).toHaveBeenCalledWith(pushDraft);
     expect(workspace.startLive).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses compact editable disclosures for final exercise editing', () => {
+    workspace.state.draft = pushDraft;
+    render(<WorkoutReview exercises={[{ id: 'bench', name: 'Bench Press', muscle_group: 'chest', equipment: 'barbell' }]} onSavePlan={vi.fn()} onLogCompleted={vi.fn()} />);
+
+    const disclosure = screen.getByText('Bench Press').closest('details');
+    expect(disclosure).toBeTruthy();
+    expect(disclosure?.hasAttribute('open')).toBe(false);
+    fireEvent.change(screen.getByLabelText('Target sets for Bench Press'), { target: { value: '5' } });
+    expect(workspace.updateDraftExercise).toHaveBeenCalledWith('bench', { targetSets: 5 });
+    expect(screen.getByText('Primary muscle: Chest')).toBeTruthy();
+    expect(screen.getByText('Equipment: barbell')).toBeTruthy();
+  });
+
+  it('shows save rejection independently from live-start errors', () => {
+    workspace.state.draft = pushDraft;
+    render(<WorkoutReview exercises={[{ id: 'bench', name: 'Bench Press', muscle_group: 'chest', equipment: 'barbell' }]} onSavePlan={vi.fn()} onLogCompleted={vi.fn()} saveState="error" />);
+    expect(screen.getByRole('alert').textContent).toBe('Plan could not be saved. Try again.');
+    expect(screen.queryByText('Plan saved to My routines.')).toBeNull();
   });
 
   it('summarizes cardio without strength rows', () => {

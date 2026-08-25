@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Check, Dumbbell, Plus, Trophy } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { supabase } from '@/lib/supabase';
-import type { Exercise, MuscleGroup } from '@/lib/types';
+import type { Exercise, Language, MuscleGroup } from '@/lib/types';
 import { resolveWorkoutAsset } from '@/lib/workout-assets';
 import { kgToDisplay, useWeightUnit } from '@/lib/workout/units';
 import { exerciseDisplayName, muscleColor, muscleLabelKey } from './muscle-groups';
@@ -25,6 +25,17 @@ export interface ExerciseDetailProps {
 const breathingPattern = /\b(?:breath\w*|inhale\w*|exhale\w*|respir\w*|inhala\w*|exhala\w*)\b|αναπν|εισπν|εκπν/i;
 const mistakePattern = /\b(?:avoid|do not|don't|never|evita\w*|no)\b|μην|αποφ/i;
 const setupPattern = /\b(?:set|setup|position|stand|sit|lie|plant|grip|feet|stance|coloca\w*|posición|pies|agarre)\b|θέση|πόδια|λαβή/i;
+
+const localeByLanguage: Record<Language, string> = {
+  en: 'en-US',
+  es: 'es-ES',
+  el: 'el-GR',
+  fr: 'fr-FR',
+  de: 'de-DE',
+  it: 'it-IT',
+  pt: 'pt-PT',
+  nl: 'nl-NL',
+};
 
 function sentenceBoundaries(value: string): string[] {
   return value.match(/[^.!?]+(?:[.!?]+|$)/g)?.map((sentence) => sentence.trim()).filter(Boolean) ?? [];
@@ -61,13 +72,14 @@ export function ExerciseDetail({ exercise, userId, onAdd, isAdded = false, alter
   const [history, setHistory] = useState<HistoryEntry[] | null>(userId ? null : []);
   const [historyError, setHistoryError] = useState(false);
   const name = exerciseDisplayName(exercise, lang);
-  const instructions = lang === 'es' && exercise.instructions_es ? exercise.instructions_es
-    : lang === 'el' && exercise.instructions_el ? exercise.instructions_el
-    : exercise.instructions ?? null;
+  const instructions = lang === 'en' ? exercise.instructions ?? null
+    : lang === 'es' ? exercise.instructions_es ?? null
+    : lang === 'el' ? exercise.instructions_el ?? null
+    : null;
   const guidance = useMemo(() => organizeExerciseGuidance(instructions), [instructions]);
   const asset = resolveWorkoutAsset({ exerciseName: exercise.name, muscleGroup: exercise.muscle_group });
   const visualLabel = asset.kind === 'technique' ? t('workout.info_technique') : t('workout.info_muscles_worked');
-  const visualAlt = asset.kind === 'technique' ? `${name} technique` : `${name} muscles worked anatomy`;
+  const visualAlt = t(`workout.movement_${asset.kind}_alt`, { name });
   const secondaries = (exercise.secondary_muscles ?? []).filter(Boolean) as MuscleGroup[];
 
   useEffect(() => {
@@ -130,7 +142,7 @@ export function ExerciseDetail({ exercise, userId, onAdd, isAdded = false, alter
         <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-[-0.02em] text-[var(--content-primary)]">{name}</h1>
           <p className="mt-1 text-sm text-[var(--content-muted)]">
-            {exercise.equipment ? exercise.equipment.charAt(0).toUpperCase() + exercise.equipment.slice(1) : '—'}
+            {exercise.equipment ? t('workout.equipment_value', { equipment: exercise.equipment }) : t('workout.equipment_not_required')}
             {exercise.is_compound ? ` · ${t('workout.compound')}` : ''}
           </p>
         </div>
@@ -173,8 +185,8 @@ export function ExerciseDetail({ exercise, userId, onAdd, isAdded = false, alter
           {!historyError && history !== null && history.length === 0 ? <p className="mt-3 flex items-center gap-2 text-sm text-[var(--content-muted)]"><Dumbbell size={14} aria-hidden="true" />{t('workout.info_no_history')}</p> : null}
           {history?.map((entry) => (
             <div key={entry.date} className="mt-3 flex items-center justify-between gap-2 border-t border-[var(--border-subtle)] pt-3 text-xs text-[var(--content-secondary)]">
-              <span>{new Date(`${entry.date}T00:00:00`).toLocaleDateString(lang === 'es' ? 'es' : lang === 'el' ? 'el' : 'en-US', { month: 'short', day: 'numeric' })}</span>
-              <span>{entry.sets} × sets</span>
+              <span>{new Date(`${entry.date}T00:00:00`).toLocaleDateString(localeByLanguage[lang], { month: 'short', day: 'numeric' })}</span>
+              <span>{t('workout.history_sets', { n: entry.sets })}</span>
               <span className="font-mono tabular-nums">{entry.topWeightKg !== null ? `${kgToDisplay(entry.topWeightKg, unit)}${unit} × ${entry.topReps ?? 0}` : '—'}</span>
             </div>
           ))}

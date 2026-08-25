@@ -8,6 +8,7 @@ describe('resolveWorkoutAsset', () => {
       kind: 'technique',
       fit: 'contain',
       background: 'neutral',
+      alpha: true,
     });
   });
 
@@ -82,6 +83,7 @@ describe('resolveWorkoutAsset', () => {
       kind: 'anatomy',
       fit: 'contain',
       background: 'neutral',
+      alpha: true,
     });
   });
 
@@ -91,6 +93,7 @@ describe('resolveWorkoutAsset', () => {
       kind: 'anatomy',
       fit: 'contain',
       background: 'neutral',
+      alpha: true,
     });
   });
 
@@ -100,6 +103,7 @@ describe('resolveWorkoutAsset', () => {
       kind: 'anatomy',
       fit: 'contain',
       background: 'neutral',
+      alpha: true,
     });
   });
 });

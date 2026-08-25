@@ -4,18 +4,23 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ClipboardCheck, Play, Save } from 'lucide-react';
 import { useWorkoutWorkspace } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
-import type { WorkoutExerciseOption } from '@/components/workout/workspace/WorkoutBuilder';
+import type { PlanSaveState, WorkoutExerciseOption } from '@/components/workout/workspace/WorkoutBuilder';
 import { useI18n } from '@/lib/i18n';
 import type { WorkoutDraft } from '@/lib/workout/workspace-state';
 import { pushWorkoutRoute, WORKOUT_ROUTES } from '@/lib/workout/workspace-routes';
+import { resolveWorkoutAsset } from '@/lib/workout-assets';
+import { MovementVisual } from '@/components/workout/MovementVisual';
+import { muscleLabelKey } from '@/components/workout/muscle-groups';
 
 interface WorkoutReviewProps {
   exercises: WorkoutExerciseOption[];
-  onSavePlan: (draft: WorkoutDraft) => void;
+  onSavePlan: (draft: WorkoutDraft) => void | Promise<void>;
   onLogCompleted: (draft: WorkoutDraft) => void;
+  saveState?: PlanSaveState;
+  saveDisabled?: boolean;
 }
 
-export function WorkoutReview({ exercises, onSavePlan, onLogCompleted }: WorkoutReviewProps) {
+export function WorkoutReview({ exercises, onSavePlan, onLogCompleted, saveState = 'idle', saveDisabled = false }: WorkoutReviewProps) {
   const router = useRouter();
   const { t } = useI18n();
   const workspace = useWorkoutWorkspace();
@@ -23,7 +28,7 @@ export function WorkoutReview({ exercises, onSavePlan, onLogCompleted }: Workout
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState(false);
   const mainRef = useRef<HTMLElement>(null);
-  const names = new Map(exercises.map((exercise) => [exercise.id, exercise.name]));
+  const exerciseById = new Map(exercises.map((exercise) => [exercise.id, exercise]));
 
   useEffect(() => { mainRef.current?.focus({ preventScroll: true }); }, []);
 
@@ -65,15 +70,40 @@ export function WorkoutReview({ exercises, onSavePlan, onLogCompleted }: Workout
 
       {draft.kind === 'strength' ? (
         <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4">
-          <p className="mb-3 text-sm text-[var(--content-secondary)]">{t('workout.exercise_count', { n: draft.exercises.length })}</p>
-          <ul className="space-y-3">
-            {draft.exercises.map((exercise) => (
-              <li key={exercise.exerciseId} className="flex items-center justify-between gap-3 border-t border-[var(--border-subtle)] pt-3 first:border-0 first:pt-0">
-                <span className="font-medium text-[var(--content-primary)]">{exercise.exerciseName ?? names.get(exercise.exerciseId) ?? exercise.exerciseId}</span>
-                <span className="text-sm text-[var(--content-secondary)]">{t('workout.sets_reps_summary', { sets: exercise.targetSets, reps: exercise.targetReps })}</span>
-              </li>
-            ))}
-          </ul>
+          <p className="mb-3 text-sm text-[var(--content-secondary)]">{t('workout.exercise_count', { n: draft.exercises.length })} · {t('workout.review_target_sets', { n: draft.exercises.reduce((sum, exercise) => sum + exercise.targetSets, 0) })}</p>
+          <div className="space-y-2">
+            {draft.exercises.map((draftExercise) => {
+              const exercise = exerciseById.get(draftExercise.exerciseId);
+              const name = draftExercise.exerciseName ?? exercise?.name ?? draftExercise.exerciseId;
+              const muscleGroup = draftExercise.muscleGroup ?? exercise?.muscle_group ?? null;
+              const asset = resolveWorkoutAsset({ exerciseName: exercise?.name ?? name, muscleGroup });
+              return (
+                <details key={draftExercise.exerciseId} className="group rounded-xl border border-[var(--workout-rail)] bg-[var(--surface-subtle)]">
+                  <summary aria-label={t('workout.review_edit_exercise', { name })} className="flex min-h-16 cursor-pointer list-none items-center gap-3 px-3 py-2 focus-visible:outline-none">
+                    <span className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-[var(--workout-visual-surface)] p-1">
+                      <MovementVisual asset={asset} alt={t(`workout.movement_${asset.kind}_alt`, { name })} sizes="56px" className="h-full w-full" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium text-[var(--content-primary)]">{name}</span>
+                      <span className="mt-1 block truncate text-xs text-[var(--content-secondary)]">{t('workout.sets_reps_summary', { sets: draftExercise.targetSets, reps: draftExercise.targetReps })}</span>
+                      {muscleGroup ? <span className="mt-1 block truncate text-xs text-[var(--content-muted)]">{t('workout.primary_muscle_label', { muscle: t(muscleLabelKey(muscleGroup)) })}</span> : null}
+                      {exercise?.equipment ? <span className="mt-1 block truncate text-xs text-[var(--content-muted)]">{t('workout.equipment_label', { equipment: exercise.equipment })}</span> : null}
+                    </span>
+                  </summary>
+                  <div className="grid grid-cols-2 gap-3 border-t border-[var(--workout-rail)] p-3">
+                    <label className="text-xs text-[var(--content-secondary)]">
+                      {t('workout.target_sets')}
+                      <input type="number" min={1} aria-label={t('workout.target_sets_named', { name })} value={draftExercise.targetSets} onChange={(event) => workspace.updateDraftExercise(draftExercise.exerciseId, { targetSets: Math.max(1, Number(event.target.value) || 1) })} className="mt-1 min-h-11 w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-3 font-mono text-base tabular-nums text-[var(--content-primary)]" />
+                    </label>
+                    <label className="text-xs text-[var(--content-secondary)]">
+                      {t('workout.target_reps')}
+                      <input aria-label={t('workout.target_reps_named', { name })} value={draftExercise.targetReps} onChange={(event) => workspace.updateDraftExercise(draftExercise.exerciseId, { targetReps: event.target.value })} className="mt-1 min-h-11 w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-3 font-mono text-base tabular-nums text-[var(--content-primary)]" />
+                    </label>
+                  </div>
+                </details>
+              );
+            })}
+          </div>
         </section>
       ) : (
         <section className="grid grid-cols-2 gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4 text-sm">
@@ -87,12 +117,15 @@ export function WorkoutReview({ exercises, onSavePlan, onLogCompleted }: Workout
       {!hasName ? <p role="alert" className="text-sm text-[var(--status-danger-fg)]">{t('workout.name_required')}</p> : null}
       {!hasContent ? <p className="text-sm text-[var(--content-secondary)]">{t(draft.kind === 'strength' ? 'workout.empty_strength_hint' : 'workout.empty_cardio_hint')}</p> : null}
       {startError ? <p role="alert" className="rounded-xl border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]">{t('workout.start_live_failed')}</p> : null}
+      {draft.kind === 'cardio' ? <p className="text-sm text-[var(--content-muted)]">{t('workout.save_plan_strength_only')}</p> : null}
+      {saveState === 'error' ? <p role="alert" className="rounded-xl border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]">{t('workout.save_plan_failed')}</p> : null}
+      {saveState === 'success' ? <p role="status" className="rounded-xl border border-[var(--status-success-border)] bg-[var(--status-success-bg)] p-3 text-sm text-[var(--status-success-fg)]">{t('workout.save_plan_success')}</p> : null}
 
       <section className="space-y-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-4">
         <p className="text-sm leading-6 text-[var(--content-secondary)]">{t('workout.start_live_explanation')}</p>
         <button type="button" disabled={!valid || starting} onClick={() => void startLive()} className="btn-gold inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl disabled:opacity-40"><Play size={17} aria-hidden="true" />{t('workout.start_live')}</button>
         <button type="button" disabled={!valid} onClick={() => onLogCompleted(draft)} className="btn-ghost inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl disabled:opacity-40"><ClipboardCheck size={17} aria-hidden="true" />{t('workout.log_completed')}</button>
-        <button type="button" disabled={!hasName} onClick={() => onSavePlan(draft)} className="btn-ghost inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl disabled:opacity-40"><Save size={17} aria-hidden="true" />{t('workout.save_plan')}</button>
+        <button type="button" disabled={!valid || draft.kind !== 'strength' || saveDisabled || saveState === 'pending'} onClick={() => void onSavePlan(draft)} className="btn-ghost inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl disabled:opacity-40"><Save size={17} aria-hidden="true" />{t(saveState === 'pending' ? 'workout.save_plan_pending' : 'workout.save_plan')}</button>
       </section>
     </main>
   );

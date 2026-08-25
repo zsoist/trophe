@@ -26,6 +26,10 @@ vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ lang: 'en', t: (key: string, pa
   'workout.move_named_up': `Move ${params?.name} up`, 'workout.move_named_down': `Move ${params?.name} down`,
   'workout.remove_named': `Remove ${params?.name}`, 'workout.target_sets_named': `Target sets for ${params?.name}`,
   'workout.target_reps_named': `Target reps for ${params?.name}`,
+  'workout.save_plan_pending': 'Saving plan…', 'workout.save_plan_failed': 'Plan could not be saved. Try again.',
+  'workout.save_plan_success': 'Plan saved to My routines.', 'workout.movement_anatomy_alt': `Anatomy highlighting muscles used by ${params?.name}`,
+  'workout.muscle_chest': 'Chest', 'workout.muscle_shoulders': 'Shoulders',
+  'workout.equipment_label': `Equipment: ${params?.equipment}`, 'workout.primary_muscle_label': `Primary muscle: ${params?.muscle}`,
   'workout.name_required': 'Enter a workout name.',
 }[key] ?? key) }) }));
 
@@ -42,7 +46,10 @@ const cardioDraft: WorkoutDraft = {
   version: 2, kind: 'cardio', name: 'Cardio', updatedAt: 1,
   activity: 'run', durationMinutes: 30, distanceKm: null, effort: 6,
 };
-const exercises = [{ id: 'bench', name: 'Bench Press' }, { id: 'press', name: 'Shoulder Press' }];
+const exercises = [
+  { id: 'bench', name: 'Bench Press', muscle_group: 'chest' as const, equipment: 'barbell' },
+  { id: 'press', name: 'Shoulder Press', muscle_group: 'shoulders' as const, equipment: 'dumbbell' },
+];
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
@@ -82,6 +89,31 @@ describe('WorkoutBuilder', () => {
     expect(remove.textContent).toContain('Remove exercise');
     expect(remove.parentElement?.className).toContain('border-t');
     expect(screen.getByRole('heading', { name: 'Bench Press' }).parentElement).not.toBe(remove.parentElement);
+  });
+
+  it('keeps contained movement identity and muscle/equipment evidence with every exercise', () => {
+    workspace.state.draft = pushDraft;
+    render(<WorkoutBuilder exercises={exercises} onSavePlan={vi.fn()} />);
+
+    const benchVisual = screen.getByRole('img', { name: 'Anatomy highlighting muscles used by Bench Press' });
+    expect(benchVisual.getAttribute('data-visual-kind')).toBe('anatomy');
+    expect(benchVisual.getAttribute('data-alpha')).toBe('true');
+    expect(benchVisual.getAttribute('style')).toContain('object-fit: contain');
+    expect(screen.getByText('Primary muscle: Chest')).toBeTruthy();
+    expect(screen.getByText('Equipment: barbell')).toBeTruthy();
+  });
+
+  it('locks duplicate saves while pending and reports a rejected write without success', () => {
+    workspace.state.draft = pushDraft;
+    render(<WorkoutBuilder exercises={exercises} onSavePlan={vi.fn()} saveState="error" />);
+
+    expect(screen.getByRole('alert').textContent).toBe('Plan could not be saved. Try again.');
+    expect(screen.queryByText('Plan saved to My routines.')).toBeNull();
+
+    cleanup();
+    render(<WorkoutBuilder exercises={exercises} onSavePlan={vi.fn()} saveState="pending" />);
+    const pending = screen.getByRole('button', { name: 'Saving plan…' });
+    expect(pending.hasAttribute('disabled')).toBe(true);
   });
 
   it('disables Review for an empty strength draft and teaches the next action', () => {

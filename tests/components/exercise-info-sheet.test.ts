@@ -30,7 +30,7 @@ vi.mock('framer-motion', async () => {
 vi.mock('@/lib/i18n', () => ({
   useI18n: () => ({
     lang: 'en',
-    t: (key: string) => ({
+    t: (key: string, params?: Record<string, string | number>) => ({
       'workout.custom_cancel': 'Close',
       'workout.compound': 'Compound',
       'workout.info_cue': 'Technique',
@@ -40,6 +40,11 @@ vi.mock('@/lib/i18n', () => ({
       'workout.info_last': 'Recent results',
       'workout.info_no_history': 'No history yet',
       'workout.muscle_chest': 'Chest',
+      'workout.movement_technique_alt': `${params?.name} technique demonstration`,
+      'workout.movement_anatomy_alt': `Anatomy highlighting muscles used by ${params?.name}`,
+      'workout.equipment_value': `Equipment: ${params?.equipment}`,
+      'workout.equipment_not_required': 'No equipment',
+      'workout.history_sets': `${params?.n} sets`,
     }[key] ?? key),
   }),
 }));
@@ -78,7 +83,7 @@ describe('ExerciseInfoSheet', () => {
 
     render(React.createElement(ExerciseInfoSheet, { exercise, userId: null, onClose: vi.fn() }));
 
-    expect(screen.getByRole('img', { name: 'Barbell Bench Press technique' })).toBeTruthy();
+    expect(screen.getByRole('img', { name: 'Barbell Bench Press technique demonstration' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Technique' })).toBeTruthy();
     expect(screen.getByText(/Plant your feet/)).toBeTruthy();
   });

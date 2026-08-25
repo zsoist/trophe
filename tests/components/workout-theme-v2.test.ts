@@ -48,7 +48,7 @@ describe('Workout Workspace V2 theme contract', () => {
     const workoutCss = css.slice(css.indexOf('.workout-entry-panel'), css.indexOf('/* Prevent iOS auto-zoom'));
     expect(workoutCss).not.toMatch(/#(?:000000|000|050606|070806)\b/gi);
     expect(workoutCss).not.toMatch(/object-fit:\s*cover/i);
-    expect(source('components/workout/MovementVisual.tsx')).toContain("backgroundColor: 'var(--workout-visual-surface)'" );
+    expect(source('components/workout/MovementVisual.tsx')).toContain("backgroundColor: 'transparent'" );
   });
 
   it('keeps component color decisions behind semantic variables', () => {

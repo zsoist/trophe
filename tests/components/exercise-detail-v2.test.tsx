@@ -5,6 +5,8 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Exercise } from '@/lib/types';
 
+let activeLang = 'en';
+
 vi.mock('next/image', () => ({
   default: (props: Record<string, unknown>) => {
     const imageProps = { ...props };
@@ -29,7 +31,7 @@ vi.mock('framer-motion', async () => {
 
 vi.mock('@/lib/i18n', () => ({
   useI18n: () => ({
-    lang: 'en',
+    lang: activeLang,
     t: (key: string, params?: Record<string, string | number>) => ({
       'workout.custom_cancel': 'Close',
       'workout.compound': 'Compound',
@@ -48,6 +50,10 @@ vi.mock('@/lib/i18n', () => ({
       'workout.info_last': 'Recent sessions',
       'workout.info_no_history': 'No history yet',
       'workout.info_history_failed': 'Recent sessions could not be loaded. Try again later.',
+      'workout.movement_anatomy_alt': `Anatomía que resalta los músculos utilizados por ${params?.name ?? ''}`,
+      'workout.movement_technique_alt': `Demostración técnica de ${params?.name ?? ''}`,
+      'workout.equipment_value': `Equipo: ${params?.equipment ?? ''}`,
+      'workout.history_sets': `${params?.n ?? ''} series`,
       'workout.picker_add_named': `Add ${params?.name ?? ''}`,
       'workout.exercise_added_named': `${params?.name ?? ''} added`,
       'workout.muscle_chest': 'Chest',
@@ -86,7 +92,7 @@ const machinePress = {
   created_at: '2026-08-24T00:00:00.000Z',
 } as Exercise;
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); activeLang = 'en'; });
 
 describe('full exercise detail', () => {
   it('renders honest fallback semantics and all guidance sections without invented safety facts', () => {
@@ -129,5 +135,14 @@ describe('full exercise detail', () => {
       <ExerciseInfoSheet exercise={machinePress} userId={null} onClose={vi.fn()} onAdd={onAdd} isAdded />,
     );
     expect(screen.getByRole('button', { name: 'Iso-Lateral Machine Press added' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('localizes visual alternatives, equipment, and session evidence without English chrome fallback', () => {
+    activeLang = 'es';
+    render(<ExerciseDetail exercise={machinePress} userId={null} />);
+
+    expect(screen.getByRole('img', { name: 'Anatomía que resalta los músculos utilizados por Iso-Lateral Machine Press' })).toBeTruthy();
+    expect(screen.getByText((_, element) => element?.tagName === 'P' && element.textContent?.includes('Equipo: machine') === true)).toBeTruthy();
+    expect(screen.queryByAltText(/muscles worked anatomy/i)).toBeNull();
   });
 });

@@ -34,7 +34,8 @@ export function MovementVisual({
       sizes={sizes}
       priority={priority}
       data-visual-kind={asset.kind}
-      style={{ objectFit: asset.fit, objectPosition: 'center', backgroundColor: 'var(--workout-visual-surface)' }}
+      data-alpha={asset.alpha ? 'true' : 'false'}
+      style={{ objectFit: asset.fit, objectPosition: 'center', backgroundColor: 'transparent' }}
       className={`movement-visual ${className}`}
     />
   );

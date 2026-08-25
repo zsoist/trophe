@@ -5,28 +5,40 @@ import { useRouter } from 'next/navigation';
 import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
 import { useWorkoutWorkspace } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
 import { useI18n } from '@/lib/i18n';
+import type { MuscleGroup } from '@/lib/types';
 import type { WorkoutDraft } from '@/lib/workout/workspace-state';
 import { pushWorkoutRoute, WORKOUT_ROUTES } from '@/lib/workout/workspace-routes';
+import { resolveWorkoutAsset } from '@/lib/workout-assets';
+import { MovementVisual } from '@/components/workout/MovementVisual';
+import { muscleLabelKey } from '@/components/workout/muscle-groups';
 
 export interface WorkoutExerciseOption {
   id: string;
   name: string;
+  name_es?: string | null;
+  name_el?: string | null;
+  muscle_group?: MuscleGroup | null;
+  equipment?: string | null;
 }
+
+export type PlanSaveState = 'idle' | 'pending' | 'success' | 'error';
 
 interface WorkoutBuilderProps {
   exercises: WorkoutExerciseOption[];
-  onSavePlan: (draft: WorkoutDraft) => void;
+  onSavePlan: (draft: WorkoutDraft) => void | Promise<void>;
+  saveState?: PlanSaveState;
+  saveDisabled?: boolean;
 }
 
 const cardioActivities = ['walk', 'run', 'cycle', 'hiit', 'swim', 'other'] as const;
 
-export function WorkoutBuilder({ exercises, onSavePlan }: WorkoutBuilderProps) {
+export function WorkoutBuilder({ exercises, onSavePlan, saveState = 'idle', saveDisabled = false }: WorkoutBuilderProps) {
   const router = useRouter();
   const { t } = useI18n();
   const workspace = useWorkoutWorkspace();
   const draft = workspace.state.draft;
   const mainRef = useRef<HTMLElement>(null);
-  const names = new Map(exercises.map((exercise) => [exercise.id, exercise.name]));
+  const exerciseById = new Map(exercises.map((exercise) => [exercise.id, exercise]));
 
   useEffect(() => { mainRef.current?.focus({ preventScroll: true }); }, []);
 
@@ -66,10 +78,23 @@ export function WorkoutBuilder({ exercises, onSavePlan }: WorkoutBuilderProps) {
       {draft.kind === 'strength' ? (
         <section className="space-y-3">
           {draft.exercises.map((draftExercise, index) => {
-            const name = draftExercise.exerciseName ?? names.get(draftExercise.exerciseId) ?? draftExercise.exerciseId;
+            const exercise = exerciseById.get(draftExercise.exerciseId);
+            const name = draftExercise.exerciseName ?? exercise?.name ?? draftExercise.exerciseId;
+            const muscleGroup = draftExercise.muscleGroup ?? exercise?.muscle_group ?? null;
+            const asset = resolveWorkoutAsset({ exerciseName: exercise?.name ?? name, muscleGroup });
+            const visualAlt = t(`workout.movement_${asset.kind}_alt`, { name });
             return (
               <article key={draftExercise.exerciseId} className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-3 min-[375px]:p-4">
-                <h2 className="truncate font-semibold text-[var(--content-primary)]">{name}</h2>
+                <div className="grid grid-cols-[4.75rem_minmax(0,1fr)] items-center gap-3">
+                  <div className="h-20 overflow-hidden rounded-xl bg-[var(--workout-visual-surface)] p-1">
+                    <MovementVisual asset={asset} alt={visualAlt} sizes="76px" className="h-full w-full" />
+                  </div>
+                  <div className="min-w-0">
+                    <h2 className="truncate font-semibold text-[var(--content-primary)]">{name}</h2>
+                    {muscleGroup ? <p className="mt-1 truncate text-xs text-[var(--content-secondary)]">{t('workout.primary_muscle_label', { muscle: t(muscleLabelKey(muscleGroup)) })}</p> : null}
+                    {exercise?.equipment ? <p className="mt-1 truncate text-xs text-[var(--content-muted)]">{t('workout.equipment_label', { equipment: exercise.equipment })}</p> : null}
+                  </div>
+                </div>
                 <div className="mt-2 flex items-center gap-1 border-t border-[var(--workout-rail)] pt-2">
                   <button type="button" disabled={index === 0} aria-label={t('workout.move_named_up', { name })} onClick={() => workspace.reorderDraftExercise(draftExercise.exerciseId, 'up')} className="inline-flex min-h-11 min-w-11 items-center justify-center disabled:opacity-30"><ChevronUp size={18} aria-hidden="true" /></button>
                   <button type="button" disabled={index === draft.exercises.length - 1} aria-label={t('workout.move_named_down', { name })} onClick={() => workspace.reorderDraftExercise(draftExercise.exerciseId, 'down')} className="inline-flex min-h-11 min-w-11 items-center justify-center disabled:opacity-30"><ChevronDown size={18} aria-hidden="true" /></button>
@@ -116,8 +141,11 @@ export function WorkoutBuilder({ exercises, onSavePlan }: WorkoutBuilderProps) {
 
       {!hasName ? <p role="alert" className="text-sm text-[var(--status-danger-fg)]">{t('workout.name_required')}</p> : null}
       {!hasContent ? <p className="text-sm text-[var(--content-secondary)]">{t(draft.kind === 'strength' ? 'workout.empty_strength_hint' : 'workout.empty_cardio_hint')}</p> : null}
+      {draft.kind === 'cardio' ? <p className="text-sm text-[var(--content-muted)]">{t('workout.save_plan_strength_only')}</p> : null}
+      {saveState === 'error' ? <p role="alert" className="rounded-xl border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]">{t('workout.save_plan_failed')}</p> : null}
+      {saveState === 'success' ? <p role="status" className="rounded-xl border border-[var(--status-success-border)] bg-[var(--status-success-bg)] p-3 text-sm text-[var(--status-success-fg)]">{t('workout.save_plan_success')}</p> : null}
       <div className="grid grid-cols-2 gap-3">
-        <button type="button" disabled={!hasName} onClick={() => onSavePlan(draft)} className="btn-ghost min-h-11 rounded-xl disabled:opacity-40">{t('workout.save_plan')}</button>
+        <button type="button" disabled={!hasName || draft.kind !== 'strength' || !hasContent || saveDisabled || saveState === 'pending'} onClick={() => void onSavePlan(draft)} className="btn-ghost min-h-11 rounded-xl disabled:opacity-40">{t(saveState === 'pending' ? 'workout.save_plan_pending' : 'workout.save_plan')}</button>
         <button type="button" disabled={!canReview} onClick={review} className="btn-gold min-h-11 rounded-xl disabled:opacity-40">{t('workout.review_workout')}</button>
       </div>
     </main>
