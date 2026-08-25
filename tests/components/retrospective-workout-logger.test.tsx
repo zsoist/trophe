@@ -6,21 +6,25 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WorkoutDraft } from '@/lib/workout/workspace-state';
 
 const live = vi.hoisted(() => ({ saveRetrospectiveWorkout: vi.fn(), loadLivePrMap: vi.fn() }));
+const units = vi.hoisted(() => ({ value: 'kg' as 'kg' | 'lb' }));
 vi.mock('@/lib/workout/live-session', () => live);
-vi.mock('@/lib/workout/units', () => ({ useWeightUnit: () => ['kg', vi.fn()], displayToKg: (value: number) => value, kgToDisplay: (value: number) => value }));
+vi.mock('@/lib/workout/units', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/workout/units')>();
+  return { ...actual, useWeightUnit: () => [units.value, vi.fn()] };
+});
 vi.mock('@/components/workout/PainFlagModal', () => ({ default: () => null }));
 vi.mock('@/components/workout/ExerciseInfoSheet', () => ({ default: () => null }));
 vi.mock('framer-motion', () => ({ motion: { div: ({ children, initial: _initial, animate: _animate, exit: _exit, transition: _transition, ...props }: React.HTMLAttributes<HTMLDivElement> & { initial?: unknown; animate?: unknown; exit?: unknown; transition?: unknown }) => {
   void _initial; void _animate; void _exit; void _transition;
   return <div {...props}>{children}</div>;
 } }, useReducedMotion: () => true }));
-vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ t: (key: string, values?: { n?: number }) => ({
+vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ t: (key: string, values?: { n?: number; unit?: string }) => ({
   'workout.cardio_run': 'Run', 'workout.duration_minutes': 'Duration in minutes', 'workout.distance_optional': 'Distance optional',
   'workout.effort': 'Effort', 'workout.log_completed': 'Log completed workout',
   'workout.save_completed_question': 'Save completed workout?', 'workout.save_workout': 'Save workout',
   'workout.keep_editing': 'Keep editing', 'workout.saving': 'Saving…', 'workout.save_completed': 'Save completed workout',
   'workout.cancel': 'Cancel', 'workout.save_failed': 'Save failed', 'workout.strength_duration': 'Workout duration in minutes',
-  'workout.weight_in_unit': 'Weight in kg', 'workout.reps': 'Reps', 'workout.rpe_optional': 'RPE optional',
+  'workout.weight_in_unit': `Weight in ${values?.unit ?? 'kg'}`, 'workout.reps': 'Reps', 'workout.rpe_optional': 'RPE optional',
   'workout.complete_set': 'Complete set', 'workout.undo_set': 'Undo set', 'workout.more_exercise_options': 'More exercise options',
   'workout.more': 'More', 'workout.warmup': 'Warm-up', 'workout.resting': 'Resting',
   'workout.set_number': `Set ${String(values?.n ?? 1)}`,
@@ -38,7 +42,7 @@ const bench = { id: 'bench', name: 'Bench Press', name_es: null, name_el: null, 
 const row = { ...bench, id: 'row', name: 'Row', muscle_group: 'back' as const };
 const idempotencyKey = '11111111-1111-4111-8111-111111111111';
 
-beforeEach(() => { live.loadLivePrMap.mockResolvedValue({ bench: 50 }); live.saveRetrospectiveWorkout.mockResolvedValue({ ok: true, sessionId: 'session-1' }); });
+beforeEach(() => { units.value = 'kg'; live.loadLivePrMap.mockResolvedValue({ bench: 50 }); live.saveRetrospectiveWorkout.mockResolvedValue({ ok: true, sessionId: 'session-1' }); });
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe('RetrospectiveWorkoutLogger', () => {
@@ -94,38 +98,37 @@ describe('RetrospectiveWorkoutLogger', () => {
     })));
   });
 
-  it('inserts a retrospective exercise warm-up block before that exercise working rows', async () => {
-    render(<RetrospectiveWorkoutLogger userId="nik" idempotencyKey={idempotencyKey} draft={strengthSuperset} exercises={[bench, row]} onSaved={vi.fn()} onCancel={vi.fn()} />);
-    fireEvent.change((await screen.findAllByLabelText('Weight in kg'))[0], { target: { value: '100' } });
-    fireEvent.change(screen.getAllByLabelText('Reps')[0], { target: { value: '8' } });
-    fireEvent.click(screen.getAllByRole('button', { name: 'Complete set' })[0]);
-    const moreButtons = await screen.findAllByRole('button', { name: 'More exercise options' });
-    fireEvent.click(moreButtons[0]);
+  it('saves an exact lb payload with two ramp blocks and the shifted working set', async () => {
+    units.value = 'lb';
+    live.loadLivePrMap.mockResolvedValue({ bench: 200 });
+    render(<RetrospectiveWorkoutLogger userId="nik" idempotencyKey={idempotencyKey} draft={strength} exercises={[bench]} onSaved={vi.fn()} onCancel={vi.fn()} />);
+    fireEvent.change(await screen.findByLabelText('Weight in lb'), { target: { value: '220' } });
+    fireEvent.change(screen.getByLabelText('Reps'), { target: { value: '8' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Complete set' }));
+    await screen.findByRole('button', { name: 'Undo set' });
+    fireEvent.click(screen.getByRole('button', { name: 'More exercise options' }));
     fireEvent.click(screen.getByRole('button', { name: 'workout.plate_title' }));
     fireEvent.click(screen.getByRole('button', { name: 'workout.add_warmup_sets' }));
-
-    await vi.waitFor(() => {
-      const names = screen.getAllByRole('article').map((article) => article.querySelector('h3')?.textContent);
-      expect(names.at(-1)).toBe('Row');
-      expect(names.slice(0, -1)).toEqual(names.slice(0, -1).map(() => 'Bench Press'));
-    });
-    const workingArticle = screen.getAllByRole('article').at(-2)!;
-    expect((workingArticle.querySelector('input[aria-label="Weight in kg"]') as HTMLInputElement).value).toBe('100');
-    await vi.waitFor(() => expect(screen.getByRole('button', { name: 'workout.add_warmup_sets' })).toBeTruthy());
-    fireEvent.click(screen.getByRole('button', { name: 'workout.add_warmup_sets' }));
-    await vi.waitFor(() => expect(screen.getAllByRole('article')).toHaveLength(8));
+    await vi.waitFor(() => expect(screen.getAllByRole('article')).toHaveLength(4));
+    fireEvent.click(await screen.findByRole('button', { name: 'workout.add_warmup_sets' }));
+    await vi.waitFor(() => expect(screen.getAllByRole('article')).toHaveLength(7));
     fireEvent.click(screen.getByRole('button', { name: 'Save completed workout' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save workout' }));
-    await vi.waitFor(() => expect(live.saveRetrospectiveWorkout).toHaveBeenCalledWith(expect.objectContaining({
-      sets: expect.arrayContaining([
-        expect.objectContaining({ exercise_id: 'bench', set_number: 1, weight_kg: 40, reps: 10, is_warmup: true }),
-        expect.objectContaining({ exercise_id: 'bench', set_number: 2, weight_kg: 60, reps: 6, is_warmup: true }),
-        expect.objectContaining({ exercise_id: 'bench', set_number: 3, weight_kg: 80, reps: 3, is_warmup: true }),
-        expect.objectContaining({ exercise_id: 'bench', set_number: 4, weight_kg: 40, reps: 10, is_warmup: true }),
-        expect.objectContaining({ exercise_id: 'bench', set_number: 5, weight_kg: 60, reps: 6, is_warmup: true }),
-        expect.objectContaining({ exercise_id: 'bench', set_number: 6, weight_kg: 80, reps: 3, is_warmup: true }),
-        expect.objectContaining({ exercise_id: 'bench', set_number: 7, weight_kg: 100, reps: 8, is_warmup: false }),
-      ]),
-    })));
+
+    await vi.waitFor(() => expect(live.saveRetrospectiveWorkout).toHaveBeenCalledWith({
+      idempotencyKey,
+      draft: strength,
+      durationMinutes: 1,
+      painFlags: [],
+      sets: [
+        { exercise_id: 'bench', set_number: 1, weight_kg: 40.82, reps: 10, rpe: null, is_warmup: true, is_pr: false, superset_group: null },
+        { exercise_id: 'bench', set_number: 2, weight_kg: 58.97, reps: 6, rpe: null, is_warmup: true, is_pr: false, superset_group: null },
+        { exercise_id: 'bench', set_number: 3, weight_kg: 79.38, reps: 3, rpe: null, is_warmup: true, is_pr: false, superset_group: null },
+        { exercise_id: 'bench', set_number: 4, weight_kg: 40.82, reps: 10, rpe: null, is_warmup: true, is_pr: false, superset_group: null },
+        { exercise_id: 'bench', set_number: 5, weight_kg: 58.97, reps: 6, rpe: null, is_warmup: true, is_pr: false, superset_group: null },
+        { exercise_id: 'bench', set_number: 6, weight_kg: 79.38, reps: 3, rpe: null, is_warmup: true, is_pr: false, superset_group: null },
+        { exercise_id: 'bench', set_number: 7, weight_kg: 99.79, reps: 8, rpe: null, is_warmup: false, is_pr: false, superset_group: null },
+      ],
+    }));
   });
 });
