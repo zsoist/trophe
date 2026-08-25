@@ -554,6 +554,13 @@
       "when": 1787691600000,
       "tag": "0078_terminal_workout_set_updates",
       "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1787695200000,
+      "tag": "0079_workout_terminal_authority",
+      "breakpoints": true
     }
   ]
 }

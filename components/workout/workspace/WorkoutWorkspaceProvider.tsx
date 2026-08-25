@@ -39,6 +39,8 @@ export interface WorkoutWorkspaceContextValue {
   replaceDraft(input: { name: string; kind: WorkoutKind; templateKey?: string; templateId?: string | null }): void;
   createDraftFromTemplate(input: WorkoutDraftTemplateInput): void;
   replaceDraftFromTemplate(input: WorkoutDraftTemplateInput): void;
+  createCardioDraftFromHistory(input: CardioHistoryDraftInput): void;
+  replaceCardioDraftFromHistory(input: CardioHistoryDraftInput): void;
   updateDraftName(name: string): void;
   updateCardioDraft(patch: Partial<Pick<CardioDraft, 'activity' | 'durationMinutes' | 'distanceKm' | 'effort'>>): void;
   updateLiveCardioDraft(patch: Partial<Pick<CardioDraft, 'activity' | 'distanceKm' | 'effort'>>): void;
@@ -69,6 +71,16 @@ export interface WorkoutDraftTemplateInput {
   templateId?: string | null;
   name: string;
   exercises: DraftExercise[];
+}
+
+export interface CardioHistoryDraftInput {
+  templateKey: string;
+  templateId?: string | null;
+  name: string;
+  activity: CardioDraft['activity'];
+  durationMinutes: number;
+  distanceKm: number | null;
+  effort: number | null;
 }
 
 interface WorkoutWorkspaceProviderProps {
@@ -102,6 +114,25 @@ function templateWorkspaceState(input: WorkoutDraftTemplateInput): WorkoutWorksp
       },
     },
   });
+}
+
+function cardioHistoryWorkspaceState(input: CardioHistoryDraftInput): WorkoutWorkspaceState {
+  const created = workoutWorkspaceReducer(createInitialWorkspaceState(), {
+    type: 'draft.created',
+    payload: {
+      name: input.name,
+      kind: 'cardio',
+      templateKey: input.templateKey,
+      templateId: normalizeUuid(input.templateId),
+      updatedAt: Date.now(),
+    },
+  });
+  if (!created.draft || created.draft.kind !== 'cardio') return created;
+  const updated = workoutWorkspaceReducer(created, {
+    type: 'draft.updated',
+    payload: { draft: { ...created.draft, activity: input.activity, durationMinutes: input.durationMinutes, distanceKm: input.distanceKm, effort: input.effort } },
+  });
+  return workoutWorkspaceReducer(updated, { type: 'draft.reviewed' });
 }
 
 function browserStorage(): WorkspaceStorage | null {
@@ -249,7 +280,9 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
 
   const createDraftFromTemplate = useCallback((input: WorkoutDraftTemplateInput) => {
     clientRequestIdRef.current = null;
-    setState((current) => current.stage === 'home' ? templateWorkspaceState(input) : current);
+    setState((current) => (current.stage === 'home' || (current.stage === 'completed' && !current.startRequest && !current.retrospectiveRequest))
+      ? templateWorkspaceState(input)
+      : current);
   }, []);
 
   const replaceDraft = useCallback((input: { name: string; kind: WorkoutKind; templateKey?: string; templateId?: string | null }) => {
@@ -268,6 +301,21 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
       if ((current.stage !== 'draft' && current.stage !== 'review') || !current.draft || current.startRequest || current.retrospectiveRequest) return current;
       clientRequestIdRef.current = null;
       return templateWorkspaceState(input);
+    });
+  }, []);
+
+  const createCardioDraftFromHistory = useCallback((input: CardioHistoryDraftInput) => {
+    clientRequestIdRef.current = null;
+    setState((current) => (current.stage === 'home' || (current.stage === 'completed' && !current.startRequest && !current.retrospectiveRequest))
+      ? cardioHistoryWorkspaceState(input)
+      : current);
+  }, []);
+
+  const replaceCardioDraftFromHistory = useCallback((input: CardioHistoryDraftInput) => {
+    setState((current) => {
+      if ((current.stage !== 'draft' && current.stage !== 'review') || !current.draft || current.startRequest || current.retrospectiveRequest) return current;
+      clientRequestIdRef.current = null;
+      return cardioHistoryWorkspaceState(input);
     });
   }, []);
 
@@ -526,6 +574,8 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
     replaceDraft,
     createDraftFromTemplate,
     replaceDraftFromTemplate,
+    createCardioDraftFromHistory,
+    replaceCardioDraftFromHistory,
     updateDraftName,
     updateCardioDraft,
     updateLiveCardioDraft,
@@ -549,7 +599,7 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
     discardLive,
     acknowledgeCompleted,
     discardDraft,
-  }), [acknowledgeCompleted, addDraftExercise, cancelFinish, commitLiveStrengthStructure, completeFinish, createDraft, createDraftFromTemplate, discardDraft, discardLive, ensureClientRequestId, goToReview, loading, ownerId, pause, removeDraftExercise, reorderDraftExercise, replaceDraft, replaceDraftFromTemplate, requestFinish, resume, retrospectiveSaving, retryRetrospective, returnToDraft, saveRetrospective, startLive, state, updateCardioDraft, updateDraftExercise, updateDraftName, updateLiveCardioDraft]);
+  }), [acknowledgeCompleted, addDraftExercise, cancelFinish, commitLiveStrengthStructure, completeFinish, createCardioDraftFromHistory, createDraft, createDraftFromTemplate, discardDraft, discardLive, ensureClientRequestId, goToReview, loading, ownerId, pause, removeDraftExercise, reorderDraftExercise, replaceCardioDraftFromHistory, replaceDraft, replaceDraftFromTemplate, requestFinish, resume, retrospectiveSaving, retryRetrospective, returnToDraft, saveRetrospective, startLive, state, updateCardioDraft, updateDraftExercise, updateDraftName, updateLiveCardioDraft]);
 
   if (loading || ownerId === undefined) {
     return <div role="status" aria-label={t('workout.loading_workspace')} className="min-h-24 animate-pulse rounded-xl bg-[var(--surface-subtle)]" />;

@@ -82,6 +82,7 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
 
   const draft = state.draft;
   const sessionId = state.sessionId;
+  const completedRetrospective = state.completedRetrospective;
 
   useEffect(() => {
     if (!state.clock?.runningSince) return;
@@ -95,6 +96,9 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
   useEffect(() => {
     let active = true;
     if (!sessionId) return;
+    if (state.stage === 'completed' && completedRetrospective) {
+      return;
+    }
     const recoveredStructure = strengthDraftExercises?.map((exercise, index) => ({
       exerciseId: exercise.exerciseId,
       targetSets: exercise.targetSets,
@@ -166,7 +170,7 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
       setRecoveryLoaded(false);
     });
     return () => { active = false; };
-  }, [commitLiveStrengthStructure, draft?.kind, recoveryAttempt, sessionId, strengthDraftExercises, userId]);
+  }, [commitLiveStrengthStructure, completedRetrospective, draft?.kind, recoveryAttempt, sessionId, state.stage, strengthDraftExercises, userId]);
 
   const runMutation = async <T,>(
     key: string,
@@ -207,8 +211,9 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
       return [...warmups, ...planned, ...extras];
     });
   }, [draft, extraRows, persistedSets, warmupCounts]);
-  const completedSets = persistedSets.length;
-  const prCount = persistedSets.filter((set) => set.is_pr).length;
+  const completedSets = completedRetrospective?.sets.length ?? persistedSets.length;
+  const prCount = completedRetrospective?.sets.filter((set) => set.is_pr).length ?? persistedSets.filter((set) => set.is_pr).length;
+  const completedPainCount = completedRetrospective?.painFlags.length ?? painFlags.length;
   const elapsedMs = elapsedActiveMs(state.clock, now);
   const durationMinutes = Math.max(0, Math.floor(elapsedMs / 60_000));
   const mutationBlocked = pendingMutations > 0 || failedMutations.size > 0 || recoveryError || !recoveryLoaded;
@@ -217,7 +222,7 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
     return <main className="mx-auto max-w-2xl px-4 py-8"><p className="text-[var(--content-secondary)]">{t('workout.no_live_session')}</p></main>;
   }
 
-  if (state.stage === 'completed' && !recoveryLoaded) {
+  if (state.stage === 'completed' && !completedRetrospective && !recoveryLoaded) {
     return (
       <main className="mx-auto max-w-2xl px-4 py-8">
         {recoveryError ? (
@@ -241,7 +246,7 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
           <dl className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-[var(--workout-rail)] bg-[var(--workout-rail)] text-left text-sm">
             <div className="bg-[var(--surface-subtle)] p-3"><dt className="text-[var(--content-muted)]">{t('workout.completed_duration')}</dt><dd className="mt-1 font-mono font-semibold tabular-nums text-[var(--content-primary)]">{durationMinutes} min</dd></div>
             <div className="bg-[var(--surface-subtle)] p-3"><dt className="text-[var(--content-muted)]">{t('workout.completed_sets')}</dt><dd className="mt-1 font-mono font-semibold tabular-nums text-[var(--content-primary)]">{completedSets}</dd></div>
-            <div className="bg-[var(--surface-subtle)] p-3"><dt className="text-[var(--content-muted)]">{t('workout.completed_pain')}</dt><dd className="mt-1 font-mono font-semibold tabular-nums text-[var(--content-primary)]">{painFlags.length}</dd></div>
+            <div className="bg-[var(--surface-subtle)] p-3"><dt className="text-[var(--content-muted)]">{t('workout.completed_pain')}</dt><dd className="mt-1 font-mono font-semibold tabular-nums text-[var(--content-primary)]">{completedPainCount}</dd></div>
             <div className="bg-[var(--surface-subtle)] p-3"><dt className="text-[var(--content-muted)]">{t('workout.completed_prs')}</dt><dd className="mt-1 font-mono font-semibold tabular-nums text-[var(--content-primary)]">{prCount}</dd></div>
           </dl>
           <div className="mt-5 grid grid-cols-2 gap-3">

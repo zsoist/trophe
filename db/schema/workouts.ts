@@ -90,6 +90,7 @@ export const workoutSessions = pgTable('workout_sessions', {
   cardioActivity: text('cardio_activity'),
   cardioDistanceKm: real('cardio_distance_km'),
   cardioEffort: real('cardio_effort'),
+  completedAt: timestamp('completed_at', { withTimezone: true, mode: 'string' }),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 }, (table) => [
   index('idx_workout_sessions_user').using('btree', table.userId.asc().nullsLast().op('uuid_ops'), table.sessionDate.asc().nullsLast().op('date_ops')),

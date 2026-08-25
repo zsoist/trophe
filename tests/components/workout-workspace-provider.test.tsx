@@ -309,7 +309,12 @@ describe('WorkoutWorkspaceProvider', () => {
       stage: 'completed',
       sessionId: 'canonical-history-session',
       retrospectiveRequest: null,
+      completedRetrospective: seen[0],
     });
+    cleanup();
+    render(<ProviderHarness userId="nik" storage={storage} />);
+    expect(await screen.findByText('completed')).toBeTruthy();
+    expect(JSON.parse(storage.getItem('trophe:workout-workspace:nik') ?? '{}').completedRetrospective).toEqual(seen[0]);
   });
 
   it('never reuses a retrospective key for a later live start', async () => {
@@ -329,6 +334,22 @@ describe('WorkoutWorkspaceProvider', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Start live workout' }));
     await waitFor(() => expect(startLiveSession).toHaveBeenCalledTimes(1));
     expect(startLiveSession.mock.calls[0][0].idempotencyKey).not.toBe(retrospectiveKey);
+  });
+
+  it('atomically replaces an acknowledged-by-intent completed summary with a repeated draft', async () => {
+    savePreparedRetrospectiveWorkout.mockResolvedValue({ ok: true, sessionId: 'history-session' });
+    render(<ProviderHarness userId="nik" />);
+    await screen.findByRole('button', { name: 'Create Push draft' });
+    fireEvent.click(screen.getByRole('button', { name: 'Create Push draft' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add Bench Press' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Review draft' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save retrospective workout' }));
+    await screen.findByText('completed');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create coach draft' }));
+
+    expect(screen.getByText('Draft · Not started')).toBeTruthy();
+    expect(screen.getByText('Coach Push:bench-press-4x6-8,shoulder-press-3x8-10')).toBeTruthy();
   });
 
   it('coordinates the same recovered draft across two stale providers', async () => {

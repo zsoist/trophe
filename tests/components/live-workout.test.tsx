@@ -103,6 +103,28 @@ describe('LiveWorkout', () => {
     expect(harness.acknowledgeCompleted).toHaveBeenCalledTimes(1);
   });
 
+  it('renders a recovered retrospective completion from its immutable summary without loading live structure', async () => {
+    workspace = { ...workspace, state: {
+      ...liveState,
+      stage: 'completed',
+      clock: { runningSince: null, accumulatedMs: 1_800_000 },
+      completedRetrospective: {
+        idempotencyKey: '22222222-2222-4222-8222-222222222222', payloadFingerprint: 'exact',
+        sessionDate: '2026-08-24', kind: 'strength', name: 'Push', templateId: null,
+        durationMinutes: 30, painFlags: [{ exercise_id: 'bench', body_part: 'shoulder', severity: 2 }],
+        activity: null, distanceKm: null, effort: null,
+        sets: [{ exercise_id: 'bench', set_number: 1, weight_kg: 60, reps: 8, rpe: 8, is_warmup: false, is_pr: true, superset_group: null }],
+      },
+    } as WorkoutWorkspaceState };
+    render(<LiveWorkout exercises={[]} />);
+
+    expect(await screen.findByRole('heading', { name: 'Workout complete' })).toBeTruthy();
+    expect(harness.loadLiveStructure).not.toHaveBeenCalled();
+    expect(screen.queryByText('Workout recovery could not be verified.')).toBeNull();
+    expect(document.body.textContent).toContain('30 min');
+    expect(document.body.textContent).toContain('1');
+  });
+
   it('requires confirmation before finishing', async () => {
     render(<LiveWorkout exercises={[]} />);
     const finish = screen.getByRole('button', { name: 'Finish workout' });

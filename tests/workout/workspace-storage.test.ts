@@ -125,6 +125,31 @@ describe('workout workspace recovery', () => {
     expect(loadWorkspaceState(storage, 'nik')).toBeNull();
   });
 
+  it('persists the immutable retrospective summary after canonical completion and remount', () => {
+    const storage = new MapStorage();
+    let state = workoutWorkspaceReducer(createInitialWorkspaceState(), {
+      type: 'draft.created', payload: { name: 'Run', kind: 'cardio', updatedAt: 10 },
+    });
+    const payload = {
+      sessionDate: '2026-08-24', kind: 'cardio' as const, name: 'Run', templateId: null,
+      durationMinutes: 30, painFlags: [], activity: 'run' as const, distanceKm: 5, effort: 7, sets: [],
+    };
+    const retrospectiveRequest = {
+      idempotencyKey: '22222222-2222-4222-8222-222222222222',
+      payloadFingerprint: retrospectivePayloadFingerprint(payload),
+      ...payload,
+    };
+    state = workoutWorkspaceReducer(state, { type: 'retrospective.prepared', payload: { retrospectiveRequest } });
+    state = workoutWorkspaceReducer(state, { type: 'retrospective.saved', payload: { sessionId: 'canonical-session' } });
+    saveWorkspaceState(storage, 'nik', state);
+
+    expect(loadWorkspaceState(storage, 'nik')).toMatchObject({
+      stage: 'completed',
+      sessionId: 'canonical-session',
+      completedRetrospective: retrospectiveRequest,
+    });
+  });
+
   it.each([
     ['live', null, 'session-1', { runningSince: 1, accumulatedMs: 0 }],
     ['paused', { version: 2, name: 'Legs', kind: 'strength', updatedAt: 0, exercises: [] }, null, null],
@@ -230,6 +255,51 @@ describe('workout workspace recovery', () => {
       draft: { exercises: [{ exerciseId: 'bench', targetSets: 3, targetReps: '8' }] },
     });
     expect(storage.getItem(workspaceStorageKey('nik'))).not.toBeNull();
+  });
+
+  it('keeps a legacy fractional draft but invalidates only its impossible pending start envelope', () => {
+    const storage = new MapStorage();
+    storage.setItem(workspaceStorageKey('nik'), JSON.stringify({
+      version: 2,
+      stage: 'review',
+      draft: { version: 2, name: 'Push', kind: 'strength', updatedAt: 0, exercises: [{ exerciseId: 'bench', targetSets: 2.5, targetReps: '8' }] },
+      sessionId: null,
+      clock: null,
+      finishingFrom: null,
+      clientRequestId: '11111111-1111-4111-8111-111111111111',
+      startRequest: {
+        idempotencyKey: '11111111-1111-4111-8111-111111111111', draftFingerprint: 'legacy-fractional',
+        sessionDate: '2026-08-24', name: 'Push', templateId: null, kind: 'strength',
+        liveStructure: [{ exerciseId: 'bench', targetSets: 2.5, targetReps: '8', supersetGroup: null }],
+      },
+    }));
+
+    expect(loadWorkspaceState(storage, 'nik')).toMatchObject({
+      stage: 'review',
+      draft: { exercises: [{ targetSets: 3 }] },
+      clientRequestId: null,
+      startRequest: null,
+    });
+  });
+
+  it('keeps a valid pending start envelope byte-exact while normalizing a mismatching legacy draft', () => {
+    const storage = new MapStorage();
+    const startRequest = {
+      idempotencyKey: '11111111-1111-4111-8111-111111111111', draftFingerprint: 'immutable-valid-envelope',
+      sessionDate: '2026-08-24', name: 'Push', templateId: null, kind: 'strength',
+      liveStructure: [{ exerciseId: 'bench', targetSets: 2, targetReps: '8', supersetGroup: null }],
+    };
+    storage.setItem(workspaceStorageKey('nik'), JSON.stringify({
+      version: 2, stage: 'review',
+      draft: { version: 2, name: 'Push', kind: 'strength', updatedAt: 0, exercises: [{ exerciseId: 'bench', targetSets: 2.5, targetReps: '8' }] },
+      sessionId: null, clock: null, finishingFrom: null,
+      clientRequestId: startRequest.idempotencyKey, startRequest,
+    }));
+
+    expect(loadWorkspaceState(storage, 'nik')).toMatchObject({
+      draft: { exercises: [{ targetSets: 3 }] },
+      startRequest,
+    });
   });
 
   it('normalizes the former blank-reps transient without discarding the recoverable workspace', () => {

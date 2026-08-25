@@ -93,6 +93,7 @@ describe('workout workspace state', () => {
       sessionId: 'canonical-session',
       clock: { runningSince: null, accumulatedMs: 1_800_000 },
       retrospectiveRequest: null,
+      completedRetrospective: retrospectiveRequest,
       clientRequestId: null,
     });
   });

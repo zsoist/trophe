@@ -10,7 +10,7 @@ describe('workout Drizzle schema mirrors migrations 0075 through 0077', () => {
       'client_idempotency_key', 'client_request', 'live_structure',
       'live_structure_version', 'client_draft_fingerprint', 'client_draft_hash',
       'pain_mutation_ids', 'live_finish_request', 'workout_kind',
-      'cardio_activity', 'cardio_distance_km', 'cardio_effort',
+      'cardio_activity', 'cardio_distance_km', 'cardio_effort', 'completed_at',
     ]));
     expect(sets.columns.map((column) => column.name)).toContain('client_request');
   });

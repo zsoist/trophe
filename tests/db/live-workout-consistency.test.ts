@@ -34,6 +34,7 @@ const IDS = {
   keyRollingCardio: 'a7100000-0000-4000-8000-000000000022',
   keyTerminalUpdates: 'a7100000-0000-4000-8000-000000000023',
   keyLiveUpdates: 'a7100000-0000-4000-8000-000000000024',
+  keyTerminalAuthority: 'a7100000-0000-4000-8000-000000000025',
 };
 
 type LiveStructure = Array<{
@@ -479,6 +480,46 @@ describe('live workout transactional consistency', () => {
       }
       const preserved = await client.query(`SELECT weight_kg, reps, rpe, is_warmup, is_pr, notes FROM public.workout_sets WHERE id = $1`, [saved.rows[0].id]);
       expect(preserved.rows[0]).toMatchObject({ weight_kg: 60, reps: 8, rpe: 8, is_warmup: false, is_pr: false, notes: null });
+    });
+  });
+
+  it('cannot clear database terminal authority to reopen a completed workout', async () => {
+    await asUser(async (client) => {
+      const sessionId = (await start(client, IDS.keyTerminalAuthority, 'draft:terminal-authority')).rows[0].id;
+      const saved = await client.query<{ id: string }>(`
+        SELECT public.save_live_workout_set($1::uuid, $2::uuid, 1, 60::real, 8, 8::real, false, false, 1) AS id
+      `, [sessionId, IDS.exerciseA]);
+      await client.query(`SELECT public.finish_live_workout_session($1::uuid, 'Push', 20, NULL::uuid, NULL::text, NULL::real, NULL::real)`, [sessionId]);
+
+      const authorityAssignments = [
+        'duration_minutes = NULL', 'completed_at = NULL', `session_date = '2026-08-23'`,
+        `name = 'Changed'`, `notes = 'changed'`, `pain_flags = '[{"body_part":"knee"}]'::jsonb`,
+        `client_idempotency_key = 'a7100000-0000-4000-8000-000000000099'::uuid`,
+        `client_request = '{"changed":true}'::jsonb`, `live_structure = '[]'::jsonb`,
+        'live_structure_version = live_structure_version + 1', `client_draft_fingerprint = 'changed'`,
+        `pain_mutation_ids = ARRAY['a7100000-0000-4000-8000-000000000098'::uuid]`,
+        `live_finish_request = '{"changed":true}'::jsonb`, `workout_kind = 'cardio'`,
+        `cardio_activity = 'run'`, 'cardio_distance_km = 5', 'cardio_effort = 7',
+      ];
+      for (let index = 0; index < authorityAssignments.length; index += 1) {
+        await client.query(`SAVEPOINT reopen_terminal_${index}`);
+        await expect(client.query(`UPDATE public.workout_sessions SET ${authorityAssignments[index]} WHERE id = $1`, [sessionId]))
+          .rejects.toMatchObject({ code: '22023' });
+        await client.query(`ROLLBACK TO SAVEPOINT reopen_terminal_${index}`);
+      }
+      await client.query('SAVEPOINT mutate_terminal_set');
+      await expect(client.query(`UPDATE public.workout_sets SET reps = 12 WHERE id = $1`, [saved.rows[0].id]))
+        .rejects.toMatchObject({ code: '22023' });
+      await client.query('ROLLBACK TO SAVEPOINT mutate_terminal_set');
+
+      const preserved = await client.query(`
+        SELECT session.duration_minutes, session.completed_at, set_row.reps
+        FROM public.workout_sessions session
+        JOIN public.workout_sets set_row ON set_row.session_id = session.id
+        WHERE session.id = $1
+      `, [sessionId]);
+      expect(preserved.rows[0]).toMatchObject({ duration_minutes: 20, reps: 8 });
+      expect(preserved.rows[0].completed_at).not.toBeNull();
     });
   });
 

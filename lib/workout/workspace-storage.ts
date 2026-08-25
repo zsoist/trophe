@@ -145,7 +145,7 @@ function isRetrospectiveRequest(value: unknown): value is RetrospectiveSaveReque
 
 function parseState(value: unknown): WorkoutWorkspaceState | null {
   if (!isRecord(value) || value.version !== WORKOUT_DRAFT_VERSION
-    || !hasOnlyKeys(value, ['version', 'stage', 'draft', 'sessionId', 'clock', 'finishingFrom', 'clientRequestId', 'startRequest', 'retrospectiveRequest'])
+    || !hasOnlyKeys(value, ['version', 'stage', 'draft', 'sessionId', 'clock', 'finishingFrom', 'clientRequestId', 'startRequest', 'retrospectiveRequest', 'completedRetrospective'])
     || !WORKOUT_STAGES.includes(value.stage as WorkoutStage)
     || (value.draft !== null && !isDraft(value.draft))
     || (value.sessionId !== null && (typeof value.sessionId !== 'string' || value.sessionId !== value.sessionId.trim() || !value.sessionId))
@@ -153,7 +153,8 @@ function parseState(value: unknown): WorkoutWorkspaceState | null {
     || (value.finishingFrom !== undefined && value.finishingFrom !== null && value.finishingFrom !== 'live' && value.finishingFrom !== 'paused')
     || (value.clientRequestId !== undefined && value.clientRequestId !== null && normalizeUuid(value.clientRequestId as string) === null)
     || (value.startRequest !== undefined && value.startRequest !== null && !isStartRequest(value.startRequest))
-    || (value.retrospectiveRequest !== undefined && value.retrospectiveRequest !== null && !isRetrospectiveRequest(value.retrospectiveRequest))) return null;
+    || (value.retrospectiveRequest !== undefined && value.retrospectiveRequest !== null && !isRetrospectiveRequest(value.retrospectiveRequest))
+    || (value.completedRetrospective !== undefined && value.completedRetrospective !== null && !isRetrospectiveRequest(value.completedRetrospective))) return null;
   const hasDraft = value.draft !== null;
   const hasSession = typeof value.sessionId === 'string' && value.sessionId.trim().length > 0;
   const hasClock = value.clock !== null;
@@ -161,6 +162,7 @@ function parseState(value: unknown): WorkoutWorkspaceState | null {
   const finishingFrom = value.finishingFrom ?? null;
   const startRequest = (value.startRequest as LiveStartRequestEnvelope | null | undefined) ?? null;
   const retrospectiveRequest = (value.retrospectiveRequest as RetrospectiveSaveRequestEnvelope | null | undefined) ?? null;
+  const completedRetrospective = (value.completedRetrospective as RetrospectiveSaveRequestEnvelope | null | undefined) ?? null;
   if (startRequest && value.clientRequestId !== startRequest.idempotencyKey) return null;
   if (startRequest && retrospectiveRequest) return null;
   if (retrospectiveRequest && value.clientRequestId === retrospectiveRequest.idempotencyKey) return null;
@@ -174,6 +176,7 @@ function parseState(value: unknown): WorkoutWorkspaceState | null {
             : !clockIsRunning && finishingFrom === null);
   if (!validStage) return null;
   if (retrospectiveRequest && value.stage !== 'draft' && value.stage !== 'review') return null;
+  if (completedRetrospective && value.stage !== 'completed') return null;
   return {
     stage: value.stage as WorkoutStage,
     draft: value.draft as WorkoutDraft | null,
@@ -183,6 +186,7 @@ function parseState(value: unknown): WorkoutWorkspaceState | null {
     clientRequestId: (value.clientRequestId as string | null | undefined) ?? null,
     startRequest,
     retrospectiveRequest,
+    completedRetrospective,
   };
 }
 
@@ -245,6 +249,22 @@ export function loadWorkspaceState(storage: WorkspaceStorage, userId: string): W
         return { ...exercise, targetReps, targetSets };
       });
     }
+    // Pre-v2.1 clients could persist a positive fractional set target before
+    // transport. That shape is rejected by the canonical start RPC, so it
+    // cannot represent a committed/ambiguous request. Invalidate only that
+    // impossible envelope while retaining the normalized workspace. Valid
+    // immutable envelopes remain byte-exact, even if the recovered draft was
+    // normalized independently.
+    if (isRecord(parsed) && isRecord(parsed.startRequest) && Array.isArray(parsed.startRequest.liveStructure)) {
+      const impossibleLegacyEnvelope = parsed.startRequest.liveStructure.some((item) => isRecord(item) && (
+        (typeof item.targetSets === 'number' && Number.isFinite(item.targetSets) && item.targetSets > 0 && !Number.isInteger(item.targetSets))
+        || (typeof item.targetReps === 'string' && !item.targetReps.trim())
+      ));
+      if (impossibleLegacyEnvelope) {
+        parsed.startRequest = null;
+        parsed.clientRequestId = null;
+      }
+    }
     const state = parseState(parsed);
     if (state) return state;
   } catch {
@@ -265,6 +285,7 @@ export function saveWorkspaceState(storage: WorkspaceStorage, userId: string, st
     clientRequestId: state.clientRequestId,
     startRequest: state.startRequest ?? null,
     retrospectiveRequest: state.retrospectiveRequest ?? null,
+    completedRetrospective: state.completedRetrospective ?? null,
   };
   storage.setItem(workspaceStorageKey(userId), JSON.stringify(payload));
 }

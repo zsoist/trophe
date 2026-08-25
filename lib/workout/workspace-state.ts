@@ -102,6 +102,8 @@ export interface WorkoutWorkspaceState {
   startRequest?: LiveStartRequestEnvelope | null;
   /** Complete immutable retrospective-save request persisted before transport. */
   retrospectiveRequest?: RetrospectiveSaveRequestEnvelope | null;
+  /** Immutable facts retained after a retrospective request is reconciled. */
+  completedRetrospective?: RetrospectiveSaveRequestEnvelope | null;
 }
 
 export const WORKOUT_DRAFT_VERSION = 2 as const;
@@ -141,7 +143,7 @@ export function createEmptyDraft(kind: WorkoutKind = 'strength', name = '', temp
 }
 
 export function createInitialWorkspaceState(): WorkoutWorkspaceState {
-  return { stage: 'home', draft: null, sessionId: null, clock: null, finishingFrom: null, clientRequestId: null, startRequest: null, retrospectiveRequest: null };
+  return { stage: 'home', draft: null, sessionId: null, clock: null, finishingFrom: null, clientRequestId: null, startRequest: null, retrospectiveRequest: null, completedRetrospective: null };
 }
 
 export function elapsedActiveMs(clock: LiveClock | null, now: number): number {
@@ -175,7 +177,7 @@ export function workoutWorkspaceReducer(
   switch (event.type) {
     case 'draft.created':
       if (state.stage !== 'home') throw new Error(`Cannot create a draft from ${state.stage}`);
-      return { stage: 'draft', draft: createEmptyDraft(event.payload.kind, event.payload.name, event.payload.templateKey, event.payload.updatedAt ?? 0, event.payload.templateId), sessionId: null, clock: null, finishingFrom: null, clientRequestId: null, startRequest: null, retrospectiveRequest: null };
+      return { stage: 'draft', draft: createEmptyDraft(event.payload.kind, event.payload.name, event.payload.templateKey, event.payload.updatedAt ?? 0, event.payload.templateId), sessionId: null, clock: null, finishingFrom: null, clientRequestId: null, startRequest: null, retrospectiveRequest: null, completedRetrospective: null };
     case 'draft.updated':
       if (state.stage !== 'draft' && state.stage !== 'review') throw new Error(`Cannot update a draft from ${state.stage}`);
       if (state.startRequest || state.retrospectiveRequest) throw new Error('Cannot update a draft while its request is pending');
@@ -228,14 +230,16 @@ export function workoutWorkspaceReducer(
         throw new Error(`Cannot reconcile retrospective save from ${state.stage}`);
       }
       if (!event.payload.sessionId.trim()) throw new Error('A session id is required');
+      const completedRetrospective = state.retrospectiveRequest;
       return {
         ...state,
         stage: 'completed',
         sessionId: event.payload.sessionId,
-        clock: { runningSince: null, accumulatedMs: state.retrospectiveRequest.durationMinutes * 60_000 },
+        clock: { runningSince: null, accumulatedMs: completedRetrospective.durationMinutes * 60_000 },
         clientRequestId: null,
         startRequest: null,
         retrospectiveRequest: null,
+        completedRetrospective,
       };
     }
     case 'live.started':
