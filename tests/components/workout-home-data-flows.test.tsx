@@ -272,7 +272,7 @@ describe('Workout home data flows', () => {
     renderPage();
 
     expect(await screen.findByRole('button', { name: 'Review today’s workout' })).toBeTruthy();
-    expect(screen.getByRole('alert').textContent).toContain('workout.support_data_load_failed');
+    expect((await screen.findByRole('alert')).textContent).toContain('workout.support_data_load_failed');
     expect(screen.queryByText('workout.program_load_failed')).toBeNull();
   });
 });
