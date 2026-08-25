@@ -90,8 +90,8 @@ Verification: overlay coverage, parity, focused Task 8, and affected Task 7 comm
 - Logger rows now use stable local identities (`planned`, `extra`, `warmup`, or persisted set id); logical `setNumber` is derived solely for UI/persistence ordering. Prefixing warm-ups therefore retains typed and completed working-row state instead of transferring it to warm-up row 1.
 - Live extra rows are retained by stable identity and reindexed after the warm-up prefix, so they are not filtered out when their former number collides with the shifted planned range.
 - Retrospective completion values are keyed by stable row identity and resolved against each row’s current logical number at final save.
-- Added real PlateCalculator consumer coverage for live insertion, finish barrier blocking, changed-ramp rejection, and exact retry identity reuse; component coverage now includes sequential decimal-comma input, pending close/input locks, bar-only states, and allocation-bound output.
+- Added real PlateCalculator consumer coverage for live insertion, finish barrier blocking, changed-ramp rejection, and exact retry identity reuse. An isolated live-consumer test uses the real ExerciseSetLogger and calculator controls to verify the persisted 40/60/80 kg warm-up payloads; component coverage now includes sequential decimal-comma input, pending close/input locks, bar-only states, and allocation-bound output.
 
 RED/GREEN evidence: retrospective working value preservation initially failed after insertion (`''` instead of `80` for the shifted working row); it passes with stable row identities. The existing live calculator regression exercises the real callback and confirms its first retry reuses logical set `1` after a partial write.
 
-Verification: focused Task 8/Task 7 suite passed (8 files, 76 tests); `npm run typecheck` passed; scoped ESLint and `git diff --check` passed.
+Verification: focused Task 8/Task 7 suite passed (9 files, 77 tests); `npm run typecheck` passed; scoped ESLint and `git diff --check` passed.
