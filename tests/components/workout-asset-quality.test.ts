@@ -45,7 +45,8 @@ const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
 
 const anatomy = ['chest', 'back', 'shoulders', 'arms', 'legs', 'core', 'full-body', 'cardio'];
 const technique = [
-  'bench-press', 'incline-press', 'overhead-press', 'pec-deck', 'cable-fly', 'pull-up',
+  'bench-press', 'smith-bench-press', 'floor-press', 'machine-chest-press', 'push-up',
+  'incline-press', 'overhead-press', 'pec-deck', 'cable-fly', 'pull-up',
   'deadlift', 'squat', 'dip', 'row', 'curl', 'triceps-extension',
 ];
 
@@ -158,6 +159,8 @@ describe('workout V2 asset quality', () => {
   it.each(technique)('resolves the exact %s technique asset', (slug) => {
     const exerciseName = {
       'bench-press': 'Barbell Bench Press', 'incline-press': 'Incline Dumbbell Press',
+      'smith-bench-press': 'Smith Machine Bench Press', 'floor-press': 'Floor Press',
+      'machine-chest-press': 'Machine Chest Press', 'push-up': 'Push-Ups',
       'overhead-press': 'Standing Overhead Barbell Press', 'pec-deck': 'Pec Deck Machine',
       'cable-fly': 'Standing Cable Chest Fly', 'pull-up': 'Pull-Up',
       deadlift: 'Conventional Barbell Deadlift', squat: 'Barbell Back Squat', dip: 'Chest Dip',

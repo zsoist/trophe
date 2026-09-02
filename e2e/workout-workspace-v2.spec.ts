@@ -18,7 +18,7 @@ async function assertWorkoutSurface(page: Page, theme: ThemeMode) {
   await expect(nav).toBeVisible();
   await expect(nav).toHaveCSS('bottom', '0px');
   const viewport = page.viewportSize();
-  if (viewport && viewport.width <= 390) {
+  if (viewport && viewport.width < 375) {
     const labels = nav.locator('[data-bot-nav-label]');
     await expect(labels.first()).toBeHidden();
     const icons = await nav.locator('[data-bot-nav-icon]').evaluateAll((elements) => elements.map((element) => {
@@ -30,6 +30,8 @@ async function assertWorkoutSurface(page: Page, theme: ThemeMode) {
       expect(icons[index].width).toBeGreaterThan(0);
       expect(icons[index + 1].left - icons[index].right).toBeGreaterThanOrEqual(16);
     }
+  } else if (viewport) {
+    await expect(nav.locator('[data-bot-nav-label]').first()).toBeVisible();
   }
 }
 
@@ -118,7 +120,7 @@ async function waitForWorkoutBuildAtTop(page: Page) {
 
 async function waitForWorkoutHomeSettled(page: Page) {
   await waitForRouteSettled(page, '/dashboard/workout');
-  await expect(page.getByRole('button', { name: 'Preview Push' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Workout templates' })).toBeEnabled();
   await expect.poll(async () => page.locator('.workout-mode-card img').evaluateAll((images) => images.length === 2 && images.every((image) => (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0)), {
     message: 'premium workout mode artwork must be decoded before capture',
   }).toBe(true);
@@ -162,6 +164,7 @@ test.describe('Workout Workspace V2', () => {
       await assertWorkoutSurface(page, theme);
       await captureWorkout(page, testInfo, `${theme}-evidence-01-home.png`, { atTop: true });
 
+      await page.getByRole('button', { name: 'Workout templates' }).click();
       await page.getByRole('button', { name: 'Preview Push' }).click();
       await expect(page.getByRole('region', { name: 'Preview', exact: true })).toBeVisible();
       await captureWorkout(page, testInfo, `${theme}-evidence-02-preview.png`);
@@ -182,6 +185,7 @@ test.describe('Workout Workspace V2', () => {
       await page.getByRole('link', { name: 'Workout Home', exact: true }).click();
       await waitForWorkoutHomeSettled(page);
       await expect(currentWorkspace(page).getByRole('button', { name: 'Continue editing' })).toBeVisible();
+      await currentWorkspace(page).getByRole('button', { name: 'Workout templates' }).click();
       await currentWorkspace(page).getByRole('button', { name: 'Preview Pull' }).click();
       await currentWorkspace(page).getByRole('button', { name: 'Use this template' }).click();
       const replaceDraft = page.getByRole('alertdialog', { name: 'Replace this draft?' });
@@ -195,6 +199,7 @@ test.describe('Workout Workspace V2', () => {
 
       await page.getByRole('link', { name: 'Workout Home', exact: true }).click();
       await waitForWorkoutHomeSettled(page);
+      await currentWorkspace(page).getByRole('button', { name: 'Workout templates' }).click();
       await currentWorkspace(page).getByRole('button', { name: 'Preview Push' }).click();
       await currentWorkspace(page).getByRole('button', { name: 'Use this template' }).click();
       await page.getByRole('alertdialog', { name: 'Replace this draft?' }).getByRole('button', { name: 'Replace draft' }).click();
@@ -226,6 +231,7 @@ test.describe('Workout Workspace V2', () => {
       await waitForWorkoutRouteAtTop(page, 'exercise browser must open at the top');
       const search = page.getByRole('searchbox', { name: 'Search exercises...' });
       await expect(search).toBeVisible();
+      await assertControlClearsBottomNav(page, page.getByRole('button', { name: /Back to Workout/ }));
       await expect(page.getByRole('link', { name: 'Back', exact: true })).toHaveAttribute('href', '/dashboard/workout/build');
       await captureWorkout(page, testInfo, `${theme}-evidence-04-browser.png`, { atTop: true });
       await search.fill('Bench Press');
@@ -285,8 +291,11 @@ test.describe('Workout Workspace V2', () => {
       await page.goto('/dashboard/workout/review');
       await waitForRouteSettled(page, '/dashboard/workout/live');
 
-      const firstLiveExerciseName = (await currentWorkspace(page).locator('article').first().getByRole('heading').textContent())?.trim();
+      const firstSetRow = currentWorkspace(page).locator('[data-set-row]').first();
+      const firstLiveExerciseName = (await firstSetRow.getByRole('heading').textContent())?.trim();
+      const firstLiveExerciseId = await firstSetRow.getAttribute('data-exercise-id');
       expect(firstLiveExerciseName).toBeTruthy();
+      expect(firstLiveExerciseId).toBeTruthy();
       await weight.fill('60');
       await reps.fill('8');
       await currentWorkspace(page).getByRole('checkbox', { name: 'Warmup' }).first().click();
@@ -302,7 +311,7 @@ test.describe('Workout Workspace V2', () => {
       await expect(currentWorkspace(page).getByRole('button', { name: 'Undo set' })).toHaveCount(2);
       await page.reload();
       await expect(currentWorkspace(page).getByRole('button', { name: 'Undo set' })).toHaveCount(2);
-      const recoveredFirstExerciseRows = currentWorkspace(page).locator('article').filter({ hasText: firstLiveExerciseName! });
+      const recoveredFirstExerciseRows = currentWorkspace(page).locator(`[data-set-row][data-exercise-id="${firstLiveExerciseId}"]`);
       await expect(recoveredFirstExerciseRows).toHaveCount(5);
       await expect(recoveredFirstExerciseRows.getByRole('button', { name: 'Complete set' })).toHaveCount(3);
 
@@ -442,6 +451,7 @@ test.describe('Workout Workspace V2', () => {
         await assertWorkoutSurface(page, theme);
         await captureWorkout(page, testInfo, `${theme}-${viewport.width}x${viewport.height}.png`);
         if (viewport.width <= 375) {
+          await page.getByRole('button', { name: 'Workout templates' }).click();
           await page.getByRole('button', { name: 'Preview Push' }).click();
           const useTemplate = page.getByRole('button', { name: 'Use this template' });
           await useTemplate.scrollIntoViewIfNeeded();

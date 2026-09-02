@@ -108,10 +108,10 @@ components:
     textColor: "{colors.performance-ink}"
     rounded: "14px"
   workout-mode-card:
-    backgroundColor: "{colors.performance-canvas}"
-    textColor: "{colors.performance-ink}"
+    backgroundColor: "{colors.surface-raised}"
+    textColor: "{colors.content-primary}"
     rounded: "16px"
-    height: "168px"
+    height: "144px"
   session-exercise-identity:
     backgroundColor: "{colors.performance-surface}"
     textColor: "{colors.performance-ink}"
@@ -142,7 +142,7 @@ The material world is obsidian/graphite; Trophē gold for identity and primary a
 
 - Compact, coach-led information hierarchy.
 - Evidence rows and split-sheet dividers with tabular metrics.
-- Anatomical workout imagery anchored in black fields.
+- Anatomical workout imagery contained on quiet neutral plates, never cropped or obscured.
 - Theme-aware contrast with identical hierarchy in light and dark.
 - A stable floating five-slot navigation rail.
 
@@ -209,7 +209,7 @@ The base rhythm is a 4pt grid. Performance sections use short heading-to-body ga
 
 ## Elevation & Depth
 
-The system is layered but nearly flat. Canvas, surface, and raised-surface tones establish hierarchy; one-pixel rails do most structural work. Soft shadows are reserved for floating navigation, overlays, and occasional raised surfaces, while workout imagery gains depth through black fields, color-matched radial light, and a bottom scrim. Dark mode never depends on glass blur for ordinary cards; the coach header alone uses restrained backdrop blur to preserve sticky context.
+The system is layered but nearly flat. Canvas, surface, and raised-surface tones establish hierarchy; one-pixel rails do most structural work. Soft shadows are reserved for floating navigation, overlays, and occasional raised surfaces. Workout imagery stays fully contained on neutral plates so anatomy and technique remain inspectable in both themes. Dark mode never depends on glass blur for ordinary cards; the coach header alone uses restrained backdrop blur to preserve sticky context.
 
 ### Shadow Vocabulary
 
@@ -263,7 +263,7 @@ Four equal cells present Protein, Carbs, Fat, and Sugar as honest evidence. Valu
 
 ### Workout Entry and Session Identity
 
-Strength and Cardio are equal visual choices built from anatomical workout imagery, black fields, intent-colored illumination, and a dark scrim for legible captions. Within a session, every exercise begins with a compact image identity row, set/equipment metadata, an optional cyan last-performance line, and a fixed-grid logging surface beneath it.
+Strength and Cardio are equal visual choices built from fully contained anatomical imagery, restrained intent color, and direct captions on a neutral surface. Strength enters the body-area picker before Build, while templates remain collapsed until requested. Within a live session, sets are grouped under one exercise identity and keep weight, reps, RPE, completion, technique, pain, and plate actions together without repeating oversized cards.
 
 ### Coach Conversation Header
 

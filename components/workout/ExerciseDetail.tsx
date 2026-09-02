@@ -77,7 +77,8 @@ export function ExerciseDetail({ exercise, userId, onAdd, isAdded = false, alter
     : lang === 'el' ? exercise.instructions_el ?? null
     : null;
   const guidance = useMemo(() => organizeExerciseGuidance(instructions), [instructions]);
-  const asset = resolveWorkoutAsset({ exerciseName: exercise.name, muscleGroup: exercise.muscle_group });
+  const hasGuidance = Object.values(guidance).some((items) => items.length > 0);
+  const asset = resolveWorkoutAsset({ exerciseName: exercise.name, equipment: exercise.equipment, muscleGroup: exercise.muscle_group });
   const visualLabel = asset.kind === 'technique' ? t('workout.info_technique') : t('workout.info_muscles_worked');
   const visualAlt = t(`workout.movement_${asset.kind}_alt`, { name });
   const secondaries = (exercise.secondary_muscles ?? []).filter(Boolean) as MuscleGroup[];
@@ -148,25 +149,38 @@ export function ExerciseDetail({ exercise, userId, onAdd, isAdded = false, alter
         </div>
       </header>
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-2">
-        <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4">
-          <h2 className="text-sm font-semibold text-[var(--content-primary)]">{t('workout.info_primary')}</h2>
-          <p className="mt-2 text-sm text-[var(--content-secondary)]">{t(muscleLabelKey(exercise.muscle_group))}</p>
-        </section>
-        <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4">
-          <h2 className="text-sm font-semibold text-[var(--content-primary)]">{t('workout.info_secondary')}</h2>
-          <p className="mt-2 text-sm text-[var(--content-secondary)]">
-            {secondaries.length > 0 ? secondaries.map((muscle) => t(muscleLabelKey(muscle))).join(', ') : '—'}
-          </p>
-        </section>
-      </div>
+      <section className="mt-5 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4">
+        <div className="flex flex-wrap gap-3">
+          <div>
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--content-muted)]">{t('workout.info_primary')}</h2>
+            <span className="mt-1.5 inline-flex rounded-full border border-[var(--border-focus)] bg-[var(--surface-active)] px-3 py-1.5 text-sm font-semibold text-[var(--action-primary)]">
+              {t(muscleLabelKey(exercise.muscle_group))}
+            </span>
+          </div>
+          <div>
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--content-muted)]">{t('workout.info_secondary')}</h2>
+            <div className="mt-1.5 flex flex-wrap gap-2">
+              {secondaries.length > 0 ? secondaries.map((muscle) => (
+                <span key={muscle} className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-3 py-1.5 text-sm text-[var(--content-secondary)]">
+                  {t(muscleLabelKey(muscle))}
+                </span>
+              )) : <span className="py-1.5 text-sm text-[var(--content-muted)]">—</span>}
+            </div>
+          </div>
+        </div>
+      </section>
 
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        <GuidanceBlock title={t('workout.info_setup')} items={guidance.setup} empty={t('workout.info_not_provided')} />
-        <GuidanceBlock title={t('workout.info_execution')} items={guidance.execution} empty={t('workout.info_not_provided')} />
-        <GuidanceBlock title={t('workout.info_breathing')} items={guidance.breathing} empty={t('workout.info_not_provided')} />
-        <GuidanceBlock title={t('workout.info_common_mistakes')} items={guidance.mistakes} empty={t('workout.info_not_provided')} />
-      </div>
+      {hasGuidance ? <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        {guidance.setup.length > 0 ? <GuidanceBlock title={t('workout.info_setup')} items={guidance.setup} empty={t('workout.info_not_provided')} /> : null}
+        {guidance.execution.length > 0 ? <GuidanceBlock title={t('workout.info_execution')} items={guidance.execution} empty={t('workout.info_not_provided')} /> : null}
+        {guidance.breathing.length > 0 ? <GuidanceBlock title={t('workout.info_breathing')} items={guidance.breathing} empty={t('workout.info_not_provided')} /> : null}
+        {guidance.mistakes.length > 0 ? <GuidanceBlock title={t('workout.info_common_mistakes')} items={guidance.mistakes} empty={t('workout.info_not_provided')} /> : null}
+      </div> : (
+        <section className="mt-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4">
+          <h2 className="text-sm font-semibold text-[var(--content-primary)]">{t('workout.info_technique')}</h2>
+          <p className="mt-2 text-sm leading-6 text-[var(--content-muted)]">{t('workout.info_not_provided')}</p>
+        </section>
+      )}
 
       <section className="mt-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4">
         <h2 className="text-sm font-semibold text-[var(--content-primary)]">{t('workout.info_safety')}</h2>

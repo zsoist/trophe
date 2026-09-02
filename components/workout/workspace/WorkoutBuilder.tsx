@@ -82,7 +82,7 @@ export function WorkoutBuilder({ exercises, onSavePlan, saveState = 'idle', save
             const exercise = exerciseById.get(draftExercise.exerciseId);
             const name = draftExercise.exerciseName ?? exercise?.name ?? draftExercise.exerciseId;
             const muscleGroup = draftExercise.muscleGroup ?? exercise?.muscle_group ?? null;
-            const asset = resolveWorkoutAsset({ exerciseName: exercise?.name ?? name, muscleGroup });
+            const asset = resolveWorkoutAsset({ exerciseName: exercise?.name ?? name, equipment: exercise?.equipment, muscleGroup });
             const visualAlt = t(`workout.movement_${asset.kind}_alt`, { name });
             return (
               <article key={draftExercise.exerciseId} className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-3 min-[375px]:p-4">

@@ -4,6 +4,7 @@ import { resolveWorkoutAsset, type BodyAreaId, type ResolvedWorkoutAsset } from 
 
 interface MovementVisualProps {
   exerciseName?: string | null;
+  equipment?: string | null;
   bodyArea?: BodyAreaId | null;
   muscleGroup?: MuscleGroup | null;
   asset?: ResolvedWorkoutAsset;
@@ -15,6 +16,7 @@ interface MovementVisualProps {
 
 export function MovementVisual({
   exerciseName,
+  equipment,
   bodyArea,
   muscleGroup,
   asset: suppliedAsset,
@@ -23,7 +25,7 @@ export function MovementVisual({
   priority = false,
   sizes = '(max-width: 640px) 32vw, 160px',
 }: MovementVisualProps) {
-  const asset = suppliedAsset ?? resolveWorkoutAsset({ exerciseName, bodyArea, muscleGroup });
+  const asset = suppliedAsset ?? resolveWorkoutAsset({ exerciseName, equipment, bodyArea, muscleGroup });
 
   return (
     <Image

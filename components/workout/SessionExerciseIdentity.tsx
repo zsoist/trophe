@@ -34,7 +34,7 @@ export default function SessionExerciseIdentity({
       className="session-exercise-identity"
     >
       <span className="session-exercise-identity__visual">
-        <MovementVisual exerciseName={exerciseName} alt={`${name} movement`} />
+        <MovementVisual exerciseName={exerciseName} equipment={equipment} alt={`${name} movement`} />
       </span>
       <span className="session-exercise-identity__copy">
         <strong>{name}</strong>

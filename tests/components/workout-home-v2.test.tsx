@@ -152,6 +152,7 @@ describe('WorkoutHome', () => {
 
   it('previews Push without starting or opening the exercise picker', async () => {
     render(<WorkoutHomeHarness />);
+    fireEvent.click(screen.getByRole('button', { name: 'Workout templates' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Preview Push' }).hasAttribute('disabled')).toBe(false));
     fireEvent.click(screen.getByRole('button', { name: 'Preview Push' }));
 
@@ -162,6 +163,15 @@ describe('WorkoutHome', () => {
     expect(screen.queryByRole('dialog', { name: 'Add exercise' })).toBeNull();
   });
 
+  it('opens the body-area exercise browser before showing an empty strength draft', async () => {
+    render(<WorkoutHomeHarness />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Build strength workout' }));
+
+    expect(push).toHaveBeenLastCalledWith('/dashboard/workout/exercises');
+    expect(startLiveSession).not.toHaveBeenCalled();
+  });
+
   it('keeps Push on Cancel and replaces it with Pull only after named confirmation', async () => {
     const initialState: WorkoutWorkspaceState = {
       stage: 'draft', sessionId: null, clock: null, clientRequestId: null, startRequest: null,
@@ -170,6 +180,7 @@ describe('WorkoutHome', () => {
     render(<WorkoutHomeHarness initialState={initialState} forceHome />);
     expect(await screen.findByRole('button', { name: 'Continue editing' })).toBeTruthy();
 
+    fireEvent.click(screen.getByRole('button', { name: 'Workout templates' }));
     fireEvent.click(screen.getByRole('button', { name: 'Preview Pull' }));
     fireEvent.click(screen.getByRole('button', { name: 'Use this template' }));
     expect(await screen.findByRole('alertdialog', { name: 'Replace this draft?' })).toBeTruthy();
@@ -249,6 +260,7 @@ describe('WorkoutHome', () => {
 
   it('creates the template draft only after the user confirms the preview', async () => {
     render(<WorkoutHomeHarness />);
+    fireEvent.click(screen.getByRole('button', { name: 'Workout templates' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Preview Push' }).hasAttribute('disabled')).toBe(false));
     fireEvent.click(screen.getByRole('button', { name: 'Preview Push' }));
     fireEvent.click(screen.getByRole('button', { name: 'Use this template' }));
@@ -262,6 +274,7 @@ describe('WorkoutHome', () => {
   it('takes Preview Push through review and starts live without persisting the built-in key as template_id', async () => {
     startLiveSession.mockResolvedValue({ ok: true, sessionId: 'session-push' });
     render(<WorkoutHomeHarness />);
+    fireEvent.click(screen.getByRole('button', { name: 'Workout templates' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Preview Push' }).hasAttribute('disabled')).toBe(false));
 
     fireEvent.click(screen.getByRole('button', { name: 'Preview Push' }));
@@ -324,6 +337,6 @@ describe('WorkoutHome', () => {
   it('keeps a deterministic browse surface during program errors', async () => {
     render(<WorkoutHomeHarness programError />);
     expect((await screen.findByRole('alert')).textContent).toMatch(/program/i);
-    expect(screen.getByRole('heading', { name: 'Workout templates' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Workout templates' })).toBeTruthy();
   });
 });

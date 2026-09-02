@@ -51,6 +51,8 @@ vi.mock('@/lib/i18n', () => ({
         'workout.picker_all_area': 'All {area}',
         'workout.picker_add_named': 'Add {name}',
         'workout.picker_add': 'Add',
+        'workout.back_to_workout': 'Back to Workout',
+        'workout.exercise_count': '{n} exercises',
         'workout.picker_info_named': 'Exercise info: {name}',
         'workout.picker_search_results': 'Search results',
         'workout.picker_clear_search': 'Clear search',
@@ -159,7 +161,7 @@ describe('muscle-group-first exercise picker', () => {
     expect(focus).toHaveBeenCalledWith({ preventScroll: true });
   });
 
-  it('adds a routed exercise to the draft and returns to Build without modal close semantics', () => {
+  it('keeps routed selection open for multiple additions and returns only from the explicit footer', () => {
     const addDraftExercise = vi.fn();
     const returnToBuild = vi.fn();
     const { onClose, onSelect } = renderPicker({
@@ -172,9 +174,12 @@ describe('muscle-group-first exercise picker', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add Bench Press' }));
 
     expect(addDraftExercise).toHaveBeenCalledWith('bench');
-    expect(returnToBuild).toHaveBeenCalledTimes(1);
+    expect(returnToBuild).not.toHaveBeenCalled();
     expect(onSelect).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: /Back to Workout/ }));
+    expect(returnToBuild).toHaveBeenCalledTimes(1);
   });
 
   it('opens on eight body-area choices instead of the full exercise catalogue', async () => {

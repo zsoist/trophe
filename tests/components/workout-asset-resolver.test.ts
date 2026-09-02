@@ -30,6 +30,10 @@ describe('resolveWorkoutAsset', () => {
     ['Standing Dumbbell Biceps Curl', 'biceps', 'curl'],
     ['Cable Rope Triceps Extension', 'triceps', 'triceps-extension'],
     ['Rope Triceps Pushdown', 'triceps', 'triceps-extension'],
+    ['Smith Machine Bench Press', 'chest', 'smith-bench-press'],
+    ['Floor Press', 'chest', 'floor-press'],
+    ['Machine Chest Press', 'chest', 'machine-chest-press'],
+    ['Push-Ups', 'chest', 'push-up'],
   ] as const)('maps the represented %s technique exactly', (exerciseName, muscleGroup, slug) => {
     expect(resolveWorkoutAsset({ exerciseName, muscleGroup })).toMatchObject({
       src: `/workout-v2/exercises/${slug}.webp`,
@@ -48,7 +52,6 @@ describe('resolveWorkoutAsset', () => {
     ['Belt Squat', 'quads', 'legs'],
     ['Stiff-Leg Deadlift', 'hamstrings', 'legs'],
     ['Snatch-Grip Deadlift', 'back', 'back'],
-    ['Smith Machine Bench Press', 'chest', 'chest'],
     ['Incline Bench Press', 'chest', 'chest'],
     ['Chin-Up', 'back', 'back'],
     ['Barbell Row', 'back', 'back'],
@@ -95,6 +98,26 @@ describe('resolveWorkoutAsset', () => {
       background: 'neutral',
       alpha: true,
     });
+  });
+
+  it('does not show a technique asset when a custom exercise reuses a library name with different equipment', () => {
+    expect(resolveWorkoutAsset({
+      exerciseName: 'Floor Press',
+      equipment: 'dumbbell',
+      muscleGroup: 'chest',
+    })).toEqual({
+      src: '/workout-v2/body-areas/chest.webp',
+      kind: 'anatomy',
+      fit: 'contain',
+      background: 'neutral',
+      alpha: true,
+    });
+
+    expect(resolveWorkoutAsset({
+      exerciseName: 'Floor Press',
+      equipment: 'barbell',
+      muscleGroup: 'chest',
+    }).src).toBe('/workout-v2/exercises/floor-press.webp');
   });
 
   it('uses full body when no body area is known', () => {

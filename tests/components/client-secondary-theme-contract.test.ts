@@ -77,6 +77,7 @@ import { WorkoutWorkspaceProvider, useWorkoutWorkspace } from '@/components/work
 import { WorkoutHome } from '@/components/workout/workspace/WorkoutHome';
 import { WorkoutBuilder } from '@/components/workout/workspace/WorkoutBuilder';
 import { WorkoutReview } from '@/components/workout/workspace/WorkoutReview';
+import { ExerciseBrowser } from '@/components/workout/workspace/ExerciseBrowser';
 
 class MemoryStorage {
   private readonly values = new Map<string, string>();
@@ -118,7 +119,9 @@ function RoutedWorkoutJourney() {
 
   return React.createElement(React.Fragment, null,
     React.createElement('output', { 'aria-label': 'Workout URL' }, route),
-    route === '/dashboard/workout/build'
+    route === '/dashboard/workout/exercises'
+      ? React.createElement(ExerciseBrowser, { initialExercises: [routeExercise], initialRecentIds: [] })
+      : route === '/dashboard/workout/build'
       ? React.createElement(WorkoutBuilder, { exercises: [{ id: routeExercise.id, name: routeExercise.name }], onSavePlan: vi.fn() })
       : route === '/dashboard/workout/review'
         ? React.createElement(WorkoutReview, { exercises: [{ id: routeExercise.id, name: routeExercise.name }], onSavePlan: vi.fn(), onLogCompleted: vi.fn() })
@@ -367,17 +370,18 @@ describe('client secondary theme and accessibility contract', () => {
     outside.remove();
   });
 
-  it('routes Home → Build → the addressable exercise browser', async () => {
+  it('routes Home → body-area browser → Build without auto-starting', async () => {
     renderRoutedWorkoutJourney();
 
     expect((await screen.findByLabelText('Workout URL')).textContent).toBe('/dashboard/workout');
     fireEvent.click(await screen.findByRole('button', { name: 'workout.build_strength' }));
+    await waitFor(() => expect(screen.getByLabelText('Workout URL').textContent).toBe('/dashboard/workout/exercises'));
+    expect(screen.getByRole('heading', { name: 'workout.picker_choose_area' })).toBeTruthy();
+    expect(screen.getByLabelText('Workspace stage').textContent).toBe('draft');
+
+    fireEvent.click(screen.getByRole('button', { name: /workout.back_to_workout/ }));
     await waitFor(() => expect(screen.getByLabelText('Workout URL').textContent).toBe('/dashboard/workout/build'));
     expect(document.activeElement).toBe(screen.getByRole('main', { name: 'workout.workspace_build_title' }));
-
-    fireEvent.click(screen.getByRole('button', { name: 'workout.add_exercise' }));
-    await waitFor(() => expect(screen.getByLabelText('Workout URL').textContent).toBe('/dashboard/workout/exercises'));
-    expect(screen.getByLabelText('Workspace stage').textContent).toBe('draft');
   });
 
   it('renders a static reduced-motion barcode laser and retains the normal sweep branch', async () => {

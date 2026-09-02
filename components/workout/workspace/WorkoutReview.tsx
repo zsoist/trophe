@@ -78,7 +78,7 @@ export function WorkoutReview({ exercises, onSavePlan, onLogCompleted, saveState
               const exercise = exerciseById.get(draftExercise.exerciseId);
               const name = draftExercise.exerciseName ?? exercise?.name ?? draftExercise.exerciseId;
               const muscleGroup = draftExercise.muscleGroup ?? exercise?.muscle_group ?? null;
-              const asset = resolveWorkoutAsset({ exerciseName: exercise?.name ?? name, muscleGroup });
+              const asset = resolveWorkoutAsset({ exerciseName: exercise?.name ?? name, equipment: exercise?.equipment, muscleGroup });
               return (
                 <details key={draftExercise.exerciseId} className="group rounded-xl border border-[var(--workout-rail)] bg-[var(--surface-subtle)]">
                   <summary aria-label={t('workout.review_edit_exercise', { name })} className="flex min-h-16 cursor-pointer list-none items-center gap-3 px-3 py-2 focus-visible:outline-none">

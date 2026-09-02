@@ -38,7 +38,7 @@ interface WorkoutHomeProps {
 
 type ReplacementChoice = {
   name: string;
-  destination: 'build' | 'review';
+  destination: 'build' | 'review' | 'exercises';
   input:
     | { type: 'draft'; value: { name: string; kind: WorkoutKind } }
     | { type: 'template'; value: WorkoutHomeTemplate };
@@ -100,7 +100,12 @@ export function WorkoutHome({
     if (choice.destination === 'review') workspace.goToReview();
     setReplacement(null);
     setPreview(null);
-    pushWorkoutRoute(router, choice.destination === 'review' ? WORKOUT_ROUTES.review : WORKOUT_ROUTES.build);
+    const destination = choice.destination === 'review'
+      ? WORKOUT_ROUTES.review
+      : choice.destination === 'exercises'
+        ? WORKOUT_ROUTES.exercises
+        : WORKOUT_ROUTES.build;
+    pushWorkoutRoute(router, destination);
   };
 
   const choose = (choice: ReplacementChoice) => {
@@ -109,7 +114,7 @@ export function WorkoutHome({
   };
 
   const buildStrength = () => {
-    choose({ name: t('workout.strength'), destination: 'build', input: { type: 'draft', value: { name: t('workout.strength'), kind: 'strength' } } });
+    choose({ name: t('workout.strength'), destination: 'exercises', input: { type: 'draft', value: { name: t('workout.strength'), kind: 'strength' } } });
   };
 
   const buildCardio = () => {

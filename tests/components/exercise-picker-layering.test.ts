@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import React from 'react';
+import { readFileSync } from 'node:fs';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -99,5 +100,22 @@ describe('exercise picker presentation layering', () => {
     expect(screen.queryByRole('dialog', { name: 'Add exercise' })).toBeNull();
     expect(container.textContent).toContain('What are you training?');
     expect(document.body.style.overflow).toBe('');
+  });
+
+  it('reserves the fixed primary-navigation height for the routed return action', () => {
+    render(React.createElement(ExercisePicker, {
+      presentation: 'page',
+      exercises: [],
+      recentIds: [],
+      onSelect: vi.fn(),
+      onClose: vi.fn(),
+      onReturnToBuild: vi.fn(),
+      lang: 'en',
+    }));
+
+    const returnBar = document.querySelector('[data-exercise-picker-return-bar]');
+    expect(returnBar?.className).toContain('exercise-picker__return-bar');
+    expect(returnBar?.querySelector('button')?.className).toContain('text-[var(--action-on-primary)]');
+    expect(readFileSync('app/globals.css', 'utf8')).toContain('var(--client-shell-nav-base-height, 4.5rem)');
   });
 });
