@@ -19,6 +19,7 @@ All notable changes to Trophē are logged here. Format follows [Keep a Changelog
 - Prevented the Workout tab, exercise picker, and fixed bottom navigation from producing clipped labels, off-center controls, sideways scrolling, or dark-only artwork at 320–430 px widths.
 - Kept the exercise-picker return action above the safe-area navigation in both themes, with semantic high-contrast colors and narrow-width label truncation.
 - Paused an active session only after a severity 4–5 pain note is durably saved, and prevented custom exercises with mismatched equipment from showing an inaccurate technique image.
+- Pinned the patched Browserslist 4.28.7 transitively so production builds are not exposed to the newly disclosed cache-exhaustion and custom-stats crash advisories.
 - Preserved draft state while moving between Workout Home, Exercises, Build, Review, and Live, without starting a workout merely because an exercise was selected.
 
 ## [Generic steak parser hotfix] — 2026-08-14
