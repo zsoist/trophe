@@ -30,6 +30,10 @@ describe('resolveWorkoutAsset', () => {
     ['Standing Dumbbell Biceps Curl', 'biceps', 'curl'],
     ['Cable Rope Triceps Extension', 'triceps', 'triceps-extension'],
     ['Rope Triceps Pushdown', 'triceps', 'triceps-extension'],
+    ['Smith Machine Bench Press', 'chest', 'smith-bench-press'],
+    ['Floor Press', 'chest', 'floor-press'],
+    ['Machine Chest Press', 'chest', 'machine-chest-press'],
+    ['Push-Ups', 'chest', 'push-up'],
   ] as const)('maps the represented %s technique exactly', (exerciseName, muscleGroup, slug) => {
     expect(resolveWorkoutAsset({ exerciseName, muscleGroup })).toMatchObject({
       src: `/workout-v2/exercises/${slug}.webp`,
@@ -48,7 +52,6 @@ describe('resolveWorkoutAsset', () => {
     ['Belt Squat', 'quads', 'legs'],
     ['Stiff-Leg Deadlift', 'hamstrings', 'legs'],
     ['Snatch-Grip Deadlift', 'back', 'back'],
-    ['Smith Machine Bench Press', 'chest', 'chest'],
     ['Incline Bench Press', 'chest', 'chest'],
     ['Chin-Up', 'back', 'back'],
     ['Barbell Row', 'back', 'back'],

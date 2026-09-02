@@ -12,6 +12,10 @@ const exerciseAssets: Array<{ matches: RegExp; slug: string }> = [
   // Keep aliases exact and most-specific first: similar names often use materially
   // different equipment or technique and must fall back to honest anatomy art.
   { matches: /^(?:incline dumbbell press|dumbbell incline press)$/, slug: 'incline-press' },
+  { matches: /^smith machine bench press$/, slug: 'smith-bench-press' },
+  { matches: /^floor press$/, slug: 'floor-press' },
+  { matches: /^(?:machine chest press|chest press machine)$/, slug: 'machine-chest-press' },
+  { matches: /^(?:push ups?|pushups?)$/, slug: 'push-up' },
   { matches: /^barbell bench press$/, slug: 'bench-press' },
   { matches: /^(?:standing overhead barbell press|standing barbell overhead press)$/, slug: 'overhead-press' },
   { matches: /^(?:pec deck machine|pec deck)$/, slug: 'pec-deck' },

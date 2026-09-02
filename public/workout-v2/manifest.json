@@ -411,6 +411,186 @@
       ],
       "fallbackLabel": "anatomy"
     },
+    "smith-bench-press": {
+      "kind": "technique",
+      "src": "/workout-v2/exercises/smith-bench-press.webp",
+      "source": {
+        "path": "assets/workout-v2/sources/smith-bench-press.svg",
+        "type": "vector",
+        "format": "svg",
+        "scalable": true,
+        "width": 3840,
+        "height": 2160,
+        "sha256": "6f5aa8d447f1b141efea1560bc91175fbd0e0add597f5047e287e7b803b62d41",
+        "safeMarginPct": 10,
+        "subjectSafeMarginPct": 11.25
+      },
+      "master": {
+        "path": "assets/workout-v2/masters/smith-bench-press.webp",
+        "width": 3840,
+        "height": 2160,
+        "upscaled": false,
+        "sha256": "d206c815b20b0e0113aabf56c0a320df14160b5312addbd585d90a0ca2fb3738",
+        "canvasPaddingPct": 10,
+        "format": "webp",
+        "hasAlpha": true,
+        "safeMarginPct": 9.77,
+        "subjectSafeMarginPct": 11.25
+      },
+      "display": {
+        "width": 960,
+        "height": 540,
+        "quality": 84,
+        "hasAlpha": true,
+        "sha256": "4476128a6d31a01f4623d1379e27eb713cb301547a117c2a93579545509c9d3f",
+        "safeMarginPct": 9.63,
+        "subjectSafeMarginPct": 11.25
+      },
+      "safeMarginPct": 9.63,
+      "generatorMode": "repo-native-svg",
+      "background": "warm-neutral-vector-plate",
+      "semanticMuscles": [
+        "pectoralis major",
+        "triceps brachii",
+        "anterior deltoid"
+      ],
+      "fallbackLabel": "anatomy"
+    },
+    "floor-press": {
+      "kind": "technique",
+      "src": "/workout-v2/exercises/floor-press.webp",
+      "source": {
+        "path": "assets/workout-v2/sources/floor-press.svg",
+        "type": "vector",
+        "format": "svg",
+        "scalable": true,
+        "width": 3840,
+        "height": 2160,
+        "sha256": "31c4541ef34b0487dbe6252074e1a1790c89c36197de858c5c0297d38cff6793",
+        "safeMarginPct": 10,
+        "subjectSafeMarginPct": 11.25
+      },
+      "master": {
+        "path": "assets/workout-v2/masters/floor-press.webp",
+        "width": 3840,
+        "height": 2160,
+        "upscaled": false,
+        "sha256": "779ac88a3e504f2027c076aabb6228947640dca9519387f38c1300c9458b1bf9",
+        "canvasPaddingPct": 10,
+        "format": "webp",
+        "hasAlpha": true,
+        "safeMarginPct": 9.77,
+        "subjectSafeMarginPct": 11.25
+      },
+      "display": {
+        "width": 960,
+        "height": 540,
+        "quality": 84,
+        "hasAlpha": true,
+        "sha256": "98590162ad42b0180e2837cfda0ba7e04b1e452fa9a1138f9613537210baef1e",
+        "safeMarginPct": 9.63,
+        "subjectSafeMarginPct": 11.25
+      },
+      "safeMarginPct": 9.63,
+      "generatorMode": "repo-native-svg",
+      "background": "warm-neutral-vector-plate",
+      "semanticMuscles": [
+        "pectoralis major",
+        "triceps brachii"
+      ],
+      "fallbackLabel": "anatomy"
+    },
+    "machine-chest-press": {
+      "kind": "technique",
+      "src": "/workout-v2/exercises/machine-chest-press.webp",
+      "source": {
+        "path": "assets/workout-v2/sources/machine-chest-press.svg",
+        "type": "vector",
+        "format": "svg",
+        "scalable": true,
+        "width": 3840,
+        "height": 2160,
+        "sha256": "dd54d4000fc838c2362cb7a4fb6a25a4992e64d1b3b650153f538ac45ee2ccbf",
+        "safeMarginPct": 10,
+        "subjectSafeMarginPct": 11.25
+      },
+      "master": {
+        "path": "assets/workout-v2/masters/machine-chest-press.webp",
+        "width": 3840,
+        "height": 2160,
+        "upscaled": false,
+        "sha256": "22829efead0babbc589592fd0e1e20511e4b50c34a35f0e7ad957fb10f39bc79",
+        "canvasPaddingPct": 10,
+        "format": "webp",
+        "hasAlpha": true,
+        "safeMarginPct": 9.77,
+        "subjectSafeMarginPct": 11.25
+      },
+      "display": {
+        "width": 960,
+        "height": 540,
+        "quality": 84,
+        "hasAlpha": true,
+        "sha256": "0056c85c980922dabec7f7454ae29fe3a519a26d26b2f891457372110c33f2b9",
+        "safeMarginPct": 9.63,
+        "subjectSafeMarginPct": 11.25
+      },
+      "safeMarginPct": 9.63,
+      "generatorMode": "repo-native-svg",
+      "background": "warm-neutral-vector-plate",
+      "semanticMuscles": [
+        "pectoralis major",
+        "triceps brachii",
+        "anterior deltoid"
+      ],
+      "fallbackLabel": "anatomy"
+    },
+    "push-up": {
+      "kind": "technique",
+      "src": "/workout-v2/exercises/push-up.webp",
+      "source": {
+        "path": "assets/workout-v2/sources/push-up.svg",
+        "type": "vector",
+        "format": "svg",
+        "scalable": true,
+        "width": 3840,
+        "height": 2160,
+        "sha256": "c59828a69b8fd8ae313929a2a140dc79e6f748be459f1f48c37af0223b5ba11e",
+        "safeMarginPct": 10,
+        "subjectSafeMarginPct": 11.25
+      },
+      "master": {
+        "path": "assets/workout-v2/masters/push-up.webp",
+        "width": 3840,
+        "height": 2160,
+        "upscaled": false,
+        "sha256": "e114d1638ccf78e1b5115ca43d91fcfb2221deefe2af579475944734a4041ba5",
+        "canvasPaddingPct": 10,
+        "format": "webp",
+        "hasAlpha": true,
+        "safeMarginPct": 9.77,
+        "subjectSafeMarginPct": 11.25
+      },
+      "display": {
+        "width": 960,
+        "height": 540,
+        "quality": 84,
+        "hasAlpha": true,
+        "sha256": "5eba8280a137d4c4f56dba1d9f55a31cca5fe54a90c9af3d95bc68db7b4fadfb",
+        "safeMarginPct": 9.63,
+        "subjectSafeMarginPct": 11.25
+      },
+      "safeMarginPct": 9.63,
+      "generatorMode": "repo-native-svg",
+      "background": "warm-neutral-vector-plate",
+      "semanticMuscles": [
+        "pectoralis major",
+        "triceps brachii",
+        "anterior deltoid",
+        "rectus abdominis"
+      ],
+      "fallbackLabel": "anatomy"
+    },
     "incline-press": {
       "kind": "technique",
       "src": "/workout-v2/exercises/incline-press.webp",
