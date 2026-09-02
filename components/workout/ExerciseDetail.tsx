@@ -78,7 +78,7 @@ export function ExerciseDetail({ exercise, userId, onAdd, isAdded = false, alter
     : null;
   const guidance = useMemo(() => organizeExerciseGuidance(instructions), [instructions]);
   const hasGuidance = Object.values(guidance).some((items) => items.length > 0);
-  const asset = resolveWorkoutAsset({ exerciseName: exercise.name, muscleGroup: exercise.muscle_group });
+  const asset = resolveWorkoutAsset({ exerciseName: exercise.name, equipment: exercise.equipment, muscleGroup: exercise.muscle_group });
   const visualLabel = asset.kind === 'technique' ? t('workout.info_technique') : t('workout.info_muscles_worked');
   const visualAlt = t(`workout.movement_${asset.kind}_alt`, { name });
   const secondaries = (exercise.secondary_muscles ?? []).filter(Boolean) as MuscleGroup[];

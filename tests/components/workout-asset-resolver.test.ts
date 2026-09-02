@@ -100,6 +100,26 @@ describe('resolveWorkoutAsset', () => {
     });
   });
 
+  it('does not show a technique asset when a custom exercise reuses a library name with different equipment', () => {
+    expect(resolveWorkoutAsset({
+      exerciseName: 'Floor Press',
+      equipment: 'dumbbell',
+      muscleGroup: 'chest',
+    })).toEqual({
+      src: '/workout-v2/body-areas/chest.webp',
+      kind: 'anatomy',
+      fit: 'contain',
+      background: 'neutral',
+      alpha: true,
+    });
+
+    expect(resolveWorkoutAsset({
+      exerciseName: 'Floor Press',
+      equipment: 'barbell',
+      muscleGroup: 'chest',
+    }).src).toBe('/workout-v2/exercises/floor-press.webp');
+  });
+
   it('uses full body when no body area is known', () => {
     expect(resolveWorkoutAsset({ exerciseName: 'Unknown movement' })).toEqual({
       src: '/workout-v2/body-areas/full-body.webp',

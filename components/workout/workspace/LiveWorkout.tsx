@@ -547,6 +547,8 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
         if (!saved?.ok) return false;
         setPainFlags(saved.flags);
         return true;
+      }} onHighSeveritySaved={() => {
+        if (state.stage === 'live') workspace.pause();
       }} onClose={() => setPainExerciseId(null)} /> : null}
       {infoExercise ? <ExerciseInfoSheet exercise={infoExercise} userId={userId} onClose={() => setInfoExercise(null)} /> : null}
       {plateContext ? <PlateCalculator weightKg={plateContext.weightKg} unit={unit} exerciseContext={{ exerciseId: plateContext.exerciseId, mode: 'live' }} onAddWarmupSets={async (sets) => {

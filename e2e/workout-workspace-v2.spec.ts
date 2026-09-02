@@ -18,7 +18,7 @@ async function assertWorkoutSurface(page: Page, theme: ThemeMode) {
   await expect(nav).toBeVisible();
   await expect(nav).toHaveCSS('bottom', '0px');
   const viewport = page.viewportSize();
-  if (viewport && viewport.width < 350) {
+  if (viewport && viewport.width < 375) {
     const labels = nav.locator('[data-bot-nav-label]');
     await expect(labels.first()).toBeHidden();
     const icons = await nav.locator('[data-bot-nav-icon]').evaluateAll((elements) => elements.map((element) => {
@@ -231,6 +231,7 @@ test.describe('Workout Workspace V2', () => {
       await waitForWorkoutRouteAtTop(page, 'exercise browser must open at the top');
       const search = page.getByRole('searchbox', { name: 'Search exercises...' });
       await expect(search).toBeVisible();
+      await assertControlClearsBottomNav(page, page.getByRole('button', { name: /Back to Workout/ }));
       await expect(page.getByRole('link', { name: 'Back', exact: true })).toHaveAttribute('href', '/dashboard/workout/build');
       await captureWorkout(page, testInfo, `${theme}-evidence-04-browser.png`, { atTop: true });
       await search.fill('Bench Press');

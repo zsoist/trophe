@@ -8,25 +8,25 @@ export interface ResolvedWorkoutAsset {
   alpha: true;
 }
 
-const exerciseAssets: Array<{ matches: RegExp; slug: string }> = [
+const exerciseAssets: Array<{ matches: RegExp; equipment: RegExp; slug: string }> = [
   // Keep aliases exact and most-specific first: similar names often use materially
   // different equipment or technique and must fall back to honest anatomy art.
-  { matches: /^(?:incline dumbbell press|dumbbell incline press)$/, slug: 'incline-press' },
-  { matches: /^smith machine bench press$/, slug: 'smith-bench-press' },
-  { matches: /^floor press$/, slug: 'floor-press' },
-  { matches: /^(?:machine chest press|chest press machine)$/, slug: 'machine-chest-press' },
-  { matches: /^(?:push ups?|pushups?)$/, slug: 'push-up' },
-  { matches: /^barbell bench press$/, slug: 'bench-press' },
-  { matches: /^(?:standing overhead barbell press|standing barbell overhead press)$/, slug: 'overhead-press' },
-  { matches: /^(?:pec deck machine|pec deck)$/, slug: 'pec-deck' },
-  { matches: /^standing cable chest fly$/, slug: 'cable-fly' },
-  { matches: /^pull ups?$/, slug: 'pull-up' },
-  { matches: /^(?:conventional barbell deadlift|barbell conventional deadlift)$/, slug: 'deadlift' },
-  { matches: /^(?:barbell back squat|back squat)$/, slug: 'squat' },
-  { matches: /^(?:parallel bar chest dips?|chest dips?)$/, slug: 'dip' },
-  { matches: /^seated cable row$/, slug: 'row' },
-  { matches: /^standing dumbbell biceps curl$/, slug: 'curl' },
-  { matches: /^(?:cable triceps rope extension|cable rope triceps extension|rope triceps pushdown)$/, slug: 'triceps-extension' },
+  { matches: /^(?:incline dumbbell press|dumbbell incline press)$/, equipment: /dumbbell/, slug: 'incline-press' },
+  { matches: /^smith machine bench press$/, equipment: /(?:smith|machine)/, slug: 'smith-bench-press' },
+  { matches: /^floor press$/, equipment: /barbell/, slug: 'floor-press' },
+  { matches: /^(?:machine chest press|chest press machine)$/, equipment: /machine/, slug: 'machine-chest-press' },
+  { matches: /^(?:push ups?|pushups?)$/, equipment: /bodyweight/, slug: 'push-up' },
+  { matches: /^barbell bench press$/, equipment: /barbell/, slug: 'bench-press' },
+  { matches: /^(?:standing overhead barbell press|standing barbell overhead press)$/, equipment: /barbell/, slug: 'overhead-press' },
+  { matches: /^(?:pec deck machine|pec deck)$/, equipment: /machine/, slug: 'pec-deck' },
+  { matches: /^standing cable chest fly$/, equipment: /cable/, slug: 'cable-fly' },
+  { matches: /^pull ups?$/, equipment: /bodyweight/, slug: 'pull-up' },
+  { matches: /^(?:conventional barbell deadlift|barbell conventional deadlift)$/, equipment: /barbell/, slug: 'deadlift' },
+  { matches: /^(?:barbell back squat|back squat)$/, equipment: /barbell/, slug: 'squat' },
+  { matches: /^(?:parallel bar chest dips?|chest dips?)$/, equipment: /bodyweight/, slug: 'dip' },
+  { matches: /^seated cable row$/, equipment: /cable/, slug: 'row' },
+  { matches: /^standing dumbbell biceps curl$/, equipment: /dumbbell/, slug: 'curl' },
+  { matches: /^(?:cable triceps rope extension|cable rope triceps extension|rope triceps pushdown)$/, equipment: /cable/, slug: 'triceps-extension' },
 ];
 
 type AnatomyGroup = BodyAreaId | 'biceps' | 'triceps' | 'forearms' | 'quads' | 'hamstrings' | 'glutes' | 'calves';
@@ -44,15 +44,20 @@ function normalize(value: string): string {
 
 export function resolveWorkoutAsset({
   exerciseName,
+  equipment,
   bodyArea,
   muscleGroup,
 }: {
   exerciseName?: string | null;
+  equipment?: string | null;
   bodyArea?: BodyAreaId | null;
   muscleGroup?: AnatomyGroup | null;
 }): ResolvedWorkoutAsset {
   const normalizedName = normalize(exerciseName ?? '');
-  const named = exerciseAssets.find(({ matches }) => matches.test(normalizedName));
+  const normalizedEquipment = normalize(equipment ?? '');
+  const named = exerciseAssets.find(({ matches, equipment: expectedEquipment }) => (
+    matches.test(normalizedName) && (!normalizedEquipment || expectedEquipment.test(normalizedEquipment))
+  ));
   if (named) {
     return {
       src: `/workout-v2/exercises/${named.slug}.webp`,

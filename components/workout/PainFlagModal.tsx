@@ -19,11 +19,12 @@ function trapFocus(event: ReactKeyboardEvent<HTMLElement>, container: HTMLElemen
   else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
 }
 
-export default function PainFlagModal({ exerciseId, exerciseName = exerciseId, suggestedBodyPart = '', onSave, onClose }: {
+export default function PainFlagModal({ exerciseId, exerciseName = exerciseId, suggestedBodyPart = '', onSave, onHighSeveritySaved, onClose }: {
   exerciseId: string;
   exerciseName?: string;
   suggestedBodyPart?: string;
   onSave: (flag: PainFlag, mutationId: string) => boolean | void | Promise<boolean | void>;
+  onHighSeveritySaved?: () => void;
   onClose: () => void;
 }) {
   const { t } = useI18n();
@@ -66,6 +67,7 @@ export default function PainFlagModal({ exerciseId, exerciseName = exerciseId, s
     try {
       const result = await onSave({ exercise_id: exerciseId, body_part: bodyPart.trim(), severity, notes: notes.trim() || undefined }, mutationIdRef.current);
       if (result === false) { setSaveError(true); return; }
+      if (severity >= 4) onHighSeveritySaved?.();
       onCloseRef.current();
     } catch { setSaveError(true); } finally { setSaving(false); }
   };

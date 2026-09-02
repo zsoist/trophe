@@ -256,7 +256,11 @@ function ExerciseRow({
 }) {
   const color = muscleColor(ex.muscle_group);
   const { t } = useI18n();
-  const asset = resolveWorkoutAsset({ exerciseName: ex.name, muscleGroup: ex.muscle_group });
+  const asset = resolveWorkoutAsset({
+    exerciseName: ex.name,
+    equipment: ex.equipment,
+    muscleGroup: ex.muscle_group,
+  });
   const meta = [
     ex.equipment ? ex.equipment.charAt(0).toUpperCase() + ex.equipment.slice(1) : null,
     ex.is_compound ? t('workout.compound') : null,
@@ -741,11 +745,14 @@ export default function ExercisePicker({
       </div>
 
       {presentation === 'page' && onReturnToBuild ? (
-        <div className="sticky bottom-0 z-10 border-t border-[var(--border-subtle)] bg-[var(--surface-overlay)]/95 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
+        <div
+          data-exercise-picker-return-bar
+          className="exercise-picker__return-bar sticky z-20 border-t border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-4 py-3"
+        >
           <button
             type="button"
             onClick={onReturnToBuild}
-            className="btn-gold mx-auto flex min-h-12 w-full max-w-3xl items-center justify-center rounded-xl px-4 font-semibold"
+            className="mx-auto flex min-h-12 w-full max-w-3xl items-center justify-center rounded-xl bg-[var(--action-primary)] px-4 font-semibold text-[var(--action-on-primary)] transition-colors hover:bg-[var(--action-primary-hover)] motion-reduce:transition-none"
           >
             {t('workout.back_to_workout')} · {t('workout.exercise_count', { n: addedExerciseIds.length })}
           </button>

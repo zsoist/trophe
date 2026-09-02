@@ -68,6 +68,26 @@ describe('PainFlagModal durable save', () => {
     await vi.waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
   });
 
+  it('requests a pause only after a high-severity note saves successfully', async () => {
+    const onSave = vi.fn().mockResolvedValue(true);
+    const onHighSeveritySaved = vi.fn();
+    render(<PainFlagModal exerciseId="bench" onSave={onSave} onHighSeveritySaved={onHighSeveritySaved} onClose={vi.fn()} />);
+    fireEvent.change(screen.getByPlaceholderText('Body part'), { target: { value: 'Lower back' } });
+    fireEvent.click(screen.getByRole('radio', { name: '4' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save pain note' }));
+    await vi.waitFor(() => expect(onHighSeveritySaved).toHaveBeenCalledTimes(1));
+
+    cleanup();
+    const failedSave = vi.fn().mockResolvedValue(false);
+    const failedPause = vi.fn();
+    render(<PainFlagModal exerciseId="bench" onSave={failedSave} onHighSeveritySaved={failedPause} onClose={vi.fn()} />);
+    fireEvent.change(screen.getByPlaceholderText('Body part'), { target: { value: 'Lower back' } });
+    fireEvent.click(screen.getByRole('radio', { name: '5 Stop' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save pain note' }));
+    await screen.findByText('Pain note could not be saved. Try again.');
+    expect(failedPause).not.toHaveBeenCalled();
+  });
+
   it('turns muscle-group tokens into human anatomical suggestions and never exposes generic tokens', () => {
     render(<PainFlagModal exerciseId="curl" exerciseName="Curl" suggestedBodyPart="biceps" onSave={vi.fn()} onClose={vi.fn()} />);
     expect((screen.getByLabelText('Body region') as HTMLInputElement).value).toBe('Biceps area');

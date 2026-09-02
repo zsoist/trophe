@@ -1340,6 +1340,15 @@ body {
   padding-bottom: max(env(safe-area-inset-bottom, 0px), var(--client-shell-nav-min-bottom-padding));
 }
 
+/* Routed exercise picking sits inside the client shell, so its completion action
+   must clear the fixed primary nav instead of disappearing underneath it. */
+.exercise-picker__return-bar {
+  bottom: calc(
+    var(--client-shell-nav-base-height, 4.5rem) +
+    max(env(safe-area-inset-bottom, 0px), var(--client-shell-nav-min-bottom-padding, 1rem))
+  );
+}
+
 .dashboard-greeting {
   display: flex;
   align-items: center;

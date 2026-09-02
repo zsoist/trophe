@@ -103,7 +103,12 @@ export function BotNav({ routes, className = '', onActiveRouteSelect }: BotNavPr
             >
               {route.icon}
             </span>
-            <span data-bot-nav-label className="hidden font-medium leading-none min-[350px]:inline">{route.label}</span>
+            <span
+              data-bot-nav-label
+              className="hidden max-w-full overflow-hidden text-ellipsis whitespace-nowrap px-0.5 font-medium leading-none min-[375px]:inline"
+            >
+              {route.label}
+            </span>
             {route.badge !== undefined && (
               <span className="absolute right-1 top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--status-danger-fg)] px-1 text-xs font-semibold text-[var(--content-inverse)]">
                 {route.badge}

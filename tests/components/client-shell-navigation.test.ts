@@ -54,7 +54,8 @@ describe('client shell navigation ownership', () => {
     for (const label of ['Home', 'Workout']) {
       const link = screen.getByRole('link', { name: label });
       expect(link.getAttribute('aria-label')).toBe(label);
-      expect(link.querySelector('[data-bot-nav-label]')?.className).toContain('min-[350px]:inline');
+      expect(link.querySelector('[data-bot-nav-label]')?.className).toContain('min-[375px]:inline');
+      expect(link.querySelector('[data-bot-nav-label]')?.className).toContain('text-ellipsis');
       expect(link.querySelector('[data-bot-nav-icon]')).toBeTruthy();
       expect(link.className).toContain('min-h-14');
     }

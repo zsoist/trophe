@@ -48,13 +48,13 @@ describe('client shell layout', () => {
     expect(css).toMatch(/@media\s*\(max-width:\s*360px\)[\s\S]*\.client-shell__nav a\s*\{[\s\S]*font-size:\s*0\.6875rem/);
 
     const rem = 16;
-    const navBaseHeight = 3.875 * rem;
+    const navBaseHeight = 4.5 * rem;
     const minimumBottomPadding = rem;
     const contentBuffer = 0.625 * rem;
     const navHeight = (safeAreaInset: number) => navBaseHeight + Math.max(safeAreaInset, minimumBottomPadding);
     const contentClearance = (safeAreaInset: number) => navHeight(safeAreaInset) + contentBuffer;
 
-    expect(contentClearance(34)).toBe(106);
+    expect(contentClearance(34)).toBe(116);
     // Two 1px nav borders still leave the full 8px reading buffer promised by the shell.
     expect(contentClearance(34) - navHeight(34) - 2).toBe(8);
   });

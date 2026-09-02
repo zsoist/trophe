@@ -25,7 +25,13 @@ let workspace = { state: liveState, pause: vi.fn(), resume: vi.fn(), ...harness 
 
 vi.mock('@/components/workout/workspace/WorkoutWorkspaceProvider', () => ({ useWorkoutWorkspace: () => workspace }));
 vi.mock('@/components/workout/ExerciseInfoSheet', () => ({ default: () => null }));
-vi.mock('@/components/workout/PainFlagModal', () => ({ default: ({ onSave }: { onSave: (flag: { exercise_id: string; body_part: string; severity: number }, mutationId: string) => Promise<boolean> }) => <button type="button" onClick={() => void onSave({ exercise_id: 'bench', body_part: 'shoulder', severity: 2 }, '33333333-3333-4333-8333-333333333333')}>Save pain note</button> }));
+vi.mock('@/components/workout/PainFlagModal', () => ({ default: ({ onSave, onHighSeveritySaved }: { onSave: (flag: { exercise_id: string; body_part: string; severity: number }, mutationId: string) => Promise<boolean>; onHighSeveritySaved?: () => void }) => <div>
+  <button type="button" onClick={() => void onSave({ exercise_id: 'bench', body_part: 'shoulder', severity: 2 }, '33333333-3333-4333-8333-333333333333')}>Save pain note</button>
+  <button type="button" onClick={() => void (async () => {
+    const saved = await onSave({ exercise_id: 'bench', body_part: 'lower back', severity: 5 }, '44444444-4444-4444-8444-444444444444');
+    if (saved !== false) onHighSeveritySaved?.();
+  })()}>Save severe pain note</button>
+</div> }));
 vi.mock('framer-motion', () => ({ AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>, motion: { div: ({ children, initial: _initial, animate: _animate, exit: _exit, transition: _transition, ...props }: React.HTMLAttributes<HTMLDivElement> & { initial?: unknown; animate?: unknown; exit?: unknown; transition?: unknown }) => { void _initial; void _animate; void _exit; void _transition; return <div {...props}>{children}</div>; } }, useReducedMotion: () => true }));
 vi.mock('@/components/workout/workspace/ExerciseSetLogger', () => ({
   ExerciseSetLogger: ({ exercise, disabled, onComplete, onSuperset, onRemove, onPain, onPlateCalculator }: { exercise: { name: string }; disabled?: boolean; onComplete: (value: { weight: number; reps: number; rpe: number | null; isWarmup: boolean }) => Promise<string | null>; onSuperset?: () => void; onRemove?: () => void; onPain?: () => void; onPlateCalculator?: (weight: number) => void }) => (
@@ -237,6 +243,14 @@ describe('LiveWorkout', () => {
     harness.appendLivePainFlag.mockResolvedValueOnce({ ok: true, flags: [{ exercise_id: 'bench', body_part: 'shoulder', severity: 2 }] });
     fireEvent.click(screen.getByRole('button', { name: 'Save pain note' }));
     await vi.waitFor(() => expect(screen.getByRole('button', { name: 'Finish workout' }).hasAttribute('disabled')).toBe(false));
+  });
+
+  it('pauses a running workout after a severe pain note is durably saved', async () => {
+    harness.appendLivePainFlag.mockResolvedValueOnce({ ok: true, flags: [{ exercise_id: 'bench', body_part: 'lower back', severity: 5 }] });
+    render(<LiveWorkout exercises={[]} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Pain Bench Press' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save severe pain note' }));
+    await vi.waitFor(() => expect(workspace.pause).toHaveBeenCalledTimes(1));
   });
 
   it('stores live cardio edits in the recoverable draft and offers discard for an immediate empty finish', async () => {
