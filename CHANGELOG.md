@@ -4,6 +4,21 @@ All notable changes to Trophē are logged here. Format follows [Keep a Changelog
 
 ---
 
+## [Premium workout usability] — 2026-09-02
+
+### Added
+- Added four honest, native-vector exercise technique illustrations with true 4K masters and optimized runtime assets for Smith machine bench press, floor press, machine chest press, and push-ups.
+- Added quick-select pain regions and clear stop guidance for sharp, worsening, or movement-changing pain across all supported languages.
+
+### Changed
+- Strength now opens directly into the muscle-group-first exercise picker, supports adding several exercises in one visit, and keeps templates behind a focused disclosure instead of overwhelming the first screen.
+- Live strength logging now groups sets by exercise, places Add set with its exercise, and keeps weight, reps, RPE, completion, pause, technique, plate calculator, and pain actions legible in light and dark mode.
+- Exercise detail and body-area artwork now use neutral, contained presentation with compact primary and secondary muscle guidance, while the bottom navigation keeps labels visible on standard phone widths.
+
+### Fixed
+- Prevented the Workout tab, exercise picker, and fixed bottom navigation from producing clipped labels, off-center controls, sideways scrolling, or dark-only artwork at 320–430 px widths.
+- Preserved draft state while moving between Workout Home, Exercises, Build, Review, and Live, without starting a workout merely because an exercise was selected.
+
 ## [Generic steak parser hotfix] — 2026-08-14
 
 ### Changed
