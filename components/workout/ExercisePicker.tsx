@@ -484,9 +484,8 @@ export default function ExercisePicker({
 
   const pick = (ex: Exercise) => {
     if (addedIds.has(ex.id)) return;
-    if (presentation === 'page' && onAddToDraft && onReturnToBuild) {
+    if (presentation === 'page' && onAddToDraft) {
       onAddToDraft(ex.id);
-      onReturnToBuild();
       return;
     }
     onSelect(ex);
@@ -572,7 +571,7 @@ export default function ExercisePicker({
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-3xl px-4 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-6">
+        <div className="mx-auto w-full max-w-3xl px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-6">
           {isLanding ? (
             <>
               <div className="max-w-xl">
@@ -740,6 +739,18 @@ export default function ExercisePicker({
           </button>
         </div>
       </div>
+
+      {presentation === 'page' && onReturnToBuild ? (
+        <div className="sticky bottom-0 z-10 border-t border-[var(--border-subtle)] bg-[var(--surface-overlay)]/95 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
+          <button
+            type="button"
+            onClick={onReturnToBuild}
+            className="btn-gold mx-auto flex min-h-12 w-full max-w-3xl items-center justify-center rounded-xl px-4 font-semibold"
+          >
+            {t('workout.back_to_workout')} · {t('workout.exercise_count', { n: addedExerciseIds.length })}
+          </button>
+        </div>
+      ) : null}
 
       {/* Custom exercise modal */}
       <AnimatePresence>

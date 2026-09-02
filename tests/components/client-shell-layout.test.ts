@@ -41,7 +41,7 @@ describe('client shell layout', () => {
   it('keeps one shell-owned nav at the safe-area edge', () => {
     const css = readFileSync('app/globals.css', 'utf8');
     expect(css).toContain('bottom: 0');
-    expect(css).toContain('--client-shell-nav-base-height: 3.875rem');
+    expect(css).toContain('--client-shell-nav-base-height: 4.5rem');
     expect(css).toContain('--client-shell-nav-min-bottom-padding: 1rem');
     expect(css).toContain('--client-shell-content-buffer: 0.625rem');
     expect(css).toContain('max(env(safe-area-inset-bottom, 0px), var(--client-shell-nav-min-bottom-padding))');

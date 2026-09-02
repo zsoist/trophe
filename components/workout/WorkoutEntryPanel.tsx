@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { WORKOUT_SPLITS } from '@/components/workout/muscle-groups';
 import { MovementVisual } from '@/components/workout/MovementVisual';
@@ -13,6 +15,7 @@ interface WorkoutEntryPanelProps {
 
 export default function WorkoutEntryPanel({ disabled, onStrength, onCardio, onSplit }: WorkoutEntryPanelProps) {
   const { t } = useI18n();
+  const [templatesOpen, setTemplatesOpen] = useState(false);
 
   return (
     <section className="space-y-5" aria-label={t('workout.build_choices')}>
@@ -48,11 +51,18 @@ export default function WorkoutEntryPanel({ disabled, onStrength, onCardio, onSp
         </button>
       </div>
 
-      <div>
-        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-[var(--content-secondary)]">
-          {t('workout.templates')}
-        </h2>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+      <div className="workout-quick-start">
+        <button
+          type="button"
+          className="workout-quick-start__trigger"
+          aria-expanded={templatesOpen}
+          aria-controls="workout-template-options"
+          onClick={() => setTemplatesOpen((open) => !open)}
+        >
+          <span>{t('workout.templates')}</span>
+          <ChevronDown size={18} aria-hidden="true" />
+        </button>
+        {templatesOpen ? <div id="workout-template-options" className="workout-quick-start__options mt-3">
           {WORKOUT_SPLITS.map((split) => {
             const name = t(`workout.split_${split.key}`);
             return (
@@ -62,13 +72,13 @@ export default function WorkoutEntryPanel({ disabled, onStrength, onCardio, onSp
                 disabled={disabled}
                 onClick={() => onSplit(split.key)}
                 aria-label={t('workout.preview_named', { name })}
-                className="min-h-11 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-3 py-2 text-left text-sm font-medium text-[var(--content-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-50"
+                className="px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--focus-ring)] disabled:opacity-50"
               >
                 {name}
               </button>
             );
           })}
-        </div>
+        </div> : null}
       </div>
     </section>
   );

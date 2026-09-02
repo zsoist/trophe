@@ -28,6 +28,9 @@ interface ExerciseSetLoggerProps {
   initialCompletedAt?: string | null;
   restTargetSeconds?: number;
   disabled?: boolean;
+  grouped?: boolean;
+  showExerciseHeader?: boolean;
+  isLastSet?: boolean;
   onComplete(value: SetLoggerValue): Promise<string | null>;
   onUndo?: (setId: string) => Promise<boolean>;
   onTechnique?: () => void;
@@ -52,6 +55,9 @@ export function ExerciseSetLogger({
   initialCompletedAt = null,
   restTargetSeconds = 90,
   disabled = false,
+  grouped = false,
+  showExerciseHeader = true,
+  isLastSet = false,
   onComplete,
   onUndo,
   onTechnique,
@@ -156,8 +162,14 @@ export function ExerciseSetLogger({
 
   const completed = Boolean(setId);
   return (
-    <article className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-3">
-      <div className="mb-3 flex items-center justify-between gap-3">
+    <article
+      data-set-row
+      data-exercise-id={exercise.id}
+      className={grouped
+        ? `${showExerciseHeader ? 'rounded-t-2xl border-t' : ''} ${isLastSet ? 'rounded-b-2xl' : ''} border-x border-b border-[var(--border-subtle)] bg-[var(--surface-raised)] p-3`
+        : 'rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-3'}
+    >
+      {showExerciseHeader ? <div className="mb-3 flex items-center justify-between gap-3">
         <div>
           <h3 className="font-semibold text-[var(--content-primary)]">{exercise.name}</h3>
           <p className="text-xs text-[var(--content-muted)]">{t('workout.set_number', { n: setNumber })}</p>
@@ -172,9 +184,9 @@ export function ExerciseSetLogger({
         >
           {t('workout.more')}<ChevronDown size={16} aria-hidden="true" />
         </button>
-      </div>
+      </div> : <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--content-muted)]">{t('workout.set_number', { n: setNumber })}</p>}
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className={grouped ? 'grid grid-cols-3 gap-2' : 'grid grid-cols-2 gap-3'}>
         <label className="text-sm font-medium text-[var(--content-secondary)]">
           {t('workout.weight_in_unit', { unit })}
           <input type="number" min="0" step="any" inputMode="decimal" disabled={completed || disabled} aria-label={t('workout.weight_in_unit', { unit })} value={weight} onChange={(event) => setWeight(event.target.value)} className="input-dark mt-1 min-h-12 w-full font-mono text-base tabular-nums" />
@@ -183,13 +195,18 @@ export function ExerciseSetLogger({
           {t('workout.reps')}
           <input type="number" min="1" step="1" inputMode="numeric" disabled={completed || disabled} aria-label={t('workout.reps')} value={reps} onChange={(event) => setReps(event.target.value)} className="input-dark mt-1 min-h-12 w-full font-mono text-base tabular-nums" />
         </label>
+        {grouped ? <label className="text-sm font-medium text-[var(--content-secondary)]">
+          {t('workout.rpe_optional')}
+          <input type="number" min="1" max="10" step="0.5" inputMode="decimal" disabled={completed || disabled} aria-label={t('workout.rpe_optional')} value={rpe} onChange={(event) => setRpe(event.target.value)} className="input-dark mt-1 min-h-12 w-full font-mono text-base tabular-nums" />
+        </label> : null}
       </div>
-      <div className="mt-3 grid grid-cols-[minmax(0,1fr)_minmax(9rem,1.4fr)] gap-3">
+      <div className={grouped ? 'mt-2' : 'mt-3 grid grid-cols-[minmax(0,1fr)_minmax(9rem,1.4fr)] gap-3'}>
+        {!grouped ? (
         <label className="text-sm font-medium text-[var(--content-secondary)]">
           {t('workout.rpe_optional')}
           <input type="number" min="1" max="10" step="0.5" inputMode="decimal" disabled={completed || disabled} aria-label={t('workout.rpe_optional')} value={rpe} onChange={(event) => setRpe(event.target.value)} className="input-dark mt-1 min-h-12 w-full font-mono text-base tabular-nums" />
-        </label>
-        <button type="button" disabled={saving || disabled} onClick={() => void toggleComplete()} className="btn-gold mt-6 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl disabled:opacity-50">
+        </label>) : null}
+        <button type="button" disabled={saving || disabled} onClick={() => void toggleComplete()} className={`${grouped ? '' : 'mt-6'} btn-gold inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl disabled:opacity-50`}>
           <Check size={17} aria-hidden="true" />{saving ? t('workout.saving') : completed ? t('workout.undo_set') : t('workout.complete_set')}
         </button>
       </div>
@@ -204,7 +221,7 @@ export function ExerciseSetLogger({
         </p>
       ) : null}
 
-      {moreOpen ? (
+      {showExerciseHeader && moreOpen ? (
         <div className="mt-3 grid grid-cols-2 gap-2 border-t border-[var(--border-subtle)] pt-3">
           <button type="button" disabled={disabled} onClick={onTechnique} className="btn-ghost inline-flex min-h-11 items-center gap-2 rounded-xl px-3"><Info size={16} aria-hidden="true" />{t('workout.info_technique')}</button>
           <button type="button" disabled={disabled} onClick={onPain} className="btn-ghost inline-flex min-h-11 items-center gap-2 rounded-xl px-3"><AlertTriangle size={16} aria-hidden="true" />{t('workout.report_pain')}</button>

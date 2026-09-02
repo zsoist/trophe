@@ -99,6 +99,8 @@ vi.mock('@/lib/i18n', () => ({
         'workout.info_no_history': 'No history yet',
         'workout.exercise_added': 'Added',
         'workout.exercise_added_named': '{name} added',
+        'workout.back_to_workout': 'Back to Workout',
+        'workout.exercise_count': '{n} exercises',
         'workout.body_area_chest': 'Chest',
         'workout.body_area_back': 'Back',
         'workout.body_area_shoulders': 'Shoulders',
@@ -260,7 +262,7 @@ describe('exercise routes with the real workout workspace provider', () => {
     Object.defineProperty(window.navigator, 'userAgent', { configurable: true, value: originalUserAgent });
   });
 
-  it('adds from the browser to a strength draft and returns to Build without creating a session', async () => {
+  it('adds multiple exercises in the browser and returns from the explicit footer without creating a session', async () => {
     renderWithWorkspace(<ExerciseBrowser initialExercises={[bench]} />, strengthState());
     await screen.findByRole('heading', { name: 'What are you training?' });
 
@@ -268,6 +270,8 @@ describe('exercise routes with the real workout workspace provider', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add Bench Press' }));
 
     await waitFor(() => expect(screen.getByTestId('workspace-state').textContent).toBe('draft:strength:bench'));
+    expect(push).not.toHaveBeenCalledWith('/dashboard/workout/build');
+    fireEvent.click(screen.getByRole('button', { name: /Back to Workout/ }));
     expect(push).toHaveBeenCalledWith('/dashboard/workout/build');
     expect(createWorkoutSession).not.toHaveBeenCalled();
   });

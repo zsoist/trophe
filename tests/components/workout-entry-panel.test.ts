@@ -39,7 +39,8 @@ describe('WorkoutEntryPanel', () => {
 
     expect(screen.getByRole('button', { name: 'Build strength workout' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Build cardio workout' })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'Workout templates' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Workout templates' }).getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByRole('button', { name: 'Preview Push' })).toBeNull();
     const artwork = screen.getAllByRole('img');
     expect(artwork).toHaveLength(2);
     expect(artwork.map((image) => image.getAttribute('src'))).toEqual([
@@ -56,6 +57,7 @@ describe('WorkoutEntryPanel', () => {
     const onSplit = vi.fn();
     render(React.createElement(WorkoutEntryPanel, { disabled: false, onStrength: vi.fn(), onCardio: vi.fn(), onSplit }));
 
+    fireEvent.click(screen.getByRole('button', { name: 'Workout templates' }));
     fireEvent.click(screen.getByRole('button', { name: 'Preview Push' }));
 
     expect(onSplit).toHaveBeenCalledWith('push');

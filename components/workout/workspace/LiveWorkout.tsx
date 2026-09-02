@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { CheckCircle2, Pause, Play, Plus, Square } from 'lucide-react';
 import ExerciseInfoSheet from '@/components/workout/ExerciseInfoSheet';
@@ -414,7 +414,7 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
       </section>
 
       <div className="space-y-3">
-        {!recoveryLoaded ? <div role="status" className="min-h-24 animate-pulse rounded-xl bg-[var(--surface-subtle)]" aria-label={t('workout.loading_live_session')} /> : rows.map((row) => {
+        {!recoveryLoaded ? <div role="status" className="min-h-24 animate-pulse rounded-xl bg-[var(--surface-subtle)]" aria-label={t('workout.loading_live_session')} /> : rows.map((row, rowIndex) => {
           const exercise = exerciseById.get(row.exerciseId);
           const draftExercise = draft.exercises.find((candidate) => candidate.exerciseId === row.exerciseId);
           const resolved = exercise ?? {
@@ -425,12 +425,17 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
           };
           const persisted = persistedSets.find((set) => set.exercise_id === row.exerciseId && set.set_number === row.setNumber);
           const pendingInput = pendingSetInputs[`${row.exerciseId}:${row.setNumber}`];
+          const showExerciseHeader = rowIndex === 0 || rows[rowIndex - 1]?.exerciseId !== row.exerciseId;
+          const isLastSet = rowIndex === rows.length - 1 || rows[rowIndex + 1]?.exerciseId !== row.exerciseId;
           return (
+            <Fragment key={row.id}>
             <ExerciseSetLogger
-              key={row.id}
               exercise={{ id: resolved.id, name: resolved.name, isCompound: resolved.is_compound, equipment: resolved.equipment }}
               setNumber={row.setNumber}
               unit={unit}
+              grouped
+              showExerciseHeader={showExerciseHeader}
+              isLastSet={isLastSet}
               initialSetId={persisted?.id}
               initialCompletedAt={persisted?.created_at ?? null}
               disabled={mutationBlocked}
@@ -485,13 +490,13 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
                 savedSetCount: persistedSets.filter((set) => set.exercise_id === row.exerciseId).length,
               })}
             />
+            {isLastSet ? (
+              <button type="button" disabled={mutationBlocked} onClick={() => addSet(row.exerciseId)} className="btn-ghost -mt-1 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl disabled:opacity-50"><Plus size={17} aria-hidden="true" />{t('workout.add_set')}</button>
+            ) : null}
+            </Fragment>
           );
         })}
       </div>
-
-      {draft.exercises.map((exercise) => (
-        <button key={exercise.exerciseId} type="button" disabled={mutationBlocked} onClick={() => addSet(exercise.exerciseId)} className="btn-ghost inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl disabled:opacity-50"><Plus size={17} aria-hidden="true" />{t('workout.add_set')}</button>
-      ))}
 
       {recoveryError ? (
         <div role="alert" className="rounded-xl bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]">

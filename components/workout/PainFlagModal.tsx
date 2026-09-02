@@ -43,6 +43,12 @@ export default function PainFlagModal({ exerciseId, exerciseName = exerciseId, s
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
   const [saveError, setSaveError] = useState(false);
+  const quickRegions = [
+    t('painflag.region_lower_back'),
+    t('painflag.region_back'),
+    t('painflag.region_shoulders'),
+    t('painflag.region_knees'),
+  ];
 
   useEffect(() => { onCloseRef.current = onClose; savingRef.current = saving; });
 
@@ -70,9 +76,27 @@ export default function PainFlagModal({ exerciseId, exerciseName = exerciseId, s
         <div className="flex items-center gap-2"><AlertTriangle size={20} className="text-[var(--status-danger-fg)]" /><h3 id={titleId} className="text-lg font-semibold text-[var(--content-primary)]">{t('painflag.title')}</h3></div>
         <p className="mt-1 text-sm text-[var(--content-secondary)]"><span className="font-medium">{t('painflag.exercise')}:</span> {exerciseName}</p>
         <label className="mt-4 block text-sm font-medium text-[var(--content-secondary)]">{t('painflag.body_part_label')}<input type="text" aria-label={t('painflag.body_part_label')} placeholder={t('painflag.body_part_placeholder')} value={bodyPart} onChange={(event) => setBodyPart(event.target.value)} className="input-dark mt-1 min-h-11 text-base" /></label>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {quickRegions.map((region) => (
+            <button
+              key={region}
+              type="button"
+              aria-pressed={bodyPart === region}
+              onClick={() => setBodyPart(region)}
+              className="min-h-11 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-3 text-sm font-medium text-[var(--content-secondary)] aria-pressed:border-[var(--status-danger-border)] aria-pressed:bg-[var(--status-danger-bg)] aria-pressed:text-[var(--status-danger-fg)]"
+            >
+              {region}
+            </button>
+          ))}
+        </div>
         <fieldset className="mt-4"><legend className="text-sm font-medium text-[var(--content-secondary)]">{t('painflag.severity_prefix')}: {severity}/5</legend><div className="flex gap-2">
           {severityOptions.map((value) => { const label = value === 1 ? `1 ${t('painflag.severity_mild')}` : value === 3 ? `3 ${t('painflag.severity_moderate')}` : value === 5 ? `5 ${t('painflag.severity_stop')}` : String(value); return <label key={value} className="flex-1"><input type="radio" name="pain-severity" value={value} checked={severity === value} onChange={() => setSeverity(value)} className="sr-only text-base" /><span className="flex min-h-11 min-w-11 items-center justify-center rounded-lg border px-1 text-center text-xs font-semibold focus-within:outline-none focus-within:ring-2 focus-within:ring-[var(--focus-ring)]" style={{ background: severity === value ? 'var(--status-danger-bg)' : 'color-mix(in srgb, var(--content-primary) 8%, transparent)', color: severity === value ? 'var(--status-danger-fg)' : 'var(--content-secondary)', borderColor: severity === value ? 'var(--status-danger-border)' : 'color-mix(in srgb, var(--content-primary) 8%, transparent)' }}>{label}</span></label>; })}
         </div></fieldset>
+        {severity >= 4 ? (
+          <p role="alert" className="mt-3 rounded-xl border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] px-3 py-2 text-sm leading-5 text-[var(--status-danger-fg)]">
+            {t('painflag.stop_guidance')}
+          </p>
+        ) : null}
         <label className="mt-4 block text-sm font-medium text-[var(--content-secondary)]">{t('painflag.notes_label')}<textarea aria-label={t('painflag.notes_label')} placeholder={t('painflag.notes_placeholder')} value={notes} onChange={(event) => setNotes(event.target.value)} className="input-dark mt-1 h-20 resize-none text-base" /></label>
         <p className="mt-2 text-xs text-[var(--content-secondary)]">{t('painflag.coach_disclosure')}</p>
         <div className="mt-4 flex gap-2"><button type="button" disabled={saving} onClick={() => onCloseRef.current()} className="btn-ghost min-h-11 min-w-11 flex-1 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-50">{t('painflag.cancel')}</button><button type="button" disabled={saving} onClick={() => void save()} className="min-h-11 min-w-11 flex-1 rounded-xl border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] py-2 text-sm font-semibold text-[var(--status-danger-fg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-50">{saving ? t('painflag.saving') : t('painflag.save')}</button></div>

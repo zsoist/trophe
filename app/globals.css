@@ -1309,7 +1309,7 @@ body {
 }
 
 .client-shell {
-  --client-shell-nav-base-height: 3.875rem;
+  --client-shell-nav-base-height: 4.5rem;
   --client-shell-nav-min-bottom-padding: 1rem;
   --client-shell-content-buffer: 0.625rem;
   min-height: 100dvh;
@@ -1471,7 +1471,7 @@ body {
 
 .workout-mode-card {
   position: relative;
-  min-height: 10.5rem;
+  min-height: 9rem;
   overflow: hidden;
   border: 0;
   border-radius: 1rem;
@@ -1501,7 +1501,12 @@ body {
 
 .workout-mode-card .movement-visual {
   position: absolute;
-  inset: 0;
+  top: 0.45rem;
+  right: 0.35rem;
+  bottom: 0.45rem;
+  left: 40%;
+  width: 60%;
+  height: calc(100% - 0.9rem);
   z-index: 0;
   transition: transform var(--workout-motion-duration) var(--workout-motion-ease);
 }
@@ -1510,14 +1515,16 @@ body {
   position: absolute;
   inset: 0;
   z-index: 1;
-  background: linear-gradient(180deg, transparent 24%, rgba(2, 3, 3, 0.9) 100%);
+  background: linear-gradient(90deg, var(--performance-surface) 0 40%, color-mix(in srgb, var(--performance-surface) 72%, transparent) 62%, transparent 100%);
 }
 
 .workout-mode-card__copy {
   position: absolute;
-  right: 0.85rem;
-  bottom: 0.85rem;
+  top: 50%;
+  right: 46%;
+  bottom: auto;
   left: 0.85rem;
+  transform: translateY(-50%);
   z-index: 3;
 }
 
@@ -1534,18 +1541,18 @@ body {
 
 .workout-mode-card__copy small {
   margin-top: 0.22rem;
-  color: rgba(255, 255, 255, 0.76);
+  color: var(--content-muted);
   font-size: 0.7rem;
   line-height: 1.25;
 }
 
 .workout-mode-card--strength {
-  background: radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--performance-lime) 18%, var(--workout-surface-raised)), var(--workout-surface) 72%);
+  background: var(--performance-surface);
   color: var(--performance-lime);
 }
 
 .workout-mode-card--cardio {
-  background: radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--performance-coral) 18%, var(--workout-surface-raised)), var(--workout-surface) 72%);
+  background: var(--performance-surface);
   color: var(--performance-coral);
 }
 
@@ -1590,11 +1597,12 @@ body {
   cursor: pointer;
   font-size: 0.78rem;
   font-weight: 650;
+  text-align: left;
 }
 
 .exercise-area-card {
   position: relative;
-  min-height: 7.6rem;
+  min-height: 8rem;
   overflow: hidden;
   border: 0;
   border-radius: 0.875rem;
@@ -1606,7 +1614,12 @@ body {
 
 .exercise-area-card .movement-visual {
   position: absolute;
-  inset: 0;
+  top: 0.3rem;
+  right: 0.2rem;
+  bottom: 0.3rem;
+  left: 35%;
+  width: 65%;
+  height: calc(100% - 0.6rem);
   z-index: 0;
   transition: transform 240ms cubic-bezier(.16, 1, .3, 1);
 }
@@ -1615,21 +1628,22 @@ body {
   position: absolute;
   inset: 0;
   z-index: 1;
-  background: linear-gradient(180deg, rgba(3, 4, 4, 0.04) 12%, rgba(3, 4, 4, 0.88) 100%);
+  background: linear-gradient(90deg, var(--performance-surface) 0 38%, color-mix(in srgb, var(--performance-surface) 76%, transparent) 58%, transparent 100%);
 }
 
 .exercise-area-card__copy {
   position: absolute;
-  right: 0.7rem;
-  bottom: 0.65rem;
+  right: 46%;
+  bottom: 50%;
   left: 0.7rem;
+  transform: translateY(50%);
   z-index: 2;
-  color: white;
+  color: var(--content-primary);
 }
 
-.exercise-area-card__copy > span:first-child { color: white; }
-.exercise-area-card__copy > span:last-child { color: rgba(255, 255, 255, 0.7); }
-.exercise-area-card > svg { position: absolute; right: 0.55rem; top: 0.55rem; z-index: 2; color: rgba(255, 255, 255, 0.7); }
+.exercise-area-card__copy > span:first-child { color: var(--content-primary); }
+.exercise-area-card__copy > span:last-child { color: var(--content-muted); }
+.exercise-area-card > svg { position: absolute; right: 0.55rem; top: 0.55rem; z-index: 2; color: var(--content-muted); }
 
 .exercise-row__visual {
   width: 3.25rem;
