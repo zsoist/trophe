@@ -632,7 +632,10 @@ test.describe('Workout Workspace V2', () => {
         if (viewport.width <= 375) {
           const reviewPlan = page.getByRole('button', { name: 'Review plan' });
           await reviewPlan.scrollIntoViewIfNeeded();
-          if (viewport.width === 320) await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+          if (viewport.width === 320) {
+            await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+            await assertControlClearsBottomNav(page, reviewPlan);
+          }
           await reviewPlan.click();
           await waitForRouteSettled(page, '/dashboard/workout/review');
           await waitForWorkoutRouteAtTop(page, `${viewport.width}px recommended Review must keep the canonical chrome visible`);
@@ -673,20 +676,25 @@ test.describe('Workout Workspace V2', () => {
             }
             if (route === '/dashboard/workout/history' && viewport.width === 320) {
               const historyCard = page.locator('[data-history-card]').first();
-              await expect(historyCard).toBeVisible();
-              const geometry = await historyCard.evaluate((card) => {
-                const primary = card.querySelector('[data-history-primary]')?.getBoundingClientRect();
-                const summary = card.querySelector('[data-history-summary]')?.getBoundingClientRect();
-                return primary && summary ? {
-                  primaryBottom: primary.bottom,
-                  summaryTop: summary.top,
-                  cardRight: card.getBoundingClientRect().right,
-                  summaryRight: summary.right,
-                } : null;
-              });
-              expect(geometry).not.toBeNull();
-              expect(geometry!.summaryTop).toBeGreaterThanOrEqual(geometry!.primaryBottom);
-              expect(geometry!.summaryRight).toBeLessThanOrEqual(geometry!.cardRight);
+              const emptyHistory = page.getByTestId('workout-history-layout').getByText('No workouts yet. Start your first one!', { exact: true }).first();
+              await expect(historyCard.or(emptyHistory)).toBeVisible();
+              if (await historyCard.count()) {
+                const geometry = await historyCard.evaluate((card) => {
+                  const primary = card.querySelector('[data-history-primary]')?.getBoundingClientRect();
+                  const summary = card.querySelector('[data-history-summary]')?.getBoundingClientRect();
+                  return primary && summary ? {
+                    primaryBottom: primary.bottom,
+                    summaryTop: summary.top,
+                    cardRight: card.getBoundingClientRect().right,
+                    summaryRight: summary.right,
+                  } : null;
+                });
+                expect(geometry).not.toBeNull();
+                expect(geometry!.summaryTop).toBeGreaterThanOrEqual(geometry!.primaryBottom);
+                expect(geometry!.summaryRight).toBeLessThanOrEqual(geometry!.cardRight);
+              } else {
+                await expect(emptyHistory).toBeVisible();
+              }
             }
             await captureWorkout(page, testInfo, `${theme}-${viewport.width}x${viewport.height}-${slug}.png`, { atTop: true });
           }

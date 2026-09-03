@@ -2010,6 +2010,29 @@ body {
   }
 }
 
+@media (max-width: 639px) and (max-height: 620px) {
+  .workout-atlas-home {
+    padding-block: 0.5rem;
+  }
+
+  .workout-atlas-home .muscle-atlas__figure-wrap {
+    min-height: 14.25rem;
+  }
+
+  .workout-atlas-home .muscle-atlas__figure {
+    height: 228px;
+  }
+
+  .workout-atlas-home .muscle-atlas__roles strong {
+    display: none;
+  }
+
+  .workout-atlas-home .muscle-atlas__roles li button {
+    gap: 0.1rem 0.35rem;
+    padding-block: 0.25rem;
+  }
+}
+
 @media (min-width: 640px) {
   .workout-atlas-home__selection {
     margin-top: 0.625rem;
