@@ -31,6 +31,12 @@ function context(id: string | null, role: UserRole = 'client', db?: Context['db'
   };
 }
 
+function query(result: unknown) {
+  const value = Promise.resolve(result) as Promise<unknown> & Record<string, ReturnType<typeof vi.fn>>;
+  for (const method of ['from', 'where', 'limit', 'orderBy', 'innerJoin']) value[method] = vi.fn(() => value);
+  return value;
+}
+
 describe('workouts.preferences', () => {
   it('requires authentication and a version-1 preference payload', async () => {
     const createCaller = createCallerFactory(appRouter);
@@ -107,10 +113,48 @@ describe('workouts.recommendation.mine route contract', () => {
     const source = await readFile('lib/trpc/routers/workouts.ts', 'utf8');
     const recommendation = source.slice(source.indexOf('recommendation: router({'), source.indexOf('logs: router({'));
 
-    expect(recommendation).toContain("or(eq(exercises.isTemplate, true), eq(exercises.createdBy, ctx.user!.id))");
+    expect(recommendation).toContain('inArray(exercises.id, coachTemplateIds)');
+    expect(recommendation).toContain('eq(exercises.createdBy, profile.coachId!)');
     expect(recommendation).toContain('new Date().getDay()');
     expect(recommendation).toContain('return buildWorkoutRecommendation({');
     expect(recommendation).not.toContain('.insert(workoutSessions)');
     expect(recommendation).not.toContain('.update(workoutSessions)');
+  });
+
+  it('invokes the real caller with today’s coach template, curated pain input, and no session writes', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 8, 2, 12)); // Wednesday, 0=Sunday
+    const coachPrivate = {
+      id: 'coach-private', name: 'Barbell Bench Press', nameEs: null, nameEl: null,
+      muscleGroup: 'chest', secondaryMuscles: null, equipment: 'Barbell', isCompound: true,
+      isTemplate: false, instructions: null, instructionsEs: null, instructionsEl: null,
+      createdBy: COACH_ID, createdAt: '2026-09-01T00:00:00Z',
+    };
+    const currentTemplate = { id: 'wed-template', exercises: [{ exercise_id: 'coach-private', target_sets: 3, target_reps: '8-10' }] };
+    const select = vi.fn()
+      .mockReturnValueOnce(query([{ goal: 'muscle_gain', activityLevel: 'active', coachId: COACH_ID, workoutPreferences: { ...preferences, equipment: ['barbell'] } }]))
+      .mockReturnValueOnce(query([{ id: 'program', coachId: COACH_ID }]))
+      .mockReturnValueOnce(query([
+        { id: 'sun', weekday: 0, sort: 0, template: { id: 'sun-template', exercises: [] } },
+        { id: 'wed', weekday: 3, sort: 0, template: currentTemplate },
+      ]))
+      .mockReturnValueOnce(query([coachPrivate]))
+      .mockReturnValueOnce(query([]))
+      .mockReturnValueOnce(query([{ painFlags: [{ body_part: 'shoulder', severity: 2 }] }]));
+    const insert = vi.fn();
+    const update = vi.fn();
+    const caller = createCallerFactory(appRouter)(context(CLIENT_ID, 'client', { select, insert, update } as unknown as Context['db']));
+
+    const result = await caller.workouts.recommendation.mine();
+
+    expect(result).toEqual(expect.objectContaining({
+      source: 'coach', reasons: expect.any(Array), estimatedDurationMinutes: expect.any(Number),
+      equipment: expect.any(Array), muscleDistribution: expect.any(Object), exercises: expect.any(Array),
+    }));
+    expect(result.exercises).toEqual([]);
+    expect(result.reasons).toContain('Excluded coach-template exercises affecting painful regions: shoulders.');
+    expect(insert).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
+    vi.useRealTimers();
   });
 });

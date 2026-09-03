@@ -35,6 +35,7 @@ import { recordAuditEvent } from '@/lib/utils/audit';
 import type { Exercise, Goal, MuscleGroup, TemplateExercise, WorkoutTemplate } from '@/lib/types';
 import { parseWorkoutPreferences, workoutPreferencesSchema } from '@/lib/workout/preferences';
 import { buildWorkoutRecommendation } from '@/lib/workout/recommendation';
+import { resolveMuscleActivations } from '@/lib/workout/anatomy';
 
 type Db = typeof dbClient;
 
@@ -346,6 +347,7 @@ export const workoutsRouter = router({
         .select({
           goal: clientProfiles.goal,
           activityLevel: clientProfiles.activityLevel,
+          coachId: clientProfiles.coachId,
           workoutPreferences: clientProfiles.workoutPreferences,
         })
         .from(clientProfiles)
@@ -355,9 +357,22 @@ export const workoutsRouter = router({
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Client profile not found' });
       }
 
-      const [exerciseRows, recentSets, recentSessions, activeProgram] = await Promise.all([
+      const activeProgram = await loadActiveProgram(ctx.db, ctx.user!.id, false);
+      const activeCoachTemplate = selectCoachTemplateForWeekday(activeProgram?.days ?? [], new Date().getDay());
+      const coachTemplateIds = activeCoachTemplate && activeProgram?.program.coachId === profile.coachId
+        ? activeCoachTemplate.exercises.map((exercise) => exercise.exercise_id)
+        : [];
+      const exerciseVisibility = coachTemplateIds.length
+        ? or(
+            eq(exercises.isTemplate, true),
+            eq(exercises.createdBy, ctx.user!.id),
+            and(inArray(exercises.id, coachTemplateIds), eq(exercises.createdBy, profile.coachId!)),
+          )
+        : or(eq(exercises.isTemplate, true), eq(exercises.createdBy, ctx.user!.id));
+
+      const [exerciseRows, recentSets, recentSessions] = await Promise.all([
         ctx.db.select().from(exercises)
-          .where(or(eq(exercises.isTemplate, true), eq(exercises.createdBy, ctx.user!.id))),
+          .where(exerciseVisibility),
         ctx.db
           .select({
             exerciseId: workoutSets.exerciseId,
@@ -377,7 +392,6 @@ export const workoutsRouter = router({
           .where(eq(workoutSessions.userId, ctx.user!.id))
           .orderBy(desc(workoutSessions.sessionDate), desc(workoutSessions.createdAt))
           .limit(20),
-        loadActiveProgram(ctx.db, ctx.user!.id),
       ]);
       const painRegions = recentSessions.flatMap((session) =>
         Array.isArray(session.painFlags)
@@ -395,6 +409,11 @@ export const workoutsRouter = router({
         name_el: exercise.nameEl,
         muscle_group: exercise.muscleGroup as MuscleGroup,
         secondary_muscles: exercise.secondaryMuscles,
+        anatomy_activations: resolveMuscleActivations({
+          name: exercise.name,
+          equipment: exercise.equipment,
+          muscleGroup: exercise.muscleGroup,
+        }).map((activation) => activation.id),
         equipment: exercise.equipment,
         is_compound: exercise.isCompound ?? false,
         is_template: exercise.isTemplate ?? true,
@@ -421,7 +440,8 @@ export const workoutsRouter = router({
             isWarmup: set.isWarmup ?? false,
           })),
         painRegions,
-        activeCoachTemplate: selectCoachTemplateForWeekday(activeProgram?.days ?? [], new Date().getDay()),
+        activeCoachTemplate,
+        missingCoachTemplateExerciseIds: coachTemplateIds.filter((id) => !exerciseRows.some((exercise) => exercise.id === id)),
       });
     }),
   }),
@@ -476,7 +496,7 @@ export const workoutsRouter = router({
 
 // ── Shared loader ──────────────────────────────────────────────────────────
 
-async function loadActiveProgram(db: Db, clientId: string) {
+async function loadActiveProgram(db: Db, clientId: string, includeExerciseRows = true) {
   const [program] = await db
     .select()
     .from(workoutPrograms)
@@ -497,10 +517,9 @@ async function loadActiveProgram(db: Db, clientId: string) {
     .where(eq(workoutProgramDays.programId, program.id))
     .orderBy(workoutProgramDays.weekday, workoutProgramDays.sort);
 
-  const exerciseRows = await resolveTemplateExercises(
-    db,
-    days.map((d) => d.template),
-  );
+  const exerciseRows = includeExerciseRows
+    ? await resolveTemplateExercises(db, days.map((d) => d.template))
+    : [];
 
   return { program, days, exercises: exerciseRows };
 }

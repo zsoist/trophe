@@ -19,6 +19,8 @@ export interface BuildWorkoutRecommendationInput {
   recentSets: RecommendationRecentSet[];
   painRegions: string[];
   activeCoachTemplate: WorkoutTemplate | null;
+  /** Template IDs deliberately unavailable to the recommendation read scope. */
+  missingCoachTemplateExerciseIds?: string[];
 }
 
 const GOAL_MUSCLES: Record<Goal, MuscleGroup[]> = {
@@ -27,8 +29,9 @@ const GOAL_MUSCLES: Record<Goal, MuscleGroup[]> = {
   endurance: ['cardio', 'quads', 'hamstrings', 'glutes', 'core'], health: ['full_body', 'back', 'quads', 'core', 'cardio'],
 };
 const REGION_ALIASES: Record<string, string> = {
-  shoulder: 'shoulders', shoulders: 'shoulders', delt: 'shoulders', delts: 'shoulders', 'lower back': 'back', 'upper back': 'back', lumbar: 'back', lat: 'back', lats: 'back',
-  pec: 'chest', pecs: 'chest', quadricep: 'quads', quadriceps: 'quads', hamstring: 'hamstrings', calf: 'calves', bicep: 'biceps', tricep: 'triceps', abs: 'core', abdominals: 'core',
+  shoulder: 'shoulders', shoulders: 'shoulders', delt: 'shoulders', delts: 'shoulders', 'anterior deltoid': 'shoulders', 'middle deltoid': 'shoulders', 'posterior deltoid': 'shoulders', 'rotator cuff': 'shoulders',
+  'lower back': 'back', 'upper back': 'back', lumbar: 'back', lat: 'back', lats: 'back', 'latissimus dorsi': 'back', rhomboids: 'back', 'erector spinae': 'back', 'upper trapezius': 'back', 'lower trapezius': 'back',
+  pec: 'chest', pecs: 'chest', 'pectoralis major': 'chest', 'serratus anterior': 'chest', quadricep: 'quads', quadriceps: 'quads', hamstring: 'hamstrings', 'gluteus maximus': 'glutes', 'gluteus medius': 'glutes', calf: 'calves', gastrocnemius: 'calves', soleus: 'calves', bicep: 'biceps', 'biceps brachii': 'biceps', tricep: 'triceps', 'triceps brachii': 'triceps', abs: 'core', abdominals: 'core', 'rectus abdominis': 'core', obliques: 'core',
 };
 
 function normalized(value: string | null | undefined) {
@@ -73,12 +76,18 @@ export function buildWorkoutRecommendation(input: BuildWorkoutRecommendationInpu
   ];
 
   if (input.activeCoachTemplate) {
-    const selected = input.activeCoachTemplate.exercises.map((target) => {
-      const exercise = byId.get(target.exercise_id);
-      return exercise && compatible(exercise) ? draft(exercise, target) : null;
-    }).filter((item): item is WorkoutRecommendationExercise => item !== null).slice(0, maxExercises);
-    const reasons = ['Built from the active coach template; no coach work was replaced.', ...filterReasons];
-    if (selected.length < input.activeCoachTemplate.exercises.length && selected.length === maxExercises) reasons.push(`Limited draft to ${maxExercises} exercises for the ${input.preferences.durationMinutes}-minute duration target.`);
+    const templateCandidates = input.activeCoachTemplate.exercises.map((target) => ({ target, exercise: byId.get(target.exercise_id) }));
+    const missing = templateCandidates.filter(({ exercise }) => !exercise);
+    const templateEquipmentExcluded = templateCandidates.filter(({ exercise }) => exercise && !isEquipmentCompatible(exercise, input.preferences));
+    const templatePainExcluded = templateCandidates.filter(({ exercise }) => exercise && isEquipmentCompatible(exercise, input.preferences) && hasPainConflict(exercise, painRegions));
+    const safeCandidates = templateCandidates.filter(({ exercise }) => exercise && compatible(exercise)) as Array<{ target: TemplateExercise; exercise: Exercise }>;
+    const selected = safeCandidates.slice(0, maxExercises).map(({ exercise, target }) => draft(exercise, target));
+    const reasons = ['Built from the active coach template; no coach work was replaced.'];
+    if (missing.length || input.missingCoachTemplateExerciseIds?.length) reasons.push('Some coach-template exercises are unavailable and need coach review.');
+    if (templateEquipmentExcluded.length) reasons.push('Excluded coach-template exercises that need unavailable equipment.');
+    if (templatePainExcluded.length) reasons.push(`Excluded coach-template exercises affecting painful regions: ${[...painRegions].sort().join(', ')}.`);
+    if (safeCandidates.length > maxExercises && maxExercises === durationCap) reasons.push(`Limited draft to ${maxExercises} exercises for the ${input.preferences.durationMinutes}-minute duration target.`);
+    if (safeCandidates.length > maxExercises && maxExercises < durationCap) reasons.push('Reduced draft volume for a sedentary activity baseline.');
     return summarize('coach', reasons, selected);
   }
 
