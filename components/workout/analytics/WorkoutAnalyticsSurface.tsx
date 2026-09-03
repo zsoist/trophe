@@ -13,6 +13,7 @@ import { ExerciseProgressChart } from './ExerciseProgressChart';
 import { MuscleLoadChart, type MuscleLoadRange } from './MuscleLoadChart';
 import { WorkoutSummaryMetrics } from './WorkoutSummaryMetrics';
 import { useWeightUnit } from '@/lib/workout/units';
+import { chunkIds, fetchAllTerminalSessionPages } from '@/lib/workout/analytics-data';
 
 type LoggedSet = WorkoutSet & { exercise: Exercise; session: WorkoutSession };
 const ranges: Array<{ value: MuscleLoadRange; label: string }> = [{ value: 'last', label: 'Last' }, { value: 'week', label: 'Week' }, { value: 'month', label: 'Month' }, { value: 'all', label: 'All time' }];
@@ -36,9 +37,11 @@ export default function WorkoutAnalyticsSurface() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push('/login'); return; }
-      const { data: sessionData, error: sessionError } = await supabase.from('workout_sessions').select('*').eq('user_id', user.id).not('completed_at', 'is', null).order('session_date', { ascending: false }).order('id', { ascending: false });
-      if (sessionError) throw sessionError;
-      const loaded = (sessionData ?? []) as WorkoutSession[];
+      const loaded = await fetchAllTerminalSessionPages(async (from, to) => {
+        const { data, error: sessionError } = await supabase.from('workout_sessions').select('*').eq('user_id', user.id).not('completed_at', 'is', null).order('session_date', { ascending: false }).order('id', { ascending: false }).range(from, to);
+        if (sessionError) throw sessionError;
+        return (data ?? []) as WorkoutSession[];
+      });
       setSessions(loaded);
       const [measurementResult, programResult] = await Promise.all([
         supabase.from('measurements').select('measured_date, weight_kg').eq('user_id', user.id).order('measured_date', { ascending: true }),
@@ -59,9 +62,13 @@ export default function WorkoutAnalyticsSurface() {
       }
       if (!loaded.length) { setSets([]); return; }
       const byId = new Map(loaded.map((session) => [session.id, session]));
-      const { data: rawSets, error: setsError } = await supabase.from('workout_sets').select('*, exercise:exercises(*)').in('session_id', loaded.map((session) => session.id)).order('set_number');
-      if (setsError) throw setsError;
-      setSets((rawSets ?? []).flatMap((raw) => {
+      const rawSets = [] as unknown[];
+      for (const ids of chunkIds(loaded.map((session) => session.id))) {
+        const { data, error: setsError } = await supabase.from('workout_sets').select('*, exercise:exercises(*)').in('session_id', ids).order('set_number');
+        if (setsError) throw setsError;
+        rawSets.push(...(data ?? []));
+      }
+      setSets(rawSets.flatMap((raw) => {
         const set = raw as WorkoutSet & { exercise: Exercise | null };
         const session = byId.get(set.session_id);
         return set.exercise && session ? [{ ...set, exercise: set.exercise, session }] : [];

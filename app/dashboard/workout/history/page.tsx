@@ -223,9 +223,12 @@ export default function WorkoutHistoryPage() {
   const router = useRouter();
   const [sessions, setSessions] = useState<SessionWithSets[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
+      setLoading(true); setError(null);
+      try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
 
@@ -233,32 +236,29 @@ export default function WorkoutHistoryPage() {
       const { data: sessionsData } = await supabase
         .from('workout_sessions')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', user.id).not('completed_at', 'is', null)
         .order('session_date', { ascending: false })
         .limit(50);
 
-      if (!sessionsData || sessionsData.length === 0) {
-        setLoading(false);
-        return;
-      }
+      if (sessionsData === null) throw new Error('Unable to load sessions');
+      const terminalSessions = sessionsData as WorkoutSession[];
+      if (terminalSessions.length === 0) return;
 
       // Fetch all sets for these sessions with exercise data
-      const sessionIds = sessionsData.map((s: WorkoutSession) => s.id);
+      const sessionIds = terminalSessions.map((s) => s.id);
       const { data: setsData } = await supabase
         .from('workout_sets')
         .select('*, exercise:exercises(*)')
         .in('session_id', sessionIds)
         .order('set_number');
 
-      // Merge
-      const merged: SessionWithSets[] = sessionsData.map((s: WorkoutSession) => ({
-        ...s,
-        pain_flags: (s.pain_flags as unknown as import('@/lib/types').PainFlag[]) || [],
-        sets: (setsData || []).filter((set: WorkoutSet) => set.session_id === s.id),
-      }));
+      if (setsData === null) throw new Error('Unable to load session sets');
+      const bySession = new Map<string, (WorkoutSet & { exercise: Exercise })[]>();
+      for (const set of setsData as (WorkoutSet & { exercise: Exercise })[]) bySession.set(set.session_id, [...(bySession.get(set.session_id) ?? []), set]);
+      const merged: SessionWithSets[] = terminalSessions.map((s) => ({ ...s, pain_flags: (s.pain_flags as unknown as import('@/lib/types').PainFlag[]) || [], sets: bySession.get(s.id) ?? [] }));
 
       setSessions(merged);
-      setLoading(false);
+      } catch { setError('Workout history could not load. Try again.'); } finally { setLoading(false); }
     }
     load();
   }, [router]);
@@ -271,8 +271,9 @@ export default function WorkoutHistoryPage() {
             <div className="w-6 h-6 border-2 border-[var(--border-default)] border-t-[var(--action-primary)] rounded-full animate-spin" />
           </div>
         )}
+        {!loading && error && <div role="alert" className="py-10 text-center text-sm text-[var(--status-danger-fg)]"><p>{error}</p><button type="button" onClick={() => { setLoading(true); setError(null); window.location.reload(); }} className="mt-3 min-h-11 px-3 text-[var(--action-primary)]">Retry</button></div>}
 
-        {!loading && sessions.length === 0 && (
+        {!loading && !error && sessions.length === 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -288,7 +289,7 @@ export default function WorkoutHistoryPage() {
           </motion.div>
         )}
 
-        {!loading && sessions.length > 0 && (
+        {!loading && !error && sessions.length > 0 && (
           <>
             <div className="space-y-7">
               {groupWorkoutSessionsByMonth(sessions).map((group) => (
