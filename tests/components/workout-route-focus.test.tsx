@@ -86,7 +86,7 @@ describe('workout route-owned focus', () => {
     expect(control?.hasAttribute('data-workout-route-focus-target')).toBe(false);
   });
 
-  it('suppresses the route landmark outline without weakening control focus rings', () => {
+  it('keeps a visible route landmark outline and the global control focus ring', () => {
     const stylesheet = postcss.parse(readFileSync(join(process.cwd(), 'app/globals.css'), 'utf8'));
     const rules = new Map<string, postcss.Rule>();
     stylesheet.walkRules((rule) => {
@@ -102,7 +102,8 @@ describe('workout route-owned focus', () => {
         (node): node is postcss.Declaration => node.type === 'decl' && node.prop === property,
       )?.value;
 
-    expect(declaration(routeFocusRule, 'outline')).toBe('none');
+    expect(declaration(routeFocusRule, 'outline')).toBe('2px solid var(--focus-ring)');
+    expect(declaration(routeFocusRule, 'outline-offset')).toBe('-2px');
     expect(declaration(globalFocusRule, 'outline')).toBe('2px solid var(--focus-ring)');
   });
 });

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { usePathname } from 'next/navigation';
 import { WorkoutRouteFocusProvider } from '@/components/workout/workspace/WorkoutRouteFocusContext';
@@ -21,14 +21,20 @@ export function WorkoutRouteTransition({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!hydrated.current) {
       hydrated.current = true;
-      return;
     }
-    const destination = routeSurface.current?.querySelector<HTMLElement>('main');
-    if (!destination) return;
-    if (!destination.hasAttribute('tabindex')) destination.tabIndex = -1;
-    destination.dataset.workoutRouteFocusTarget = 'true';
-    destination.focus({ preventScroll: true });
-  }, [routePathname]);
+  }, []);
+
+  const attachRouteSurface = useCallback((node: HTMLDivElement | null) => {
+    routeSurface.current = node;
+    if (!node || !hydrated.current || !changed) return;
+    queueMicrotask(() => {
+      const destination = node.querySelector<HTMLElement>('main');
+      if (!destination || !node.isConnected) return;
+      if (!destination.hasAttribute('tabindex')) destination.tabIndex = -1;
+      destination.dataset.workoutRouteFocusTarget = 'true';
+      destination.focus({ preventScroll: true });
+    });
+  }, [changed]);
 
   const offset = direction === 'forward' ? 18 : direction === 'back' ? -18 : 0;
   const animateRoute = changed && !reducedMotion;
@@ -36,7 +42,7 @@ export function WorkoutRouteTransition({ children }: { children: ReactNode }) {
   return (
     <AnimatePresence mode="wait" initial={false}>
       <motion.div
-        ref={routeSurface}
+        ref={attachRouteSurface}
         key={routePathname}
         data-testid="workout-route-transition"
         data-route-direction={direction}

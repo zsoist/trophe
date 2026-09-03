@@ -557,7 +557,8 @@
 }
 
 .workout-route-transition [data-workout-route-focus-target="true"]:focus-visible {
-  outline: none;
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
 }
 
 :where(button, input, select, textarea, option):disabled,

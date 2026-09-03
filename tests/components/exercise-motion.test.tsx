@@ -31,6 +31,11 @@ const benchMedia: ExerciseMediaRecord = {
 };
 
 beforeEach(() => {
+  vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({
+    matches: false,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  }));
   vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue();
   vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
 });
@@ -66,9 +71,10 @@ describe('ExerciseMotion', () => {
     await waitFor(() => expect(play).toHaveBeenCalledOnce());
   });
 
-  it('uses only the poster when reduced motion is requested', () => {
+  it('uses only the poster and never starts autoplay when reduced motion is requested', () => {
+    const play = vi.mocked(HTMLMediaElement.prototype.play);
     const serverMarkup = renderToString(<ExerciseMotion media={benchMedia} alt="Bench press demonstration" />);
-    expect(serverMarkup).toContain('data-testid="exercise-motion-video"');
+    expect(serverMarkup).not.toContain('data-testid="exercise-motion-video"');
 
     vi.stubGlobal('matchMedia', vi.fn().mockImplementation((query: string) => ({
       matches: query === '(prefers-reduced-motion: reduce)',
@@ -77,11 +83,12 @@ describe('ExerciseMotion', () => {
     })));
     expect(vi.mocked(window.matchMedia)).not.toHaveBeenCalled();
 
-    render(<ExerciseMotion media={benchMedia} alt="Bench press demonstration" />);
+    render(<ExerciseMotion media={benchMedia} alt="Bench press demonstration" autoplay />);
 
     return waitFor(() => {
       expect(screen.getByRole('img', { name: 'Bench press demonstration' }).getAttribute('src')).toBe(benchMedia.posterSrc);
       expect(screen.queryByTestId('exercise-motion-video')).toBeNull();
+      expect(play).not.toHaveBeenCalled();
     });
   });
 

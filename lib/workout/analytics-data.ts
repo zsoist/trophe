@@ -30,6 +30,7 @@ export interface WorkoutAnalyticsData {
   issues: {
     schedule: boolean;
     measurements: boolean;
+    historyTruncated: boolean;
   };
 }
 
@@ -65,6 +66,29 @@ export async function fetchAllTerminalSessionPages<T extends TerminalSession>(
   }
 }
 
+/** Load a bounded newest-first window and report whether older rows exist. */
+export async function fetchBoundedTerminalSessionPages<T extends TerminalSession>(
+  fetchPage: (from: number, to: number) => Promise<T[]>,
+  pageSize = 100,
+  maxRows = 250,
+): Promise<{ rows: T[]; truncated: boolean }> {
+  const seen = new Set<string>();
+  const rows: T[] = [];
+  for (let from = 0; from < maxRows; from += pageSize) {
+    const take = Math.min(pageSize, maxRows - from);
+    const page = await fetchPage(from, from + take);
+    for (const row of page.slice(0, take)) {
+      if (row.completed_at !== null && !seen.has(row.id)) {
+        seen.add(row.id);
+        rows.push(row);
+      }
+    }
+    if (page.length <= take) return { rows: rows.sort(compareTerminalSessions), truncated: false };
+    if (from + take >= maxRows) return { rows: rows.sort(compareTerminalSessions), truncated: true };
+  }
+  return { rows: rows.sort(compareTerminalSessions), truncated: true };
+}
+
 export function chunkIds(ids: string[], size = 500): string[][] {
   const chunks: string[][] = [];
   for (let index = 0; index < ids.length; index += size) chunks.push(ids.slice(index, index + size));
@@ -98,6 +122,8 @@ interface LoadWorkoutAnalyticsOptions {
   userId: string;
   pageSize?: number;
   setBatchSize?: number;
+  sessionLimit?: number;
+  measurementLimit?: number;
   signal?: AbortSignal;
 }
 
@@ -110,11 +136,13 @@ export async function loadWorkoutAnalyticsData({
   userId,
   pageSize = 500,
   setBatchSize = 500,
+  sessionLimit = 250,
+  measurementLimit = 250,
   signal,
 }: LoadWorkoutAnalyticsOptions): Promise<WorkoutAnalyticsData> {
   throwIfAborted(signal);
 
-  const sessionsPromise = fetchAllTerminalSessionPages(async (from, to) => {
+  const sessionsPromise = fetchBoundedTerminalSessionPages(async (from, to) => {
     let query = client
       .from('workout_sessions')
       .select('*')
@@ -127,13 +155,14 @@ export async function loadWorkoutAnalyticsData({
     const { data, error } = await query.range(from, to);
     if (error) throw new WorkoutAnalyticsDataError('sessions', error);
     return (data ?? []) as WorkoutSession[];
-  }, pageSize);
+  }, pageSize, sessionLimit);
 
   let measurementsQuery = client
     .from('measurements')
     .select('measured_date, weight_kg')
     .eq('user_id', userId)
-    .order('measured_date', { ascending: true });
+    .order('measured_date', { ascending: false })
+    .limit(measurementLimit);
   let programsQuery = client
     .from('workout_programs')
     .select('starts_on, workout_program_days(weekday)')
@@ -145,12 +174,13 @@ export async function loadWorkoutAnalyticsData({
     programsQuery = programsQuery.abortSignal(signal);
   }
 
-  const [sessions, measurementResult, programResult] = await Promise.all([
+  const [sessionWindow, measurementResult, programResult] = await Promise.all([
     sessionsPromise,
     measurementsQuery,
     programsQuery,
   ]);
   throwIfAborted(signal);
+  const sessions = sessionWindow.rows;
 
   const bySessionId = new Map(sessions.map((session) => [session.id, session]));
   const sets: AnalyticsLoggedSet[] = [];
@@ -177,11 +207,12 @@ export async function loadWorkoutAnalyticsData({
   return {
     sessions,
     sets,
-    measurements: measurementResult.error ? [] : (measurementResult.data ?? []) as AnalyticsMeasurement[],
+    measurements: measurementResult.error ? [] : ([...((measurementResult.data ?? []) as AnalyticsMeasurement[])]).reverse(),
     programs: programResult.error ? [] : (programResult.data ?? []) as AnalyticsProgram[],
     issues: {
       schedule: Boolean(programResult.error),
       measurements: Boolean(measurementResult.error),
+      historyTruncated: sessionWindow.truncated,
     },
   };
 }

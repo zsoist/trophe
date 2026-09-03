@@ -39,7 +39,7 @@ vi.mock('@/lib/supabase', () => ({
       const call = { table, steps: [] as Array<[string, ...unknown[]]> };
       harness.calls.push(call);
       const query: Record<string, unknown> = {};
-      for (const method of ['select', 'eq', 'not', 'order', 'in', 'abortSignal']) {
+      for (const method of ['select', 'eq', 'not', 'order', 'limit', 'in', 'abortSignal']) {
         query[method] = vi.fn((...args: unknown[]) => { call.steps.push([method, ...args]); return query; });
       }
       const result = () => {

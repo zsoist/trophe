@@ -109,6 +109,20 @@ describe('workout analytics evidence surfaces', () => {
     expect(screen.getByLabelText(/220\.5 lb, 2 reps, 440\.9 lb volume/i)).toBeTruthy();
   });
 
+  it('bounds dense progress visuals and detail rows on long histories', () => {
+    const data = Array.from({ length: 100 }, (_, index) => ({
+      sessionId: `session-${index}`,
+      date: `2026-${String(Math.floor(index / 28) + 1).padStart(2, '0')}-${String((index % 28) + 1).padStart(2, '0')}`,
+      weightKg: 50 + index,
+      reps: 5,
+    }));
+
+    const { container } = render(<ExerciseProgressChart exerciseName="Barbell Bench Press" data={data} />);
+
+    expect(container.querySelectorAll('svg circle').length).toBeLessThanOrEqual(48);
+    expect(container.querySelectorAll('tbody tr').length).toBeLessThanOrEqual(12);
+  });
+
   it('calculates summary metrics only from completed working-set evidence', () => {
     render(<WorkoutSummaryMetrics sessions={[{
       id: 'session-1', durationMinutes: 45,

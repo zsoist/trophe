@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createCallerFactory } from '@/lib/trpc/init';
 import { appRouter } from '@/lib/trpc/router';
-import { recommendationAsOfDate, selectCoachTemplateForWeekday } from '@/lib/trpc/routers/workouts';
+import { selectCoachTemplateForWeekday } from '@/lib/trpc/routers/workouts';
 import type { Context } from '@/lib/trpc/context';
 import type { UserRole } from '@/lib/auth/get-session';
 import type { WorkoutPreferences } from '@/lib/types';
@@ -104,10 +104,6 @@ describe('workouts.recommendation.mine route contract', () => {
     ], 3)).toBe(wednesday);
   });
 
-  it('injects a stable date into recency ranking', () => {
-    expect(recommendationAsOfDate(new Date('2026-09-02T23:00:00-05:00'))).toBe('2026-09-03');
-  });
-
   it('keeps custom exercise reads tenant-scoped and has no workout-session write path', async () => {
     const { readFile } = await import('node:fs/promises');
     const source = await readFile('lib/trpc/routers/workouts.ts', 'utf8');
@@ -115,7 +111,9 @@ describe('workouts.recommendation.mine route contract', () => {
 
     expect(recommendation).toContain('inArray(exercises.id, coachTemplateIds)');
     expect(recommendation).toContain('eq(exercises.createdBy, profile.coachId!)');
-    expect(recommendation).toContain('new Date().getDay()');
+    expect(recommendation).toContain('input.localWeekday');
+    expect(recommendation).toContain('asOf: input.localDate');
+    expect(recommendation.match(/isNotNull\(workoutSessions\.completedAt\)/g)).toHaveLength(2);
     expect(recommendation).toContain('return buildWorkoutRecommendation({');
     expect(recommendation).not.toContain('.insert(workoutSessions)');
     expect(recommendation).not.toContain('.update(workoutSessions)');
@@ -166,7 +164,7 @@ describe('workouts.recommendation.mine route contract', () => {
     const update = vi.fn();
     const caller = createCallerFactory(appRouter)(context(CLIENT_ID, 'client', { select, insert, update } as unknown as Context['db']));
 
-    const result = await caller.workouts.recommendation.mine();
+    const result = await caller.workouts.recommendation.mine({ localDate: '2026-09-02', localWeekday: 3 });
 
     expect(result).toEqual(expect.objectContaining({
       source: 'coach', reasons: expect.any(Array), estimatedDurationMinutes: expect.any(Number),
@@ -186,5 +184,14 @@ describe('workouts.recommendation.mine route contract', () => {
     expect(insert).not.toHaveBeenCalled();
     expect(update).not.toHaveBeenCalled();
     vi.useRealTimers();
+  });
+
+  it('rejects a mismatched local date and weekday before reading recommendation data', async () => {
+    const select = vi.fn();
+    const caller = createCallerFactory(appRouter)(context(CLIENT_ID, 'client', { select } as unknown as Context['db']));
+
+    await expect(caller.workouts.recommendation.mine({ localDate: '2026-09-02', localWeekday: 4 }))
+      .rejects.toMatchObject({ code: 'BAD_REQUEST' });
+    expect(select).not.toHaveBeenCalled();
   });
 });

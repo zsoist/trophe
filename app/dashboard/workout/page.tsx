@@ -84,8 +84,13 @@ export default function WorkoutPage() {
   const [recents, setRecents] = useState<WorkoutSession[]>([]);
   const [storedRoutines, setStoredRoutines] = useState<StoredRoutine[]>([]);
   const [pendingRepeat, setPendingRepeat] = useState<PendingRepeat | null>(null);
+  const localDate = localToday();
+  const todayWeekday = new Date(`${localDate}T12:00:00`).getDay();
   const programQuery = trpc.workouts.program.mine.useQuery(undefined, { staleTime: 60_000, retry: 1 });
-  const recommendationQuery = trpc.workouts.recommendation.mine.useQuery(undefined, { staleTime: 60_000, retry: 1 });
+  const recommendationQuery = trpc.workouts.recommendation.mine.useQuery(
+    { localDate, localWeekday: todayWeekday },
+    { staleTime: 60_000, retry: 1 },
+  );
   const repeatId = searchParams.get('repeat');
 
   useEffect(() => {
@@ -250,7 +255,6 @@ export default function WorkoutPage() {
     };
   }, [resolvedExerciseById]);
 
-  const todayWeekday = new Date(`${localToday()}T12:00:00`).getDay();
   const program = useMemo<WorkoutHomeProgram | null>(() => {
     const data = programQuery.data;
     if (!data) return null;

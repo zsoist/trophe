@@ -17,7 +17,7 @@ export function ExerciseMotion({ media, alt, autoplay = false, className = '', p
   const { t } = useI18n();
   const videoRef = useRef<HTMLVideoElement>(null);
   const isExactTechnique = media.tier === 'verified-technique' && Boolean(media.motionSrc);
-  const [reducedMotion, setReducedMotion] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState<boolean | null>(null);
   const [inViewport, setInViewport] = useState(true);
   const [pageVisible, setPageVisible] = useState(() => typeof document === 'undefined' || !document.hidden);
   const [isPlaying, setIsPlaying] = useState(autoplay && isExactTechnique);
@@ -40,7 +40,10 @@ export function ExerciseMotion({ media, alt, autoplay = false, className = '', p
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !isExactTechnique || reducedMotion) return;
+    const prefersReducedMotion = typeof window !== 'undefined'
+      && typeof window.matchMedia === 'function'
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!video || !isExactTechnique || reducedMotion !== false || prefersReducedMotion) return;
     if (playbackDisabled) {
       video.pause();
       return;
@@ -68,8 +71,8 @@ export function ExerciseMotion({ media, alt, autoplay = false, className = '', p
   const pause = () => setIsPlaying(false);
   const play = () => setIsPlaying(true);
 
-  if (reducedMotion || !isExactTechnique) {
-    const statusKey = reducedMotion
+  if (reducedMotion !== false || !isExactTechnique) {
+    const statusKey = reducedMotion === true
       ? 'workout.motion_reduced'
       : media.tier === 'verified-anatomy'
         ? 'workout.motion_anatomy_only'
@@ -79,7 +82,7 @@ export function ExerciseMotion({ media, alt, autoplay = false, className = '', p
         {/* The poster is intentionally a plain image so it remains the complete reduced-motion experience. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={media.posterSrc} alt={alt} className="exercise-motion__poster" />
-        <figcaption>{t(statusKey)}</figcaption>
+        {reducedMotion === null && isExactTechnique ? null : <figcaption>{t(statusKey)}</figcaption>}
       </figure>
     );
   }

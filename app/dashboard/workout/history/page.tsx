@@ -12,11 +12,12 @@ import { useI18n } from '@/lib/i18n';
 import { localeForLanguage } from '@/lib/i18n-locale';
 import { supabase } from '@/lib/supabase';
 import type { Exercise, PainFlag, WorkoutSession, WorkoutSet } from '@/lib/types';
-import { chunkIds, fetchAllTerminalSessionPages } from '@/lib/workout/analytics-data';
+import { chunkIds } from '@/lib/workout/analytics-data';
 import { kgToDisplay, useWeightUnit } from '@/lib/workout/units';
 
 type SetWithExercise = WorkoutSet & { exercise: Exercise };
 interface SessionWithSets extends WorkoutSession { sets: SetWithExercise[] }
+const HISTORY_PAGE_SIZE = 30;
 
 function SessionCard({ session, lang }: { session: SessionWithSets; lang: string }) {
   const [expanded, setExpanded] = useState(false);
@@ -133,8 +134,11 @@ export default function WorkoutHistoryPage() {
   const router = useRouter();
   const [sessions, setSessions] = useState<SessionWithSets[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState(false);
   const requestId = useRef(0);
+  const loadedCount = useRef(0);
   const locale = localeForLanguage(lang);
   const latestSession = sessions[0] ?? null;
   const latestEvidence = useMemo(() => {
@@ -158,19 +162,22 @@ export default function WorkoutHistoryPage() {
     ? new Intl.DateTimeFormat(locale, { weekday: 'long', month: 'short', day: 'numeric' }).format(new Date(`${latestSession.session_date}T12:00:00`))
     : '', [latestSession, locale]);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (reset = true) => {
     const request = ++requestId.current;
-    setLoading(true);
-    setError(false);
+    if (reset) {
+      setLoading(true);
+      setError(false);
+    } else {
+      setLoadingMore(true);
+    }
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (request !== requestId.current) return;
       if (!user) { router.push('/login'); return; }
-      const terminalSessions = await fetchAllTerminalSessionPages(async (from, to) => {
-        const { data, error: sessionsError } = await supabase.from('workout_sessions').select('*').eq('user_id', user.id).not('completed_at', 'is', null).order('session_date', { ascending: false }).order('completed_at', { ascending: false }).order('id', { ascending: false }).range(from, to);
-        if (sessionsError || data === null) throw sessionsError ?? new Error('sessions unavailable');
-        return data as WorkoutSession[];
-      });
+      const from = reset ? 0 : loadedCount.current;
+      const { data, error: sessionsError } = await supabase.from('workout_sessions').select('*').eq('user_id', user.id).not('completed_at', 'is', null).order('session_date', { ascending: false }).order('completed_at', { ascending: false }).order('id', { ascending: false }).range(from, from + HISTORY_PAGE_SIZE);
+      if (sessionsError || data === null) throw sessionsError ?? new Error('sessions unavailable');
+      const terminalSessions = (data as WorkoutSession[]).slice(0, HISTORY_PAGE_SIZE);
       if (request !== requestId.current) return;
       const bySession = new Map<string, SetWithExercise[]>();
       for (const ids of chunkIds(terminalSessions.map((session) => session.id))) {
@@ -186,16 +193,22 @@ export default function WorkoutHistoryPage() {
         }
       }
       if (request !== requestId.current) return;
-      setSessions(terminalSessions.map((session) => ({ ...session, pain_flags: (session.pain_flags as unknown as PainFlag[]) ?? [], sets: bySession.get(session.id) ?? [] })));
+      const next = terminalSessions.map((session) => ({ ...session, pain_flags: (session.pain_flags as unknown as PainFlag[]) ?? [], sets: bySession.get(session.id) ?? [] }));
+      loadedCount.current = from + terminalSessions.length;
+      setHasMore(data.length > HISTORY_PAGE_SIZE);
+      setSessions((current) => reset ? next : [...current, ...next.filter((session) => !current.some((existing) => existing.id === session.id))]);
     } catch {
-      if (request === requestId.current) setError(true);
+      if (request === requestId.current && reset) setError(true);
     } finally {
-      if (request === requestId.current) setLoading(false);
+      if (request === requestId.current) {
+        if (reset) setLoading(false);
+        setLoadingMore(false);
+      }
     }
   }, [router]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => { void load(); }, 0);
+    const timer = window.setTimeout(() => { void load(true); }, 0);
     return () => { window.clearTimeout(timer); requestId.current += 1; };
   }, [load]);
 
@@ -203,9 +216,9 @@ export default function WorkoutHistoryPage() {
     <div data-testid="workout-history-layout" className="mx-auto max-w-6xl px-4 pt-4 sm:px-6 lg:grid lg:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.65fr)] lg:items-start lg:gap-8 lg:pt-6">
       <div className="min-w-0">
       {loading ? <div role="status" className="flex items-center justify-center gap-3 py-16 text-sm text-[var(--content-muted)]"><div aria-hidden="true" className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--border-default)] border-t-[var(--action-primary)]" />{t('workout.analytics_history_loading')}</div> : null}
-      {!loading && error ? <div role="alert" className="py-10 text-center text-sm text-[var(--status-danger-fg)]"><p>{t('workout.analytics_history_load_failed')}</p><button type="button" onClick={() => void load()} className="mt-3 min-h-11 px-3 text-[var(--action-primary)]">{t('workout.retry')}</button></div> : null}
-      {!loading && !error && sessions.length === 0 ? <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="py-16 text-center"><Dumbbell size={48} className="mx-auto mb-4 text-[var(--content-muted)]" /><p className="text-sm text-[var(--content-muted)]">{t('workout.no_sessions')}</p><Link href="/dashboard/workout"><button type="button" className="btn-gold mt-4 min-h-11 min-w-11 px-6 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">{t('workout.start')}</button></Link></motion.div> : null}
-      {!loading && !error && sessions.length > 0 ? <div className="space-y-7">{groupWorkoutSessionsByMonth(sessions, locale).map((group) => <section key={group.monthKey} aria-labelledby={`history-${group.monthKey}`}><h2 id={`history-${group.monthKey}`} className="mb-3 text-sm font-semibold text-[var(--content-primary)]">{group.month}</h2><div className="space-y-3">{group.sessions.map((session) => <SessionCard key={session.id} session={session} lang={lang} />)}</div></section>)}</div> : null}
+      {!loading && error ? <div role="alert" className="py-10 text-center text-sm text-[var(--status-danger-fg)]"><p>{t('workout.analytics_history_load_failed')}</p><button type="button" onClick={() => void load(true)} className="mt-3 min-h-11 px-3 text-[var(--action-primary)]">{t('workout.retry')}</button></div> : null}
+      {!loading && !error && sessions.length === 0 ? <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="py-16 text-center"><Dumbbell size={48} className="mx-auto mb-4 text-[var(--content-muted)]" /><p className="text-sm text-[var(--content-muted)]">{t('workout.no_sessions')}</p><Link href="/dashboard/workout" className="btn-gold mt-4 inline-flex min-h-11 min-w-11 items-center justify-center px-6 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">{t('workout.start')}</Link></motion.div> : null}
+      {!loading && !error && sessions.length > 0 ? <div className="space-y-7">{groupWorkoutSessionsByMonth(sessions, locale).map((group) => <section key={group.monthKey} aria-labelledby={`history-${group.monthKey}`}><h2 id={`history-${group.monthKey}`} className="mb-3 text-sm font-semibold text-[var(--content-primary)]">{group.month}</h2><div className="space-y-3">{group.sessions.map((session) => <SessionCard key={session.id} session={session} lang={lang} />)}</div></section>)}{hasMore ? <button type="button" disabled={loadingMore} onClick={() => void load(false)} className="mx-auto flex min-h-11 items-center justify-center rounded-xl border border-[var(--workout-rail)] px-5 text-sm font-semibold text-[var(--action-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">{t(loadingMore ? 'workout.analytics_history_loading_older' : 'workout.analytics_history_load_older')}</button> : null}</div> : null}
       </div>
       {!loading && !error ? <aside aria-labelledby="recent-training-evidence" className="sticky top-20 hidden rounded-[14px] border border-[var(--workout-rail)] bg-[var(--workout-surface)] p-5 lg:block">
         <h2 id="recent-training-evidence" className="text-sm font-semibold text-[var(--content-primary)]">{t('workout.home_recent_progress')}</h2>

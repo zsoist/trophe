@@ -29,7 +29,7 @@ import {
   workoutTemplates,
 } from '@/db/schema/workouts';
 import { clientProfiles } from '@/db/schema/profiles';
-import { and, desc, eq, inArray, or } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, or } from 'drizzle-orm';
 import { assertCanAccessClient } from '@/lib/auth/tenant-access';
 import { recordAuditEvent } from '@/lib/utils/audit';
 import type { Exercise, Goal, MuscleGroup, TemplateExercise, WorkoutTemplate } from '@/lib/types';
@@ -112,9 +112,19 @@ export function selectCoachTemplateForWeekday(
   return (days.find((day) => day.weekday === weekday)?.template as WorkoutTemplate | undefined) ?? null;
 }
 
-export function recommendationAsOfDate(now = new Date()) {
-  return now.toISOString().slice(0, 10);
-}
+const recommendationContextSchema = z.object({
+  localDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  localWeekday: z.number().int().min(0).max(6),
+}).superRefine(({ localDate, localWeekday }, ctx) => {
+  const [year, month, day] = localDate.split('-').map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  const validDate = parsed.getUTCFullYear() === year
+    && parsed.getUTCMonth() === month - 1
+    && parsed.getUTCDate() === day;
+  if (!validDate || parsed.getUTCDay() !== localWeekday) {
+    ctx.addIssue({ code: 'custom', message: 'localDate and localWeekday must identify the same valid calendar day' });
+  }
+});
 
 // ── Router ─────────────────────────────────────────────────────────────────
 
@@ -342,7 +352,9 @@ export const workoutsRouter = router({
      * A read-only, inspectable draft. It never creates workout_sessions or
      * enters the existing draft/review/live state machine.
      */
-    mine: protectedProcedure.query(async ({ ctx }) => {
+    mine: protectedProcedure
+      .input(recommendationContextSchema)
+      .query(async ({ ctx, input }) => {
       const [profile] = await ctx.db
         .select({
           goal: clientProfiles.goal,
@@ -358,7 +370,7 @@ export const workoutsRouter = router({
       }
 
       const activeProgram = await loadActiveProgram(ctx.db, ctx.user!.id, false);
-      const activeCoachTemplate = selectCoachTemplateForWeekday(activeProgram?.days ?? [], new Date().getDay());
+      const activeCoachTemplate = selectCoachTemplateForWeekday(activeProgram?.days ?? [], input.localWeekday);
       const coachTemplateIds = activeCoachTemplate && activeProgram?.program.coachId === profile.coachId
         ? activeCoachTemplate.exercises.map((exercise) => exercise.exercise_id)
         : [];
@@ -383,13 +395,13 @@ export const workoutsRouter = router({
           })
           .from(workoutSets)
           .innerJoin(workoutSessions, eq(workoutSets.sessionId, workoutSessions.id))
-          .where(eq(workoutSessions.userId, ctx.user!.id))
+          .where(and(eq(workoutSessions.userId, ctx.user!.id), isNotNull(workoutSessions.completedAt)))
           .orderBy(desc(workoutSessions.sessionDate), desc(workoutSets.createdAt))
           .limit(100),
         ctx.db
           .select({ painFlags: workoutSessions.painFlags })
           .from(workoutSessions)
-          .where(eq(workoutSessions.userId, ctx.user!.id))
+          .where(and(eq(workoutSessions.userId, ctx.user!.id), isNotNull(workoutSessions.completedAt)))
           .orderBy(desc(workoutSessions.sessionDate), desc(workoutSessions.createdAt))
           .limit(20),
       ]);
@@ -436,7 +448,7 @@ export const workoutsRouter = router({
         preferences: parseWorkoutPreferences(profile.workoutPreferences),
         profileGoal: profile.goal as Goal | null,
         profileActivity: profile.activityLevel as import('@/lib/types').ActivityLevel | null,
-        asOf: recommendationAsOfDate(),
+        asOf: input.localDate,
         exercises: recommendationExercises,
         recentSets: recentSets
           .filter((set): set is typeof set & { exerciseId: string } => Boolean(set.exerciseId))

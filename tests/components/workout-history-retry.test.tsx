@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 const harness = vi.hoisted(() => ({
   push: vi.fn(),
   sessionFailure: true,
+  sessionRows: [{ id: 'session-1', user_id: 'user-1', session_date: '2026-09-03', completed_at: '2026-09-03T12:00:00Z', name: 'Recovered session', duration_minutes: 45, pain_flags: [] }] as Array<Record<string, unknown>>,
   calls: [] as Array<{ table: string; steps: Array<[string, ...unknown[]]> }>,
 }));
 
@@ -38,7 +39,12 @@ vi.mock('@/lib/supabase', () => ({
       const result = () => table === 'workout_sessions'
         ? harness.sessionFailure
           ? { data: null, error: new Error('sessions unavailable') }
-          : { data: [{ id: 'session-1', user_id: 'user-1', session_date: '2026-09-03', completed_at: '2026-09-03T12:00:00Z', name: 'Recovered session', duration_minutes: 45, pain_flags: [] }], error: null }
+          : (() => {
+              const range = call.steps.findLast(([method]) => method === 'range');
+              const from = Number(range?.[1] ?? 0);
+              const to = Number(range?.[2] ?? harness.sessionRows.length - 1);
+              return { data: harness.sessionRows.slice(from, to + 1), error: null };
+            })()
         : { data: [
           { id: 'set-1', session_id: 'session-1', exercise_id: 'bench', set_number: 1, weight_kg: 100, reps: 2, rpe: 8, is_warmup: false, is_pr: false, exercise: { id: 'bench', name: 'Barbell Bench Press', name_es: null, name_el: null } },
           { id: 'set-2', session_id: 'session-1', exercise_id: 'bench', set_number: 2, weight_kg: null, reps: null, rpe: null, is_warmup: false, is_pr: false, exercise: { id: 'bench', name: 'Barbell Bench Press', name_es: null, name_el: null } },
@@ -55,6 +61,7 @@ afterEach(() => {
   cleanup();
   harness.push.mockReset();
   harness.sessionFailure = true;
+  harness.sessionRows = [{ id: 'session-1', user_id: 'user-1', session_date: '2026-09-03', completed_at: '2026-09-03T12:00:00Z', name: 'Recovered session', duration_minutes: 45, pain_flags: [] }];
   harness.calls.length = 0;
 });
 
@@ -80,5 +87,36 @@ describe('Workout history recovery and honest set evidence', () => {
     await waitFor(() => expect(screen.getByText('220.5 lb')).toBeTruthy());
     expect(screen.getAllByText('Not recorded')).toHaveLength(2);
     expect(document.body.textContent).not.toContain('0kg');
+  });
+
+  it('renders one valid link target in the empty history state', async () => {
+    harness.sessionFailure = false;
+    harness.sessionRows = [];
+    render(<WorkoutHistoryPage />);
+
+    const link = await screen.findByRole('link', { name: /Start workout/i });
+    expect(link.getAttribute('href')).toBe('/dashboard/workout');
+    expect(link.querySelector('button')).toBeNull();
+  });
+
+  it('bounds the initial history request and loads older sessions only on demand', async () => {
+    harness.sessionFailure = false;
+    harness.sessionRows = Array.from({ length: 31 }, (_, index) => ({
+      id: `session-${index}`,
+      user_id: 'user-1',
+      session_date: `2026-08-${String(31 - index).padStart(2, '0')}`,
+      completed_at: `2026-08-${String(31 - index).padStart(2, '0')}T12:00:00Z`,
+      name: `Session ${index}`,
+      duration_minutes: 45,
+      pain_flags: [],
+    }));
+    render(<WorkoutHistoryPage />);
+
+    const loadOlder = await screen.findByRole('button', { name: 'Load older workouts' });
+    expect(harness.calls.find((call) => call.table === 'workout_sessions')?.steps).toContainEqual(['range', 0, 30]);
+
+    fireEvent.click(loadOlder);
+    await waitFor(() => expect(harness.calls.filter((call) => call.table === 'workout_sessions')[1]?.steps).toContainEqual(['range', 30, 60]));
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Load older workouts' })).toBeNull());
   });
 });

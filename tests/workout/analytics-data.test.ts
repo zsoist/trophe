@@ -4,6 +4,7 @@ import {
   chunkIds,
   expandScheduledDates,
   fetchAllTerminalSessionPages,
+  fetchBoundedTerminalSessionPages,
   loadWorkoutAnalyticsData,
 } from '@/lib/workout/analytics-data';
 
@@ -39,6 +40,20 @@ describe('analytics terminal pagination', () => {
     expect(result.map((row) => row.id)).toEqual(['d', 'c', 'b', 'older']);
   });
 
+  it('caps the initial analytics window and reports older evidence honestly', async () => {
+    const calls: Array<[number, number]> = [];
+    const rows = Array.from({ length: 8 }, (_, index) => ({ id: String(index), session_date: `2026-09-${String(8 - index).padStart(2, '0')}`, completed_at: '2026-09-08T12:00:00Z' }));
+
+    const result = await fetchBoundedTerminalSessionPages(async (from, to) => {
+      calls.push([from, to]);
+      return rows.slice(from, to + 1);
+    }, 2, 3);
+
+    expect(result.rows.map((row) => row.id)).toEqual(['0', '1', '2']);
+    expect(result.truncated).toBe(true);
+    expect(calls).toEqual([[0, 2], [2, 3]]);
+  });
+
   it('expands active program weekdays for the selected month and respects starts_on', () => {
     expect(expandScheduledDates([{
       starts_on: '2026-09-10',
@@ -58,7 +73,7 @@ describe('analytics terminal pagination', () => {
       const call = { table, steps: [] as Array<[string, ...unknown[]]> };
       calls.push(call);
       const query: Record<string, unknown> = {};
-      for (const method of ['select', 'eq', 'not', 'order', 'in', 'abortSignal']) {
+      for (const method of ['select', 'eq', 'not', 'order', 'limit', 'in', 'abortSignal']) {
         query[method] = vi.fn((...args: unknown[]) => { call.steps.push([method, ...args]); return query; });
       }
       const result = () => {
@@ -79,9 +94,9 @@ describe('analytics terminal pagination', () => {
 
     expect(result.sessions.map((session) => session.id)).toEqual(['session-2', 'session-1', 'session-0']);
     expect(result.measurements).toEqual([{ measured_date: '2026-09-01', weight_kg: 80 }]);
-    expect(result.issues).toEqual({ schedule: true, measurements: false });
+    expect(result.issues).toEqual({ schedule: true, measurements: false, historyTruncated: false });
     const sessionCalls = calls.filter((call) => call.table === 'workout_sessions');
-    expect(sessionCalls.map((call) => call.steps.find(([method]) => method === 'range')?.slice(1))).toEqual([[0, 1], [2, 3]]);
+    expect(sessionCalls.map((call) => call.steps.find(([method]) => method === 'range')?.slice(1))).toEqual([[0, 2], [2, 4]]);
     expect(sessionCalls[0].steps).toContainEqual(['eq', 'user_id', 'user-1']);
     expect(sessionCalls[0].steps).toContainEqual(['not', 'completed_at', 'is', null]);
     expect(sessionCalls[0].steps.filter(([method]) => method === 'order')).toEqual([
