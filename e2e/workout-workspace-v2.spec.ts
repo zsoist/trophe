@@ -126,8 +126,14 @@ async function assertLiveExerciseSheetGeometry(page: Page, theme: ThemeMode) {
   await assertWorkoutSurface(page, theme);
   const dialog = page.getByRole('dialog');
   const viewport = page.viewportSize();
-  const box = await dialog.boundingBox();
   expect(viewport).not.toBeNull();
+  await expect.poll(async () => {
+    const currentBox = await dialog.boundingBox();
+    if (!currentBox || !viewport) return false;
+    const bottom = currentBox.y + currentBox.height;
+    return currentBox.y <= 1 && bottom >= viewport.height - 1 && bottom <= viewport.height + 1;
+  }, { message: 'exercise sheet must settle flush with the full viewport' }).toBe(true);
+  const box = await dialog.boundingBox();
   expect(box).not.toBeNull();
   expect(box!.y).toBeLessThanOrEqual(1);
   expect(box!.y + box!.height).toBeGreaterThanOrEqual(viewport!.height - 1);
@@ -478,8 +484,8 @@ test.describe('Workout Workspace V2', () => {
       await currentWorkspace(page).getByRole('button', { name: 'Start workout' }).click();
       await waitForRouteSettled(page, '/dashboard/workout/live');
       await expect(currentWorkspace(page).getByRole('button', { name: 'More exercise options' }).first()).toBeEnabled();
-      const pauseControl = currentWorkspace(page).getByRole('button', { name: 'Pause' });
-      const runningClock = pauseControl.locator('..').getByText(/^\d+:\d{2}$/);
+      const pauseControl = currentWorkspace(page).getByRole('button', { name: 'Pause workout' });
+      const runningClock = currentWorkspace(page).getByLabel('Active workout duration');
       await currentWorkspace(page).getByRole('button', { name: 'More exercise options' }).first().click();
       const techniqueOpener = currentWorkspace(page).getByRole('button', { name: 'Technique' }).first();
       await techniqueOpener.click();
@@ -496,7 +502,7 @@ test.describe('Workout Workspace V2', () => {
       await expect(techniqueOpener).toBeFocused();
 
       await pauseControl.click();
-      await expect(page.getByText('Paused')).toBeVisible();
+      await expect(page.getByLabel('Workout status: Paused')).toBeVisible();
       await expect(techniqueOpener).toBeVisible();
       await techniqueOpener.click();
       const pausedExerciseDialog = page.getByRole('dialog');

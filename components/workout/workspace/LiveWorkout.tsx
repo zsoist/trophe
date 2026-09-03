@@ -479,7 +479,7 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
       <section className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] pb-3">
         <div>
           <h2 className="font-bold text-[var(--content-primary)]">{draft.name}</h2>
-          <p className="font-mono text-sm tabular-nums text-[var(--content-secondary)]">{Math.floor(elapsedMs / 60_000)}:{String(Math.floor(elapsedMs / 1_000) % 60).padStart(2, '0')}</p>
+          <p className="font-mono text-sm tabular-nums text-[var(--content-secondary)]" aria-label={t('workout.active_duration')}>{Math.floor(elapsedMs / 60_000)}:{String(Math.floor(elapsedMs / 1_000) % 60).padStart(2, '0')}</p>
         </div>
       </section>
       <LiveSessionPath

@@ -42,6 +42,7 @@ vi.mock('@/lib/workout/live-session', () => ({
 }));
 vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ t: (key: string, values?: Record<string, unknown>) => ({
   'workout.loading_live_session': 'Loading live workout', 'workout.no_live_session': 'No live workout',
+  'workout.active_duration': 'Active workout duration',
   'workout.pause_workout': 'Pause workout', 'workout.resume_workout': 'Resume workout',
   'workout.session_path': 'Workout path', 'workout.path_current': `Exercise ${values?.n}, current`,
   'workout.path_completed': `Exercise ${values?.n}, completed`, 'workout.path_pending': `Exercise ${values?.n}, pending`,
@@ -87,6 +88,7 @@ describe('LiveWorkout focused stage', () => {
     render(<LiveWorkout exercises={[bench, row]} />);
 
     expect(await screen.findByText('Exercise 1 of 2')).toBeTruthy();
+    expect(screen.getByLabelText('Active workout duration').textContent).toMatch(/^\d+:\d{2}$/);
     expect(screen.getByRole('button', { name: 'Pause workout' })).toBeTruthy();
     expect(screen.getByText('Target: 1 × 8')).toBeTruthy();
     expect(screen.getByText('Previous: no completed sets yet')).toBeTruthy();
