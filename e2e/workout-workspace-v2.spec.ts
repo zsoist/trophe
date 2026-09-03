@@ -451,7 +451,6 @@ test.describe('Workout Workspace V2', () => {
       await expect(currentWorkspace(page).getByRole('button', { name: 'More exercise options' }).first()).toBeEnabled();
       const pauseControl = currentWorkspace(page).getByRole('button', { name: 'Pause' });
       const runningClock = pauseControl.locator('..').getByText(/^\d+:\d{2}$/);
-      const clockBeforeSheetOpened = await runningClock.textContent();
       await currentWorkspace(page).getByRole('button', { name: 'More exercise options' }).first().click();
       const techniqueOpener = currentWorkspace(page).getByRole('button', { name: 'Technique' }).first();
       await techniqueOpener.click();
@@ -459,7 +458,8 @@ test.describe('Workout Workspace V2', () => {
       await expect(runningExerciseDialog).toBeVisible();
       const runningPhaseControl = runningExerciseDialog.getByRole('button', { name: 'Work phase' });
       await runningPhaseControl.focus();
-      await expect.poll(() => runningClock.textContent(), { timeout: 2_500 }).not.toBe(clockBeforeSheetOpened);
+      const clockAfterPhaseFocus = await runningClock.textContent();
+      await expect.poll(() => runningClock.textContent(), { timeout: 2_500 }).not.toBe(clockAfterPhaseFocus);
       await expect(runningPhaseControl).toBeFocused();
       await page.keyboard.press('Escape');
       await expect(runningExerciseDialog).toHaveCount(0);
