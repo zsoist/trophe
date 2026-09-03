@@ -1560,6 +1560,7 @@ body {
 }
 
 .muscle-atlas__region { cursor: pointer; outline: none; }
+.muscle-atlas__hit-target { fill: transparent; pointer-events: all; stroke: transparent; }
 .muscle-atlas__region path { stroke: var(--workout-surface); stroke-width: 1.25; transition: opacity var(--workout-motion-duration) var(--workout-motion-ease), stroke-width var(--workout-motion-duration) var(--workout-motion-ease); }
 .muscle-atlas__region--primary path { fill: var(--performance-coral); }
 .muscle-atlas__region--secondary path { fill: var(--performance-cyan); opacity: 0.76; }

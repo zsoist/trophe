@@ -10,19 +10,13 @@ export interface ExerciseMotionProps {
   className?: string;
 }
 
-function reducedMotionPreference(): boolean {
-  return typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-    ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    : false;
-}
-
 export function ExerciseMotion({ media, alt, autoplay = false, className = '' }: ExerciseMotionProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const hasMotion = Boolean(media.motionSrc);
-  const [reducedMotion, setReducedMotion] = useState(reducedMotionPreference);
+  const isExactTechnique = media.tier === 'verified-technique' && Boolean(media.motionSrc);
+  const [reducedMotion, setReducedMotion] = useState(false);
   const [inViewport, setInViewport] = useState(true);
   const [pageVisible, setPageVisible] = useState(() => typeof document === 'undefined' || !document.hidden);
-  const [isPlaying, setIsPlaying] = useState(autoplay && hasMotion);
+  const [isPlaying, setIsPlaying] = useState(autoplay && isExactTechnique);
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
@@ -42,7 +36,7 @@ export function ExerciseMotion({ media, alt, autoplay = false, className = '' }:
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !hasMotion || reducedMotion) return;
+    if (!video || !isExactTechnique || reducedMotion) return;
     if (isPlaying && inViewport && pageVisible) {
       try {
         const attempt = video.play();
@@ -53,26 +47,31 @@ export function ExerciseMotion({ media, alt, autoplay = false, className = '' }:
       return;
     }
     video.pause();
-  }, [hasMotion, inViewport, isPlaying, pageVisible, reducedMotion]);
+  }, [inViewport, isExactTechnique, isPlaying, pageVisible, reducedMotion]);
 
   useEffect(() => {
-    if (!hasMotion || reducedMotion || typeof IntersectionObserver === 'undefined') return;
+    if (!isExactTechnique || reducedMotion || typeof IntersectionObserver === 'undefined') return;
     const observer = new IntersectionObserver(([entry]) => setInViewport(entry?.isIntersecting ?? false), { threshold: 0.15 });
     const target = videoRef.current;
     if (target) observer.observe(target);
     return () => observer.disconnect();
-  }, [hasMotion, reducedMotion]);
+  }, [isExactTechnique, reducedMotion]);
 
   const pause = () => setIsPlaying(false);
   const play = () => setIsPlaying(true);
 
-  if (reducedMotion) {
+  if (reducedMotion || !isExactTechnique) {
+    const status = reducedMotion
+      ? 'Static poster shown because reduced motion is enabled.'
+      : media.tier === 'verified-anatomy'
+        ? 'Anatomy reference shown. No exact technique demonstration is available.'
+        : 'No exact demonstration is available. Poster shown.';
     return (
       <figure className={`exercise-motion exercise-motion--poster ${className}`}>
         {/* The poster is intentionally a plain image so it remains the complete reduced-motion experience. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={media.posterSrc} alt={alt} className="exercise-motion__poster" />
-        <figcaption>Static poster shown because reduced motion is enabled.</figcaption>
+        <figcaption>{status}</figcaption>
       </figure>
     );
   }
@@ -90,15 +89,13 @@ export function ExerciseMotion({ media, alt, autoplay = false, className = '' }:
         data-testid="exercise-motion-video"
         className="exercise-motion__video"
       >
-        {media.motionSrc ? <source src={media.motionSrc} type={media.motionType} /> : null}
+        <source src={media.motionSrc} type={media.motionType} />
       </video>
       <figcaption className="exercise-motion__controls">
-        {hasMotion ? (
-          <button type="button" onClick={isPlaying ? pause : play} aria-label={isPlaying ? 'Pause demonstration' : 'Play demonstration'}>
-            {isPlaying ? 'Pause demonstration' : 'Play demonstration'}
-          </button>
-        ) : <button type="button" disabled aria-label="Motion unavailable; poster shown">Motion unavailable</button>}
-        <span aria-live="polite">{hasMotion ? (isPlaying ? 'Demonstration playing' : 'Demonstration paused') : 'No motion file available. Poster shown.'}</span>
+        <button type="button" onClick={isPlaying ? pause : play} aria-label={isPlaying ? 'Pause demonstration' : 'Play demonstration'}>
+          {isPlaying ? 'Pause demonstration' : 'Play demonstration'}
+        </button>
+        <span aria-live="polite">{isPlaying ? 'Demonstration playing' : 'Demonstration paused'}</span>
       </figcaption>
     </figure>
   );

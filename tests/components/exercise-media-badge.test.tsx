@@ -1,8 +1,13 @@
 // @vitest-environment jsdom
 
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { cleanup, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it } from 'vitest';
 import { ExerciseMediaBadge } from '@/components/workout/ExerciseMediaBadge';
+import type { ExerciseMediaRecord } from '@/lib/workout/exercise-media';
+
+const exactMedia = { tier: 'verified-technique', motionSrc: '/workout-v2/motion/bench-press.webm' } as ExerciseMediaRecord;
+
+afterEach(cleanup);
 
 describe('ExerciseMediaBadge', () => {
   it('labels non-technique media honestly', () => {
@@ -13,8 +18,20 @@ describe('ExerciseMediaBadge', () => {
     expect(screen.getByText('No exact demo yet')).toBeTruthy();
   });
 
-  it('identifies exact media as verified technique', () => {
-    render(<ExerciseMediaBadge tier="verified-technique" />);
+  it('identifies only exact playable media as verified technique', () => {
+    render(<ExerciseMediaBadge media={exactMedia} />);
     expect(screen.getByText('Verified technique')).toBeTruthy();
+  });
+
+  it('does not claim verified technique from a tier alone', () => {
+    render(<ExerciseMediaBadge tier="verified-technique" />);
+    expect(screen.getByText('No exact demo yet')).toBeTruthy();
+    expect(screen.queryByText('Verified technique')).toBeNull();
+  });
+
+  it('does not let a loose verified tier override anatomy media', () => {
+    render(<ExerciseMediaBadge tier="verified-technique" media={{ tier: 'verified-anatomy', motionSrc: '/workout-v2/motion/bench-press.webm' }} />);
+    expect(screen.getByText('Anatomy reference')).toBeTruthy();
+    expect(screen.queryByText('Verified technique')).toBeNull();
   });
 });

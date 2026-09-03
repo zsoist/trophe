@@ -1,7 +1,7 @@
 'use client';
 
 import type { KeyboardEvent } from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AnatomyMuscleId, AnatomyView, MuscleActivation, MuscleRole } from '@/lib/workout/anatomy';
 
 export interface MuscleAtlasProps {
@@ -49,6 +49,17 @@ const ROLE_LABELS: Record<MuscleRole, string> = {
   stabilizer: 'Stabilizer',
 };
 
+/* 46 SVG units render as at least 44 CSS pixels in the fixed 18.5rem / 306-unit map. */
+const HIT_CENTERS: Record<AnatomyMuscleId, readonly [number, number]> = {
+  'pectoralis-major': [60, 94], 'serratus-anterior': [30, 123], 'anterior-deltoid': [25, 82], 'middle-deltoid': [18, 92],
+  'posterior-deltoid': [25, 82], 'rotator-cuff': [39, 83], 'upper-trapezius': [60, 68], 'lower-trapezius': [60, 105],
+  'latissimus-dorsi': [37, 124], rhomboids: [60, 101], 'erector-spinae': [60, 144], 'biceps-brachii': [22, 130],
+  'triceps-brachii': [22, 130], brachialis: [31, 137], 'forearm-flexors': [20, 182], 'forearm-extensors': [20, 182],
+  'rectus-abdominis': [60, 141], obliques: [38, 144], 'gluteus-maximus': [60, 185], 'gluteus-medius': [38, 172],
+  quadriceps: [45, 211], hamstrings: [45, 224], adductors: [55, 211], gastrocnemius: [46, 270], soleus: [47, 287],
+  'tibialis-anterior': [44, 274],
+};
+
 function regionClass(role: MuscleRole, isSelected: boolean) {
   return `muscle-atlas__region muscle-atlas__region--${role}${isSelected ? ' muscle-atlas__region--selected' : ''}`;
 }
@@ -62,7 +73,20 @@ function handleRegionKeyDown(event: KeyboardEvent<SVGGElement>, id: AnatomyMuscl
 
 export function MuscleAtlas({ activations, selected = null, onSelect, compact = false }: MuscleAtlasProps) {
   const [view, setView] = useState<AnatomyView>(() => activations.find((activation) => activation.id === selected)?.view ?? 'front');
+  const appliedSelected = useRef<AnatomyMuscleId | null>(selected);
+  const selectedActivation = activations.find((activation) => activation.id === selected);
   const visibleActivations = useMemo(() => activations.filter((activation) => activation.view === view), [activations, view]);
+
+  useEffect(() => {
+    if (!selected) {
+      appliedSelected.current = null;
+      return;
+    }
+    if (selectedActivation && appliedSelected.current !== selected) {
+      appliedSelected.current = selected;
+      queueMicrotask(() => setView(selectedActivation.view));
+    }
+  }, [selected, selectedActivation]);
 
   return (
     <section className={`muscle-atlas${compact ? ' muscle-atlas--compact' : ''}`} aria-label="Muscle activation atlas">
@@ -98,6 +122,7 @@ export function MuscleAtlas({ activations, selected = null, onSelect, compact = 
           <path className="muscle-atlas__axis" d="M60 39v258" />
           {visibleActivations.map((activation) => {
             const region = REGIONS[activation.id];
+            const [hitX, hitY] = HIT_CENTERS[activation.id];
             return (
               <g
                 key={activation.id}
@@ -107,9 +132,9 @@ export function MuscleAtlas({ activations, selected = null, onSelect, compact = 
                 aria-label={`${activation.label}, ${ROLE_LABELS[activation.role]} muscle`}
                 className={regionClass(activation.role, selected === activation.id)}
                 onClick={() => onSelect(activation.id)}
-                onFocus={() => onSelect(activation.id)}
                 onKeyDown={(event) => handleRegionKeyDown(event, activation.id, onSelect)}
               >
+                <circle className="muscle-atlas__hit-target" data-testid={`atlas-hit-${activation.id}`} data-min-hit-target="44" cx={hitX} cy={hitY} r="23" />
                 <path d={region.d} />
               </g>
             );
