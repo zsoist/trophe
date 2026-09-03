@@ -1467,6 +1467,206 @@ body {
   color: var(--content-primary);
 }
 
+/* Interactive Muscle Atlas — named SVG geometry with text-equivalent roles. */
+.muscle-atlas {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+  color: var(--content-primary);
+}
+
+.muscle-atlas__header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.muscle-atlas__header h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.muscle-atlas__header p {
+  margin: 0.2rem 0 0;
+  color: var(--content-muted);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.muscle-atlas__views {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  flex: 0 0 auto;
+  overflow: hidden;
+  border: 1px solid var(--workout-rail);
+  border-radius: 0.75rem;
+  background: var(--workout-surface-raised);
+}
+
+.muscle-atlas__views button,
+.exercise-motion__controls button {
+  min-height: 2.75rem;
+  border: 0;
+  background: transparent;
+  color: var(--content-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 650;
+}
+
+.muscle-atlas__views button {
+  min-width: 3.75rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.muscle-atlas__views button[aria-pressed='true'] {
+  background: var(--action-primary);
+  color: var(--action-on-primary);
+}
+
+.muscle-atlas__views--compact { justify-self: end; }
+
+.muscle-atlas__figure-wrap {
+  display: grid;
+  place-items: center;
+  min-height: 19.25rem;
+  overflow: hidden;
+  border: 1px solid var(--workout-rail);
+  border-radius: 0.875rem;
+  background: var(--workout-surface-raised);
+}
+
+.muscle-atlas__figure {
+  width: auto;
+  height: 18.5rem;
+  overflow: visible;
+}
+
+.muscle-atlas__frame {
+  fill: var(--workout-surface-subtle);
+  stroke: var(--workout-rail);
+  stroke-width: 1.5;
+}
+
+.muscle-atlas__axis {
+  fill: none;
+  stroke: var(--workout-rail);
+  stroke-dasharray: 2 3;
+  stroke-width: 1;
+}
+
+.muscle-atlas__region { cursor: pointer; outline: none; }
+.muscle-atlas__region path { stroke: var(--workout-surface); stroke-width: 1.25; transition: opacity var(--workout-motion-duration) var(--workout-motion-ease), stroke-width var(--workout-motion-duration) var(--workout-motion-ease); }
+.muscle-atlas__region--primary path { fill: var(--performance-coral); }
+.muscle-atlas__region--secondary path { fill: var(--performance-cyan); opacity: 0.76; }
+.muscle-atlas__region--stabilizer path { fill: none; stroke: var(--performance-lime); stroke-dasharray: 3 2; stroke-width: 2; }
+.muscle-atlas__region--selected path,
+.muscle-atlas__region:focus-visible path { stroke: var(--action-primary); stroke-width: 3; opacity: 1; }
+
+.muscle-atlas__roles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  gap: 1px;
+  margin: 0;
+  padding: 1px;
+  overflow: hidden;
+  border: 1px solid var(--workout-rail);
+  border-radius: 0.875rem;
+  background: var(--workout-rail);
+  list-style: none;
+}
+
+.muscle-atlas__roles li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.2rem 0.45rem;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.625rem;
+  background: var(--workout-surface);
+  color: var(--content-secondary);
+  font-size: 0.75rem;
+}
+
+.muscle-atlas__roles li.is-selected { color: var(--content-primary); }
+.muscle-atlas__roles strong { grid-column: 2; color: var(--content-muted); font-family: var(--font-mono); font-size: 0.625rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; }
+.muscle-atlas__swatch { width: 0.6rem; height: 0.6rem; border: 1px solid currentColor; border-radius: 50%; }
+.muscle-atlas__swatch--primary { background: var(--performance-coral); }
+.muscle-atlas__swatch--secondary { background: var(--performance-cyan); }
+.muscle-atlas__swatch--stabilizer { border-color: var(--performance-lime); background: transparent; }
+
+/* Motion stays poster-first, controllable, and safe when a clip is unavailable. */
+.exercise-motion {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--workout-rail);
+  border-radius: 0.875rem;
+  background: var(--workout-surface-raised);
+}
+
+.exercise-motion__video,
+.exercise-motion__poster {
+  display: block;
+  width: 100%;
+  min-height: 12rem;
+  max-height: 26rem;
+  background: var(--workout-surface-subtle);
+  object-fit: contain;
+}
+
+.exercise-motion__controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 3.25rem;
+  border-top: 1px solid var(--workout-rail);
+  padding: 0.25rem 0.5rem 0.25rem 0.75rem;
+}
+
+.exercise-motion__controls button {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.625rem;
+  background: var(--action-primary);
+  color: var(--action-on-primary);
+}
+
+.exercise-motion__controls button:disabled { cursor: not-allowed; opacity: 0.62; }
+.exercise-motion__controls span,
+.exercise-motion figcaption { color: var(--content-muted); font-size: 0.75rem; line-height: 1.35; }
+.exercise-motion--poster figcaption { padding: 0.75rem; border-top: 1px solid var(--workout-rail); }
+
+.exercise-media-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.5rem;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--workout-rail);
+  border-radius: 999px;
+  background: var(--workout-surface-raised);
+  color: var(--content-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.exercise-media-badge--verified-technique { color: var(--performance-lime); }
+.exercise-media-badge--verified-anatomy { color: var(--performance-cyan); }
+.exercise-media-badge--honest-fallback { color: var(--performance-orange); }
+
+@media (prefers-reduced-motion: reduce) {
+  .muscle-atlas__region path { transition: none; }
+}
+
 .workout-page-header {
   padding: 0.7rem 1rem 0.25rem;
   background: var(--canvas);
