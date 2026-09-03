@@ -270,6 +270,37 @@ describe('profiles — RLS', () => {
   });
 });
 
+describe('client_profiles workout preferences — RLS', () => {
+  it('allows the client and assigned coach to update the versioned preferences document', async () => {
+    const value = JSON.stringify({ version: 1, experience: 'beginner' });
+    const clientUpdated = await asUser(IDS.client, (c) => c.query(
+      `UPDATE client_profiles SET workout_preferences = $1::jsonb WHERE user_id = $2 RETURNING workout_preferences`,
+      [value, IDS.client],
+    ));
+    expect(clientUpdated.rowCount).toBe(1);
+
+    const coachUpdated = await asUser(IDS.coach, (c) => c.query(
+      `UPDATE client_profiles SET workout_preferences = $1::jsonb WHERE user_id = $2 RETURNING workout_preferences`,
+      [value, IDS.client],
+    ));
+    expect(coachUpdated.rowCount).toBe(1);
+  });
+
+  it('does not expose or update an unassigned client preference row', async () => {
+    const visible = await asUser(IDS.coach, (c) => c.query(
+      `SELECT workout_preferences FROM client_profiles WHERE user_id = $1`,
+      [IDS.otherClient],
+    ));
+    expect(visible.rowCount).toBe(0);
+
+    const updated = await asUser(IDS.coach, (c) => c.query(
+      `UPDATE client_profiles SET workout_preferences = '{"version":1}'::jsonb WHERE user_id = $1 RETURNING user_id`,
+      [IDS.otherClient],
+    ));
+    expect(updated.rowCount).toBe(0);
+  });
+});
+
 // ─── food_log RLS ─────────────────────────────────────────────────────────────
 
 describe('food_log — RLS', () => {

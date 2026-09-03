@@ -28,10 +28,13 @@ import {
   workoutSets,
   workoutTemplates,
 } from '@/db/schema/workouts';
+import { clientProfiles } from '@/db/schema/profiles';
 import { and, desc, eq, inArray, or } from 'drizzle-orm';
 import { assertCanAccessClient } from '@/lib/auth/tenant-access';
 import { recordAuditEvent } from '@/lib/utils/audit';
-import type { TemplateExercise } from '@/lib/types';
+import type { Exercise, Goal, MuscleGroup, TemplateExercise, WorkoutTemplate } from '@/lib/types';
+import { parseWorkoutPreferences, workoutPreferencesSchema } from '@/lib/workout/preferences';
+import { buildWorkoutRecommendation } from '@/lib/workout/recommendation';
 
 type Db = typeof dbClient;
 
@@ -265,6 +268,122 @@ export const workoutsRouter = router({
     /** Client's own active program, fully resolved for rendering "today". */
     mine: protectedProcedure.query(async ({ ctx }) => {
       return loadActiveProgram(ctx.db, ctx.user!.id);
+    }),
+  }),
+
+  preferences: router({
+    /** The caller's persisted v1 intake, with safe defaults for pre-0082 rows. */
+    mine: protectedProcedure.query(async ({ ctx }) => {
+      const [profile] = await ctx.db
+        .select({ workoutPreferences: clientProfiles.workoutPreferences })
+        .from(clientProfiles)
+        .where(eq(clientProfiles.userId, ctx.user!.id))
+        .limit(1);
+      return parseWorkoutPreferences(profile?.workoutPreferences);
+    }),
+
+    /** A client edits their own document; an assigned coach may edit a client's document. */
+    update: protectedProcedure
+      .input(z.object({
+        clientId: z.string().uuid().optional(),
+        preferences: workoutPreferencesSchema,
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const clientId = input.clientId ?? ctx.user!.id;
+        if (clientId !== ctx.user!.id) {
+          await assertCanAccessClient(ctx.db, ctx.user!.id, ctx.profile!.role, clientId);
+        }
+
+        const [updated] = await ctx.db
+          .update(clientProfiles)
+          .set({
+            workoutPreferences: input.preferences,
+            updatedAt: new Date().toISOString(),
+          })
+          .where(eq(clientProfiles.userId, clientId))
+          .returning({ workoutPreferences: clientProfiles.workoutPreferences });
+        if (!updated) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Client profile not found' });
+        }
+        return parseWorkoutPreferences(updated.workoutPreferences);
+      }),
+  }),
+
+  recommendation: router({
+    /**
+     * A read-only, inspectable draft. It never creates workout_sessions or
+     * enters the existing draft/review/live state machine.
+     */
+    mine: protectedProcedure.query(async ({ ctx }) => {
+      const [profile] = await ctx.db
+        .select({
+          goal: clientProfiles.goal,
+          workoutPreferences: clientProfiles.workoutPreferences,
+        })
+        .from(clientProfiles)
+        .where(eq(clientProfiles.userId, ctx.user!.id))
+        .limit(1);
+      if (!profile) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Client profile not found' });
+      }
+
+      const [exerciseRows, recentSets, recentSessions, activeProgram] = await Promise.all([
+        ctx.db.select().from(exercises),
+        ctx.db
+          .select({
+            exerciseId: workoutSets.exerciseId,
+            reps: workoutSets.reps,
+            isWarmup: workoutSets.isWarmup,
+          })
+          .from(workoutSets)
+          .innerJoin(workoutSessions, eq(workoutSets.sessionId, workoutSessions.id))
+          .where(eq(workoutSessions.userId, ctx.user!.id))
+          .orderBy(desc(workoutSessions.sessionDate), desc(workoutSets.createdAt))
+          .limit(100),
+        ctx.db
+          .select({ painFlags: workoutSessions.painFlags })
+          .from(workoutSessions)
+          .where(eq(workoutSessions.userId, ctx.user!.id))
+          .orderBy(desc(workoutSessions.sessionDate), desc(workoutSessions.createdAt))
+          .limit(20),
+        loadActiveProgram(ctx.db, ctx.user!.id),
+      ]);
+      const painRegions = recentSessions.flatMap((session) =>
+        Array.isArray(session.painFlags)
+          ? session.painFlags.flatMap((flag) => {
+              if (typeof flag !== 'object' || flag === null || !('body_part' in flag)) return [];
+              return typeof flag.body_part === 'string' ? [flag.body_part] : [];
+            })
+          : [],
+      );
+
+      const recommendationExercises: Exercise[] = exerciseRows.map((exercise) => ({
+        id: exercise.id,
+        name: exercise.name,
+        name_es: exercise.nameEs,
+        name_el: exercise.nameEl,
+        muscle_group: exercise.muscleGroup as MuscleGroup,
+        secondary_muscles: exercise.secondaryMuscles,
+        equipment: exercise.equipment,
+        is_compound: exercise.isCompound ?? false,
+        is_template: exercise.isTemplate ?? true,
+        instructions: exercise.instructions,
+        instructions_es: exercise.instructionsEs,
+        instructions_el: exercise.instructionsEl,
+        created_by: exercise.createdBy,
+        created_at: exercise.createdAt ?? '',
+      }));
+
+      return buildWorkoutRecommendation({
+        preferences: parseWorkoutPreferences(profile.workoutPreferences),
+        profileGoal: profile.goal as Goal | null,
+        exercises: recommendationExercises,
+        recentSets: recentSets
+          .filter((set): set is typeof set & { exerciseId: string } => Boolean(set.exerciseId))
+          .map((set) => ({ exerciseId: set.exerciseId, reps: set.reps, isWarmup: set.isWarmup ?? false })),
+        painRegions,
+        activeCoachTemplate: (activeProgram?.days[0]?.template as WorkoutTemplate | undefined) ?? null,
+      });
     }),
   }),
 
