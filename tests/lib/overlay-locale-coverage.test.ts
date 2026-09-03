@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 function translationKeys(source: string): Set<string> {
   return new Set(
-    Array.from(source.matchAll(/^\s*'([^']+)':/gm), (match) => match[1]),
+    Array.from(source.matchAll(/['"]([^'"]+)['"]\s*:/g), (match) => match[1]),
   );
 }
 

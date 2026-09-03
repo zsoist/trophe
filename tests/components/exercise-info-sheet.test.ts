@@ -75,9 +75,9 @@ describe('ExerciseInfoSheet', () => {
 
     render(React.createElement(ExerciseInfoSheet, { exercise, userId: null, onClose: vi.fn() }));
 
-    expect(screen.getByRole('img', { name: 'Barbell Bench Press technique poster' })).toBeTruthy();
-    expect(screen.getByText('No exact demo yet')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /demonstration/i })).toBeNull();
+    expect(screen.getByLabelText('Barbell Bench Press technique demonstration')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Pause demonstration' })).toBeTruthy();
+    expect(screen.queryByText('No exact demo yet')).toBeNull();
     expect(screen.getByRole('heading', { name: 'Technique guidance' })).toBeTruthy();
     expect(screen.getByText(/Plant your feet/)).toBeTruthy();
   });

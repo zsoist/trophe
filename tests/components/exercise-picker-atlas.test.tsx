@@ -190,7 +190,7 @@ describe('exercise discovery atlas and plan tray', () => {
 
     const row = screen.getByTestId('exercise-result-bench');
     const poster = within(row).getByRole('img', { name: /barbell bench press technique poster/i });
-    expect(poster.getAttribute('src')).toBe('/workout-v2/exercises/bench-press.webp');
+    expect(poster.getAttribute('src')).toBe('/workout-v3/posters/bench-press.webp');
     expect(row.getAttribute('data-media-tier')).toBe('verified-technique');
     expect(within(row).getByText('Exact technique poster')).toBeTruthy();
     expect(within(row).getByText('Primary')).toBeTruthy();

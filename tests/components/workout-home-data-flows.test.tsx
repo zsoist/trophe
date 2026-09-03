@@ -40,6 +40,7 @@ vi.mock('@/lib/i18n', () => ({
   useI18n: () => ({ t: (key: string, params?: Record<string, string | number>) => ({
     'workout.program_today': `${params?.program} · Today`,
     'workout.review_today': 'Review today’s workout',
+    'workout.home_review_plan': 'Review plan',
     'workout.exercise_count': `${params?.n} exercises`,
     'workout.est_sets': `${params?.n} sets`,
     'workout.repeat_replace_title': 'Replace current draft?',
