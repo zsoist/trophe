@@ -58,6 +58,14 @@ describe('exercise picker copy coverage', () => {
       'workout.atlas_show_back',
       'workout.atlas_roles_label',
       'workout.atlas_more_highlighted',
+      'workout.atlas_today_target',
+      'workout.atlas_primary_target',
+      'workout.atlas_supporting_target',
+      'workout.atlas_stabilizing_target',
+      'workout.atlas_empty_strength',
+      'workout.atlas_empty_cardio',
+      'workout.atlas_cardio_target',
+      'workout.atlas_no_target',
       'workout.media_anatomy_reference',
       'workout.media_no_exact_demo_detail',
       'workout.picker_anatomy_poster_alt',
@@ -81,5 +89,29 @@ describe('exercise picker copy coverage', () => {
         if (locale !== 'en') expect(copy[key], `${locale}:${key}`).not.toBe(locales.en[key]);
       }
     }
+  });
+
+  it('uses a grammatically singular secondary-role label in every locale', () => {
+    const secondaryRoleByLocale = {
+      en: translations['workout.atlas_role_secondary'].en,
+      es: translations['workout.atlas_role_secondary'].es,
+      el: translations['workout.atlas_role_secondary'].el,
+      de: de['workout.atlas_role_secondary'],
+      fr: fr['workout.atlas_role_secondary'],
+      it: itLocale['workout.atlas_role_secondary'],
+      nl: nl['workout.atlas_role_secondary'],
+      pt: pt['workout.atlas_role_secondary'],
+    };
+
+    expect(secondaryRoleByLocale).toEqual({
+      en: 'Secondary',
+      es: 'Secundario',
+      el: 'Δευτερεύων',
+      de: 'Sekundär',
+      fr: 'Secondaire',
+      it: 'Secondario',
+      nl: 'Secundair',
+      pt: 'Secundário',
+    });
   });
 });

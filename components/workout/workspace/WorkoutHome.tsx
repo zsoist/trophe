@@ -131,7 +131,7 @@ export function WorkoutHome({
   const isCardioDraft = workspace.state.draft?.kind === 'cardio';
   const targetLabel = displayedTemplate?.muscleSummary.length
     ? displayedTemplate.muscleSummary.map((muscle) => t(muscleLabelKey(muscle))).join(' · ')
-    : isCardioDraft ? 'Cardio session · no named muscle target' : 'No muscle target selected';
+    : t(isCardioDraft ? 'workout.atlas_cardio_target' : 'workout.atlas_no_target');
   const source = activeStage ? 'Workout in progress' : workspace.state.stage === 'completed' ? 'Completed workout' : hasDraft ? 'Your saved draft' : assignedTemplate ? 'Assigned by coach' : recommendedTemplate ? 'Recommended by Trophē' : 'Open training';
   const displayedWorkoutName = displayedTemplate?.name ?? workspace.state.draft?.name ?? null;
   const readiness = workspace.state.stage === 'live' || workspace.state.stage === 'paused' ? 'Ready to resume' : recoveryStage ? 'Session recovered' : hasDraft ? 'Draft saved' : offeredTemplate ? 'Ready to review' : 'Ready to build';
@@ -203,7 +203,7 @@ export function WorkoutHome({
       {(programError || recommendationError) && !offeredTemplate ? <div role="alert" className="rounded-xl border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]">Your workout program could not be loaded. You can still build one.</div> : null}
       {supportError ? <div role="alert" className="rounded-xl border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] p-3 text-sm text-[var(--content-primary)]">{t('workout.support_data_load_failed')}</div> : null}
 
-      <WorkoutAtlasHome activations={activations} targetLabel={targetLabel} emptyDescription={isCardioDraft ? 'Cardio is tracked by activity, duration, distance, and effort.' : 'Add strength exercises to see their muscle roles.'} />
+      <WorkoutAtlasHome activations={activations} targetLabel={targetLabel} emptyState={isCardioDraft ? 'cardio' : 'strength'} />
       <button type="button" data-testid="workout-primary-action" onClick={primaryAction.action} disabled={disabled && !recoveryStage && !hasDraft} className="btn-gold min-h-11 w-full rounded-xl px-4 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50">{primaryAction.label}</button>
 
       {!recoveryStage ? <WorkoutScheduleStrip program={program} todayName={displayedWorkoutName} todaySource={source} /> : null}

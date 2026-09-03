@@ -51,6 +51,12 @@ const ROLE_LABEL_KEYS: Record<MuscleRole, string> = {
   stabilizer: 'workout.info_stabilizer',
 };
 
+const ROLE_ARIA_LABEL_KEYS: Record<MuscleRole, string> = {
+  primary: 'workout.atlas_role_primary',
+  secondary: 'workout.atlas_role_secondary',
+  stabilizer: 'workout.atlas_role_stabilizer',
+};
+
 const muscleLabelKey = (id: AnatomyMuscleId) => `workout.atlas_muscle_${id.replaceAll('-', '_')}`;
 
 /* 46 SVG units render as at least 44 CSS pixels in the fixed 296px / 306-unit map. */
@@ -139,7 +145,7 @@ export function MuscleAtlas({ activations, selected = null, onSelect, compact = 
                 aria-pressed={selected === activation.id}
                 aria-label={t('workout.atlas_region_label', {
                   muscle: t(muscleLabelKey(activation.id)),
-                  role: t(ROLE_LABEL_KEYS[activation.role]),
+                  role: t(ROLE_ARIA_LABEL_KEYS[activation.role]),
                 })}
                 className={regionClass(activation.role, selected === activation.id)}
                 onClick={() => onSelect(activation.id)}

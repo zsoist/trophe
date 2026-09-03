@@ -17,29 +17,22 @@ vi.mock('@/lib/workout/live-session', () => ({
   validateRetrospectiveWorkoutInput: vi.fn(() => true),
 }));
 vi.mock('@/lib/supabase', () => ({ supabase: { auth: { getUser: vi.fn() } } }));
-vi.mock('@/lib/i18n', () => ({
-  useI18n: () => ({
-    lang: 'en',
-    t: (key: string, params?: Record<string, string | number>) => ({
-      'workout.muscle_chest': 'Chest',
-      'workout.muscle_shoulders': 'Shoulders',
-      'workout.muscle_triceps': 'Triceps',
-      'workout.muscle_back': 'Back',
-      'workout.muscle_quads': 'Quads',
-      'workout.muscle_full_body': 'Full body',
-      'workout.exercise_count': `${params?.n} exercises`,
-      'workout.preview': 'Preview',
-      'workout.use_template': 'Use this template',
-      'workout.continue_editing': 'Continue editing',
-      'workout.continue_review': 'Continue review',
-      'general.cancel': 'Cancel',
-      'workout.replace_choice_title': 'Replace this draft?',
-      'workout.replace_choice_message': `Replace ${params?.current} with ${params?.next}? Your current draft will be removed.`,
-      'workout.replace_choice_confirm': 'Replace draft',
-      'workout.replace_choice_cancel': 'Keep current draft',
-    }[key] ?? key),
-  }),
-}));
+vi.mock('@/lib/i18n', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/i18n')>();
+  return {
+    ...actual,
+    useI18n: () => ({
+      lang: 'en',
+      t: (key: string, params?: Record<string, string | number>) => {
+        const source = actual.translations[key]?.en ?? key;
+        return Object.entries(params ?? {}).reduce(
+          (text, [name, value]) => text.replaceAll(`{${name}}`, String(value)),
+          source,
+        );
+      },
+    }),
+  };
+});
 
 import { WorkoutHome, type WorkoutHomeProgram } from '@/components/workout/workspace/WorkoutHome';
 import { WorkoutWorkspaceProvider } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
