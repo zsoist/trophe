@@ -1,0 +1,56 @@
+[
+  {
+    "antipattern": "layout-transition",
+    "name": "Layout property animation",
+    "description": "Animating width, height, padding, or margin causes layout thrash and janky performance. Use transform and opacity instead, or grid-template-rows for height animations.",
+    "severity": "warning",
+    "category": "quality",
+    "file": "components/workout/GuidedSession.tsx",
+    "line": 166,
+    "snippet": "transition: width"
+  },
+  {
+    "antipattern": "design-system-color",
+    "name": "Color outside DESIGN.md",
+    "description": "A literal color is outside the DESIGN.md palette and sidecar tonal ramps. This may be legitimate, but it should be an intentional design-system addition rather than drift.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "components/workout/GuidedSession.tsx",
+    "line": 663,
+    "snippet": "Undocumented color #B8923E is outside DESIGN.md colors",
+    "ignoreValue": "#B8923E"
+  },
+  {
+    "antipattern": "design-system-color",
+    "name": "Color outside DESIGN.md",
+    "description": "A literal color is outside the DESIGN.md palette and sidecar tonal ramps. This may be legitimate, but it should be an intentional design-system addition rather than drift.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "components/workout/TodayProgramCard.tsx",
+    "line": 189,
+    "snippet": "Undocumented color rgba(125,163,217,.10) is outside DESIGN.md colors",
+    "ignoreValue": "rgba(125,163,217,.10)"
+  },
+  {
+    "antipattern": "design-system-color",
+    "name": "Color outside DESIGN.md",
+    "description": "A literal color is outside the DESIGN.md palette and sidecar tonal ramps. This may be legitimate, but it should be an intentional design-system addition rather than drift.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "components/workout/TodayProgramCard.tsx",
+    "line": 190,
+    "snippet": "Undocumented color rgba(125,163,217,.22) is outside DESIGN.md colors",
+    "ignoreValue": "rgba(125,163,217,.22)"
+  },
+  {
+    "antipattern": "design-system-color",
+    "name": "Color outside DESIGN.md",
+    "description": "A literal color is outside the DESIGN.md palette and sidecar tonal ramps. This may be legitimate, but it should be an intentional design-system addition rather than drift.",
+    "severity": "advisory",
+    "category": "quality",
+    "file": "components/workout/TodayProgramCard.tsx",
+    "line": 198,
+    "snippet": "Undocumented color rgba(125,163,217,.16) is outside DESIGN.md colors",
+    "ignoreValue": "rgba(125,163,217,.16)"
+  }
+]

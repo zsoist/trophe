@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-29T22:02:07.366Z",
+  "generatedAt": "2026-09-03T20:31:49.900Z",
   "status": "passed",
   "preflight": {
     "status": "healthy",
@@ -11,10 +11,10 @@
       "status": "passed",
       "exitCode": 0,
       "signal": null,
-      "durationMs": 37911,
+      "durationMs": 9671,
       "stdoutBytes": 42,
       "stderrBytes": 0,
-      "stdoutDigest": "be56bf41e64d499a7527f0215a475c662d6800f7bce45172e48dc3cef6d6f189",
+      "stdoutDigest": "d054cb0541388e2606ca0b02cdd8b93c8caf01a88d2dffdb756a8be94a952c37",
       "stderrDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "spawnError": null
     },
@@ -23,10 +23,10 @@
       "status": "passed",
       "exitCode": 0,
       "signal": null,
-      "durationMs": 25591,
-      "stdoutBytes": 57527,
+      "durationMs": 12898,
+      "stdoutBytes": 55105,
       "stderrBytes": 0,
-      "stdoutDigest": "2e86c8c78deaced4c1656848cb4c2b4bb327c624453e59dd5ea94aba60cc0ed6",
+      "stdoutDigest": "827defba4c8f5eaeca8614a19a14f73d80d2148aa323199fe55fb453df87dc8d",
       "stderrDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "spawnError": null
     },
@@ -35,11 +35,11 @@
       "status": "passed",
       "exitCode": 0,
       "signal": null,
-      "durationMs": 9583,
+      "durationMs": 17687,
       "stdoutBytes": 65536,
-      "stderrBytes": 6966,
-      "stdoutDigest": "04c9eb74c2d4a057ed36d3a0afb3ead461291490fed128c62df1b5056fac6359",
-      "stderrDigest": "017c42e488c5a926fd3ced63d679d4c98ab27108881f147a2630e391e61982bc",
+      "stderrBytes": 12597,
+      "stdoutDigest": "f46d913c1355f81567e1cd69af999f6e59b18569aa9d918657b6cbb7068218c1",
+      "stderrDigest": "0fd16089c658593d4a7eae80daec952337d4e2b2f7a84ff9dcbfc9c51bf864c7",
       "spawnError": null
     },
     {
@@ -47,11 +47,11 @@
       "status": "passed",
       "exitCode": 0,
       "signal": null,
-      "durationMs": 23329,
-      "stdoutBytes": 3404,
-      "stderrBytes": 0,
-      "stdoutDigest": "64ef381068a12b94fe511ed353773a15069e715d3e6c36d46d0bbae0c8800be7",
-      "stderrDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "durationMs": 23896,
+      "stdoutBytes": 3580,
+      "stderrBytes": 191,
+      "stdoutDigest": "38eb0f0da94e14567fc637dd8c066b16cc55d5130ed895332210ad42297ae32b",
+      "stderrDigest": "f0605d26ce8cad4bc8b66e5dcd98fb8d2cd229f4025fe1b97a9748ee03534f69",
       "spawnError": null
     }
   ]
