@@ -47,6 +47,10 @@ describe('buildWorkoutRecommendation', () => {
     });
 
     expect(result.source).toBe('coach');
+    expect(result).toEqual(expect.objectContaining({
+      source: 'coach', reasons: expect.any(Array), estimatedDurationMinutes: expect.any(Number),
+      equipment: expect.any(Array), muscleDistribution: expect.any(Object), exercises: expect.any(Array),
+    }));
     expect(result.exercises.every((item) => ['Dumbbell', 'Bench', 'Bodyweight'].includes(item.equipment ?? 'Bodyweight'))).toBe(true);
     expect(result.liveSessionId).toBeUndefined();
     expect(result.estimatedDurationMinutes).toBeLessThanOrEqual(preferences.durationMinutes);
@@ -69,5 +73,79 @@ describe('buildWorkoutRecommendation', () => {
     expect(first.source).toBe('recommendation');
     expect(first.exercises.map((item) => item.exerciseId)).toEqual(['row']);
     expect(first.reasons).toContain('Excluded exercises affecting painful regions: chest.');
+  });
+
+  it('normalizes laterality and synonyms across primary, secondary, and curated activations', () => {
+    const result = buildWorkoutRecommendation({
+      preferences: { ...preferences, durationMinutes: 45 },
+      profileGoal: 'health',
+      exercises: [
+        { ...exercises[0], id: 'shoulder-press', muscle_group: 'shoulders', secondary_muscles: ['triceps'] },
+        { ...exercises[1], id: 'hinge', muscle_group: 'glutes', secondary_muscles: ['lower back'] },
+        { ...exercises[1], id: 'curated', muscle_group: 'biceps', secondary_muscles: null, anatomy_activations: ['left shoulder'] },
+        { ...exercises[1], id: 'safe-row', muscle_group: 'core', secondary_muscles: null },
+      ] as Exercise[],
+      recentSets: [],
+      painRegions: ['right shoulder', 'lower back'],
+      activeCoachTemplate: null,
+    });
+
+    expect(result.exercises.map((exercise) => exercise.exerciseId)).toEqual(['safe-row']);
+    expect(result.reasons).toContain('Excluded exercises affecting painful regions: back, shoulders.');
+  });
+
+  it('reports a duration cap only when it actually omits otherwise eligible exercises', () => {
+    const result = buildWorkoutRecommendation({
+      preferences: { ...preferences, durationMinutes: 20 },
+      profileGoal: 'health',
+      exercises: [
+        ...exercises,
+        { ...exercises[1], id: 'squat', name: 'Dumbbell Squat', muscle_group: 'quads' },
+        { ...exercises[1], id: 'curl', name: 'Dumbbell Curl', muscle_group: 'biceps' },
+      ],
+      recentSets: [],
+      painRegions: [],
+      activeCoachTemplate: null,
+    });
+
+    expect(result.exercises).toHaveLength(2);
+    expect(result.reasons).toContain('Limited draft to 2 exercises for the 20-minute duration target.');
+    expect(result.reasons.some((reason) => reason.includes('pain'))).toBe(false);
+  });
+
+  it('uses activity and completed volume/recency as deterministic ranking signals', () => {
+    const candidates: Exercise[] = [
+      { ...exercises[1], id: 'high-volume-row', name: 'A Row', muscle_group: 'back' },
+      { ...exercises[1], id: 'recent-row', name: 'Z Row', muscle_group: 'back' },
+      { ...exercises[0], id: 'press', muscle_group: 'chest' },
+      { ...exercises[1], id: 'squat', name: 'Squat', muscle_group: 'quads' },
+    ];
+    const active = buildWorkoutRecommendation({
+      preferences,
+      profileGoal: 'health',
+      profileActivity: 'active',
+      asOf: '2026-09-02',
+      exercises: candidates,
+      recentSets: [
+        { exerciseId: 'high-volume-row', reps: 12, weightKg: 20, completedOn: '2026-09-01', isWarmup: false },
+        { exerciseId: 'recent-row', reps: 8, weightKg: 5, completedOn: '2026-08-31', isWarmup: false },
+      ],
+      painRegions: [],
+      activeCoachTemplate: null,
+    });
+    const sedentary = buildWorkoutRecommendation({
+      preferences,
+      profileGoal: 'health',
+      profileActivity: 'sedentary',
+      asOf: '2026-09-02',
+      exercises: candidates,
+      recentSets: [],
+      painRegions: [],
+      activeCoachTemplate: null,
+    });
+
+    expect(active.exercises[0]?.exerciseId).toBe('high-volume-row');
+    expect(active.reasons).toContain('Used completed volume and recency as progression evidence.');
+    expect(active.exercises.length).toBeGreaterThan(sedentary.exercises.length);
   });
 });

@@ -320,6 +320,8 @@ export interface Exercise {
   name_el: string | null;
   muscle_group: MuscleGroup;
   secondary_muscles: string[] | null;
+  /** Curated anatomy regions when an exercise has a more specific activation map. */
+  anatomy_activations?: string[] | null;
   equipment: string | null;
   is_compound: boolean;
   is_template: boolean;

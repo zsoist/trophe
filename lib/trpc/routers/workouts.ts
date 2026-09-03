@@ -103,6 +103,18 @@ async function resolveTemplateExercises(
     .where(inArray(exercises.id, ids));
 }
 
+/** Weekday convention is shared with workout_program_days: 0=Sunday … 6=Saturday. */
+export function selectCoachTemplateForWeekday(
+  days: Array<{ weekday: number; template: unknown }>,
+  weekday: number,
+): WorkoutTemplate | null {
+  return (days.find((day) => day.weekday === weekday)?.template as WorkoutTemplate | undefined) ?? null;
+}
+
+export function recommendationAsOfDate(now = new Date()) {
+  return now.toISOString().slice(0, 10);
+}
+
 // ── Router ─────────────────────────────────────────────────────────────────
 
 export const workoutsRouter = router({
@@ -290,8 +302,10 @@ export const workoutsRouter = router({
       }))
       .mutation(async ({ ctx, input }) => {
         const clientId = input.clientId ?? ctx.user!.id;
-        if (clientId !== ctx.user!.id) {
-          await assertCanAccessClient(ctx.db, ctx.user!.id, ctx.profile!.role, clientId);
+        const isClientSelfUpdate = ctx.profile?.role === 'client' && clientId === ctx.user!.id;
+        const isAssignedCoachUpdate = ctx.profile?.role === 'coach';
+        if (!isClientSelfUpdate && !isAssignedCoachUpdate) {
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'Only the client or assigned coach may update workout preferences' });
         }
 
         const [updated] = await ctx.db
@@ -300,11 +314,24 @@ export const workoutsRouter = router({
             workoutPreferences: input.preferences,
             updatedAt: new Date().toISOString(),
           })
-          .where(eq(clientProfiles.userId, clientId))
+          .where(and(
+            eq(clientProfiles.userId, clientId),
+            isClientSelfUpdate
+              ? eq(clientProfiles.userId, ctx.user!.id)
+              : eq(clientProfiles.coachId, ctx.user!.id),
+          ))
           .returning({ workoutPreferences: clientProfiles.workoutPreferences });
         if (!updated) {
-          throw new TRPCError({ code: 'NOT_FOUND', message: 'Client profile not found' });
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'Client is no longer assigned to this coach' });
         }
+        await recordAuditEvent({
+          actorId: ctx.user!.id,
+          actorRole: ctx.profile!.role,
+          action: 'workout_preferences_updated',
+          tableName: 'client_profiles',
+          recordId: clientId,
+          newValue: { clientId, version: input.preferences.version },
+        });
         return parseWorkoutPreferences(updated.workoutPreferences);
       }),
   }),
@@ -318,6 +345,7 @@ export const workoutsRouter = router({
       const [profile] = await ctx.db
         .select({
           goal: clientProfiles.goal,
+          activityLevel: clientProfiles.activityLevel,
           workoutPreferences: clientProfiles.workoutPreferences,
         })
         .from(clientProfiles)
@@ -328,11 +356,14 @@ export const workoutsRouter = router({
       }
 
       const [exerciseRows, recentSets, recentSessions, activeProgram] = await Promise.all([
-        ctx.db.select().from(exercises),
+        ctx.db.select().from(exercises)
+          .where(or(eq(exercises.isTemplate, true), eq(exercises.createdBy, ctx.user!.id))),
         ctx.db
           .select({
             exerciseId: workoutSets.exerciseId,
             reps: workoutSets.reps,
+            weightKg: workoutSets.weightKg,
+            completedOn: workoutSessions.sessionDate,
             isWarmup: workoutSets.isWarmup,
           })
           .from(workoutSets)
@@ -377,12 +408,20 @@ export const workoutsRouter = router({
       return buildWorkoutRecommendation({
         preferences: parseWorkoutPreferences(profile.workoutPreferences),
         profileGoal: profile.goal as Goal | null,
+        profileActivity: profile.activityLevel as import('@/lib/types').ActivityLevel | null,
+        asOf: recommendationAsOfDate(),
         exercises: recommendationExercises,
         recentSets: recentSets
           .filter((set): set is typeof set & { exerciseId: string } => Boolean(set.exerciseId))
-          .map((set) => ({ exerciseId: set.exerciseId, reps: set.reps, isWarmup: set.isWarmup ?? false })),
+          .map((set) => ({
+            exerciseId: set.exerciseId,
+            reps: set.reps,
+            weightKg: set.weightKg,
+            completedOn: set.completedOn,
+            isWarmup: set.isWarmup ?? false,
+          })),
         painRegions,
-        activeCoachTemplate: (activeProgram?.days[0]?.template as WorkoutTemplate | undefined) ?? null,
+        activeCoachTemplate: selectCoachTemplateForWeekday(activeProgram?.days ?? [], new Date().getDay()),
       });
     }),
   }),
