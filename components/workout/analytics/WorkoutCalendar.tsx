@@ -10,6 +10,9 @@ export interface WorkoutCalendarProps {
   scheduled: string[];
   completed: string[];
   today?: string;
+  selectedDate?: string;
+  onSelect?: (date: string) => void;
+  onMonthChange?: (month: string) => void;
 }
 
 const monthFormatter = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' });
@@ -35,7 +38,7 @@ function labelFor(date: Date, state: CalendarState) {
   return `${dateFormatter.format(date)}: ${labels[state]}`;
 }
 
-export function WorkoutCalendar({ month, scheduled, completed, today }: WorkoutCalendarProps) {
+export function WorkoutCalendar({ month, scheduled, completed, today, selectedDate, onSelect, onMonthChange }: WorkoutCalendarProps) {
   const initial = useMemo(() => new Date(`${month}-01T12:00:00`), [month]);
   const [visibleMonth, setVisibleMonth] = useState(initial);
   const scheduledDays = useMemo(() => new Set(scheduled), [scheduled]);
@@ -50,7 +53,7 @@ export function WorkoutCalendar({ month, scheduled, completed, today }: WorkoutC
     });
   }, [visibleMonth]);
 
-  const moveMonth = (amount: number) => setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() + amount, 1));
+  const moveMonth = (amount: number) => setVisibleMonth((current) => { const next = new Date(current.getFullYear(), current.getMonth() + amount, 1); onMonthChange?.(dateKey(next).slice(0, 7)); return next; });
 
   return (
     <section aria-labelledby="workout-calendar-title" className="rounded-xl bg-[var(--surface-subtle)] p-3 sm:p-4">
@@ -67,10 +70,10 @@ export function WorkoutCalendar({ month, scheduled, completed, today }: WorkoutC
           const muted = date.getMonth() !== visibleMonth.getMonth();
           const icon = state === 'both' ? <><CalendarClock size={11} /><Check size={10} /></> : state === 'scheduled' ? <CalendarClock size={12} /> : state === 'completed' ? <CalendarCheck size={12} /> : null;
           const dayLabel = `${labelFor(date, state)}${key === today && state !== 'today' ? ', today' : ''}`;
-          return <div key={key} role="gridcell" aria-label={dayLabel} className={`min-h-11 rounded-lg px-0.5 py-1 text-xs ${muted ? 'text-[var(--content-muted)] opacity-60' : 'text-[var(--content-primary)]'} ${key === today ? 'outline outline-1 outline-[var(--action-primary)]' : ''}`}>
+          return <button type="button" key={key} role="gridcell" aria-label={dayLabel} aria-pressed={key === selectedDate} onClick={() => onSelect?.(key)} className={`min-h-11 rounded-lg px-0.5 py-1 text-xs ${muted ? 'text-[var(--content-muted)] opacity-60' : 'text-[var(--content-primary)]'} ${key === today || key === selectedDate ? 'outline outline-1 outline-[var(--action-primary)]' : ''}`}>
             <span className="block tabular-nums">{date.getDate()}</span>
             <span className="mt-0.5 flex min-h-3 items-center justify-center gap-0.5 text-[var(--content-secondary)]" aria-hidden>{icon}</span>
-          </div>;
+          </button>;
         })}
       </div>
       <p className="mt-3 text-xs text-[var(--content-muted)]"><CalendarClock className="mr-1 inline" size={12} />Scheduled <span className="mx-2" aria-hidden>·</span><CalendarCheck className="mr-1 inline" size={12} />Completed <span className="mx-2" aria-hidden>·</span><CalendarClock className="mr-1 inline" size={12} /><Check className="-ml-0.5 inline" size={10} />Scheduled and completed</p>

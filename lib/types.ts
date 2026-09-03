@@ -346,6 +346,8 @@ export interface WorkoutSession {
   cardio_distance_km?: number | null;
   cardio_effort?: number | null;
   pain_flags: PainFlag[];
+  /** Terminal timestamp; analytics must only treat sessions with this value as completed evidence. */
+  completed_at: string | null;
   created_at: string;
 }
 
