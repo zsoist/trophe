@@ -474,20 +474,21 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
   const previousEvidence = latestActiveSet
     ? `${latestActiveSet.weight_kg === null ? '—' : `${kgToDisplay(latestActiveSet.weight_kg, unit)} ${unit}`} × ${latestActiveSet.reps}`
     : t('workout.previous_values');
+  const elapsedText = `${Math.floor(elapsedMs / 60_000)}:${String(Math.floor(elapsedMs / 1_000) % 60).padStart(2, '0')}`;
   return (
-    <main className="mx-auto max-w-2xl space-y-5 px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-5">
-      <section className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] pb-3">
+    <main className="live-workout mx-auto max-w-2xl space-y-5 px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-5">
+      {!activeDraftExercise ? <section className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] pb-3">
         <div>
           <h2 className="font-bold text-[var(--content-primary)]">{draft.name}</h2>
-          <p className="font-mono text-sm tabular-nums text-[var(--content-secondary)]" aria-label={t('workout.active_duration')}>{Math.floor(elapsedMs / 60_000)}:{String(Math.floor(elapsedMs / 1_000) % 60).padStart(2, '0')}</p>
+          <p className="font-mono text-sm tabular-nums text-[var(--content-secondary)]" aria-label={t('workout.active_duration')}>{elapsedText}</p>
         </div>
-      </section>
-      <LiveSessionPath
+      </section> : null}
+      {!activeDraftExercise ? <LiveSessionPath
         exercises={draft.exercises.map((exercise) => ({ id: exercise.exerciseId, name: exercise.exerciseName ?? exerciseById.get(exercise.exerciseId)?.name ?? exercise.exerciseId }))}
-        selectedId={activeDraftExercise?.exerciseId ?? null}
+        selectedId={null}
         completedIds={new Set(draft.exercises.filter((exercise) => persistedSets.filter((set) => set.exercise_id === exercise.exerciseId && !set.is_warmup).length >= exercise.targetSets).map((exercise) => exercise.exerciseId))}
         onSelect={setSelectedExerciseId}
-      />
+      /> : null}
 
       {!recoveryLoaded ? <div role="status" className="min-h-24 animate-pulse rounded-xl bg-[var(--surface-subtle)]" aria-label={t('workout.loading_live_session')} /> : allExercisesComplete && !activeDraftExercise ? (
         <section aria-labelledby="finish-ready-title" className="border-y border-[var(--border-subtle)] py-5">
@@ -503,6 +504,14 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
           targetReps={activeDraftExercise.targetReps}
           previous={previousEvidence}
           nextExerciseName={draft.exercises[activeExerciseIndex + 1]?.exerciseName ?? exerciseById.get(draft.exercises[activeExerciseIndex + 1]?.exerciseId ?? '')?.name}
+          sessionName={draft.name}
+          elapsedText={elapsedText}
+          sessionPath={<LiveSessionPath
+            exercises={draft.exercises.map((exercise) => ({ id: exercise.exerciseId, name: exercise.exerciseName ?? exerciseById.get(exercise.exerciseId)?.name ?? exercise.exerciseId }))}
+            selectedId={activeDraftExercise.exerciseId}
+            completedIds={new Set(draft.exercises.filter((exercise) => persistedSets.filter((set) => set.exercise_id === exercise.exerciseId && !set.is_warmup).length >= exercise.targetSets).map((exercise) => exercise.exerciseId))}
+            onSelect={setSelectedExerciseId}
+          />}
           paused={state.stage === 'paused'}
           onPause={workspace.pause}
           onResume={workspace.resume}

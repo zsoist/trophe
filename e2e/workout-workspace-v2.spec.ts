@@ -149,6 +149,27 @@ async function assertLiveExerciseSheetGeometry(page: Page, theme: ThemeMode) {
   expect(containment.pageOverflow).toBeLessThanOrEqual(1);
 }
 
+async function assertLiveLoggerClearsFirstViewport(page: Page, viewport: { width: number; height: number }) {
+  await page.setViewportSize(viewport);
+  await page.evaluate(() => window.scrollTo({ top: 0, left: 0, behavior: 'auto' }));
+  await waitForWorkoutRouteAtTop(page, `live set logger must start at the top on ${viewport.width}px`);
+  const workspace = currentWorkspace(page);
+  const firstSet = workspace.locator('[data-set-row]').first();
+  const weight = firstSet.getByRole('spinbutton', { name: 'Weight in kg' });
+  const reps = firstSet.getByRole('spinbutton', { name: 'Reps' });
+  const complete = firstSet.getByRole('button', { name: 'Complete set' });
+  await expect(weight).toBeInViewport();
+  await expect(reps).toBeInViewport();
+  await expect(complete).toBeInViewport();
+  const [completeBox, navBox] = await Promise.all([
+    complete.boundingBox(),
+    page.getByRole('navigation', { name: 'Primary' }).boundingBox(),
+  ]);
+  expect(completeBox).not.toBeNull();
+  expect(navBox).not.toBeNull();
+  expect(completeBox!.y + completeBox!.height).toBeLessThanOrEqual(navBox!.y - 4);
+}
+
 async function waitForWorkoutBuildAtTop(page: Page) {
   await waitForRouteSettled(page, '/dashboard/workout/build');
   const heading = page.getByRole('heading', { name: 'Build Workout' });
@@ -454,7 +475,7 @@ test.describe('Workout Workspace V2', () => {
   }
 
   for (const theme of ['light', 'dark'] as const) {
-    test(`${theme}: routed detail and paused live sheet remain reachable, with running focus stable across a clock tick`, async ({ page }) => {
+    test(`${theme}: routed detail and paused live sheet remain reachable, with running focus stable across a clock tick`, async ({ page }, testInfo) => {
       const assertNoPaidRequests = await blockPaidRequests(page);
       await page.setViewportSize({ width: 390, height: 844 });
       await loginAs(page, 'client');
@@ -483,6 +504,11 @@ test.describe('Workout Workspace V2', () => {
       await waitForRouteSettled(page, '/dashboard/workout/review');
       await currentWorkspace(page).getByRole('button', { name: 'Start workout' }).click();
       await waitForRouteSettled(page, '/dashboard/workout/live');
+      for (const viewport of [{ width: 320, height: 568 }, { width: 390, height: 844 }] as const) {
+        await assertLiveLoggerClearsFirstViewport(page, viewport);
+        await captureWorkout(page, testInfo, `${theme}-live-focus-${viewport.width}.png`, { atTop: true });
+      }
+      await page.setViewportSize({ width: 390, height: 844 });
       await expect(currentWorkspace(page).getByRole('button', { name: 'More exercise options' }).first()).toBeEnabled();
       const pauseControl = currentWorkspace(page).getByRole('button', { name: 'Pause workout' });
       const runningClock = currentWorkspace(page).getByLabel('Active workout duration');

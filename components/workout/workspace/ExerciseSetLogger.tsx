@@ -218,7 +218,7 @@ export function ExerciseSetLogger({
     >
       {showExerciseHeader ? <div className="mb-3 flex items-center justify-between gap-3">
         <div>
-          <h3 className="font-semibold text-[var(--content-primary)]">{exercise.name}</h3>
+          {!focusMode ? <h3 className="font-semibold text-[var(--content-primary)]">{exercise.name}</h3> : null}
           <p className="text-xs text-[var(--content-muted)]">{t('workout.set_number', { n: setNumber })}</p>
         </div>
         <button

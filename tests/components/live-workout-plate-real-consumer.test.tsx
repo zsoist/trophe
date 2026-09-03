@@ -107,7 +107,7 @@ describe('LiveWorkout warm-up real consumer', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Superset' }));
       await vi.waitFor(() => expect(api.updateLiveWorkoutStructureAtomic).toHaveBeenCalledTimes(1));
       fireEvent.click(screen.getByRole('button', { name: 'Exercise 2, pending' }));
-      expect(screen.getAllByRole('heading', { name: 'Dumbbell Row' })).toHaveLength(2);
+      expect(screen.getAllByRole('heading', { name: 'Dumbbell Row' })).toHaveLength(1);
       await vi.advanceTimersByTimeAsync(30_000);
       fireEvent.click(screen.getByRole('button', { name: 'Exercise 1, completed' }));
       expect(screen.getByRole('status').textContent).toContain(`· ${elapsedWhilePaused}s /`);
