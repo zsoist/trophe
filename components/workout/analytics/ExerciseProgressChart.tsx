@@ -3,8 +3,20 @@
 import { TrendingUp } from 'lucide-react';
 
 export interface ExerciseProgressEntry { date: string; weightKg: number | null; reps: number | null; }
+/** One evidence point per session: highest weight, then reps, then total volume. */
+export function aggregateExerciseProgress(data: ExerciseProgressEntry[]) {
+  const byDate = new Map<string, ExerciseProgressEntry>();
+  for (const entry of data) {
+    if (entry.weightKg === null || entry.reps === null) continue;
+    const previous = byDate.get(entry.date);
+    const volume = entry.weightKg * entry.reps;
+    const previousVolume = previous && previous.weightKg !== null && previous.reps !== null ? previous.weightKg * previous.reps : -1;
+    if (!previous || entry.weightKg > (previous.weightKg ?? -1) || (entry.weightKg === previous.weightKg && (entry.reps > (previous.reps ?? -1) || (entry.reps === previous.reps && volume > previousVolume)))) byDate.set(entry.date, entry);
+  }
+  return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
 export function ExerciseProgressChart({ exerciseName, data }: { exerciseName: string; data: ExerciseProgressEntry[] }) {
-  const evidence = data.filter((entry) => (entry.weightKg ?? 0) > 0 && (entry.reps ?? 0) > 0).sort((a, b) => a.date.localeCompare(b.date));
+  const evidence = aggregateExerciseProgress(data);
   if (!evidence.length) return <section className="rounded-xl bg-[var(--surface-subtle)] p-4"><h2 className="text-base font-semibold text-[var(--content-primary)]">Exercise progress</h2><p className="mt-3 text-sm text-[var(--content-muted)]">No completed weighted sets are available for this exercise yet.</p></section>;
   if (evidence.length < 2) return <section className="rounded-xl bg-[var(--surface-subtle)] p-4"><h2 className="text-base font-semibold text-[var(--content-primary)]">Exercise progress</h2><p className="mt-3 text-sm text-[var(--content-muted)]">Need at least two completed weighted sets to show progress evidence.</p></section>;
   const maxWeight = Math.max(...evidence.map((entry) => entry.weightKg ?? 0), 1);

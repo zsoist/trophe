@@ -1603,4 +1603,5 @@ export const nl: Record<string, string> = {
   'workout.distance': 'Afstand',
   'workout.invalid_prescription': 'Elke oefening heeft minstens één set en een herhalingsdoel nodig.',
   'workout.history_minutes': '{n} minuten', 'workout.history_show_set_details': 'Details van voltooide sets tonen', 'workout.history_hide_set_details': 'Details van voltooide sets verbergen', 'workout.history_warmup': 'Warming-up', 'workout.history_working': 'Werkset', 'workout.history_pr': 'Persoonlijk record',
+  'workout.history_sets_failed': 'Setdetails konden niet worden geladen.', 'workout.retry': 'Opnieuw proberen',
 };

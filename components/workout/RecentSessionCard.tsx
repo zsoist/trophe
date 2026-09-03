@@ -40,22 +40,28 @@ export default function RecentSessionCard({
   const [expanded, setExpanded] = useState(false);
   const [sets, setSets] = useState<ExpandedSetRow[] | null>(null);
   const [loadingSets, setLoadingSets] = useState(false);
+  const [setsError, setSetsError] = useState(false);
 
   const d = new Date(session.session_date + 'T00:00:00');
   const label = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 
-  const toggle = async () => {
-    const next = !expanded;
-    setExpanded(next);
-    if (next && sets === null && !loadingSets) {
-      setLoadingSets(true);
-      const { data } = await supabase
+  const loadSets = async () => {
+    setLoadingSets(true); setSetsError(false);
+    try {
+      const { data, error } = await supabase
         .from('workout_sets')
         .select('id, exercise_id, set_number, weight_kg, reps, rpe, is_warmup, is_pr, exercise:exercises(name, name_es, name_el, muscle_group)')
         .eq('session_id', session.id)
         .order('set_number');
+      if (error) throw error;
       setSets((data as unknown as ExpandedSetRow[]) ?? []);
-      setLoadingSets(false);
+    } catch { setSetsError(true); } finally { setLoadingSets(false); }
+  };
+  const toggle = async () => {
+    const next = !expanded;
+    setExpanded(next);
+    if (next && sets === null && !loadingSets) {
+      await loadSets();
     }
   };
 
@@ -119,7 +125,8 @@ export default function RecentSessionCard({
               {loadingSets && (
                 <p style={{ fontSize: 12, color: 'var(--content-muted)', padding: '10px 0' }}>{t('chat.loading')}</p>
               )}
-              {!loadingSets && sets !== null && sets.length === 0 && (
+              {!loadingSets && setsError && <div role="alert" style={{ fontSize: 12, padding: '10px 0', color: 'var(--status-danger-fg)' }}><p>{t('workout.history_sets_failed')}</p><button type="button" onClick={() => void loadSets()} className="mt-2 min-h-11 text-[var(--action-primary)]">{t('workout.retry')}</button></div>}
+              {!loadingSets && !setsError && sets !== null && sets.length === 0 && (
                 <p style={{ fontSize: 12, color: 'var(--content-muted)', padding: '10px 0' }}>
                   {session.notes ?? t('workout.no_sets_cardio')}
                 </p>

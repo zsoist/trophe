@@ -5,7 +5,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { WorkoutCalendar } from '@/components/workout/analytics/WorkoutCalendar';
 import { filterMuscleLoadEntries, MuscleLoadChart } from '@/components/workout/analytics/MuscleLoadChart';
-import { ExerciseProgressChart } from '@/components/workout/analytics/ExerciseProgressChart';
+import { aggregateExerciseProgress, ExerciseProgressChart } from '@/components/workout/analytics/ExerciseProgressChart';
 import { WorkoutSummaryMetrics } from '@/components/workout/analytics/WorkoutSummaryMetrics';
 
 afterEach(cleanup);
@@ -62,6 +62,10 @@ describe('workout analytics evidence surfaces', () => {
     ]} />);
     expect(screen.getByRole('table', { name: /barbell bench press progress values/i })).toBeTruthy();
     expect(screen.getByLabelText(/80 kg, 5 reps, 400 kg volume/i)).toBeTruthy();
+  });
+
+  it('uses one best completed evidence point per session', () => {
+    expect(aggregateExerciseProgress([{ date: '2026-09-01', weightKg: 70, reps: 10 }, { date: '2026-09-01', weightKg: 75, reps: 5 }, { date: '2026-09-02', weightKg: null, reps: 8 }])).toEqual([{ date: '2026-09-01', weightKg: 75, reps: 5 }]);
   });
 
   it('calculates summary metrics only from completed working-set evidence', () => {

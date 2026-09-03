@@ -1666,6 +1666,8 @@ export const translations: Record<string, Record<CoreLanguage, string>> = {
   'workout.history_warmup': { en: 'Warm-up', es: 'Calentamiento', el: 'Προθέρμανση' },
   'workout.history_working': { en: 'Working', es: 'Trabajo', el: 'Εργασίας' },
   'workout.history_pr': { en: 'PR', es: 'RM', el: 'Ατομικό ρεκόρ' },
+  'workout.history_sets_failed': { en: 'Set details could not load.', es: 'No se pudieron cargar los detalles de las series.', el: 'Δεν ήταν δυνατή η φόρτωση λεπτομερειών σετ.' },
+  'workout.retry': { en: 'Retry', es: 'Reintentar', el: 'Δοκιμάστε ξανά' },
 };
 
 // ─── Context & Hook ───
