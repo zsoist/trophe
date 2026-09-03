@@ -90,3 +90,14 @@
 - `components/workout/analytics/{ExerciseProgressChart,MuscleLoadChart,WorkoutAnalyticsSurface,WorkoutCalendar,WorkoutSummaryMetrics}.tsx` and `components/workout/analytics/history-grouping.ts`
 - `lib/workout/analytics-data.ts`, `lib/i18n-locale.ts`, `lib/i18n.tsx`, `lib/locales/workout-analytics.ts`, and the five overlay locale modules
 - `tests/workout/analytics-data.test.ts`, `tests/i18n/workout-analytics-copy.test.ts`, and the Task 9 analytics/locale/route/history/RecentSession component tests
+
+## Review fix round 2 — exact Last-session identity
+
+- Corrected the round-1 date-level Last association: every muscle-load entry now carries its terminal `sessionId`, the surface passes `data.sessions[0].id`, and Last filters only that exact session. Week and Month remain selected-date anchored; All remains unchanged.
+- Because `loadWorkoutAnalyticsData` sorts terminal sessions by `session_date`, then `completed_at`, then `id` descending, `data.sessions[0]` is deterministic. The loader regression now explicitly proves the final id tie-break.
+- Added same-calendar-date regressions for both cases: a later cardio/unresolved terminal session hides an earlier strength session from Last and renders the localized no-strength state; a latest strength session includes only its own muscle-load entries, not another same-day strength session.
+- RED: `npx vitest run tests/components/workout-analytics.test.tsx tests/components/workout-analytics-route.test.tsx` — 2 failed, 13 passed. The primitive returned no exact-id match while the route leaked the earlier same-day strength evidence into Last.
+- GREEN: `npx vitest run tests/components/workout-analytics.test.tsx tests/components/workout-analytics-route.test.tsx tests/workout/analytics-data.test.ts` — 3 files passed, 19 tests passed.
+- Static checks passed: `npx tsc --noEmit`; targeted ESLint for the two production files and three focused test files; `git diff --check`.
+- Files changed: `components/workout/analytics/MuscleLoadChart.tsx`, `components/workout/analytics/WorkoutAnalyticsSurface.tsx`, `tests/components/workout-analytics.test.tsx`, `tests/components/workout-analytics-route.test.tsx`, and `tests/workout/analytics-data.test.ts`.
+- The Task 11 `setLang` observation was intentionally left unchanged as directed. No new external residual was introduced.
