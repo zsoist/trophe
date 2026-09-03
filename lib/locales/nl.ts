@@ -46,6 +46,7 @@ export const nl: Record<string, string> = {
   'workout.primary_muscle_label': 'Primaire spier: {muscle}',
   'workout.equipment_value': 'Uitrusting: {equipment}',
   'workout.equipment_not_required': 'Geen uitrusting',
+  'workout.exercise_name_unavailable': 'Oefeningdetails niet beschikbaar',
   'workout.history_sets': '{n} sets',
   'workout.pause': 'Pauzeren',
   'workout.resume': 'Hervatten',

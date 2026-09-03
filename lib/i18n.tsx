@@ -819,6 +819,7 @@ export const translations: Record<string, Record<CoreLanguage, string>> = {
   'workout.primary_muscle_label': { en: 'Primary muscle: {muscle}', es: 'Músculo principal: {muscle}', el: 'Κύριος μυς: {muscle}' },
   'workout.equipment_value': { en: 'Equipment: {equipment}', es: 'Equipamiento: {equipment}', el: 'Εξοπλισμός: {equipment}' },
   'workout.equipment_not_required': { en: 'No equipment', es: 'Sin equipamiento', el: 'Χωρίς εξοπλισμό' },
+  'workout.exercise_name_unavailable': { en: 'Exercise details unavailable', es: 'Detalles del ejercicio no disponibles', el: 'Οι λεπτομέρειες της άσκησης δεν είναι διαθέσιμες' },
   'workout.history_sets': { en: '{n} sets', es: '{n} series', el: '{n} σετ' },
   'workout.pause': { en: 'Pause', es: 'Pausar', el: 'Παύση' },
   'workout.resume': { en: 'Resume', es: 'Reanudar', el: 'Συνέχεια' },

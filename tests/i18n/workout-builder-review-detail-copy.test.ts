@@ -20,6 +20,7 @@ const keys = [
   'workout.primary_muscle_label',
   'workout.equipment_value',
   'workout.equipment_not_required',
+  'workout.exercise_name_unavailable',
   'workout.history_sets',
 ] as const;
 

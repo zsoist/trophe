@@ -24,15 +24,15 @@ interface PlanExerciseCardProps {
   onTechnique: () => void;
 }
 
-function localizedName(exercise: WorkoutExerciseOption | undefined, draftExercise: DraftExercise, lang: string): string {
+function localizedName(exercise: WorkoutExerciseOption | undefined, draftExercise: DraftExercise, lang: string, unavailableName: string): string {
   if (lang === 'es' && exercise?.name_es) return exercise.name_es;
   if (lang === 'el' && exercise?.name_el) return exercise.name_el;
-  return draftExercise.exerciseName ?? exercise?.name ?? draftExercise.exerciseId;
+  return draftExercise.exerciseName?.trim() || exercise?.name?.trim() || unavailableName;
 }
 
 export function PlanExerciseCard({ draftExercise, exercise, index, total, mode = 'edit', locked = false, onUpdate, onMove, onReplace, onRemove, onTechnique }: PlanExerciseCardProps) {
   const { lang, t } = useI18n();
-  const name = localizedName(exercise, draftExercise, lang);
+  const name = localizedName(exercise, draftExercise, lang, t('workout.exercise_name_unavailable'));
   const equipment = exercise?.equipment ?? null;
   const muscleGroup = draftExercise.muscleGroup ?? exercise?.muscle_group ?? null;
   const media = resolveExerciseMedia({ name: exercise?.name ?? name, equipment, muscleGroup });

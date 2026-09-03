@@ -34,6 +34,7 @@ vi.mock('@/lib/i18n', () => ({
     'workout.detail_fallback_poster_alt': `Exercise placeholder for ${params.name}`,
     'workout.equipment_label': `Equipment: ${params.equipment}`,
     'workout.equipment_not_required': 'No equipment listed',
+    'workout.exercise_name_unavailable': 'Exercise details unavailable',
   } as Record<string, string>)[key] ?? key }),
 }));
 
@@ -48,6 +49,32 @@ const exercises = [{ id: 'bench', name: 'Barbell Bench Press', muscle_group: 'ch
 afterEach(() => { cleanup(); vi.clearAllMocks(); workspace.state.draft = null; });
 
 describe('WorkoutReview explicit evidence', () => {
+  it('uses a safe name while recovered exercise metadata is unavailable', () => {
+    const technicalId = '58ff5cec-7340-4db4-9385-ad1f13439f25';
+    workspace.state.draft = {
+      ...draft,
+      exercises: [{ exerciseId: technicalId, targetSets: 3, targetReps: '6-8' }],
+    };
+
+    render(<WorkoutReview exercises={[]} onSavePlan={vi.fn()} onLogCompleted={vi.fn()} />);
+
+    expect(screen.getByRole('heading', { name: 'Exercise details unavailable' })).toBeTruthy();
+    expect(screen.queryByText(technicalId)).toBeNull();
+    expect(screen.getByRole('button', { name: 'View Exercise details unavailable technique' })).toBeTruthy();
+  });
+
+  it('preserves a recovered custom exercise name without catalog metadata', () => {
+    workspace.state.draft = {
+      ...draft,
+      exercises: [{ exerciseId: 'custom:floor-press', exerciseName: 'My custom floor press', targetSets: 3, targetReps: '8-10' }],
+    };
+
+    render(<WorkoutReview exercises={[]} onSavePlan={vi.fn()} onLogCompleted={vi.fn()} />);
+
+    expect(screen.getByRole('heading', { name: 'My custom floor press' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'View My custom floor press technique' })).toBeTruthy();
+  });
+
   it('is immutable-looking and separates edit, detail, start, retrospective, and save actions', () => {
     workspace.state.draft = draft;
     render(<WorkoutReview exercises={exercises} onSavePlan={vi.fn()} onLogCompleted={vi.fn()} />);
