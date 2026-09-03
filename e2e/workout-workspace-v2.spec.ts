@@ -658,7 +658,7 @@ test.describe('Workout Workspace V2', () => {
         if (viewport.width === 320 || viewport.width === 390) {
           for (const [route, title, slug] of [
             ['/dashboard/workout/history', 'History', 'history'],
-            ['/dashboard/workout/stats', 'Stats', 'stats'],
+            ['/dashboard/workout/stats', 'Training progress', 'stats'],
             ['/dashboard/workout/form-check', 'Form Check', 'form-check'],
           ] as const) {
             await page.goto(route);
