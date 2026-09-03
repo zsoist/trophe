@@ -2,7 +2,12 @@
 
 import React from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('@/lib/i18n', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/i18n')>();
+  return { ...actual, useI18n: () => ({ lang: 'en', t: (key: string, params?: Record<string, string | number>) => (actual.translations[key]?.en ?? key).replace(/\{(\w+)\}/g, (_match, name: string) => String(params?.[name] ?? `{${name}}`)) }) };
+});
 import { WorkoutCalendar } from '@/components/workout/analytics/WorkoutCalendar';
 import { filterMuscleLoadEntries, MuscleLoadChart } from '@/components/workout/analytics/MuscleLoadChart';
 import { aggregateExerciseProgress, ExerciseProgressChart } from '@/components/workout/analytics/ExerciseProgressChart';
@@ -20,6 +25,12 @@ describe('workout analytics evidence surfaces', () => {
     expect(filterMuscleLoadEntries(entries, 'last', '2026-09-03').map((entry) => entry.date)).toEqual(['2026-09-03']);
     expect(filterMuscleLoadEntries(entries, 'week', '2026-09-03').map((entry) => entry.date)).toEqual(['2026-08-31', '2026-09-01', '2026-09-03']);
     expect(filterMuscleLoadEntries(entries, 'month', '2026-09-03').map((entry) => entry.date)).toEqual(['2026-09-01', '2026-09-03']);
+  });
+
+  it('keeps Last honest when the latest completed session has no resolved strength evidence', () => {
+    const entries = [{ date: '2026-09-03', exercise: { name: 'Barbell Bench Press' }, sets: [{ completed: true }] }];
+
+    expect(filterMuscleLoadEntries(entries, 'last', '2026-09-04', '2026-09-04')).toEqual([]);
   });
 
   it('describes a scheduled and completed calendar day without relying on colour', () => {
@@ -65,7 +76,27 @@ describe('workout analytics evidence surfaces', () => {
   });
 
   it('uses one best completed evidence point per session', () => {
-    expect(aggregateExerciseProgress([{ date: '2026-09-01', weightKg: 70, reps: 10 }, { date: '2026-09-01', weightKg: 75, reps: 5 }, { date: '2026-09-02', weightKg: null, reps: 8 }])).toEqual([{ date: '2026-09-01', weightKg: 75, reps: 5 }]);
+    expect(aggregateExerciseProgress([
+      { sessionId: 'session-a', date: '2026-09-01', weightKg: 70, reps: 10 },
+      { sessionId: 'session-a', date: '2026-09-01', weightKg: 75, reps: 5 },
+      { sessionId: 'session-b', date: '2026-09-01', weightKg: 80, reps: 3 },
+      { sessionId: 'session-c', date: '2026-09-02', weightKg: null, reps: 8 },
+    ])).toEqual([
+      { sessionId: 'session-a', date: '2026-09-01', weightKg: 75, reps: 5 },
+      { sessionId: 'session-b', date: '2026-09-01', weightKg: 80, reps: 3 },
+    ]);
+  });
+
+  it('formats progress in the preferred unit without inventing missing weight or reps', () => {
+    render(<ExerciseProgressChart exerciseName="Barbell Bench Press" unit="lb" data={[
+      { sessionId: 'session-a', date: '2026-08-27', weightKg: 100, reps: 2 },
+      { sessionId: 'session-b', date: '2026-09-03', weightKg: 110, reps: 1 },
+      { sessionId: 'session-c', date: '2026-09-03', weightKg: null, reps: 8 },
+    ]} />);
+
+    expect(screen.getByText('220.5 lb')).toBeTruthy();
+    expect(screen.queryByText('0 lb')).toBeNull();
+    expect(screen.getByLabelText(/220\.5 lb, 2 reps, 440\.9 lb volume/i)).toBeTruthy();
   });
 
   it('calculates summary metrics only from completed working-set evidence', () => {

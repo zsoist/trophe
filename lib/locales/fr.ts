@@ -1,3 +1,5 @@
+import { workoutAnalyticsFr } from './workout-analytics';
+
 export const fr: Record<string, string> = {
   'workout.repeat_last': 'Répéter la dernière séance',
   'workout.quick_start': 'Démarrage rapide',
@@ -1602,6 +1604,13 @@ export const fr: Record<string, string> = {
   'workout.volume_kg': 'volume kg',
   'workout.distance': 'Distance',
   'workout.invalid_prescription': 'Chaque exercice nécessite au moins une série et un objectif de répétitions.',
-  'workout.history_minutes': '{n} minutes', 'workout.history_show_set_details': 'Afficher les détails des séries terminées', 'workout.history_hide_set_details': 'Masquer les détails des séries terminées', 'workout.history_warmup': 'Échauffement', 'workout.history_working': 'Série de travail', 'workout.history_pr': 'Record personnel',
-  'workout.history_sets_failed': 'Les détails des séries n’ont pas pu être chargés.', 'workout.retry': 'Réessayer',
+  'workout.history_minutes': '{n} minutes',
+  'workout.history_show_set_details': 'Afficher les détails des séries terminées',
+  'workout.history_hide_set_details': 'Masquer les détails des séries terminées',
+  'workout.history_warmup': 'Échauffement',
+  'workout.history_working': 'Série de travail',
+  'workout.history_pr': 'Record personnel',
+  'workout.history_sets_failed': 'Les détails des séries n’ont pas pu être chargés.',
+  'workout.retry': 'Réessayer',
+  ...workoutAnalyticsFr,
 };

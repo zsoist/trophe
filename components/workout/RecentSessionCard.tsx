@@ -12,6 +12,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronUp, Clock, Dumbbell, Trophy } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
+import { localeForLanguage } from '@/lib/i18n-locale';
 import type { WorkoutSession } from '@/lib/types';
 import { muscleColor, exerciseDisplayName } from './muscle-groups';
 import { kgToDisplay, useWeightUnit } from '@/lib/workout/units';
@@ -35,15 +36,17 @@ export default function RecentSessionCard({
   session: WorkoutSession;
   lang: string;
 }) {
-  const { t } = useI18n();
+  const { t, lang: activeLanguage } = useI18n();
   const [unit] = useWeightUnit();
   const [expanded, setExpanded] = useState(false);
   const [sets, setSets] = useState<ExpandedSetRow[] | null>(null);
   const [loadingSets, setLoadingSets] = useState(false);
   const [setsError, setSetsError] = useState(false);
 
+  const locale = localeForLanguage(activeLanguage);
+  const number = useMemo(() => new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }), [locale]);
   const d = new Date(session.session_date + 'T00:00:00');
-  const label = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const label = new Intl.DateTimeFormat(locale, { weekday: 'short', month: 'short', day: 'numeric' }).format(d);
 
   const loadSets = async () => {
     setLoadingSets(true); setSetsError(false);
@@ -70,12 +73,12 @@ export default function RecentSessionCard({
     const map = new Map<string, { name: string; muscle: string; rows: ExpandedSetRow[] }>();
     for (const s of sets) {
       // Exercise names stay English for Greek users (see exerciseDisplayName).
-      const name = s.exercise ? exerciseDisplayName(s.exercise, lang) : 'Exercise';
+      const name = s.exercise ? exerciseDisplayName(s.exercise, lang) : t('workout.analytics_exercise_fallback');
       if (!map.has(s.exercise_id)) map.set(s.exercise_id, { name, muscle: s.exercise?.muscle_group ?? '', rows: [] });
       map.get(s.exercise_id)!.rows.push(s);
     }
     return Array.from(map.values());
-  }, [sets, lang]);
+  }, [sets, lang, t]);
 
   return (
     <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -104,7 +107,7 @@ export default function RecentSessionCard({
         {session.duration_minutes && (
           <span style={{ fontSize: 12, color: 'var(--content-muted)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
             <Clock size={9} className="inline mr-1" />
-            {session.duration_minutes}m
+            {t('workout.history_minutes', { n: number.format(session.duration_minutes) })}
           </span>
         )}
         {expanded
@@ -134,10 +137,10 @@ export default function RecentSessionCard({
               {grouped.map((g, gi) => (
                 <div key={gi} style={{ paddingTop: 10 }}>
                   <span style={{ fontSize: 12, fontWeight: 600, color: muscleColor(g.muscle) }}>{g.name}</span>
-                  <table aria-label={`${g.name} completed sets`} style={{ width: '100%', marginTop: 4, fontSize: 12, color: 'var(--content-secondary)', borderCollapse: 'collapse' }}>
-                    <thead className="sr-only"><tr><th>Set</th><th>Type</th><th>Weight</th><th>Reps</th><th>Personal record</th></tr></thead>
+                  <table aria-label={t('workout.analytics_history_set_table', { exercise: g.name })} style={{ width: '100%', marginTop: 4, fontSize: 12, color: 'var(--content-secondary)', borderCollapse: 'collapse' }}>
+                    <thead className="sr-only"><tr><th>{t('workout.set')}</th><th>{t('workout.analytics_history_type')}</th><th>{t('workout.weight')}</th><th>{t('workout.analytics_history_repetitions')}</th><th>{t('workout.analytics_summary_personal_records')}</th></tr></thead>
                     <tbody>{g.rows.map((r) => <tr key={r.id} style={{ borderTop: '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)' }}>
-                      <td style={{ padding: '5px 0', fontFamily: 'var(--font-mono)' }}>{r.set_number}</td><td>{r.is_warmup ? t('workout.history_warmup') : t('workout.history_working')}</td><td style={{ fontFamily: 'var(--font-mono)' }}>{kgToDisplay(r.weight_kg ?? 0, unit)} {unit}</td><td style={{ fontFamily: 'var(--font-mono)' }}>{r.reps ?? 0}</td><td>{r.is_pr ? <><Trophy size={11} className="inline mr-1 text-[var(--action-primary)]" />{t('workout.history_pr')}</> : '—'}</td>
+                      <td style={{ padding: '5px 0', fontFamily: 'var(--font-mono)' }}>{number.format(r.set_number)}</td><td>{r.is_warmup ? t('workout.history_warmup') : t('workout.history_working')}</td><td style={{ fontFamily: 'var(--font-mono)' }}>{r.weight_kg === null ? t('workout.analytics_history_not_recorded') : `${number.format(kgToDisplay(r.weight_kg, unit))} ${unit}`}</td><td style={{ fontFamily: 'var(--font-mono)' }}>{r.reps === null ? t('workout.analytics_history_not_recorded') : number.format(r.reps)}</td><td>{r.is_pr ? <><Trophy size={11} className="inline mr-1 text-[var(--action-primary)]" />{t('workout.history_pr')}</> : <span className="sr-only">{t('workout.analytics_history_not_pr')}</span>}</td>
                     </tr>)}</tbody>
                   </table>
                 </div>

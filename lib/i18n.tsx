@@ -7,6 +7,22 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import type { Language, CoreLanguage } from './types';
 import { interpolateTranslation } from './i18n-interpolate';
+import { coreWorkoutAnalyticsTranslations, WORKOUT_ANALYTICS_COPY_KEYS as WORKOUT_ANALYTICS_NEW_COPY_KEYS } from './locales/workout-analytics';
+
+/** Exact Task 9 copy surface, including established shared navigation/history keys. */
+export const WORKOUT_ANALYTICS_COPY_KEYS = [
+  ...WORKOUT_ANALYTICS_NEW_COPY_KEYS,
+  'general.today', 'general.yesterday', 'chat.loading',
+  'nav.home', 'nav.log', 'nav.progress', 'nav.me',
+  'workout.title', 'workout.set', 'workout.weight', 'workout.reps', 'workout.volume',
+  'workout.history_minutes', 'workout.history_show_set_details', 'workout.history_hide_set_details',
+  'workout.history_warmup', 'workout.history_working', 'workout.history_pr', 'workout.history_sets_failed',
+  'workout.retry', 'workout.view_full_history', 'workout.no_sets_cardio', 'workout.no_sessions',
+  'workout.start', 'workout.repeat', 'workout.activity', 'workout.duration_minutes',
+  'workout.distance', 'workout.distance_summary', 'workout.effort', 'workout.effort_summary', 'workout.cardio_summary',
+  'workout.cardio_walk', 'workout.cardio_run', 'workout.cardio_cycle', 'workout.cardio_hiit',
+  'workout.cardio_swim', 'workout.cardio_other',
+] as const;
 
 // Overlay locales: flat key→string maps with EN fallback for missing keys.
 // Core languages (EN/ES/EL) stay inline below so the compiler enforces full coverage.
@@ -1668,6 +1684,7 @@ export const translations: Record<string, Record<CoreLanguage, string>> = {
   'workout.history_pr': { en: 'PR', es: 'RM', el: 'Ατομικό ρεκόρ' },
   'workout.history_sets_failed': { en: 'Set details could not load.', es: 'No se pudieron cargar los detalles de las series.', el: 'Δεν ήταν δυνατή η φόρτωση λεπτομερειών σετ.' },
   'workout.retry': { en: 'Retry', es: 'Reintentar', el: 'Δοκιμάστε ξανά' },
+  ...coreWorkoutAnalyticsTranslations,
 };
 
 // ─── Context & Hook ───

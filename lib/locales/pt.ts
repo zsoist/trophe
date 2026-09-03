@@ -3,6 +3,8 @@
 // Register: informal "tu", European Portuguese
 // ═══════════════════════════════════════════════
 
+import { workoutAnalyticsPt } from './workout-analytics';
+
 export const pt: Record<string, string> = {
   'workout.repeat_last': 'Repetir último treino',
   'workout.quick_start': 'Início rápido',
@@ -1607,6 +1609,13 @@ export const pt: Record<string, string> = {
   'workout.volume_kg': 'volume kg',
   'workout.distance': 'Distância',
   'workout.invalid_prescription': 'Cada exercício precisa de pelo menos uma série e um objetivo de repetições.',
-  'workout.history_minutes': '{n} minutos', 'workout.history_show_set_details': 'Mostrar detalhes das séries concluídas', 'workout.history_hide_set_details': 'Ocultar detalhes das séries concluídas', 'workout.history_warmup': 'Aquecimento', 'workout.history_working': 'Série de trabalho', 'workout.history_pr': 'Recorde pessoal',
-  'workout.history_sets_failed': 'Não foi possível carregar os detalhes das séries.', 'workout.retry': 'Tentar novamente',
+  'workout.history_minutes': '{n} minutos',
+  'workout.history_show_set_details': 'Mostrar detalhes das séries concluídas',
+  'workout.history_hide_set_details': 'Ocultar detalhes das séries concluídas',
+  'workout.history_warmup': 'Aquecimento',
+  'workout.history_working': 'Série de trabalho',
+  'workout.history_pr': 'Recorde pessoal',
+  'workout.history_sets_failed': 'Não foi possível carregar os detalhes das séries.',
+  'workout.retry': 'Tentar novamente',
+  ...workoutAnalyticsPt,
 };

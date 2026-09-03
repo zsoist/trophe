@@ -1,20 +1,25 @@
 import { describe, expect, it } from 'vitest';
-import { translations } from '@/lib/i18n';
+import { translations, WORKOUT_ANALYTICS_COPY_KEYS } from '@/lib/i18n';
 import { de } from '@/lib/locales/de';
 import { fr } from '@/lib/locales/fr';
 import { it as italian } from '@/lib/locales/it';
 import { pt } from '@/lib/locales/pt';
 import { nl } from '@/lib/locales/nl';
 
-const keys = ['workout.history_minutes', 'workout.history_show_set_details', 'workout.history_hide_set_details', 'workout.history_warmup', 'workout.history_working', 'workout.history_pr'];
-
 describe('workout analytics history copy', () => {
-  it('provides each new history detail string across all eight locales', () => {
-    for (const locale of [
-      Object.fromEntries(keys.map((key) => [key, translations[key].en])),
-      Object.fromEntries(keys.map((key) => [key, translations[key].es])),
-      Object.fromEntries(keys.map((key) => [key, translations[key].el])),
+  it('provides the exact complete Task 9 copy contract across all eight locales', () => {
+    const locales = [
+      Object.fromEntries(WORKOUT_ANALYTICS_COPY_KEYS.map((key) => [key, translations[key]?.en])),
+      Object.fromEntries(WORKOUT_ANALYTICS_COPY_KEYS.map((key) => [key, translations[key]?.es])),
+      Object.fromEntries(WORKOUT_ANALYTICS_COPY_KEYS.map((key) => [key, translations[key]?.el])),
       de, fr, italian, pt, nl,
-    ]) for (const key of keys) expect(locale[key]).toMatch(/\S/);
+    ];
+
+    expect(new Set(WORKOUT_ANALYTICS_COPY_KEYS).size).toBe(WORKOUT_ANALYTICS_COPY_KEYS.length);
+    for (const locale of locales) {
+      const taskCopy = Object.fromEntries(WORKOUT_ANALYTICS_COPY_KEYS.map((key) => [key, locale[key]]));
+      expect(Object.keys(taskCopy).sort()).toEqual([...WORKOUT_ANALYTICS_COPY_KEYS].sort());
+      for (const value of Object.values(taskCopy)) expect(value).toMatch(/\S/);
+    }
   });
 });
