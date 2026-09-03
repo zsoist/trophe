@@ -30,7 +30,10 @@ vi.mock('next/navigation', () => ({
 }));
 vi.mock('@/lib/utils/dates', () => ({ localToday: () => '2026-08-24' }));
 vi.mock('@/lib/trpc/client', () => ({
-  trpc: { workouts: { program: { mine: { useQuery: () => ({ data: harness.programData, isLoading: false, error: null }) } } } },
+  trpc: { workouts: {
+    program: { mine: { useQuery: () => ({ data: harness.programData, isLoading: false, error: null }) } },
+    recommendation: { mine: { useQuery: () => ({ data: null, isLoading: false, error: null }) } },
+  } },
 }));
 vi.mock('@/components/workout/workout-persistence', () => ({ createWorkoutSession: harness.createWorkoutSession }));
 vi.mock('@/lib/i18n', () => ({
@@ -290,7 +293,7 @@ describe('Workout home data flows', () => {
       }],
     };
     renderPage();
-    fireEvent.click(await screen.findByRole('button', { name: 'Review today’s workout' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Review plan' }));
 
     await waitFor(() => expect(harness.push).toHaveBeenCalledWith('/dashboard/workout/review'));
     const state = JSON.parse(screen.getByLabelText('Draft state').textContent ?? '{}');
@@ -316,7 +319,7 @@ describe('Workout home data flows', () => {
 
     renderPage();
 
-    expect(await screen.findByRole('button', { name: 'Review today’s workout' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'Review plan' })).toBeTruthy();
     expect((await screen.findByRole('alert')).textContent).toContain('workout.support_data_load_failed');
     expect(screen.queryByText('workout.program_load_failed')).toBeNull();
   });

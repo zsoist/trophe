@@ -1,0 +1,174 @@
+// @vitest-environment jsdom
+
+import React from 'react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+const { push, startLiveSession } = vi.hoisted(() => ({
+  push: vi.fn(),
+  startLiveSession: vi.fn(),
+}));
+
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }));
+vi.mock('@/lib/workout/live-session', () => ({
+  startLiveSession,
+  savePreparedRetrospectiveWorkout: vi.fn(),
+  discardEmptyLiveSession: vi.fn(),
+  validateRetrospectiveWorkoutInput: vi.fn(() => true),
+}));
+vi.mock('@/lib/supabase', () => ({ supabase: { auth: { getUser: vi.fn() } } }));
+vi.mock('@/lib/i18n', () => ({
+  useI18n: () => ({
+    lang: 'en',
+    t: (key: string, params?: Record<string, string | number>) => ({
+      'workout.muscle_chest': 'Chest',
+      'workout.muscle_shoulders': 'Shoulders',
+      'workout.muscle_triceps': 'Triceps',
+      'workout.muscle_back': 'Back',
+      'workout.muscle_quads': 'Quads',
+      'workout.muscle_full_body': 'Full body',
+      'workout.exercise_count': `${params?.n} exercises`,
+      'workout.preview': 'Preview',
+      'workout.use_template': 'Use this template',
+      'general.cancel': 'Cancel',
+      'workout.replace_choice_title': 'Replace this draft?',
+      'workout.replace_choice_message': `Replace ${params?.current} with ${params?.next}? Your current draft will be removed.`,
+      'workout.replace_choice_confirm': 'Replace draft',
+      'workout.replace_choice_cancel': 'Keep current draft',
+    }[key] ?? key),
+  }),
+}));
+
+import { WorkoutHome, type WorkoutHomeProgram } from '@/components/workout/workspace/WorkoutHome';
+import { WorkoutWorkspaceProvider } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
+import type { Exercise, WorkoutRecommendation } from '@/lib/types';
+import { saveWorkspaceState } from '@/lib/workout/workspace-storage';
+import type { WorkoutWorkspaceState } from '@/lib/workout/workspace-state';
+
+class MemoryStorage {
+  private readonly values = new Map<string, string>();
+  getItem(key: string) { return this.values.get(key) ?? null; }
+  setItem(key: string, value: string) { this.values.set(key, value); }
+  removeItem(key: string) { this.values.delete(key); }
+}
+
+const exercises: Exercise[] = [
+  { id: 'bench', name: 'Barbell Bench Press', name_es: null, name_el: null, muscle_group: 'chest', secondary_muscles: ['triceps', 'shoulders'], equipment: 'barbell', is_compound: true, is_template: true, created_by: null, created_at: '' },
+  { id: 'row', name: 'Seated Cable Row', name_es: null, name_el: null, muscle_group: 'back', secondary_muscles: ['biceps'], equipment: 'cable', is_compound: true, is_template: true, created_by: null, created_at: '' },
+];
+
+const coachProgram: WorkoutHomeProgram = {
+  programName: 'Strength Base',
+  todayTemplate: {
+    templateKey: 'template:coach-push',
+    templateId: '11111111-1111-4111-8111-111111111111',
+    name: 'Coach Push',
+    muscleSummary: ['chest', 'shoulders', 'triceps'],
+    exercises: [{ exerciseId: 'bench', exerciseName: 'Barbell Bench Press', muscleGroup: 'chest', targetSets: 4, targetReps: '6-8' }],
+  },
+  alsoToday: [],
+  nextWeekday: 5,
+  nextTemplateName: 'Lower strength',
+};
+
+const recommendation: WorkoutRecommendation = {
+  source: 'recommendation',
+  reasons: ['Ranked from recent completed work.'],
+  estimatedDurationMinutes: 32,
+  equipment: ['barbell', 'cable'],
+  muscleDistribution: { chest: 3, back: 3 },
+  exercises: [
+    { exerciseId: 'bench', name: 'Barbell Bench Press', muscleGroup: 'chest', equipment: 'barbell', targetSets: 3, targetReps: '8-10' },
+    { exerciseId: 'row', name: 'Seated Cable Row', muscleGroup: 'back', equipment: 'cable', targetSets: 3, targetReps: '8-10' },
+  ],
+};
+
+function renderHome({
+  program = null,
+  recommended = null,
+  initialState,
+}: {
+  program?: WorkoutHomeProgram | null;
+  recommended?: WorkoutRecommendation | null;
+  initialState?: WorkoutWorkspaceState;
+} = {}) {
+  const storage = new MemoryStorage();
+  if (initialState) saveWorkspaceState(storage, 'nik', initialState);
+  return render(
+    <WorkoutWorkspaceProvider userId="nik" storage={storage}>
+      <WorkoutHome
+        exercises={exercises}
+        program={program}
+        recommendation={recommended}
+        recents={[]}
+        routines={[]}
+      />
+    </WorkoutWorkspaceProvider>,
+  );
+}
+
+afterEach(() => {
+  cleanup();
+  push.mockReset();
+  startLiveSession.mockReset();
+});
+
+describe('Workout home v3', () => {
+  it('makes a coach assignment, plan readiness, target, and review action immediately explicit', async () => {
+    renderHome({ program: coachProgram, recommended: recommendation });
+
+    expect(screen.getByText(/assigned by coach/i)).toBeTruthy();
+    expect(screen.getByText(/ready to review/i)).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Coach Push' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /review plan/i }).hasAttribute('disabled')).toBe(false);
+    expect(screen.queryByRole('button', { name: /finish workout/i })).toBeNull();
+    expect(screen.getByRole('button', { name: /pectoralis major/i })).toBeTruthy();
+    expect(screen.getByText('Lower strength')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /build strength workout/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /workout templates/i })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: /pectoralis major/i }));
+    expect(await screen.findByText(/pectoralis major · primary target/i)).toBeTruthy();
+  });
+
+  it('presents a deterministic recommendation for review without starting a live session', () => {
+    renderHome({ recommended: recommendation });
+
+    expect(screen.getByText(/recommended by trophē/i)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /review plan/i }));
+
+    expect(push).toHaveBeenCalledWith('/dashboard/workout/review');
+    expect(startLiveSession).not.toHaveBeenCalled();
+  });
+
+  it('uses one build action when no assigned or recommended plan exists', () => {
+    renderHome();
+
+    const primaryActions = screen.getAllByTestId('workout-primary-action');
+    expect(primaryActions).toHaveLength(1);
+    expect(primaryActions[0].textContent).toMatch(/build workout/i);
+    fireEvent.click(primaryActions[0]);
+
+    expect(push).toHaveBeenCalledWith('/dashboard/workout/exercises');
+    expect(startLiveSession).not.toHaveBeenCalled();
+  });
+
+  it.each(['live', 'paused'] as const)('uses Resume workout only for a recoverable %s session', async (stage) => {
+    renderHome({
+      program: coachProgram,
+      initialState: {
+        stage,
+        draft: { version: 2, name: 'Push in progress', kind: 'strength', updatedAt: 1, exercises: [{ exerciseId: 'bench', exerciseName: 'Barbell Bench Press', muscleGroup: 'chest', targetSets: 3, targetReps: '8' }] },
+        sessionId: 'session-1',
+        clock: { runningSince: stage === 'live' ? 1 : null, accumulatedMs: 2000 },
+        clientRequestId: null,
+      },
+    });
+
+    expect(await screen.findByRole('button', { name: 'Resume workout' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Review plan' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Build workout' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Resume workout' }));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/dashboard/workout/live'));
+  });
+});

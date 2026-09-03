@@ -39,7 +39,10 @@ vi.mock('next/navigation', () => ({
 vi.mock('next/link', () => ({ default: ({ children, href }: { children: React.ReactNode; href: string }) => React.createElement('a', { href }, children) }));
 vi.mock('@/lib/useClientNav', () => ({ useClientNav: () => [] }));
 vi.mock('@/lib/trpc/client', () => ({
-  trpc: { workouts: { program: { mine: { useQuery: () => ({ data: null, isLoading: false }) } } } },
+  trpc: { workouts: {
+    program: { mine: { useQuery: () => ({ data: null, isLoading: false }) } },
+    recommendation: { mine: { useQuery: () => ({ data: null, isLoading: false, error: null }) } },
+  } },
 }));
 vi.mock('@/lib/workout/units', () => ({ useWeightUnit: () => ['kg', vi.fn()], kgToDisplay: (value: number) => value, displayToKg: (value: number) => value }));
 vi.mock('@/components/workout/workout-persistence', () => ({
@@ -237,9 +240,9 @@ describe('client secondary theme and accessibility contract', () => {
     authHarness.getUser.mockReturnValueOnce(new Promise((resolve) => { resolveUser = resolve; }));
     renderWorkoutPage();
 
-    const start = await screen.findByRole('button', { name: 'workout.build_strength' });
+    const start = await screen.findByRole('button', { name: 'Build workout' });
     expect(start.hasAttribute('disabled')).toBe(true);
-    const cardio = screen.getByRole('button', { name: 'workout.build_cardio' });
+    const cardio = screen.getByRole('button', { name: 'Plan cardio' });
     expect(cardio.hasAttribute('disabled')).toBe(true);
 
     resolveUser(authenticatedUser);
@@ -374,7 +377,7 @@ describe('client secondary theme and accessibility contract', () => {
     renderRoutedWorkoutJourney();
 
     expect((await screen.findByLabelText('Workout URL')).textContent).toBe('/dashboard/workout');
-    fireEvent.click(await screen.findByRole('button', { name: 'workout.build_strength' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Build workout' }));
     await waitFor(() => expect(screen.getByLabelText('Workout URL').textContent).toBe('/dashboard/workout/exercises'));
     expect(screen.getByRole('heading', { name: 'workout.picker_choose_area' })).toBeTruthy();
     expect(screen.getByLabelText('Workspace stage').textContent).toBe('draft');
