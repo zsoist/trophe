@@ -114,7 +114,7 @@ describe('MuscleAtlas', () => {
     render(<MuscleAtlas activations={benchActivations} selected={null} onSelect={vi.fn()} homeCompact />);
 
     expect(screen.getByRole('region', { name: 'Atlas de activación muscular' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Pectoral mayor, músculo principal/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^Pectoral mayor, músculo principal$/i })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Mostrar anatomía posterior' })).toBeTruthy();
     expect(screen.getByRole('list', { name: 'Funciones musculares destacadas' }).textContent).toContain('Pectoral mayor');
     expect(document.body.textContent).not.toMatch(/\b(?:Front|Back|Primary|Pectoralis|highlighted)\b/);
@@ -181,27 +181,88 @@ describe('MuscleAtlas', () => {
     }
   });
 
-  it('keeps every rendered 44px target fully inside the atlas viewport', () => {
-    render(<MuscleAtlas activations={allActivations} selected={null} onSelect={vi.fn()} />);
+  it.each([
+    ['full', false, 296],
+    ['home compact', true, 212],
+  ] as const)('keeps every %s 44px target fully inside its actual atlas viewport', (_label, homeCompact, renderedHeight) => {
+    render(<MuscleAtlas activations={allActivations} selected={null} onSelect={vi.fn()} homeCompact={homeCompact} />);
 
     for (const view of ['front', 'back'] as const) {
       fireEvent.click(screen.getByRole('button', { name: `Show ${view} anatomy` }));
       const svg = screen.getByRole('group', { name: `${view === 'front' ? 'Front' : 'Back'} anatomy map` });
-      const [, , viewBoxWidth, viewBoxHeight] = svg.getAttribute('viewBox')!.split(' ').map(Number);
-      const renderedHeight = 296;
+      const [viewBoxMinX, viewBoxMinY, viewBoxWidth, viewBoxHeight] = svg.getAttribute('viewBox')!.split(' ').map(Number);
 
       for (const hitTarget of screen.getAllByTestId(/^atlas-hit-/)) {
         const centerX = Number(hitTarget.getAttribute('cx'));
         const centerY = Number(hitTarget.getAttribute('cy'));
         const radius = Number(hitTarget.getAttribute('r'));
-        const [minX] = view === 'front' ? [0] : [37];
-        expect(centerX - radius).toBeGreaterThanOrEqual(minX);
-        expect(centerX + radius).toBeLessThanOrEqual(minX + viewBoxWidth);
-        expect(centerY - radius).toBeGreaterThanOrEqual(0);
-        expect(centerY + radius).toBeLessThanOrEqual(viewBoxHeight);
+        expect(centerX - radius).toBeGreaterThanOrEqual(viewBoxMinX);
+        expect(centerX + radius).toBeLessThanOrEqual(viewBoxMinX + viewBoxWidth);
+        expect(centerY - radius).toBeGreaterThanOrEqual(viewBoxMinY);
+        expect(centerY + radius).toBeLessThanOrEqual(viewBoxMinY + viewBoxHeight);
         expect((radius * 2 * renderedHeight) / viewBoxHeight).toBeGreaterThanOrEqual(44);
       }
       expect(svg.getAttribute('height')).toBe(String(renderedHeight));
+    }
+  });
+
+  it('gives each published forearm contour exact ownership on both sides, independent of render order', () => {
+    const onSelect = vi.fn();
+    const forearms: MuscleActivation[] = [
+      { id: 'forearm-flexors', label: 'Forearm flexors', role: 'primary', view: 'back' },
+      { id: 'forearm-extensors', label: 'Forearm extensors', role: 'secondary', view: 'back' },
+    ];
+    const { rerender } = render(<MuscleAtlas activations={forearms} selected={null} onSelect={onSelect} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Show back anatomy' }));
+    const svg = screen.getByRole('group', { name: 'Back anatomy map' });
+    vi.spyOn(svg, 'getBoundingClientRect').mockReturnValue({
+      x: 0, y: 0, left: 0, top: 0, right: 350, bottom: 930, width: 350, height: 930, toJSON: () => ({}),
+    });
+    const [viewBoxMinX, viewBoxMinY, viewBoxWidth, viewBoxHeight] = svg.getAttribute('viewBox')!.split(' ').map(Number);
+    const interactionPlane = svg.querySelector('.muscle-atlas__interaction-plane')!;
+
+    for (const [pathId, owner] of [
+      ['forearm-flexors-left', 'forearm-flexors'],
+      ['forearm-flexors-right', 'forearm-flexors'],
+      ['forearm-extensors-left', 'forearm-extensors'],
+      ['forearm-extensors-right', 'forearm-extensors'],
+    ] as const) {
+      const path = document.querySelector(`[data-source-path-id="${pathId}"]`)!;
+      expect(path.getAttribute('pointer-events')).toBeNull();
+      expect(path.getAttribute('data-atlas-hit-owner')).toBe(owner);
+      const svgPoint = pathId.endsWith('left') ? (pathId.includes('extensors') ? [39, 35] : [41, 35]) : (pathId.includes('extensors') ? [66, 35] : [64, 35]);
+      const pointer = {
+        bubbles: true,
+        clientX: ((svgPoint[0] - viewBoxMinX) / viewBoxWidth) * 350,
+        clientY: ((svgPoint[1] - viewBoxMinY) / viewBoxHeight) * 930,
+      };
+
+      // The SVG coordinate resolver owns the same published interior point
+      // when the browser targets the surrounding interaction plane.
+      fireEvent(interactionPlane, new MouseEvent('pointerup', pointer));
+      expect(onSelect).toHaveBeenCalledExactlyOnceWith(owner);
+      onSelect.mockClear();
+
+      // On the painted contour, pointer-up defers to the exact source owner and
+      // its ensuing click selects once (no approximate duplicate callback).
+      fireEvent(path, new MouseEvent('pointerup', pointer));
+      expect(onSelect).not.toHaveBeenCalled();
+      fireEvent.click(path);
+      expect(onSelect).toHaveBeenCalledExactlyOnceWith(owner);
+      onSelect.mockClear();
+    }
+
+    rerender(<MuscleAtlas activations={[...forearms].reverse()} selected={null} onSelect={onSelect} />);
+    for (const [pathId, owner] of [
+      ['forearm-flexors-left', 'forearm-flexors'],
+      ['forearm-flexors-right', 'forearm-flexors'],
+      ['forearm-extensors-left', 'forearm-extensors'],
+      ['forearm-extensors-right', 'forearm-extensors'],
+    ] as const) {
+      const path = document.querySelector(`[data-source-path-id="${pathId}"]`)!;
+      fireEvent.click(path);
+      expect(onSelect).toHaveBeenCalledExactlyOnceWith(owner);
+      onSelect.mockClear();
     }
   });
 
@@ -259,5 +320,22 @@ describe('MuscleAtlas', () => {
 
     rerender(<MuscleAtlas activations={benchActivations} selected="rotator-cuff" onSelect={vi.fn()} />);
     await waitFor(() => expect(screen.getByText(deepCopy)).toBeTruthy());
+  });
+
+  it.each([
+    ['en', 'Show Pectoralis major, primary muscle, in front view', 'Show Triceps brachii, secondary muscle, in back view'],
+    ['es', 'Mostrar Pectoral mayor, músculo principal, en vista frontal', 'Mostrar Tríceps braquial, músculo secundario, en vista posterior'],
+    ['el', 'Εμφάνιση στην μπροστινή όψη: Μείζων θωρακικός, κύριος μυς', 'Εμφάνιση στην πίσω όψη: Τρικέφαλος βραχιόνιος, δευτερεύων μυς'],
+    ['de', 'Großer Brustmuskel, primärer Muskel, in der Vorderansicht anzeigen', 'Trizeps, sekundärer Muskel, in der Rückansicht anzeigen'],
+    ['fr', 'Afficher Grand pectoral, muscle principal, en vue avant', 'Afficher Triceps brachial, muscle secondaire, en vue arrière'],
+    ['it', 'Mostra Grande pettorale, muscolo principale, nella vista anteriore', 'Mostra Tricipite brachiale, muscolo secondario, nella vista posteriore'],
+    ['nl', 'Toon Grote borstspier, primaire spier, in vooraanzicht', 'Toon Triceps, secundaire spier, in achteraanzicht'],
+    ['pt', 'Mostrar Peitoral maior, músculo principal, na vista frontal', 'Mostrar Tríceps braquial, músculo secundário, na vista posterior'],
+  ])('renders complete front and back role actions in %s', (locale, frontAction, backAction) => {
+    atlasLocale.value = locale;
+    render(<MuscleAtlas activations={benchActivations} selected={null} onSelect={vi.fn()} />);
+
+    expect(screen.getByRole('button', { name: frontAction })).toBeTruthy();
+    expect(screen.getByRole('button', { name: backAction })).toBeTruthy();
   });
 });

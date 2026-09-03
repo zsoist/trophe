@@ -42,6 +42,10 @@ describe('muscle atlas theme contract', () => {
     expect(silhouette).not.toMatch(/(?:#(?:fff|ffffff|000|000000)|color-mix)/i);
   });
 
+  it('keeps licensed activation contours pointer-addressable for exact source ownership', () => {
+    expect(block('.muscle-atlas__region path')).not.toMatch(/pointer-events\s*:\s*none/);
+  });
+
   it('keeps restrained side-change motion, a visible rest state, and a fully static reduced-motion branch', () => {
     expect(block('.muscle-atlas__figure')).toContain('animation-duration: 220ms');
     expect(css).toMatch(/@keyframes muscle-atlas-front-in\s*\{[\s\S]*?to\s*\{\s*opacity:\s*1;\s*transform:\s*translateX\(0\);\s*\}/);

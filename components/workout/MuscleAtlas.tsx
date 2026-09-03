@@ -3,7 +3,8 @@
 import type { KeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useI18n } from '@/lib/i18n';
-import { ATLAS_GEOMETRY, atlasPathsFor, resolveAtlasHit, silhouettePathsFor } from '@/lib/workout/atlas-geometry';
+import { ATLAS_GEOMETRY, atlasPathsFor, atlasViewportFor, resolveAtlasHit, silhouettePathsFor } from '@/lib/workout/atlas-geometry';
+import type { AtlasViewport } from '@/lib/workout/atlas-geometry';
 import type { AnatomyMuscleId, AnatomyView, MuscleActivation, MuscleRole } from '@/lib/workout/anatomy';
 
 export interface MuscleAtlasProps {
@@ -35,12 +36,12 @@ function AtlasRegion({ activation, selected, onSelect, hitRadius, label }: { act
   return <g role="button" tabIndex={0} aria-pressed={selected === activation.id} aria-label={label} data-testid={`atlas-region-${activation.id}`} data-anatomy-source={geometry.sourceKind} {...(isDeepGuide ? { 'data-anatomy-depth': 'deep-guide' } : {})} className={regionClass(activation.role, selected === activation.id, isDeepGuide)} onClick={() => onSelect(activation.id)} onKeyDown={(event) => handleRegionKeyDown(event, activation.id, onSelect)}>
     {geometry.hitCenters.map(([hitX, hitY], index) => <circle key={`${hitX}-${hitY}`} className="muscle-atlas__hit-target" data-testid={`atlas-hit-${activation.id}-${index}`} data-min-hit-target="44" data-hit-owner={activation.id} cx={hitX} cy={hitY} r={hitRadius} />)}
     {isDeepGuide
-      ? <path d={geometry.guidePath} focusable="false" pointerEvents="none" aria-hidden="true" />
-      : atlasPathsFor(activation.id).map((path) => <path key={path.id} d={path.path} data-source-path-id={path.id} focusable="false" pointerEvents="none" aria-hidden="true" />)}
+      ? <path d={geometry.guidePath} data-atlas-hit-owner={activation.id} focusable="false" aria-hidden="true" />
+      : atlasPathsFor(activation.id).map((path) => <path key={path.id} d={path.path} data-source-path-id={path.id} data-atlas-hit-owner={activation.id} focusable="false" aria-hidden="true" />)}
   </g>;
 }
 
-function pointerToAtlasPoint(svg: SVGSVGElement, event: ReactPointerEvent<SVGSVGElement>, view: AnatomyView): readonly [number, number] | null {
+function pointerToAtlasPoint(svg: SVGSVGElement, event: ReactPointerEvent<SVGSVGElement>, viewport: AtlasViewport): readonly [number, number] | null {
   const matrix = svg.getScreenCTM?.();
   if (matrix && typeof svg.createSVGPoint === 'function') {
     const point = svg.createSVGPoint();
@@ -52,10 +53,9 @@ function pointerToAtlasPoint(svg: SVGSVGElement, event: ReactPointerEvent<SVGSVG
 
   const bounds = svg.getBoundingClientRect();
   if (bounds.width <= 0 || bounds.height <= 0) return null;
-  const minX = view === 'front' ? 0 : 37;
   return [
-    minX + ((event.clientX - bounds.left) / bounds.width) * 35,
-    ((event.clientY - bounds.top) / bounds.height) * 93,
+    viewport.minX + ((event.clientX - bounds.left) / bounds.width) * viewport.width,
+    viewport.minY + ((event.clientY - bounds.top) / bounds.height) * viewport.height,
   ];
 }
 
@@ -69,6 +69,7 @@ export function MuscleAtlas({ activations, selected = null, onSelect, compact = 
   const selectedGeometry = selected ? ATLAS_GEOMETRY[selected] : null;
   const summaryId = `muscle-atlas-summary-${useId().replaceAll(':', '')}`;
   const hitRadius = homeCompact ? 10 : 7;
+  const viewport = atlasViewportFor(view, hitRadius);
   const atlasSummary = selectedActivation && selectedGeometry
     ? <><strong>{t(muscleLabelKey(selectedActivation.id))}</strong>, {t(ROLE_ARIA_LABEL_KEYS[selectedActivation.role])}. {selectedGeometry.sourceKind === 'deep-location-guide' ? <span className="muscle-atlas__deep-detail">{`${t('workout.atlas_deep_marker')}. ${t('workout.atlas_deep_guide_detail', { muscle: t(muscleLabelKey(selectedActivation.id)) })}`}</span> : t('workout.atlas_surface_contour')}</>
     : t(view === 'front' ? 'workout.atlas_summary_front' : 'workout.atlas_summary_back', { visible: visibleActivations.length, total: activations.length });
@@ -79,7 +80,12 @@ export function MuscleAtlas({ activations, selected = null, onSelect, compact = 
   };
 
   const handleAtlasPointer = (event: ReactPointerEvent<SVGSVGElement>) => {
-    const point = pointerToAtlasPoint(event.currentTarget, event, view);
+    // A published contour belongs to its enclosing accessible region. Let the
+    // ensuing click activate that exact owner once; use proximity only for the
+    // surrounding transparent target area.
+    const eventElement = event.target instanceof Element ? event.target : null;
+    if (eventElement?.closest('[data-atlas-hit-owner]')) return;
+    const point = pointerToAtlasPoint(event.currentTarget, event, viewport);
     if (!point) return;
     const hit = resolveAtlasHit(visibleActivations.map((activation) => activation.id), view, point, hitRadius);
     if (hit) onSelect(hit);
@@ -99,15 +105,16 @@ export function MuscleAtlas({ activations, selected = null, onSelect, compact = 
   return <section className={`muscle-atlas${compact ? ' muscle-atlas--compact' : ''}${homeCompact ? ' muscle-atlas--home-compact' : ''}`} aria-label={t('workout.atlas_label')}>
     {!compact ? <div className="muscle-atlas__header"><div><h2>{t('workout.atlas_focus_title')}</h2><p>{t('workout.atlas_focus_hint')}</p></div><ViewControls view={view} setView={setView} t={t} /></div> : <ViewControls view={view} setView={setView} t={t} compact />}
     {!compact ? <p id={summaryId} className="muscle-atlas__summary" aria-live="polite">{atlasSummary}</p> : <p id={summaryId} className="muscle-atlas__screen-reader-table" aria-live="polite">{atlasSummary}</p>}
-    <div className="muscle-atlas__figure-wrap"><svg key={view} className={`muscle-atlas__figure muscle-atlas__figure--${view}`} height={homeCompact ? 212 : 296} viewBox={view === 'front' ? '0 0 35 93' : '37 0 35 93'} role="group" aria-describedby={summaryId} aria-label={t(view === 'front' ? 'workout.atlas_front_map' : 'workout.atlas_back_map')} onPointerUp={handleAtlasPointer}>
-      <rect className="muscle-atlas__interaction-plane" x={view === 'front' ? 0 : 37} y="0" width="35" height="93" aria-hidden="true" />
+    <div className="muscle-atlas__figure-wrap"><svg key={view} className={`muscle-atlas__figure muscle-atlas__figure--${view}`} height={homeCompact ? 212 : 296} viewBox={`${viewport.minX} ${viewport.minY} ${viewport.width} ${viewport.height}`} role="group" aria-describedby={summaryId} aria-label={t(view === 'front' ? 'workout.atlas_front_map' : 'workout.atlas_back_map')} onPointerUp={handleAtlasPointer}>
+      <rect className="muscle-atlas__interaction-plane" x={viewport.minX} y={viewport.minY} width={viewport.width} height={viewport.height} aria-hidden="true" />
       <g className="muscle-atlas__silhouette" aria-hidden="true">{silhouettePathsFor(view).map((path) => <path key={path.id} d={path.path} />)}</g>
       {visibleActivations.map((activation) => <AtlasRegion key={activation.id} activation={activation} selected={selected} onSelect={onSelect} hitRadius={hitRadius} label={t('workout.atlas_region_label', { muscle: t(muscleLabelKey(activation.id)), role: t(ROLE_ARIA_LABEL_KEYS[activation.role]) })} />)}
     </svg></div>
     <ul className="muscle-atlas__roles" aria-label={t('workout.atlas_roles_label')}>
       {roleActivations.map((activation) => {
         const side = t(ATLAS_GEOMETRY[activation.id].view === 'front' ? 'workout.atlas_side_front' : 'workout.atlas_side_back');
-        return <li key={activation.id} className={selected === activation.id ? 'is-selected' : ''}><button type="button" aria-pressed={selected === activation.id} aria-label={t('workout.atlas_role_action', { muscle: t(muscleLabelKey(activation.id)), role: t(ROLE_ARIA_LABEL_KEYS[activation.role]), side })} onClick={() => selectActivation(activation)}><span className={`muscle-atlas__swatch muscle-atlas__swatch--${activation.role}`} aria-hidden="true" /><span>{t(muscleLabelKey(activation.id))}{ATLAS_GEOMETRY[activation.id].sourceKind === 'deep-location-guide' ? ` · ${t('workout.atlas_deep_marker')}` : ''}</span><span className="muscle-atlas__side">{side}</span><strong>{t(ROLE_LABEL_KEYS[activation.role])}</strong></button></li>;
+        const actionKey = ATLAS_GEOMETRY[activation.id].view === 'front' ? 'workout.atlas_role_action_front' : 'workout.atlas_role_action_back';
+        return <li key={activation.id} className={selected === activation.id ? 'is-selected' : ''}><button type="button" aria-pressed={selected === activation.id} aria-label={t(actionKey, { muscle: t(muscleLabelKey(activation.id)), role: t(ROLE_ARIA_LABEL_KEYS[activation.role]) })} onClick={() => selectActivation(activation)}><span className={`muscle-atlas__swatch muscle-atlas__swatch--${activation.role}`} aria-hidden="true" /><span>{t(muscleLabelKey(activation.id))}{ATLAS_GEOMETRY[activation.id].sourceKind === 'deep-location-guide' ? ` · ${t('workout.atlas_deep_marker')}` : ''}</span><span className="muscle-atlas__side">{side}</span><strong>{t(ROLE_LABEL_KEYS[activation.role])}</strong></button></li>;
       })}
       {homeCompact && activations.length > roleActivations.length ? <li className="muscle-atlas__roles-summary"><span aria-hidden="true" /><span>{t('workout.atlas_more_highlighted', { n: activations.length - roleActivations.length })}</span></li> : null}
     </ul>

@@ -56,8 +56,11 @@ export const ATLAS_GEOMETRY: Record<AnatomyMuscleId, AtlasGeometry> = {
   'biceps-brachii': surface('front', ['biceps-left', 'biceps-right'], [[7, 27], [28, 27]]),
   'triceps-brachii': surface('back', ['triceps-long-left', 'triceps-lateral-left', 'triceps-long-right', 'triceps-lateral-right'], [[44, 27], [65, 27]]),
   brachialis: deepGuide('front', 'M8.6 24.2 C10.3 23.3 11.7 24.6 12.2 27.9 M25.4 24.2 C23.7 23.3 22.3 24.6 21.8 27.9', [[11, 26], [23, 26]]),
-  'forearm-flexors': surface('back', ['forearm-flexors-left', 'forearm-flexors-right'], [[44, 35], [64, 35]]),
-  'forearm-extensors': surface('back', ['forearm-extensors-left', 'forearm-extensors-right'], [[45, 35], [65, 35]]),
+  // Representative points are inside the published polygon bounds on both
+  // arms: flexors x=39.814..42.870 / 61.764..65.204 and extensors
+  // x=37.998..40.625 / 64.075..67.002 at y=35.
+  'forearm-flexors': surface('back', ['forearm-flexors-left', 'forearm-flexors-right'], [[41, 35], [64, 35]]),
+  'forearm-extensors': surface('back', ['forearm-extensors-left', 'forearm-extensors-right'], [[39, 35], [66, 35]]),
   'rectus-abdominis': surface('front', ['abs-upper-left', 'abs-upper-right', 'abs-lower-left', 'abs-lower-right'], [[17, 38]]),
   obliques: surface('front', ['obliques-left', 'obliques-right'], [[11, 33], [23, 33]]),
   'gluteus-maximus': surface('back', ['gluteus-maximus-left', 'gluteus-maximus-right'], [[50, 48], [58, 48]]),
@@ -96,6 +99,36 @@ export function resolveAtlasHit(
 
 export function atlasViewFor(id: AnatomyMuscleId): AnatomyView {
   return ATLAS_GEOMETRY[id].view;
+}
+
+export interface AtlasViewport {
+  minX: number;
+  minY: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Adds only the symmetric horizontal breathing room needed by the real target
+ * unions for a view. This keeps the body centred while ensuring edge muscles
+ * retain their full 44px-equivalent circle in the compact 212px rendering.
+ */
+export function atlasViewportFor(view: AnatomyView, hitRadius: number): AtlasViewport {
+  const bodyMinX = view === 'front' ? 0 : 37;
+  const bodyMaxX = bodyMinX + 35;
+  const centers = Object.values(ATLAS_GEOMETRY)
+    .filter((geometry) => geometry.view === view)
+    .flatMap((geometry) => geometry.hitCenters);
+  const leftOverflow = Math.max(0, ...centers.map(([x]) => bodyMinX - (x - hitRadius)));
+  const rightOverflow = Math.max(0, ...centers.map(([x]) => (x + hitRadius) - bodyMaxX));
+  const horizontalExpansion = Math.max(leftOverflow, rightOverflow);
+
+  return {
+    minX: bodyMinX - horizontalExpansion,
+    minY: 0,
+    width: 35 + (horizontalExpansion * 2),
+    height: 93,
+  };
 }
 
 export function atlasPathsFor(id: AnatomyMuscleId): readonly SourcePath[] {

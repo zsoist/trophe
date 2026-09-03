@@ -11,11 +11,12 @@ guides (`rotator-cuff`, `rhomboids`, and `brachialis`). No imperative
 The adversarial review follow-up is complete. Bilateral regions now have
 contour-aligned hit zones, dense exercise combinations use a deterministic
 nearest-owner resolver, and real SVG pointer coordinates feed that resolver
-instead of relying on DOM paint order. The role list is complete across both
-sides, role actions switch the figure intentionally, and compact mode counts
-the full activation set. Neutral body context now clears 3:1 in both themes,
-and front/back/deep copy is locale-owned and completeness-guarded in all eight
-supported languages.
+instead of relying on DOM paint order. A tap on an active published contour is
+owned exactly by that contour, while taps in the surrounding transparent target
+area use the resolver. The role list is complete across both sides, role actions
+switch the figure intentionally, and compact mode counts the full activation
+set. Neutral body context now clears 3:1 in both themes, and front/back/deep
+copy is locale-owned and completeness-guarded in all eight supported languages.
 
 ## TDD evidence
 
@@ -55,14 +56,21 @@ NODE_OPTIONS=--no-experimental-webstorage npx vitest run \
   tests/components/muscle-atlas.test.tsx \
   tests/components/muscle-atlas-theme.test.ts \
   tests/i18n/exercise-picker-copy.test.ts
-4 files passed, 46 tests passed
+4 files passed, 59 tests passed
 ```
 
 The tests independently assert all 26 regions, the 23/3 source split,
 fine-grained published path IDs, deep-guide DOM contract, canonical posterior
 views, representative point ownership for bench, squat, curl, and both forearm
 roles, activation-order independence, real SVG pointer routing with exactly one
-selection, full role semantics, and the minimum hit geometry.
+selection, full role semantics, complete role-action sentences in eight
+locales, and the minimum hit geometry independently at 296px and 212px.
+
+The final re-review fixes also started with a focused RED. It reproduced a
+compact posterior target clipped to `-3px`, the left extensor contour resolving
+to flexors, missing exact source-contour ownership, and missing complete
+locale-owned action sentences in all eight locales. The geometry and component
+suite above is the subsequent GREEN result.
 
 ## Mapping and provenance
 
@@ -75,6 +83,11 @@ selection, full role semantics, and the minimum hit geometry.
 - Curated activation data now places triceps and the forearm path-data regions
   on the posterior atlas view. Core `lib/workout/anatomy.ts` stays lightweight
   and has no visual-geometry/package import.
+- Forearm representative points come from the published body-muscles contour
+  interiors rather than hand-picked region centres. At `y=35`, flexors use
+  `(41,35)` / `(64,35)` within published left/right x-bounds
+  `39.814..42.870` / `61.764..65.204`; extensors use `(39,35)` / `(66,35)`
+  within `37.998..40.625` / `64.075..67.002`.
 - `THIRD_PARTY_NOTICES.md` records `body-muscles` 1.0.0, its exact npm
   integrity, Apache-2.0 license, NOTICE attribution, source URL, and renderer
   modifications. It also records the OpenStax/Wikimedia provenance links used
@@ -86,18 +99,22 @@ selection, full role semantics, and the minimum hit geometry.
   paths are not focusable. Click, Enter, and Space activate it; focus alone
   does not select it.
 - Each accessible muscle group may own multiple transparent, bilateral hit
-  zones. Those shapes do not receive pointer events themselves; the figure's
-  interaction plane converts the gesture to SVG coordinates and selects the
-  closest eligible owner with canonical-ID tie-breaking. This makes overlap
-  independent of SVG z-order while leaving every tested region reachable.
+  zones. Licensed and deep-guide contours are pointer-addressable and carry
+  exact owner metadata, so a tap on a visible contour selects that owner even
+  where neighbouring hit zones overlap. The figure's interaction plane handles
+  surrounding taps by converting the gesture to SVG coordinates and choosing
+  the closest eligible owner with canonical-ID tie-breaking. This preserves
+  order-independent proximity behaviour without allowing DOM paint order to
+  steal exact contour taps.
 - Controls use `aria-pressed`; controlled selections and complete role-list
   actions intentionally cross views. The sole semantic role list includes all
   activations with localized Front/Back tags; the former duplicate partial
   screen-reader table is removed. `homeCompact` shows the selected/leading role
   and a remainder count based on the full set.
 - Transparent targets are 44px-equivalent at both 296px and compact 212px
-  render heights and remain wholly inside each viewBox, including posterior arm
-  targets at the edge.
+  render heights and remain wholly inside each viewBox. Each side receives the
+  same view-aware horizontal expansion needed by its largest edge target, so
+  posterior arm targets are not clipped and the body remains centred.
 - Motion is one 220ms opacity/4px signed horizontal transition with separate
   front/back keyframes that both end at the visible resting state. Reduced
   motion disables animation and transitions. Role treatment remains distinct
@@ -110,7 +127,9 @@ selection, full role semantics, and the minimum hit geometry.
 ## Localization contract
 
 - Dedicated grammatical front and back summary sentences report visible roles
-  and the total exercise activation count.
+  and the total exercise activation count. Role-action labels are also complete
+  locale-owned front/back sentences; they are no longer assembled by inserting
+  translated fragments into an English-shaped template.
 - Deep guides use a stable localized noun phrase (for example, “Deep
   location”), followed by locale-owned explanatory copy rather than adjective
   composition.
@@ -126,11 +145,14 @@ Passed:
 
 ```text
 NODE_OPTIONS=--no-experimental-webstorage npx vitest run tests/workout/atlas-geometry.test.ts tests/components/muscle-atlas.test.tsx tests/components/muscle-atlas-theme.test.ts tests/i18n/exercise-picker-copy.test.ts
-npx eslint components/workout/MuscleAtlas.tsx lib/workout/atlas-geometry.ts tests/components/muscle-atlas.test.tsx tests/components/muscle-atlas-theme.test.ts tests/workout/atlas-geometry.test.ts tests/i18n/exercise-picker-copy.test.ts lib/i18n.tsx lib/locales/de.ts lib/locales/fr.ts lib/locales/it.ts lib/locales/nl.ts lib/locales/pt.ts
+npx eslint components/workout/MuscleAtlas.tsx lib/workout/atlas-geometry.ts tests/components/muscle-atlas.test.tsx tests/components/muscle-atlas-theme.test.ts tests/components/exercise-detail-v3.test.tsx tests/workout/atlas-geometry.test.ts tests/i18n/exercise-picker-copy.test.ts lib/i18n.tsx lib/locales/de.ts lib/locales/fr.ts lib/locales/it.ts lib/locales/nl.ts lib/locales/pt.ts
 npm run typecheck
 git diff --check
 npm ls body-muscles --depth=0
 ```
+
+An eight-file atlas/consumer verification passed 84 tests, including the V3
+exercise-detail and workout-home consumers.
 
 The current branch still has three independently reproducible unrelated stale
 consumer assertions: `exercise-picker-atlas.test.tsx` expects the superseded V2

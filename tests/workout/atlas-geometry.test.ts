@@ -46,8 +46,12 @@ describe('atlas geometry provenance', () => {
     ['squat adductors', 'front', ['quadriceps', 'adductors'], [14, 48], 'adductors'],
     ['curl biceps', 'front', ['biceps-brachii', 'brachialis'], [7, 27], 'biceps-brachii'],
     ['curl brachialis', 'front', ['biceps-brachii', 'brachialis'], [11, 26], 'brachialis'],
-    ['forearm flexors', 'back', ['forearm-flexors', 'forearm-extensors'], [44, 35], 'forearm-flexors'],
-    ['forearm extensors', 'back', ['forearm-flexors', 'forearm-extensors'], [45, 35], 'forearm-extensors'],
+    // These four points sit inside the published body-muscles@1.0.0 polygon
+    // bounds, rather than at self-authored target centres.
+    ['forearm flexors left', 'back', ['forearm-flexors', 'forearm-extensors'], [41, 35], 'forearm-flexors'],
+    ['forearm extensors left', 'back', ['forearm-flexors', 'forearm-extensors'], [39, 35], 'forearm-extensors'],
+    ['forearm flexors right', 'back', ['forearm-flexors', 'forearm-extensors'], [64, 35], 'forearm-flexors'],
+    ['forearm extensors right', 'back', ['forearm-flexors', 'forearm-extensors'], [66, 35], 'forearm-extensors'],
   ] as const)('gives %s a deterministic reachable point owned by the visible contour', (_name, view, activeIds, point, expected) => {
     expect(resolveAtlasHit(activeIds, view, point, 7)).toBe(expected);
     expect(resolveAtlasHit([...activeIds].reverse(), view, point, 7)).toBe(expected);

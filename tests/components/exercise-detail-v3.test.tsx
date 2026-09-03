@@ -168,7 +168,7 @@ describe('premium exercise detail', () => {
     expect(screen.getByRole('button', { name: 'Setup phase' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Work phase' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Finish phase' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Pectoralis major, primary muscle/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^Pectoralis major, primary muscle$/i })).toBeTruthy();
     expect(screen.getAllByText('Pectoralis major').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Primary').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Barbell')).toHaveLength(2);
