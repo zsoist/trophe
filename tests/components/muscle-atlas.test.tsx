@@ -11,6 +11,16 @@ const benchActivations: MuscleActivation[] = [
   { id: 'rotator-cuff', label: 'Rotator cuff', role: 'stabilizer', view: 'back' },
 ];
 
+const allActivations: MuscleActivation[] = [
+  ['pectoralis-major', 'front'], ['serratus-anterior', 'front'], ['anterior-deltoid', 'front'], ['middle-deltoid', 'front'],
+  ['posterior-deltoid', 'back'], ['rotator-cuff', 'back'], ['upper-trapezius', 'back'], ['lower-trapezius', 'back'],
+  ['latissimus-dorsi', 'back'], ['rhomboids', 'back'], ['erector-spinae', 'back'], ['biceps-brachii', 'front'],
+  ['triceps-brachii', 'back'], ['brachialis', 'front'], ['forearm-flexors', 'front'], ['forearm-extensors', 'back'],
+  ['rectus-abdominis', 'front'], ['obliques', 'front'], ['gluteus-maximus', 'back'], ['gluteus-medius', 'back'],
+  ['quadriceps', 'front'], ['hamstrings', 'back'], ['adductors', 'front'], ['gastrocnemius', 'back'], ['soleus', 'back'],
+  ['tibialis-anterior', 'front'],
+].map(([id, view]) => ({ id, label: id, role: 'primary', view } as MuscleActivation));
+
 afterEach(cleanup);
 
 describe('MuscleAtlas', () => {
@@ -55,6 +65,29 @@ describe('MuscleAtlas', () => {
 
     expect(hitTarget.getAttribute('r')).toBe('23');
     expect(hitTarget.getAttribute('data-min-hit-target')).toBe('44');
+  });
+
+  it('keeps every rendered 44px target fully inside the atlas viewport', () => {
+    render(<MuscleAtlas activations={allActivations} selected={null} onSelect={vi.fn()} />);
+
+    for (const view of ['front', 'back'] as const) {
+      fireEvent.click(screen.getByRole('button', { name: `Show ${view} anatomy` }));
+      const svg = screen.getByRole('group', { name: `${view === 'front' ? 'Front' : 'Back'} anatomy map` });
+      const [, , viewBoxWidth, viewBoxHeight] = svg.getAttribute('viewBox')!.split(' ').map(Number);
+      const renderedHeight = 296;
+
+      for (const hitTarget of screen.getAllByTestId(/^atlas-hit-/)) {
+        const centerX = Number(hitTarget.getAttribute('cx'));
+        const centerY = Number(hitTarget.getAttribute('cy'));
+        const radius = Number(hitTarget.getAttribute('r'));
+        expect(centerX - radius).toBeGreaterThanOrEqual(0);
+        expect(centerX + radius).toBeLessThanOrEqual(viewBoxWidth);
+        expect(centerY - radius).toBeGreaterThanOrEqual(0);
+        expect(centerY + radius).toBeLessThanOrEqual(viewBoxHeight);
+        expect((radius * 2 * renderedHeight) / viewBoxHeight).toBeGreaterThanOrEqual(44);
+      }
+      expect(svg.getAttribute('height')).toBe(String(renderedHeight));
+    }
   });
 
   it('changes to the selected muscle view when controlled selection crosses sides', async () => {

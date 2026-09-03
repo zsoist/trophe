@@ -49,14 +49,14 @@ const ROLE_LABELS: Record<MuscleRole, string> = {
   stabilizer: 'Stabilizer',
 };
 
-/* 46 SVG units render as at least 44 CSS pixels in the fixed 18.5rem / 306-unit map. */
+/* 46 SVG units render as at least 44 CSS pixels in the fixed 296px / 306-unit map. */
 const HIT_CENTERS: Record<AnatomyMuscleId, readonly [number, number]> = {
-  'pectoralis-major': [60, 94], 'serratus-anterior': [30, 123], 'anterior-deltoid': [25, 82], 'middle-deltoid': [18, 92],
+  'pectoralis-major': [60, 94], 'serratus-anterior': [30, 123], 'anterior-deltoid': [25, 82], 'middle-deltoid': [23, 92],
   'posterior-deltoid': [25, 82], 'rotator-cuff': [39, 83], 'upper-trapezius': [60, 68], 'lower-trapezius': [60, 105],
-  'latissimus-dorsi': [37, 124], rhomboids: [60, 101], 'erector-spinae': [60, 144], 'biceps-brachii': [22, 130],
-  'triceps-brachii': [22, 130], brachialis: [31, 137], 'forearm-flexors': [20, 182], 'forearm-extensors': [20, 182],
+  'latissimus-dorsi': [37, 124], rhomboids: [60, 101], 'erector-spinae': [60, 144], 'biceps-brachii': [23, 130],
+  'triceps-brachii': [23, 130], brachialis: [31, 137], 'forearm-flexors': [23, 182], 'forearm-extensors': [23, 182],
   'rectus-abdominis': [60, 141], obliques: [38, 144], 'gluteus-maximus': [60, 185], 'gluteus-medius': [38, 172],
-  quadriceps: [45, 211], hamstrings: [45, 224], adductors: [55, 211], gastrocnemius: [46, 270], soleus: [47, 287],
+  quadriceps: [45, 211], hamstrings: [45, 224], adductors: [55, 211], gastrocnemius: [46, 270], soleus: [47, 283],
   'tibialis-anterior': [44, 274],
 };
 
@@ -117,7 +117,7 @@ export function MuscleAtlas({ activations, selected = null, onSelect, compact = 
       </div>}
 
       <div className="muscle-atlas__figure-wrap">
-        <svg className="muscle-atlas__figure" viewBox="0 0 120 306" role="group" aria-label={`${view === 'front' ? 'Front' : 'Back'} anatomy map`}>
+        <svg className="muscle-atlas__figure" height="296" viewBox="0 0 120 306" role="group" aria-label={`${view === 'front' ? 'Front' : 'Back'} anatomy map`}>
           <path className="muscle-atlas__frame" d="M51 13h18v24l10 14 18 12-5 44-12 52-8 42 13 49-6 56H41l-6-56 13-49-8-42-12-52-5-44 18-12 10-14z" />
           <path className="muscle-atlas__axis" d="M60 39v258" />
           {visibleActivations.map((activation) => {
