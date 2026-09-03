@@ -266,7 +266,7 @@ describe('Workout home v3', () => {
 
     renderHome({ program: mixedProgram });
 
-    expect(screen.getByRole('button', { name: 'Anterior deltoid, Primary muscle' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Anterior deltoid, primary muscle' })).toBeTruthy();
   });
 
   it('attributes an adaptive recommendation to the recommendation on a coach rest day', () => {

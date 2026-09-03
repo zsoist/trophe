@@ -106,13 +106,13 @@ describe('MuscleAtlas', () => {
   });
 
   it.each([
-    ['en', ['Pectoralis major, Primary muscle', 'Triceps brachii, Secondary muscle', 'Brachialis, Stabilizer muscle']],
+    ['en', ['Pectoralis major, primary muscle', 'Triceps brachii, secondary muscle', 'Brachialis, stabilizer muscle']],
     ['es', ['Pectoral mayor, músculo principal', 'Tríceps braquial, músculo secundario', 'Braquial, músculo estabilizador']],
-    ['el', ['Μείζων θωρακικός, Κύριος μυς', 'Τρικέφαλος βραχιόνιος, Δευτερεύων μυς', 'Βραχιόνιος, Σταθεροποιητικός μυς']],
-    ['de', ['Großer Brustmuskel, Primärer Muskel', 'Trizeps, Sekundärer Muskel', 'Armbeuger, Stabilisierender Muskel']],
+    ['el', ['Μείζων θωρακικός, κύριος μυς', 'Τρικέφαλος βραχιόνιος, δευτερεύων μυς', 'Βραχιόνιος, σταθεροποιητικός μυς']],
+    ['de', ['Großer Brustmuskel, primärer Muskel', 'Trizeps, sekundärer Muskel', 'Armbeuger, stabilisierender Muskel']],
     ['fr', ['Grand pectoral, muscle principal', 'Triceps brachial, muscle secondaire', 'Brachial, muscle stabilisateur']],
     ['it', ['Grande pettorale, muscolo principale', 'Tricipite brachiale, muscolo secondario', 'Brachiale, muscolo stabilizzatore']],
-    ['nl', ['Grote borstspier, Primaire spier', 'Triceps, Secundaire spier', 'Brachialis, Stabiliserende spier']],
+    ['nl', ['Grote borstspier, primaire spier', 'Triceps, secundaire spier', 'Brachialis, stabiliserende spier']],
     ['pt', ['Peitoral maior, músculo principal', 'Tríceps braquial, músculo secundário', 'Braquial, músculo estabilizador']],
   ])('composes grammatically complete %s region aria labels for every role', (locale, expectedLabels) => {
     atlasLocale.value = locale;
