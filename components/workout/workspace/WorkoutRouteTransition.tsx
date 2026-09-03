@@ -33,7 +33,7 @@ export function WorkoutRouteTransition({ children }: { children: ReactNode }) {
   const animateRoute = changed && !reducedMotion;
 
   return (
-    <AnimatePresence mode="popLayout" initial={false}>
+    <AnimatePresence mode="wait" initial={false}>
       <motion.div
         ref={routeSurface}
         key={routePathname}
