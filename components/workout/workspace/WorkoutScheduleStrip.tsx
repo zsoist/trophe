@@ -11,8 +11,13 @@ interface WorkoutScheduleStripProps {
 
 export function WorkoutScheduleStrip({ program, todayName, todaySource }: WorkoutScheduleStripProps) {
   const programName = program?.programName ?? 'Coach schedule';
+  const todayNote = todaySource === 'Recommended by Trophē'
+    ? 'Adaptive plan'
+    : todaySource === 'Assigned by coach'
+      ? programName
+      : 'Today’s plan';
   const rows = [
-    ...(todayName ? [{ when: 'Today', name: todayName, note: program?.programName ?? (todaySource === 'Recommended by Trophē' ? 'Adaptive plan' : 'Today’s plan') }] : []),
+    ...(todayName ? [{ when: 'Today', name: todayName, note: todayNote }] : []),
     ...(program?.alsoToday ?? []).map((template) => ({ when: 'Later today', name: template.name, note: programName })),
     ...(program?.nextTemplateName ? [{ when: program.nextWeekday == null ? 'Next' : WEEKDAYS[program.nextWeekday] ?? 'Next', name: program.nextTemplateName, note: programName }] : []),
   ];

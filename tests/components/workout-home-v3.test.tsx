@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import React from 'react';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const { push, startLiveSession } = vi.hoisted(() => ({
@@ -30,6 +30,8 @@ vi.mock('@/lib/i18n', () => ({
       'workout.exercise_count': `${params?.n} exercises`,
       'workout.preview': 'Preview',
       'workout.use_template': 'Use this template',
+      'workout.continue_editing': 'Continue editing',
+      'workout.continue_review': 'Continue review',
       'general.cancel': 'Cancel',
       'workout.replace_choice_title': 'Replace this draft?',
       'workout.replace_choice_message': `Replace ${params?.current} with ${params?.next}? Your current draft will be removed.`,
@@ -55,6 +57,7 @@ class MemoryStorage {
 const exercises: Exercise[] = [
   { id: 'bench', name: 'Barbell Bench Press', name_es: null, name_el: null, muscle_group: 'chest', secondary_muscles: ['triceps', 'shoulders'], equipment: 'barbell', is_compound: true, is_template: true, created_by: null, created_at: '' },
   { id: 'row', name: 'Seated Cable Row', name_es: null, name_el: null, muscle_group: 'back', secondary_muscles: ['biceps'], equipment: 'cable', is_compound: true, is_template: true, created_by: null, created_at: '' },
+  { id: 'press', name: 'Shoulder Press', name_es: null, name_el: null, muscle_group: 'shoulders', secondary_muscles: ['triceps'], equipment: 'dumbbell', is_compound: true, is_template: true, created_by: null, created_at: '' },
 ];
 
 const coachProgram: WorkoutHomeProgram = {
@@ -87,10 +90,14 @@ function renderHome({
   program = null,
   recommended = null,
   initialState,
+  programLoading = false,
+  recommendationLoading = false,
 }: {
   program?: WorkoutHomeProgram | null;
   recommended?: WorkoutRecommendation | null;
   initialState?: WorkoutWorkspaceState;
+  programLoading?: boolean;
+  recommendationLoading?: boolean;
 } = {}) {
   const storage = new MemoryStorage();
   if (initialState) saveWorkspaceState(storage, 'nik', initialState);
@@ -100,6 +107,8 @@ function renderHome({
         exercises={exercises}
         program={program}
         recommendation={recommended}
+        programLoading={programLoading}
+        recommendationLoading={recommendationLoading}
         recents={[]}
         routines={[]}
       />
@@ -151,6 +160,106 @@ describe('Workout home v3', () => {
 
     expect(push).toHaveBeenCalledWith('/dashboard/workout/exercises');
     expect(startLiveSession).not.toHaveBeenCalled();
+  });
+
+  it('renders an honest neutral atlas when there is no strength target', () => {
+    renderHome();
+
+    expect(screen.getByText('No muscle target selected')).toBeTruthy();
+    expect(screen.getByText(/add strength exercises to see their muscle roles/i)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /pectoralis major|latissimus dorsi|quadriceps|hamstrings/i })).toBeNull();
+  });
+
+  it('does not invent strength activation evidence for a cardio draft', () => {
+    renderHome({
+      initialState: {
+        stage: 'draft',
+        draft: { version: 2, kind: 'cardio', name: 'Easy run', updatedAt: 1, activity: 'run', durationMinutes: 30, distanceKm: 5, effort: 6 },
+        sessionId: null,
+        clock: null,
+        clientRequestId: null,
+      },
+    });
+
+    expect(screen.getByText('Cardio session · no named muscle target')).toBeTruthy();
+    expect(screen.getByText(/cardio is tracked by activity, duration, distance, and effort/i)).toBeTruthy();
+    expect(screen.queryByText(/lower body · core/i)).toBeNull();
+    expect(screen.queryByRole('button', { name: /pectoralis major|quadriceps/i })).toBeNull();
+  });
+
+  it('blocks draft actions and schedule claims until both plan queries resolve', () => {
+    renderHome({ programLoading: true, recommendationLoading: true });
+
+    expect(screen.getByRole('status', { name: 'Loading workout plan' })).toBeTruthy();
+    expect(screen.getByText(/checking today’s coach assignment and recommendation/i)).toBeTruthy();
+    expect(screen.queryByTestId('workout-primary-action')).toBeNull();
+    expect(screen.queryByRole('button', { name: /build workout|review plan/i })).toBeNull();
+    expect(screen.queryByText(/no coach session is scheduled/i)).toBeNull();
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it('keeps the recoverable draft as the singular action when an offered plan also exists', () => {
+    renderHome({
+      program: coachProgram,
+      initialState: {
+        stage: 'draft',
+        draft: { version: 2, name: 'Saved pull', kind: 'strength', updatedAt: 1, exercises: [{ exerciseId: 'row', exerciseName: 'Seated Cable Row', muscleGroup: 'back', targetSets: 3, targetReps: '8' }] },
+        sessionId: null,
+        clock: null,
+        clientRequestId: null,
+      },
+    });
+
+    expect(screen.getAllByTestId('workout-primary-action')).toHaveLength(1);
+    expect(screen.getByTestId('workout-primary-action').textContent).toMatch(/continue editing/i);
+    expect(screen.queryByRole('button', { name: 'Review plan' })).toBeNull();
+  });
+
+  it('keeps the home atlas compact and places its contextual action immediately after it', () => {
+    renderHome({ program: coachProgram });
+
+    const atlas = screen.getByLabelText('Muscle activation atlas');
+    const anatomy = screen.getByRole('group', { name: 'Front anatomy map' });
+    const roles = screen.getByRole('list', { name: 'Highlighted muscle roles' });
+    const action = screen.getByTestId('workout-primary-action');
+    expect(atlas.className).toContain('muscle-atlas--home-compact');
+    expect(anatomy.getAttribute('height')).toBe('212');
+    expect(within(roles).getAllByRole('listitem').length).toBeLessThanOrEqual(2);
+    expect(atlas.compareDocumentPosition(action) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it.each([
+    ['secondary first', ['bench', 'press']],
+    ['primary first', ['press', 'bench']],
+  ] as const)('keeps the strongest role when the same muscle is resolved more than once: %s', (_label, exerciseOrder) => {
+    const byId = new Map([
+      ['bench', coachProgram.todayTemplate!.exercises[0]],
+      ['press', { exerciseId: 'press', exerciseName: 'Shoulder Press', muscleGroup: 'shoulders' as const, targetSets: 3, targetReps: '8-10' }],
+    ]);
+    const mixedProgram: WorkoutHomeProgram = {
+      ...coachProgram,
+      todayTemplate: {
+        ...coachProgram.todayTemplate!,
+        muscleSummary: ['chest', 'shoulders'],
+        exercises: exerciseOrder.map((id) => byId.get(id)!),
+      },
+    };
+
+    renderHome({ program: mixedProgram });
+
+    expect(screen.getByRole('button', { name: 'Anterior deltoid, Primary muscle' })).toBeTruthy();
+  });
+
+  it('attributes an adaptive recommendation to the recommendation on a coach rest day', () => {
+    renderHome({
+      program: { ...coachProgram, todayTemplate: null },
+      recommended: recommendation,
+    });
+
+    const schedule = screen.getByRole('region', { name: 'Schedule' });
+    const today = within(schedule).getAllByRole('listitem')[0];
+    expect(today.textContent).toContain('Adaptive plan');
+    expect(today.textContent).not.toContain('Strength Base');
   });
 
   it.each(['live', 'paused'] as const)('uses Resume workout only for a recoverable %s session', async (stage) => {

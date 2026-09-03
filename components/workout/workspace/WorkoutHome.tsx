@@ -50,10 +50,6 @@ type ReplacementChoice = {
     | { type: 'template'; value: WorkoutHomeTemplate };
 };
 
-const DEFAULT_ACTIVATIONS = ['chest', 'back', 'quads', 'hamstrings']
-  .flatMap((muscleGroup) => resolveMuscleActivations({ muscleGroup }))
-  .map((activation) => ({ ...activation, role: 'primary' as const }));
-
 function templateFromRecommendation(recommendation: WorkoutRecommendation | null | undefined): WorkoutHomeTemplate | null {
   if (!recommendation?.exercises.length) return null;
   return {
@@ -73,7 +69,7 @@ function templateFromRecommendation(recommendation: WorkoutRecommendation | null
 }
 
 function uniqueActivations(template: WorkoutHomeTemplate | null, exercises: Exercise[]): MuscleActivation[] {
-  if (!template) return DEFAULT_ACTIVATIONS;
+  if (!template) return [];
   const byId = new Map(exercises.map((exercise) => [exercise.id, exercise]));
   const resolved = template.exercises.flatMap((draftExercise) => {
     const exercise = byId.get(draftExercise.exerciseId);
@@ -84,8 +80,13 @@ function uniqueActivations(template: WorkoutHomeTemplate | null, exercises: Exer
     });
   });
   const fallbacks = template.muscleSummary.flatMap((muscleGroup) => resolveMuscleActivations({ muscleGroup }));
-  const unique = [...resolved, ...fallbacks].filter((activation, index, all) => all.findIndex((candidate) => candidate.id === activation.id) === index);
-  return unique.length ? unique : DEFAULT_ACTIVATIONS;
+  const roleStrength = { primary: 3, secondary: 2, stabilizer: 1 } as const;
+  const strongestById = new Map<MuscleActivation['id'], MuscleActivation>();
+  for (const activation of [...resolved, ...fallbacks]) {
+    const current = strongestById.get(activation.id);
+    if (!current || roleStrength[activation.role] > roleStrength[current.role]) strongestById.set(activation.id, activation);
+  }
+  return Array.from(strongestById.values());
 }
 
 function workspaceTemplate(state: WorkoutWorkspaceState): WorkoutHomeTemplate | null {
@@ -127,9 +128,10 @@ export function WorkoutHome({
   const recoveredTemplate = workspaceTemplate(workspace.state);
   const displayedTemplate = recoveredTemplate ?? offeredTemplate;
   const activations = useMemo(() => uniqueActivations(displayedTemplate, exercises), [displayedTemplate, exercises]);
+  const isCardioDraft = workspace.state.draft?.kind === 'cardio';
   const targetLabel = displayedTemplate?.muscleSummary.length
     ? displayedTemplate.muscleSummary.map((muscle) => t(muscleLabelKey(muscle))).join(' · ')
-    : workspace.state.draft?.kind === 'cardio' ? 'Cardio · Lower body · Core' : 'Choose a highlighted muscle to explore';
+    : isCardioDraft ? 'Cardio session · no named muscle target' : 'No muscle target selected';
   const source = activeStage ? 'Workout in progress' : workspace.state.stage === 'completed' ? 'Completed workout' : hasDraft ? 'Your saved draft' : assignedTemplate ? 'Assigned by coach' : recommendedTemplate ? 'Recommended by Trophē' : 'Open training';
   const readiness = workspace.state.stage === 'live' || workspace.state.stage === 'paused' ? 'Ready to resume' : recoveryStage ? 'Session recovered' : hasDraft ? 'Draft saved' : offeredTemplate ? 'Ready to review' : 'Ready to build';
   const estimatedDuration = workspace.state.draft?.kind === 'cardio'
@@ -178,21 +180,31 @@ export function WorkoutHome({
           : offeredTemplate
             ? { label: 'Review plan', action: () => reviewTemplate(offeredTemplate) }
             : { label: 'Build workout', action: buildStrength };
-  const showLoading = !offeredTemplate && !hasDraft && !recoveryStage && (programLoading || recommendationLoading);
+  const showLoading = !hasDraft && !recoveryStage && (programLoading || recommendationLoading);
+
+  if (showLoading) {
+    return (
+      <main className="mx-auto max-w-2xl px-4 py-4 sm:py-5">
+        <section role="status" aria-live="polite" aria-label="Loading workout plan" data-loading-skeleton className="rounded-[14px] border border-[var(--workout-rail)] bg-[var(--workout-surface)] px-4 py-3">
+          <p className="text-sm font-semibold text-[var(--content-primary)]">Loading today&apos;s training</p>
+          <p className="mt-1 text-xs leading-5 text-[var(--content-secondary)]">Checking today’s coach assignment and recommendation before workout actions become available.</p>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto max-w-2xl space-y-4 px-4 py-4 sm:py-5">
       {hasDraft || recoveryStage ? <p className="rounded-xl border border-[var(--workout-rail)] bg-[var(--workout-surface)] px-3 py-2 text-xs text-[var(--content-secondary)]">{activeStage ? 'Your active session was recovered. Your logged work is still here.' : workspace.state.stage === 'completed' ? 'Your completed session is ready to review.' : 'Your saved draft is available on this device.'}</p> : null}
 
-      {showLoading ? <div role="status" aria-label="Loading workout plan" data-loading-skeleton className="h-28 animate-pulse rounded-[14px] bg-[var(--surface-subtle)]" /> : <WorkoutTodayRail title={displayedTemplate?.name ?? workspace.state.draft?.name ?? 'Build today’s workout'} source={source} readiness={readiness} workSummary={workspace.state.draft?.kind === 'cardio' ? 'Cardio session' : displayedTemplate?.exercises.length ? `${displayedTemplate.exercises.length} exercises` : 'Choose your exercises'} nextAction={primaryAction.label} estimatedDurationMinutes={estimatedDuration} />}
+      <WorkoutTodayRail title={displayedTemplate?.name ?? workspace.state.draft?.name ?? 'Build today’s workout'} source={source} readiness={readiness} workSummary={isCardioDraft ? 'Cardio session' : displayedTemplate?.exercises.length ? `${displayedTemplate.exercises.length} exercises` : 'Choose your exercises'} nextAction={primaryAction.label} estimatedDurationMinutes={estimatedDuration} />
 
       {(programError || recommendationError) && !offeredTemplate ? <div role="alert" className="rounded-xl border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]">Your workout program could not be loaded. You can still build one.</div> : null}
       {supportError ? <div role="alert" className="rounded-xl border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] p-3 text-sm text-[var(--content-primary)]">{t('workout.support_data_load_failed')}</div> : null}
 
-      <WorkoutAtlasHome activations={activations} targetLabel={targetLabel} />
+      <WorkoutAtlasHome activations={activations} targetLabel={targetLabel} emptyDescription={isCardioDraft ? 'Cardio is tracked by activity, duration, distance, and effort.' : 'Add strength exercises to see their muscle roles.'} />
       <button type="button" data-testid="workout-primary-action" onClick={primaryAction.action} disabled={disabled && !recoveryStage && !hasDraft} className="btn-gold min-h-11 w-full rounded-xl px-4 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50">{primaryAction.label}</button>
 
-      {hasDraft && offeredTemplate ? <button type="button" onClick={() => reviewTemplate(offeredTemplate)} disabled={disabled} className="btn-ghost min-h-11 w-full rounded-xl px-4 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-50">Review plan</button> : null}
       {!recoveryStage ? <WorkoutScheduleStrip program={program} todayName={offeredTemplate?.name ?? null} todaySource={assignedTemplate ? 'Assigned by coach' : recommendedTemplate ? 'Recommended by Trophē' : 'Open training'} /> : null}
 
       {!recoveryStage ? <section aria-labelledby="workout-destinations-title"><h2 id="workout-destinations-title" className="mb-2 text-sm font-bold tracking-[-0.01em] text-[var(--content-primary)]">Explore and plan</h2><div className="overflow-hidden rounded-[14px] border border-[var(--workout-rail)] bg-[var(--workout-surface)]">

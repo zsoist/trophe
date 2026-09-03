@@ -250,19 +250,17 @@ describe('WorkoutHome', () => {
     expect(push).toHaveBeenCalledWith('/dashboard/workout/live');
   });
 
-  it('replaces an existing routine with the named coach plan before entering Review', async () => {
+  it('keeps an existing review draft as the only dominant action when a coach plan is offered', async () => {
     const initialState: WorkoutWorkspaceState = {
       stage: 'review', sessionId: null, clock: null, clientRequestId: null, startRequest: null,
       draft: { version: 2, name: 'My routine', kind: 'strength', updatedAt: 1, exercises: [{ exerciseId: 'bench', targetSets: 3, targetReps: '8' }] },
     };
     render(<WorkoutHomeHarness initialState={initialState} forceHome program={coachProgram} />);
-    expect(await screen.findByRole('button', { name: 'Continue review' })).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Review plan' }));
-    expect(await screen.findByRole('alertdialog', { name: 'Replace this draft?' })).toBeTruthy();
-    expect(screen.getByText(/Replace My routine with Coach Push/)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Replace draft' }));
-    expect(await screen.findByRole('heading', { name: 'Coach Push' })).toBeTruthy();
-    expect(push).toHaveBeenLastCalledWith('/dashboard/workout/review');
+    const continueReview = await screen.findByRole('button', { name: 'Continue review' });
+    expect(screen.queryByRole('button', { name: 'Review plan' })).toBeNull();
+    expect(screen.queryByRole('alertdialog', { name: 'Replace this draft?' })).toBeNull();
+    fireEvent.click(continueReview);
+    expect(push).toHaveBeenCalledWith('/dashboard/workout/review');
   });
 
   it('creates the template draft only after the user confirms the preview', async () => {

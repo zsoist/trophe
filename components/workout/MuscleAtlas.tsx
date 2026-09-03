@@ -9,6 +9,7 @@ export interface MuscleAtlasProps {
   selected?: AnatomyMuscleId | null;
   onSelect: (id: AnatomyMuscleId) => void;
   compact?: boolean;
+  homeCompact?: boolean;
 }
 
 type Region = { d: string; view: AnatomyView };
@@ -71,11 +72,14 @@ function handleRegionKeyDown(event: KeyboardEvent<SVGGElement>, id: AnatomyMuscl
   }
 }
 
-export function MuscleAtlas({ activations, selected = null, onSelect, compact = false }: MuscleAtlasProps) {
+export function MuscleAtlas({ activations, selected = null, onSelect, compact = false, homeCompact = false }: MuscleAtlasProps) {
   const [view, setView] = useState<AnatomyView>(() => activations.find((activation) => activation.id === selected)?.view ?? 'front');
   const appliedSelected = useRef<AnatomyMuscleId | null>(selected);
   const selectedActivation = activations.find((activation) => activation.id === selected);
   const visibleActivations = useMemo(() => activations.filter((activation) => activation.view === view), [activations, view]);
+  const roleActivations = homeCompact
+    ? selectedActivation ? [selectedActivation] : activations.slice(0, 1)
+    : activations;
 
   useEffect(() => {
     if (!selected) {
@@ -89,7 +93,7 @@ export function MuscleAtlas({ activations, selected = null, onSelect, compact = 
   }, [selected, selectedActivation]);
 
   return (
-    <section className={`muscle-atlas${compact ? ' muscle-atlas--compact' : ''}`} aria-label="Muscle activation atlas">
+    <section className={`muscle-atlas${compact ? ' muscle-atlas--compact' : ''}${homeCompact ? ' muscle-atlas--home-compact' : ''}`} aria-label="Muscle activation atlas">
       {!compact ? <div className="muscle-atlas__header">
         <div>
           <h2>Muscle focus</h2>
@@ -117,7 +121,7 @@ export function MuscleAtlas({ activations, selected = null, onSelect, compact = 
       </div>}
 
       <div className="muscle-atlas__figure-wrap">
-        <svg className="muscle-atlas__figure" height="296" viewBox="0 0 120 306" role="group" aria-label={`${view === 'front' ? 'Front' : 'Back'} anatomy map`}>
+        <svg className="muscle-atlas__figure" height={homeCompact ? 212 : 296} viewBox="0 0 120 306" role="group" aria-label={`${view === 'front' ? 'Front' : 'Back'} anatomy map`}>
           <path className="muscle-atlas__frame" d="M51 13h18v24l10 14 18 12-5 44-12 52-8 42 13 49-6 56H41l-6-56 13-49-8-42-12-52-5-44 18-12 10-14z" />
           <path className="muscle-atlas__axis" d="M60 39v258" />
           {visibleActivations.map((activation) => {
@@ -134,7 +138,7 @@ export function MuscleAtlas({ activations, selected = null, onSelect, compact = 
                 onClick={() => onSelect(activation.id)}
                 onKeyDown={(event) => handleRegionKeyDown(event, activation.id, onSelect)}
               >
-                <circle className="muscle-atlas__hit-target" data-testid={`atlas-hit-${activation.id}`} data-min-hit-target="44" cx={hitX} cy={hitY} r="23" />
+                <circle className="muscle-atlas__hit-target" data-testid={`atlas-hit-${activation.id}`} data-min-hit-target="44" cx={hitX} cy={hitY} r={homeCompact ? 32 : 23} />
                 <path d={region.d} />
               </g>
             );
@@ -143,13 +147,14 @@ export function MuscleAtlas({ activations, selected = null, onSelect, compact = 
       </div>
 
       <ul className="muscle-atlas__roles" aria-label="Highlighted muscle roles">
-        {activations.map((activation) => (
+        {roleActivations.map((activation) => (
           <li key={activation.id} className={selected === activation.id ? 'is-selected' : ''}>
             <span className={`muscle-atlas__swatch muscle-atlas__swatch--${activation.role}`} aria-hidden="true" />
             <span>{activation.label}</span>
             <strong>{ROLE_LABELS[activation.role]}</strong>
           </li>
         ))}
+        {homeCompact && activations.length > roleActivations.length ? <li className="muscle-atlas__roles-summary"><span aria-hidden="true" /> <span>+{activations.length - roleActivations.length} more highlighted</span></li> : null}
       </ul>
     </section>
   );

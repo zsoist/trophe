@@ -1530,6 +1530,31 @@ body {
 
 .muscle-atlas__views--compact { justify-self: end; }
 
+.muscle-atlas--home-compact {
+  gap: 0.5rem;
+}
+
+.muscle-atlas--home-compact .muscle-atlas__figure-wrap {
+  min-height: 13.25rem;
+}
+
+.muscle-atlas--home-compact .muscle-atlas__figure {
+  height: 212px;
+}
+
+.muscle-atlas--home-compact .muscle-atlas__roles {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.muscle-atlas--home-compact .muscle-atlas__roles li {
+  min-height: 2.25rem;
+  padding-block: 0.35rem;
+}
+
+.muscle-atlas--home-compact .muscle-atlas__roles-summary {
+  color: var(--content-muted);
+}
+
 .muscle-atlas__figure-wrap {
   display: grid;
   place-items: center;
