@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import { Pause, Play } from 'lucide-react';
+import { useI18n } from '@/lib/i18n';
 import type { ExerciseMediaRecord } from '@/lib/workout/exercise-media';
 
 export interface ExerciseMotionProps {
@@ -11,6 +13,7 @@ export interface ExerciseMotionProps {
 }
 
 export function ExerciseMotion({ media, alt, autoplay = false, className = '' }: ExerciseMotionProps) {
+  const { t } = useI18n();
   const videoRef = useRef<HTMLVideoElement>(null);
   const isExactTechnique = media.tier === 'verified-technique' && Boolean(media.motionSrc);
   const [reducedMotion, setReducedMotion] = useState(false);
@@ -61,17 +64,17 @@ export function ExerciseMotion({ media, alt, autoplay = false, className = '' }:
   const play = () => setIsPlaying(true);
 
   if (reducedMotion || !isExactTechnique) {
-    const status = reducedMotion
-      ? 'Static poster shown because reduced motion is enabled.'
+    const statusKey = reducedMotion
+      ? 'workout.motion_reduced'
       : media.tier === 'verified-anatomy'
-        ? 'Anatomy reference shown. No exact technique demonstration is available.'
-        : 'No exact demonstration is available. Poster shown.';
+        ? 'workout.motion_anatomy_only'
+        : 'workout.motion_no_exact';
     return (
       <figure className={`exercise-motion exercise-motion--poster ${className}`}>
         {/* The poster is intentionally a plain image so it remains the complete reduced-motion experience. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={media.posterSrc} alt={alt} className="exercise-motion__poster" />
-        <figcaption>{status}</figcaption>
+        <figcaption>{t(statusKey)}</figcaption>
       </figure>
     );
   }
@@ -92,10 +95,11 @@ export function ExerciseMotion({ media, alt, autoplay = false, className = '' }:
         <source src={media.motionSrc} type={media.motionType} />
       </video>
       <figcaption className="exercise-motion__controls">
-        <button type="button" onClick={isPlaying ? pause : play} aria-label={isPlaying ? 'Pause demonstration' : 'Play demonstration'}>
-          {isPlaying ? 'Pause demonstration' : 'Play demonstration'}
+        <button type="button" onClick={isPlaying ? pause : play} aria-label={t(isPlaying ? 'workout.motion_pause' : 'workout.motion_play')}>
+          {isPlaying ? <Pause size={16} aria-hidden="true" /> : <Play size={16} aria-hidden="true" />}
+          {t(isPlaying ? 'workout.motion_pause' : 'workout.motion_play')}
         </button>
-        <span aria-live="polite">{isPlaying ? 'Demonstration playing' : 'Demonstration paused'}</span>
+        <span aria-live="polite">{t(isPlaying ? 'workout.motion_playing' : 'workout.motion_paused')}</span>
       </figcaption>
     </figure>
   );

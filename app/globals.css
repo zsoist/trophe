@@ -1657,6 +1657,11 @@ body {
 }
 
 .exercise-motion__controls button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.75rem;
   padding: 0.5rem 0.75rem;
   border-radius: 0.625rem;
   background: var(--action-primary);
@@ -1689,8 +1694,391 @@ body {
 .exercise-media-badge--verified-anatomy { color: var(--performance-cyan); }
 .exercise-media-badge--honest-fallback { color: var(--performance-orange); }
 
+/* Exercise detail — instruction first, then anatomy, cues, and RLS-scoped evidence. */
+.exercise-detail-route {
+  min-height: calc(100dvh - 4rem);
+  padding: 0.75rem clamp(0.75rem, 3vw, 1.5rem) 1.5rem;
+}
+
+.exercise-detail-route-state {
+  width: min(100%, 64rem);
+  min-height: 12rem;
+  margin-inline: auto;
+  padding: 2.5rem 1rem;
+  color: var(--content-muted);
+  font-size: 0.875rem;
+}
+
+.exercise-detail {
+  width: min(100%, 64rem);
+  margin-inline: auto;
+  padding-bottom: 1rem;
+  color: var(--content-primary);
+}
+
+.exercise-detail__hero {
+  position: relative;
+  min-width: 0;
+}
+
+.exercise-detail__media-meta {
+  position: absolute;
+  z-index: 2;
+  inset-block-start: 0.75rem;
+  inset-inline-start: 0.75rem;
+}
+
+.exercise-detail__hero .exercise-motion {
+  border-radius: 1rem;
+  background: var(--workout-surface-raised);
+}
+
+.exercise-detail__hero .exercise-motion__video,
+.exercise-detail__hero .exercise-motion__poster {
+  min-height: clamp(15rem, 62vw, 32rem);
+  max-height: 34rem;
+}
+
+.exercise-detail__identity {
+  padding: 1.25rem 0 1rem;
+  border-bottom: 1px solid var(--workout-rail);
+}
+
+.exercise-detail__identity h1 {
+  max-width: 24ch;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--content-primary);
+  font-size: clamp(1.65rem, 7vw, 2.5rem);
+  font-weight: 760;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+
+.exercise-detail__identity-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin-top: 0.75rem;
+  color: var(--content-secondary);
+  font-size: 0.8125rem;
+}
+
+.exercise-detail__identity-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.exercise-detail__phase {
+  padding: 1.25rem 0 1.5rem;
+  border-bottom: 1px solid var(--workout-rail);
+}
+
+.exercise-detail__phase h2,
+.exercise-detail__section > h2 {
+  margin: 0;
+  color: var(--content-primary);
+  font-size: 1rem;
+  font-weight: 720;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+
+.exercise-detail__phase-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin-top: 0.65rem;
+  overflow: hidden;
+  border: 1px solid var(--workout-rail);
+  border-radius: 0.75rem;
+  background: var(--workout-rail);
+}
+
+.exercise-detail__phase-controls button {
+  min-width: 0;
+  min-height: 2.75rem;
+  padding: 0.5rem;
+  border: 0;
+  background: var(--workout-surface);
+  color: var(--content-secondary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 680;
+}
+
+.exercise-detail__phase-controls button[aria-pressed='true'] {
+  background: var(--action-primary);
+  color: var(--action-on-primary);
+}
+
+.exercise-detail__phase > p {
+  max-width: 70ch;
+  min-height: 2.75rem;
+  margin: 0.75rem 0 0;
+  color: var(--content-secondary);
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+
+.exercise-detail__body {
+  display: grid;
+  gap: 1.5rem;
+  padding-top: 1.5rem;
+}
+
+.exercise-detail__anatomy,
+.exercise-detail__instructions {
+  min-width: 0;
+}
+
+.exercise-detail__anatomy-empty {
+  display: grid;
+  min-height: 15rem;
+  place-content: center;
+  justify-items: center;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  border: 1px solid var(--workout-rail);
+  border-radius: 0.875rem;
+  background: var(--surface-raised);
+  color: var(--content-muted);
+  text-align: center;
+}
+
+.exercise-detail__anatomy-empty p {
+  max-width: 34ch;
+  margin: 0;
+  line-height: 1.55;
+}
+
+.exercise-detail__section {
+  padding: 1.25rem 0;
+  border-top: 1px solid var(--workout-rail);
+}
+
+.exercise-detail__instructions > .exercise-detail__section:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.exercise-detail__equipment {
+  margin: 0.75rem 0 0;
+}
+
+.exercise-detail__equipment > div {
+  display: grid;
+  grid-template-columns: minmax(6rem, 0.35fr) minmax(0, 1fr);
+  gap: 1rem;
+  min-height: 2.75rem;
+  padding-block: 0.65rem;
+  border-block: 1px solid var(--workout-rail);
+}
+
+.exercise-detail__equipment dt,
+.exercise-detail__guidance-row h3,
+.exercise-detail__record h3,
+.exercise-detail__history h3 {
+  color: var(--content-muted);
+  font-size: 0.6875rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.exercise-detail__equipment dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--content-primary);
+  font-size: 0.875rem;
+  font-weight: 650;
+}
+
+.exercise-detail__language-note {
+  margin: 0.75rem 0 0;
+  color: var(--performance-orange);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.exercise-detail__guidance-row {
+  display: grid;
+  grid-template-columns: minmax(6rem, 0.35fr) minmax(0, 1fr);
+  gap: 1rem;
+  padding-block: 0.8rem;
+  border-bottom: 1px solid var(--workout-rail);
+}
+
+.exercise-detail__guidance-row h3,
+.exercise-detail__record h3,
+.exercise-detail__history h3 {
+  margin: 0;
+}
+
+.exercise-detail__guidance-row p,
+.exercise-detail__safety p,
+.exercise-detail__history p {
+  margin: 0;
+  color: var(--content-secondary);
+  font-size: 0.875rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.exercise-detail__guidance-row p + p { margin-top: 0.4rem; }
+.exercise-detail__guidance-row .exercise-detail__empty { color: var(--content-muted); }
+
+.exercise-detail__safety h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.exercise-detail__safety p { margin-top: 0.65rem; color: var(--content-muted); }
+
+.exercise-detail__evidence { margin-top: 0.25rem; }
+
+.exercise-detail__evidence-grid {
+  display: grid;
+  gap: 1px;
+  margin-top: 0.75rem;
+  overflow: hidden;
+  border: 1px solid var(--workout-rail);
+  border-radius: 0.875rem;
+  background: var(--workout-rail);
+}
+
+.exercise-detail__record,
+.exercise-detail__history {
+  min-width: 0;
+  padding: 0.9rem;
+  background: var(--workout-surface);
+}
+
+.exercise-detail__record h3,
+.exercise-detail__history h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.exercise-detail__record > p {
+  margin: 0.6rem 0 0;
+  color: var(--action-primary);
+  font-family: var(--font-mono);
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.exercise-detail__history > p,
+.exercise-detail__history > div[role='alert'] { margin-top: 0.65rem; }
+
+.exercise-detail__history > p {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.exercise-detail__history [role='alert'] button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.75rem;
+  margin-top: 0.55rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--workout-rail);
+  border-radius: 0.65rem;
+  background: var(--workout-surface-raised);
+  color: var(--content-primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 650;
+}
+
+.exercise-detail__history-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 0.65rem;
+  align-items: center;
+  min-height: 2.75rem;
+  margin-top: 0.55rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--workout-rail);
+  color: var(--content-secondary);
+  font-size: 0.75rem;
+}
+
+.exercise-detail__history-row strong {
+  color: var(--content-primary);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.exercise-detail__action {
+  position: sticky;
+  z-index: 30;
+  bottom: calc(
+    var(--client-shell-nav-base-height, 4.5rem) +
+    max(env(safe-area-inset-bottom, 0px), var(--client-shell-nav-min-bottom-padding, 1rem))
+  );
+  margin-top: 1rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--workout-rail);
+  background: color-mix(in srgb, var(--canvas) 94%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.exercise-detail--sheet .exercise-detail__action {
+  bottom: 0;
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+}
+
+.exercise-detail__action > button,
+.exercise-detail__action > div > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 3rem;
+  padding-inline: 1rem;
+  border-radius: 0.75rem;
+  font-weight: 700;
+}
+
+.exercise-detail__action > div > p {
+  margin: 0 0 0.5rem;
+  color: var(--content-muted);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  text-align: center;
+}
+
+@media (min-width: 48rem) {
+  .exercise-detail-route { padding-top: 1.25rem; }
+  .exercise-detail__body { grid-template-columns: minmax(18rem, 0.9fr) minmax(0, 1.1fr); gap: 2rem; }
+  .exercise-detail__evidence-grid { grid-template-columns: minmax(12rem, 0.65fr) minmax(0, 1.35fr); }
+}
+
+@media (max-width: 22rem) {
+  .exercise-detail__guidance-row,
+  .exercise-detail__equipment > div { grid-template-columns: 1fr; gap: 0.4rem; }
+  .exercise-detail__history-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .exercise-detail__history-row strong { grid-column: 1 / -1; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .muscle-atlas__region path { transition: none; }
+  .exercise-detail__action { backdrop-filter: none; }
 }
 
 .workout-page-header {

@@ -1,8 +1,6 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft } from 'lucide-react';
 import { ExerciseDetail } from '@/components/workout/ExerciseDetail';
 import { useWorkoutWorkspace } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
 import { useI18n } from '@/lib/i18n';
@@ -24,8 +22,7 @@ export function RoutedExerciseDetail({ exercise, userId }: { exercise: Exercise;
     && workspace.state.draft.exercises.some((item) => item.exerciseId === exercise.id);
   const canCreate = workspace.state.stage === 'home';
   return (
-    <main className="px-4 py-5">
-      <Link href={WORKOUT_ROUTES.exercises} className="mb-4 inline-flex min-h-11 items-center gap-1 text-sm font-medium text-[var(--content-secondary)]"><ChevronLeft size={18} aria-hidden="true" />{t('workout.back_exercises')}</Link>
+    <main className="exercise-detail-route">
       <ExerciseDetail
         exercise={exercise}
         userId={userId}

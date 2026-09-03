@@ -28,7 +28,7 @@ export default function ExerciseDetailPage() {
     return () => { active = false; };
   }, [params.id]);
 
-  if (exercise === undefined) return <main role="status" className="mx-auto max-w-3xl px-4 py-10 text-sm text-[var(--content-muted)]">{t('chat.loading')}</main>;
-  if (exercise === null) return <main role="alert" className="mx-auto max-w-3xl px-4 py-10 text-sm text-[var(--status-danger-fg)]">{t('workout.exercise_not_found')}</main>;
+  if (exercise === undefined) return <main role="status" className="exercise-detail-route-state">{t('chat.loading')}</main>;
+  if (exercise === null) return <main role="alert" className="exercise-detail-route-state text-[var(--status-danger-fg)]">{t('workout.exercise_not_found')}</main>;
   return <RoutedExerciseDetail exercise={exercise} userId={userId} />;
 }

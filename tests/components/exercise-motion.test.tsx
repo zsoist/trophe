@@ -6,6 +6,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ExerciseMotion } from '@/components/workout/ExerciseMotion';
 import type { ExerciseMediaRecord } from '@/lib/workout/exercise-media';
 
+vi.mock('@/lib/i18n', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/i18n')>();
+  return {
+    ...actual,
+    useI18n: () => ({
+      lang: 'en',
+      t: (key: string) => actual.translations[key]?.en ?? key,
+    }),
+  };
+});
+
 const benchMedia: ExerciseMediaRecord = {
   slug: 'bench-press',
   canonicalNames: ['Barbell Bench Press'],
