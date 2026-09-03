@@ -8,6 +8,15 @@ uses 23 licensed surface mappings and three explicitly marked deep-location
 guides (`rotator-cuff`, `rhomboids`, and `brachialis`). No imperative
 `BodyChart`, runtime fetch, unsafe HTML, glow, or AI anatomy is used.
 
+The adversarial review follow-up is complete. Bilateral regions now have
+contour-aligned hit zones, dense exercise combinations use a deterministic
+nearest-owner resolver, and real SVG pointer coordinates feed that resolver
+instead of relying on DOM paint order. The role list is complete across both
+sides, role actions switch the figure intentionally, and compact mode counts
+the full activation set. Neutral body context now clears 3:1 in both themes,
+and front/back/deep copy is locale-owned and completeness-guarded in all eight
+supported languages.
+
 ## TDD evidence
 
 RED was recorded before the renderer change:
@@ -21,16 +30,39 @@ The test required a published-source marker and deep-guide distinction that the
 former geometric atlas did not expose. A second RED for the independent map
 contract failed because `@/lib/workout/atlas-geometry` did not yet exist.
 
+The adversarial fixes were also developed from a focused RED:
+
+```text
+NODE_OPTIONS=--no-experimental-webstorage npx vitest run \
+  tests/workout/atlas-geometry.test.ts \
+  tests/components/muscle-atlas.test.tsx \
+  tests/components/muscle-atlas-theme.test.ts \
+  tests/i18n/exercise-picker-copy.test.ts
+4 files: 26 failed, 18 passed
+```
+
+Failures proved that the old implementation had no deterministic hit resolver,
+no bilateral hit-centre contract, no complete cross-side role story, no
+contrast-token proof, and no complete locale-owned front/back summary keys. An
+additional component RED proved that removing SVG pointer routing left a real
+viewport-coordinate gesture unable to select any muscle.
+
 GREEN command:
 
 ```text
-npx vitest run tests/components/muscle-atlas.test.tsx tests/workout/atlas-geometry.test.ts tests/workout/anatomy.test.ts
-3 passed, 22 passed
+NODE_OPTIONS=--no-experimental-webstorage npx vitest run \
+  tests/workout/atlas-geometry.test.ts \
+  tests/components/muscle-atlas.test.tsx \
+  tests/components/muscle-atlas-theme.test.ts \
+  tests/i18n/exercise-picker-copy.test.ts
+4 files passed, 46 tests passed
 ```
 
-The new tests independently assert all 26 regions, the 23/3 source split,
+The tests independently assert all 26 regions, the 23/3 source split,
 fine-grained published path IDs, deep-guide DOM contract, canonical posterior
-views, interaction, and the minimum hit geometry.
+views, representative point ownership for bench, squat, curl, and both forearm
+roles, activation-order independence, real SVG pointer routing with exactly one
+selection, full role semantics, and the minimum hit geometry.
 
 ## Mapping and provenance
 
@@ -53,35 +85,60 @@ views, interaction, and the minimum hit geometry.
 - One focusable `<g role="button">` is rendered per region; its constituent
   paths are not focusable. Click, Enter, and Space activate it; focus alone
   does not select it.
-- Controls use `aria-pressed`; controlled selections intentionally cross views.
-  A unique `useId`-derived summary connects each figure to localized selected
-  role/source information, and a screen-reader table accompanies the semantic
-  role list.
-- Transparent circular targets are 44px-equivalent at both 296px and compact
-  212px render heights and remain inside each viewBox.
+- Each accessible muscle group may own multiple transparent, bilateral hit
+  zones. Those shapes do not receive pointer events themselves; the figure's
+  interaction plane converts the gesture to SVG coordinates and selects the
+  closest eligible owner with canonical-ID tie-breaking. This makes overlap
+  independent of SVG z-order while leaving every tested region reachable.
+- Controls use `aria-pressed`; controlled selections and complete role-list
+  actions intentionally cross views. The sole semantic role list includes all
+  activations with localized Front/Back tags; the former duplicate partial
+  screen-reader table is removed. `homeCompact` shows the selected/leading role
+  and a remainder count based on the full set.
+- Transparent targets are 44px-equivalent at both 296px and compact 212px
+  render heights and remain wholly inside each viewBox, including posterior arm
+  targets at the edge.
 - Motion is one 220ms opacity/4px signed horizontal transition with separate
   front/back keyframes that both end at the visible resting state. Reduced
   motion disables animation and transitions. Role treatment remains distinct
   without color alone; deep-guide dots are an additional, orthogonal cue.
-- CSS uses existing surface/content/performance tokens, with no hard-coded
-  white/black body assumptions.
+- Semantic anatomy-context tokens produce measured dark-theme contrast of
+  3.97:1 fill / 5.84:1 stroke and light-theme contrast of 3.84:1 fill / 5.91:1
+  stroke. The renderer consumes those tokens without hard-coded white/black or
+  `color-mix` assumptions.
+
+## Localization contract
+
+- Dedicated grammatical front and back summary sentences report visible roles
+  and the total exercise activation count.
+- Deep guides use a stable localized noun phrase (for example, “Deep
+  location”), followed by locale-owned explanatory copy rather than adjective
+  composition.
+- All new summary, side-tag, role-action, surface, and deep-guide keys are in
+  `EXERCISE_PICKER_COPY_KEYS` and in the exact eight-locale completeness test.
+- Rendered front summary, back summary, and selected deep-guide sentences are
+  asserted verbatim for English, Spanish, Greek, German, French, Italian,
+  Dutch, and Portuguese.
 
 ## Verification
 
 Passed:
 
 ```text
-npx vitest run tests/components/muscle-atlas.test.tsx tests/workout/atlas-geometry.test.ts tests/workout/anatomy.test.ts
-npx eslint components/workout/MuscleAtlas.tsx lib/workout/atlas-geometry.ts lib/workout/anatomy.ts tests/components/muscle-atlas.test.tsx tests/workout/atlas-geometry.test.ts tests/workout/anatomy.test.ts
+NODE_OPTIONS=--no-experimental-webstorage npx vitest run tests/workout/atlas-geometry.test.ts tests/components/muscle-atlas.test.tsx tests/components/muscle-atlas-theme.test.ts tests/i18n/exercise-picker-copy.test.ts
+npx eslint components/workout/MuscleAtlas.tsx lib/workout/atlas-geometry.ts tests/components/muscle-atlas.test.tsx tests/components/muscle-atlas-theme.test.ts tests/workout/atlas-geometry.test.ts tests/i18n/exercise-picker-copy.test.ts lib/i18n.tsx lib/locales/de.ts lib/locales/fr.ts lib/locales/it.ts lib/locales/nl.ts lib/locales/pt.ts
 npm run typecheck
 git diff --check
+npm ls body-muscles --depth=0
 ```
 
-The wider atlas consumer run passed all atlas/anatomy/home/detail/localization
-tests except an unrelated concurrent media assertion in
-`exercise-picker-atlas.test.tsx`: it expects `/workout-v2/exercises/bench-press.webp`
-while the current media resolver returns `/workout-v3/posters/bench-press.webp`.
-That file was not edited for this task.
+The current branch still has three independently reproducible unrelated stale
+consumer assertions: `exercise-picker-atlas.test.tsx` expects the superseded V2
+bench poster while the accepted resolver returns the V3 poster, and two
+`workout-home-v2.test.tsx` cases expect labels no longer supplied by that test's
+mock localization dictionary. The atlas consumer ambiguity introduced by the
+new complete role action was repaired with a more precise map-region assertion;
+`workout-home-v3.test.tsx` passes all 15 tests.
 
 `npx next build --webpack` compiled the app and passed TypeScript before
 prerendering later failed on the existing missing `NEXT_PUBLIC_SUPABASE_URL`.

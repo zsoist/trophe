@@ -67,7 +67,7 @@ describe('MuscleAtlas', () => {
     const onSelect = vi.fn();
     render(<MuscleAtlas activations={benchActivations} selected="pectoralis-major" onSelect={onSelect} />);
 
-    fireEvent.click(screen.getByRole('button', { name: /pectoralis major.*primary/i }));
+    fireEvent.click(screen.getByTestId('atlas-region-pectoralis-major'));
 
     expect(onSelect).toHaveBeenCalledWith('pectoralis-major');
     expect(screen.getAllByText('Primary').length).toBeGreaterThan(0);
@@ -80,18 +80,33 @@ describe('MuscleAtlas', () => {
     fireEvent.click(back);
 
     expect(back.getAttribute('aria-pressed')).toBe('true');
-    expect(screen.getByRole('button', { name: /rotator cuff.*stabilizer/i })).toBeTruthy();
+    expect(screen.getByTestId('atlas-region-rotator-cuff').getAttribute('aria-label')).toMatch(/rotator cuff.*stabilizer/i);
   });
 
-  it('derives the compact back legend and summary from back-visible activations only', () => {
+  it('keeps the compact story complete across sides and counts the full activation set', () => {
     render(<MuscleAtlas activations={benchActivations} selected={null} onSelect={vi.fn()} homeCompact />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Show back anatomy' }));
 
     const roles = screen.getByRole('list', { name: 'Highlighted muscle roles' });
+    expect(roles.textContent).toContain('Pectoralis major');
+    expect(roles.textContent).toContain('Front');
+    expect(roles.textContent).toContain('+2 more highlighted');
+  });
+
+  it('exposes one complete semantic role list and switches sides when an opposite-side role is chosen', () => {
+    const onSelect = vi.fn();
+    render(<MuscleAtlas activations={benchActivations} selected="pectoralis-major" onSelect={onSelect} />);
+
+    const roles = screen.getByRole('list', { name: 'Highlighted muscle roles' });
+    expect(roles.textContent).toContain('Pectoralis major');
     expect(roles.textContent).toContain('Triceps brachii');
-    expect(roles.textContent).not.toContain('Pectoralis major');
-    expect(roles.textContent).not.toContain('+2 more highlighted');
+    expect(roles.textContent).toContain('Rotator cuff');
+    expect(screen.queryByRole('table')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: /triceps brachii.*secondary.*back/i }));
+    expect(onSelect).toHaveBeenCalledWith('triceps-brachii');
+    expect(screen.getByRole('group', { name: 'Back anatomy map' })).toBeTruthy();
   });
 
   it('localizes atlas names, view controls, roles, summaries, and aria copy', () => {
@@ -126,7 +141,7 @@ describe('MuscleAtlas', () => {
   it('does not select on focus, but selects on Enter, Space, and click', () => {
     const onSelect = vi.fn();
     render(<MuscleAtlas activations={benchActivations} selected={null} onSelect={onSelect} />);
-    const pectoralis = screen.getByRole('button', { name: /pectoralis major.*primary/i });
+    const pectoralis = screen.getByTestId('atlas-region-pectoralis-major');
 
     fireEvent.focus(pectoralis);
     expect(onSelect).not.toHaveBeenCalled();
@@ -138,12 +153,32 @@ describe('MuscleAtlas', () => {
     expect(onSelect).toHaveBeenCalledTimes(3);
   });
 
-  it('gives small muscle regions transparent 44px-equivalent hit geometry', () => {
-    render(<MuscleAtlas activations={[{ id: 'brachialis', label: 'Brachialis', role: 'secondary', view: 'front' }]} selected={null} onSelect={vi.fn()} />);
-    const hitTarget = screen.getByTestId('atlas-hit-brachialis');
+  it('maps a real pointer coordinate through the SVG viewport to the nearest contour owner', () => {
+    const onSelect = vi.fn();
+    render(<MuscleAtlas activations={[
+      { id: 'quadriceps', label: 'Quadriceps', role: 'primary', view: 'front' },
+      { id: 'adductors', label: 'Adductors', role: 'secondary', view: 'front' },
+    ]} selected={null} onSelect={onSelect} />);
+    const svg = screen.getByRole('group', { name: 'Front anatomy map' });
+    vi.spyOn(svg, 'getBoundingClientRect').mockReturnValue({
+      x: 0, y: 0, left: 0, top: 0, right: 350, bottom: 930, width: 350, height: 930, toJSON: () => ({}),
+    });
 
-    expect(hitTarget.getAttribute('r')).toBe('7');
-    expect(hitTarget.getAttribute('data-min-hit-target')).toBe('44');
+    fireEvent(svg, new MouseEvent('pointerup', { bubbles: true, clientX: 140, clientY: 480 }));
+
+    expect(onSelect).toHaveBeenCalledWith('adductors');
+    expect(onSelect).toHaveBeenCalledTimes(1);
+  });
+
+  it('gives each side of a small bilateral region transparent 44px-equivalent hit geometry', () => {
+    render(<MuscleAtlas activations={[{ id: 'brachialis', label: 'Brachialis', role: 'secondary', view: 'front' }]} selected={null} onSelect={vi.fn()} />);
+    const hitTargets = screen.getAllByTestId(/^atlas-hit-brachialis-/);
+
+    expect(hitTargets).toHaveLength(2);
+    for (const hitTarget of hitTargets) {
+      expect(hitTarget.getAttribute('r')).toBe('7');
+      expect(hitTarget.getAttribute('data-min-hit-target')).toBe('44');
+    }
   });
 
   it('keeps every rendered 44px target fully inside the atlas viewport', () => {
@@ -191,7 +226,7 @@ describe('MuscleAtlas', () => {
     expect(screen.getByTestId('atlas-region-rhomboids').getAttribute('data-anatomy-depth')).toBe('deep-guide');
     rerender(<MuscleAtlas activations={allActivations} selected="brachialis" onSelect={vi.fn()} />);
     await waitFor(() => expect(screen.getByTestId('atlas-region-brachialis').getAttribute('data-anatomy-depth')).toBe('deep-guide'));
-    expect(screen.getAllByText(/deep location guide/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/deep location/i).length).toBeGreaterThan(0);
   });
 
   it('changes to the selected muscle view when controlled selection crosses sides', async () => {
@@ -203,5 +238,26 @@ describe('MuscleAtlas', () => {
       expect(screen.getByRole('group', { name: 'Back anatomy map' })).toBeTruthy();
       expect(screen.getByRole('button', { name: /show back anatomy/i }).getAttribute('aria-pressed')).toBe('true');
     });
+  });
+
+  it.each([
+    ['en', 'Front view · visible muscle roles: 1 of 3.', 'Back view · visible muscle roles: 2 of 3.', 'Deep location. Rotator cuff is shown as a location guide, not a precise surface contour.'],
+    ['es', 'Vista frontal · funciones musculares visibles: 1 de 3.', 'Vista posterior · funciones musculares visibles: 2 de 3.', 'Ubicación profunda. Manguito rotador: guía orientativa, no un contorno superficial preciso.'],
+    ['el', 'Μπροστινή όψη · ορατοί μυϊκοί ρόλοι: 1 από 3.', 'Πίσω όψη · ορατοί μυϊκοί ρόλοι: 2 από 3.', 'Βαθιά θέση. Στροφικό πέταλο: ενδεικτικός οδηγός θέσης, όχι ακριβές επιφανειακό περίγραμμα.'],
+    ['de', 'Vorderansicht · sichtbare Muskelrollen: 1 von 3.', 'Rückansicht · sichtbare Muskelrollen: 2 von 3.', 'Tiefe Lage. Rotatorenmanschette: Orientierungshilfe, keine präzise Oberflächenkontur.'],
+    ['fr', 'Vue avant · rôles musculaires visibles : 1 sur 3.', 'Vue arrière · rôles musculaires visibles : 2 sur 3.', 'Localisation profonde. Coiffe des rotateurs : repère indicatif, pas un contour de surface précis.'],
+    ['it', 'Vista anteriore · ruoli muscolari visibili: 1 su 3.', 'Vista posteriore · ruoli muscolari visibili: 2 su 3.', 'Posizione profonda. Cuffia dei rotatori: guida indicativa, non un contorno superficiale preciso.'],
+    ['nl', 'Vooraanzicht · zichtbare spierrollen: 1 van 3.', 'Achteraanzicht · zichtbare spierrollen: 2 van 3.', 'Diepe ligging. Rotatorenmanchet: plaatsaanduiding, geen precieze oppervlaktecontour.'],
+    ['pt', 'Vista frontal · papéis musculares visíveis: 1 de 3.', 'Vista posterior · papéis musculares visíveis: 2 de 3.', 'Localização profunda. Manguito rotador: guia de referência, não um contorno superficial preciso.'],
+  ])('renders grammatical front/back summaries and stable deep-location copy in %s', async (locale, frontSummary, backSummary, deepCopy) => {
+    atlasLocale.value = locale;
+    const { rerender } = render(<MuscleAtlas activations={benchActivations} selected={null} onSelect={vi.fn()} />);
+    expect(screen.getByText(frontSummary)).toBeTruthy();
+
+    fireEvent.click(document.querySelector('.muscle-atlas__views button:last-child')!);
+    expect(screen.getByText(backSummary)).toBeTruthy();
+
+    rerender(<MuscleAtlas activations={benchActivations} selected="rotator-cuff" onSelect={vi.fn()} />);
+    await waitFor(() => expect(screen.getByText(deepCopy)).toBeTruthy());
   });
 });

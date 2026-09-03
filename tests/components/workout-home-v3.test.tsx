@@ -124,12 +124,12 @@ describe('Workout home v3', () => {
     expect(screen.getByRole('heading', { name: 'Coach Push' })).toBeTruthy();
     expect(screen.getByRole('button', { name: /review plan/i }).hasAttribute('disabled')).toBe(false);
     expect(screen.queryByRole('button', { name: /finish workout/i })).toBeNull();
-    expect(screen.getByRole('button', { name: /pectoralis major/i })).toBeTruthy();
+    expect(screen.getByTestId('atlas-region-pectoralis-major')).toBeTruthy();
     expect(screen.getByText('Lower strength')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /build strength workout/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /workout templates/i })).toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: /pectoralis major/i }));
+    fireEvent.click(screen.getByTestId('atlas-region-pectoralis-major'));
     expect(await screen.findByText(/pectoralis major · primary target/i)).toBeTruthy();
   });
 
