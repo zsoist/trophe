@@ -126,7 +126,7 @@ export function WorkoutHome({
   const activeStage = workspace.state.stage === 'live' || workspace.state.stage === 'paused' || workspace.state.stage === 'finishing';
   const recoveryStage = activeStage || workspace.state.stage === 'completed';
   const recoveredTemplate = workspaceTemplate(workspace.state);
-  const displayedTemplate = recoveredTemplate ?? offeredTemplate;
+  const displayedTemplate = workspace.state.draft ? recoveredTemplate : offeredTemplate;
   const activations = useMemo(() => uniqueActivations(displayedTemplate, exercises), [displayedTemplate, exercises]);
   const isCardioDraft = workspace.state.draft?.kind === 'cardio';
   const targetLabel = displayedTemplate?.muscleSummary.length

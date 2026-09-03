@@ -187,6 +187,29 @@ describe('Workout home v3', () => {
     expect(screen.queryByRole('button', { name: /pectoralis major|quadriceps/i })).toBeNull();
   });
 
+  it.each([
+    ['an adaptive recommendation', null, recommendation],
+    ['a coach offer', coachProgram, null],
+  ] as const)('keeps a saved cardio draft neutral when %s also exists', (_label, program, recommended) => {
+    renderHome({
+      program,
+      recommended,
+      initialState: {
+        stage: 'draft',
+        draft: { version: 2, kind: 'cardio', name: 'Easy run', updatedAt: 1, activity: 'run', durationMinutes: 30, distanceKm: 5, effort: 6 },
+        sessionId: null,
+        clock: null,
+        clientRequestId: null,
+      },
+    });
+
+    expect(screen.getByRole('heading', { name: 'Easy run' })).toBeTruthy();
+    expect(screen.getByText('Cardio session · no named muscle target')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /pectoralis major|latissimus dorsi/i })).toBeNull();
+    expect(screen.queryByText(/pectoralis major · primary target/i)).toBeNull();
+    expect(screen.getByTestId('workout-primary-action').textContent).toBe('Continue editing');
+  });
+
   it('blocks draft actions and schedule claims until both plan queries resolve', () => {
     renderHome({ programLoading: true, recommendationLoading: true });
 
