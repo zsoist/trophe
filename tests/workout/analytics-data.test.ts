@@ -6,9 +6,18 @@ import {
   fetchAllTerminalSessionPages,
   fetchBoundedTerminalSessionPages,
   loadWorkoutAnalyticsData,
+  terminalSessionCursorFilter,
 } from '@/lib/workout/analytics-data';
 
 describe('analytics terminal pagination', () => {
+  it('builds a strict three-column keyset cursor for stable history pagination', () => {
+    expect(terminalSessionCursorFilter({
+      id: 'session-30',
+      session_date: '2026-08-02',
+      completed_at: '2026-08-02T12:00:00Z',
+    })).toBe('session_date.lt.2026-08-02,and(session_date.eq.2026-08-02,completed_at.lt.2026-08-02T12:00:00Z),and(session_date.eq.2026-08-02,completed_at.eq.2026-08-02T12:00:00Z,id.lt.session-30)');
+  });
+
   it('fetches beyond one page, stops on the short page, and dedupes ids', async () => {
     const calls: Array<[number, number]> = [];
     const rows = Array.from({ length: 1001 }, (_, index) => ({ id: String(index), session_date: '2026-09-01', completed_at: index === 3 ? null : '2026-09-01T12:00:00Z' }));
@@ -94,7 +103,7 @@ describe('analytics terminal pagination', () => {
 
     expect(result.sessions.map((session) => session.id)).toEqual(['session-2', 'session-1', 'session-0']);
     expect(result.measurements).toEqual([{ measured_date: '2026-09-01', weight_kg: 80 }]);
-    expect(result.issues).toEqual({ schedule: true, measurements: false, historyTruncated: false });
+    expect(result.issues).toEqual({ schedule: true, measurements: false, historyTruncated: false, measurementsTruncated: false });
     const sessionCalls = calls.filter((call) => call.table === 'workout_sessions');
     expect(sessionCalls.map((call) => call.steps.find(([method]) => method === 'range')?.slice(1))).toEqual([[0, 2], [2, 4]]);
     expect(sessionCalls[0].steps).toContainEqual(['eq', 'user_id', 'user-1']);
@@ -109,7 +118,31 @@ describe('analytics terminal pagination', () => {
       ['session-0'],
     ]);
     expect(calls.find((call) => call.table === 'measurements')?.steps).toContainEqual(['eq', 'user_id', 'user-1']);
+    expect(calls.find((call) => call.table === 'measurements')?.steps).toContainEqual(['limit', 251]);
     expect(calls.find((call) => call.table === 'workout_programs')?.steps).toContainEqual(['eq', 'client_id', 'user-1']);
     expect(calls.find((call) => call.table === 'workout_programs')?.steps).toContainEqual(['eq', 'status', 'active']);
+  });
+
+  it('caps body-weight evidence and reports measurement truncation', async () => {
+    const measurements = Array.from({ length: 251 }, (_, index) => ({
+      measured_date: `2026-${String(1 + Math.floor(index / 28)).padStart(2, '0')}-${String(1 + (index % 28)).padStart(2, '0')}`,
+      weight_kg: 80 - index / 100,
+    }));
+    const from = vi.fn((table: string) => {
+      const query: Record<string, unknown> = {};
+      for (const method of ['select', 'eq', 'not', 'order', 'in']) query[method] = vi.fn(() => query);
+      query.limit = vi.fn((limit: number) => {
+        query.then = (resolve: (value: { data: unknown[]; error: null }) => unknown) => Promise.resolve({ data: measurements.slice(0, limit), error: null }).then(resolve);
+        return query;
+      });
+      query.range = vi.fn(() => Promise.resolve({ data: [], error: null }));
+      query.then = (resolve: (value: { data: unknown[]; error: null }) => unknown) => Promise.resolve({ data: table === 'workout_programs' ? [] : [], error: null }).then(resolve);
+      return query;
+    });
+
+    const result = await loadWorkoutAnalyticsData({ client: { from } as unknown as SupabaseClient, userId: 'user-1', measurementLimit: 250 });
+
+    expect(result.measurements).toHaveLength(250);
+    expect(result.issues.measurementsTruncated).toBe(true);
   });
 });

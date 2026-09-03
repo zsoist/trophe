@@ -12,7 +12,7 @@ import { useI18n } from '@/lib/i18n';
 import { localeForLanguage } from '@/lib/i18n-locale';
 import { supabase } from '@/lib/supabase';
 import type { Exercise, PainFlag, WorkoutSession, WorkoutSet } from '@/lib/types';
-import { chunkIds } from '@/lib/workout/analytics-data';
+import { chunkIds, terminalSessionCursorFilter } from '@/lib/workout/analytics-data';
 import { kgToDisplay, useWeightUnit } from '@/lib/workout/units';
 
 type SetWithExercise = WorkoutSet & { exercise: Exercise };
@@ -138,7 +138,7 @@ export default function WorkoutHistoryPage() {
   const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState(false);
   const requestId = useRef(0);
-  const loadedCount = useRef(0);
+  const cursor = useRef<WorkoutSession | null>(null);
   const locale = localeForLanguage(lang);
   const latestSession = sessions[0] ?? null;
   const latestEvidence = useMemo(() => {
@@ -174,8 +174,9 @@ export default function WorkoutHistoryPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (request !== requestId.current) return;
       if (!user) { router.push('/login'); return; }
-      const from = reset ? 0 : loadedCount.current;
-      const { data, error: sessionsError } = await supabase.from('workout_sessions').select('*').eq('user_id', user.id).not('completed_at', 'is', null).order('session_date', { ascending: false }).order('completed_at', { ascending: false }).order('id', { ascending: false }).range(from, from + HISTORY_PAGE_SIZE);
+      let sessionsQuery = supabase.from('workout_sessions').select('*').eq('user_id', user.id).not('completed_at', 'is', null).order('session_date', { ascending: false }).order('completed_at', { ascending: false }).order('id', { ascending: false });
+      if (!reset && cursor.current) sessionsQuery = sessionsQuery.or(terminalSessionCursorFilter(cursor.current));
+      const { data, error: sessionsError } = await sessionsQuery.limit(HISTORY_PAGE_SIZE + 1);
       if (sessionsError || data === null) throw sessionsError ?? new Error('sessions unavailable');
       const terminalSessions = (data as WorkoutSession[]).slice(0, HISTORY_PAGE_SIZE);
       if (request !== requestId.current) return;
@@ -194,7 +195,7 @@ export default function WorkoutHistoryPage() {
       }
       if (request !== requestId.current) return;
       const next = terminalSessions.map((session) => ({ ...session, pain_flags: (session.pain_flags as unknown as PainFlag[]) ?? [], sets: bySession.get(session.id) ?? [] }));
-      loadedCount.current = from + terminalSessions.length;
+      cursor.current = terminalSessions.at(-1) ?? cursor.current;
       setHasMore(data.length > HISTORY_PAGE_SIZE);
       setSessions((current) => reset ? next : [...current, ...next.filter((session) => !current.some((existing) => existing.id === session.id))]);
     } catch {

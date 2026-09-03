@@ -10,6 +10,7 @@ const harness = vi.hoisted(() => ({
   calls: [] as Array<{ table: string; steps: Array<[string, ...unknown[]]> }>,
   scheduleError: false,
   measurementError: false,
+  measurementRows: [{ measured_date: '2026-09-03', weight_kg: 100 }] as Array<{ measured_date: string; weight_kg: number }>,
   setError: false,
 }));
 
@@ -54,7 +55,7 @@ vi.mock('@/lib/supabase', () => ({
         }], error: null };
         if (table === 'measurements') return harness.measurementError
           ? { data: null, error: new Error('measurements unavailable') }
-          : { data: [{ measured_date: '2026-09-03', weight_kg: 100 }], error: null };
+          : { data: harness.measurementRows.slice(0, Number(call.steps.findLast(([method]) => method === 'limit')?.[1] ?? harness.measurementRows.length)), error: null };
         if (table === 'workout_programs') return harness.scheduleError
           ? { data: null, error: new Error('schedule unavailable') }
           : { data: [{ starts_on: '2026-09-02', workout_program_days: [{ weekday: 4 }] }], error: null };
@@ -92,6 +93,7 @@ afterEach(() => {
   harness.calls.length = 0;
   harness.scheduleError = false;
   harness.measurementError = false;
+  harness.measurementRows = [{ measured_date: '2026-09-03', weight_kg: 100 }];
   harness.setError = false;
   vi.mocked(supabase.from).mockClear();
 });
@@ -147,6 +149,17 @@ describe('WorkoutAnalyticsSurface production data boundary', () => {
 
     await waitFor(() => expect(harness.calls.filter((call) => call.table === 'workout_sessions')).toHaveLength(firstSessionCalls + 1));
     await waitFor(() => expect(screen.queryByText(/schedule could not load/i)).toBeNull());
+  });
+
+  it('discloses when older body-weight evidence is outside the bounded analytics window', async () => {
+    harness.measurementRows = Array.from({ length: 251 }, (_, index) => ({
+      measured_date: `2026-${String(1 + Math.floor(index / 28)).padStart(2, '0')}-${String(1 + (index % 28)).padStart(2, '0')}`,
+      weight_kg: 100 - index / 100,
+    }));
+
+    render(<WorkoutAnalyticsSurface />);
+
+    expect(await screen.findByText(/250 most recent body-weight measurements/i)).toBeTruthy();
   });
 
   it('does not continue a pending authenticated load after unmount', async () => {

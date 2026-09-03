@@ -35,15 +35,16 @@ vi.mock('@/lib/supabase', () => ({
       const call = { table, steps: [] as Array<[string, ...unknown[]]> };
       harness.calls.push(call);
       const query: Record<string, unknown> = {};
-      for (const method of ['select', 'eq', 'not', 'order', 'limit', 'in', 'range']) query[method] = vi.fn((...args: unknown[]) => { call.steps.push([method, ...args]); return query; });
+      for (const method of ['select', 'eq', 'not', 'order', 'limit', 'in', 'range', 'or']) query[method] = vi.fn((...args: unknown[]) => { call.steps.push([method, ...args]); return query; });
       const result = () => table === 'workout_sessions'
         ? harness.sessionFailure
           ? { data: null, error: new Error('sessions unavailable') }
           : (() => {
-              const range = call.steps.findLast(([method]) => method === 'range');
-              const from = Number(range?.[1] ?? 0);
-              const to = Number(range?.[2] ?? harness.sessionRows.length - 1);
-              return { data: harness.sessionRows.slice(from, to + 1), error: null };
+              const cursor = call.steps.findLast(([method]) => method === 'or');
+              const limit = Number(call.steps.findLast(([method]) => method === 'limit')?.[1] ?? harness.sessionRows.length);
+              if (!cursor) return { data: harness.sessionRows.slice(0, limit), error: null };
+              const boundary = harness.sessionRows.findIndex((row) => String(cursor[1]).includes(`id.lt.${row.id}`));
+              return { data: harness.sessionRows.slice(boundary + 1, boundary + 1 + limit), error: null };
             })()
         : { data: [
           { id: 'set-1', session_id: 'session-1', exercise_id: 'bench', set_number: 1, weight_kg: 100, reps: 2, rpe: 8, is_warmup: false, is_pr: false, exercise: { id: 'bench', name: 'Barbell Bench Press', name_es: null, name_el: null } },
@@ -113,10 +114,12 @@ describe('Workout history recovery and honest set evidence', () => {
     render(<WorkoutHistoryPage />);
 
     const loadOlder = await screen.findByRole('button', { name: 'Load older workouts' });
-    expect(harness.calls.find((call) => call.table === 'workout_sessions')?.steps).toContainEqual(['range', 0, 30]);
+    expect(harness.calls.find((call) => call.table === 'workout_sessions')?.steps).toContainEqual(['limit', 31]);
 
+    harness.sessionRows.unshift({ id: 'new-session', user_id: 'user-1', session_date: '2026-09-01', completed_at: '2026-09-01T12:00:00Z', name: 'Concurrent session', duration_minutes: 20, pain_flags: [] });
     fireEvent.click(loadOlder);
-    await waitFor(() => expect(harness.calls.filter((call) => call.table === 'workout_sessions')[1]?.steps).toContainEqual(['range', 30, 60]));
+    await waitFor(() => expect(harness.calls.filter((call) => call.table === 'workout_sessions')[1]?.steps.some(([method, filter]) => method === 'or' && String(filter).includes('id.lt.session-29'))).toBe(true));
+    expect(harness.calls.filter((call) => call.table === 'workout_sessions')[1]?.steps.some(([method]) => method === 'range')).toBe(false);
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Load older workouts' })).toBeNull());
   });
 });

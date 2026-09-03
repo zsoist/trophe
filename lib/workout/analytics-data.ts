@@ -31,6 +31,7 @@ export interface WorkoutAnalyticsData {
     schedule: boolean;
     measurements: boolean;
     historyTruncated: boolean;
+    measurementsTruncated: boolean;
   };
 }
 
@@ -45,6 +46,13 @@ function compareTerminalSessions<T extends TerminalSession>(left: T, right: T): 
   return right.session_date.localeCompare(left.session_date)
     || (right.completed_at ?? '').localeCompare(left.completed_at ?? '')
     || right.id.localeCompare(left.id);
+}
+
+/** PostgREST filter for rows strictly older than a newest-first terminal-session boundary. */
+export function terminalSessionCursorFilter(cursor: TerminalSession): string {
+  const { session_date: sessionDate, completed_at: completedAt, id } = cursor;
+  if (!completedAt) throw new Error('Terminal-session cursors require completed_at');
+  return `session_date.lt.${sessionDate},and(session_date.eq.${sessionDate},completed_at.lt.${completedAt}),and(session_date.eq.${sessionDate},completed_at.eq.${completedAt},id.lt.${id})`;
 }
 
 /** Fetch every terminal-session page, dedupe overlapping rows, and stabilize tie order. */
@@ -162,7 +170,7 @@ export async function loadWorkoutAnalyticsData({
     .select('measured_date, weight_kg')
     .eq('user_id', userId)
     .order('measured_date', { ascending: false })
-    .limit(measurementLimit);
+    .limit(measurementLimit + 1);
   let programsQuery = client
     .from('workout_programs')
     .select('starts_on, workout_program_days(weekday)')
@@ -204,15 +212,17 @@ export async function loadWorkoutAnalyticsData({
     throwIfAborted(signal);
   }
 
+  const rawMeasurements = (measurementResult.data ?? []) as AnalyticsMeasurement[];
   return {
     sessions,
     sets,
-    measurements: measurementResult.error ? [] : ([...((measurementResult.data ?? []) as AnalyticsMeasurement[])]).reverse(),
+    measurements: measurementResult.error ? [] : rawMeasurements.slice(0, measurementLimit).reverse(),
     programs: programResult.error ? [] : (programResult.data ?? []) as AnalyticsProgram[],
     issues: {
       schedule: Boolean(programResult.error),
       measurements: Boolean(measurementResult.error),
       historyTruncated: sessionWindow.truncated,
+      measurementsTruncated: !measurementResult.error && rawMeasurements.length > measurementLimit,
     },
   };
 }

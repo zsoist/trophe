@@ -6,6 +6,7 @@ export const workoutAnalyticsEn = {
   'workout.analytics_loading': 'Loading workout analytics…',
   'workout.analytics_load_failed': 'Workout analytics could not load. Check your connection and try again.',
   'workout.analytics_history_limited': 'Showing your 250 most recent completed workouts so this view stays fast. Older workouts remain available in History.',
+  'workout.analytics_measurements_limited': 'Showing your 250 most recent body-weight measurements so this view stays fast. Older measurements remain safely stored.',
   'workout.analytics_no_evidence_title': 'No workout evidence yet',
   'workout.analytics_no_evidence_body': 'Finish and save a workout to see its calendar, working sets, volume, and progress here.',
   'workout.analytics_log_workout': 'Log a workout',
@@ -89,6 +90,7 @@ type WorkoutAnalyticsLocale = Record<WorkoutAnalyticsCopyKey, string>;
 
 export const workoutAnalyticsEs = {
   'workout.analytics_history_limited': 'Mostramos tus 250 entrenamientos completados más recientes para mantener esta vista rápida. Los anteriores siguen disponibles en Historial.',
+  'workout.analytics_measurements_limited': 'Mostramos tus 250 mediciones de peso corporal más recientes para mantener esta vista rápida. Las anteriores siguen guardadas de forma segura.',
   'workout.analytics_history_load_older': 'Cargar entrenamientos anteriores',
   'workout.analytics_history_loading_older': 'Cargando entrenamientos anteriores…',
   'workout.analytics_title': 'Análisis', 'workout.analytics_intro': 'Evidencia de entrenamientos completados, agrupada para revisar.', 'workout.analytics_loading': 'Cargando análisis de entrenamiento…', 'workout.analytics_load_failed': 'No se pudieron cargar los análisis. Revisa tu conexión e inténtalo de nuevo.', 'workout.analytics_no_evidence_title': 'Aún no hay evidencia de entrenamientos', 'workout.analytics_no_evidence_body': 'Termina y guarda un entrenamiento para ver aquí el calendario, las series de trabajo, el volumen y el progreso.', 'workout.analytics_log_workout': 'Registrar un entrenamiento',
@@ -102,6 +104,7 @@ export const workoutAnalyticsEs = {
 
 export const workoutAnalyticsEl = {
   'workout.analytics_history_limited': 'Εμφανίζονται οι 250 πιο πρόσφατες ολοκληρωμένες προπονήσεις για γρήγορη απόκριση. Οι παλαιότερες παραμένουν διαθέσιμες στο Ιστορικό.',
+  'workout.analytics_measurements_limited': 'Εμφανίζονται οι 250 πιο πρόσφατες μετρήσεις σωματικού βάρους για γρήγορη απόκριση. Οι παλαιότερες παραμένουν αποθηκευμένες με ασφάλεια.',
   'workout.analytics_history_load_older': 'Φόρτωση παλαιότερων προπονήσεων',
   'workout.analytics_history_loading_older': 'Φόρτωση παλαιότερων προπονήσεων…',
   'workout.analytics_title': 'Αναλύσεις', 'workout.analytics_intro': 'Στοιχεία ολοκληρωμένων προπονήσεων, ομαδοποιημένα για έλεγχο.', 'workout.analytics_loading': 'Φόρτωση αναλύσεων προπόνησης…', 'workout.analytics_load_failed': 'Δεν ήταν δυνατή η φόρτωση των αναλύσεων. Ελέγξτε τη σύνδεσή σας και δοκιμάστε ξανά.', 'workout.analytics_no_evidence_title': 'Δεν υπάρχουν ακόμη στοιχεία προπόνησης', 'workout.analytics_no_evidence_body': 'Ολοκληρώστε και αποθηκεύστε μια προπόνηση για να δείτε εδώ ημερολόγιο, σετ εργασίας, όγκο και πρόοδο.', 'workout.analytics_log_workout': 'Καταγραφή προπόνησης',

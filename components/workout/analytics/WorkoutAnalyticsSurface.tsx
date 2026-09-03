@@ -25,7 +25,7 @@ const emptyData: WorkoutAnalyticsData = {
   sets: [],
   measurements: [],
   programs: [],
-  issues: { schedule: false, measurements: false, historyTruncated: false },
+  issues: { schedule: false, measurements: false, historyTruncated: false, measurementsTruncated: false },
 };
 
 function localDateKey(date = new Date()) {
@@ -133,6 +133,7 @@ export default function WorkoutAnalyticsSurface() {
       </header>
       {loading ? <p role="status" className="py-16 text-center text-sm text-[var(--content-muted)]">{t('workout.analytics_loading')}</p> : error ? <section role="alert" className="rounded-xl bg-[var(--surface-subtle)] p-5"><AlertCircle size={20} className="mb-2 text-[var(--status-danger-fg)]" /><p className="text-sm text-[var(--content-secondary)]">{t('workout.analytics_load_failed')}</p><button type="button" onClick={() => void load()} className="mt-4 min-h-11 rounded-lg px-3 text-sm font-medium text-[var(--action-primary)] outline outline-1 outline-[var(--border-default)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">{t('workout.retry')}</button></section> : <>
         {data.issues.historyTruncated ? <p role="status" className="mb-7 rounded-xl bg-[var(--surface-subtle)] p-4 text-sm text-[var(--content-secondary)]">{t('workout.analytics_history_limited')}</p> : null}
+        {data.issues.measurementsTruncated ? <p role="status" className="mb-7 rounded-xl bg-[var(--surface-subtle)] p-4 text-sm text-[var(--content-secondary)]">{t('workout.analytics_measurements_limited')}</p> : null}
         {hasPartialIssue ? <section role="alert" className="mb-7 rounded-xl bg-[var(--surface-subtle)] p-4 text-sm text-[var(--status-danger-fg)]">{data.issues.schedule ? <p>{t('workout.analytics_schedule_failed')}</p> : null}{data.issues.measurements ? <p>{t('workout.analytics_body_weight_failed')}</p> : null}<button type="button" onClick={() => void load()} className="mt-3 min-h-11 px-3 font-medium text-[var(--action-primary)]">{t('workout.retry')}</button></section> : null}
         <div data-testid="training-progress-layout" className="space-y-7 lg:grid lg:grid-cols-[minmax(0,1.18fr)_minmax(20rem,0.82fr)] lg:items-start lg:gap-10 lg:space-y-0">
           <div className="min-w-0 space-y-7 lg:space-y-10">
