@@ -45,7 +45,7 @@ vi.mock('@/lib/i18n', () => ({
         'workout.workspace_live_title': liveTitle,
         'workout.workspace_exercises_title': 'Exercises',
         'workout.history': 'History',
-        'workout.stats': 'Stats',
+        'workout.stats': 'Training progress',
         'workout.form_check': 'Form Check',
         'workout.workspace_status_live': live,
         'workout.workspace_status_draft': 'Draft',
@@ -181,7 +181,7 @@ describe('workout workspace navigation', () => {
 
   it.each([
     ['/dashboard/workout/history', 'History'],
-    ['/dashboard/workout/stats', 'Stats'],
+    ['/dashboard/workout/stats', 'Training progress'],
     ['/dashboard/workout/form-check', 'Form Check'],
   ])('owns the single canonical support-page heading for %s', (route, title) => {
     pathname = route;

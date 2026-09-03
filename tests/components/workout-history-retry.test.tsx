@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import React from 'react';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const harness = vi.hoisted(() => ({
@@ -68,6 +68,11 @@ describe('Workout history recovery and honest set evidence', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
 
     const card = await screen.findByRole('button', { name: /Recovered session/i });
+    const recentEvidence = screen.getByRole('complementary', { name: 'Recent progress' });
+    expect(within(recentEvidence).getByText('Recovered session')).toBeTruthy();
+    expect(within(recentEvidence).getByRole('link', { name: 'Training progress' }).getAttribute('href')).toBe('/dashboard/workout/stats');
+    expect(screen.getByTestId('workout-history-canvas').className).toContain('bg-[var(--workout-canvas)]');
+    expect(screen.getByTestId('workout-history-layout')).toBeTruthy();
     expect(harness.calls.filter((call) => call.table === 'workout_sessions')).toHaveLength(2);
     expect(harness.calls[1].steps).toContainEqual(['eq', 'user_id', 'user-1']);
     expect(harness.calls[1].steps).toContainEqual(['not', 'completed_at', 'is', null]);

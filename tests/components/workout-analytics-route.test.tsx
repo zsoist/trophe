@@ -109,7 +109,9 @@ describe('WorkoutAnalyticsSurface production data boundary', () => {
   it('queries terminal user evidence and renders schedule, preferred units, and an honest Last range', async () => {
     render(<WorkoutAnalyticsSurface />);
 
-    await screen.findByRole('heading', { name: 'Analytics' });
+    expect((await screen.findByTestId('training-progress-title')).textContent).toBe('Training progress');
+    expect(await screen.findByTestId('training-progress-layout')).toBeTruthy();
+    expect(screen.getByTestId('training-progress-canvas').className).toContain('bg-[var(--workout-canvas)]');
     await screen.findByText('220.5 lb');
     expect(screen.getByRole('gridcell', { name: /^September 3:/i })).toBeTruthy();
     const sessionCall = harness.calls.find((call) => call.table === 'workout_sessions');

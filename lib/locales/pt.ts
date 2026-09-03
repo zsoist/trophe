@@ -779,7 +779,7 @@ export const pt: Record<string, string> = {
   'workout.cardio': 'Cardio',
   'workout.log_cardio': 'Registar cardio',
   'workout.no_program_hint': 'Ainda sem programa de treino — pede ao teu coach',
-  'workout.stats': 'Estatísticas',
+  'workout.stats': 'Progresso do treino',
   'workout.form_check': 'Verificação de técnica',
   'formCheck.title': 'Análise de técnica com IA',
   'formCheck.intro': 'Analisa o movimento em tempo real. Escolhe um exercício, fica de perfil e grava as repetições para comparar os ângulos com a referência.',

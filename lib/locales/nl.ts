@@ -774,7 +774,7 @@ export const nl: Record<string, string> = {
   'workout.cardio': 'Cardio',
   'workout.log_cardio': 'Cardio loggen',
   'workout.no_program_hint': 'Nog geen trainingsprogramma — vraag je coach erom',
-  'workout.stats': 'Statistieken',
+  'workout.stats': 'Trainingsvoortgang',
   'workout.form_check': 'Techniekcheck',
   'formCheck.title': 'AI-techniekcheck',
   'formCheck.intro': 'Analyseer je beweging in realtime. Kies een oefening, ga zijwaarts staan en neem herhalingen op om je hoeken met de referentie te vergelijken.',

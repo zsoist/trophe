@@ -662,7 +662,7 @@ export const translations: Record<string, Record<CoreLanguage, string>> = {
   'workout.cardio':           { en: 'Cardio', es: 'Cardio', el: 'Cardio' },
   'workout.log_cardio':       { en: 'Log cardio', es: 'Registrar cardio', el: 'Καταγραφή cardio' },
   'workout.no_program_hint':  { en: 'No training program yet — ask your coach for one', es: 'Aún sin programa de entrenamiento — pídeselo a tu coach', el: 'Δεν υπάρχει πρόγραμμα προπόνησης ακόμα — ζήτησέ το από τον προπονητή σου' },
-  'workout.stats':            { en: 'Stats', es: 'Estadísticas', el: 'Στατιστικά' },
+  'workout.stats':            { en: 'Training progress', es: 'Progreso de entrenamiento', el: 'Πρόοδος προπόνησης' },
   'workout.form_check':       { en: 'Form Check', es: 'Chequeo de técnica', el: 'Έλεγχος τεχνικής' },
   'formCheck.title': { en: 'AI Form Check', es: 'Chequeo de técnica con IA', el: 'Έλεγχος τεχνικής με AI' },
   'formCheck.intro': { en: 'Analyze your movement in real time. Choose an exercise, stand side-on, and record your repetitions to compare your angles with the reference.', es: 'Analiza tu movimiento en tiempo real. Elige un ejercicio, ponte de perfil y graba tus repeticiones para comparar tus ángulos con la referencia.', el: 'Ανάλυσε την κίνησή σου σε πραγματικό χρόνο. Επίλεξε άσκηση, στάσου στο πλάι και κατέγραψε επαναλήψεις για σύγκριση με την αναφορά.' },

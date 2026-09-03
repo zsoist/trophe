@@ -136,6 +136,27 @@ export default function WorkoutHistoryPage() {
   const [error, setError] = useState(false);
   const requestId = useRef(0);
   const locale = localeForLanguage(lang);
+  const latestSession = sessions[0] ?? null;
+  const latestEvidence = useMemo(() => {
+    if (!latestSession) return null;
+    const exercises = new Map<string, string>();
+    let workingSets = 0;
+    let personalRecords = 0;
+    for (const set of latestSession.sets) {
+      if (!set.is_warmup) workingSets += 1;
+      if (set.is_pr) personalRecords += 1;
+      const name = lang === 'es' && set.exercise.name_es
+        ? set.exercise.name_es
+        : lang === 'el' && set.exercise.name_el
+          ? set.exercise.name_el
+          : set.exercise.name;
+      exercises.set(set.exercise_id, name);
+    }
+    return { exercises: [...exercises.values()], workingSets, personalRecords };
+  }, [lang, latestSession]);
+  const latestDate = useMemo(() => latestSession
+    ? new Intl.DateTimeFormat(locale, { weekday: 'long', month: 'short', day: 'numeric' }).format(new Date(`${latestSession.session_date}T12:00:00`))
+    : '', [latestSession, locale]);
 
   const load = useCallback(async () => {
     const request = ++requestId.current;
@@ -178,12 +199,29 @@ export default function WorkoutHistoryPage() {
     return () => { window.clearTimeout(timer); requestId.current += 1; };
   }, [load]);
 
-  return <div className="min-h-screen bg-[var(--canvas)] pb-28">
-    <div className="mx-auto max-w-md px-4 pt-4">
+  return <div data-testid="workout-history-canvas" className="min-h-screen bg-[var(--workout-canvas)] pb-28">
+    <div data-testid="workout-history-layout" className="mx-auto max-w-6xl px-4 pt-4 sm:px-6 lg:grid lg:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.65fr)] lg:items-start lg:gap-8 lg:pt-6">
+      <div className="min-w-0">
       {loading ? <div role="status" className="flex items-center justify-center gap-3 py-16 text-sm text-[var(--content-muted)]"><div aria-hidden="true" className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--border-default)] border-t-[var(--action-primary)]" />{t('workout.analytics_history_loading')}</div> : null}
       {!loading && error ? <div role="alert" className="py-10 text-center text-sm text-[var(--status-danger-fg)]"><p>{t('workout.analytics_history_load_failed')}</p><button type="button" onClick={() => void load()} className="mt-3 min-h-11 px-3 text-[var(--action-primary)]">{t('workout.retry')}</button></div> : null}
       {!loading && !error && sessions.length === 0 ? <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="py-16 text-center"><Dumbbell size={48} className="mx-auto mb-4 text-[var(--content-muted)]" /><p className="text-sm text-[var(--content-muted)]">{t('workout.no_sessions')}</p><Link href="/dashboard/workout"><button type="button" className="btn-gold mt-4 min-h-11 min-w-11 px-6 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">{t('workout.start')}</button></Link></motion.div> : null}
       {!loading && !error && sessions.length > 0 ? <div className="space-y-7">{groupWorkoutSessionsByMonth(sessions, locale).map((group) => <section key={group.monthKey} aria-labelledby={`history-${group.monthKey}`}><h2 id={`history-${group.monthKey}`} className="mb-3 text-sm font-semibold text-[var(--content-primary)]">{group.month}</h2><div className="space-y-3">{group.sessions.map((session) => <SessionCard key={session.id} session={session} lang={lang} />)}</div></section>)}</div> : null}
+      </div>
+      {!loading && !error ? <aside aria-labelledby="recent-training-evidence" className="sticky top-20 hidden rounded-[14px] border border-[var(--workout-rail)] bg-[var(--workout-surface)] p-5 lg:block">
+        <h2 id="recent-training-evidence" className="text-sm font-semibold text-[var(--content-primary)]">{t('workout.home_recent_progress')}</h2>
+        {latestSession && latestEvidence ? <>
+          <p className="mt-4 text-lg font-semibold tracking-[-0.02em] text-[var(--content-primary)]">{latestSession.name || t('workout.title')}</p>
+          <time className="mt-1 block text-sm text-[var(--content-muted)]" dateTime={latestSession.session_date}>{latestDate}</time>
+          <dl className="mt-5 divide-y divide-[var(--workout-rail)] border-y border-[var(--workout-rail)] text-sm">
+            <div className="flex items-center justify-between gap-3 py-3"><dt className="text-[var(--content-muted)]">{t('workout.completed_duration')}</dt><dd className="font-mono font-semibold tabular-nums text-[var(--content-primary)]">{latestSession.duration_minutes === null ? t('workout.analytics_history_not_recorded') : t('workout.history_minutes', { n: latestSession.duration_minutes })}</dd></div>
+            <div className="flex items-center justify-between gap-3 py-3"><dt className="text-[var(--content-muted)]">{t('workout.completed_sets')}</dt><dd className="font-mono font-semibold tabular-nums text-[var(--content-primary)]">{latestEvidence.workingSets}</dd></div>
+            <div className="flex items-center justify-between gap-3 py-3"><dt className="text-[var(--content-muted)]">{t('workout.completed_prs')}</dt><dd className="font-mono font-semibold tabular-nums text-[var(--content-primary)]">{latestEvidence.personalRecords}</dd></div>
+            <div className="flex items-center justify-between gap-3 py-3"><dt className="text-[var(--content-muted)]">{t('workout.completed_pain')}</dt><dd className="font-mono font-semibold tabular-nums text-[var(--content-primary)]">{latestSession.pain_flags.length}</dd></div>
+          </dl>
+          {latestEvidence.exercises.length ? <ul className="mt-4 space-y-2 text-sm text-[var(--content-secondary)]">{latestEvidence.exercises.slice(0, 4).map((name) => <li key={name} className="flex items-center gap-2"><span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-[var(--action-primary)]" />{name}</li>)}</ul> : null}
+        </> : <p className="mt-4 text-sm leading-6 text-[var(--content-muted)]">{t('workout.no_sessions')}</p>}
+        <Link href="/dashboard/workout/stats" className="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-[var(--workout-rail)] px-4 text-sm font-semibold text-[var(--action-primary)] hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">{t('workout.home_training_progress')}</Link>
+      </aside> : null}
     </div>
     <BotNav routes={[
       { href: '/dashboard', label: t('nav.home'), icon: <Icon name="i-home" size={18} /> },

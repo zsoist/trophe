@@ -774,7 +774,7 @@ export const de: Record<string, string> = {
   'workout.cardio': 'Cardio',
   'workout.log_cardio': 'Cardio erfassen',
   'workout.no_program_hint': 'Noch kein Trainingsprogramm — frag deinen Coach danach',
-  'workout.stats': 'Statistiken',
+  'workout.stats': 'Trainingsfortschritt',
   'workout.form_check': 'Technik-Check',
   'formCheck.title': 'KI-Technikcheck',
   'formCheck.intro': 'Analysiere deine Bewegung in Echtzeit. Wähle eine Übung, stelle dich seitlich hin und zeichne Wiederholungen zum Vergleich mit der Referenz auf.',
