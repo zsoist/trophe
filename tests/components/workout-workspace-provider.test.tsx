@@ -24,7 +24,7 @@ import {
   WorkoutWorkspaceProvider,
   useWorkoutWorkspace,
 } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
-import { saveWorkspaceState } from '@/lib/workout/workspace-storage';
+import { saveWorkspaceState, type WorkspaceStorage } from '@/lib/workout/workspace-storage';
 import { createInitialWorkspaceState, workoutWorkspaceReducer } from '@/lib/workout/workspace-state';
 
 class MemoryStorage {
@@ -35,7 +35,7 @@ class MemoryStorage {
   removeItem(key: string) { this.values.delete(key); }
 }
 
-function ProviderHarness({ userId, storage = new MemoryStorage() }: { userId: string; storage?: MemoryStorage }) {
+function ProviderHarness({ userId, storage = new MemoryStorage() }: { userId: string; storage?: WorkspaceStorage }) {
   return (
     <WorkoutWorkspaceProvider userId={userId} storage={storage}>
       <WorkspaceControls />
@@ -110,6 +110,23 @@ afterEach(() => {
 });
 
 describe('WorkoutWorkspaceProvider', () => {
+  it('still starts a server-backed live session when local draft storage is denied', async () => {
+    const deniedStorage: WorkspaceStorage = {
+      getItem: () => { throw new Error('storage denied'); },
+      setItem: () => { throw new Error('storage denied'); },
+      removeItem: () => { throw new Error('storage denied'); },
+    };
+    startLiveSession.mockResolvedValue({ ok: true, sessionId: 'server-session' });
+    render(<ProviderHarness userId="nik" storage={deniedStorage} />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Create Push draft' })).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Create Push draft' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add Bench Press' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Start live workout' }));
+
+    await waitFor(() => expect(startLiveSession).toHaveBeenCalledTimes(1));
+    expect(screen.getByText('Live')).toBeTruthy();
+  });
+
   it('returns Review to Build while preserving the draft', async () => {
     render(<ProviderHarness userId="nik" />);
     await waitFor(() => expect(screen.getByRole('button', { name: 'Create Push draft' })).toBeTruthy());

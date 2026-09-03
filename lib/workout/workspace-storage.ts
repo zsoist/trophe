@@ -232,7 +232,13 @@ function persistDraft(draft: WorkoutDraft | null): WorkoutDraft | null {
 
 export function loadWorkspaceState(storage: WorkspaceStorage, userId: string): WorkoutWorkspaceState | null {
   const key = workspaceStorageKey(userId);
-  const raw = storage.getItem(key);
+  let raw: string | null;
+  try {
+    raw = storage.getItem(key);
+  } catch {
+    // Device recovery is helpful, but server writes and state transitions are authoritative.
+    return null;
+  }
   if (raw === null) return null;
   try {
     const parsed: unknown = JSON.parse(raw);
@@ -276,7 +282,7 @@ export function loadWorkspaceState(storage: WorkspaceStorage, userId: string): W
   } catch {
     // Corrupt storage is discarded below.
   }
-  storage.removeItem(key);
+  try { storage.removeItem(key); } catch { /* Best-effort device cleanup only. */ }
   return null;
 }
 
@@ -293,9 +299,9 @@ export function saveWorkspaceState(storage: WorkspaceStorage, userId: string, st
     retrospectiveRequest: state.retrospectiveRequest ?? null,
     completedRetrospective: state.completedRetrospective ?? null,
   };
-  storage.setItem(workspaceStorageKey(userId), JSON.stringify(payload));
+  try { storage.setItem(workspaceStorageKey(userId), JSON.stringify(payload)); } catch { /* Recovery storage is optional. */ }
 }
 
 export function clearWorkspaceState(storage: WorkspaceStorage, userId: string): void {
-  storage.removeItem(workspaceStorageKey(userId));
+  try { storage.removeItem(workspaceStorageKey(userId)); } catch { /* Recovery storage is optional. */ }
 }

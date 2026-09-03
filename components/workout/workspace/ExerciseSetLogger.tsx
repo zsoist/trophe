@@ -38,6 +38,8 @@ interface ExerciseSetLoggerProps {
   onPlateCalculator?: (weight: number | null) => void;
   onSuperset?: () => void;
   onRemove?: () => void;
+  /** Gives the active live exercise larger, keyboard-friendly set controls. */
+  focusMode?: boolean;
 }
 
 function parsedNumber(value: string): number | null {
@@ -65,6 +67,7 @@ export function ExerciseSetLogger({
   onPlateCalculator,
   onSuperset,
   onRemove,
+  focusMode = false,
 }: ExerciseSetLoggerProps) {
   const { t } = useI18n();
   const [weight, setWeight] = useState(initialValue?.weight == null ? '' : String(initialValue.weight));
@@ -189,11 +192,11 @@ export function ExerciseSetLogger({
       <div className={grouped ? 'grid grid-cols-3 gap-2' : 'grid grid-cols-2 gap-3'}>
         <label className="text-sm font-medium text-[var(--content-secondary)]">
           {t('workout.weight_in_unit', { unit })}
-          <input type="number" min="0" step="any" inputMode="decimal" disabled={completed || disabled} aria-label={t('workout.weight_in_unit', { unit })} value={weight} onChange={(event) => setWeight(event.target.value)} className="input-dark mt-1 min-h-12 w-full font-mono text-base tabular-nums" />
+          <input type="number" min="0" step="any" inputMode="decimal" disabled={completed || disabled} aria-label={t('workout.weight_in_unit', { unit })} value={weight} onChange={(event) => setWeight(event.target.value)} className={`input-dark mt-1 w-full font-mono tabular-nums ${focusMode ? 'min-h-14 text-lg' : 'min-h-12 text-base'}`} />
         </label>
         <label className="text-sm font-medium text-[var(--content-secondary)]">
           {t('workout.reps')}
-          <input type="number" min="1" step="1" inputMode="numeric" disabled={completed || disabled} aria-label={t('workout.reps')} value={reps} onChange={(event) => setReps(event.target.value)} className="input-dark mt-1 min-h-12 w-full font-mono text-base tabular-nums" />
+          <input type="number" min="1" step="1" inputMode="numeric" disabled={completed || disabled} aria-label={t('workout.reps')} value={reps} onChange={(event) => setReps(event.target.value)} className={`input-dark mt-1 w-full font-mono tabular-nums ${focusMode ? 'min-h-14 text-lg' : 'min-h-12 text-base'}`} />
         </label>
         {grouped ? <label className="text-sm font-medium text-[var(--content-secondary)]">
           {t('workout.rpe_optional')}
@@ -206,7 +209,7 @@ export function ExerciseSetLogger({
           {t('workout.rpe_optional')}
           <input type="number" min="1" max="10" step="0.5" inputMode="decimal" disabled={completed || disabled} aria-label={t('workout.rpe_optional')} value={rpe} onChange={(event) => setRpe(event.target.value)} className="input-dark mt-1 min-h-12 w-full font-mono text-base tabular-nums" />
         </label>) : null}
-        <button type="button" disabled={saving || disabled} onClick={() => void toggleComplete()} className={`${grouped ? '' : 'mt-6'} btn-gold inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl disabled:opacity-50`}>
+        <button type="button" disabled={saving || disabled} onClick={() => void toggleComplete()} className={`${grouped ? '' : 'mt-6'} btn-gold inline-flex w-full items-center justify-center gap-2 rounded-xl disabled:opacity-50 ${focusMode ? 'min-h-14 text-lg' : 'min-h-12'}`}>
           <Check size={17} aria-hidden="true" />{saving ? t('workout.saving') : completed ? t('workout.undo_set') : t('workout.complete_set')}
         </button>
       </div>

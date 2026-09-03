@@ -1,8 +1,8 @@
 'use client';
 
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { CheckCircle2, Pause, Play, Plus, Square } from 'lucide-react';
+import { CheckCircle2, Plus, Square } from 'lucide-react';
 import ExerciseInfoSheet from '@/components/workout/ExerciseInfoSheet';
 import PainFlagModal from '@/components/workout/PainFlagModal';
 import PlateCalculator from '@/components/workout/PlateCalculator';
@@ -11,6 +11,8 @@ import { useWorkoutWorkspace } from '@/components/workout/workspace/WorkoutWorks
 import { ExerciseSetLogger, type SetLoggerValue } from '@/components/workout/workspace/ExerciseSetLogger';
 import { FinishWorkoutDialog } from '@/components/workout/workspace/FinishWorkoutDialog';
 import { LiveCardio, type CardioLogValues } from '@/components/workout/workspace/LiveCardio';
+import { LiveExerciseStage } from '@/components/workout/workspace/LiveExerciseStage';
+import { LiveSessionPath } from '@/components/workout/workspace/LiveSessionPath';
 import { useI18n } from '@/lib/i18n';
 import type { Exercise, PainFlag } from '@/lib/types';
 import {
@@ -218,6 +220,21 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
   const durationMinutes = Math.max(0, Math.floor(elapsedMs / 60_000));
   const mutationBlocked = pendingMutations > 0 || failedMutations.size > 0 || recoveryError || !recoveryLoaded;
 
+  const activeExerciseIndex = useMemo(() => {
+    if (!draft || draft.kind !== 'strength') return 0;
+    const firstIncomplete = draft.exercises.findIndex((exercise) => (
+      persistedSets.filter((set) => set.exercise_id === exercise.exerciseId && !set.is_warmup).length < exercise.targetSets
+    ));
+    if (firstIncomplete <= 0) return Math.max(0, firstIncomplete);
+    const previous = draft.exercises[firstIncomplete - 1];
+    const latestPreviousSet = persistedSets
+      .filter((set) => set.exercise_id === previous.exerciseId && !set.is_warmup)
+      .sort((left, right) => Date.parse(right.created_at ?? '') - Date.parse(left.created_at ?? ''))[0];
+    const restTarget = getRestTarget(previous.exerciseId, exerciseById.get(previous.exerciseId)?.is_compound);
+    if (latestPreviousSet && now - Date.parse(latestPreviousSet.created_at ?? '') < restTarget * 1_000) return firstIncomplete - 1;
+    return firstIncomplete;
+  }, [draft, exerciseById, now, persistedSets]);
+
   if (!draft || !sessionId || (state.stage !== 'live' && state.stage !== 'paused' && state.stage !== 'finishing' && state.stage !== 'completed')) {
     return <main className="mx-auto max-w-2xl px-4 py-8"><p className="text-[var(--content-secondary)]">{t('workout.no_live_session')}</p></main>;
   }
@@ -401,20 +418,48 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
   };
 
   const finishOpen = finishRequested || state.stage === 'finishing';
+  const activeDraftExercise = draft.exercises[activeExerciseIndex] ?? draft.exercises[0];
+  const activeExercise = activeDraftExercise ? exerciseById.get(activeDraftExercise.exerciseId) : undefined;
+  const activeResolved = activeExercise ?? (activeDraftExercise ? {
+    id: activeDraftExercise.exerciseId,
+    name: activeDraftExercise.exerciseName ?? activeDraftExercise.exerciseId,
+    is_compound: false,
+    equipment: null,
+    muscle_group: 'full_body',
+  } : null);
+  const activeRows = activeDraftExercise ? rows.filter((row) => row.exerciseId === activeDraftExercise.exerciseId) : [];
+  const latestActiveSet = activeDraftExercise
+    ? persistedSets.filter((set) => set.exercise_id === activeDraftExercise.exerciseId && !set.is_warmup)
+      .sort((left, right) => Date.parse(right.created_at ?? '') - Date.parse(left.created_at ?? ''))[0]
+    : undefined;
+  const previousEvidence = latestActiveSet
+    ? `${latestActiveSet.weight_kg === null ? '—' : `${kgToDisplay(latestActiveSet.weight_kg, unit)} ${unit}`} × ${latestActiveSet.reps}`
+    : t('workout.previous_values');
   return (
-    <main className="mx-auto max-w-2xl space-y-5 px-4 py-5">
-      <section className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-3">
+    <main className="mx-auto max-w-2xl space-y-5 px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-5">
+      <section className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] pb-3">
         <div>
           <h2 className="font-bold text-[var(--content-primary)]">{draft.name}</h2>
           <p className="font-mono text-sm tabular-nums text-[var(--content-secondary)]">{Math.floor(elapsedMs / 60_000)}:{String(Math.floor(elapsedMs / 1_000) % 60).padStart(2, '0')}</p>
         </div>
-        <button type="button" onClick={() => { if (state.stage === 'paused') workspace.resume(); else workspace.pause(); }} className="btn-ghost inline-flex min-h-11 items-center gap-2 rounded-xl px-4">
-          {state.stage === 'paused' ? <Play size={17} aria-hidden="true" /> : <Pause size={17} aria-hidden="true" />}{t(state.stage === 'paused' ? 'workout.resume' : 'workout.pause')}
-        </button>
       </section>
+      <LiveSessionPath exercises={draft.exercises.map((exercise) => ({ id: exercise.exerciseId, name: exercise.exerciseName ?? exerciseById.get(exercise.exerciseId)?.name ?? exercise.exerciseId }))} currentIndex={activeExerciseIndex} />
 
-      <div className="space-y-3">
-        {!recoveryLoaded ? <div role="status" className="min-h-24 animate-pulse rounded-xl bg-[var(--surface-subtle)]" aria-label={t('workout.loading_live_session')} /> : rows.map((row, rowIndex) => {
+      {!recoveryLoaded || !activeDraftExercise || !activeResolved ? <div role="status" className="min-h-24 animate-pulse rounded-xl bg-[var(--surface-subtle)]" aria-label={t('workout.loading_live_session')} /> : (
+        <LiveExerciseStage
+          exercise={activeResolved}
+          position={activeExerciseIndex + 1}
+          total={draft.exercises.length}
+          targetSets={activeDraftExercise.targetSets}
+          targetReps={activeDraftExercise.targetReps}
+          previous={previousEvidence}
+          nextExerciseName={draft.exercises[activeExerciseIndex + 1]?.exerciseName ?? exerciseById.get(draft.exercises[activeExerciseIndex + 1]?.exerciseId ?? '')?.name}
+          paused={state.stage === 'paused'}
+          onPause={workspace.pause}
+          onResume={workspace.resume}
+        >
+        <div className="space-y-3">
+        {activeRows.map((row, rowIndex) => {
           const exercise = exerciseById.get(row.exerciseId);
           const draftExercise = draft.exercises.find((candidate) => candidate.exerciseId === row.exerciseId);
           const resolved = exercise ?? {
@@ -425,15 +470,16 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
           };
           const persisted = persistedSets.find((set) => set.exercise_id === row.exerciseId && set.set_number === row.setNumber);
           const pendingInput = pendingSetInputs[`${row.exerciseId}:${row.setNumber}`];
-          const showExerciseHeader = rowIndex === 0 || rows[rowIndex - 1]?.exerciseId !== row.exerciseId;
-          const isLastSet = rowIndex === rows.length - 1 || rows[rowIndex + 1]?.exerciseId !== row.exerciseId;
+          const showExerciseHeader = rowIndex === 0;
+          const isLastSet = rowIndex === activeRows.length - 1;
           return (
-            <Fragment key={row.id}>
+            <div key={row.id}>
             <ExerciseSetLogger
               exercise={{ id: resolved.id, name: resolved.name, isCompound: resolved.is_compound, equipment: resolved.equipment }}
               setNumber={row.setNumber}
               unit={unit}
               grouped
+              focusMode
               showExerciseHeader={showExerciseHeader}
               isLastSet={isLastSet}
               initialSetId={persisted?.id}
@@ -493,10 +539,12 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
             {isLastSet ? (
               <button type="button" disabled={mutationBlocked} onClick={() => addSet(row.exerciseId)} className="btn-ghost -mt-1 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl disabled:opacity-50"><Plus size={17} aria-hidden="true" />{t('workout.add_set')}</button>
             ) : null}
-            </Fragment>
+            </div>
           );
         })}
-      </div>
+        </div>
+        </LiveExerciseStage>
+      )}
 
       {recoveryError ? (
         <div role="alert" className="rounded-xl bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]">
