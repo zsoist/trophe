@@ -1602,4 +1602,5 @@ export const it: Record<string, string> = {
   'workout.volume_kg': 'volume kg',
   'workout.distance': 'Distanza',
   'workout.invalid_prescription': 'Ogni esercizio richiede almeno una serie e un obiettivo di ripetizioni.',
+  'workout.history_minutes': '{n} minuti', 'workout.history_show_set_details': 'Mostra i dettagli delle serie completate', 'workout.history_hide_set_details': 'Nascondi i dettagli delle serie completate', 'workout.history_warmup': 'Riscaldamento', 'workout.history_working': 'Serie di lavoro', 'workout.history_pr': 'Record personale',
 };

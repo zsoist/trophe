@@ -1660,6 +1660,12 @@ export const translations: Record<string, Record<CoreLanguage, string>> = {
   'exercisecompare.volume':      { en: 'Volume', es: 'Volumen', el: 'Όγκος' },
   'exercisecompare.best_weight_trend': { en: 'Best Weight Trend', es: 'Tendencia de Mejor Peso', el: 'Τάση Καλύτερου Βάρους' },
   'exercisecompare.no_sessions': { en: 'No sessions found for this exercise', es: 'No hay sesiones para este ejercicio', el: 'Δεν βρέθηκαν συνεδρίες για αυτή την άσκηση' },
+  'workout.history_minutes': { en: '{n} minutes', es: '{n} minutos', el: '{n} λεπτά' },
+  'workout.history_show_set_details': { en: 'Show completed set details', es: 'Mostrar detalles de series completadas', el: 'Εμφάνιση λεπτομερειών ολοκληρωμένων σετ' },
+  'workout.history_hide_set_details': { en: 'Hide completed set details', es: 'Ocultar detalles de series completadas', el: 'Απόκρυψη λεπτομερειών ολοκληρωμένων σετ' },
+  'workout.history_warmup': { en: 'Warm-up', es: 'Calentamiento', el: 'Προθέρμανση' },
+  'workout.history_working': { en: 'Working', es: 'Trabajo', el: 'Εργασίας' },
+  'workout.history_pr': { en: 'PR', es: 'RM', el: 'Ατομικό ρεκόρ' },
 };
 
 // ─── Context & Hook ───

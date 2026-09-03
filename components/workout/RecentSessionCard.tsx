@@ -76,6 +76,9 @@ export default function RecentSessionCard({
       <motion.button
         whileTap={{ scale: 0.98 }}
         onClick={toggle}
+        aria-expanded={expanded}
+        aria-controls={`recent-session-detail-${session.id}`}
+        aria-label={`${session.name ?? t('workout.title')}, ${label}${session.duration_minutes ? `, ${t('workout.history_minutes', { n: session.duration_minutes })}` : ''}. ${t(expanded ? 'workout.history_hide_set_details' : 'workout.history_show_set_details')}`}
         className="w-full text-left min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
         style={{ padding: '11px 14px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', background: 'transparent', border: 'none' }}
       >
@@ -112,7 +115,7 @@ export default function RecentSessionCard({
             transition={{ duration: 0.22, ease: 'easeInOut' }}
             style={{ overflow: 'hidden' }}
           >
-            <div style={{ padding: '0 14px 12px', borderTop: '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)' }}>
+            <div id={`recent-session-detail-${session.id}`} style={{ padding: '0 14px 12px', borderTop: '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)' }}>
               {loadingSets && (
                 <p style={{ fontSize: 12, color: 'var(--content-muted)', padding: '10px 0' }}>{t('chat.loading')}</p>
               )}
@@ -123,26 +126,13 @@ export default function RecentSessionCard({
               )}
               {grouped.map((g, gi) => (
                 <div key={gi} style={{ paddingTop: 10 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-                    <div style={{ width: 3, height: 12, borderRadius: 2, background: muscleColor(g.muscle) }} />
-                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--content-secondary)' }}>{g.name}</span>
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                    {g.rows.map((r) => (
-                      <span
-                        key={r.id}
-                        style={{
-                          fontSize: 12, fontFamily: 'var(--font-mono)', padding: '2px 7px', borderRadius: 8,
-                          background: r.is_pr ? 'color-mix(in srgb, var(--action-primary) 14%, transparent)' : 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
-                          border: r.is_pr ? '1px solid color-mix(in srgb, var(--action-primary) 35%, transparent)' : '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)',
-                          color: r.is_pr ? 'var(--action-primary)' : 'var(--content-secondary)',
-                        }}
-                      >
-                        {r.is_warmup ? 'W ' : ''}{kgToDisplay(r.weight_kg ?? 0, unit)}{unit}×{r.reps ?? 0}
-                        {r.is_pr && <Trophy size={8} className="inline ml-1" style={{ verticalAlign: -1 }} />}
-                      </span>
-                    ))}
-                  </div>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: muscleColor(g.muscle) }}>{g.name}</span>
+                  <table aria-label={`${g.name} completed sets`} style={{ width: '100%', marginTop: 4, fontSize: 12, color: 'var(--content-secondary)', borderCollapse: 'collapse' }}>
+                    <thead className="sr-only"><tr><th>Set</th><th>Type</th><th>Weight</th><th>Reps</th><th>Personal record</th></tr></thead>
+                    <tbody>{g.rows.map((r) => <tr key={r.id} style={{ borderTop: '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)' }}>
+                      <td style={{ padding: '5px 0', fontFamily: 'var(--font-mono)' }}>{r.set_number}</td><td>{r.is_warmup ? t('workout.history_warmup') : t('workout.history_working')}</td><td style={{ fontFamily: 'var(--font-mono)' }}>{kgToDisplay(r.weight_kg ?? 0, unit)} {unit}</td><td style={{ fontFamily: 'var(--font-mono)' }}>{r.reps ?? 0}</td><td>{r.is_pr ? <><Trophy size={11} className="inline mr-1 text-[var(--action-primary)]" />{t('workout.history_pr')}</> : '—'}</td>
+                    </tr>)}</tbody>
+                  </table>
                 </div>
               ))}
               {!loadingSets && sets !== null && (

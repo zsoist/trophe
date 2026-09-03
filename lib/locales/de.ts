@@ -1602,4 +1602,5 @@ export const de: Record<string, string> = {
   'workout.volume_kg': 'Volumen kg',
   'workout.distance': 'Distanz',
   'workout.invalid_prescription': 'Jede Übung braucht mindestens einen Satz und ein Wiederholungsziel.',
+  'workout.history_minutes': '{n} Minuten', 'workout.history_show_set_details': 'Details abgeschlossener Sätze anzeigen', 'workout.history_hide_set_details': 'Details abgeschlossener Sätze ausblenden', 'workout.history_warmup': 'Aufwärmen', 'workout.history_working': 'Arbeitssatz', 'workout.history_pr': 'Bestleistung',
 };

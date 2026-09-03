@@ -13,53 +13,10 @@ import { useI18n } from '@/lib/i18n';
 import type { WorkoutSession, WorkoutSet, Exercise } from '@/lib/types';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { groupWorkoutSessionsByMonth } from '@/components/workout/analytics/history-grouping';
 
 interface SessionWithSets extends WorkoutSession {
   sets: (WorkoutSet & { exercise: Exercise })[];
-}
-
-// ─── Volume bar chart (last 10 sessions) ───
-function VolumeChart({ sessions }: { sessions: SessionWithSets[] }) {
-  const last10 = sessions.filter((session) => session.workout_kind !== 'cardio').slice(0, 10).reverse();
-  const volumes = last10.map((s) =>
-    s.sets.reduce((acc, set) => acc + (set.weight_kg || 0) * (set.reps || 0), 0)
-  );
-  const maxVol = Math.max(...volumes, 1);
-
-  if (volumes.length < 2) return null;
-
-  return (
-    <div className="glass p-4 mb-4">
-      <p className="text-xs text-[var(--content-muted)] uppercase tracking-wider mb-3">Total Volume (last {last10.length})</p>
-      <div className="flex items-end gap-1 h-20">
-        {volumes.map((vol, i) => (
-          <motion.div
-            key={i}
-            initial={{ height: 0 }}
-            animate={{ height: `${Math.max((vol / maxVol) * 100, 4)}%` }}
-            transition={{ delay: i * 0.05, duration: 0.4 }}
-            className="flex-1 rounded-t-md relative group"
-            style={{
-              background: `linear-gradient(to top, color-mix(in srgb, var(--action-primary) 30%, transparent), color-mix(in srgb, var(--action-primary) 60%, transparent))`,
-              minHeight: '3px',
-            }}
-          >
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 text-xs text-[var(--content-muted)] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-              {vol > 1000 ? `${(vol / 1000).toFixed(1)}k` : vol}
-            </div>
-          </motion.div>
-        ))}
-      </div>
-      <div className="flex justify-between mt-1">
-        <span className="text-xs text-[var(--content-muted)]">
-          {last10[0]?.session_date?.slice(5) || ''}
-        </span>
-        <span className="text-xs text-[var(--content-muted)]">
-          {last10[last10.length - 1]?.session_date?.slice(5) || ''}
-        </span>
-      </div>
-    </div>
-  );
 }
 
 // ─── Session Card ───
@@ -333,15 +290,16 @@ export default function WorkoutHistoryPage() {
 
         {!loading && sessions.length > 0 && (
           <>
-            <VolumeChart sessions={sessions} />
-
-            <div className="space-y-3">
-              {sessions.map((session) => (
-                <SessionCard
-                  key={session.id}
-                  session={session}
-                  lang={lang}
-                />
+            <div className="space-y-7">
+              {groupWorkoutSessionsByMonth(sessions).map((group) => (
+                <section key={group.month} aria-labelledby={`history-${group.month.replace(/\s+/g, '-').toLowerCase()}`}>
+                  <h2 id={`history-${group.month.replace(/\s+/g, '-').toLowerCase()}`} className="mb-3 text-sm font-semibold text-[var(--content-primary)]">{group.month}</h2>
+                  <div className="space-y-3">
+                    {group.sessions.map((session) => (
+                      <SessionCard key={session.id} session={session} lang={lang} />
+                    ))}
+                  </div>
+                </section>
               ))}
             </div>
           </>
