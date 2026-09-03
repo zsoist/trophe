@@ -1,0 +1,7 @@
+Use case: ui-mockup
+Asset type: portrait mobile-first web-app composition concept, 9:19.5 phone viewport
+Primary request: Redesign the complete Trophē Workout home as “Training Journey Lanes”. Make Assigned by coach, Recommended for you, and My plans three unmistakable lanes. A compact Today strip anchors the top. The first viewport centers one premium training-journey card with program photography, coach approval, six-week path, today’s session, time, equipment, muscle focus, and one Preview plan action. Nothing is a live session yet.
+Reference: .impeccable/review/mobile-workout.png, used only for the established Personal Best identity and mobile shell.
+Palette: obsidian #070806, graphite #151717, evidence white #F5F7F2, Trophē gold #D4A853, restrained coral and violet as program channels.
+Constraints: one primary action; coach-assigned state unmistakable; reusable programs separate from live workouts; accessible touch sizes; no floating CTA, onboarding survey, unlabeled carousel, neon, glassmorphism, gradients, clipped people, trademarks, or watermarks.
+Generated with: built-in image generation tool.
