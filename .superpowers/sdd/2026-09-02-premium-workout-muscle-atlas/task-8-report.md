@@ -101,3 +101,13 @@ Entries clear when a set is undone, an exercise is removed, rest completes, a wo
 Result: 7 files, 86 tests passed.
 
 `NODE_OPTIONS=--no-experimental-webstorage npm run typecheck`, targeted ESLint for the rest-clock production/test files, and `git diff --check` all passed.
+
+## Review round 3 lifecycle correction
+
+- A successful superset mutation no longer touches rest-clock entries: grouping is structural only and preserves a running or paused rest.
+- A successful exercise removal now clears every persisted-set rest entry for that removed exercise, after the authoritative structure mutation accepts. Failed removal leaves rest untouched.
+- The real-consumer fake-timer fixture now supplies `created_at` from the original completion instant. It pauses at exactly seven seconds, persists that timestamp, toggles a successful superset, navigates away for 30 paused seconds, returns with the exact unchanged value, and then proves the first resumed second increments exactly once. This would fail if a remount re-synced from the original server timestamp.
+
+`NODE_OPTIONS=--no-experimental-webstorage npx vitest run tests/components/live-workout-v3.test.tsx tests/components/live-workout.test.tsx tests/components/live-workout-plate-real-consumer.test.tsx tests/workout/live-session.test.ts tests/components/plate-calculator-v2.test.tsx tests/components/pain-flag-modal.test.tsx`
+
+Result: 6 files, 82 tests passed. Typecheck, targeted lint, and diff check passed.

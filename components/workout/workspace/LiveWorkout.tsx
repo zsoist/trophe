@@ -430,10 +430,6 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
       (candidate) => candidate.ok,
     );
     if (!saved?.ok) return;
-    setRestClock((current) => ({
-      ...current,
-      entries: Object.fromEntries(Object.entries(current.entries).filter(([setId]) => !persistedSets.some((set) => set.id === setId && set.exercise_id === exerciseId))),
-    }));
     setStructureVersion(saved.version);
     const groupByExercise = new Map(structure.map((exercise) => [exercise.exerciseId, exercise.supersetGroup]));
     setPersistedSets((current) => current.map((set) => ({ ...set, superset_group: groupByExercise.get(set.exercise_id) ?? null })));
@@ -449,6 +445,10 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
       (candidate) => candidate.ok,
     );
     if (!saved?.ok) return;
+    setRestClock((current) => ({
+      ...current,
+      entries: Object.fromEntries(Object.entries(current.entries).filter(([setId]) => !persistedSets.some((set) => set.id === setId && set.exercise_id === exerciseId))),
+    }));
     setStructureVersion(saved.version);
     setPersistedSets((current) => current.filter((set) => set.exercise_id !== exerciseId));
     setExtraRows((current) => current.filter((row) => row.exerciseId !== exerciseId));
