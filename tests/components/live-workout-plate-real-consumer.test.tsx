@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import React from 'react';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WorkoutWorkspaceState } from '@/lib/workout/workspace-state';
 
@@ -15,6 +15,7 @@ const state: WorkoutWorkspaceState = {
 };
 const workspace = { state, pause: vi.fn(), resume: vi.fn(), requestFinish: vi.fn(), cancelFinish: vi.fn(), completeFinish: vi.fn(), discardLive: vi.fn(), updateLiveCardioDraft: vi.fn(), commitLiveStrengthStructure: vi.fn() };
 const bench = { id: 'bench', name: 'Bench Press', name_es: null, name_el: null, muscle_group: 'chest' as const, secondary_muscles: null, equipment: 'barbell', is_compound: true, is_template: true, created_by: null, created_at: '' };
+const row = { ...bench, id: 'row', name: 'Dumbbell Row', muscle_group: 'back' as const, equipment: 'dumbbell' };
 
 vi.mock('framer-motion', () => ({
   AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -75,8 +76,10 @@ describe('LiveWorkout warm-up real consumer', () => {
     expect(screen.getByRole('button', { name: 'Undo set' })).toBeTruthy();
   });
 
-  it('freezes real rest at the exact elapsed value while paused, then resumes from it', async () => {
-    const view = render(<LiveWorkout exercises={[bench]} />);
+  it('keeps rest frozen through paused path navigation and resumes its exact countdown', async () => {
+    if (!state.draft || state.draft.kind !== 'strength') throw new Error('expected strength draft');
+    workspace.state = { ...state, draft: { ...state.draft, exercises: [...state.draft.exercises, { exerciseId: 'row', exerciseName: 'Dumbbell Row', targetSets: 1, targetReps: '10' }] } };
+    const view = render(<LiveWorkout exercises={[bench, row]} />);
     await screen.findByLabelText('Weight in lb');
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-09-03T12:00:00.000Z'));
@@ -85,24 +88,36 @@ describe('LiveWorkout warm-up real consumer', () => {
       fireEvent.change(screen.getByLabelText('Reps'), { target: { value: '8' } });
       fireEvent.click(screen.getByRole('button', { name: 'Complete set' }));
       await vi.advanceTimersByTimeAsync(0);
-      fireEvent.click(screen.getByRole('button', { name: 'Exercise 1, completed' }));
       expect(screen.getByRole('button', { name: 'Undo set' })).toBeTruthy();
 
       await vi.advanceTimersByTimeAsync(7_000);
       const elapsedBeforePause = Number(screen.getByRole('status').textContent?.match(/· (\d+)s/)?.[1]);
       expect(elapsedBeforePause).toBeGreaterThanOrEqual(6);
+      // A pause triggers the normal recovery effect; mirror the authoritative
+      // atomic write so navigation exercises the real remount path.
+      api.loadWorkoutSessionSets.mockResolvedValue({ ok: true, sets: [persisted(1, false, 'set-1')] });
 
-      workspace.state = { ...state, stage: 'paused', clock: { runningSince: null, accumulatedMs: 0 } };
-      view.rerender(<LiveWorkout exercises={[bench]} />);
+      workspace.state = { ...workspace.state, stage: 'paused', clock: { runningSince: null, accumulatedMs: 0 } };
+      view.rerender(<LiveWorkout exercises={[bench, row]} />);
       await vi.advanceTimersByTimeAsync(0);
       const elapsedWhilePaused = Number(screen.getByRole('status').textContent?.match(/· (\d+)s/)?.[1]);
+      fireEvent.click(screen.getByRole('button', { name: 'Exercise 2, pending' }));
+      expect(screen.getAllByRole('heading', { name: 'Dumbbell Row' })).toHaveLength(2);
       await vi.advanceTimersByTimeAsync(30_000);
+      fireEvent.click(screen.getByRole('button', { name: 'Exercise 1, completed' }));
       expect(screen.getByRole('status').textContent).toContain(`· ${elapsedWhilePaused}s /`);
 
-      workspace.state = { ...state, stage: 'live', clock: { runningSince: Date.now(), accumulatedMs: 0 } };
-      view.rerender(<LiveWorkout exercises={[bench]} />);
+      workspace.state = { ...workspace.state, stage: 'live', clock: { runningSince: Date.now(), accumulatedMs: 0 } };
+      view.rerender(<LiveWorkout exercises={[bench, row]} />);
+      await act(async () => {});
+      await vi.advanceTimersByTimeAsync(0);
+      const elapsedAfterResume = Number(screen.getByRole('status').textContent?.match(/· (\d+)s/)?.[1]);
+      expect(elapsedAfterResume).toBe(elapsedWhilePaused);
+      await vi.advanceTimersByTimeAsync(1_000);
+      const elapsedAfterResumeTick = Number(screen.getByRole('status').textContent?.match(/· (\d+)s/)?.[1]);
+      expect(elapsedAfterResumeTick).toBe(elapsedAfterResume + 1);
       await vi.advanceTimersByTimeAsync(4_000);
-      expect(screen.getByRole('status').textContent).toContain(`· ${elapsedWhilePaused + 4}s /`);
+      expect(screen.getByRole('status').textContent).toContain(`· ${elapsedAfterResumeTick + 4}s /`);
     } finally {
       vi.useRealTimers();
     }

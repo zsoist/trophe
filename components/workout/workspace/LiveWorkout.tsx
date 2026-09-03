@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { CheckCircle2, Plus, Square } from 'lucide-react';
 import ExerciseInfoSheet from '@/components/workout/ExerciseInfoSheet';
@@ -8,7 +8,7 @@ import PainFlagModal from '@/components/workout/PainFlagModal';
 import PlateCalculator from '@/components/workout/PlateCalculator';
 import { ConfirmSheet } from '@/components/ui/ConfirmSheet';
 import { useWorkoutWorkspace } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
-import { ExerciseSetLogger, type SetLoggerValue } from '@/components/workout/workspace/ExerciseSetLogger';
+import { ExerciseSetLogger, type RestClockSnapshot, type SetLoggerValue } from '@/components/workout/workspace/ExerciseSetLogger';
 import { FinishWorkoutDialog } from '@/components/workout/workspace/FinishWorkoutDialog';
 import { LiveCardio, type CardioLogValues } from '@/components/workout/workspace/LiveCardio';
 import { LiveExerciseStage } from '@/components/workout/workspace/LiveExerciseStage';
@@ -36,10 +36,6 @@ import { elapsedActiveMs } from '@/lib/workout/workspace-state';
 import { resetWorkoutScroll } from '@/lib/workout/workspace-routes';
 import { getRestTarget } from '@/lib/workout/rest-targets';
 
-// A live stage can unmount for path navigation or a route refresh while the
-// workspace is paused. This in-memory cache keeps that pause snapshot tied to
-// the authoritative set id without changing server persistence.
-const restSnapshotCache = new Map<string, number>();
 import { supersetGroupFor } from '@/lib/workout/supersets';
 import { displayToKg, kgToDisplay, useWeightUnit } from '@/lib/workout/units';
 import type { PersistedWorkoutSet } from '@/components/workout/workout-persistence';
@@ -87,19 +83,42 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
     savedSetCount: number;
   } | null>(null);
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
-  // Rest is presentation state, but it must remain exact when the one-stage
-  // view unmounts a completed row during a pause.
-  const [restElapsedBySetId, setRestElapsedBySetId] = useState<Record<string, number>>({});
-  const handleRestElapsedChange = useCallback((setId: string, elapsedSeconds: number) => {
-    restSnapshotCache.set(setId, elapsedSeconds);
-    setRestElapsedBySetId((current) => current[setId] === elapsedSeconds
-      ? current
-      : { ...current, [setId]: elapsedSeconds });
-  }, []);
-
   const draft = state.draft;
   const sessionId = state.sessionId;
   const completedRetrospective = state.completedRetrospective;
+  // Rest is ephemeral view state, scoped to the authoritative session and
+  // deliberately discarded on session change/finish rather than retained in a
+  // process-global cache.
+  const [restClock, setRestClock] = useState<{ sessionId: string | null; entries: Record<string, RestClockSnapshot> }>({ sessionId, entries: {} });
+  const previousRestStage = useRef(state.stage);
+  useLayoutEffect(() => {
+    const previousStage = previousRestStage.current;
+    previousRestStage.current = state.stage;
+    setRestClock((current) => {
+      if (current.sessionId !== sessionId) return { sessionId, entries: {} };
+      if (previousStage === state.stage) return current;
+      const now = Date.now();
+      const entries = Object.fromEntries(Object.entries(current.entries).map(([setId, snapshot]) => [setId,
+        state.stage === 'paused'
+          ? { elapsedMs: snapshot.elapsedMs + (snapshot.running ? Math.max(0, now - snapshot.capturedAt) : 0), capturedAt: now, running: false }
+          : previousStage === 'paused'
+            ? { ...snapshot, capturedAt: now, running: true }
+            : snapshot,
+      ]));
+      return { sessionId, entries };
+    });
+  }, [sessionId, state.stage]);
+  const handleRestSnapshotChange = useCallback((setId: string, snapshot: RestClockSnapshot | null) => {
+    setRestClock((current) => {
+      if (current.sessionId !== sessionId) return current;
+      if (snapshot === null) {
+        if (!(setId in current.entries)) return current;
+        const entries = { ...current.entries }; delete entries[setId];
+        return { ...current, entries };
+      }
+      return { ...current, entries: { ...current.entries, [setId]: snapshot } };
+    });
+  }, [sessionId]);
 
   useEffect(() => {
     if (!state.clock?.runningSince) return;
@@ -319,6 +338,7 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
         cardio: { activity: draft.activity, distanceKm: currentCardio.distanceKm, effort: currentCardio.effort },
       } : {}),
     }, () => {
+      setRestClock((current) => ({ ...current, entries: {} }));
       workspace.completeFinish();
       resetWorkoutScroll();
     });
@@ -331,6 +351,7 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
     setSavingFinish(true);
     setFinishError(false);
     const deleted = await workspace.discardLive();
+    if (deleted) setRestClock((current) => ({ ...current, entries: {} }));
     setSavingFinish(false);
     if (!deleted) setFinishError(true);
   };
@@ -409,6 +430,10 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
       (candidate) => candidate.ok,
     );
     if (!saved?.ok) return;
+    setRestClock((current) => ({
+      ...current,
+      entries: Object.fromEntries(Object.entries(current.entries).filter(([setId]) => !persistedSets.some((set) => set.id === setId && set.exercise_id === exerciseId))),
+    }));
     setStructureVersion(saved.version);
     const groupByExercise = new Map(structure.map((exercise) => [exercise.exerciseId, exercise.supersetGroup]));
     setPersistedSets((current) => current.map((set) => ({ ...set, superset_group: groupByExercise.get(set.exercise_id) ?? null })));
@@ -509,8 +534,8 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
               isLastSet={isLastSet}
               initialSetId={persisted?.id}
               initialCompletedAt={persisted?.created_at ?? null}
-              initialRestElapsedSeconds={persisted ? restElapsedBySetId[persisted.id] ?? restSnapshotCache.get(persisted.id) : undefined}
-              onRestElapsedChange={handleRestElapsedChange}
+              restSnapshot={persisted && restClock.sessionId === sessionId ? restClock.entries[persisted.id] : undefined}
+              onRestSnapshotChange={handleRestSnapshotChange}
               disabled={mutationBlocked}
               initialValue={persisted
                 ? { weight: persisted.weight_kg === null ? null : kgToDisplay(persisted.weight_kg, unit), reps: persisted.reps, rpe: persisted.rpe, isWarmup: persisted.is_warmup }

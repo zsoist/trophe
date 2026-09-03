@@ -81,3 +81,23 @@ Result: 11 files, 145 tests passed. This includes a fake-timer real-consumer tes
 - `NODE_OPTIONS=--no-experimental-webstorage npm run typecheck` — passed.
 - Targeted ESLint on all modified components, locale dictionaries, and focused tests — passed with no output.
 - `git diff --check` — passed.
+
+## Review round 2 rest-clock correction
+
+### Outcome
+
+Replaced the module-global rest cache with a `LiveWorkout`-owned clock scoped to the current session. Each set snapshot carries precise `elapsedMs`, `capturedAt`, and `running` state. Stage transitions atomically freeze or resume the session snapshots before child rest effects run; a remounted row receives that authoritative snapshot and never recomputes from `created_at` once it exists. Running navigation continues naturally; paused navigation remains frozen.
+
+Entries clear when a set is undone, an exercise is removed, rest completes, a workout finishes/discards, or the session changes. This prevents stale set-ID reuse and unbounded state growth.
+
+### TDD evidence
+
+**RED:** the new real-consumer fake-timer test exercised complete set → partial rest → pause → path navigation → 30 seconds of paused wall time → return → resume. Against the prior approach it exposed the delayed/original-timestamp clock restoration that absorbed paused time.
+
+**GREEN:**
+
+`NODE_OPTIONS=--no-experimental-webstorage npx vitest run tests/components/live-workout-v3.test.tsx tests/components/live-workout.test.tsx tests/components/live-workout-plate-real-consumer.test.tsx tests/components/plate-calculator-v2.test.tsx tests/components/pain-flag-modal.test.tsx tests/workout/workspace-state.test.ts tests/workout/workspace-storage.test.ts`
+
+Result: 7 files, 86 tests passed.
+
+`NODE_OPTIONS=--no-experimental-webstorage npm run typecheck`, targeted ESLint for the rest-clock production/test files, and `git diff --check` all passed.

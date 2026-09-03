@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { AlertTriangle, Calculator, Check, ChevronDown, Info, Link2, Trash2 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import type { WeightUnit } from '@/lib/workout/units';
@@ -17,6 +17,12 @@ export interface SetLoggerValue {
   reps: number | null;
   rpe: number | null;
   isWarmup: boolean;
+}
+
+export interface RestClockSnapshot {
+  elapsedMs: number;
+  capturedAt: number;
+  running: boolean;
 }
 
 interface ExerciseSetLoggerProps {
@@ -41,9 +47,9 @@ interface ExerciseSetLoggerProps {
   /** Gives the active live exercise larger, keyboard-friendly set controls. */
   focusMode?: boolean;
   paused?: boolean;
-  /** A parent-held snapshot lets rest survive a stage change while paused. */
-  initialRestElapsedSeconds?: number;
-  onRestElapsedChange?: (setId: string, elapsedSeconds: number) => void;
+  /** Parent-owned, session-scoped clock state survives a one-stage remount. */
+  restSnapshot?: RestClockSnapshot;
+  onRestSnapshotChange?: (setId: string, snapshot: RestClockSnapshot | null) => void;
 }
 
 function parsedNumber(value: string): number | null {
@@ -73,8 +79,8 @@ export function ExerciseSetLogger({
   onRemove,
   focusMode = false,
   paused = false,
-  initialRestElapsedSeconds,
-  onRestElapsedChange,
+  restSnapshot: suppliedRestSnapshot,
+  onRestSnapshotChange,
 }: ExerciseSetLoggerProps) {
   const { t } = useI18n();
   const [weight, setWeight] = useState(initialValue?.weight == null ? '' : String(initialValue.weight));
@@ -85,29 +91,37 @@ export function ExerciseSetLogger({
   const [completedSetNumber, setCompletedSetNumber] = useState<number | null>(initialSetId ? setNumber : null);
   const [saving, setSaving] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
-  const recoveredRestStartedAt = initialSetId && initialCompletedAt
-    ? Date.parse(initialCompletedAt)
-    : Number.NaN;
-  const [restStartedAt, setRestStartedAt] = useState<number | null>(
-    Number.isFinite(recoveredRestStartedAt) ? recoveredRestStartedAt : null,
-  );
-  const [restElapsed, setRestElapsed] = useState(() => (
-    initialRestElapsedSeconds ?? (Number.isFinite(recoveredRestStartedAt)
-      ? Math.max(0, Math.floor((Date.now() - recoveredRestStartedAt) / 1_000))
-      : 0)
-  ));
-  const restPausedAt = useRef<number | null>(null);
-
-  const setElapsed = useCallback((elapsed: number, id = setId) => {
-    const next = Math.max(0, elapsed);
-    setRestElapsed(next);
-    if (id) onRestElapsedChange?.(id, next);
-  }, [onRestElapsedChange, setId]);
+  const recoverySnapshot = useCallback((): RestClockSnapshot | null => {
+    const completedAt = initialSetId && initialCompletedAt ? Date.parse(initialCompletedAt) : Number.NaN;
+    if (!Number.isFinite(completedAt)) return null;
+    const now = Date.now();
+    return { elapsedMs: Math.max(0, now - completedAt), capturedAt: now, running: !paused };
+  }, [initialCompletedAt, initialSetId, paused]);
+  const [restSnapshot, setRestSnapshot] = useState<RestClockSnapshot | null>(() => suppliedRestSnapshot ?? recoverySnapshot());
+  const snapshotRef = useRef(restSnapshot);
+  const lastParentSnapshot = useRef(suppliedRestSnapshot);
+  const reportedInitialSnapshot = useRef(false);
+  const elapsedAt = (snapshot: RestClockSnapshot, now: number) => snapshot.elapsedMs + (snapshot.running ? Math.max(0, now - snapshot.capturedAt) : 0);
+  const commitRestSnapshot = useCallback((next: RestClockSnapshot | null, id = setId) => {
+    snapshotRef.current = next;
+    setRestSnapshot(next);
+    if (id) onRestSnapshotChange?.(id, next);
+  }, [onRestSnapshotChange, setId]);
+  useLayoutEffect(() => {
+    if (!suppliedRestSnapshot || suppliedRestSnapshot === lastParentSnapshot.current) return;
+    lastParentSnapshot.current = suppliedRestSnapshot;
+    snapshotRef.current = suppliedRestSnapshot;
+    setRestSnapshot(suppliedRestSnapshot);
+  }, [suppliedRestSnapshot]);
+  const activeRestSnapshot = restSnapshot;
 
   useEffect(() => {
-    const recoveredRest = initialSetId && initialCompletedAt
-      ? Date.parse(initialCompletedAt)
-      : Number.NaN;
+    if (reportedInitialSnapshot.current || !initialSetId || suppliedRestSnapshot || !restSnapshot) return;
+    reportedInitialSnapshot.current = true;
+    onRestSnapshotChange?.(initialSetId, restSnapshot);
+  }, [initialSetId, onRestSnapshotChange, restSnapshot, suppliedRestSnapshot]);
+
+  useEffect(() => {
     if (initialSetId) {
       // Prop-driven row recovery is an external workspace synchronization;
       // keep the persisted database row authoritative after remount/reorder.
@@ -118,8 +132,9 @@ export function ExerciseSetLogger({
       setIsWarmup(initialValue?.isWarmup ?? false);
       setSetId(initialSetId);
       setCompletedSetNumber(setNumber);
-      setRestStartedAt(Number.isFinite(recoveredRest) ? recoveredRest : null);
-      setRestElapsed(initialRestElapsedSeconds ?? (Number.isFinite(recoveredRest) ? Math.max(0, Math.floor((Date.now() - recoveredRest) / 1_000)) : 0));
+      // A supplied snapshot is authoritative after a paused-stage remount.
+      // Only a newly observed persisted set falls back to its server timestamp.
+      if (initialSetId !== setId) commitRestSnapshot(suppliedRestSnapshot ?? recoverySnapshot(), initialSetId);
       return;
     }
 
@@ -134,27 +149,32 @@ export function ExerciseSetLogger({
       setIsWarmup(initialValue?.isWarmup ?? false);
       setSetId(null);
       setCompletedSetNumber(null);
-      setRestStartedAt(null);
-      setRestElapsed(0);
+      commitRestSnapshot(null, setId);
     }
-  }, [completedSetNumber, initialCompletedAt, initialRestElapsedSeconds, initialSetId, initialValue?.isWarmup, initialValue?.reps, initialValue?.rpe, initialValue?.weight, setId, setNumber]);
+  }, [commitRestSnapshot, completedSetNumber, initialSetId, initialValue?.isWarmup, initialValue?.reps, initialValue?.rpe, initialValue?.weight, recoverySnapshot, setId, setNumber, suppliedRestSnapshot]);
 
   useEffect(() => {
-    if (!setId || restStartedAt === null) return;
-    if (paused) {
-      restPausedAt.current = Date.now();
-      const snapshot = window.setTimeout(() => setElapsed(Math.floor((Date.now() - restStartedAt) / 1_000)), 0);
-      return () => window.clearTimeout(snapshot);
-    }
-    if (restPausedAt.current !== null) {
-      const pausedFor = Math.max(0, Date.now() - restPausedAt.current);
-      restPausedAt.current = null;
-      setRestStartedAt((startedAt) => startedAt === null ? null : startedAt + pausedFor);
+    const currentSnapshot = snapshotRef.current;
+    if (!setId || !currentSnapshot) return;
+    const now = Date.now();
+    if (paused && currentSnapshot.running) {
+      commitRestSnapshot({ elapsedMs: elapsedAt(currentSnapshot, now), capturedAt: now, running: false });
       return;
     }
-    const timer = window.setInterval(() => setElapsed(Math.floor((Date.now() - restStartedAt) / 1000)), 1_000);
+    const runningSnapshot = !paused && !currentSnapshot.running
+      ? { ...currentSnapshot, capturedAt: now, running: true }
+      : currentSnapshot;
+    if (runningSnapshot !== currentSnapshot) commitRestSnapshot(runningSnapshot);
+    if (!runningSnapshot.running) return;
+    const timer = window.setInterval(() => {
+      const current = snapshotRef.current;
+      if (!current || !current.running) return;
+      const ticked = { elapsedMs: elapsedAt(current, Date.now()), capturedAt: Date.now(), running: true };
+      commitRestSnapshot(ticked);
+      if (ticked.elapsedMs >= restTargetSeconds * 1_000) commitRestSnapshot(null);
+    }, 1_000);
     return () => window.clearInterval(timer);
-  }, [paused, restStartedAt, setElapsed, setId]);
+  }, [commitRestSnapshot, paused, restTargetSeconds, setId]);
 
   const toggleComplete = async () => {
     if (saving || disabled) return;
@@ -165,8 +185,7 @@ export function ExerciseSetLogger({
         if (removed) {
           setSetId(null);
           setCompletedSetNumber(null);
-          setRestStartedAt(null);
-          setElapsed(0, setId);
+          commitRestSnapshot(null, setId);
         }
         return;
       }
@@ -179,8 +198,7 @@ export function ExerciseSetLogger({
       if (savedId) {
         setSetId(savedId);
         setCompletedSetNumber(setNumber);
-        setRestStartedAt(Date.now());
-        setElapsed(0, savedId);
+        commitRestSnapshot({ elapsedMs: 0, capturedAt: Date.now(), running: !paused }, savedId);
       }
     } catch {
       // The row remains editable and retryable.
@@ -244,9 +262,9 @@ export function ExerciseSetLogger({
         {t('workout.warmup')}
       </label>
 
-      {completed && restStartedAt !== null ? (
+      {completed && activeRestSnapshot !== null ? (
         <p role="status" className="mt-2 rounded-xl bg-[var(--status-success-bg)] px-3 py-2 text-sm text-[var(--status-success-fg)]">
-          {t('workout.resting')} · <span className="font-mono tabular-nums">{restElapsed}s / {restTargetSeconds}s</span>
+          {t('workout.resting')} · <span className="font-mono tabular-nums">{Math.floor(activeRestSnapshot.elapsedMs / 1_000)}s / {restTargetSeconds}s</span>
         </p>
       ) : null}
 
