@@ -6,6 +6,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { WorkoutDraft } from '@/lib/workout/workspace-state';
 
 const draft: WorkoutDraft = { version: 2, kind: 'cardio', name: 'Run', updatedAt: 1, activity: 'run', durationMinutes: 30, distanceKm: 5, effort: 7 };
+const recoveredStrengthDraft: WorkoutDraft = {
+  version: 2,
+  kind: 'strength',
+  name: 'Recovered strength plan',
+  updatedAt: 1,
+  exercises: [{ exerciseId: '58ff5cec-7340-4db4-9385-ad1f13439f25', targetSets: 3, targetReps: '8-10' }],
+};
 const harness = vi.hoisted(() => ({
   discardDraft: vi.fn(),
   ensureClientRequestId: vi.fn(() => '11111111-1111-4111-8111-111111111111'),
@@ -15,19 +22,22 @@ const harness = vi.hoisted(() => ({
   startRequest: null as null | { idempotencyKey: string },
   retrospectiveRequest: null as null | { idempotencyKey: string },
   retrospectiveSaving: false,
+  loadExercises: vi.fn(() => Promise.resolve({ data: [], error: null })),
+  workspaceDraft: null as WorkoutDraft | null,
 }));
+harness.workspaceDraft = draft;
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: harness.push, replace: harness.replace, refresh: harness.refresh }) }));
 vi.mock('@/lib/supabase', () => ({
   supabase: {
     auth: { getUser: harness.getUser },
-    from: () => ({ select: () => ({ order: () => Promise.resolve({ data: [] }) }) }),
+    from: () => ({ select: () => ({ order: () => harness.loadExercises() }) }),
   },
 }));
 vi.mock('@/lib/workout/routine-repository', () => ({ saveWorkoutRoutine: harness.saveRoutine }));
 vi.mock('@/components/workout/workspace/WorkoutWorkspaceProvider', () => ({ useWorkoutWorkspace: () => ({
   ready: true,
-  state: { stage: harness.stage, draft, startRequest: harness.startRequest, retrospectiveRequest: harness.retrospectiveRequest },
+  state: { stage: harness.stage, draft: harness.workspaceDraft, startRequest: harness.startRequest, retrospectiveRequest: harness.retrospectiveRequest },
   discardDraft: harness.discardDraft,
   ensureClientRequestId: harness.ensureClientRequestId,
   saveRetrospective: harness.saveRetrospective,
@@ -40,9 +50,24 @@ vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
 
 import WorkoutReviewPage from '@/app/dashboard/workout/review/page';
 
-afterEach(() => { cleanup(); vi.clearAllMocks(); harness.stage = 'review'; harness.startRequest = null; harness.retrospectiveRequest = null; harness.retrospectiveSaving = false; draft.updatedAt = 1; });
+afterEach(() => { cleanup(); vi.clearAllMocks(); harness.loadExercises.mockResolvedValue({ data: [], error: null }); harness.workspaceDraft = draft; harness.stage = 'review'; harness.startRequest = null; harness.retrospectiveRequest = null; harness.retrospectiveSaving = false; draft.updatedAt = 1; });
 
 describe('WorkoutReviewPage retrospective seam', () => {
+  it('defers the Review surface until the exercise library resolves', async () => {
+    let finishLibrary!: (result: { data: never[]; error: null }) => void;
+    harness.getUser.mockResolvedValue({ data: { user: { id: 'nik' } } });
+    harness.loadExercises.mockReturnValueOnce(new Promise((resolve) => { finishLibrary = resolve; }));
+    harness.workspaceDraft = recoveredStrengthDraft;
+
+    render(<WorkoutReviewPage />);
+
+    expect(screen.getByRole('status', { name: 'workout.loading_review' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Save plan' })).toBeNull();
+
+    finishLibrary({ data: [], error: null });
+    expect(await screen.findByRole('button', { name: 'Save plan' })).toBeTruthy();
+  });
+
   it('opens durable retrospective logging and delegates the exact save to the workspace owner', async () => {
     harness.getUser.mockResolvedValue({ data: { user: { id: 'nik' } } });
     harness.saveRetrospective.mockResolvedValue(false);
