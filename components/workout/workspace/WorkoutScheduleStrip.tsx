@@ -15,7 +15,7 @@ export function WorkoutScheduleStrip({ program, todayName, todaySource }: Workou
     ? 'Adaptive plan'
     : todaySource === 'Assigned by coach'
       ? programName
-      : 'Today’s plan';
+      : todaySource;
   const rows = [
     ...(todayName ? [{ when: 'Today', name: todayName, note: todayNote }] : []),
     ...(program?.alsoToday ?? []).map((template) => ({ when: 'Later today', name: template.name, note: programName })),

@@ -208,6 +208,9 @@ describe('Workout home v3', () => {
     expect(screen.queryByRole('button', { name: /pectoralis major|latissimus dorsi/i })).toBeNull();
     expect(screen.queryByText(/pectoralis major · primary target/i)).toBeNull();
     expect(screen.getByTestId('workout-primary-action').textContent).toBe('Continue editing');
+    const todaySchedule = within(screen.getByRole('region', { name: 'Schedule' })).getAllByRole('listitem')[0];
+    expect(within(todaySchedule).getByText('Easy run')).toBeTruthy();
+    expect(within(todaySchedule).getByText('Your saved draft')).toBeTruthy();
   });
 
   it('blocks draft actions and schedule claims until both plan queries resolve', () => {

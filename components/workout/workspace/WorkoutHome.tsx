@@ -133,6 +133,7 @@ export function WorkoutHome({
     ? displayedTemplate.muscleSummary.map((muscle) => t(muscleLabelKey(muscle))).join(' · ')
     : isCardioDraft ? 'Cardio session · no named muscle target' : 'No muscle target selected';
   const source = activeStage ? 'Workout in progress' : workspace.state.stage === 'completed' ? 'Completed workout' : hasDraft ? 'Your saved draft' : assignedTemplate ? 'Assigned by coach' : recommendedTemplate ? 'Recommended by Trophē' : 'Open training';
+  const displayedWorkoutName = displayedTemplate?.name ?? workspace.state.draft?.name ?? null;
   const readiness = workspace.state.stage === 'live' || workspace.state.stage === 'paused' ? 'Ready to resume' : recoveryStage ? 'Session recovered' : hasDraft ? 'Draft saved' : offeredTemplate ? 'Ready to review' : 'Ready to build';
   const estimatedDuration = workspace.state.draft?.kind === 'cardio'
     ? workspace.state.draft.durationMinutes || null
@@ -197,7 +198,7 @@ export function WorkoutHome({
     <main className="mx-auto max-w-2xl space-y-4 px-4 py-4 sm:py-5">
       {hasDraft || recoveryStage ? <p className="rounded-xl border border-[var(--workout-rail)] bg-[var(--workout-surface)] px-3 py-2 text-xs text-[var(--content-secondary)]">{activeStage ? 'Your active session was recovered. Your logged work is still here.' : workspace.state.stage === 'completed' ? 'Your completed session is ready to review.' : 'Your saved draft is available on this device.'}</p> : null}
 
-      <WorkoutTodayRail title={displayedTemplate?.name ?? workspace.state.draft?.name ?? 'Build today’s workout'} source={source} readiness={readiness} workSummary={isCardioDraft ? 'Cardio session' : displayedTemplate?.exercises.length ? `${displayedTemplate.exercises.length} exercises` : 'Choose your exercises'} nextAction={primaryAction.label} estimatedDurationMinutes={estimatedDuration} />
+      <WorkoutTodayRail title={displayedWorkoutName ?? 'Build today’s workout'} source={source} readiness={readiness} workSummary={isCardioDraft ? 'Cardio session' : displayedTemplate?.exercises.length ? `${displayedTemplate.exercises.length} exercises` : 'Choose your exercises'} nextAction={primaryAction.label} estimatedDurationMinutes={estimatedDuration} />
 
       {(programError || recommendationError) && !offeredTemplate ? <div role="alert" className="rounded-xl border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]">Your workout program could not be loaded. You can still build one.</div> : null}
       {supportError ? <div role="alert" className="rounded-xl border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] p-3 text-sm text-[var(--content-primary)]">{t('workout.support_data_load_failed')}</div> : null}
@@ -205,7 +206,7 @@ export function WorkoutHome({
       <WorkoutAtlasHome activations={activations} targetLabel={targetLabel} emptyDescription={isCardioDraft ? 'Cardio is tracked by activity, duration, distance, and effort.' : 'Add strength exercises to see their muscle roles.'} />
       <button type="button" data-testid="workout-primary-action" onClick={primaryAction.action} disabled={disabled && !recoveryStage && !hasDraft} className="btn-gold min-h-11 w-full rounded-xl px-4 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50">{primaryAction.label}</button>
 
-      {!recoveryStage ? <WorkoutScheduleStrip program={program} todayName={offeredTemplate?.name ?? null} todaySource={assignedTemplate ? 'Assigned by coach' : recommendedTemplate ? 'Recommended by Trophē' : 'Open training'} /> : null}
+      {!recoveryStage ? <WorkoutScheduleStrip program={program} todayName={displayedWorkoutName} todaySource={source} /> : null}
 
       {!recoveryStage ? <section aria-labelledby="workout-destinations-title"><h2 id="workout-destinations-title" className="mb-2 text-sm font-bold tracking-[-0.01em] text-[var(--content-primary)]">Explore and plan</h2><div className="overflow-hidden rounded-[14px] border border-[var(--workout-rail)] bg-[var(--workout-surface)]">
         <Link href={WORKOUT_ROUTES.exercises} className="flex min-h-11 items-center gap-3 px-3 py-2 text-sm font-medium text-[var(--content-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--focus-ring)]"><Search aria-hidden="true" size={16} className="text-[var(--content-muted)]" /><span className="flex-1">Find an exercise</span><ChevronRight aria-hidden="true" size={16} /></Link>
