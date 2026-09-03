@@ -61,7 +61,7 @@ Result: 4 files, 67 tests passed.
 
 - The compact workout path is now a real, keyboard-accessible navigation control. It selects by stable exercise ID, carries current/completed/pending semantics, and keeps exactly one exercise stage expanded. A completed exercise can be reopened to undo a set or reach technique, pain, and plate controls.
 - A completed prescription no longer coerces `-1` to exercise zero. The unselected terminal state is an honest finish-ready summary with the existing confirmed finish action; selecting a path entry still reopens it for correction.
-- Rest elapsed time snapshots at pause, does not advance while paused, and resumes from that snapshot. The parent preserves the snapshot when a one-stage row unmounts for navigation.
+- Rest elapsed time snapshots at pause, does not advance while paused, and resumes from that snapshot. The parent and a set-id-scoped in-memory handoff preserve the snapshot when a one-stage row unmounts for navigation or a live-stage remount occurs.
 - Plate calculation now groups load inputs, explicit total-minus-bar/per-side output, warm-up explanation, and an unmistakable close action. Pain reporting now follows a compact three-step where/severity/context structure, retains verified-save-before-pause behavior, and keeps retryable recovery visible.
 
 ### RED

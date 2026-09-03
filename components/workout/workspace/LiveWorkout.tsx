@@ -35,6 +35,11 @@ import {
 import { elapsedActiveMs } from '@/lib/workout/workspace-state';
 import { resetWorkoutScroll } from '@/lib/workout/workspace-routes';
 import { getRestTarget } from '@/lib/workout/rest-targets';
+
+// A live stage can unmount for path navigation or a route refresh while the
+// workspace is paused. This in-memory cache keeps that pause snapshot tied to
+// the authoritative set id without changing server persistence.
+const restSnapshotCache = new Map<string, number>();
 import { supersetGroupFor } from '@/lib/workout/supersets';
 import { displayToKg, kgToDisplay, useWeightUnit } from '@/lib/workout/units';
 import type { PersistedWorkoutSet } from '@/components/workout/workout-persistence';
@@ -86,6 +91,7 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
   // view unmounts a completed row during a pause.
   const [restElapsedBySetId, setRestElapsedBySetId] = useState<Record<string, number>>({});
   const handleRestElapsedChange = useCallback((setId: string, elapsedSeconds: number) => {
+    restSnapshotCache.set(setId, elapsedSeconds);
     setRestElapsedBySetId((current) => current[setId] === elapsedSeconds
       ? current
       : { ...current, [setId]: elapsedSeconds });
@@ -503,7 +509,7 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
               isLastSet={isLastSet}
               initialSetId={persisted?.id}
               initialCompletedAt={persisted?.created_at ?? null}
-              initialRestElapsedSeconds={persisted ? restElapsedBySetId[persisted.id] : undefined}
+              initialRestElapsedSeconds={persisted ? restElapsedBySetId[persisted.id] ?? restSnapshotCache.get(persisted.id) : undefined}
               onRestElapsedChange={handleRestElapsedChange}
               disabled={mutationBlocked}
               initialValue={persisted
