@@ -63,7 +63,7 @@ vi.mock('@/lib/supabase', () => ({
       query.range = vi.fn((from: number, to: number) => {
         call.steps.push(['range', from, to]);
         return Promise.resolve({ data: from === 0 ? [
-          { id: 'cardio-session', user_id: 'user-1', session_date: '2026-09-04', completed_at: '2026-09-04T11:00:00Z', workout_kind: 'cardio', duration_minutes: 30 },
+          { id: 'cardio-session', user_id: 'user-1', session_date: '2026-09-03', completed_at: '2026-09-03T12:00:00Z', workout_kind: 'cardio', duration_minutes: 30 },
           { id: 'strength-session', user_id: 'user-1', session_date: '2026-09-03', completed_at: '2026-09-03T11:00:00Z', workout_kind: 'strength', duration_minutes: 45 },
           { id: 'older-strength-session', user_id: 'user-1', session_date: '2026-08-28', completed_at: '2026-08-28T11:00:00Z', workout_kind: 'strength', duration_minutes: null },
         ] : [], error: null });

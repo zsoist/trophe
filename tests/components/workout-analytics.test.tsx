@@ -18,19 +18,28 @@ afterEach(cleanup);
 describe('workout analytics evidence surfaces', () => {
   it('uses the most recent completed session for Last and local calendar boundaries for Week and Month', () => {
     const entries = [
-      { date: '2026-08-31', exercise: { name: 'Barbell Bench Press' }, sets: [{ completed: true }] },
-      { date: '2026-09-01', exercise: { name: 'Barbell Bench Press' }, sets: [{ completed: true }] },
-      { date: '2026-09-03', exercise: { name: 'Barbell Bench Press' }, sets: [{ completed: true }] },
+      { sessionId: 'session-1', date: '2026-08-31', exercise: { name: 'Barbell Bench Press' }, sets: [{ completed: true }] },
+      { sessionId: 'session-2', date: '2026-09-01', exercise: { name: 'Barbell Bench Press' }, sets: [{ completed: true }] },
+      { sessionId: 'session-3', date: '2026-09-03', exercise: { name: 'Barbell Bench Press' }, sets: [{ completed: true }] },
     ];
-    expect(filterMuscleLoadEntries(entries, 'last', '2026-09-03').map((entry) => entry.date)).toEqual(['2026-09-03']);
+    expect(filterMuscleLoadEntries(entries, 'last', '2026-09-03', 'session-3').map((entry) => entry.date)).toEqual(['2026-09-03']);
     expect(filterMuscleLoadEntries(entries, 'week', '2026-09-03').map((entry) => entry.date)).toEqual(['2026-08-31', '2026-09-01', '2026-09-03']);
     expect(filterMuscleLoadEntries(entries, 'month', '2026-09-03').map((entry) => entry.date)).toEqual(['2026-09-01', '2026-09-03']);
   });
 
   it('keeps Last honest when the latest completed session has no resolved strength evidence', () => {
-    const entries = [{ date: '2026-09-03', exercise: { name: 'Barbell Bench Press' }, sets: [{ completed: true }] }];
+    const entries = [{ sessionId: 'strength-session', date: '2026-09-03', exercise: { name: 'Barbell Bench Press' }, sets: [{ completed: true }] }];
 
-    expect(filterMuscleLoadEntries(entries, 'last', '2026-09-04', '2026-09-04')).toEqual([]);
+    expect(filterMuscleLoadEntries(entries, 'last', '2026-09-04', 'cardio-session')).toEqual([]);
+  });
+
+  it('includes only the exact latest strength session when another session shares its date', () => {
+    const entries = [
+      { sessionId: 'earlier-strength', date: '2026-09-03', exercise: { name: 'Barbell Row' }, sets: [{ completed: true }] },
+      { sessionId: 'latest-strength', date: '2026-09-03', exercise: { name: 'Barbell Bench Press' }, sets: [{ completed: true }] },
+    ];
+
+    expect(filterMuscleLoadEntries(entries, 'last', '2026-09-03', 'latest-strength').map((entry) => entry.sessionId)).toEqual(['latest-strength']);
   });
 
   it('describes a scheduled and completed calendar day without relying on colour', () => {
@@ -48,6 +57,7 @@ describe('workout analytics evidence surfaces', () => {
 
   it('renders role-weighted weekly muscle load with a readable equivalent', () => {
     render(<MuscleLoadChart range="week" data={[{
+      sessionId: 'strength-session',
       date: '2026-09-03',
       exercise: { name: 'Barbell Bench Press', equipment: 'Barbell' },
       sets: [{ completed: true, isWarmup: false }, { completed: true, isWarmup: false }, { completed: true, isWarmup: true }],

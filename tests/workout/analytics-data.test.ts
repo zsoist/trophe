@@ -24,7 +24,11 @@ describe('analytics terminal pagination', () => {
       ],
       [
         { id: 'c', session_date: '2026-09-03', completed_at: '2026-09-03T11:00:00Z' },
+        { id: 'd', session_date: '2026-09-03', completed_at: '2026-09-03T11:00:00Z' },
+      ],
+      [
         { id: 'b', session_date: '2026-09-03', completed_at: '2026-09-03T10:00:00Z' },
+        { id: 'older', session_date: '2026-09-02', completed_at: '2026-09-02T12:00:00Z' },
       ],
       [],
     ];
@@ -32,7 +36,7 @@ describe('analytics terminal pagination', () => {
 
     const result = await fetchAllTerminalSessionPages(async () => pages[page++] ?? [], 2);
 
-    expect(result.map((row) => row.id)).toEqual(['c', 'b', 'older']);
+    expect(result.map((row) => row.id)).toEqual(['d', 'c', 'b', 'older']);
   });
 
   it('expands active program weekdays for the selected month and respects starts_on', () => {

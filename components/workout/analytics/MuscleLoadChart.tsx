@@ -9,6 +9,7 @@ import { resolveMuscleActivations, type AnatomyMuscleId } from '@/lib/workout/an
 
 export type MuscleLoadRange = 'last' | 'week' | 'month' | 'all';
 export interface MuscleLoadEntry {
+  sessionId: string;
   date: string;
   exercise: { name?: string | null; equipment?: string | null; muscleGroup?: string | null; muscle_group?: string | null };
   sets: Array<{ completed?: boolean; isWarmup?: boolean; is_warmup?: boolean }>;
@@ -28,17 +29,16 @@ export function muscleLoadRangeStart(range: MuscleLoadRange, now: string) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`;
 }
 
-/** Last uses the true latest terminal session date, even when that session has no strength rows. */
-export function filterMuscleLoadEntries<T extends Pick<MuscleLoadEntry, 'date' | 'sets'>>(
+/** Last uses the exact latest terminal session, even when it has no strength rows. */
+export function filterMuscleLoadEntries<T extends Pick<MuscleLoadEntry, 'sessionId' | 'date' | 'sets'>>(
   data: T[],
   range: MuscleLoadRange,
   now: string,
-  latestCompletedDate?: string,
+  latestCompletedSessionId?: string,
 ): T[] {
   const completed = data.filter((entry) => entry.sets.some((set) => set.completed === true));
   if (range === 'last') {
-    const lastDate = latestCompletedDate ?? completed.reduce<string | undefined>((latest, entry) => !latest || entry.date > latest ? entry.date : latest, undefined);
-    return lastDate ? completed.filter((entry) => entry.date === lastDate) : [];
+    return latestCompletedSessionId ? completed.filter((entry) => entry.sessionId === latestCompletedSessionId) : [];
   }
   const eligible = completed.filter((entry) => entry.date <= now);
   const start = muscleLoadRangeStart(range, now);
@@ -51,16 +51,16 @@ export function MuscleLoadChart({
   data,
   range,
   now = dateKey(new Date()),
-  latestCompletedDate,
+  latestCompletedSessionId,
 }: {
   data: MuscleLoadEntry[];
   range: MuscleLoadRange;
   now?: string;
-  latestCompletedDate?: string;
+  latestCompletedSessionId?: string;
 }) {
   const { lang, t } = useI18n();
   const locale = localeForLanguage(lang);
-  const filtered = useMemo(() => filterMuscleLoadEntries(data, range, now, latestCompletedDate), [data, latestCompletedDate, now, range]);
+  const filtered = useMemo(() => filterMuscleLoadEntries(data, range, now, latestCompletedSessionId), [data, latestCompletedSessionId, now, range]);
   const values = useMemo(() => {
     const loads = new Map<AnatomyMuscleId, number>();
     for (const entry of filtered) {
@@ -74,7 +74,7 @@ export function MuscleLoadChart({
   const rangeName = t(`workout.analytics_range_name_${range}`);
 
   if (!values.length) {
-    const message = range === 'last' && latestCompletedDate
+    const message = range === 'last' && latestCompletedSessionId
       ? t('workout.analytics_muscle_load_last_empty')
       : t('workout.analytics_muscle_load_empty');
     return <section className="rounded-xl bg-[var(--surface-subtle)] p-4" aria-labelledby="muscle-load-title"><h2 id="muscle-load-title" className="text-base font-semibold text-[var(--content-primary)]">{t('workout.analytics_muscle_load_title')}</h2><p className="mt-3 text-sm text-[var(--content-muted)]">{message}</p></section>;
