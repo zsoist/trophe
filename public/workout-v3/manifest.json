@@ -33,13 +33,22 @@
         "durationSeconds": 2,
         "frameRate": 2,
         "byteBudget": 900000,
-        "bytes": 23346,
-        "sha256": "67565058c250212237534f1903104004ee9267750d24a0ef98ed5338f2e7a803",
+        "bytes": 389616,
+        "sha256": "53eb3ef70efbe3662ba716b146087cad34266843950c7ea25719d74c9069ac30",
         "phases": [
           "setup",
           "work",
           "finish",
           "work"
+        ],
+        "codec": "vp9",
+        "width": 960,
+        "height": 540,
+        "decodedFrameHashes": [
+          "13d0d1a8ea3782ee41ee7cec05407e60",
+          "5432ba3d18fa24b149591692035c0a91",
+          "0cb4f4c34f1a43e29652e7ccc58b44d9",
+          "5432ba3d18fa24b149591692035c0a91"
         ]
       },
       "provenance": {
@@ -87,13 +96,22 @@
         "durationSeconds": 2,
         "frameRate": 2,
         "byteBudget": 900000,
-        "bytes": 26169,
-        "sha256": "0e18527d81b4a9a2a164f5d626ed903d47f2ed3c47e221e9a3fd10cd636e9f8d",
+        "bytes": 400320,
+        "sha256": "ccf7abcde1adecd8d4941bde1df5a81aa42e3e173ce694fffa36863b6dfd6c59",
         "phases": [
           "setup",
           "work",
           "finish",
           "work"
+        ],
+        "codec": "vp9",
+        "width": 960,
+        "height": 540,
+        "decodedFrameHashes": [
+          "b32a0296e50f723fcf8a5672fe53d398",
+          "ac7880eedcf4d0b93037ab48ef307729",
+          "70653974dfb2de3a3017cdff3f683382",
+          "ac7880eedcf4d0b93037ab48ef307729"
         ]
       },
       "provenance": {
@@ -141,13 +159,22 @@
         "durationSeconds": 2,
         "frameRate": 2,
         "byteBudget": 900000,
-        "bytes": 24785,
-        "sha256": "fbb5d98287f147ffe115f36ca611b2f72825830679fb012a90521e130949d2a3",
+        "bytes": 299075,
+        "sha256": "219d0c2e11b801ac5832e00339d15d6e4761286b5856605cde25bac2b52ff273",
         "phases": [
           "setup",
           "work",
           "finish",
           "work"
+        ],
+        "codec": "vp9",
+        "width": 960,
+        "height": 540,
+        "decodedFrameHashes": [
+          "34ea12349d86374ff5d67009c7242a2a",
+          "d175ee05143aab7704b98611d9c9b033",
+          "48a2d851db35a08b21f3803ad924f4cf",
+          "d175ee05143aab7704b98611d9c9b033"
         ]
       },
       "provenance": {
@@ -195,13 +222,22 @@
         "durationSeconds": 2,
         "frameRate": 2,
         "byteBudget": 900000,
-        "bytes": 34598,
-        "sha256": "6159b2776e2775474f615a3af27a6078b8dad63e1b6b8bd6d941e757ab53e270",
+        "bytes": 337784,
+        "sha256": "0011f51ffb43d7dc2c5efb05e69033f118f2c6d248cbe2da4ee8b638dc48ff97",
         "phases": [
           "setup",
           "work",
           "finish",
           "work"
+        ],
+        "codec": "vp9",
+        "width": 960,
+        "height": 540,
+        "decodedFrameHashes": [
+          "45c9b134be4a0a03eacb20ff0cde3768",
+          "554ae00dbee6ed3ac49c1f6885ed27c5",
+          "067c8c9472064f8d5b31e86052075ea4",
+          "554ae00dbee6ed3ac49c1f6885ed27c5"
         ]
       },
       "provenance": {
@@ -249,13 +285,22 @@
         "durationSeconds": 2,
         "frameRate": 2,
         "byteBudget": 900000,
-        "bytes": 12532,
-        "sha256": "20acb5327cba445c286a29a975f715dd8b43796c7972cb7f59a759feb0a27828",
+        "bytes": 227023,
+        "sha256": "3c78f52e1f1b688fe8add1ab9ed11e9ac6649931ec4cae551d75618859ec729d",
         "phases": [
           "setup",
           "work",
           "finish",
           "work"
+        ],
+        "codec": "vp9",
+        "width": 960,
+        "height": 540,
+        "decodedFrameHashes": [
+          "9d6d2ce2c96f1263e21119a82b7fd8d5",
+          "4ab9e6be748ccc6f38bc296571522f90",
+          "35df3cb93ab568279031e72ed7c831c3",
+          "4ab9e6be748ccc6f38bc296571522f90"
         ]
       },
       "provenance": {
@@ -303,13 +348,22 @@
         "durationSeconds": 2,
         "frameRate": 2,
         "byteBudget": 900000,
-        "bytes": 30605,
-        "sha256": "d102c3946b4f12777b9f3ccc02cc28d7526d1c3431d589baa57838ee0b717215",
+        "bytes": 300161,
+        "sha256": "341b8ec9b1b411777709a227a92e56b3553c3ba6a828ab61bc9ca89e75012b03",
         "phases": [
           "setup",
           "work",
           "finish",
           "work"
+        ],
+        "codec": "vp9",
+        "width": 960,
+        "height": 540,
+        "decodedFrameHashes": [
+          "59e67bd92961fcb1285d9eef87a5a707",
+          "e9a06f687e86c732f23a08f5ab35d8b7",
+          "fd9af4cf8119deb8cbdf190c4330bdca",
+          "e9a06f687e86c732f23a08f5ab35d8b7"
         ]
       },
       "provenance": {
@@ -357,13 +411,22 @@
         "durationSeconds": 2,
         "frameRate": 2,
         "byteBudget": 900000,
-        "bytes": 31863,
-        "sha256": "81b611f103d9c9822a6d65831db31ebbd19eafcc829c7cf695d393a3c6fd7c88",
+        "bytes": 374556,
+        "sha256": "e6c54d756e6590f3f183fae2eb176ad840756bf6868bd27ee75d8d487ff16e9d",
         "phases": [
           "setup",
           "work",
           "finish",
           "work"
+        ],
+        "codec": "vp9",
+        "width": 960,
+        "height": 540,
+        "decodedFrameHashes": [
+          "63a3e9fed8e26c276c7340f9c13cb707",
+          "defc176c75eda23b7a66f62b84a82564",
+          "5f32edf69547a71ec3fce946baf1d64e",
+          "defc176c75eda23b7a66f62b84a82564"
         ]
       },
       "provenance": {
@@ -411,13 +474,22 @@
         "durationSeconds": 2,
         "frameRate": 2,
         "byteBudget": 900000,
-        "bytes": 14653,
-        "sha256": "d5c5c0728e3fdcb5df63508dcae1c5a861c52c5f6c037fa9ce56e9608bcca82c",
+        "bytes": 227937,
+        "sha256": "6db267fd0ac8d1a457bd85649376e0068faf1d6f228e597be39b807465903d56",
         "phases": [
           "setup",
           "work",
           "finish",
           "work"
+        ],
+        "codec": "vp9",
+        "width": 960,
+        "height": 540,
+        "decodedFrameHashes": [
+          "d2efc4582ce90f11db70c74f38d7f992",
+          "b4e43a7a32e8358eb705b1ce17ff05fc",
+          "3e7091f6912d50724ebe2ec1000fa47d",
+          "b4e43a7a32e8358eb705b1ce17ff05fc"
         ]
       },
       "provenance": {
@@ -465,13 +537,22 @@
         "durationSeconds": 2,
         "frameRate": 2,
         "byteBudget": 900000,
-        "bytes": 16471,
-        "sha256": "605572c458d483db034cb6e46237120ce3b4b8bed806ca2e6e33620f74a09663",
+        "bytes": 253872,
+        "sha256": "39dcca4fcca25e31889ef2c5a82b3dee773665b9f72694ae1f238172fcb31490",
         "phases": [
           "setup",
           "work",
           "finish",
           "work"
+        ],
+        "codec": "vp9",
+        "width": 960,
+        "height": 540,
+        "decodedFrameHashes": [
+          "2b7715dc0bf6511fb5eb223a82bac277",
+          "fb66245ebfde342c9f841f9c9073ead7",
+          "fc6ffe6a9f5586c9e0dd07d986696e1c",
+          "fb66245ebfde342c9f841f9c9073ead7"
         ]
       },
       "provenance": {
@@ -519,13 +600,22 @@
         "durationSeconds": 2,
         "frameRate": 2,
         "byteBudget": 900000,
-        "bytes": 18450,
-        "sha256": "db6e596ebdc8a0c97210af24a47558c8eac9e30575586e07290a96bf854ad811",
+        "bytes": 235461,
+        "sha256": "eb9c245e2eedecdc1ca6f5331a778c3d9f06da5141f285e31843635f12fc1ec3",
         "phases": [
           "setup",
           "work",
           "finish",
           "work"
+        ],
+        "codec": "vp9",
+        "width": 960,
+        "height": 540,
+        "decodedFrameHashes": [
+          "ff26849e983b83256e3f785f162a5f45",
+          "53ba83b86dacf5866a7386a93c759bb1",
+          "0b7112edcc0eacba9f8b6c031384e6b3",
+          "53ba83b86dacf5866a7386a93c759bb1"
         ]
       },
       "provenance": {
@@ -573,13 +663,22 @@
         "durationSeconds": 2,
         "frameRate": 2,
         "byteBudget": 900000,
-        "bytes": 20618,
-        "sha256": "cbcc42ee922470b8b483156c8e56105af969bd1b494f37c9b6bc112de3c3bb37",
+        "bytes": 221222,
+        "sha256": "d39347e20d72e335475bb6c1acf074c617a9ceae4b9231518dc0a1b13f8b4f2b",
         "phases": [
           "setup",
           "work",
           "finish",
           "work"
+        ],
+        "codec": "vp9",
+        "width": 960,
+        "height": 540,
+        "decodedFrameHashes": [
+          "85846721ab7787b420b2df98822780d6",
+          "8bcebba6600670d144bba692d3663080",
+          "73cb449be2831f09ff7386d7a8d5b2b3",
+          "8bcebba6600670d144bba692d3663080"
         ]
       },
       "provenance": {
@@ -627,13 +726,22 @@
         "durationSeconds": 2,
         "frameRate": 2,
         "byteBudget": 900000,
-        "bytes": 14746,
-        "sha256": "cedca38a5515425ddf6fcf354e003d8c14985b2ba3317dbf9d4eae3f19d695c6",
+        "bytes": 245360,
+        "sha256": "16f70d9f3821032c9bfe125ad32bc34f5d6fa86ab4cb2fe2426ac6baa720d6cc",
         "phases": [
           "setup",
           "work",
           "finish",
           "work"
+        ],
+        "codec": "vp9",
+        "width": 960,
+        "height": 540,
+        "decodedFrameHashes": [
+          "adbd1d7b2a422379b608f29468fcebca",
+          "ede7da9211ddb3a189a68f9b06d335d7",
+          "7aca6e16067197562029d33f9686133f",
+          "ede7da9211ddb3a189a68f9b06d335d7"
         ]
       },
       "provenance": {
@@ -681,13 +789,22 @@
         "durationSeconds": 2,
         "frameRate": 2,
         "byteBudget": 900000,
-        "bytes": 14900,
-        "sha256": "b67dafbe90d309f5cf36653020e965fb607385e209e89ebc73b33080a6db7f98",
+        "bytes": 200087,
+        "sha256": "dc4c9f7e6d189037450aba5f9e5489903cd927c96b54bce08bce05f606a16d24",
         "phases": [
           "setup",
           "work",
           "finish",
           "work"
+        ],
+        "codec": "vp9",
+        "width": 960,
+        "height": 540,
+        "decodedFrameHashes": [
+          "2cd335adf720ec007ce88c14970544f0",
+          "ab3e8018ae05375d5dcd48f6f75b3158",
+          "a61dd318c59eff89d4d4db5609a5b006",
+          "ab3e8018ae05375d5dcd48f6f75b3158"
         ]
       },
       "provenance": {
@@ -735,13 +852,22 @@
         "durationSeconds": 2,
         "frameRate": 2,
         "byteBudget": 900000,
-        "bytes": 18328,
-        "sha256": "07ef419596a4fe33cb8b6f3580be2452f0ddc49a7cee9d6703a6da4543d13e6a",
+        "bytes": 216913,
+        "sha256": "140e18ba917fb69d1b45491f8d61a3c85a8c46c40aa239bb6b929f8ee047d56a",
         "phases": [
           "setup",
           "work",
           "finish",
           "work"
+        ],
+        "codec": "vp9",
+        "width": 960,
+        "height": 540,
+        "decodedFrameHashes": [
+          "d138214c95e3ebf773637e2b2a1c26e8",
+          "7f66473dfd31a19998f1e8ed8c893d60",
+          "d0f0f4201332e4ace9e8499c6694dae2",
+          "7f66473dfd31a19998f1e8ed8c893d60"
         ]
       },
       "provenance": {
@@ -789,13 +915,22 @@
         "durationSeconds": 2,
         "frameRate": 2,
         "byteBudget": 900000,
-        "bytes": 20095,
-        "sha256": "7227b91ab0230df4b1ad38e3fdd473514dbe31795d50187404f0b5428c2c2adb",
+        "bytes": 264683,
+        "sha256": "877a5a428b4823bd69fcd75977c7769b1fae176b67ad7f16d3914384a506571e",
         "phases": [
           "setup",
           "work",
           "finish",
           "work"
+        ],
+        "codec": "vp9",
+        "width": 960,
+        "height": 540,
+        "decodedFrameHashes": [
+          "07629b22924344c03579f8f8b9f7236e",
+          "c1aaf9bc28d1b20f3a0f8a0e32056ee9",
+          "c9b867f15b8cc2c7f101a8f436b8fa9b",
+          "c1aaf9bc28d1b20f3a0f8a0e32056ee9"
         ]
       },
       "provenance": {
@@ -843,13 +978,22 @@
         "durationSeconds": 2,
         "frameRate": 2,
         "byteBudget": 900000,
-        "bytes": 20604,
-        "sha256": "81260c76bd37e77dcf94630f9f55789c6fe812e62cdd55b06868251ecf71356b",
+        "bytes": 270038,
+        "sha256": "2930c672b0159dda7792fc548c690080507d590fca95c82e7a48f44ecc1f8d7e",
         "phases": [
           "setup",
           "work",
           "finish",
           "work"
+        ],
+        "codec": "vp9",
+        "width": 960,
+        "height": 540,
+        "decodedFrameHashes": [
+          "dcf05756441d9a4b5d19dc3b9c4e2978",
+          "eaf61222f756f33eb27887f0072731be",
+          "6f695a77d7c598491e751f8fb9214673",
+          "eaf61222f756f33eb27887f0072731be"
         ]
       },
       "provenance": {

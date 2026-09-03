@@ -1,10 +1,9 @@
 #!/usr/bin/env node
-import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
-import { dirname, join, relative } from 'node:path';
+import { join, relative } from 'node:path';
 import { tmpdir } from 'node:os';
 import sharp from 'sharp';
+import { assertDecodedMotion, assertFileSha256, assertMediaToolsAvailable, runMediaTool, sha256File } from './workout-v3-media-validation.mjs';
 
 const root = process.cwd();
 const check = process.argv.includes('--check');
@@ -14,7 +13,6 @@ const provenanceDir = join(root, 'assets/workout-v3/provenance');
 const posterDir = join(root, 'public/workout-v3/posters');
 const motionDir = join(root, 'public/workout-v3/motion');
 const manifestPath = join(root, 'public/workout-v3/manifest.json');
-const sha256 = (path) => createHash('sha256').update(readFileSync(path)).digest('hex');
 const slash = (path) => relative(root, path).replaceAll('\\', '/');
 
 const assets = [
@@ -103,7 +101,7 @@ async function build(asset) {
           .png()
           .toFile(join(frameDir, `frame-${String(number + 1).padStart(2, '0')}.png`));
       }
-      execFileSync('ffmpeg', ['-y', '-framerate', '2', '-i', join(frameDir, 'frame-%02d.png'), '-an', '-c:v', 'libvpx-vp9', '-b:v', '0', '-crf', '35', '-pix_fmt', 'yuv420p', output.motion], { stdio: 'pipe' });
+      runMediaTool('ffmpeg', ['-y', '-framerate', '2', '-i', join(frameDir, 'frame-%02d.png'), '-an', '-c:v', 'libvpx-vp9', '-lossless', '1', '-b:v', '0', '-crf', '0', '-pix_fmt', 'yuv420p', output.motion], 'V3 motion encode');
     } finally {
       rmSync(frameDir, { recursive: true, force: true });
     }
@@ -118,16 +116,17 @@ async function build(asset) {
   if ((masterMeta.width ?? 0) * (masterMeta.height ?? 0) < 8_000_000) throw new Error(`${asset.slug} master is below 8MP`);
   assertByteBudget(output.poster, 260_000, `${asset.slug} poster`);
   assertByteBudget(output.motion, 900_000, `${asset.slug} motion`);
+  const decodedMotion = assertDecodedMotion(output.motion, { width: 960, height: 540, frameRate: 2, durationSeconds: 2 });
   const savedProvenance = JSON.parse(readFileSync(output.provenance, 'utf8'));
   if (!savedProvenance.prompt || savedProvenance.generatedWith !== 'built-in-image-gen') throw new Error(`${asset.slug} provenance is incomplete`);
   return {
     [asset.slug]: {
       canonicalName: asset.name,
       equipment: asset.equipment,
-      source: { path: slash(asset.source), width: sourceMetadata.width, height: sourceMetadata.height, bytes: sourceStats.size, sha256: sha256(asset.source) },
-      master: { path: slash(output.master), width: masterMeta.width, height: masterMeta.height, sha256: sha256(output.master), resampling: 'deterministic-upscale' },
-      poster: { src: `/${slash(output.poster).replace(/^public\//, '')}`, width: 960, height: 540, byteBudget: 260000, bytes: statSync(output.poster).size, sha256: sha256(output.poster), objectPosition: '50% 50%' },
-      motion: { src: `/${slash(output.motion).replace(/^public\//, '')}`, durationSeconds: 2, frameRate: 2, byteBudget: 900000, bytes: statSync(output.motion).size, sha256: sha256(output.motion), phases: ['setup', 'work', 'finish', 'work'] },
+      source: { path: slash(asset.source), width: sourceMetadata.width, height: sourceMetadata.height, bytes: sourceStats.size, sha256: sha256File(asset.source) },
+      master: { path: slash(output.master), width: masterMeta.width, height: masterMeta.height, sha256: sha256File(output.master), resampling: 'deterministic-upscale' },
+      poster: { src: `/${slash(output.poster).replace(/^public\//, '')}`, width: 960, height: 540, byteBudget: 260000, bytes: statSync(output.poster).size, sha256: sha256File(output.poster), objectPosition: '50% 50%' },
+      motion: { src: `/${slash(output.motion).replace(/^public\//, '')}`, durationSeconds: 2, frameRate: 2, byteBudget: 900000, bytes: statSync(output.motion).size, sha256: sha256File(output.motion), phases: ['setup', 'work', 'finish', 'work'], ...decodedMotion },
       provenance: { promptOrOrigin: slash(output.provenance), sourcePath: slash(asset.source), generatedWith: 'built-in-image-gen' },
       review: savedProvenance.review,
       safeMarginPct: 12,
@@ -135,10 +134,43 @@ async function build(asset) {
   };
 }
 
+async function assertManifestEvidence(manifest) {
+  for (const asset of assets) {
+    const item = manifest.assets?.[asset.slug];
+    if (!item) throw new Error(`Manifest is missing ${asset.slug}`);
+    const output = expectedFiles(asset);
+    const fileChecks = [
+      ['source', asset.source, item.source?.sha256],
+      ['master', output.master, item.master?.sha256],
+      ['poster', output.poster, item.poster?.sha256],
+      ['motion', output.motion, item.motion?.sha256],
+    ];
+    for (const [kind, path, declaredHash] of fileChecks) {
+      requireFile(path, `${asset.slug} ${kind}`);
+      assertFileSha256(path, declaredHash, `${asset.slug} ${kind}`);
+    }
+    const sourceMeta = await sharp(asset.source).metadata();
+    const masterMeta = await sharp(output.master).metadata();
+    const provenance = JSON.parse(readFileSync(output.provenance, 'utf8'));
+    if (item.source.width !== sourceMeta.width || item.source.height !== sourceMeta.height
+      || provenance.sourceNativeDimensions?.width !== sourceMeta.width || provenance.sourceNativeDimensions?.height !== sourceMeta.height) {
+      throw new Error(`${asset.slug} source native dimensions disagree with manifest/provenance`);
+    }
+    if (item.master.width !== masterMeta.width || item.master.height !== masterMeta.height || masterMeta.width !== 3840 || masterMeta.height !== 2160) {
+      throw new Error(`${asset.slug} master dimensions disagree with manifest or 4K contract`);
+    }
+    if (item.master.resampling !== 'deterministic-upscale' || (sourceMeta.width === masterMeta.width && sourceMeta.height === masterMeta.height)) {
+      throw new Error(`${asset.slug} source-native/master resampling declaration is not truthful`);
+    }
+  }
+}
+
+assertMediaToolsAvailable();
 const records = Object.assign({}, ...(await Promise.all(assets.map(build))));
 const manifest = { version: 1, generatedAt: 'deterministic-build-v1', assets: records };
 if (!check) writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 requireFile(manifestPath, 'manifest');
 const existing = readFileSync(manifestPath, 'utf8');
+await assertManifestEvidence(JSON.parse(existing));
 if (existing !== `${JSON.stringify(manifest, null, 2)}\n`) throw new Error('workout-v3 manifest is stale; run node scripts/visual/build-workout-v3-media.mjs');
 console.log(`${check ? 'Validated' : 'Built'} ${assets.length} workout-v3 media records.`);

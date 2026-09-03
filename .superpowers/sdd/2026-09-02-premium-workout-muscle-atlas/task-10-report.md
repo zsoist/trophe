@@ -46,3 +46,7 @@ Every one of the 16 rows records `exerciseIdentity`, `equipmentIdentity`, `setup
 ## Honest limitations
 
 The media demonstrates generated, visually reviewed technique phases, not medical or anatomical authority. Curated code-native muscle activations remain authoritative. Generated native source resolutions vary and are below 4K; masters are deterministic upscales. Three-frame, two-second loops are intentionally minimal and require the existing player controls/reduced-motion poster path for presentation behavior.
+
+## Motion-verification fix
+
+The media checker now decodes every shipped WebM with `ffprobe` and FFmpeg `framemd5`. It requires VP9, 960×540, 2 fps, two seconds, exactly four decoded frames, pairwise-distinct setup/work/finish decoded pixels, and a fourth decoded frame exactly equal to work (`setup → work → finish → work`). It recomputes source/master/poster/motion SHA-256 values against the checked-in manifest, validates native source dimensions against provenance, and rejects an untruthful source/master resampling declaration. Clear install guidance is emitted when FFmpeg or ffprobe is unavailable.
