@@ -8,7 +8,7 @@ import { useClientShellNavigationOwner } from '@/components/shared/ClientShellCo
 /**
  * Bottom tab bar for client + coach apps.
  *
- * Renders 5 slots, gold-tinted active state. Active state determined by
+ * Renders one equal slot per route, gold-tinted active state. Active state determined by
  * Next's pathname → the parent screen doesn't manage active state itself,
  * which keeps the nav stable across server/client transitions.
  *
@@ -35,16 +35,19 @@ export function BotNav({ routes, className = '', onActiveRouteSelect }: BotNavPr
   const pathname = usePathname();
   const shellOwnsNavigation = useClientShellNavigationOwner();
   if (shellOwnsNavigation) return null;
+  const columnCount = Math.max(routes.length, 1);
   return (
     <nav
       className={[
         'fixed bottom-0 left-0 right-0 z-[var(--z-nav,30)]',
-        'grid grid-cols-[repeat(5,minmax(0,1fr))] items-center',
+        'grid items-center',
+        routes.length === 5 ? 'grid-cols-[repeat(5,minmax(0,1fr))]' : '',
         'px-2 pt-1.5 safe-bottom sm:px-3.5',
         'bg-[var(--surface-overlay)]/95 text-[var(--content-secondary)] backdrop-blur',
         'border-t border-[var(--border-default)] shadow-[var(--shadow-medium)]',
         className,
       ].join(' ')}
+      style={{ gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))` }}
       aria-label="Primary"
     >
       {routes.map((route) => {

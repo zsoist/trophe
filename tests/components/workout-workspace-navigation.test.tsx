@@ -3,7 +3,7 @@
 import React from 'react';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { workoutBackRoute, WORKOUT_ROUTES, workoutRouteForStage } from '@/lib/workout/workspace-routes';
+import { workoutBackRoute, workoutRouteIndex, workoutRouteKind, WORKOUT_ROUTES, workoutRouteForStage } from '@/lib/workout/workspace-routes';
 
 let pathname: string = WORKOUT_ROUTES.live;
 const storageValues = new Map<string, string>();
@@ -109,6 +109,25 @@ describe('workout workspace navigation', () => {
     expect(screen.getByRole('heading', { name: 'Review Workout' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Workout Home' }).getAttribute('href')).toBe(WORKOUT_ROUTES.home);
     expect(screen.getByText('Draft')).toBeTruthy();
+  });
+
+  it('classifies every secondary Workout destination for deterministic directional navigation', () => {
+    const routes = [
+      ['/dashboard/workout', 'home'],
+      ['/dashboard/workout/exercises', 'discovery'],
+      ['/dashboard/workout/exercises/bench', 'detail'],
+      ['/dashboard/workout/build', 'build'],
+      ['/dashboard/workout/review', 'review'],
+      ['/dashboard/workout/live', 'live'],
+      ['/dashboard/workout/history', 'history'],
+      ['/dashboard/workout/stats', 'analytics'],
+      ['/dashboard/workout/form-check', 'form-check'],
+    ] as const;
+
+    for (const [route, kind] of routes) expect(workoutRouteKind(route)).toBe(kind);
+    expect(workoutRouteIndex('/dashboard/workout/stats')).toBeGreaterThan(workoutRouteIndex('/dashboard/workout/history'));
+    expect(workoutRouteIndex('/dashboard/workout/review?step=2')).toBe(workoutRouteIndex('/dashboard/workout/review'));
+    expect(workoutRouteKind('/dashboard/workout/unknown')).toBe('home');
   });
 
   it('keeps complete workspace titles compact on the narrowest phones', () => {

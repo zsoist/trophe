@@ -3,24 +3,19 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { usePathname } from 'next/navigation';
-
-const WORKOUT_ROUTE_ORDER = ['/dashboard/workout', '/dashboard/workout/exercises', '/dashboard/workout/build', '/dashboard/workout/review', '/dashboard/workout/live'] as const;
-
-function workoutRouteIndex(pathname: string): number {
-  if (pathname.startsWith('/dashboard/workout/exercises/')) return 2;
-  const exact = WORKOUT_ROUTE_ORDER.indexOf(pathname as (typeof WORKOUT_ROUTE_ORDER)[number]);
-  return exact >= 0 ? exact : pathname === '/dashboard/workout' ? 0 : 1;
-}
+import { WorkoutRouteFocusProvider } from '@/components/workout/workspace/WorkoutRouteFocusContext';
+import { workoutRouteIndex } from '@/lib/workout/workspace-routes';
 
 export function WorkoutRouteTransition({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const routePathname = pathname.split('?')[0];
   const reducedMotion = useReducedMotion();
-  const [previousPathname, setPreviousPathname] = useState(pathname);
+  const [previousPathname, setPreviousPathname] = useState(routePathname);
   const hydrated = useRef(false);
   const routeSurface = useRef<HTMLDivElement>(null);
   const previousIndex = workoutRouteIndex(previousPathname);
   const currentIndex = workoutRouteIndex(pathname);
-  const changed = pathname !== previousPathname;
+  const changed = routePathname !== previousPathname;
   const direction = !changed ? 'none' : currentIndex > previousIndex ? 'forward' : 'back';
 
   useEffect(() => {
@@ -32,7 +27,7 @@ export function WorkoutRouteTransition({ children }: { children: ReactNode }) {
     if (!destination) return;
     if (!destination.hasAttribute('tabindex')) destination.tabIndex = -1;
     destination.focus({ preventScroll: true });
-  }, [pathname]);
+  }, [routePathname]);
 
   const offset = direction === 'forward' ? 18 : direction === 'back' ? -18 : 0;
   const animateRoute = changed && !reducedMotion;
@@ -41,7 +36,7 @@ export function WorkoutRouteTransition({ children }: { children: ReactNode }) {
     <AnimatePresence mode="popLayout" initial={false}>
       <motion.div
         ref={routeSurface}
-        key={pathname}
+        key={routePathname}
         data-testid="workout-route-transition"
         data-route-direction={direction}
         className="workout-route-transition"
@@ -49,9 +44,9 @@ export function WorkoutRouteTransition({ children }: { children: ReactNode }) {
         animate={{ opacity: 1, x: 0 }}
         exit={animateRoute ? { opacity: 0.92, x: -offset * 0.5 } : undefined}
         transition={reducedMotion ? { duration: 0 } : { duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-        onAnimationComplete={() => setPreviousPathname(pathname)}
+        onAnimationComplete={() => setPreviousPathname(routePathname)}
       >
-        {children}
+        <WorkoutRouteFocusProvider>{children}</WorkoutRouteFocusProvider>
       </motion.div>
     </AnimatePresence>
   );

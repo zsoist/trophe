@@ -6,11 +6,13 @@ import { useWorkoutWorkspace } from '@/components/workout/workspace/WorkoutWorks
 import { useI18n } from '@/lib/i18n';
 import type { Exercise } from '@/lib/types';
 import { WORKOUT_ROUTES, workoutRouteForStage } from '@/lib/workout/workspace-routes';
+import { exerciseDisplayName } from '@/components/workout/muscle-groups';
 
 export function RoutedExerciseDetail({ exercise, userId, replaceExerciseId, returnRoute }: { exercise: Exercise; userId: string | null; replaceExerciseId?: string; returnRoute?: 'build' | 'review' }) {
   const router = useRouter();
   const workspace = useWorkoutWorkspace();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
+  const displayName = exerciseDisplayName(exercise, lang);
   const startLocked = Boolean(workspace.state.startRequest);
   const retrospectiveLocked = Boolean(workspace.state.retrospectiveRequest);
   const acceptsExercises = workspace.state.stage === 'draft'
@@ -27,7 +29,7 @@ export function RoutedExerciseDetail({ exercise, userId, replaceExerciseId, retu
         userId={userId}
         isAdded={added}
         actionLabel={replaceExerciseId ? t('workout.replace_exercise') : undefined}
-        actionAriaLabel={replaceExerciseId ? t('workout.replace_with_named', { name: exercise.name }) : undefined}
+        actionAriaLabel={replaceExerciseId ? t('workout.replace_with_named', { name: displayName }) : undefined}
         onAdd={acceptsExercises ? () => {
           if (replaceExerciseId) workspace.replaceDraftExercise(replaceExerciseId, { exerciseId: exercise.id, exerciseName: exercise.name, muscleGroup: exercise.muscle_group });
           else workspace.addDraftExercise(exercise.id);

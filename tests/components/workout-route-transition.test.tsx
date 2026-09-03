@@ -61,4 +61,18 @@ describe('workout route transition', () => {
     expect(transition.getAttribute('data-motion-exit')).toBeNull();
     expect(transition.getAttribute('data-motion-transition')).toContain('"duration":0');
   });
+
+  it('does not remount or animate when only a workout query changes', async () => {
+    route.pathname = '/dashboard/workout/exercises';
+    const view = render(<WorkoutLayout><Destination name="Exercises" /></WorkoutLayout>);
+    const initialSurface = screen.getByTestId('workout-route-transition');
+
+    route.pathname = '/dashboard/workout/exercises?replace=bench&return=build';
+    await act(async () => { view.rerender(<WorkoutLayout><Destination name="Exercises replacement" /></WorkoutLayout>); await Promise.resolve(); });
+
+    const nextSurface = screen.getByTestId('workout-route-transition');
+    expect(nextSurface).toBe(initialSurface);
+    expect(nextSurface.getAttribute('data-route-direction')).toBe('none');
+    expect(nextSurface.getAttribute('data-motion-initial')).toBe('false');
+  });
 });

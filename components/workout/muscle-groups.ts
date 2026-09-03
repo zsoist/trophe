@@ -69,16 +69,15 @@ export function muscleLabelKey(group: string | null | undefined): string {
 }
 
 /**
- * Display name for an exercise. Gym exercise names deliberately stay in
- * ENGLISH for Greek users (Nik, 2026-08-19: "skull crushers" etc. read weird
- * transliterated — Greek gyms use the English terms). Spanish keeps its
- * localized names; form cues/instructions remain fully translated everywhere.
+ * Display name for an exercise. Use a complete locale-specific name when the
+ * exercise row has one, otherwise keep the canonical name as the whole fallback.
  */
 export function exerciseDisplayName(
-  ex: { name: string; name_es?: string | null },
+  ex: { name: string; name_es?: string | null; name_el?: string | null },
   lang: string,
 ): string {
   if (lang === 'es' && ex.name_es) return ex.name_es;
+  if (lang === 'el' && ex.name_el) return ex.name_el;
   return ex.name;
 }
 

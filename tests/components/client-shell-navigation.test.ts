@@ -61,9 +61,24 @@ describe('client shell navigation ownership', () => {
       expect(link.className).toContain('basis-0');
     }
     const nav = screen.getByRole('navigation', { name: 'Primary' });
-    expect(nav.className).toContain('grid-cols-[repeat(5,minmax(0,1fr))]');
+    expect(nav.style.gridTemplateColumns).toBe('repeat(2, minmax(0, 1fr))');
     expect(nav.className).toContain('bottom-0');
     expect(nav.className).toContain('safe-bottom');
+  });
+
+  it('divides an arbitrary four-route coach navigation into four equal columns', () => {
+    const coachRoutes = [
+      { href: '/coach', label: 'Home', icon: React.createElement('span', null, 'H') },
+      { href: '/coach/clients', label: 'Clients', icon: React.createElement('span', null, 'C') },
+      { href: '/coach/inbox', label: 'Inbox', icon: React.createElement('span', null, 'I') },
+      { href: '/coach/settings', label: 'Settings', icon: React.createElement('span', null, 'S') },
+    ];
+    render(React.createElement(BotNav, { routes: coachRoutes }));
+
+    const nav = screen.getByRole('navigation', { name: 'Primary' });
+    expect(nav.style.gridTemplateColumns).toBe('repeat(4, minmax(0, 1fr))');
+    expect(nav.querySelectorAll('a')).toHaveLength(4);
+    for (const route of coachRoutes) expect(screen.getByRole('link', { name: route.label }).getAttribute('aria-label')).toBe(route.label);
   });
 
   it.each([

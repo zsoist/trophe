@@ -1,5 +1,27 @@
 import type { WorkoutStage } from '@/lib/workout/workspace-state';
 
+export type WorkoutRouteKind = 'home' | 'discovery' | 'detail' | 'build' | 'review' | 'live' | 'history' | 'analytics' | 'form-check';
+
+const WORKOUT_ROUTE_ORDER: readonly WorkoutRouteKind[] = ['home', 'discovery', 'detail', 'build', 'review', 'live', 'history', 'analytics', 'form-check'];
+
+export function workoutRouteKind(pathname: string): WorkoutRouteKind {
+  const path = pathname.split('?')[0];
+  if (path === '/dashboard/workout') return 'home';
+  if (path === '/dashboard/workout/exercises') return 'discovery';
+  if (path.startsWith('/dashboard/workout/exercises/')) return 'detail';
+  if (path === '/dashboard/workout/build') return 'build';
+  if (path === '/dashboard/workout/review') return 'review';
+  if (path === '/dashboard/workout/live') return 'live';
+  if (path === '/dashboard/workout/history') return 'history';
+  if (path === '/dashboard/workout/stats') return 'analytics';
+  if (path === '/dashboard/workout/form-check') return 'form-check';
+  return 'home';
+}
+
+export function workoutRouteIndex(pathname: string): number {
+  return WORKOUT_ROUTE_ORDER.indexOf(workoutRouteKind(pathname));
+}
+
 export const WORKOUT_ROUTES = {
   home: '/dashboard/workout',
   build: '/dashboard/workout/build',

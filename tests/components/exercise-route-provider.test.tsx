@@ -11,6 +11,7 @@ const { createWorkoutSession, push } = vi.hoisted(() => ({
   createWorkoutSession: vi.fn(),
   push: vi.fn(),
 }));
+const locale = vi.hoisted(() => ({ language: 'en' }));
 
 vi.mock('@/components/workout/workout-persistence', () => ({ createWorkoutSession }));
 vi.mock('next/navigation', () => ({
@@ -52,7 +53,7 @@ vi.mock('@/lib/supabase', () => ({
 }));
 vi.mock('@/lib/i18n', () => ({
   useI18n: () => ({
-    lang: 'en',
+    lang: locale.language,
     t: (key: string, params?: Record<string, string | number>) => {
       const copy: Record<string, string> = {
         'workout.strength': 'Strength',
@@ -259,6 +260,7 @@ afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
   vi.clearAllMocks();
+  locale.language = 'en';
 });
 
 describe('exercise routes with the real workout workspace provider', () => {
@@ -444,6 +446,18 @@ describe('exercise routes with the real workout workspace provider', () => {
     expect(screen.getByTestId('workspace-state').textContent).toBe('review:strength:bench');
     expect(push).not.toHaveBeenCalled();
     expect(createWorkoutSession).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['es', 'Press de banca'],
+    ['el', 'Πιέσεις πάγκου'],
+  ])('uses the localized exercise display name in the %s replacement action', async (language, localizedName) => {
+    locale.language = language;
+    const localizedExercise = { ...bench, name_es: language === 'es' ? localizedName : null, name_el: language === 'el' ? localizedName : null };
+    renderWithWorkspace(<RoutedExerciseDetail exercise={localizedExercise} userId={null} replaceExerciseId="other" returnRoute="build" />, strengthState());
+
+    expect(await screen.findByRole('heading', { name: localizedName })).toBeTruthy();
+    expect(screen.getByRole('button', { name: `Replace with ${localizedName}` })).toBeTruthy();
   });
 
   it('disables selecting the current exercise as its own detail replacement', async () => {

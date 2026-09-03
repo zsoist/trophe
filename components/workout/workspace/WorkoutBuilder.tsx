@@ -10,6 +10,7 @@ import { useI18n } from '@/lib/i18n';
 import type { MuscleGroup } from '@/lib/types';
 import { isWorkoutDraftReady, type WorkoutDraft } from '@/lib/workout/workspace-state';
 import { pushWorkoutRoute, WORKOUT_ROUTES } from '@/lib/workout/workspace-routes';
+import { useWorkoutRouteFocusSuppressed } from '@/components/workout/workspace/WorkoutRouteFocusContext';
 
 export interface WorkoutExerciseOption {
   id: string;
@@ -38,9 +39,12 @@ export function WorkoutBuilder({ exercises, onSavePlan, saveState = 'idle', save
   const workspace = useWorkoutWorkspace();
   const draft = workspace.state.draft;
   const mainRef = useRef<HTMLElement>(null);
+  const suppressRouteFocus = useWorkoutRouteFocusSuppressed();
   const exerciseById = new Map(exercises.map((exercise) => [exercise.id, exercise]));
 
-  useEffect(() => { mainRef.current?.focus({ preventScroll: true }); }, []);
+  useEffect(() => {
+    if (!suppressRouteFocus) mainRef.current?.focus({ preventScroll: true });
+  }, [suppressRouteFocus]);
 
   if (!draft) {
     return <main ref={mainRef} tabIndex={-1} aria-label={t('workout.workspace_build_title')} className="workout-plan-editor workout-plan-editor--empty"><p>{t('workout.no_draft')}</p><button type="button" className="btn-gold" onClick={() => pushWorkoutRoute(router, WORKOUT_ROUTES.home)}>{t('workout.back_home')}</button></main>;
