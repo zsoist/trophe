@@ -8,7 +8,7 @@ import type { WorkoutDraft } from '@/lib/workout/workspace-state';
 const workspace = vi.hoisted(() => ({
   state: { stage: 'draft', draft: null as WorkoutDraft | null },
   updateDraftName: vi.fn(), updateCardioDraft: vi.fn(), updateDraftExercise: vi.fn(),
-  reorderDraftExercise: vi.fn(), removeDraftExercise: vi.fn(), addDraftExercise: vi.fn(), goToReview: vi.fn(),
+  reorderDraftExercise: vi.fn(), removeDraftExercise: vi.fn(), replaceDraftExercise: vi.fn(), addDraftExercise: vi.fn(), goToReview: vi.fn(),
 }));
 const push = vi.hoisted(() => vi.fn());
 
@@ -23,11 +23,17 @@ vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ lang: 'en', t: (key: string, pa
   'workout.duration_minutes': 'Duration in minutes', 'workout.distance_optional': 'Distance optional', 'workout.effort': 'Effort',
   'workout.cardio_walk': 'Walk', 'workout.cardio_run': 'Run', 'workout.cardio_cycle': 'Cycle',
   'workout.cardio_hiit': 'HIIT', 'workout.cardio_swim': 'Swim', 'workout.cardio_other': 'Other',
-  'workout.move_named_up': `Move ${params?.name} up`, 'workout.move_named_down': `Move ${params?.name} down`,
+  'workout.move_named_earlier': `Move ${params?.name} earlier`, 'workout.move_named_later': `Move ${params?.name} later`,
+  'workout.move_earlier': 'Earlier', 'workout.move_later': 'Later',
+  'workout.replace_named': `Replace ${params?.name}`, 'workout.replace_exercise': 'Replace',
+  'workout.technique_named': `View ${params?.name} technique`, 'workout.technique': 'Technique',
   'workout.remove_named': `Remove ${params?.name}`, 'workout.target_sets_named': `Target sets for ${params?.name}`,
   'workout.target_reps_named': `Target reps for ${params?.name}`,
   'workout.save_plan_pending': 'Saving plan…', 'workout.save_plan_failed': 'Plan could not be saved. Try again.',
-  'workout.save_plan_success': 'Plan saved to My routines.', 'workout.movement_anatomy_alt': `Anatomy highlighting muscles used by ${params?.name}`,
+  'workout.save_plan_success_limited': 'Routine saved with limited fields.',
+  'workout.picker_anatomy_poster_alt': `Anatomy reference for ${params?.name}`,
+  'workout.picker_exact_poster_alt': `${params?.name} technique poster`,
+  'workout.detail_fallback_poster_alt': `Exercise placeholder for ${params?.name}`,
   'workout.muscle_chest': 'Chest', 'workout.muscle_shoulders': 'Shoulders',
   'workout.equipment_label': `Equipment: ${params?.equipment}`, 'workout.primary_muscle_label': `Primary muscle: ${params?.muscle}`,
   'workout.name_required': 'Enter a workout name.',
@@ -70,7 +76,7 @@ describe('WorkoutBuilder', () => {
     render(<WorkoutBuilder exercises={exercises} onSavePlan={onSavePlan} />);
 
     fireEvent.change(screen.getByLabelText('Target sets for Bench Press'), { target: { value: '5' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Move Shoulder Press up' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Move Shoulder Press earlier' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save plan' }));
 
     expect(workspace.updateDraftExercise).toHaveBeenCalledWith('bench', { targetSets: 5 });
@@ -82,13 +88,13 @@ describe('WorkoutBuilder', () => {
     workspace.state.draft = pushDraft;
     render(<WorkoutBuilder exercises={exercises} onSavePlan={vi.fn()} />);
 
-    const moveUp = screen.getByRole('button', { name: 'Move Bench Press up' });
-    const moveDown = screen.getByRole('button', { name: 'Move Bench Press down' });
+    const moveUp = screen.getByRole('button', { name: 'Move Bench Press earlier' });
+    const moveDown = screen.getByRole('button', { name: 'Move Bench Press later' });
     const remove = screen.getByRole('button', { name: 'Remove Bench Press' });
-    expect(moveUp.className).toContain('min-w-11');
-    expect(moveDown.className).toContain('min-w-11');
+    expect(moveUp.getAttribute('type')).toBe('button');
+    expect(moveDown.getAttribute('type')).toBe('button');
     expect(remove.textContent).toContain('Remove exercise');
-    expect(remove.parentElement?.className).toContain('border-t');
+    expect(remove.parentElement?.className).toContain('plan-exercise-card__actions');
     expect(screen.getByRole('heading', { name: 'Bench Press' }).parentElement).not.toBe(remove.parentElement);
   });
 
@@ -96,11 +102,8 @@ describe('WorkoutBuilder', () => {
     workspace.state.draft = pushDraft;
     render(<WorkoutBuilder exercises={exercises} onSavePlan={vi.fn()} />);
 
-    const benchVisual = screen.getByRole('img', { name: 'Anatomy highlighting muscles used by Bench Press' });
-    expect(benchVisual.getAttribute('data-visual-kind')).toBe('anatomy');
-    expect(benchVisual.getAttribute('data-alpha')).toBe('true');
-    expect(benchVisual.getAttribute('style')).toContain('object-fit: contain');
-    expect(screen.getByText('Primary muscle: Chest')).toBeTruthy();
+    const benchVisual = screen.getByRole('img', { name: 'Anatomy reference for Bench Press' });
+    expect(benchVisual.closest('[data-media-tier]')?.getAttribute('data-media-tier')).toBe('verified-anatomy');
     expect(screen.getByText('Equipment: barbell')).toBeTruthy();
   });
 

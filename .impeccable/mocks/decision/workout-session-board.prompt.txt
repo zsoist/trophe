@@ -1,0 +1,7 @@
+Use case: ui-mockup
+Asset type: portrait mobile-first web-app composition concept, 9:19.5 phone viewport
+Primary request: Redesign the complete Trophē Workout home as “Coach’s Session Board”. Today’s exact coach-approved or smart-recommended session is the unmistakable lead. A compact readiness rail sits above one large session panel with a horizontal filmstrip of realistic exercise technique previews. Show coach status, duration, equipment, muscle focus and progress evidence around one primary action labeled “Review plan”. Secondary entry points “Explore exercises” and “My plans” remain visible but quiet. The user must understand that nothing has started yet.
+Reference: .impeccable/review/mobile-workout.png, used only for the established Personal Best identity and mobile shell.
+Palette: obsidian #070806, graphite #151717, evidence white #F5F7F2, Trophē gold #D4A853, restrained lime and cyan for performance data.
+Constraints: anatomically credible real-person exercise thumbnails on clean neutral backgrounds; one primary action; no auto-start; no finish button; no floating CTA covering content; large touch targets; centered safe-area bottom navigation; no neon, glassmorphism, clipped anatomy, tiny text, excessive pills, gradients, trademarks, or watermarks.
+Generated with: built-in image generation tool.

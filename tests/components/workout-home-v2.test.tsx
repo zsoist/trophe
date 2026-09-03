@@ -50,11 +50,37 @@ vi.mock('@/lib/i18n', () => ({
     'workout.remove_named': `Remove ${params?.name}`, 'workout.target_sets_named': `Target sets for ${params?.name}`,
     'workout.target_reps_named': `Target reps for ${params?.name}`,
     'workout.review_title': 'Review workout', 'workout.start_live': 'Start live workout',
+    'workout.start_workout': 'Start live workout',
     'workout.log_completed': 'Log completed workout',
     'workout.start_live_explanation': 'Starting live starts the active timer and creates your workout session.',
     'workout.start_live_failed': 'Workout could not start. Try again.',
     'workout.program_load_failed': 'Your workout program could not be loaded.',
     'workout.continue_active': 'Continue workout', 'workout.view_completed_summary': 'View workout summary',
+    'workout.resume_workout': 'Resume workout', 'workout.history_minutes': `${params?.n} minutes`,
+    'workout.home_status_label': "Today's workout status", 'workout.home_source_label': 'Source',
+    'workout.home_readiness_label': 'Readiness', 'workout.home_next_step_label': 'Next step',
+    'workout.home_schedule': 'Schedule', 'workout.home_schedule_empty': 'No coach session is scheduled. Build a workout that fits today.',
+    'workout.home_explore_plan': 'Explore and plan', 'workout.home_find_exercise': 'Find an exercise',
+    'workout.home_plan_cardio': 'Plan cardio', 'workout.home_training_progress': 'Training progress',
+    'workout.home_saved_plans': 'Saved plans', 'workout.home_recent_progress': 'Recent progress',
+    'workout.home_loading_title': "Loading today's training", 'workout.home_loading_body': 'Checking the coach assignment and recommendation before workout actions become available.',
+    'workout.home_recovered_active': 'Your active session was recovered. Your logged work is still here.',
+    'workout.home_recovered_completed': 'Your completed session is ready to review.',
+    'workout.home_recovered_draft': 'Your saved draft is available on this device.',
+    'workout.home_build_today': "Build today's workout", 'workout.home_source_in_progress': 'Workout in progress',
+    'workout.home_source_completed': 'Completed workout', 'workout.home_source_saved': 'Your saved draft',
+    'workout.home_source_coach': 'Assigned by coach', 'workout.home_source_recommended': 'Recommended by Trophē',
+    'workout.home_source_open': 'Open training', 'workout.home_ready_resume': 'Ready to resume',
+    'workout.home_ready_recovered': 'Session recovered', 'workout.home_ready_draft': 'Draft saved',
+    'workout.home_ready_review': 'Ready to review', 'workout.home_ready_build': 'Ready to build',
+    'workout.home_cardio_session': 'Cardio session', 'workout.home_choose_exercises': 'Choose your exercises',
+    'workout.home_review_plan': 'Review plan', 'workout.home_build_workout': 'Build workout',
+    'workout.home_coach_schedule': 'Coach schedule', 'workout.home_adaptive_plan': 'Adaptive plan',
+    'workout.home_later_today': 'Later today', 'workout.home_next': 'Next', 'general.today': 'Today',
+    'workout.home_coach_workout': 'Coach workout', 'workout.home_recommended_workout': 'Recommended workout',
+    'workout.home_workout_draft': 'Workout draft', 'workout.history': 'Workout history',
+    'workout.day_0': 'Sunday', 'workout.day_1': 'Monday', 'workout.day_2': 'Tuesday',
+    'workout.day_3': 'Wednesday', 'workout.day_4': 'Thursday', 'workout.day_5': 'Friday', 'workout.day_6': 'Saturday',
     'workout.draft_waiting': 'You have a workout in progress.',
     'workout.start_request_locked': 'This exact start request is waiting for a safe retry.',
     'workout.retrospective_request_locked': 'This exact completed workout is waiting for a safe retry.',
@@ -100,6 +126,15 @@ const coachProgram: WorkoutHomeProgram = {
   alsoToday: [],
 };
 
+const savedRoutines: WorkoutHomeProgram['alsoToday'] = [
+  { templateKey: 'split:push', templateId: null, name: 'Push', muscleSummary: ['chest', 'shoulders', 'triceps'], exercises: [
+    { exerciseId: 'bench', exerciseName: 'Bench Press', muscleGroup: 'chest', targetSets: 3, targetReps: '8' },
+    { exerciseId: 'press', exerciseName: 'Shoulder Press', muscleGroup: 'shoulders', targetSets: 3, targetReps: '8' },
+    { exerciseId: 'pushdown', exerciseName: 'Triceps Pushdown', muscleGroup: 'triceps', targetSets: 3, targetReps: '10' },
+  ] },
+  { templateKey: 'split:pull', templateId: null, name: 'Pull', muscleSummary: ['back', 'biceps'], exercises: [] },
+];
+
 function WorkoutHomeHarness({ program = null, programLoading = false, programError = false, initialState, forceHome = false }: {
   program?: WorkoutHomeProgram | null;
   programLoading?: boolean;
@@ -120,15 +155,15 @@ function RoutedWorkspace(props: { program: WorkoutHomeProgram | null; programLoa
   const { state } = useWorkoutWorkspace();
   if (!props.forceHome && state.stage === 'draft') return <WorkoutBuilder exercises={exercises} onSavePlan={vi.fn()} />;
   if (!props.forceHome && state.stage === 'review') return <WorkoutReview exercises={exercises} onSavePlan={vi.fn()} onLogCompleted={vi.fn()} />;
-  return <WorkoutHome {...props} exercises={exercises} recents={[]} routines={[]} />;
+  return <WorkoutHome {...props} exercises={exercises} recents={[]} routines={savedRoutines} />;
 }
 
 afterEach(() => { cleanup(); startLiveSession.mockReset(); savePreparedRetrospectiveWorkout.mockReset(); push.mockReset(); });
 
 describe('WorkoutHome', () => {
   it.each([
-    ['live', 'Continue workout'],
-    ['paused', 'Continue workout'],
+    ['live', 'Resume workout'],
+    ['paused', 'Resume workout'],
     ['finishing', 'Continue workout'],
     ['completed', 'View workout summary'],
   ] as const)('offers one dominant recovery action for %s and hides new-workout actions', async (stage, actionLabel) => {
@@ -143,8 +178,8 @@ describe('WorkoutHome', () => {
     render(<WorkoutHomeHarness initialState={initialState} />);
 
     const recovery = await screen.findByRole('button', { name: actionLabel });
-    expect(screen.queryByRole('button', { name: 'Build strength workout' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Build cardio workout' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Build workout' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Plan cardio' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Preview Push' })).toBeNull();
     fireEvent.click(recovery);
     expect(push).toHaveBeenCalledWith('/dashboard/workout/live');
@@ -152,7 +187,6 @@ describe('WorkoutHome', () => {
 
   it('previews Push without starting or opening the exercise picker', async () => {
     render(<WorkoutHomeHarness />);
-    fireEvent.click(screen.getByRole('button', { name: 'Workout templates' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Preview Push' }).hasAttribute('disabled')).toBe(false));
     fireEvent.click(screen.getByRole('button', { name: 'Preview Push' }));
 
@@ -166,7 +200,7 @@ describe('WorkoutHome', () => {
   it('opens the body-area exercise browser before showing an empty strength draft', async () => {
     render(<WorkoutHomeHarness />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Build strength workout' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Build workout' }));
 
     expect(push).toHaveBeenLastCalledWith('/dashboard/workout/exercises');
     expect(startLiveSession).not.toHaveBeenCalled();
@@ -180,7 +214,6 @@ describe('WorkoutHome', () => {
     render(<WorkoutHomeHarness initialState={initialState} forceHome />);
     expect(await screen.findByRole('button', { name: 'Continue editing' })).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Workout templates' }));
     fireEvent.click(screen.getByRole('button', { name: 'Preview Pull' }));
     fireEvent.click(screen.getByRole('button', { name: 'Use this template' }));
     expect(await screen.findByRole('alertdialog', { name: 'Replace this draft?' })).toBeTruthy();
@@ -209,8 +242,8 @@ describe('WorkoutHome', () => {
     render(<WorkoutHomeHarness initialState={initialState} forceHome />);
 
     expect(await screen.findByText('This exact start request is waiting for a safe retry.')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Build strength workout' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Build cardio workout' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Build workout' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Plan cardio' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Preview Pull' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Continue review' }));
     expect(push).toHaveBeenCalledWith('/dashboard/workout/review');
@@ -236,31 +269,28 @@ describe('WorkoutHome', () => {
     render(<WorkoutHomeHarness initialState={initialState} forceHome />);
 
     expect(await screen.findByText('This exact completed workout is waiting for a safe retry.')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Build strength workout' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Build workout' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Preview Pull' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Retry same save' }));
     await waitFor(() => expect(savePreparedRetrospectiveWorkout).toHaveBeenCalledWith(request));
     expect(push).toHaveBeenCalledWith('/dashboard/workout/live');
   });
 
-  it('replaces an existing routine with the named coach plan before entering Review', async () => {
+  it('keeps an existing review draft as the only dominant action when a coach plan is offered', async () => {
     const initialState: WorkoutWorkspaceState = {
       stage: 'review', sessionId: null, clock: null, clientRequestId: null, startRequest: null,
       draft: { version: 2, name: 'My routine', kind: 'strength', updatedAt: 1, exercises: [{ exerciseId: 'bench', targetSets: 3, targetReps: '8' }] },
     };
     render(<WorkoutHomeHarness initialState={initialState} forceHome program={coachProgram} />);
-    expect(await screen.findByRole('button', { name: 'Continue review' })).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Review today’s workout' }));
-    expect(await screen.findByRole('alertdialog', { name: 'Replace this draft?' })).toBeTruthy();
-    expect(screen.getByText(/Replace My routine with Coach Push/)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Replace draft' }));
-    expect(await screen.findByRole('heading', { name: 'Coach Push' })).toBeTruthy();
-    expect(push).toHaveBeenLastCalledWith('/dashboard/workout/review');
+    const continueReview = await screen.findByRole('button', { name: 'Continue review' });
+    expect(screen.queryByRole('button', { name: 'Review plan' })).toBeNull();
+    expect(screen.queryByRole('alertdialog', { name: 'Replace this draft?' })).toBeNull();
+    fireEvent.click(continueReview);
+    expect(push).toHaveBeenCalledWith('/dashboard/workout/review');
   });
 
   it('creates the template draft only after the user confirms the preview', async () => {
     render(<WorkoutHomeHarness />);
-    fireEvent.click(screen.getByRole('button', { name: 'Workout templates' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Preview Push' }).hasAttribute('disabled')).toBe(false));
     fireEvent.click(screen.getByRole('button', { name: 'Preview Push' }));
     fireEvent.click(screen.getByRole('button', { name: 'Use this template' }));
@@ -274,7 +304,6 @@ describe('WorkoutHome', () => {
   it('takes Preview Push through review and starts live without persisting the built-in key as template_id', async () => {
     startLiveSession.mockResolvedValue({ ok: true, sessionId: 'session-push' });
     render(<WorkoutHomeHarness />);
-    fireEvent.click(screen.getByRole('button', { name: 'Workout templates' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Preview Push' }).hasAttribute('disabled')).toBe(false));
 
     fireEvent.click(screen.getByRole('button', { name: 'Preview Push' }));
@@ -288,11 +317,10 @@ describe('WorkoutHome', () => {
 
   it('turns a coach program into a reviewable draft instead of auto-starting guided mode', async () => {
     render(<WorkoutHomeHarness program={coachProgram} />);
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Review today’s workout' }).hasAttribute('disabled')).toBe(false));
-    fireEvent.click(screen.getByRole('button', { name: 'Review today’s workout' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Review plan' }).hasAttribute('disabled')).toBe(false));
+    fireEvent.click(screen.getByRole('button', { name: 'Review plan' }));
 
-    expect(await screen.findByRole('heading', { name: 'Review workout' })).toBeTruthy();
-    expect(screen.getByText('Coach Push')).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Coach Push' })).toBeTruthy();
     expect(startLiveSession).not.toHaveBeenCalled();
   });
 
@@ -315,9 +343,9 @@ describe('WorkoutHome', () => {
       alsoToday: [],
     };
     render(<WorkoutHomeHarness program={customProgram} />);
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Review today’s workout' }).hasAttribute('disabled')).toBe(false));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Review plan' }).hasAttribute('disabled')).toBe(false));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Review today’s workout' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Review plan' }));
 
     expect(await screen.findByText('Coach Tempo Press')).toBeTruthy();
     expect(screen.queryByText('33333333-3333-4333-8333-333333333333')).toBeNull();
@@ -325,8 +353,8 @@ describe('WorkoutHome', () => {
 
   it('builds cardio as an editable draft', async () => {
     render(<WorkoutHomeHarness />);
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Build cardio workout' }).hasAttribute('disabled')).toBe(false));
-    fireEvent.click(screen.getByRole('button', { name: 'Build cardio workout' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Plan cardio' }).hasAttribute('disabled')).toBe(false));
+    fireEvent.click(screen.getByRole('button', { name: 'Plan cardio' }));
 
     expect(screen.getByLabelText('Activity')).toBeTruthy();
     expect(screen.getByLabelText('Duration in minutes')).toBeTruthy();
@@ -337,6 +365,6 @@ describe('WorkoutHome', () => {
   it('keeps a deterministic browse surface during program errors', async () => {
     render(<WorkoutHomeHarness programError />);
     expect((await screen.findByRole('alert')).textContent).toMatch(/program/i);
-    expect(screen.getByRole('button', { name: 'Workout templates' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Build workout' })).toBeTruthy();
   });
 });

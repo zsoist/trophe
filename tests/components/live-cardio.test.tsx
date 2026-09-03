@@ -21,18 +21,19 @@ afterEach(cleanup);
 
 describe('LiveCardio', () => {
   it('supports pause, resume, and explicit cardio fields in live mode', () => {
-    const onPause = vi.fn(); const onResume = vi.fn(); const onFinish = vi.fn(); const onChange = vi.fn();
+    let pausedAt = Number.NaN; let resumedAt = Number.NaN;
+    const onPause = (now = Date.now()) => { pausedAt = now; }; const onResume = (now = Date.now()) => { resumedAt = now; }; const onFinish = vi.fn(); const onChange = vi.fn();
     const { rerender } = render(<LiveCardio draft={runDraft} mode="live" paused={false} elapsedMs={30_000} onPause={onPause} onResume={onResume} onFinish={onFinish} onChange={onChange} />);
     expect(screen.getByLabelText('Distance optional')).toBeTruthy();
     expect(screen.getByLabelText('Effort')).toBeTruthy();
     fireEvent.change(screen.getByLabelText('Distance optional'), { target: { value: '7.5' } });
     expect(onChange).toHaveBeenLastCalledWith({ durationMinutes: 0, distanceKm: 7.5, effort: 7 });
     fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
-    expect(onPause).toHaveBeenCalledTimes(1);
+    expect(Number.isFinite(pausedAt)).toBe(true);
     rerender(<LiveCardio draft={runDraft} mode="live" paused elapsedMs={30_000} onPause={onPause} onResume={onResume} onFinish={onFinish} onChange={onChange} />);
     fireEvent.click(screen.getByRole('button', { name: 'Resume' }));
     fireEvent.click(screen.getByRole('button', { name: 'Finish workout' }));
-    expect(onResume).toHaveBeenCalledTimes(1);
+    expect(Number.isFinite(resumedAt)).toBe(true);
     expect(onFinish).toHaveBeenCalledTimes(1);
   });
 

@@ -16,6 +16,7 @@ export default function WorkoutBuildPage() {
   const workspace = useWorkoutWorkspace();
   const [exercises, setExercises] = useState<WorkoutExerciseOption[]>([]);
   const [libraryLoading, setLibraryLoading] = useState(true);
+  const [libraryError, setLibraryError] = useState(false);
   const [saveState, setSaveState] = useState<PlanSaveState>('idle');
   const savedRevisionRef = useRef<number | null>(null);
 
@@ -31,9 +32,10 @@ export default function WorkoutBuildPage() {
 
   useEffect(() => {
     let active = true;
-    supabase.from('exercises').select('id, name, name_es, name_el, muscle_group, equipment').order('name').then(({ data }) => {
+    supabase.from('exercises').select('id, name, name_es, name_el, muscle_group, equipment').order('name').then(({ data, error }) => {
       if (active) {
         setExercises((data as WorkoutExerciseOption[] | null) ?? []);
+        setLibraryError(Boolean(error));
         setLibraryLoading(false);
       }
     });
@@ -69,5 +71,5 @@ export default function WorkoutBuildPage() {
     return <main role="status" aria-label={t('workout.loading_build')} className="mx-auto min-h-24 max-w-2xl animate-pulse rounded-xl bg-[var(--surface-subtle)]" />;
   }
 
-  return <WorkoutBuilder exercises={exercises} onSavePlan={savePlan} saveState={saveState} saveDisabled={libraryLoading} />;
+  return <WorkoutBuilder exercises={exercises} onSavePlan={savePlan} saveState={saveState} saveDisabled={libraryLoading} libraryError={libraryError} />;
 }

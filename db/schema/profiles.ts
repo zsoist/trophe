@@ -119,6 +119,8 @@ export const clientProfiles = pgTable('client_profiles', {
   expectedReturnMonth: integer('expected_return_month'),
   /** What this client sees (calories, analytics…), set by their coach (migration 0050). Replaces lib/client-view.ts constants. */
   clientViewPrefs: jsonb('client_view_prefs').default({}),
+  /** Versioned workout intake/preferences document (migration 0082). */
+  workoutPreferences: jsonb('workout_preferences').default({}).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 }, (table) => [
@@ -145,4 +147,5 @@ export const clientProfiles = pgTable('client_profiles', {
   check('client_profiles_coaching_phase_check', sql`coaching_phase = ANY (ARRAY['onboarding'::text, 'active'::text, 'maintenance'::text])`),
   check('client_profiles_goal_check', sql`goal = ANY (ARRAY['fat_loss'::text, 'muscle_gain'::text, 'maintenance'::text, 'recomp'::text, 'endurance'::text, 'health'::text])`),
   check('client_profiles_sex_check', sql`sex = ANY (ARRAY['male'::text, 'female'::text])`),
+  check('client_profiles_workout_preferences_object_check', sql`jsonb_typeof(workout_preferences) = 'object'`),
 ]);

@@ -1,12 +1,11 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { X } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import type { Exercise } from '@/lib/types';
-import { exerciseDisplayName } from './muscle-groups';
 import { ExerciseDetail } from './ExerciseDetail';
 
 const focusableSelector = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
@@ -28,29 +27,39 @@ export default function ExerciseInfoSheet({
   onClose,
   onAdd,
   isAdded,
+  playbackDisabled = false,
 }: {
   exercise: Exercise;
   userId: string | null;
   onClose: () => void;
   onAdd?: (exercise: Exercise) => void;
   isAdded?: boolean;
+  playbackDisabled?: boolean;
 }) {
-  const { t, lang } = useI18n();
+  const { t } = useI18n();
   const reducedMotion = useReducedMotion();
   const dialogRef = useRef<HTMLDivElement>(null);
-  const name = exerciseDisplayName(exercise, lang);
+  const onCloseRef = useRef(onClose);
+  const titleId = useId();
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     const frame = requestAnimationFrame(() => dialogRef.current?.focus());
-    const closeOnEscape = (event: KeyboardEvent) => event.key === 'Escape' && onClose();
+    const closeOnEscape = (event: KeyboardEvent) => event.key === 'Escape' && onCloseRef.current();
     document.addEventListener('keydown', closeOnEscape);
     return () => {
       cancelAnimationFrame(frame);
       document.removeEventListener('keydown', closeOnEscape);
+      document.body.style.overflow = previousOverflow;
       previousFocus?.focus();
     };
-  }, [onClose]);
+  }, []);
 
   return (
     <motion.div
@@ -58,28 +67,28 @@ export default function ExerciseInfoSheet({
       animate={{ opacity: 1 }}
       exit={reducedMotion ? undefined : { opacity: 0 }}
       className="fixed inset-0 z-[var(--z-modal,60)] flex items-end justify-center bg-[var(--surface-overlay)]"
-      onClick={onClose}
+      onClick={() => onCloseRef.current()}
     >
       <motion.div
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        aria-label={name}
+        aria-labelledby={titleId}
         tabIndex={-1}
         onKeyDown={(event) => trapFocus(event, dialogRef.current)}
         initial={reducedMotion ? false : { y: 80, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         exit={reducedMotion ? undefined : { y: 80, opacity: 0 }}
         transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-        className="safe-bottom max-h-[92dvh] w-full max-w-3xl overflow-y-auto rounded-t-3xl bg-[var(--canvas)] px-4 pt-3 outline-none sm:px-5"
+        className="safe-bottom h-[100dvh] max-h-[100dvh] w-full max-w-5xl overscroll-contain overflow-y-auto bg-[var(--canvas)] px-4 pt-3 outline-none sm:h-auto sm:max-h-[92dvh] sm:rounded-t-3xl sm:px-5"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="sticky top-0 z-20 flex justify-end bg-[var(--canvas)]/95 py-1 backdrop-blur-xl">
-          <button type="button" onClick={onClose} aria-label={t('workout.custom_cancel')} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl bg-[var(--action-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
+          <button type="button" onClick={() => onCloseRef.current()} aria-label={t('workout.detail_close')} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl bg-[var(--action-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
             <X size={18} aria-hidden="true" />
           </button>
         </div>
-        <ExerciseDetail exercise={exercise} userId={userId} onAdd={onAdd} isAdded={isAdded} />
+        <ExerciseDetail exercise={exercise} userId={userId} onAdd={onAdd} isAdded={isAdded} presentation="sheet" headingId={titleId} playbackDisabled={playbackDisabled} />
       </motion.div>
     </motion.div>
   );

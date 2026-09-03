@@ -29,38 +29,20 @@ vi.mock('framer-motion', async () => {
   };
 });
 
-vi.mock('@/lib/i18n', () => ({
-  useI18n: () => ({
-    lang: activeLang,
-    t: (key: string, params?: Record<string, string | number>) => ({
-      'workout.custom_cancel': 'Close',
-      'workout.compound': 'Compound',
-      'workout.info_technique': 'Technique',
-      'workout.info_muscles_worked': 'Muscles worked',
-      'workout.info_primary': 'Primary',
-      'workout.info_secondary': 'Secondary',
-      'workout.info_setup': 'Setup',
-      'workout.info_execution': 'Execution',
-      'workout.info_breathing': 'Breathing',
-      'workout.info_common_mistakes': 'Common mistakes',
-      'workout.info_safety': 'Safety note',
-      'workout.info_not_provided': 'No specific guidance is available.',
-      'workout.info_safety_unavailable': 'No exercise-specific safety note is available.',
-      'workout.info_pr': 'Personal best',
-      'workout.info_last': 'Recent sessions',
-      'workout.info_no_history': 'No history yet',
-      'workout.info_history_failed': 'Recent sessions could not be loaded. Try again later.',
-      'workout.movement_anatomy_alt': `Anatomía que resalta los músculos utilizados por ${params?.name ?? ''}`,
-      'workout.movement_technique_alt': `Demostración técnica de ${params?.name ?? ''}`,
-      'workout.equipment_value': `Equipo: ${params?.equipment ?? ''}`,
-      'workout.history_sets': `${params?.n ?? ''} series`,
-      'workout.picker_add_named': `Add ${params?.name ?? ''}`,
-      'workout.exercise_added_named': `${params?.name ?? ''} added`,
-      'workout.muscle_chest': 'Chest',
-      'workout.muscle_triceps': 'Triceps',
-    }[key] ?? key),
-  }),
-}));
+vi.mock('@/lib/i18n', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/i18n')>();
+  return {
+    ...actual,
+    useI18n: () => ({
+      lang: activeLang,
+      t: (key: string, params?: Record<string, string | number>) => {
+        const language = activeLang === 'es' || activeLang === 'el' ? activeLang : 'en';
+        const source = actual.translations[key]?.[language] ?? actual.translations[key]?.en ?? key;
+        return Object.entries(params ?? {}).reduce((text, [name, value]) => text.replaceAll(`{${name}}`, String(value)), source);
+      },
+    }),
+  };
+});
 
 vi.mock('@/lib/workout/units', () => ({
   useWeightUnit: () => ['kg'],
@@ -98,9 +80,9 @@ describe('full exercise detail', () => {
   it('renders honest fallback semantics and all guidance sections without invented safety facts', () => {
     render(<ExerciseInfoSheet exercise={machinePress} userId={null} onClose={vi.fn()} />);
 
-    expect(screen.getByText('Muscles worked')).toBeTruthy();
+    expect(screen.getByText('Anatomy reference')).toBeTruthy();
     expect(screen.queryByRole('img', { name: /technique/i })).toBeNull();
-    for (const heading of ['Primary', 'Secondary', 'Setup', 'Execution', 'Breathing', 'Common mistakes', 'Safety note', 'Personal best', 'Recent sessions']) {
+    for (const heading of ['Equipment & setup', 'Setup', 'Technique guidance', 'Execution', 'Breathing', 'Common mistakes', 'Safety note', 'Training evidence', 'Personal record', 'Recent sessions']) {
       expect(screen.getByRole('heading', { name: heading })).toBeTruthy();
     }
     expect(screen.getByText('No exercise-specific safety note is available.')).toBeTruthy();
@@ -118,8 +100,45 @@ describe('full exercise detail', () => {
     vi.mocked(supabase.from).mockReturnValue(query as never);
 
     render(<ExerciseDetail exercise={machinePress} userId="user-1" />);
-    expect((await screen.findByRole('alert')).textContent).toBe('Recent sessions could not be loaded. Try again later.');
-    expect(screen.queryByText('No history yet')).toBeNull();
+    expect(await screen.findByText('Recent sessions could not be loaded. Try again later.')).toBeTruthy();
+    expect(screen.queryByText(/No history yet/)).toBeNull();
+  });
+
+  it('hides stale personal records across exercise, null-user, and failed-user request identities', async () => {
+    const firstResult = Promise.resolve({
+      data: [{ weight_kg: 100, reps: 5, workout_sessions: { session_date: '2026-08-24' } }],
+      error: null,
+    });
+    const secondResult = Promise.resolve({
+      data: [{ weight_kg: 90, reps: 6, workout_sessions: { session_date: '2026-08-25' } }],
+      error: null,
+    });
+    const failedResult = Promise.resolve({ data: null, error: { message: 'offline' } });
+    const queryFor = (result: Promise<unknown>) => {
+      const query = Object.assign(result, { select: vi.fn(), eq: vi.fn(), order: vi.fn(), limit: vi.fn() });
+      query.select.mockReturnValue(query);
+      query.eq.mockReturnValue(query);
+      query.order.mockReturnValue(query);
+      query.limit.mockReturnValue(query);
+      return query;
+    };
+    vi.mocked(supabase.from)
+      .mockReturnValueOnce(queryFor(firstResult) as never)
+      .mockReturnValueOnce(queryFor(secondResult) as never)
+      .mockReturnValueOnce(queryFor(failedResult) as never);
+
+    const view = render(<ExerciseDetail exercise={machinePress} userId="user-1" />);
+    expect(await screen.findByText('100 kg')).toBeTruthy();
+    view.rerender(<ExerciseDetail exercise={{ ...machinePress, id: 'machine-press-2', name: 'Second Press' }} userId="user-1" />);
+    expect(screen.queryByText('100 kg')).toBeNull();
+    expect(await screen.findByText('90 kg')).toBeTruthy();
+
+    view.rerender(<ExerciseDetail exercise={{ ...machinePress, id: 'machine-press-2', name: 'Second Press' }} userId={null} />);
+    expect(screen.queryByText('90 kg')).toBeNull();
+
+    view.rerender(<ExerciseDetail exercise={{ ...machinePress, id: 'machine-press-2', name: 'Second Press' }} userId="user-2" />);
+    expect(await screen.findByText('Recent sessions could not be loaded. Try again later.')).toBeTruthy();
+    expect(screen.queryByText('90 kg')).toBeNull();
   });
 
   it('uses a sticky Add action and switches to Added after the draft accepts it', () => {
@@ -141,8 +160,8 @@ describe('full exercise detail', () => {
     activeLang = 'es';
     render(<ExerciseDetail exercise={machinePress} userId={null} />);
 
-    expect(screen.getByRole('img', { name: 'Anatomía que resalta los músculos utilizados por Iso-Lateral Machine Press' })).toBeTruthy();
-    expect(screen.getByText((_, element) => element?.tagName === 'P' && element.textContent?.includes('Equipo: machine') === true)).toBeTruthy();
+    expect(screen.getByRole('img', { name: 'Referencia anatómica de Iso-Lateral Machine Press' })).toBeTruthy();
+    expect(screen.getAllByText('machine')).toHaveLength(2);
     expect(screen.queryByAltText(/muscles worked anatomy/i)).toBeNull();
   });
 });

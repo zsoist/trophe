@@ -6,7 +6,11 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/image', () => ({
-  default: ({ priority: _priority, ...props }: Record<string, unknown>) => React.createElement('img', props),
+  default: (props: Record<string, unknown>) => {
+    const imageProps = { ...props };
+    delete imageProps.priority;
+    return React.createElement('img', imageProps);
+  },
 }));
 
 vi.mock('framer-motion', async () => {
@@ -37,6 +41,9 @@ vi.mock('@/lib/i18n', () => ({
       'workout.picker_choose_area': 'What are you training?',
       'workout.picker_choose_area_hint': 'Choose a body area.',
       'workout.picker_recent': 'Recent',
+      'workout.picker_selected_one': '{n} exercise selected',
+      'workout.picker_selected_many': '{n} exercises selected',
+      'workout.picker_review_plan': 'Review plan',
       'workout.picker_custom': 'Create custom exercise',
       'workout.picker_custom_hint': "Can't find it?",
       'workout.body_area_chest': 'Chest',
@@ -102,20 +109,31 @@ describe('exercise picker presentation layering', () => {
     expect(document.body.style.overflow).toBe('');
   });
 
-  it('reserves the fixed primary-navigation height for the routed return action', () => {
+  it('keeps the fixed plan tray above navigation and reserves both layers in scroll content', () => {
+    vi.stubGlobal('innerWidth', 320);
+    vi.stubGlobal('innerHeight', 844);
     render(React.createElement(ExercisePicker, {
       presentation: 'page',
       exercises: [],
       recentIds: [],
       onSelect: vi.fn(),
       onClose: vi.fn(),
+      onAddToDraft: vi.fn(),
       onReturnToBuild: vi.fn(),
+      addedExerciseIds: ['selected-exercise'],
       lang: 'en',
     }));
 
-    const returnBar = document.querySelector('[data-exercise-picker-return-bar]');
-    expect(returnBar?.className).toContain('exercise-picker__return-bar');
-    expect(returnBar?.querySelector('button')?.className).toContain('text-[var(--action-on-primary)]');
-    expect(readFileSync('app/globals.css', 'utf8')).toContain('var(--client-shell-nav-base-height, 4.5rem)');
+    const tray = document.querySelector<HTMLElement>('[data-workout-plan-tray]');
+    const scrollContent = document.querySelector<HTMLElement>('[data-exercise-picker-scroll-content]');
+    expect(tray?.className).toContain('fixed');
+    expect(tray?.style.bottom).toContain('var(--client-shell-nav-base-height, 4.5rem)');
+    expect(tray?.style.zIndex).toContain('var(--z-nav, 30) + 1');
+    expect(tray?.className).toContain('grid-cols-[auto_minmax(0,1fr)]');
+    expect(tray?.innerHTML).toContain('h-8 w-8');
+    expect(screen.getByRole('button', { name: 'Review plan' }).className).toContain('col-span-2');
+    expect(scrollContent?.style.paddingBottom).toContain('var(--client-shell-nav-base-height, 4.5rem)');
+    expect(scrollContent?.style.paddingBottom).toContain('var(--workout-plan-tray-reserve, 8rem)');
+    expect(readFileSync('components/ui/BotNav.tsx', 'utf8')).toContain('z-[var(--z-nav,30)]');
   });
 });

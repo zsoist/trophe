@@ -39,7 +39,10 @@ vi.mock('next/navigation', () => ({
 vi.mock('next/link', () => ({ default: ({ children, href }: { children: React.ReactNode; href: string }) => React.createElement('a', { href }, children) }));
 vi.mock('@/lib/useClientNav', () => ({ useClientNav: () => [] }));
 vi.mock('@/lib/trpc/client', () => ({
-  trpc: { workouts: { program: { mine: { useQuery: () => ({ data: null, isLoading: false }) } } } },
+  trpc: { workouts: {
+    program: { mine: { useQuery: () => ({ data: null, isLoading: false }) } },
+    recommendation: { mine: { useQuery: () => ({ data: null, isLoading: false, error: null }) } },
+  } },
 }));
 vi.mock('@/lib/workout/units', () => ({ useWeightUnit: () => ['kg', vi.fn()], kgToDisplay: (value: number) => value, displayToKg: (value: number) => value }));
 vi.mock('@/components/workout/workout-persistence', () => ({
@@ -172,6 +175,7 @@ const PRESENTATION_SOURCES = [
   'components/health/SupplementCompliance.tsx',
   'components/workout/ExerciseInfoSheet.tsx',
   'components/workout/ExercisePicker.tsx',
+  'components/workout/ExerciseResults.tsx',
   'components/workout/FormCheck.tsx',
   'components/workout/FormScore.tsx',
   'components/workout/GuidedSession.tsx',
@@ -181,6 +185,7 @@ const PRESENTATION_SOURCES = [
   'components/workout/RecentSessionCard.tsx',
   'components/workout/TodayProgramCard.tsx',
   'components/workout/TodayWorkoutCard.tsx',
+  'components/workout/WorkoutPlanTray.tsx',
   'components/workout/workspace/WorkoutHome.tsx',
   'components/workout/workspace/WorkoutBuilder.tsx',
   'components/workout/workspace/WorkoutReview.tsx',
@@ -237,9 +242,9 @@ describe('client secondary theme and accessibility contract', () => {
     authHarness.getUser.mockReturnValueOnce(new Promise((resolve) => { resolveUser = resolve; }));
     renderWorkoutPage();
 
-    const start = await screen.findByRole('button', { name: 'workout.build_strength' });
+    const start = await screen.findByRole('button', { name: 'workout.home_build_workout' });
     expect(start.hasAttribute('disabled')).toBe(true);
-    const cardio = screen.getByRole('button', { name: 'workout.build_cardio' });
+    const cardio = screen.getByRole('button', { name: 'workout.home_plan_cardio' });
     expect(cardio.hasAttribute('disabled')).toBe(true);
 
     resolveUser(authenticatedUser);
@@ -374,12 +379,12 @@ describe('client secondary theme and accessibility contract', () => {
     renderRoutedWorkoutJourney();
 
     expect((await screen.findByLabelText('Workout URL')).textContent).toBe('/dashboard/workout');
-    fireEvent.click(await screen.findByRole('button', { name: 'workout.build_strength' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'workout.home_build_workout' }));
     await waitFor(() => expect(screen.getByLabelText('Workout URL').textContent).toBe('/dashboard/workout/exercises'));
     expect(screen.getByRole('heading', { name: 'workout.picker_choose_area' })).toBeTruthy();
     expect(screen.getByLabelText('Workspace stage').textContent).toBe('draft');
 
-    fireEvent.click(screen.getByRole('button', { name: /workout.back_to_workout/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'workout.picker_close' }));
     await waitFor(() => expect(screen.getByLabelText('Workout URL').textContent).toBe('/dashboard/workout/build'));
     expect(document.activeElement).toBe(screen.getByRole('main', { name: 'workout.workspace_build_title' }));
   });
@@ -403,14 +408,15 @@ describe('client secondary theme and accessibility contract', () => {
   it('keeps exercise toolbar controls outside the collapse button and names owned icon controls', () => {
     const home = source('components/workout/workspace/WorkoutHome.tsx');
     const builder = source('components/workout/workspace/WorkoutBuilder.tsx');
+    const card = source('components/workout/workspace/PlanExerciseCard.tsx');
     const nestedNativeButton = ([home, builder].join('\n').match(/<button\b[\s\S]*?<\/button>/g) ?? [])
       .find((button) => (button.match(/<button\b/g) ?? []).length > 1);
 
     expect(nestedNativeButton).toBeUndefined();
     expect(home).toMatch(/<Link href="\/dashboard\/workout\/history"[^>]*className="[^"]*min-h-11[^"]*focus-visible:/);
-    expect(builder).toContain("aria-label={t('workout.move_named_up', { name })}");
-    expect(builder).toContain("aria-label={t('workout.move_named_down', { name })}");
-    expect(builder).toContain("aria-label={t('workout.remove_named', { name })}");
+    expect(card).toContain("aria-label={t('workout.move_named_earlier', { name })}");
+    expect(card).toContain("aria-label={t('workout.move_named_later', { name })}");
+    expect(card).toContain("aria-label={t('workout.remove_named', { name })}");
     expect(source('app/dashboard/checkin/page.tsx').match(/aria-label="Back to dashboard"/g)?.length).toBeGreaterThanOrEqual(3);
     expect(source('app/dashboard/intake/page.tsx')).toContain('aria-label="Exit intake"');
   });

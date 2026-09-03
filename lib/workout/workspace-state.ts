@@ -9,6 +9,12 @@ export interface DraftExercise {
   muscleGroup?: MuscleGroup;
   targetSets: number;
   targetReps: string;
+  /** Draft-only rest prescription. Older v2 drafts omit it and use the UI default. */
+  restSeconds?: number;
+  /** Draft-only effort target. Null means no target was prescribed. */
+  targetRpe?: number | null;
+  /** Draft-only coaching/client note. Routine and live-start storage do not claim to persist it. */
+  notes?: string;
   /** True when this exercise is linked to the next exercise in the live order. */
   linkedBelow?: boolean;
 }

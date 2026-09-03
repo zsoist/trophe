@@ -60,7 +60,7 @@ export function LiveCardio({ draft, mode, paused = false, elapsedMs = 0, saving 
 
   return (
     <section className="space-y-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4">
-      <div>
+      <div className="border-b border-[var(--border-subtle)] pb-3">
         <p className="text-xs font-semibold uppercase tracking-wide text-[var(--action-primary)]">{t(`workout.cardio_${draft.activity}`)}</p>
         <h2 className="mt-1 text-xl font-bold text-[var(--content-primary)]">{draft.name}</h2>
       </div>
@@ -78,7 +78,7 @@ export function LiveCardio({ draft, mode, paused = false, elapsedMs = 0, saving 
 
       {mode === 'live' ? (
         <div className="grid grid-cols-2 gap-3">
-          <button type="button" disabled={disabled} onClick={paused ? onResume : onPause} className="btn-ghost inline-flex min-h-12 items-center justify-center gap-2 rounded-xl disabled:opacity-50">{paused ? <Play size={17} aria-hidden="true" /> : <Pause size={17} aria-hidden="true" />}{t(paused ? 'workout.resume' : 'workout.pause')}</button>
+          <button type="button" disabled={disabled} onClick={() => { if (paused) onResume?.(); else onPause?.(); }} className="btn-ghost inline-flex min-h-14 items-center justify-center gap-2 rounded-xl text-base disabled:opacity-50">{paused ? <Play size={17} aria-hidden="true" /> : <Pause size={17} aria-hidden="true" />}{t(paused ? 'workout.resume' : 'workout.pause')}</button>
           <button type="button" disabled={disabled} onClick={() => { const candidate = values(); if (validate(candidate)) onFinish?.(candidate); }} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[var(--status-danger-bg)] font-semibold text-[var(--status-danger-fg)] disabled:opacity-50"><Square size={17} aria-hidden="true" />{t('workout.finish')}</button>
         </div>
       ) : (

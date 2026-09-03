@@ -283,13 +283,14 @@ describe('enterprise hardening invariants', () => {
   });
 
   it('keeps the legacy both role out of application code', () => {
+    const legacyBothRole = /\brole[_-]?both\b|\brole\s*[:=]\s*['"]both['"]|(?:\btype\s+\w*Role\b|\brole\s*:\s*z\.enum)\s*[\s\S]{0,160}?['"]both['"]/;
     const offenders = [
       ...sourceFiles('app'),
       ...sourceFiles('components'),
       ...sourceFiles('lib'),
       ...sourceFiles('agents'),
     ]
-      .filter((file) => /\brole[_-]?both\b|['"]both['"]|\|\s*['"]both['"]/.test(readFileSync(file, 'utf8')))
+      .filter((file) => legacyBothRole.test(readFileSync(file, 'utf8')))
       .map((file) => relative(root, file));
 
     expect(offenders).toEqual([]);

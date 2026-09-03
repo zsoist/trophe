@@ -12,12 +12,38 @@ import { saveWorkoutRoutine } from '@/lib/workout/routine-repository';
 import { workoutRouteForStage } from '@/lib/workout/workspace-routes';
 import type { WorkoutDraft } from '@/lib/workout/workspace-state';
 
+function ReviewLoadingSkeleton({ label }: { label: string }) {
+  return (
+    <main role="status" aria-live="polite" aria-label={label} data-loading-skeleton className="workout-plan-editor">
+      <div aria-hidden="true" className="motion-safe:animate-pulse">
+        <div className="grid grid-cols-[minmax(0,1fr)_5rem] items-center gap-3 border-b border-[var(--workout-rail)] pb-4">
+          <div className="space-y-2"><div className="h-7 w-2/3 rounded-md bg-[var(--surface-subtle)]" /><div className="h-3 w-1/2 rounded bg-[var(--surface-subtle)]" /></div>
+          <div className="h-11 rounded-xl bg-[var(--surface-subtle)]" />
+        </div>
+        <div className="mt-4 overflow-hidden rounded-[14px] border border-[var(--workout-rail)] bg-[var(--surface-raised)]">
+          <div className="flex justify-between gap-4 border-b border-[var(--workout-rail)] p-3"><div className="h-3 w-28 rounded bg-[var(--surface-subtle)]" /><div className="h-3 w-20 rounded bg-[var(--surface-subtle)]" /></div>
+          <div className="space-y-3 p-3"><div className="h-4 w-32 rounded bg-[var(--surface-subtle)]" /><div className="h-1 w-full rounded-full bg-[var(--surface-subtle)]" /><div className="h-1 w-4/5 rounded-full bg-[var(--surface-subtle)]" /></div>
+        </div>
+        <div className="mt-4 overflow-hidden rounded-[14px] border border-[var(--workout-rail)] bg-[var(--surface-raised)]">
+          <div className="grid grid-cols-[2.75rem_4.5rem_minmax(0,1fr)] items-center gap-3 p-3">
+            <div className="h-3 w-5 rounded bg-[var(--surface-subtle)]" />
+            <div className="h-[4.5rem] rounded-[10px] bg-[var(--surface-subtle)]" />
+            <div className="space-y-2"><div className="h-4 w-4/5 rounded bg-[var(--surface-subtle)]" /><div className="h-3 w-3/5 rounded bg-[var(--surface-subtle)]" /><div className="h-3 w-2/5 rounded bg-[var(--surface-subtle)]" /></div>
+          </div>
+          <div className="mx-3 grid grid-cols-[minmax(0,1fr)_5.5rem] gap-3 border-t border-[var(--workout-rail)] py-3"><div className="h-3 w-3/4 rounded bg-[var(--surface-subtle)]" /><div className="h-11 rounded-xl bg-[var(--surface-subtle)]" /></div>
+        </div>
+      </div>
+    </main>
+  );
+}
+
 export default function WorkoutReviewPage() {
   const { t } = useI18n();
   const router = useRouter();
   const workspace = useWorkoutWorkspace();
   const [exercises, setExercises] = useState<WorkoutExerciseOption[]>([]);
   const [libraryLoading, setLibraryLoading] = useState(true);
+  const [libraryError, setLibraryError] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<PlanSaveState>('idle');
   const savedRevisionRef = useRef<number | null>(null);
@@ -33,6 +59,7 @@ export default function WorkoutReviewPage() {
       if (!active) return;
       setUserId(authResult.data.user?.id ?? null);
       setExercises((exerciseResult.data as WorkoutExerciseOption[] | null) ?? []);
+      setLibraryError(Boolean(exerciseResult.error));
       setLibraryLoading(false);
     });
     return () => { active = false; };
@@ -71,8 +98,11 @@ export default function WorkoutReviewPage() {
 
   const reviewableStage = workspace.state.stage === 'review'
     || (workspace.state.stage === 'draft' && Boolean(workspace.state.startRequest || workspace.state.retrospectiveRequest));
-  if (!workspace.ready || !reviewableStage) {
-    return <main role="status" aria-label={t('workout.loading_review')} className="mx-auto min-h-24 max-w-2xl animate-pulse rounded-xl bg-[var(--surface-subtle)]" />;
+  const strengthLibraryPending = workspace.state.draft?.kind === 'strength'
+    && libraryLoading
+    && !workspace.state.retrospectiveRequest;
+  if (!workspace.ready || !reviewableStage || strengthLibraryPending) {
+    return <ReviewLoadingSkeleton label={t('workout.loading_review')} />;
   }
 
   if (workspace.state.retrospectiveRequest) {
@@ -116,7 +146,7 @@ export default function WorkoutReviewPage() {
 
   return (
     <>
-      <WorkoutReview exercises={exercises} onSavePlan={savePlan} saveState={saveState} saveDisabled={libraryLoading} onLogCompleted={(draft) => {
+      <WorkoutReview exercises={exercises} onSavePlan={savePlan} saveState={saveState} saveDisabled={libraryLoading} libraryError={libraryError} onLogCompleted={(draft) => {
         setRetrospective(draft);
       }} />
     </>

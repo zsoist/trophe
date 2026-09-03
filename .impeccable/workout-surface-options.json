@@ -1,0 +1,49 @@
+{
+  "title": "Choose the Workout composition",
+  "question": "All three keep Trophē’s Personal Best identity. Choose the structure that should organize the complete Workout experience.",
+  "options": [
+    {
+      "id": "session-board",
+      "label": "Coach’s Session Board",
+      "kicker": "THE ROLL",
+      "lineage": "coach plan × athlete session card",
+      "thesis": "Today’s exact session leads, with moving exercise previews and progress evidence arranged around one Review plan action.",
+      "palette": ["#070806", "#F5F7F2", "#D4A853", "#B7F10A", "#42D7FF"],
+      "materials": ["obsidian timing board", "warm-paper alternate", "anatomical filmstrip"],
+      "viewport": "A compact readiness rail sits above one large coach-approved session card; the exercise filmstrip and Review plan action are visible without scrolling.",
+      "risk": "The daily session can dominate discovery unless Explore and My plans remain clearly reachable.",
+      "comp": ".impeccable/mocks/decision/workout-session-board.webp"
+    },
+    {
+      "id": "journey-lanes",
+      "label": "Training Journey Lanes",
+      "lineage": "program library × scheduled training path",
+      "thesis": "Assigned, recommended, and saved plans become three unmistakable lanes, each previewable before it can become a live workout.",
+      "palette": ["#070806", "#F5F7F2", "#D4A853", "#FF6573", "#9567F2"],
+      "materials": ["graphite dossier", "program covers", "progress rails"],
+      "viewport": "A small Today strip anchors the top while a horizontal journey card shows duration, equipment, muscle focus, coach status, and Preview plan.",
+      "risk": "The library can feel heavier for a client who only wants to log one quick session.",
+      "comp": ".impeccable/mocks/decision/workout-journey-lanes.webp"
+    },
+    {
+      "id": "muscle-atlas",
+      "label": "Interactive Muscle Atlas",
+      "lineage": "anatomy plate × exercise library",
+      "thesis": "A truthful front/back muscle map is the main navigator; selecting an area reveals exact exercises and builds a visible plan tray.",
+      "palette": ["#070806", "#F5F7F2", "#D4A853", "#FF6573", "#42D7FF"],
+      "materials": ["clinical anatomy plate", "contained technique loops", "evidence rails"],
+      "viewport": "A centered front/back anatomical figure shares the first screen with body-area filters, today’s target, and a compact Review plan tray.",
+      "risk": "Anatomy-first navigation needs an equally fast search path for users who already know the exercise name.",
+      "comp": ".impeccable/mocks/decision/workout-muscle-atlas.webp"
+    }
+  ],
+  "reroll": {
+    "registers": ["safer", "bolder"]
+  },
+  "buildPath": {
+    "value": "comp",
+    "toggle": true
+  },
+  "canon": false,
+  "steer": true
+}

@@ -28,10 +28,14 @@ import {
   workoutSets,
   workoutTemplates,
 } from '@/db/schema/workouts';
-import { and, desc, eq, inArray, or } from 'drizzle-orm';
+import { clientProfiles } from '@/db/schema/profiles';
+import { and, desc, eq, inArray, isNotNull, or } from 'drizzle-orm';
 import { assertCanAccessClient } from '@/lib/auth/tenant-access';
 import { recordAuditEvent } from '@/lib/utils/audit';
-import type { TemplateExercise } from '@/lib/types';
+import type { Exercise, Goal, MuscleGroup, TemplateExercise, WorkoutTemplate } from '@/lib/types';
+import { parseWorkoutPreferences, workoutPreferencesSchema } from '@/lib/workout/preferences';
+import { buildWorkoutRecommendation } from '@/lib/workout/recommendation';
+import { resolveMuscleActivations } from '@/lib/workout/anatomy';
 
 type Db = typeof dbClient;
 
@@ -99,6 +103,28 @@ async function resolveTemplateExercises(
     .from(exercises)
     .where(inArray(exercises.id, ids));
 }
+
+/** Weekday convention is shared with workout_program_days: 0=Sunday … 6=Saturday. */
+export function selectCoachTemplateForWeekday(
+  days: Array<{ weekday: number; template: unknown }>,
+  weekday: number,
+): WorkoutTemplate | null {
+  return (days.find((day) => day.weekday === weekday)?.template as WorkoutTemplate | undefined) ?? null;
+}
+
+const recommendationContextSchema = z.object({
+  localDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  localWeekday: z.number().int().min(0).max(6),
+}).superRefine(({ localDate, localWeekday }, ctx) => {
+  const [year, month, day] = localDate.split('-').map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  const validDate = parsed.getUTCFullYear() === year
+    && parsed.getUTCMonth() === month - 1
+    && parsed.getUTCDate() === day;
+  if (!validDate || parsed.getUTCDay() !== localWeekday) {
+    ctx.addIssue({ code: 'custom', message: 'localDate and localWeekday must identify the same valid calendar day' });
+  }
+});
 
 // ── Router ─────────────────────────────────────────────────────────────────
 
@@ -268,6 +294,178 @@ export const workoutsRouter = router({
     }),
   }),
 
+  preferences: router({
+    /** The caller's persisted v1 intake, with safe defaults for pre-0082 rows. */
+    mine: protectedProcedure.query(async ({ ctx }) => {
+      const [profile] = await ctx.db
+        .select({ workoutPreferences: clientProfiles.workoutPreferences })
+        .from(clientProfiles)
+        .where(eq(clientProfiles.userId, ctx.user!.id))
+        .limit(1);
+      return parseWorkoutPreferences(profile?.workoutPreferences);
+    }),
+
+    /** A client edits their own document; an assigned coach may edit a client's document. */
+    update: protectedProcedure
+      .input(z.object({
+        clientId: z.string().uuid().optional(),
+        preferences: workoutPreferencesSchema,
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const clientId = input.clientId ?? ctx.user!.id;
+        const isClientSelfUpdate = ctx.profile?.role === 'client' && clientId === ctx.user!.id;
+        const isAssignedCoachUpdate = ctx.profile?.role === 'coach';
+        if (!isClientSelfUpdate && !isAssignedCoachUpdate) {
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'Only the client or assigned coach may update workout preferences' });
+        }
+
+        const [updated] = await ctx.db
+          .update(clientProfiles)
+          .set({
+            workoutPreferences: input.preferences,
+            updatedAt: new Date().toISOString(),
+          })
+          .where(and(
+            eq(clientProfiles.userId, clientId),
+            isClientSelfUpdate
+              ? eq(clientProfiles.userId, ctx.user!.id)
+              : eq(clientProfiles.coachId, ctx.user!.id),
+          ))
+          .returning({ workoutPreferences: clientProfiles.workoutPreferences });
+        if (!updated) {
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'Client is no longer assigned to this coach' });
+        }
+        await recordAuditEvent({
+          actorId: ctx.user!.id,
+          actorRole: ctx.profile!.role,
+          action: 'workout_preferences_updated',
+          tableName: 'client_profiles',
+          recordId: clientId,
+          newValue: { clientId, version: input.preferences.version },
+        });
+        return parseWorkoutPreferences(updated.workoutPreferences);
+      }),
+  }),
+
+  recommendation: router({
+    /**
+     * A read-only, inspectable draft. It never creates workout_sessions or
+     * enters the existing draft/review/live state machine.
+     */
+    mine: protectedProcedure
+      .input(recommendationContextSchema)
+      .query(async ({ ctx, input }) => {
+      const [profile] = await ctx.db
+        .select({
+          goal: clientProfiles.goal,
+          activityLevel: clientProfiles.activityLevel,
+          coachId: clientProfiles.coachId,
+          workoutPreferences: clientProfiles.workoutPreferences,
+        })
+        .from(clientProfiles)
+        .where(eq(clientProfiles.userId, ctx.user!.id))
+        .limit(1);
+      if (!profile) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Client profile not found' });
+      }
+
+      const activeProgram = await loadActiveProgram(ctx.db, ctx.user!.id, false);
+      const activeCoachTemplate = selectCoachTemplateForWeekday(activeProgram?.days ?? [], input.localWeekday);
+      const coachTemplateIds = activeCoachTemplate && activeProgram?.program.coachId === profile.coachId
+        ? activeCoachTemplate.exercises.map((exercise) => exercise.exercise_id)
+        : [];
+      const exerciseVisibility = coachTemplateIds.length
+        ? or(
+            eq(exercises.isTemplate, true),
+            eq(exercises.createdBy, ctx.user!.id),
+            and(inArray(exercises.id, coachTemplateIds), eq(exercises.createdBy, profile.coachId!)),
+          )
+        : or(eq(exercises.isTemplate, true), eq(exercises.createdBy, ctx.user!.id));
+
+      const [exerciseRows, recentSets, recentSessions] = await Promise.all([
+        ctx.db.select().from(exercises)
+          .where(exerciseVisibility),
+        ctx.db
+          .select({
+            exerciseId: workoutSets.exerciseId,
+            reps: workoutSets.reps,
+            weightKg: workoutSets.weightKg,
+            completedOn: workoutSessions.sessionDate,
+            isWarmup: workoutSets.isWarmup,
+          })
+          .from(workoutSets)
+          .innerJoin(workoutSessions, eq(workoutSets.sessionId, workoutSessions.id))
+          .where(and(eq(workoutSessions.userId, ctx.user!.id), isNotNull(workoutSessions.completedAt)))
+          .orderBy(desc(workoutSessions.sessionDate), desc(workoutSets.createdAt))
+          .limit(100),
+        ctx.db
+          .select({ painFlags: workoutSessions.painFlags })
+          .from(workoutSessions)
+          .where(and(eq(workoutSessions.userId, ctx.user!.id), isNotNull(workoutSessions.completedAt)))
+          .orderBy(desc(workoutSessions.sessionDate), desc(workoutSessions.createdAt))
+          .limit(20),
+      ]);
+      const painRegions = recentSessions.flatMap((session) =>
+        Array.isArray(session.painFlags)
+          ? session.painFlags.flatMap((flag) => {
+              if (typeof flag !== 'object' || flag === null || !('body_part' in flag)) return [];
+              return typeof flag.body_part === 'string' ? [flag.body_part] : [];
+            })
+          : [],
+      );
+      // Keep the SQL predicate as the primary boundary, and filter again here
+      // so a mocked, misconfigured, or privileged DB client cannot leak a
+      // private exercise into the deterministic draft.
+      const visibleExerciseRows = exerciseRows.filter((exercise) =>
+        exercise.isTemplate === true
+        || exercise.createdBy === ctx.user!.id
+        || (coachTemplateIds.includes(exercise.id) && exercise.createdBy === profile.coachId),
+      );
+
+      const recommendationExercises: Exercise[] = visibleExerciseRows.map((exercise) => ({
+        id: exercise.id,
+        name: exercise.name,
+        name_es: exercise.nameEs,
+        name_el: exercise.nameEl,
+        muscle_group: exercise.muscleGroup as MuscleGroup,
+        secondary_muscles: exercise.secondaryMuscles,
+        anatomy_activations: resolveMuscleActivations({
+          name: exercise.name,
+          equipment: exercise.equipment,
+          muscleGroup: exercise.muscleGroup,
+        }).map((activation) => activation.id),
+        equipment: exercise.equipment,
+        is_compound: exercise.isCompound ?? false,
+        is_template: exercise.isTemplate ?? true,
+        instructions: exercise.instructions,
+        instructions_es: exercise.instructionsEs,
+        instructions_el: exercise.instructionsEl,
+        created_by: exercise.createdBy,
+        created_at: exercise.createdAt ?? '',
+      }));
+
+      return buildWorkoutRecommendation({
+        preferences: parseWorkoutPreferences(profile.workoutPreferences),
+        profileGoal: profile.goal as Goal | null,
+        profileActivity: profile.activityLevel as import('@/lib/types').ActivityLevel | null,
+        asOf: input.localDate,
+        exercises: recommendationExercises,
+        recentSets: recentSets
+          .filter((set): set is typeof set & { exerciseId: string } => Boolean(set.exerciseId))
+          .map((set) => ({
+            exerciseId: set.exerciseId,
+            reps: set.reps,
+            weightKg: set.weightKg,
+            completedOn: set.completedOn,
+            isWarmup: set.isWarmup ?? false,
+          })),
+        painRegions,
+        activeCoachTemplate,
+        missingCoachTemplateExerciseIds: coachTemplateIds.filter((id) => !visibleExerciseRows.some((exercise) => exercise.id === id)),
+      });
+    }),
+  }),
+
   logs: router({
     /** Coach: a client's recent sessions with sets + exercise names. */
     forClient: coachProcedure
@@ -318,7 +516,7 @@ export const workoutsRouter = router({
 
 // ── Shared loader ──────────────────────────────────────────────────────────
 
-async function loadActiveProgram(db: Db, clientId: string) {
+async function loadActiveProgram(db: Db, clientId: string, includeExerciseRows = true) {
   const [program] = await db
     .select()
     .from(workoutPrograms)
@@ -339,10 +537,9 @@ async function loadActiveProgram(db: Db, clientId: string) {
     .where(eq(workoutProgramDays.programId, program.id))
     .orderBy(workoutProgramDays.weekday, workoutProgramDays.sort);
 
-  const exerciseRows = await resolveTemplateExercises(
-    db,
-    days.map((d) => d.template),
-  );
+  const exerciseRows = includeExerciseRows
+    ? await resolveTemplateExercises(db, days.map((d) => d.template))
+    : [];
 
   return { program, days, exercises: exerciseRows };
 }

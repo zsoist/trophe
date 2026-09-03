@@ -3,7 +3,7 @@
 import React from 'react';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { workoutBackRoute, WORKOUT_ROUTES, workoutRouteForStage } from '@/lib/workout/workspace-routes';
+import { workoutBackRoute, workoutRouteIndex, workoutRouteKind, WORKOUT_ROUTES, workoutRouteForStage } from '@/lib/workout/workspace-routes';
 
 let pathname: string = WORKOUT_ROUTES.live;
 const storageValues = new Map<string, string>();
@@ -31,7 +31,7 @@ const locale = vi.hoisted(() => ({
   } as Record<string, string[]>,
 }));
 
-vi.mock('next/navigation', () => ({ usePathname: () => pathname }));
+vi.mock('next/navigation', () => ({ usePathname: () => pathname, useSearchParams: () => new URLSearchParams() }));
 vi.mock('@/lib/i18n', () => ({
   useI18n: () => ({
     t: (key: string, params?: Record<string, string | number>) => {
@@ -45,7 +45,7 @@ vi.mock('@/lib/i18n', () => ({
         'workout.workspace_live_title': liveTitle,
         'workout.workspace_exercises_title': 'Exercises',
         'workout.history': 'History',
-        'workout.stats': 'Stats',
+        'workout.stats': 'Training progress',
         'workout.form_check': 'Form Check',
         'workout.workspace_status_live': live,
         'workout.workspace_status_draft': 'Draft',
@@ -95,6 +95,12 @@ describe('workout workspace navigation', () => {
     expect(workoutBackRoute(route, stage)).toBe(expected);
   });
 
+  it('keeps deterministic edit and replacement return paths on exercise routes', () => {
+    expect(workoutBackRoute(`${WORKOUT_ROUTES.exercises}/bench`, 'draft', { returnRoute: 'build' })).toBe(WORKOUT_ROUTES.build);
+    expect(workoutBackRoute(`${WORKOUT_ROUTES.exercises}/row`, 'review', { replaceExerciseId: 'bench', returnRoute: 'review' })).toBe(`${WORKOUT_ROUTES.exercises}?replace=bench&return=review`);
+    expect(workoutBackRoute(WORKOUT_ROUTES.exercises, 'review', { replaceExerciseId: 'bench', returnRoute: 'review' })).toBe(WORKOUT_ROUTES.review);
+  });
+
   it('keeps route-aware Back distinct from the explicit Workout Home action', () => {
     pathname = WORKOUT_ROUTES.review;
     render(<WorkoutWorkspaceHeader stage="review" />);
@@ -103,6 +109,25 @@ describe('workout workspace navigation', () => {
     expect(screen.getByRole('heading', { name: 'Review Workout' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Workout Home' }).getAttribute('href')).toBe(WORKOUT_ROUTES.home);
     expect(screen.getByText('Draft')).toBeTruthy();
+  });
+
+  it('classifies every secondary Workout destination for deterministic directional navigation', () => {
+    const routes = [
+      ['/dashboard/workout', 'home'],
+      ['/dashboard/workout/exercises', 'discovery'],
+      ['/dashboard/workout/exercises/bench', 'detail'],
+      ['/dashboard/workout/build', 'build'],
+      ['/dashboard/workout/review', 'review'],
+      ['/dashboard/workout/live', 'live'],
+      ['/dashboard/workout/history', 'history'],
+      ['/dashboard/workout/stats', 'analytics'],
+      ['/dashboard/workout/form-check', 'form-check'],
+    ] as const;
+
+    for (const [route, kind] of routes) expect(workoutRouteKind(route)).toBe(kind);
+    expect(workoutRouteIndex('/dashboard/workout/stats')).toBeGreaterThan(workoutRouteIndex('/dashboard/workout/history'));
+    expect(workoutRouteIndex('/dashboard/workout/review?step=2')).toBe(workoutRouteIndex('/dashboard/workout/review'));
+    expect(workoutRouteKind('/dashboard/workout/unknown')).toBe('home');
   });
 
   it('keeps complete workspace titles compact on the narrowest phones', () => {
@@ -156,7 +181,7 @@ describe('workout workspace navigation', () => {
 
   it.each([
     ['/dashboard/workout/history', 'History'],
-    ['/dashboard/workout/stats', 'Stats'],
+    ['/dashboard/workout/stats', 'Training progress'],
     ['/dashboard/workout/form-check', 'Form Check'],
   ])('owns the single canonical support-page heading for %s', (route, title) => {
     pathname = route;

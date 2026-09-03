@@ -40,7 +40,7 @@ vi.mock('@/lib/i18n', () => ({
         'workout.picker_choose_area_hint': 'Choose a body area to see relevant exercises.',
         'workout.picker_recent': 'Recent',
         'workout.picker_options': '{n} options',
-        'workout.picker_back_areas': 'Back to body areas',
+        'workout.picker_back_areas': 'Back to muscle groups',
         'workout.picker_result_title': '{area} exercises',
         'workout.picker_result_count': '{n} exercises',
         'workout.picker_none': 'No matching exercises',
@@ -53,6 +53,33 @@ vi.mock('@/lib/i18n', () => ({
         'workout.picker_add': 'Add',
         'workout.back_to_workout': 'Back to Workout',
         'workout.exercise_count': '{n} exercises',
+        'workout.picker_selected_one': '{n} exercise selected',
+        'workout.picker_selected_many': '{n} exercises selected',
+        'workout.picker_review_plan': 'Review plan',
+        'workout.info_primary': 'Primary',
+        'workout.info_secondary': 'Secondary',
+        'workout.info_stabilizer': 'Stabilizer',
+        'workout.atlas_label': 'Muscle activation atlas',
+        'workout.atlas_view_label': 'Anatomy view',
+        'workout.atlas_front': 'Front',
+        'workout.atlas_back': 'Back',
+        'workout.atlas_show_front': 'Show front anatomy',
+        'workout.atlas_show_back': 'Show back anatomy',
+        'workout.atlas_front_map': 'Front anatomy map',
+        'workout.atlas_back_map': 'Back anatomy map',
+        'workout.atlas_roles_label': 'Highlighted muscle roles',
+        'workout.atlas_region_label': '{muscle}, {role} muscle',
+        'workout.atlas_more_highlighted': '+{n} more highlighted',
+        'workout.atlas_muscle_pectoralis_major': 'Pectoralis major',
+        'workout.atlas_muscle_anterior_deltoid': 'Anterior deltoid',
+        'workout.atlas_muscle_biceps_brachii': 'Biceps brachii',
+        'workout.atlas_muscle_rectus_abdominis': 'Rectus abdominis',
+        'workout.atlas_muscle_quadriceps': 'Quadriceps',
+        'workout.atlas_muscle_latissimus_dorsi': 'Latissimus dorsi',
+        'workout.atlas_muscle_triceps_brachii': 'Triceps brachii',
+        'workout.atlas_muscle_gluteus_maximus': 'Gluteus maximus',
+        'workout.atlas_muscle_hamstrings': 'Hamstrings',
+        'workout.atlas_muscle_gastrocnemius': 'Gastrocnemius',
         'workout.picker_info_named': 'Exercise info: {name}',
         'workout.picker_search_results': 'Search results',
         'workout.picker_clear_search': 'Clear search',
@@ -161,7 +188,7 @@ describe('muscle-group-first exercise picker', () => {
     expect(focus).toHaveBeenCalledWith({ preventScroll: true });
   });
 
-  it('keeps routed selection open for multiple additions and returns only from the explicit footer', () => {
+  it('keeps routed selection open for multiple additions and returns only from the plan tray', () => {
     const addDraftExercise = vi.fn();
     const returnToBuild = vi.fn();
     const { onClose, onSelect } = renderPicker({
@@ -178,7 +205,8 @@ describe('muscle-group-first exercise picker', () => {
     expect(onSelect).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole('button', { name: /Back to Workout/ }));
+    expect(screen.getByText('1 exercise selected')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Review plan' }));
     expect(returnToBuild).toHaveBeenCalledTimes(1);
   });
 
@@ -190,7 +218,7 @@ describe('muscle-group-first exercise picker', () => {
     for (const area of ['Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 'Core', 'Full body', 'Cardio']) {
       expect(within(areaGroup).getByRole('button', { name: new RegExp(`^${area}`) })).toBeTruthy();
     }
-    expect(within(areaGroup).getAllByRole('img')).toHaveLength(8);
+    expect(screen.getByRole('region', { name: 'Muscle activation atlas' })).toBeTruthy();
     expect(screen.queryByText('Bench Press')).toBeNull();
     expect(screen.queryByText(/13 exercises|178 exercises/)).toBeNull();
     await waitFor(() => expect(document.activeElement).toBe(within(areaGroup).getByRole('button', { name: /^Chest/ })));
@@ -269,7 +297,7 @@ describe('muscle-group-first exercise picker', () => {
   it('returns to body areas and clears search without losing the simple entry state', () => {
     renderPicker();
     fireEvent.click(screen.getByRole('button', { name: /^Chest/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'Back to body areas' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Back to muscle groups' }));
     expect(screen.getByRole('heading', { name: 'What are you training?' })).toBeTruthy();
 
     fireEvent.change(screen.getByRole('searchbox', { name: 'Search all exercises' }), {

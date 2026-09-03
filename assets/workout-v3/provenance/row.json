@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "slug": "row",
+  "canonicalName": "Seated Cable Row",
+  "equipment": "Cable",
+  "generatedWith": "built-in-image-gen",
+  "sourcePath": "assets/workout-v3/sources/row-contact-sheet.png",
+  "sourceNativeDimensions": {
+    "width": 1672,
+    "height": 941
+  },
+  "prompt": "Use case: photorealistic-natural\nAsset type: premium workout technique motion source contact sheet\nPrimary request: wide three-panel contact sheet of Seated Cable Row, showing setup: arms long on V handle; work: pull to lower ribs; finish: handle at lower ribs.\nScene/backdrop: clean neutral-white/light-gray studio plate.\nSubject: same real clothed adult athlete, full body and exact Cable equipment fully visible in every panel.\nComposition/framing: fixed wide camera, light and scale; generous 12 percent safe margins.\nConstraints: scientifically plausible sequential phases; no cropped body/equipment, impossible technique, distorted hands/joints, extra equipment, text, logos, watermark, anatomy overlay, or black background.",
+  "promptClass": "photorealistic-natural",
+  "phases": [
+    "setup",
+    "work",
+    "finish"
+  ],
+  "review": {
+    "exerciseIdentity": true,
+    "equipmentIdentity": true,
+    "setupPhase": true,
+    "workPhase": true,
+    "finishPhase": true
+  },
+  "reviewNote": "Visual identity/phase review accepts this generated contact sheet. Curated code-native anatomy remains the authority for muscle activation."
+}

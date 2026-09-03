@@ -11,7 +11,7 @@ describe('workout history cardio presentation', () => {
     expect(history).toContain('session.cardio_activity');
     expect(history).toContain('session.cardio_distance_km');
     expect(history).toContain('session.cardio_effort');
-    expect(history).toMatch(/filter\(\(session\) => session\.workout_kind !== 'cardio'\)/);
+    expect(history).toMatch(/const isCardio = session\.workout_kind === 'cardio'[\s\S]*summaryValue = isCardio[\s\S]*: hasVolume/);
     expect(history).toContain("t(`workout.cardio_${session.cardio_activity ?? 'other'}`)");
   });
 

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useLayoutEffect } from 'react';
 import { ChevronLeft, Dumbbell, House } from 'lucide-react';
 import { useWorkoutWorkspace } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
@@ -31,6 +31,7 @@ function statusKeyForStage(stage: WorkoutStage): string | null {
 
 function WorkoutWorkspaceHeaderContent({ stage, onBack, backDisabled = false }: { stage: WorkoutStage; onBack?: () => void; backDisabled?: boolean }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { t } = useI18n();
   const [unit, setUnit] = useWeightUnit();
   const nextUnit = unit === 'kg' ? 'lb' : 'kg';
@@ -39,7 +40,10 @@ function WorkoutWorkspaceHeaderContent({ stage, onBack, backDisabled = false }: 
     : titleKeys[pathname] ?? 'workout.title';
   const title = t(titleKey);
   const isHome = pathname === WORKOUT_ROUTES.home;
-  const backHref = workoutBackRoute(pathname, stage);
+  const backHref = workoutBackRoute(pathname, stage, {
+    replaceExerciseId: searchParams.get('replace')?.trim() || undefined,
+    returnRoute: searchParams.get('return') === 'review' ? 'review' : searchParams.get('return') === 'build' ? 'build' : undefined,
+  });
   const statusKey = isHome ? null : statusKeyForStage(stage);
   const status = statusKey ? t(statusKey) : null;
 

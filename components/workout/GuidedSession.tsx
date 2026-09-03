@@ -16,7 +16,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   AlertTriangle, Check, ChevronLeft, ChevronRight, Clock, Info, Minus, Plus,
   SkipForward, Timer, Trophy, X,
@@ -130,6 +130,7 @@ function minutesSince(start: number): number {
 
 function RestBar({ startedAt, targetS, onDismiss }: { startedAt: number; targetS: number; onDismiss: () => void }) {
   const { t } = useI18n();
+  const reducedMotion = useReducedMotion();
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
@@ -161,9 +162,11 @@ function RestBar({ startedAt, targetS, onDismiss }: { startedAt: number; targetS
       <div
         style={{
           position: 'absolute', left: 0, top: 0, bottom: 0,
-          width: `${pct * 100}%`,
+          width: '100%',
+          transform: `scaleX(${pct})`,
+          transformOrigin: 'left center',
           background: 'color-mix(in srgb, var(--action-primary) 8%, transparent)',
-          transition: 'width .5s linear',
+          transition: reducedMotion ? 'none' : 'transform .5s linear',
           pointerEvents: 'none',
         }}
       />
@@ -234,6 +237,7 @@ export default function GuidedSession({
   onExit: (finished: boolean) => void;
 }) {
   const { t, lang } = useI18n();
+  const reducedMotion = useReducedMotion();
 
   const [exercises, setExercises] = useState<GuidedExercise[]>(() =>
     template.exercises.map((ref) => ({
@@ -660,10 +664,14 @@ export default function GuidedSession({
           <div className="mb-track" style={{ marginTop: 8 }}>
             <motion.div
               className="mb-fill"
-              style={{ background: 'linear-gradient(90deg,var(--gold-400,#B8923E),var(--gold-200,#E8C078))' }}
+              style={{
+                width: '100%',
+                transformOrigin: 'left center',
+                background: 'linear-gradient(90deg,var(--gold-400,#B8923E),var(--gold-200,#E8C078))',
+              }}
               initial={false}
-              animate={{ width: `${progressPct}%` }}
-              transition={{ duration: 0.35, type: 'tween', ease: 'easeOut' }}
+              animate={{ scaleX: progressPct / 100 }}
+              transition={{ duration: reducedMotion ? 0 : 0.35, type: 'tween', ease: 'easeOut' }}
             />
           </div>
         </div>

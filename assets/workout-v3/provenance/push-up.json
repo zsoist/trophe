@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "slug": "push-up",
+  "canonicalName": "Push Ups",
+  "equipment": "Bodyweight",
+  "generatedWith": "built-in-image-gen",
+  "sourcePath": "assets/workout-v3/sources/push-up-contact-sheet.png",
+  "sourceNativeDimensions": {
+    "width": 1774,
+    "height": 887
+  },
+  "prompt": "Use case: photorealistic-natural\nAsset type: premium workout technique motion source contact sheet\nPrimary request: wide three-panel contact sheet of Push Ups, showing setup: high plank; work: controlled bottom; finish: high plank.\nScene/backdrop: clean neutral-white/light-gray studio plate.\nSubject: same real clothed adult athlete, full body and exact Bodyweight equipment fully visible in every panel.\nComposition/framing: fixed wide camera, light and scale; generous 12 percent safe margins.\nConstraints: scientifically plausible sequential phases; no cropped body/equipment, impossible technique, distorted hands/joints, extra equipment, text, logos, watermark, anatomy overlay, or black background.",
+  "promptClass": "photorealistic-natural",
+  "phases": [
+    "setup",
+    "work",
+    "finish"
+  ],
+  "review": {
+    "exerciseIdentity": true,
+    "equipmentIdentity": true,
+    "setupPhase": true,
+    "workPhase": true,
+    "finishPhase": true
+  },
+  "reviewNote": "Visual identity/phase review accepts this generated contact sheet. Curated code-native anatomy remains the authority for muscle activation."
+}

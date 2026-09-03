@@ -27,6 +27,8 @@ describe('PainFlagModal durable save', () => {
     render(<PainFlagModal exerciseId="bench" exerciseName="Bench Press" suggestedBodyPart="Shoulder" onSave={vi.fn()} onClose={vi.fn()} />);
 
     expect(screen.getByRole('heading', { name: 'Report pain' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: '1. Body region' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: '3. Notes' })).toBeTruthy();
     expect(screen.getByText('Bench Press')).toBeTruthy();
     expect((screen.getByLabelText('Body region') as HTMLInputElement).value).toBe('Shoulder');
     expect(screen.getByRole('radio', { name: '1 Mild' })).toBeTruthy();
@@ -74,6 +76,7 @@ describe('PainFlagModal durable save', () => {
     render(<PainFlagModal exerciseId="bench" onSave={onSave} onHighSeveritySaved={onHighSeveritySaved} onClose={vi.fn()} />);
     fireEvent.change(screen.getByPlaceholderText('Body part'), { target: { value: 'Lower back' } });
     fireEvent.click(screen.getByRole('radio', { name: '4' }));
+    expect(screen.getByRole('alert')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Save pain note' }));
     await vi.waitFor(() => expect(onHighSeveritySaved).toHaveBeenCalledTimes(1));
 

@@ -1,17 +1,24 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Check, Dumbbell, Plus, Trophy } from 'lucide-react';
+import { AlertTriangle, Check, Dumbbell, Plus, RefreshCw, Trophy } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { supabase } from '@/lib/supabase';
-import type { Exercise, Language, MuscleGroup } from '@/lib/types';
-import { resolveWorkoutAsset } from '@/lib/workout-assets';
+import type { Exercise, Language } from '@/lib/types';
+import type { AnatomyMuscleId } from '@/lib/workout/anatomy';
+import { resolveExerciseMedia } from '@/lib/workout/exercise-media';
+import { resolveExerciseInstructionBlock } from '@/lib/workout/exercise-copy';
 import { kgToDisplay, useWeightUnit } from '@/lib/workout/units';
-import { exerciseDisplayName, muscleColor, muscleLabelKey } from './muscle-groups';
-import { MovementVisual } from './MovementVisual';
+import { exerciseDisplayName } from './muscle-groups';
+import { ExerciseMediaBadge } from './ExerciseMediaBadge';
+import { ExerciseMotion } from './ExerciseMotion';
+import { MuscleAtlas } from './MuscleAtlas';
 
 interface HistoryEntry { date: string; topWeightKg: number | null; topReps: number | null; sets: number }
 interface GuidanceSections { setup: string[]; execution: string[]; breathing: string[]; mistakes: string[] }
+
+type DetailPresentation = 'route' | 'sheet';
+type PhaseId = 'setup' | 'work' | 'finish';
 
 export interface ExerciseDetailProps {
   exercise: Exercise;
@@ -20,6 +27,11 @@ export interface ExerciseDetailProps {
   isAdded?: boolean;
   alternateAction?: { label: string; message?: string; onClick: () => void };
   className?: string;
+  presentation?: DetailPresentation;
+  headingId?: string;
+  playbackDisabled?: boolean;
+  actionLabel?: string;
+  actionAriaLabel?: string;
 }
 
 const breathingPattern = /\b(?:breath\w*|inhale\w*|exhale\w*|respir\w*|inhala\w*|exhala\w*)\b|αναπν|εισπν|εκπν/i;
@@ -27,14 +39,26 @@ const mistakePattern = /\b(?:avoid|do not|don't|never|evita\w*|no)\b|μην|απ
 const setupPattern = /\b(?:set|setup|position|stand|sit|lie|plant|grip|feet|stance|coloca\w*|posición|pies|agarre)\b|θέση|πόδια|λαβή/i;
 
 const localeByLanguage: Record<Language, string> = {
-  en: 'en-US',
-  es: 'es-ES',
-  el: 'el-GR',
-  fr: 'fr-FR',
-  de: 'de-DE',
-  it: 'it-IT',
-  pt: 'pt-PT',
-  nl: 'nl-NL',
+  en: 'en-US', es: 'es-ES', el: 'el-GR', fr: 'fr-FR',
+  de: 'de-DE', it: 'it-IT', pt: 'pt-PT', nl: 'nl-NL',
+};
+
+const PHASE_LABEL_KEYS: Record<PhaseId, string> = {
+  setup: 'workout.detail_phase_setup',
+  work: 'workout.detail_phase_work',
+  finish: 'workout.detail_phase_finish',
+};
+
+const PHASE_ACTION_KEYS: Record<PhaseId, string> = {
+  setup: 'workout.detail_phase_setup_action',
+  work: 'workout.detail_phase_work_action',
+  finish: 'workout.detail_phase_finish_action',
+};
+
+const PHASE_CUE_KEYS: Record<PhaseId, string> = {
+  setup: 'workout.detail_phase_setup_cue',
+  work: 'workout.detail_phase_work_cue',
+  finish: 'workout.detail_phase_finish_cue',
 };
 
 function sentenceBoundaries(value: string): string[] {
@@ -52,40 +76,80 @@ export function organizeExerciseGuidance(value: string | null): GuidanceSections
   return sections;
 }
 
-function GuidanceBlock({ title, items, empty }: { title: string; items: string[]; empty: string }) {
+function GuidanceRow({ title, items, empty }: { title: string; items: string[]; empty: string }) {
   return (
-    <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4">
-      <h2 className="text-sm font-semibold text-[var(--content-primary)]">{title}</h2>
+    <div className="exercise-detail__guidance-row">
+      <h3>{title}</h3>
       {items.length > 0 ? (
-        <div className="mt-2 space-y-2 text-sm leading-6 text-[var(--content-secondary)]">
-          {items.map((item) => <p key={item}>{item}</p>)}
-        </div>
-      ) : <p className="mt-2 text-sm leading-6 text-[var(--content-muted)]">{empty}</p>}
-    </section>
+        <div>{items.map((item) => <p key={item}>{item}</p>)}</div>
+      ) : <p className="exercise-detail__empty">{empty}</p>}
+    </div>
   );
 }
 
-export function ExerciseDetail({ exercise, userId, onAdd, isAdded = false, alternateAction, className = '' }: ExerciseDetailProps) {
+export function ExerciseDetail({
+  exercise,
+  userId,
+  onAdd,
+  isAdded = false,
+  alternateAction,
+  className = '',
+  presentation = 'route',
+  headingId,
+  playbackDisabled = false,
+  actionLabel,
+  actionAriaLabel,
+}: ExerciseDetailProps) {
   const { t, lang } = useI18n();
   const [unit] = useWeightUnit();
-  const [pr, setPr] = useState<number | null>(null);
   const [history, setHistory] = useState<HistoryEntry[] | null>(userId ? null : []);
   const [historyError, setHistoryError] = useState(false);
+  const [historyRequest, setHistoryRequest] = useState(0);
+  const requestKey = `${userId ?? 'guest'}:${exercise.id}:${historyRequest}`;
+  const [prState, setPrState] = useState<{ requestKey: string; value: number | null }>({ requestKey, value: null });
+  const pr = prState.requestKey === requestKey ? prState.value : null;
   const name = exerciseDisplayName(exercise, lang);
-  const instructions = lang === 'en' ? exercise.instructions ?? null
-    : lang === 'es' ? exercise.instructions_es ?? null
-    : lang === 'el' ? exercise.instructions_el ?? null
-    : null;
-  const guidance = useMemo(() => organizeExerciseGuidance(instructions), [instructions]);
-  const hasGuidance = Object.values(guidance).some((items) => items.length > 0);
-  const asset = resolveWorkoutAsset({ exerciseName: exercise.name, equipment: exercise.equipment, muscleGroup: exercise.muscle_group });
-  const visualLabel = asset.kind === 'technique' ? t('workout.info_technique') : t('workout.info_muscles_worked');
-  const visualAlt = t(`workout.movement_${asset.kind}_alt`, { name });
-  const secondaries = (exercise.secondary_muscles ?? []).filter(Boolean) as MuscleGroup[];
+  const instruction = resolveExerciseInstructionBlock(exercise, lang);
+  const guidance = useMemo(() => organizeExerciseGuidance(instruction.value), [instruction.value]);
+  const media = useMemo(() => resolveExerciseMedia({
+    name: exercise.name,
+    equipment: exercise.equipment,
+    muscleGroup: exercise.muscle_group,
+  }), [exercise.equipment, exercise.muscle_group, exercise.name]);
+  const hasExactMotion = media.tier === 'verified-technique' && Boolean(media.motionSrc);
+  const mediaAlt = t(
+    hasExactMotion
+      ? 'workout.movement_technique_alt'
+      : media.tier === 'verified-technique'
+        ? 'workout.picker_exact_poster_alt'
+        : media.tier === 'verified-anatomy'
+          ? 'workout.picker_anatomy_poster_alt'
+          : 'workout.detail_fallback_poster_alt',
+    { name },
+  );
+  const [phaseSelection, setPhaseSelection] = useState<{ exerciseId: string; phase: PhaseId }>({ exerciseId: exercise.id, phase: 'setup' });
+  const activePhase = phaseSelection.exerciseId === exercise.id ? phaseSelection.phase : 'setup';
+  const [muscleSelection, setMuscleSelection] = useState<{ exerciseId: string; muscle: AnatomyMuscleId | null }>({
+    exerciseId: exercise.id,
+    muscle: media.activations[0]?.id ?? null,
+  });
+  const selectedMuscle = muscleSelection.exerciseId === exercise.id
+    ? muscleSelection.muscle
+    : media.activations[0]?.id ?? null;
+  const activePhaseRecord = media.phases.find((phase) => phase.id === activePhase);
+  const activePhaseCue = lang === 'en' && activePhaseRecord?.cue
+    ? activePhaseRecord.cue
+    : t(PHASE_CUE_KEYS[activePhase]);
 
   useEffect(() => {
     if (!userId) return;
     let active = true;
+    queueMicrotask(() => {
+      if (!active) return;
+      setHistory(null);
+      setHistoryError(false);
+      setPrState({ requestKey, value: null });
+    });
     void (async () => {
       // The authenticated browser client and joined user filter preserve workout_sets RLS.
       const { data, error } = await supabase
@@ -100,6 +164,7 @@ export function ExerciseDetail({ exercise, userId, onAdd, isAdded = false, alter
       if (error) {
         setHistoryError(true);
         setHistory([]);
+        setPrState({ requestKey, value: null });
         return;
       }
 
@@ -112,7 +177,7 @@ export function ExerciseDetail({ exercise, userId, onAdd, isAdded = false, alter
         const date = row.workout_sessions.session_date;
         byDate.set(date, [...(byDate.get(date) ?? []), row]);
       }
-      setPr(best > 0 ? best : null);
+      setPrState({ requestKey, value: best > 0 ? best : null });
       setHistoryError(false);
       setHistory([...byDate.entries()]
         .sort(([a], [b]) => b.localeCompare(a))
@@ -125,101 +190,114 @@ export function ExerciseDetail({ exercise, userId, onAdd, isAdded = false, alter
         }));
     })();
     return () => { active = false; };
-  }, [exercise.id, userId]);
+  }, [exercise.id, historyRequest, requestKey, userId]);
 
   return (
-    <article className={`mx-auto w-full max-w-3xl pb-[calc(5.5rem+env(safe-area-inset-bottom))] ${className}`}>
-      <figure className="overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)]">
-        <div className="h-64 w-full sm:h-80">
-          <MovementVisual asset={asset} alt={visualAlt} priority sizes="(max-width: 768px) 100vw, 768px" />
-        </div>
-        <figcaption className="border-t border-[var(--border-subtle)] px-4 py-3">
-          <h2 className="text-sm font-semibold text-[var(--content-primary)]">{visualLabel}</h2>
-        </figcaption>
-      </figure>
+    <article className={`exercise-detail exercise-detail--${presentation} ${className}`}>
+      <section className="exercise-detail__hero" aria-label={t('workout.detail_instruction_title')}>
+        <div className="exercise-detail__media-meta"><ExerciseMediaBadge media={media} /></div>
+        <ExerciseMotion media={media} alt={mediaAlt} autoplay={hasExactMotion} playbackDisabled={playbackDisabled} />
+      </section>
 
-      <header className="mt-5 flex items-start gap-3">
-        <span className="mt-2 h-3 w-3 shrink-0 rounded-full" style={{ background: muscleColor(exercise.muscle_group) }} />
-        <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-[-0.02em] text-[var(--content-primary)]">{name}</h1>
-          <p className="mt-1 text-sm text-[var(--content-muted)]">
-            {exercise.equipment ? t('workout.equipment_value', { equipment: exercise.equipment }) : t('workout.equipment_not_required')}
-            {exercise.is_compound ? ` · ${t('workout.compound')}` : ''}
-          </p>
+      <header className="exercise-detail__identity">
+        <h1 id={headingId}>{name}</h1>
+        <div className="exercise-detail__identity-meta">
+          <span><Dumbbell size={15} aria-hidden="true" />{exercise.equipment ?? t('workout.equipment_not_required')}</span>
+          {exercise.is_compound ? <span>{t('workout.compound')}</span> : null}
         </div>
       </header>
 
-      <section className="mt-5 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4">
-        <div className="flex flex-wrap gap-3">
-          <div>
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--content-muted)]">{t('workout.info_primary')}</h2>
-            <span className="mt-1.5 inline-flex rounded-full border border-[var(--border-focus)] bg-[var(--surface-active)] px-3 py-1.5 text-sm font-semibold text-[var(--action-primary)]">
-              {t(muscleLabelKey(exercise.muscle_group))}
-            </span>
-          </div>
-          <div>
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--content-muted)]">{t('workout.info_secondary')}</h2>
-            <div className="mt-1.5 flex flex-wrap gap-2">
-              {secondaries.length > 0 ? secondaries.map((muscle) => (
-                <span key={muscle} className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-3 py-1.5 text-sm text-[var(--content-secondary)]">
-                  {t(muscleLabelKey(muscle))}
-                </span>
-              )) : <span className="py-1.5 text-sm text-[var(--content-muted)]">—</span>}
+      <section className="exercise-detail__phase" aria-labelledby={`${exercise.id}-phase-title`}>
+        <h2 id={`${exercise.id}-phase-title`}>{t('workout.detail_phase_label')}</h2>
+        <div className="exercise-detail__phase-controls" role="group" aria-label={t('workout.detail_phase_label')}>
+          {(['setup', 'work', 'finish'] as const).map((phase) => (
+            <button key={phase} type="button" aria-pressed={activePhase === phase} aria-label={t(PHASE_ACTION_KEYS[phase])} onClick={() => setPhaseSelection({ exerciseId: exercise.id, phase })}>
+              {t(PHASE_LABEL_KEYS[phase])}
+            </button>
+          ))}
+        </div>
+        <p role="status" aria-live="polite">{activePhaseCue}</p>
+      </section>
+
+      <div className="exercise-detail__body">
+        <div className="exercise-detail__anatomy">
+          {media.activations.length > 0 ? (
+            <MuscleAtlas
+              activations={media.activations}
+              selected={selectedMuscle}
+              onSelect={(muscle) => setMuscleSelection({ exerciseId: exercise.id, muscle })}
+            />
+          ) : (
+            <div className="exercise-detail__anatomy-empty">
+              <Dumbbell size={24} aria-hidden="true" />
+              <p>{t('workout.detail_no_anatomy')}</p>
             </div>
+          )}
+        </div>
+
+        <div className="exercise-detail__instructions">
+          <section className="exercise-detail__section" aria-labelledby={`${exercise.id}-setup-title`}>
+            <h2 id={`${exercise.id}-setup-title`}>{t('workout.detail_equipment_setup')}</h2>
+            <dl className="exercise-detail__equipment">
+              <div><dt>{t('workout.detail_equipment_label')}</dt><dd>{exercise.equipment ?? t('workout.equipment_not_required')}</dd></div>
+            </dl>
+            {instruction.englishFallback ? <p className="exercise-detail__language-note">{t('workout.detail_english_guidance')}</p> : null}
+            <GuidanceRow title={t('workout.info_setup')} items={guidance.setup} empty={t('workout.info_not_provided')} />
+          </section>
+
+          <section className="exercise-detail__section" aria-labelledby={`${exercise.id}-technique-title`}>
+            <h2 id={`${exercise.id}-technique-title`}>{t('workout.detail_technique_title')}</h2>
+            <GuidanceRow title={t('workout.info_execution')} items={guidance.execution} empty={t('workout.info_not_provided')} />
+            <GuidanceRow title={t('workout.info_breathing')} items={guidance.breathing} empty={t('workout.info_not_provided')} />
+            <GuidanceRow title={t('workout.info_common_mistakes')} items={guidance.mistakes} empty={t('workout.info_not_provided')} />
+          </section>
+
+          <section className="exercise-detail__section exercise-detail__safety" aria-labelledby={`${exercise.id}-safety-title`}>
+            <h2 id={`${exercise.id}-safety-title`}><AlertTriangle size={17} aria-hidden="true" />{t('workout.info_safety')}</h2>
+            <p>{t('workout.info_safety_unavailable')}</p>
+          </section>
+        </div>
+      </div>
+
+      <section className="exercise-detail__section exercise-detail__evidence" aria-labelledby={`${exercise.id}-evidence-title`}>
+        <h2 id={`${exercise.id}-evidence-title`}>{t('workout.detail_evidence_title')}</h2>
+        <div className="exercise-detail__evidence-grid">
+          <div className="exercise-detail__record">
+            <h3><Trophy size={16} aria-hidden="true" />{t('workout.info_pr')}</h3>
+            <p>{pr !== null ? `${kgToDisplay(pr, unit)} ${unit}` : '—'}</p>
+          </div>
+          <div className="exercise-detail__history">
+            <h3>{t('workout.info_last')}</h3>
+            {history === null ? <p role="status">{t('workout.detail_history_loading')}</p> : null}
+            {historyError ? (
+              <div role="alert">
+                <p>{t('workout.info_history_failed')}</p>
+                <button type="button" onClick={() => setHistoryRequest((request) => request + 1)}><RefreshCw size={15} aria-hidden="true" />{t('workout.detail_history_retry')}</button>
+              </div>
+            ) : null}
+            {!historyError && history !== null && history.length === 0 ? <p><Dumbbell size={14} aria-hidden="true" />{t('workout.info_no_history')}</p> : null}
+            {history?.map((entry) => (
+              <div key={entry.date} className="exercise-detail__history-row">
+                <time dateTime={entry.date}>{new Date(`${entry.date}T00:00:00`).toLocaleDateString(localeByLanguage[lang], { month: 'short', day: 'numeric' })}</time>
+                <span>{t('workout.history_sets', { n: entry.sets })}</span>
+                <strong>{entry.topWeightKg !== null ? `${kgToDisplay(entry.topWeightKg, unit)}${unit} × ${entry.topReps ?? 0}` : '—'}</strong>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {hasGuidance ? <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        {guidance.setup.length > 0 ? <GuidanceBlock title={t('workout.info_setup')} items={guidance.setup} empty={t('workout.info_not_provided')} /> : null}
-        {guidance.execution.length > 0 ? <GuidanceBlock title={t('workout.info_execution')} items={guidance.execution} empty={t('workout.info_not_provided')} /> : null}
-        {guidance.breathing.length > 0 ? <GuidanceBlock title={t('workout.info_breathing')} items={guidance.breathing} empty={t('workout.info_not_provided')} /> : null}
-        {guidance.mistakes.length > 0 ? <GuidanceBlock title={t('workout.info_common_mistakes')} items={guidance.mistakes} empty={t('workout.info_not_provided')} /> : null}
-      </div> : (
-        <section className="mt-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4">
-          <h2 className="text-sm font-semibold text-[var(--content-primary)]">{t('workout.info_technique')}</h2>
-          <p className="mt-2 text-sm leading-6 text-[var(--content-muted)]">{t('workout.info_not_provided')}</p>
-        </section>
-      )}
-
-      <section className="mt-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4">
-        <h2 className="text-sm font-semibold text-[var(--content-primary)]">{t('workout.info_safety')}</h2>
-        <p className="mt-2 text-sm leading-6 text-[var(--content-muted)]">{t('workout.info_safety_unavailable')}</p>
-      </section>
-
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-[var(--content-primary)]"><Trophy size={16} aria-hidden="true" />{t('workout.info_pr')}</h2>
-          <p className="mt-3 font-mono text-lg font-semibold tabular-nums text-[var(--action-primary)]">{pr !== null ? `${kgToDisplay(pr, unit)} ${unit}` : '—'}</p>
-        </section>
-        <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4">
-          <h2 className="text-sm font-semibold text-[var(--content-primary)]">{t('workout.info_last')}</h2>
-          {history === null ? <p className="mt-3 text-sm text-[var(--content-muted)]">{t('chat.loading')}</p> : null}
-          {historyError ? <p role="alert" className="mt-3 text-sm text-[var(--status-danger-fg)]">{t('workout.info_history_failed')}</p> : null}
-          {!historyError && history !== null && history.length === 0 ? <p className="mt-3 flex items-center gap-2 text-sm text-[var(--content-muted)]"><Dumbbell size={14} aria-hidden="true" />{t('workout.info_no_history')}</p> : null}
-          {history?.map((entry) => (
-            <div key={entry.date} className="mt-3 flex items-center justify-between gap-2 border-t border-[var(--border-subtle)] pt-3 text-xs text-[var(--content-secondary)]">
-              <span>{new Date(`${entry.date}T00:00:00`).toLocaleDateString(localeByLanguage[lang], { month: 'short', day: 'numeric' })}</span>
-              <span>{t('workout.history_sets', { n: entry.sets })}</span>
-              <span className="font-mono tabular-nums">{entry.topWeightKg !== null ? `${kgToDisplay(entry.topWeightKg, unit)}${unit} × ${entry.topReps ?? 0}` : '—'}</span>
-            </div>
-          ))}
-        </section>
-      </div>
-
       {onAdd || alternateAction ? (
-        <div className="sticky bottom-0 z-10 mt-5 border-t border-[var(--border-subtle)] bg-[var(--canvas)]/95 px-1 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
+        <div className="exercise-detail__action">
           {onAdd ? (
-            <button type="button" disabled={isAdded} aria-label={isAdded ? t('workout.exercise_added_named', { name }) : t('workout.picker_add_named', { name })} onClick={() => onAdd(exercise)} className="btn-gold inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl px-4 font-semibold disabled:cursor-default disabled:opacity-70">
+            <button type="button" disabled={isAdded} aria-label={isAdded ? t('workout.exercise_added_named', { name }) : actionAriaLabel ?? t('workout.picker_add_named', { name })} onClick={() => onAdd(exercise)} className="btn-gold">
               {isAdded ? <Check size={18} aria-hidden="true" /> : <Plus size={18} aria-hidden="true" />}
-              {isAdded ? t('workout.exercise_added') : t('workout.picker_add')}
+              {isAdded ? t('workout.exercise_added') : actionLabel ?? t('workout.picker_add')}
             </button>
           ) : (
             <div>
-              <p className="mb-2 text-center text-xs leading-5 text-[var(--content-muted)]">{alternateAction?.message ?? t('workout.exercise_requires_strength_draft')}</p>
-              <button type="button" onClick={alternateAction?.onClick} className="btn-gold inline-flex min-h-12 w-full items-center justify-center rounded-xl px-4 font-semibold">
-                {alternateAction?.label}
-              </button>
+              <p>{alternateAction?.message ?? t('workout.exercise_requires_strength_draft')}</p>
+              <button type="button" onClick={alternateAction?.onClick} className="btn-gold">{alternateAction?.label}</button>
             </div>
           )}
         </div>

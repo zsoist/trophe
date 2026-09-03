@@ -54,6 +54,25 @@ function normalizeSpawnError(error) {
   };
 }
 
+/**
+ * @param {Record<string, string | undefined>} environment
+ * @param {{ has(flag: string): boolean }} allowedFlags
+ */
+export function releaseChildEnvironment(
+  environment = process.env,
+  allowedFlags = process.allowedNodeEnvironmentFlags,
+) {
+  const childEnvironment = { ...environment };
+  if (!allowedFlags.has('--no-experimental-webstorage')) return childEnvironment;
+
+  const nodeOptions = childEnvironment.NODE_OPTIONS ?? '';
+  if (!/(?:^|\s)--(?:no-)?experimental-webstorage(?:\s|$)/.test(nodeOptions)) {
+    childEnvironment.NODE_OPTIONS = `${nodeOptions} --no-experimental-webstorage`.trim();
+  }
+
+  return childEnvironment;
+}
+
 export function terminateProcessTree(
   child,
   {
@@ -184,6 +203,7 @@ export function runStep({
     const child = spawnProcess(command, args, {
       cwd,
       detached: platform !== 'win32',
+      env: releaseChildEnvironment(),
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 

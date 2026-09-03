@@ -36,11 +36,12 @@ describe('Nik dashboard greeting', () => {
     expect(offlineFallback).not.toMatch(/[\u0370-\u03ff]/u);
   });
 
-  it('marks the workout program placeholder so release screenshots wait for real content', () => {
+  it('marks workout planning placeholders so release screenshots wait for real evidence', () => {
     const route = readFileSync(join(process.cwd(), 'app/dashboard/workout/page.tsx'), 'utf8');
     const home = readFileSync(join(process.cwd(), 'components/workout/workspace/WorkoutHome.tsx'), 'utf8');
 
     expect(route).toContain('programLoading={programQuery.isLoading}');
+    expect(route).toContain('recommendationLoading={recommendationQuery.isLoading}');
     expect(home).toMatch(/programLoading[\s\S]*data-loading-skeleton/);
   });
 });

@@ -57,6 +57,36 @@ describe('workout workspace recovery', () => {
     expect(stored.draft.exerciseRows).toBeUndefined();
   });
 
+  it('round-trips optional plan prescriptions while accepting recovered v2 drafts without them', () => {
+    const storage = new MapStorage();
+    const state = workoutWorkspaceReducer(createInitialWorkspaceState(), {
+      type: 'draft.created', payload: { name: 'Upper', kind: 'strength' },
+    });
+    state.draft = {
+      ...state.draft!,
+      kind: 'strength',
+      exercises: [{
+        exerciseId: 'bench', targetSets: 3, targetReps: '8',
+        restSeconds: 120, targetRpe: 8, notes: 'Pause on chest.',
+      }],
+    };
+    saveWorkspaceState(storage, 'nik', state);
+    expect(loadWorkspaceState(storage, 'nik')?.draft).toMatchObject({
+      version: 2,
+      exercises: [{ restSeconds: 120, targetRpe: 8, notes: 'Pause on chest.' }],
+    });
+
+    const stored = JSON.parse(storage.getItem(workspaceStorageKey('nik')) ?? '{}');
+    delete stored.draft.exercises[0].restSeconds;
+    delete stored.draft.exercises[0].targetRpe;
+    delete stored.draft.exercises[0].notes;
+    storage.setItem(workspaceStorageKey('nik'), JSON.stringify(stored));
+    expect(loadWorkspaceState(storage, 'nik')?.draft).toMatchObject({
+      version: 2,
+      exercises: [{ exerciseId: 'bench', targetSets: 3, targetReps: '8' }],
+    });
+  });
+
   it('persists only a valid client request UUID and recoverable superset links', () => {
     const storage = new MapStorage();
     let state = workoutWorkspaceReducer(createInitialWorkspaceState(), {

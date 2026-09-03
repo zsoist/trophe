@@ -37,12 +37,15 @@ function hasOnlyKeys(value: Record<string, unknown>, keys: readonly string[]): b
 }
 
 function isDraftExercise(value: unknown): value is DraftExercise {
-  if (!isRecord(value) || !hasOnlyKeys(value, ['exerciseId', 'exerciseName', 'muscleGroup', 'targetSets', 'targetReps', 'linkedBelow'])) return false;
+  if (!isRecord(value) || !hasOnlyKeys(value, ['exerciseId', 'exerciseName', 'muscleGroup', 'targetSets', 'targetReps', 'restSeconds', 'targetRpe', 'notes', 'linkedBelow'])) return false;
   return typeof value.exerciseId === 'string'
     && (value.exerciseName === undefined || typeof value.exerciseName === 'string')
     && (value.muscleGroup === undefined || typeof value.muscleGroup === 'string')
     && typeof value.targetSets === 'number' && Number.isInteger(value.targetSets) && value.targetSets > 0
     && typeof value.targetReps === 'string' && value.targetReps.trim().length > 0
+    && (value.restSeconds === undefined || (typeof value.restSeconds === 'number' && Number.isInteger(value.restSeconds) && value.restSeconds >= 0 && value.restSeconds <= 600))
+    && (value.targetRpe === undefined || value.targetRpe === null || (typeof value.targetRpe === 'number' && Number.isFinite(value.targetRpe) && value.targetRpe >= 1 && value.targetRpe <= 10))
+    && (value.notes === undefined || (typeof value.notes === 'string' && value.notes.length <= 1000))
     && (value.linkedBelow === undefined || typeof value.linkedBelow === 'boolean');
 }
 
@@ -200,12 +203,15 @@ function persistDraft(draft: WorkoutDraft | null): WorkoutDraft | null {
       ...(draft.templateId === undefined ? {} : { templateId: draft.templateId }),
       updatedAt: draft.updatedAt,
       kind: 'strength',
-      exercises: draft.exercises.map(({ exerciseId, exerciseName, muscleGroup, targetSets, targetReps, linkedBelow }) => ({
+      exercises: draft.exercises.map(({ exerciseId, exerciseName, muscleGroup, targetSets, targetReps, restSeconds, targetRpe, notes, linkedBelow }) => ({
         exerciseId,
         ...(exerciseName === undefined ? {} : { exerciseName }),
         ...(muscleGroup === undefined ? {} : { muscleGroup }),
         targetSets: Number.isInteger(targetSets) && targetSets > 0 ? targetSets : 1,
         targetReps: targetReps.trim() || '8-12',
+        ...(restSeconds === undefined ? {} : { restSeconds }),
+        ...(targetRpe === undefined ? {} : { targetRpe }),
+        ...(notes === undefined ? {} : { notes }),
         ...(linkedBelow === undefined ? {} : { linkedBelow }),
       })),
     };
@@ -226,7 +232,13 @@ function persistDraft(draft: WorkoutDraft | null): WorkoutDraft | null {
 
 export function loadWorkspaceState(storage: WorkspaceStorage, userId: string): WorkoutWorkspaceState | null {
   const key = workspaceStorageKey(userId);
-  const raw = storage.getItem(key);
+  let raw: string | null;
+  try {
+    raw = storage.getItem(key);
+  } catch {
+    // Device recovery is helpful, but server writes and state transitions are authoritative.
+    return null;
+  }
   if (raw === null) return null;
   try {
     const parsed: unknown = JSON.parse(raw);
@@ -270,7 +282,7 @@ export function loadWorkspaceState(storage: WorkspaceStorage, userId: string): W
   } catch {
     // Corrupt storage is discarded below.
   }
-  storage.removeItem(key);
+  try { storage.removeItem(key); } catch { /* Best-effort device cleanup only. */ }
   return null;
 }
 
@@ -287,9 +299,9 @@ export function saveWorkspaceState(storage: WorkspaceStorage, userId: string, st
     retrospectiveRequest: state.retrospectiveRequest ?? null,
     completedRetrospective: state.completedRetrospective ?? null,
   };
-  storage.setItem(workspaceStorageKey(userId), JSON.stringify(payload));
+  try { storage.setItem(workspaceStorageKey(userId), JSON.stringify(payload)); } catch { /* Recovery storage is optional. */ }
 }
 
 export function clearWorkspaceState(storage: WorkspaceStorage, userId: string): void {
-  storage.removeItem(workspaceStorageKey(userId));
+  try { storage.removeItem(workspaceStorageKey(userId)); } catch { /* Recovery storage is optional. */ }
 }

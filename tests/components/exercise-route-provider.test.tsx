@@ -11,6 +11,7 @@ const { createWorkoutSession, push } = vi.hoisted(() => ({
   createWorkoutSession: vi.fn(),
   push: vi.fn(),
 }));
+const locale = vi.hoisted(() => ({ language: 'en' }));
 
 vi.mock('@/components/workout/workout-persistence', () => ({ createWorkoutSession }));
 vi.mock('next/navigation', () => ({
@@ -52,7 +53,7 @@ vi.mock('@/lib/supabase', () => ({
 }));
 vi.mock('@/lib/i18n', () => ({
   useI18n: () => ({
-    lang: 'en',
+    lang: locale.language,
     t: (key: string, params?: Record<string, string | number>) => {
       const copy: Record<string, string> = {
         'workout.strength': 'Strength',
@@ -68,7 +69,7 @@ vi.mock('@/lib/i18n', () => ({
         'workout.picker_choose_area_hint': 'Choose a body area to see relevant exercises.',
         'workout.picker_recent': 'Recent',
         'workout.picker_options': '{n} options',
-        'workout.picker_back_areas': 'Back to body areas',
+        'workout.picker_back_areas': 'Back to muscle groups',
         'workout.picker_result_title': '{area} exercises',
         'workout.picker_result_count': '{n} exercises',
         'workout.picker_none': 'No matching exercises',
@@ -78,7 +79,13 @@ vi.mock('@/lib/i18n', () => ({
         'workout.picker_all_equipment': 'All equipment',
         'workout.picker_all_area': 'All {area}',
         'workout.picker_add_named': 'Add {name}',
+        'workout.picker_selected_one': '{n} exercise selected',
+        'workout.picker_selected_many': '{n} exercises selected',
+        'workout.picker_review_plan': 'Review plan',
         'workout.picker_add': 'Add',
+        'workout.replace_exercise': 'Replace exercise',
+        'workout.replace_with_named': 'Replace with {name}',
+        'workout.replacement_active': 'Choose a replacement for {name}. Its prescription and position will stay the same.',
         'workout.picker_info_named': 'Exercise info: {name}',
         'workout.picker_search_results': 'Search results',
         'workout.picker_clear_search': 'Clear search',
@@ -150,6 +157,15 @@ const bench: Exercise = {
   is_template: true,
   created_by: null,
   created_at: '2026-08-24T00:00:00.000Z',
+};
+
+const row: Exercise = {
+  ...bench,
+  id: 'row',
+  name: 'Seated Cable Row',
+  muscle_group: 'back',
+  secondary_muscles: ['biceps'],
+  equipment: 'cable',
 };
 
 function strengthState(exercises: string[] = []): WorkoutWorkspaceState {
@@ -244,6 +260,7 @@ afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
   vi.clearAllMocks();
+  locale.language = 'en';
 });
 
 describe('exercise routes with the real workout workspace provider', () => {
@@ -262,7 +279,7 @@ describe('exercise routes with the real workout workspace provider', () => {
     Object.defineProperty(window.navigator, 'userAgent', { configurable: true, value: originalUserAgent });
   });
 
-  it('adds multiple exercises in the browser and returns from the explicit footer without creating a session', async () => {
+  it('adds multiple exercises in the browser and returns from the plan tray without creating a session', async () => {
     renderWithWorkspace(<ExerciseBrowser initialExercises={[bench]} />, strengthState());
     await screen.findByRole('heading', { name: 'What are you training?' });
 
@@ -271,19 +288,22 @@ describe('exercise routes with the real workout workspace provider', () => {
 
     await waitFor(() => expect(screen.getByTestId('workspace-state').textContent).toBe('draft:strength:bench'));
     expect(push).not.toHaveBeenCalledWith('/dashboard/workout/build');
-    fireEvent.click(screen.getByRole('button', { name: /Back to Workout/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Review plan' }));
     expect(push).toHaveBeenCalledWith('/dashboard/workout/build');
     expect(createWorkoutSession).not.toHaveBeenCalled();
   });
 
-  it('closes the browser back to Review when final editing opened it from Review', async () => {
-    renderWithWorkspace(<ExerciseBrowser initialExercises={[bench]} />, reviewState());
-    await screen.findByRole('heading', { name: 'What are you training?' });
+  it('keeps a reviewed draft immutable when the browser route is opened directly', async () => {
+    renderWithWorkspace(<ExerciseBrowser initialExercises={[bench]} />, reviewState(['bench']));
 
-    fireEvent.click(screen.getByRole('button', { name: 'workout.picker_close' }));
+    expect(await screen.findByRole('button', { name: 'Resume current workout' })).toBeTruthy();
+    expect(screen.queryByRole('searchbox', { name: 'Search all exercises' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add Bench Press' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Resume current workout' }));
 
     expect(push).toHaveBeenCalledWith('/dashboard/workout/review');
-    expect(screen.getByTestId('workspace-state').textContent).toBe('review:strength:');
+    expect(screen.getByTestId('workspace-state').textContent).toBe('review:strength:bench');
+    expect(createWorkoutSession).not.toHaveBeenCalled();
   });
 
   it('shows an already-added browser row as disabled and stays on the browser route', async () => {
@@ -362,6 +382,35 @@ describe('exercise routes with the real workout workspace provider', () => {
     expect(createWorkoutSession).not.toHaveBeenCalled();
   });
 
+  it('cancels a query-scoped replacement without changing the draft or starting a session', async () => {
+    renderWithWorkspace(
+      <ExerciseBrowser initialExercises={[bench, row]} replaceExerciseId="bench" returnRoute="build" />,
+      strengthState(['bench']),
+    );
+    await screen.findByRole('heading', { name: 'What are you training?' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'workout.picker_close' }));
+
+    expect(screen.getByTestId('workspace-state').textContent).toBe('draft:strength:bench');
+    expect(push).toHaveBeenCalledWith('/dashboard/workout/build');
+    expect(createWorkoutSession).not.toHaveBeenCalled();
+  });
+
+  it('replaces through muscle-first discovery and returns with no live session', async () => {
+    renderWithWorkspace(
+      <ExerciseBrowser initialExercises={[bench, row]} replaceExerciseId="bench" returnRoute="build" />,
+      strengthState(['bench']),
+    );
+    await screen.findByRole('heading', { name: 'What are you training?' });
+
+    fireEvent.click(screen.getByRole('button', { name: /^Back/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Replace with Seated Cable Row' }));
+
+    await waitFor(() => expect(screen.getByTestId('workspace-state').textContent).toBe('draft:strength:row'));
+    expect(push).toHaveBeenCalledWith('/dashboard/workout/build');
+    expect(createWorkoutSession).not.toHaveBeenCalled();
+  });
+
   it('adds from detail to a strength draft and returns to Build without creating a session', async () => {
     renderWithWorkspace(<RoutedExerciseDetail exercise={bench} userId={null} />, strengthState());
     const add = await screen.findByRole('button', { name: 'Add Bench Press' });
@@ -373,14 +422,55 @@ describe('exercise routes with the real workout workspace provider', () => {
     expect(createWorkoutSession).not.toHaveBeenCalled();
   });
 
-  it('adds from detail back to Review when final editing opened it from Review', async () => {
+  it('keeps Review drill-down read-only until Edit reopens the draft', async () => {
     renderWithWorkspace(<RoutedExerciseDetail exercise={bench} userId={null} />, reviewState());
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Add Bench Press' }));
+    expect(await screen.findByRole('button', { name: 'Resume current workout' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Add Bench Press' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Resume current workout' }));
 
-    await waitFor(() => expect(screen.getByTestId('workspace-state').textContent).toBe('review:strength:bench'));
     expect(push).toHaveBeenCalledWith('/dashboard/workout/review');
+    expect(screen.getByTestId('workspace-state').textContent).toBe('review:strength:');
     expect(createWorkoutSession).not.toHaveBeenCalled();
+  });
+
+  it('rejects a replacement query against Review without changing the plan', async () => {
+    renderWithWorkspace(
+      <RoutedExerciseDetail exercise={row} userId={null} replaceExerciseId="bench" returnRoute="review" />,
+      reviewState(['bench']),
+    );
+
+    expect(await screen.findByRole('button', { name: 'Resume current workout' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Replace with Seated Cable Row' })).toBeNull();
+
+    expect(screen.getByTestId('workspace-state').textContent).toBe('review:strength:bench');
+    expect(push).not.toHaveBeenCalled();
+    expect(createWorkoutSession).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['es', 'Press de banca'],
+    ['el', 'Πιέσεις πάγκου'],
+  ])('uses the localized exercise display name in the %s replacement action', async (language, localizedName) => {
+    locale.language = language;
+    const localizedExercise = { ...bench, name_es: language === 'es' ? localizedName : null, name_el: language === 'el' ? localizedName : null };
+    renderWithWorkspace(<RoutedExerciseDetail exercise={localizedExercise} userId={null} replaceExerciseId="other" returnRoute="build" />, strengthState());
+
+    expect(await screen.findByRole('heading', { name: localizedName })).toBeTruthy();
+    expect(screen.getByRole('button', { name: `Replace with ${localizedName}` })).toBeTruthy();
+  });
+
+  it('disables selecting the current exercise as its own detail replacement', async () => {
+    renderWithWorkspace(
+      <RoutedExerciseDetail exercise={bench} userId={null} replaceExerciseId="bench" returnRoute="build" />,
+      strengthState(['bench']),
+    );
+
+    const selected = await screen.findByRole('button', { name: 'Bench Press added' });
+    expect(selected.hasAttribute('disabled')).toBe(true);
+    fireEvent.click(selected);
+    expect(screen.getByTestId('workspace-state').textContent).toBe('draft:strength:bench');
+    expect(push).not.toHaveBeenCalled();
   });
 
   it('blocks browser mutations for a recovered pending start and routes Retry to immutable Review', async () => {

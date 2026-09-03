@@ -24,7 +24,9 @@ const liveState: WorkoutWorkspaceState = {
 let workspace = { state: liveState, pause: vi.fn(), resume: vi.fn(), ...harness };
 
 vi.mock('@/components/workout/workspace/WorkoutWorkspaceProvider', () => ({ useWorkoutWorkspace: () => workspace }));
-vi.mock('@/components/workout/ExerciseInfoSheet', () => ({ default: () => null }));
+vi.mock('@/components/workout/ExerciseInfoSheet', () => ({ default: ({ playbackDisabled }: { playbackDisabled?: boolean }) => (
+  <div role="status">{playbackDisabled ? 'Exercise media paused by workout' : 'Exercise media active'}</div>
+) }));
 vi.mock('@/components/workout/PainFlagModal', () => ({ default: ({ onSave, onHighSeveritySaved }: { onSave: (flag: { exercise_id: string; body_part: string; severity: number }, mutationId: string) => Promise<boolean>; onHighSeveritySaved?: () => void }) => <div>
   <button type="button" onClick={() => void onSave({ exercise_id: 'bench', body_part: 'shoulder', severity: 2 }, '33333333-3333-4333-8333-333333333333')}>Save pain note</button>
   <button type="button" onClick={() => void (async () => {
@@ -34,13 +36,14 @@ vi.mock('@/components/workout/PainFlagModal', () => ({ default: ({ onSave, onHig
 </div> }));
 vi.mock('framer-motion', () => ({ AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>, motion: { div: ({ children, initial: _initial, animate: _animate, exit: _exit, transition: _transition, ...props }: React.HTMLAttributes<HTMLDivElement> & { initial?: unknown; animate?: unknown; exit?: unknown; transition?: unknown }) => { void _initial; void _animate; void _exit; void _transition; return <div {...props}>{children}</div>; } }, useReducedMotion: () => true }));
 vi.mock('@/components/workout/workspace/ExerciseSetLogger', () => ({
-  ExerciseSetLogger: ({ exercise, disabled, onComplete, onSuperset, onRemove, onPain, onPlateCalculator }: { exercise: { name: string }; disabled?: boolean; onComplete: (value: { weight: number; reps: number; rpe: number | null; isWarmup: boolean }) => Promise<string | null>; onSuperset?: () => void; onRemove?: () => void; onPain?: () => void; onPlateCalculator?: (weight: number) => void }) => (
+  ExerciseSetLogger: ({ exercise, disabled, onComplete, onSuperset, onRemove, onPain, onPlateCalculator, onTechnique }: { exercise: { name: string }; disabled?: boolean; onComplete: (value: { weight: number; reps: number; rpe: number | null; isWarmup: boolean }) => Promise<string | null>; onSuperset?: () => void; onRemove?: () => void; onPain?: () => void; onPlateCalculator?: (weight: number) => void; onTechnique?: () => void }) => (
     <div>
       <button type="button" disabled={disabled} onClick={() => void onComplete({ weight: 60, reps: 8, rpe: null, isWarmup: false })}>Complete {exercise.name}</button>
       <button type="button" disabled={disabled} onClick={onSuperset}>Superset {exercise.name}</button>
       <button type="button" disabled={disabled} onClick={onRemove}>Remove {exercise.name}</button>
       <button type="button" disabled={disabled} onClick={onPain}>Pain {exercise.name}</button>
       <button type="button" disabled={disabled} onClick={() => onPlateCalculator?.(100)}>Plate {exercise.name}</button>
+      <button type="button" disabled={disabled} onClick={onTechnique}>Technique {exercise.name}</button>
     </div>
   ),
 }));
@@ -99,6 +102,30 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.clearAllMocks(); workspace = { state: liveState, pause: vi.fn(), resume: vi.fn(), ...harness }; });
 
 describe('LiveWorkout', () => {
+  it('keeps a recovered completed set reachable for correction instead of treating it as a fresh stage', async () => {
+    harness.loadLiveSessionSets.mockResolvedValue({ ok: true, sets: [{
+      id: 'set-1', session_id: 'session-1', exercise_id: 'bench', set_number: 1,
+      weight_kg: 60, reps: 8, rpe: null, is_warmup: false, is_pr: false, superset_group: null, notes: null, created_at: new Date().toISOString(),
+    }] });
+    render(<LiveWorkout exercises={[]} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'workout.path_completed' }));
+    expect(await screen.findByRole('button', { name: 'Complete Bench Press' })).toBeTruthy();
+  });
+
+  it('disables exercise media playback when the live workout is paused', async () => {
+    workspace = { ...workspace, state: { ...liveState, stage: 'paused', clock: { runningSince: null, accumulatedMs: 30_000 } } };
+    const exercise = {
+      id: 'bench', name: 'Bench Press', name_es: null, name_el: null, muscle_group: 'chest', secondary_muscles: [],
+      equipment: 'barbell', is_compound: true, instructions: null, instructions_es: null, instructions_el: null,
+      is_template: true, created_by: null, created_at: '2026-08-24T00:00:00.000Z',
+    } as import('@/lib/types').Exercise;
+
+    render(<LiveWorkout exercises={[exercise]} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Technique Bench Press' }));
+
+    expect(screen.getByRole('status').textContent).toBe('Exercise media paused by workout');
+  });
+
   it('shows the verified completion summary only after recovery, until the user acknowledges it', async () => {
     workspace = { ...workspace, state: { ...liveState, stage: 'completed', clock: { runningSince: null, accumulatedMs: 60_000 } } };
     render(<LiveWorkout exercises={[]} />);
@@ -314,6 +341,7 @@ describe('LiveWorkout', () => {
       superset_group: null, notes: null, created_at: '2026-08-25T12:00:00.000Z',
     }] });
     render(<LiveWorkout exercises={[]} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'workout.path_completed' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Remove Bench Press' }));
     expect(screen.getByRole('alertdialog', { name: 'Remove Bench Press' })).toBeTruthy();
     expect(screen.getByText('1 completed sets')).toBeTruthy();

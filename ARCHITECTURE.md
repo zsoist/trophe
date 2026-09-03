@@ -2,7 +2,7 @@
 
 High-level map of how Trophē v0.3 fits together. For per-agent LLM details see `agents/README.md`. For deploy+env setup see `DEPLOYMENT.md`. For threat model see `SECURITY.md`.
 
-_Last updated: 2026-08-11_
+_Last updated: 2026-09-03_
 
 ---
 
@@ -210,7 +210,9 @@ Routers: `clients`, `coach`, `food`, `memory`. React Query v5 `TRPCProvider` is 
 - `app/globals.css` — CSS custom properties on `:root` (dark default). Key tokens: `--bg`, `--t1..t5`, `--gold-300`, `--line`, `--surface`, `--font-mono`
 - Utility classes: `.card`, `.card-g`, `.card-r`, `.av`, `.av-lg`, `.eye`, `.eye-d`, `.mb-track`, `.mb-fill`, `.row-b`, `.row-i`, `.ds-sub`, `.hs-dot-on/warn/off`
 - Icon sprite: `public/sprite.svg` — 56 SVG icons, consumed via `<Icon name="i-*" size={N} />`
-- Bottom nav: `components/ui/BotNav.tsx` — 4 tabs, client nav vs coach nav, active highlight via `usePathname`
+- Bottom nav: `components/ui/BotNav.tsx` — route-aware equal-width destinations (five for the client), client nav vs coach nav, active highlight via `usePathname`
+- Workout workspace: routed Home, Discovery, Detail, Build, Review, Live, History, Analytics, and Form Check surfaces share durable draft/live state without crossing the session boundary until the client explicitly starts a workout.
+- Workout media: typed exercise-media and anatomical registries enforce exact exercise/equipment identity, controllable motion, reduced-motion posters, and honest fallbacks for uncovered exercises.
 
 ---
 

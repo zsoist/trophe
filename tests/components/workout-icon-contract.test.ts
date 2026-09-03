@@ -19,8 +19,8 @@ describe('Workout Workspace V2 icon contract', () => {
   });
 
   it('keeps destructive exercise removal visibly labeled', () => {
-    const builder = source('components/workout/workspace/WorkoutBuilder.tsx');
-    expect(builder).toMatch(/Trash2[\s\S]{0,220}\{t\('workout\.remove_exercise'\)\}/);
+    const card = source('components/workout/workspace/PlanExerciseCard.tsx');
+    expect(card).toMatch(/<Trash2[\s\S]{0,220}\{t\('workout\.remove_exercise'\)\}/);
   });
 
   it('uses the project icon family for workout controls', () => {

@@ -9,8 +9,11 @@ import { translations } from '@/lib/i18n';
 const task8Keys = [
   'workout.plate_total_label', 'workout.plate_bar_label', 'workout.plate_inventory_label', 'workout.plate_inventory_help',
   'workout.plate_left_side', 'workout.plate_right_side', 'workout.plate_exact', 'workout.plate_nearest', 'workout.plate_impossible',
+  'workout.plate_job', 'workout.pause_workout', 'workout.resume_workout', 'workout.session_path', 'workout.exercise_position',
+  'workout.path_current', 'workout.path_completed', 'workout.path_pending', 'workout.finish_ready_title', 'workout.finish_ready_message',
+  'workout.current_target_label', 'workout.current_target', 'workout.previous_values_label', 'workout.previous_values', 'workout.up_next_named', 'workout.technique_media',
   'workout.warmup_explanation', 'workout.warmup_no_ramp', 'workout.add_warmup_sets', 'workout.add_warmup_sets_saving', 'workout.add_warmup_sets_failed',
-  'painflag.exercise', 'painflag.current_exercise', 'painflag.body_part_label', 'painflag.severity_mild', 'painflag.severity_moderate', 'painflag.severity_stop', 'painflag.notes_label', 'painflag.coach_disclosure',
+  'painflag.job', 'painflag.exercise', 'painflag.current_exercise', 'painflag.body_part_label', 'painflag.severity_mild', 'painflag.severity_moderate', 'painflag.severity_stop', 'painflag.notes_label', 'painflag.coach_disclosure',
   'painflag.region_chest', 'painflag.region_back', 'painflag.region_shoulders', 'painflag.region_arms', 'painflag.region_legs', 'painflag.region_core',
   'painflag.region_biceps', 'painflag.region_triceps', 'painflag.region_forearms', 'painflag.region_quads', 'painflag.region_hamstrings', 'painflag.region_glutes', 'painflag.region_calves', 'painflag.region_prompt',
 ];

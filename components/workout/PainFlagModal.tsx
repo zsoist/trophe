@@ -77,7 +77,10 @@ export default function PainFlagModal({ exerciseId, exerciseName = exerciseId, s
       <motion.div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} onKeyDown={(event) => trapFocus(event, dialogRef.current)} initial={reducedMotion ? false : { scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={reducedMotion ? undefined : { scale: 0.98, opacity: 0 }} transition={{ duration: reducedMotion ? 0 : 0.22, ease: [0.16, 1, 0.3, 1] }} className="workout-workspace workout-dialog glass-elevated max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] outline-none" onClick={(event) => event.stopPropagation()}>
         <div className="flex items-center gap-2"><AlertTriangle size={20} className="text-[var(--status-danger-fg)]" /><h3 id={titleId} className="text-lg font-semibold text-[var(--content-primary)]">{t('painflag.title')}</h3></div>
         <p className="mt-1 text-sm text-[var(--content-secondary)]"><span className="font-medium">{t('painflag.exercise')}:</span> {exerciseName}</p>
-        <label className="mt-4 block text-sm font-medium text-[var(--content-secondary)]">{t('painflag.body_part_label')}<input type="text" aria-label={t('painflag.body_part_label')} placeholder={t('painflag.body_part_placeholder')} value={bodyPart} onChange={(event) => setBodyPart(event.target.value)} className="input-dark mt-1 min-h-11 text-base" /></label>
+        <p className="mt-2 text-sm leading-5 text-[var(--content-secondary)]">{t('painflag.job')}</p>
+        <section className="mt-4" aria-labelledby="pain-where-title">
+        <h4 id="pain-where-title" className="text-sm font-semibold text-[var(--content-primary)]">1. {t('painflag.body_part_label')}</h4>
+        <label className="mt-2 block text-sm font-medium text-[var(--content-secondary)]"><span className="sr-only">{t('painflag.body_part_label')}</span><input type="text" aria-label={t('painflag.body_part_label')} placeholder={t('painflag.body_part_placeholder')} value={bodyPart} onChange={(event) => setBodyPart(event.target.value)} className="input-dark min-h-11 text-base" /></label>
         <div className="mt-2 flex flex-wrap gap-2">
           {quickRegions.map((region) => (
             <button
@@ -91,7 +94,8 @@ export default function PainFlagModal({ exerciseId, exerciseName = exerciseId, s
             </button>
           ))}
         </div>
-        <fieldset className="mt-4"><legend className="text-sm font-medium text-[var(--content-secondary)]">{t('painflag.severity_prefix')}: {severity}/5</legend><div className="flex gap-2">
+        </section>
+        <fieldset className="mt-4"><legend className="text-sm font-semibold text-[var(--content-primary)]">2. {t('painflag.severity_prefix')}: {severity}/5</legend><div className="mt-2 flex gap-2">
           {severityOptions.map((value) => { const label = value === 1 ? `1 ${t('painflag.severity_mild')}` : value === 3 ? `3 ${t('painflag.severity_moderate')}` : value === 5 ? `5 ${t('painflag.severity_stop')}` : String(value); return <label key={value} className="flex-1"><input type="radio" name="pain-severity" value={value} checked={severity === value} onChange={() => setSeverity(value)} className="sr-only text-base" /><span className="flex min-h-11 min-w-11 items-center justify-center rounded-lg border px-1 text-center text-xs font-semibold focus-within:outline-none focus-within:ring-2 focus-within:ring-[var(--focus-ring)]" style={{ background: severity === value ? 'var(--status-danger-bg)' : 'color-mix(in srgb, var(--content-primary) 8%, transparent)', color: severity === value ? 'var(--status-danger-fg)' : 'var(--content-secondary)', borderColor: severity === value ? 'var(--status-danger-border)' : 'color-mix(in srgb, var(--content-primary) 8%, transparent)' }}>{label}</span></label>; })}
         </div></fieldset>
         {severity >= 4 ? (
@@ -99,8 +103,11 @@ export default function PainFlagModal({ exerciseId, exerciseName = exerciseId, s
             {t('painflag.stop_guidance')}
           </p>
         ) : null}
-        <label className="mt-4 block text-sm font-medium text-[var(--content-secondary)]">{t('painflag.notes_label')}<textarea aria-label={t('painflag.notes_label')} placeholder={t('painflag.notes_placeholder')} value={notes} onChange={(event) => setNotes(event.target.value)} className="input-dark mt-1 h-20 resize-none text-base" /></label>
-        <p className="mt-2 text-xs text-[var(--content-secondary)]">{t('painflag.coach_disclosure')}</p>
+        <section className="mt-4" aria-labelledby="pain-context-title">
+          <h4 id="pain-context-title" className="text-sm font-semibold text-[var(--content-primary)]">3. {t('painflag.notes_label')}</h4>
+          <label className="mt-2 block text-sm font-medium text-[var(--content-secondary)]"><span className="sr-only">{t('painflag.notes_label')}</span><textarea aria-label={t('painflag.notes_label')} placeholder={t('painflag.notes_placeholder')} value={notes} onChange={(event) => setNotes(event.target.value)} className="input-dark h-20 resize-none text-base" /></label>
+          <p className="mt-2 text-xs text-[var(--content-secondary)]">{t('painflag.coach_disclosure')}</p>
+        </section>
         <div className="mt-4 flex gap-2"><button type="button" disabled={saving} onClick={() => onCloseRef.current()} className="btn-ghost min-h-11 min-w-11 flex-1 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-50">{t('painflag.cancel')}</button><button type="button" disabled={saving} onClick={() => void save()} className="min-h-11 min-w-11 flex-1 rounded-xl border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] py-2 text-sm font-semibold text-[var(--status-danger-fg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-50">{saving ? t('painflag.saving') : t('painflag.save')}</button></div>
         {saveError ? <p role="alert" className="mt-3 text-sm text-[var(--status-danger-fg)]">{t('painflag.save_failed')}</p> : null}
       </motion.div>

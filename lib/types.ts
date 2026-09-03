@@ -65,6 +65,8 @@ export interface ClientProfile {
   contact_cadence_days: number;
   graduated_at: string | null;
   expected_return_month: number | null;
+  /** Empty JSON objects are retained for clients who have not completed the v1 intake. */
+  workout_preferences: WorkoutPreferences | Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }
@@ -279,6 +281,37 @@ export interface USDANutrient {
 // ═══════════════════════════════════════════════
 
 export type MuscleGroup = 'chest' | 'back' | 'shoulders' | 'biceps' | 'triceps' | 'forearms' | 'quads' | 'hamstrings' | 'glutes' | 'calves' | 'core' | 'full_body' | 'cardio';
+export type WorkoutEquipment = 'bodyweight' | 'dumbbell' | 'barbell' | 'bench' | 'cable' | 'machine' | 'cardio';
+
+export interface WorkoutPreferences {
+  version: 1;
+  experience: 'beginner' | 'intermediate' | 'advanced';
+  equipment: WorkoutEquipment[];
+  durationMinutes: 20 | 30 | 45 | 60;
+  daysPerWeek: 1 | 2 | 3 | 4 | 5 | 6 | 7;
+  location: 'home' | 'gym' | 'both';
+}
+
+export interface WorkoutRecommendationExercise {
+  exerciseId: string;
+  name: string;
+  muscleGroup: MuscleGroup;
+  equipment: string | null;
+  targetSets: number;
+  targetReps: string;
+  targetRpe?: number;
+}
+
+export interface WorkoutRecommendation {
+  source: 'coach' | 'recommendation';
+  reasons: string[];
+  estimatedDurationMinutes: number;
+  equipment: string[];
+  muscleDistribution: Partial<Record<MuscleGroup, number>>;
+  exercises: WorkoutRecommendationExercise[];
+  /** A recommendation remains a draft until the existing workspace explicitly starts it. */
+  liveSessionId?: undefined;
+}
 
 export interface Exercise {
   id: string;
@@ -287,6 +320,8 @@ export interface Exercise {
   name_el: string | null;
   muscle_group: MuscleGroup;
   secondary_muscles: string[] | null;
+  /** Curated anatomy regions when an exercise has a more specific activation map. */
+  anatomy_activations?: string[] | null;
   equipment: string | null;
   is_compound: boolean;
   is_template: boolean;
@@ -311,6 +346,8 @@ export interface WorkoutSession {
   cardio_distance_km?: number | null;
   cardio_effort?: number | null;
   pain_flags: PainFlag[];
+  /** Terminal timestamp; analytics must only treat sessions with this value as completed evidence. */
+  completed_at: string | null;
   created_at: string;
 }
 
