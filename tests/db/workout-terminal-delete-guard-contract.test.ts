@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const path = join(process.cwd(), 'drizzle/0081_workout_terminal_delete_guard.sql');
+const preferencesPath = join(process.cwd(), 'drizzle/0082_workout_preferences.sql');
 
 describe('terminal workout deletion authority', () => {
   it('ships a journaled delete guard and a terminal-safe discard RPC', () => {
@@ -20,6 +21,15 @@ describe('terminal workout deletion authority', () => {
     const journal = JSON.parse(readFileSync(join(process.cwd(), 'drizzle/meta/_journal.json'), 'utf8')) as {
       entries: Array<{ tag: string }>;
     };
-    expect(journal.entries.at(-1)?.tag).toBe('0081_workout_terminal_delete_guard');
+    const deleteGuardIndex = journal.entries.findIndex(({ tag }) => tag === '0081_workout_terminal_delete_guard');
+    const preferencesIndex = journal.entries.findIndex(({ tag }) => tag === '0082_workout_preferences');
+    expect(deleteGuardIndex).toBeGreaterThanOrEqual(0);
+    expect(preferencesIndex).toBe(deleteGuardIndex + 1);
+
+    expect(existsSync(preferencesPath)).toBe(true);
+    if (!existsSync(preferencesPath)) return;
+    const preferencesSql = readFileSync(preferencesPath, 'utf8');
+    expect(preferencesSql).toMatch(/alter table public\.client_profiles[\s\S]*add column workout_preferences/i);
+    expect(preferencesSql).not.toMatch(/\b(drop|delete|truncate)\b/i);
   });
 });
