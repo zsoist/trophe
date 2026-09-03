@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import type { Exercise, Language } from '@/lib/types';
 import type { AnatomyMuscleId } from '@/lib/workout/anatomy';
 import { resolveExerciseMedia } from '@/lib/workout/exercise-media';
+import { resolveExerciseInstructionBlock } from '@/lib/workout/exercise-copy';
 import { kgToDisplay, useWeightUnit } from '@/lib/workout/units';
 import { exerciseDisplayName } from './muscle-groups';
 import { ExerciseMediaBadge } from './ExerciseMediaBadge';
@@ -75,13 +76,6 @@ export function organizeExerciseGuidance(value: string | null): GuidanceSections
   return sections;
 }
 
-function localizedInstructions(exercise: Exercise, lang: Language): { value: string | null; englishFallback: boolean } {
-  if (lang === 'en') return { value: exercise.instructions ?? null, englishFallback: false };
-  if (lang === 'es' && exercise.instructions_es) return { value: exercise.instructions_es, englishFallback: false };
-  if (lang === 'el' && exercise.instructions_el) return { value: exercise.instructions_el, englishFallback: false };
-  return { value: exercise.instructions ?? null, englishFallback: Boolean(exercise.instructions) };
-}
-
 function GuidanceRow({ title, items, empty }: { title: string; items: string[]; empty: string }) {
   return (
     <div className="exercise-detail__guidance-row">
@@ -115,7 +109,7 @@ export function ExerciseDetail({
   const [prState, setPrState] = useState<{ requestKey: string; value: number | null }>({ requestKey, value: null });
   const pr = prState.requestKey === requestKey ? prState.value : null;
   const name = exerciseDisplayName(exercise, lang);
-  const instruction = localizedInstructions(exercise, lang);
+  const instruction = resolveExerciseInstructionBlock(exercise, lang);
   const guidance = useMemo(() => organizeExerciseGuidance(instruction.value), [instruction.value]);
   const media = useMemo(() => resolveExerciseMedia({
     name: exercise.name,

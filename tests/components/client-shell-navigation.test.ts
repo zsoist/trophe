@@ -48,17 +48,22 @@ describe('client shell navigation ownership', () => {
     expect(mockRouterReplace).toHaveBeenCalledWith('/dashboard/workout');
   });
 
-  it('keeps labels visible on standard phones and icon-only on very narrow phones', () => {
+  it('keeps five equal safe-area slots and icon-only accessible labels through 430px', () => {
     render(React.createElement(BotNav, { routes: clientRoutes }));
 
     for (const label of ['Home', 'Workout']) {
       const link = screen.getByRole('link', { name: label });
       expect(link.getAttribute('aria-label')).toBe(label);
-      expect(link.querySelector('[data-bot-nav-label]')?.className).toContain('min-[375px]:inline');
-      expect(link.querySelector('[data-bot-nav-label]')?.className).toContain('text-ellipsis');
+      expect(link.querySelector('[data-bot-nav-label]')?.className).toContain('min-[431px]:inline');
+      expect(link.querySelector('[data-bot-nav-label]')?.className).not.toContain('text-ellipsis');
       expect(link.querySelector('[data-bot-nav-icon]')).toBeTruthy();
       expect(link.className).toContain('min-h-14');
+      expect(link.className).toContain('basis-0');
     }
+    const nav = screen.getByRole('navigation', { name: 'Primary' });
+    expect(nav.className).toContain('grid-cols-[repeat(5,minmax(0,1fr))]');
+    expect(nav.className).toContain('bottom-0');
+    expect(nav.className).toContain('safe-bottom');
   });
 
   it.each([

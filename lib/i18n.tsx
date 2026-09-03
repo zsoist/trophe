@@ -740,6 +740,46 @@ export const translations: Record<string, Record<CoreLanguage, string>> = {
   'workout.summary_done': { en: 'Done', es: 'Listo', el: 'Τέλος' },
   // ── Workout premium overhaul (picker, timer, cardio, landing) ──
   'workout.ready': { en: 'Ready', es: 'Listo', el: 'Έτοιμο' },
+  'workout.home_status_label': { en: "Today's workout status", es: 'Estado del entrenamiento de hoy', el: 'Κατάσταση σημερινής προπόνησης' },
+  'workout.home_source_label': { en: 'Source', es: 'Origen', el: 'Πηγή' },
+  'workout.home_readiness_label': { en: 'Readiness', es: 'Preparación', el: 'Ετοιμότητα' },
+  'workout.home_next_step_label': { en: 'Next step', es: 'Siguiente paso', el: 'Επόμενο βήμα' },
+  'workout.home_schedule': { en: 'Schedule', es: 'Programa', el: 'Πρόγραμμα' },
+  'workout.home_schedule_empty': { en: 'No coach session is scheduled. Build a workout that fits today.', es: 'No hay una sesión del coach programada. Crea un entrenamiento que encaje hoy.', el: 'Δεν έχει προγραμματιστεί συνεδρία από τον προπονητή. Δημιούργησε μια προπόνηση για σήμερα.' },
+  'workout.home_explore_plan': { en: 'Explore and plan', es: 'Explorar y planificar', el: 'Εξερεύνηση και σχεδιασμός' },
+  'workout.home_find_exercise': { en: 'Find an exercise', es: 'Buscar un ejercicio', el: 'Εύρεση άσκησης' },
+  'workout.home_plan_cardio': { en: 'Plan cardio', es: 'Planificar cardio', el: 'Σχεδιασμός αερόβιας άσκησης' },
+  'workout.home_training_progress': { en: 'Training progress', es: 'Progreso de entrenamiento', el: 'Πρόοδος προπόνησης' },
+  'workout.home_saved_plans': { en: 'Saved plans', es: 'Planes guardados', el: 'Αποθηκευμένα πλάνα' },
+  'workout.home_recent_progress': { en: 'Recent progress', es: 'Progreso reciente', el: 'Πρόσφατη πρόοδος' },
+  'workout.home_loading_title': { en: "Loading today's training", es: 'Cargando el entrenamiento de hoy', el: 'Φόρτωση σημερινής προπόνησης' },
+  'workout.home_loading_body': { en: 'Checking the coach assignment and recommendation before workout actions become available.', es: 'Comprobando la asignación del coach y la recomendación antes de habilitar las acciones.', el: 'Έλεγχος ανάθεσης και σύστασης του προπονητή πριν ενεργοποιηθούν οι ενέργειες.' },
+  'workout.home_recovered_active': { en: 'Your active session was recovered. Your logged work is still here.', es: 'Se recuperó tu sesión activa. Tu trabajo registrado sigue aquí.', el: 'Η ενεργή συνεδρία ανακτήθηκε. Η καταγεγραμμένη εργασία παραμένει εδώ.' },
+  'workout.home_recovered_completed': { en: 'Your completed session is ready to review.', es: 'Tu sesión completada está lista para revisar.', el: 'Η ολοκληρωμένη συνεδρία είναι έτοιμη για έλεγχο.' },
+  'workout.home_recovered_draft': { en: 'Your saved draft is available on this device.', es: 'Tu borrador guardado está disponible en este dispositivo.', el: 'Το αποθηκευμένο πρόχειρο είναι διαθέσιμο σε αυτή τη συσκευή.' },
+  'workout.home_build_today': { en: "Build today's workout", es: 'Crear el entrenamiento de hoy', el: 'Δημιουργία σημερινής προπόνησης' },
+  'workout.home_source_in_progress': { en: 'Workout in progress', es: 'Entrenamiento en curso', el: 'Προπόνηση σε εξέλιξη' },
+  'workout.home_source_completed': { en: 'Completed workout', es: 'Entrenamiento completado', el: 'Ολοκληρωμένη προπόνηση' },
+  'workout.home_source_saved': { en: 'Your saved draft', es: 'Tu borrador guardado', el: 'Το αποθηκευμένο πρόχειρό σου' },
+  'workout.home_source_coach': { en: 'Assigned by coach', es: 'Asignado por el coach', el: 'Ανάθεση από τον προπονητή' },
+  'workout.home_source_recommended': { en: 'Recommended by Trophē', es: 'Recomendado por Trophē', el: 'Πρόταση από το Trophē' },
+  'workout.home_source_open': { en: 'Open training', es: 'Entrenamiento libre', el: 'Ελεύθερη προπόνηση' },
+  'workout.home_ready_resume': { en: 'Ready to resume', es: 'Listo para continuar', el: 'Έτοιμο για συνέχεια' },
+  'workout.home_ready_recovered': { en: 'Session recovered', es: 'Sesión recuperada', el: 'Η συνεδρία ανακτήθηκε' },
+  'workout.home_ready_draft': { en: 'Draft saved', es: 'Borrador guardado', el: 'Το πρόχειρο αποθηκεύτηκε' },
+  'workout.home_ready_review': { en: 'Ready to review', es: 'Listo para revisar', el: 'Έτοιμο για έλεγχο' },
+  'workout.home_ready_build': { en: 'Ready to build', es: 'Listo para crear', el: 'Έτοιμο για δημιουργία' },
+  'workout.home_cardio_session': { en: 'Cardio session', es: 'Sesión de cardio', el: 'Αερόβια συνεδρία' },
+  'workout.home_choose_exercises': { en: 'Choose your exercises', es: 'Elige tus ejercicios', el: 'Επίλεξε τις ασκήσεις σου' },
+  'workout.home_review_plan': { en: 'Review plan', es: 'Revisar plan', el: 'Έλεγχος πλάνου' },
+  'workout.home_build_workout': { en: 'Build workout', es: 'Crear entrenamiento', el: 'Δημιουργία προπόνησης' },
+  'workout.home_coach_schedule': { en: 'Coach schedule', es: 'Programa del coach', el: 'Πρόγραμμα προπονητή' },
+  'workout.home_adaptive_plan': { en: 'Adaptive plan', es: 'Plan adaptativo', el: 'Προσαρμοστικό πλάνο' },
+  'workout.home_later_today': { en: 'Later today', es: 'Más tarde hoy', el: 'Αργότερα σήμερα' },
+  'workout.home_next': { en: 'Next', es: 'Siguiente', el: 'Επόμενο' },
+  'workout.home_coach_workout': { en: 'Coach workout', es: 'Entrenamiento del coach', el: 'Προπόνηση προπονητή' },
+  'workout.home_recommended_workout': { en: 'Recommended workout', es: 'Entrenamiento recomendado', el: 'Προτεινόμενη προπόνηση' },
+  'workout.home_workout_draft': { en: 'Workout draft', es: 'Borrador de entrenamiento', el: 'Πρόχειρο προπόνησης' },
   'workout.timer_hint': { en: 'Timer starts on your first set', es: 'El cronómetro inicia con tu primera serie', el: 'Το χρονόμετρο ξεκινά με το πρώτο σου σετ' },
   'workout.strength_sub': { en: 'Weights · sets · PRs', es: 'Pesos · series · RPs', el: 'Βάρη · σετ · PR' },
   'workout.cardio_sub': { en: 'Run · cycle · HIIT', es: 'Correr · bici · HIIT', el: 'Τρέξιμο · ποδήλατο · HIIT' },
@@ -1711,16 +1751,26 @@ const I18nContext = createContext<I18nContextType>({
   t: (key: string) => key,
 });
 
-export function I18nProvider({ children }: { children: ReactNode; defaultLang?: Language }) {
+export function I18nProvider({ children, defaultLang = 'en' }: { children: ReactNode; defaultLang?: Language }) {
   // Initialize with defaultLang so server and client first render match (fixes hydration mismatch).
   // Read localStorage only after mount in useEffect — localStorage is unavailable on the server.
-  const [lang, setLangState] = useState<Language>('en');
+  const [lang, setLangState] = useState<Language>(defaultLang);
   // Bumped when an overlay locale finishes loading so `t` re-renders with real strings.
   const [overlayVersion, setOverlayVersion] = useState(0);
 
   useEffect(() => {
-    localStorage.setItem('trophe_lang', 'en');
-    document.documentElement.lang = 'en';
+    let cancelled = false;
+    let restored = defaultLang;
+    try {
+      const stored = window.localStorage.getItem('trophe_lang');
+      if (stored && LANGUAGE_OPTIONS.some(({ code }) => code === stored)) restored = stored as Language;
+      window.localStorage.setItem('trophe_lang', restored);
+    } catch { /* Language selection remains fully usable without storage. */ }
+    document.documentElement.lang = restored;
+    if (restored !== lang) queueMicrotask(() => { if (!cancelled) setLangState(restored); });
+    return () => { cancelled = true; };
+  // Initial restoration is intentionally a mount-only hydration step.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Lazy-load the overlay dictionary the first time an overlay language is active.
@@ -1735,11 +1785,12 @@ export function I18nProvider({ children }: { children: ReactNode; defaultLang?: 
     return () => { cancelled = true; };
   }, [lang]);
 
-  const setLang = useCallback(() => {
-    setLangState('en');
+  const setLang = useCallback((nextLang: Language) => {
+    if (!LANGUAGE_OPTIONS.some(({ code }) => code === nextLang)) return;
+    setLangState(nextLang);
     if (typeof window !== 'undefined') {
-      localStorage.setItem('trophe_lang', 'en');
-      document.documentElement.lang = 'en';
+      try { window.localStorage.setItem('trophe_lang', nextLang); } catch { /* Storage can be denied in private contexts. */ }
+      document.documentElement.lang = nextLang;
     }
   }, []);
 

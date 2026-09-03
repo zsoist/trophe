@@ -55,7 +55,7 @@ export function WorkoutBuilder({ exercises, onSavePlan, saveState = 'idle', save
     <main ref={mainRef} tabIndex={-1} aria-label={t('workout.workspace_build_title')} className="workout-plan-editor">
       <header className="workout-plan-editor__header">
         <div><h1>{draft.name || t('workout.workspace_build_title')}</h1><p>{t('workout.draft_not_started')}</p></div>
-        <label><span>{t('workout.name')}</span><input value={draft.name} onChange={(event) => workspace.updateDraftName(event.target.value)} /></label>
+        <label><span>{t('workout.name')}</span><input className="text-base" value={draft.name} onChange={(event) => workspace.updateDraftName(event.target.value)} /></label>
       </header>
 
       {libraryError ? <p role="alert" className="workout-plan-editor__notice workout-plan-editor__notice--error">{t('workout.program_load_failed')}</p> : null}
@@ -71,10 +71,10 @@ export function WorkoutBuilder({ exercises, onSavePlan, saveState = 'idle', save
         </>
       ) : (
         <section className="workout-cardio-editor">
-          <label><span>{t('workout.activity')}</span><select aria-label={t('workout.activity')} value={draft.activity} onChange={(event) => workspace.updateCardioDraft({ activity: event.target.value as typeof draft.activity })}>{cardioActivities.map((activity) => <option key={activity} value={activity}>{t(`workout.cardio_${activity}`)}</option>)}</select></label>
-          <label><span>{t('workout.duration_minutes')}</span><input aria-label={t('workout.duration_minutes')} type="number" min={0} value={draft.durationMinutes} onChange={(event) => workspace.updateCardioDraft({ durationMinutes: Math.max(0, Number(event.target.value) || 0) })} /></label>
-          <label><span>{t('workout.distance_optional')}</span><input aria-label={t('workout.distance_optional')} type="number" min={0} step="0.1" value={draft.distanceKm ?? ''} onChange={(event) => workspace.updateCardioDraft({ distanceKm: event.target.value === '' ? null : Math.max(0, Number(event.target.value)) })} /></label>
-          <label><span>{t('workout.effort')}</span><input aria-label={t('workout.effort')} type="number" min={1} max={10} value={draft.effort ?? ''} onChange={(event) => workspace.updateCardioDraft({ effort: event.target.value === '' ? null : Math.min(10, Math.max(1, Number(event.target.value))) })} /></label>
+          <label><span>{t('workout.activity')}</span><select className="text-base" aria-label={t('workout.activity')} value={draft.activity} onChange={(event) => workspace.updateCardioDraft({ activity: event.target.value as typeof draft.activity })}>{cardioActivities.map((activity) => <option key={activity} value={activity}>{t(`workout.cardio_${activity}`)}</option>)}</select></label>
+          <label><span>{t('workout.duration_minutes')}</span><input className="text-base" aria-label={t('workout.duration_minutes')} type="number" min={0} value={draft.durationMinutes} onChange={(event) => workspace.updateCardioDraft({ durationMinutes: Math.max(0, Number(event.target.value) || 0) })} /></label>
+          <label><span>{t('workout.distance_optional')}</span><input className="text-base" aria-label={t('workout.distance_optional')} type="number" min={0} step="0.1" value={draft.distanceKm ?? ''} onChange={(event) => workspace.updateCardioDraft({ distanceKm: event.target.value === '' ? null : Math.max(0, Number(event.target.value)) })} /></label>
+          <label><span>{t('workout.effort')}</span><input className="text-base" aria-label={t('workout.effort')} type="number" min={1} max={10} value={draft.effort ?? ''} onChange={(event) => workspace.updateCardioDraft({ effort: event.target.value === '' ? null : Math.min(10, Math.max(1, Number(event.target.value))) })} /></label>
         </section>
       )}
 

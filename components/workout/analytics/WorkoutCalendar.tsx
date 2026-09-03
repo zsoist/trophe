@@ -74,7 +74,7 @@ export function WorkoutCalendar({ month, scheduled, completed, today, selectedDa
         <button type="button" onClick={() => moveMonth(1)} aria-label={t('workout.analytics_next_month')} className="grid min-h-11 min-w-11 place-items-center rounded-lg text-[var(--content-secondary)] hover:bg-[var(--surface-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"><ChevronRight size={18} /></button>
       </div>
       <div className="grid grid-cols-7 gap-1 text-center" role="grid" aria-label={t('workout.analytics_calendar_grid', { month: monthLabel })}>
-        {Array.from({ length: 7 }, (_, index) => <span key={index} className="py-1 text-[11px] font-medium text-[var(--content-muted)]">{weekdayFormatter.format(new Date(2026, 7, 2 + index, 12))}</span>)}
+        {Array.from({ length: 7 }, (_, index) => <span key={index} className="py-1 text-xs font-medium text-[var(--content-muted)]">{weekdayFormatter.format(new Date(2026, 7, 2 + index, 12))}</span>)}
         {cells.map((date) => {
           const key = dateKey(date);
           const state = stateFor(key, scheduledDays, completedDays, today);

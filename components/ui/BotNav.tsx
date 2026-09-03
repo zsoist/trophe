@@ -39,7 +39,7 @@ export function BotNav({ routes, className = '', onActiveRouteSelect }: BotNavPr
     <nav
       className={[
         'fixed bottom-0 left-0 right-0 z-[var(--z-nav,30)]',
-        'flex justify-around items-center',
+        'grid grid-cols-[repeat(5,minmax(0,1fr))] items-center',
         'px-2 pt-1.5 safe-bottom sm:px-3.5',
         'bg-[var(--surface-overlay)]/95 text-[var(--content-secondary)] backdrop-blur',
         'border-t border-[var(--border-default)] shadow-[var(--shadow-medium)]',
@@ -105,7 +105,7 @@ export function BotNav({ routes, className = '', onActiveRouteSelect }: BotNavPr
             </span>
             <span
               data-bot-nav-label
-              className="hidden max-w-full overflow-hidden text-ellipsis whitespace-nowrap px-0.5 font-medium leading-none min-[375px]:inline"
+              className="hidden max-w-full whitespace-nowrap px-0.5 font-medium leading-none min-[431px]:inline"
             >
               {route.label}
             </span>

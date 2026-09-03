@@ -209,8 +209,8 @@ describe('Workout home v3', () => {
   it('blocks draft actions and schedule claims until both plan queries resolve', () => {
     renderHome({ programLoading: true, recommendationLoading: true });
 
-    expect(screen.getByRole('status', { name: 'Loading workout plan' })).toBeTruthy();
-    expect(screen.getByText(/checking today’s coach assignment and recommendation/i)).toBeTruthy();
+    expect(screen.getByRole('status', { name: 'Loading workout workspace' })).toBeTruthy();
+    expect(screen.getByText(/checking the coach assignment and recommendation/i)).toBeTruthy();
     expect(screen.queryByTestId('workout-primary-action')).toBeNull();
     expect(screen.queryByRole('button', { name: /build workout|review plan/i })).toBeNull();
     expect(screen.queryByText(/no coach session is scheduled/i)).toBeNull();

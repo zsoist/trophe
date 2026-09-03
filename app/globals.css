@@ -1513,12 +1513,12 @@ body {
 }
 
 .client-shell__nav {
-  left: max(0.75rem, env(safe-area-inset-left));
-  right: max(0.75rem, env(safe-area-inset-right));
+  left: 0;
+  right: 0;
   bottom: 0;
   overflow: hidden;
   border: 1px solid var(--border-default);
-  border-radius: 1.5rem;
+  border-radius: 1.5rem 1.5rem 0 0;
 }
 
 .client-shell__nav.safe-bottom {
@@ -2776,7 +2776,7 @@ body {
 @media (max-width: 360px) {
   .daily-macro-strip__cell { padding-inline: 0.4rem; }
   .daily-macro-strip__value { font-size: 0.76rem; }
-  .client-shell__nav { left: 0.25rem; right: 0.25rem; padding-inline: 0.25rem; }
+  .client-shell__nav { left: 0; right: 0; padding-inline: 0.25rem; }
   .client-shell__nav a { padding-inline: 0; font-size: 0.6875rem; letter-spacing: 0; }
   .workout-workspace > header { gap: 0.4rem; padding-inline: 0.75rem; }
   .workout-workspace > header h1 { max-width: 7.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

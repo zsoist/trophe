@@ -50,12 +50,12 @@ type ReplacementChoice = {
     | { type: 'template'; value: WorkoutHomeTemplate };
 };
 
-function templateFromRecommendation(recommendation: WorkoutRecommendation | null | undefined): WorkoutHomeTemplate | null {
+function templateFromRecommendation(recommendation: WorkoutRecommendation | null | undefined, coachName: string, recommendedName: string): WorkoutHomeTemplate | null {
   if (!recommendation?.exercises.length) return null;
   return {
     templateKey: 'recommendation:today',
     templateId: null,
-    name: recommendation.source === 'coach' ? 'Coach workout' : 'Recommended workout',
+    name: recommendation.source === 'coach' ? coachName : recommendedName,
     muscleSummary: Array.from(new Set(recommendation.exercises.map((exercise) => exercise.muscleGroup))),
     exercises: recommendation.exercises.map((exercise) => ({
       exerciseId: exercise.exerciseId,
@@ -89,12 +89,12 @@ function uniqueActivations(template: WorkoutHomeTemplate | null, exercises: Exer
   return Array.from(strongestById.values());
 }
 
-function workspaceTemplate(state: WorkoutWorkspaceState): WorkoutHomeTemplate | null {
+function workspaceTemplate(state: WorkoutWorkspaceState, fallbackName: string): WorkoutHomeTemplate | null {
   if (!state.draft || state.draft.kind !== 'strength') return null;
   return {
     templateKey: state.draft.templateKey ?? 'workspace:draft',
     templateId: state.draft.templateId ?? null,
-    name: state.draft.name || 'Workout draft',
+    name: state.draft.name || fallbackName,
     muscleSummary: Array.from(new Set(state.draft.exercises.map((exercise) => exercise.muscleGroup).filter((value): value is MuscleGroup => Boolean(value)))),
     exercises: state.draft.exercises,
   };
@@ -119,22 +119,22 @@ export function WorkoutHome({
   const [preview, setPreview] = useState<WorkoutHomeTemplate | null>(null);
   const [replacement, setReplacement] = useState<ReplacementChoice | null>(null);
   const exerciseNames = useMemo(() => new Map(exercises.map((exercise) => [exercise.id, exercise.name])), [exercises]);
-  const recommendedTemplate = useMemo(() => templateFromRecommendation(recommendation), [recommendation]);
+  const recommendedTemplate = useMemo(() => templateFromRecommendation(recommendation, t('workout.home_coach_workout'), t('workout.home_recommended_workout')), [recommendation, t]);
   const assignedTemplate = program?.todayTemplate ?? (recommendation?.source === 'coach' ? recommendedTemplate : null);
   const offeredTemplate = assignedTemplate ?? recommendedTemplate;
   const hasDraft = (workspace.state.stage === 'draft' || workspace.state.stage === 'review') && Boolean(workspace.state.draft);
   const activeStage = workspace.state.stage === 'live' || workspace.state.stage === 'paused' || workspace.state.stage === 'finishing';
   const recoveryStage = activeStage || workspace.state.stage === 'completed';
-  const recoveredTemplate = workspaceTemplate(workspace.state);
+  const recoveredTemplate = workspaceTemplate(workspace.state, t('workout.home_workout_draft'));
   const displayedTemplate = workspace.state.draft ? recoveredTemplate : offeredTemplate;
   const activations = useMemo(() => uniqueActivations(displayedTemplate, exercises), [displayedTemplate, exercises]);
   const isCardioDraft = workspace.state.draft?.kind === 'cardio';
   const targetLabel = displayedTemplate?.muscleSummary.length
     ? displayedTemplate.muscleSummary.map((muscle) => t(muscleLabelKey(muscle))).join(' · ')
     : t(isCardioDraft ? 'workout.atlas_cardio_target' : 'workout.atlas_no_target');
-  const source = activeStage ? 'Workout in progress' : workspace.state.stage === 'completed' ? 'Completed workout' : hasDraft ? 'Your saved draft' : assignedTemplate ? 'Assigned by coach' : recommendedTemplate ? 'Recommended by Trophē' : 'Open training';
+  const source = activeStage ? t('workout.home_source_in_progress') : workspace.state.stage === 'completed' ? t('workout.home_source_completed') : hasDraft ? t('workout.home_source_saved') : assignedTemplate ? t('workout.home_source_coach') : recommendedTemplate ? t('workout.home_source_recommended') : t('workout.home_source_open');
   const displayedWorkoutName = displayedTemplate?.name ?? workspace.state.draft?.name ?? null;
-  const readiness = workspace.state.stage === 'live' || workspace.state.stage === 'paused' ? 'Ready to resume' : recoveryStage ? 'Session recovered' : hasDraft ? 'Draft saved' : offeredTemplate ? 'Ready to review' : 'Ready to build';
+  const readiness = workspace.state.stage === 'live' || workspace.state.stage === 'paused' ? t('workout.home_ready_resume') : recoveryStage ? t('workout.home_ready_recovered') : hasDraft ? t('workout.home_ready_draft') : offeredTemplate ? t('workout.home_ready_review') : t('workout.home_ready_build');
   const estimatedDuration = workspace.state.draft?.kind === 'cardio'
     ? workspace.state.draft.durationMinutes || null
     : recoveredTemplate
@@ -159,7 +159,7 @@ export function WorkoutHome({
     if (hasDraft) setReplacement(choice);
     else finishChoice(choice, false);
   };
-  const buildStrength = () => choose({ name: 'Workout', destination: 'exercises', input: { type: 'draft', value: { name: 'Workout', kind: 'strength' } } });
+  const buildStrength = () => choose({ name: t('workout.title'), destination: 'exercises', input: { type: 'draft', value: { name: t('workout.title'), kind: 'strength' } } });
   const buildCardio = () => choose({ name: t('workout.cardio'), destination: 'build', input: { type: 'draft', value: { name: t('workout.cardio'), kind: 'cardio' } } });
   const reviewTemplate = (template: WorkoutHomeTemplate) => choose({ name: template.name, destination: 'review', input: { type: 'template', value: template } });
 
@@ -171,24 +171,24 @@ export function WorkoutHome({
   }
 
   const primaryAction = workspace.state.stage === 'live' || workspace.state.stage === 'paused'
-    ? { label: 'Resume workout', action: () => pushWorkoutRoute(router, WORKOUT_ROUTES.live) }
+    ? { label: t('workout.resume_workout'), action: () => pushWorkoutRoute(router, WORKOUT_ROUTES.live) }
     : workspace.state.stage === 'finishing'
-      ? { label: 'Continue workout', action: () => pushWorkoutRoute(router, WORKOUT_ROUTES.live) }
+      ? { label: t('workout.continue_active'), action: () => pushWorkoutRoute(router, WORKOUT_ROUTES.live) }
       : workspace.state.stage === 'completed'
-        ? { label: 'View workout summary', action: () => pushWorkoutRoute(router, WORKOUT_ROUTES.live) }
+        ? { label: t('workout.view_completed_summary'), action: () => pushWorkoutRoute(router, WORKOUT_ROUTES.live) }
         : hasDraft
           ? { label: workspace.state.stage === 'review' ? t('workout.continue_review') : t('workout.continue_editing'), action: () => pushWorkoutRoute(router, workspace.state.stage === 'review' ? WORKOUT_ROUTES.review : WORKOUT_ROUTES.build) }
           : offeredTemplate
-            ? { label: 'Review plan', action: () => reviewTemplate(offeredTemplate) }
-            : { label: 'Build workout', action: buildStrength };
+            ? { label: t('workout.home_review_plan'), action: () => reviewTemplate(offeredTemplate) }
+            : { label: t('workout.home_build_workout'), action: buildStrength };
   const showLoading = !hasDraft && !recoveryStage && (programLoading || recommendationLoading);
 
   if (showLoading) {
     return (
       <main className="mx-auto max-w-2xl px-4 py-4 sm:py-5">
-        <section role="status" aria-live="polite" aria-label="Loading workout plan" data-loading-skeleton className="rounded-[14px] border border-[var(--workout-rail)] bg-[var(--workout-surface)] px-4 py-3">
-          <p className="text-sm font-semibold text-[var(--content-primary)]">Loading today&apos;s training</p>
-          <p className="mt-1 text-xs leading-5 text-[var(--content-secondary)]">Checking today’s coach assignment and recommendation before workout actions become available.</p>
+        <section role="status" aria-live="polite" aria-label={t('workout.loading_workspace')} data-loading-skeleton className="rounded-[14px] border border-[var(--workout-rail)] bg-[var(--workout-surface)] px-4 py-3">
+          <p className="text-sm font-semibold text-[var(--content-primary)]">{t('workout.home_loading_title')}</p>
+          <p className="mt-1 text-xs leading-5 text-[var(--content-secondary)]">{t('workout.home_loading_body')}</p>
         </section>
       </main>
     );
@@ -196,11 +196,11 @@ export function WorkoutHome({
 
   return (
     <main className="mx-auto max-w-2xl space-y-4 px-4 py-4 sm:py-5">
-      {hasDraft || recoveryStage ? <p className="rounded-xl border border-[var(--workout-rail)] bg-[var(--workout-surface)] px-3 py-2 text-xs text-[var(--content-secondary)]">{activeStage ? 'Your active session was recovered. Your logged work is still here.' : workspace.state.stage === 'completed' ? 'Your completed session is ready to review.' : 'Your saved draft is available on this device.'}</p> : null}
+      {hasDraft || recoveryStage ? <p className="rounded-xl border border-[var(--workout-rail)] bg-[var(--workout-surface)] px-3 py-2 text-xs text-[var(--content-secondary)]">{activeStage ? t('workout.home_recovered_active') : workspace.state.stage === 'completed' ? t('workout.home_recovered_completed') : t('workout.home_recovered_draft')}</p> : null}
 
-      <WorkoutTodayRail title={displayedWorkoutName ?? 'Build today’s workout'} source={source} readiness={readiness} workSummary={isCardioDraft ? 'Cardio session' : displayedTemplate?.exercises.length ? `${displayedTemplate.exercises.length} exercises` : 'Choose your exercises'} nextAction={primaryAction.label} estimatedDurationMinutes={estimatedDuration} />
+      <WorkoutTodayRail title={displayedWorkoutName ?? t('workout.home_build_today')} source={source} readiness={readiness} workSummary={isCardioDraft ? t('workout.home_cardio_session') : displayedTemplate?.exercises.length ? t('workout.exercise_count', { n: displayedTemplate.exercises.length }) : t('workout.home_choose_exercises')} nextAction={primaryAction.label} estimatedDurationMinutes={estimatedDuration} />
 
-      {(programError || recommendationError) && !offeredTemplate ? <div role="alert" className="rounded-xl border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]">Your workout program could not be loaded. You can still build one.</div> : null}
+      {(programError || recommendationError) && !offeredTemplate ? <div role="alert" className="rounded-xl border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]">{t('workout.program_load_failed')}</div> : null}
       {supportError ? <div role="alert" className="rounded-xl border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] p-3 text-sm text-[var(--content-primary)]">{t('workout.support_data_load_failed')}</div> : null}
 
       <WorkoutAtlasHome activations={activations} targetLabel={targetLabel} emptyState={isCardioDraft ? 'cardio' : 'strength'} />
@@ -208,18 +208,18 @@ export function WorkoutHome({
 
       {!recoveryStage ? <WorkoutScheduleStrip program={program} todayName={displayedWorkoutName} todaySource={source} /> : null}
 
-      {!recoveryStage ? <section aria-labelledby="workout-destinations-title"><h2 id="workout-destinations-title" className="mb-2 text-sm font-bold tracking-[-0.01em] text-[var(--content-primary)]">Explore and plan</h2><div className="overflow-hidden rounded-[14px] border border-[var(--workout-rail)] bg-[var(--workout-surface)]">
-        <Link href={WORKOUT_ROUTES.exercises} className="flex min-h-11 items-center gap-3 px-3 py-2 text-sm font-medium text-[var(--content-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--focus-ring)]"><Search aria-hidden="true" size={16} className="text-[var(--content-muted)]" /><span className="flex-1">Find an exercise</span><ChevronRight aria-hidden="true" size={16} /></Link>
-        <button type="button" onClick={buildCardio} disabled={disabled} className="flex min-h-11 w-full items-center gap-3 border-t border-[var(--workout-rail)] px-3 py-2 text-left text-sm font-medium text-[var(--content-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--focus-ring)] disabled:opacity-50"><Activity aria-hidden="true" size={16} className="text-[var(--content-muted)]" /><span className="flex-1">Plan cardio</span><ChevronRight aria-hidden="true" size={16} /></button>
-        <Link href="/dashboard/workout/history" className="flex min-h-11 items-center gap-3 border-t border-[var(--workout-rail)] px-3 py-2 text-sm font-medium text-[var(--content-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--focus-ring)]"><History aria-hidden="true" size={16} className="text-[var(--content-muted)]" /><span className="flex-1">Workout history</span><ChevronRight aria-hidden="true" size={16} /></Link>
-        <Link href="/dashboard/workout/stats" className="flex min-h-11 items-center gap-3 border-t border-[var(--workout-rail)] px-3 py-2 text-sm font-medium text-[var(--content-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--focus-ring)]"><BarChart3 aria-hidden="true" size={16} className="text-[var(--content-muted)]" /><span className="flex-1">Training progress</span><ChevronRight aria-hidden="true" size={16} /></Link>
+      {!recoveryStage ? <section aria-labelledby="workout-destinations-title"><h2 id="workout-destinations-title" className="mb-2 text-sm font-bold tracking-[-0.01em] text-[var(--content-primary)]">{t('workout.home_explore_plan')}</h2><div className="overflow-hidden rounded-[14px] border border-[var(--workout-rail)] bg-[var(--workout-surface)]">
+        <Link href={WORKOUT_ROUTES.exercises} className="flex min-h-11 items-center gap-3 px-3 py-2 text-sm font-medium text-[var(--content-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--focus-ring)]"><Search aria-hidden="true" size={16} className="text-[var(--content-muted)]" /><span className="flex-1">{t('workout.home_find_exercise')}</span><ChevronRight aria-hidden="true" size={16} /></Link>
+        <button type="button" onClick={buildCardio} disabled={disabled} className="flex min-h-11 w-full items-center gap-3 border-t border-[var(--workout-rail)] px-3 py-2 text-left text-sm font-medium text-[var(--content-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--focus-ring)] disabled:opacity-50"><Activity aria-hidden="true" size={16} className="text-[var(--content-muted)]" /><span className="flex-1">{t('workout.home_plan_cardio')}</span><ChevronRight aria-hidden="true" size={16} /></button>
+        <Link href="/dashboard/workout/history" className="flex min-h-11 items-center gap-3 border-t border-[var(--workout-rail)] px-3 py-2 text-sm font-medium text-[var(--content-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--focus-ring)]"><History aria-hidden="true" size={16} className="text-[var(--content-muted)]" /><span className="flex-1">{t('workout.history')}</span><ChevronRight aria-hidden="true" size={16} /></Link>
+        <Link href="/dashboard/workout/stats" className="flex min-h-11 items-center gap-3 border-t border-[var(--workout-rail)] px-3 py-2 text-sm font-medium text-[var(--content-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--focus-ring)]"><BarChart3 aria-hidden="true" size={16} className="text-[var(--content-muted)]" /><span className="flex-1">{t('workout.home_training_progress')}</span><ChevronRight aria-hidden="true" size={16} /></Link>
       </div></section> : null}
 
-      {!recoveryStage && routines.length ? <section aria-labelledby="saved-plans-title"><h2 id="saved-plans-title" className="mb-2 text-sm font-bold tracking-[-0.01em] text-[var(--content-primary)]">Saved plans</h2><div className="overflow-hidden rounded-[14px] border border-[var(--workout-rail)] bg-[var(--workout-surface)]">{routines.map((routine, index) => <button key={routine.templateKey} type="button" disabled={disabled} aria-label={`Preview ${routine.name}`} onClick={() => setPreview(routine)} className={`flex min-h-11 w-full items-center px-3 py-2 text-left text-sm font-medium text-[var(--content-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--focus-ring)] disabled:opacity-50 ${index ? 'border-t border-[var(--workout-rail)]' : ''}`}><span className="flex-1">{routine.name}</span><ChevronRight aria-hidden="true" size={16} /></button>)}</div></section> : null}
+      {!recoveryStage && routines.length ? <section aria-labelledby="saved-plans-title"><h2 id="saved-plans-title" className="mb-2 text-sm font-bold tracking-[-0.01em] text-[var(--content-primary)]">{t('workout.home_saved_plans')}</h2><div className="overflow-hidden rounded-[14px] border border-[var(--workout-rail)] bg-[var(--workout-surface)]">{routines.map((routine, index) => <button key={routine.templateKey} type="button" disabled={disabled} aria-label={t('workout.preview_named', { name: routine.name })} onClick={() => setPreview(routine)} className={`flex min-h-11 w-full items-center px-3 py-2 text-left text-sm font-medium text-[var(--content-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--focus-ring)] disabled:opacity-50 ${index ? 'border-t border-[var(--workout-rail)]' : ''}`}><span className="flex-1">{routine.name}</span><ChevronRight aria-hidden="true" size={16} /></button>)}</div></section> : null}
 
       {preview ? <section aria-label={t('workout.preview')} className="rounded-[14px] border border-[var(--action-primary)] bg-[var(--workout-surface)] p-4"><h2 className="text-lg font-bold text-[var(--content-primary)]">{preview.name}</h2><p className="mt-1 text-sm text-[var(--content-secondary)]">{preview.muscleSummary.map((muscle) => t(muscleLabelKey(muscle))).join(' · ')}</p><p className="mt-1 text-sm text-[var(--content-secondary)]">{t('workout.exercise_count', { n: preview.exercises.length })}</p>{preview.exercises.length ? <ul className="mt-3 space-y-1 text-sm text-[var(--content-primary)]">{preview.exercises.map((exercise) => <li key={exercise.exerciseId}>{exercise.exerciseName ?? exerciseNames.get(exercise.exerciseId) ?? exercise.exerciseId}</li>)}</ul> : null}<div className="mt-4 flex gap-2"><button type="button" onClick={() => choose({ name: preview.name, destination: 'build', input: { type: 'template', value: preview } })} className="btn-gold min-h-11 flex-1 rounded-xl px-4">{t('workout.use_template')}</button><button type="button" onClick={() => setPreview(null)} className="btn-ghost min-h-11 rounded-xl px-4">{t('general.cancel')}</button></div></section> : null}
 
-      {recents.length ? <section aria-labelledby="recent-progress-title"><h2 id="recent-progress-title" className="mb-2 text-sm font-bold tracking-[-0.01em] text-[var(--content-primary)]">Recent progress</h2><ul className="overflow-hidden rounded-[14px] border border-[var(--workout-rail)] bg-[var(--workout-surface)]">{recents.slice(0, 3).map((session, index) => <li key={session.id} className={`flex items-center justify-between gap-3 px-3 py-2.5 text-sm ${index ? 'border-t border-[var(--workout-rail)]' : ''}`}><span className="truncate font-medium text-[var(--content-primary)]">{session.name ?? t('workout.title')}</span><time className="shrink-0 font-mono text-xs tabular-nums text-[var(--content-muted)]">{session.session_date}</time></li>)}</ul></section> : null}
+      {recents.length ? <section aria-labelledby="recent-progress-title"><h2 id="recent-progress-title" className="mb-2 text-sm font-bold tracking-[-0.01em] text-[var(--content-primary)]">{t('workout.home_recent_progress')}</h2><ul className="overflow-hidden rounded-[14px] border border-[var(--workout-rail)] bg-[var(--workout-surface)]">{recents.slice(0, 3).map((session, index) => <li key={session.id} className={`flex items-center justify-between gap-3 px-3 py-2.5 text-sm ${index ? 'border-t border-[var(--workout-rail)]' : ''}`}><span className="truncate font-medium text-[var(--content-primary)]">{session.name ?? t('workout.title')}</span><time className="shrink-0 font-mono text-xs tabular-nums text-[var(--content-muted)]">{session.session_date}</time></li>)}</ul></section> : null}
 
       <ConfirmSheet open={Boolean(replacement)} title={t('workout.replace_choice_title')} message={replacement && workspace.state.draft ? t('workout.replace_choice_message', { current: workspace.state.draft.name || t('workout.title'), next: replacement.name }) : undefined} confirmLabel={t('workout.replace_choice_confirm')} cancelLabel={t('workout.replace_choice_cancel')} onCancel={() => setReplacement(null)} onConfirm={() => { if (replacement) finishChoice(replacement, true); }} />
     </main>

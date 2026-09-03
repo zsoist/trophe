@@ -50,11 +50,37 @@ vi.mock('@/lib/i18n', () => ({
     'workout.remove_named': `Remove ${params?.name}`, 'workout.target_sets_named': `Target sets for ${params?.name}`,
     'workout.target_reps_named': `Target reps for ${params?.name}`,
     'workout.review_title': 'Review workout', 'workout.start_live': 'Start live workout',
+    'workout.start_workout': 'Start live workout',
     'workout.log_completed': 'Log completed workout',
     'workout.start_live_explanation': 'Starting live starts the active timer and creates your workout session.',
     'workout.start_live_failed': 'Workout could not start. Try again.',
     'workout.program_load_failed': 'Your workout program could not be loaded.',
     'workout.continue_active': 'Continue workout', 'workout.view_completed_summary': 'View workout summary',
+    'workout.resume_workout': 'Resume workout', 'workout.history_minutes': `${params?.n} minutes`,
+    'workout.home_status_label': "Today's workout status", 'workout.home_source_label': 'Source',
+    'workout.home_readiness_label': 'Readiness', 'workout.home_next_step_label': 'Next step',
+    'workout.home_schedule': 'Schedule', 'workout.home_schedule_empty': 'No coach session is scheduled. Build a workout that fits today.',
+    'workout.home_explore_plan': 'Explore and plan', 'workout.home_find_exercise': 'Find an exercise',
+    'workout.home_plan_cardio': 'Plan cardio', 'workout.home_training_progress': 'Training progress',
+    'workout.home_saved_plans': 'Saved plans', 'workout.home_recent_progress': 'Recent progress',
+    'workout.home_loading_title': "Loading today's training", 'workout.home_loading_body': 'Checking the coach assignment and recommendation before workout actions become available.',
+    'workout.home_recovered_active': 'Your active session was recovered. Your logged work is still here.',
+    'workout.home_recovered_completed': 'Your completed session is ready to review.',
+    'workout.home_recovered_draft': 'Your saved draft is available on this device.',
+    'workout.home_build_today': "Build today's workout", 'workout.home_source_in_progress': 'Workout in progress',
+    'workout.home_source_completed': 'Completed workout', 'workout.home_source_saved': 'Your saved draft',
+    'workout.home_source_coach': 'Assigned by coach', 'workout.home_source_recommended': 'Recommended by Trophē',
+    'workout.home_source_open': 'Open training', 'workout.home_ready_resume': 'Ready to resume',
+    'workout.home_ready_recovered': 'Session recovered', 'workout.home_ready_draft': 'Draft saved',
+    'workout.home_ready_review': 'Ready to review', 'workout.home_ready_build': 'Ready to build',
+    'workout.home_cardio_session': 'Cardio session', 'workout.home_choose_exercises': 'Choose your exercises',
+    'workout.home_review_plan': 'Review plan', 'workout.home_build_workout': 'Build workout',
+    'workout.home_coach_schedule': 'Coach schedule', 'workout.home_adaptive_plan': 'Adaptive plan',
+    'workout.home_later_today': 'Later today', 'workout.home_next': 'Next', 'general.today': 'Today',
+    'workout.home_coach_workout': 'Coach workout', 'workout.home_recommended_workout': 'Recommended workout',
+    'workout.home_workout_draft': 'Workout draft', 'workout.history': 'Workout history',
+    'workout.day_0': 'Sunday', 'workout.day_1': 'Monday', 'workout.day_2': 'Tuesday',
+    'workout.day_3': 'Wednesday', 'workout.day_4': 'Thursday', 'workout.day_5': 'Friday', 'workout.day_6': 'Saturday',
     'workout.draft_waiting': 'You have a workout in progress.',
     'workout.start_request_locked': 'This exact start request is waiting for a safe retry.',
     'workout.retrospective_request_locked': 'This exact completed workout is waiting for a safe retry.',
@@ -294,8 +320,7 @@ describe('WorkoutHome', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Review plan' }).hasAttribute('disabled')).toBe(false));
     fireEvent.click(screen.getByRole('button', { name: 'Review plan' }));
 
-    expect(await screen.findByRole('heading', { name: 'Review workout' })).toBeTruthy();
-    expect(screen.getByText('Coach Push')).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Coach Push' })).toBeTruthy();
     expect(startLiveSession).not.toHaveBeenCalled();
   });
 
