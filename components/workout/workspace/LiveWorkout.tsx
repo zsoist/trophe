@@ -299,7 +299,7 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
             <div className="bg-[var(--surface-subtle)] p-3"><dt className="text-[var(--content-muted)]">{t('workout.completed_prs')}</dt><dd className="mt-1 font-mono font-semibold tabular-nums text-[var(--content-primary)]">{prCount}</dd></div>
           </dl>
           <div className="mt-5 grid grid-cols-2 gap-3">
-            <Link href="/dashboard/workout/history" className="btn-ghost inline-flex min-h-11 items-center justify-center rounded-xl px-4">{t('workout.history')}</Link>
+            <Link href="/dashboard/workout/history" onClick={resetWorkoutScroll} className="btn-ghost inline-flex min-h-11 items-center justify-center rounded-xl px-4">{t('workout.history')}</Link>
             <button type="button" onClick={workspace.acknowledgeCompleted} className="btn-gold min-h-11 rounded-xl px-4">{t('workout.completed_done')}</button>
           </div>
         </section>
