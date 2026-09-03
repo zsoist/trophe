@@ -42,13 +42,28 @@ afterEach(() => {
 });
 
 describe('ExerciseMotion', () => {
-  it('provides a visible pause control for autoplay and pauses the video', () => {
+  it('provides a visible pause control for autoplay and pauses the video', async () => {
+    const pause = vi.mocked(HTMLMediaElement.prototype.pause);
     render(<ExerciseMotion media={benchMedia} alt="Bench press demonstration" autoplay />);
 
     fireEvent.click(screen.getByRole('button', { name: /pause demonstration/i }));
 
-    expect(screen.getByTestId('exercise-motion-video')).toHaveProperty('paused', true);
+    await waitFor(() => expect(pause).toHaveBeenCalled());
     expect(screen.getByRole('button', { name: /play demonstration/i })).toBeTruthy();
+  });
+
+  it('preserves autoplay intent but pauses and disables playback while the live session is paused', async () => {
+    const play = vi.mocked(HTMLMediaElement.prototype.play);
+    const pause = vi.mocked(HTMLMediaElement.prototype.pause);
+    const view = render(<ExerciseMotion media={benchMedia} alt="Bench press demonstration" autoplay playbackDisabled />);
+
+    await waitFor(() => expect(pause).toHaveBeenCalled());
+    expect(play).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Resume workout to play demonstration' }).hasAttribute('disabled')).toBe(true);
+    expect(screen.getByText('Workout paused. Demonstration paused.')).toBeTruthy();
+
+    view.rerender(<ExerciseMotion media={benchMedia} alt="Bench press demonstration" autoplay playbackDisabled={false} />);
+    await waitFor(() => expect(play).toHaveBeenCalledOnce());
   });
 
   it('uses only the poster when reduced motion is requested', () => {

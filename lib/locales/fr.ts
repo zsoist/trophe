@@ -1475,6 +1475,8 @@ export const fr: Record<string, string> = {
   'workout.motion_reduced': 'Une affiche statique est présentée car la réduction des animations est activée.',
   'workout.motion_anatomy_only': 'Référence anatomique affichée. Pas encore de démonstration exacte.',
   'workout.motion_no_exact': 'Pas encore de démonstration exacte. Affiche statique présentée.',
+  'workout.motion_session_paused': 'Entraînement en pause. Démonstration en pause.',
+  'workout.motion_session_paused_action': 'Reprendre l’entraînement pour lire la démonstration',
   'workout.exercise_added': 'Ajouté',
   'workout.exercise_added_named': '{name} ajouté',
   'workout.exercise_not_found': 'Exercice introuvable.',

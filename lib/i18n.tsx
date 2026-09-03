@@ -1090,6 +1090,8 @@ export const translations: Record<string, Record<CoreLanguage, string>> = {
   'workout.motion_reduced': { en: 'Static poster shown because reduced motion is enabled.', es: 'Se muestra un póster estático porque está activada la reducción de movimiento.', el: 'Εμφανίζεται στατική αφίσα επειδή είναι ενεργή η μειωμένη κίνηση.' },
   'workout.motion_anatomy_only': { en: 'Anatomy reference shown. No exact demo yet.', es: 'Se muestra una referencia anatómica. Aún no hay demostración exacta.', el: 'Εμφανίζεται ανατομική αναφορά. Δεν υπάρχει ακόμη ακριβής επίδειξη.' },
   'workout.motion_no_exact': { en: 'No exact demo yet. Static poster shown.', es: 'Aún no hay demostración exacta. Se muestra un póster estático.', el: 'Δεν υπάρχει ακόμη ακριβής επίδειξη. Εμφανίζεται στατική αφίσα.' },
+  'workout.motion_session_paused': { en: 'Workout paused. Demonstration paused.', es: 'Entrenamiento en pausa. Demostración en pausa.', el: 'Η προπόνηση είναι σε παύση. Η επίδειξη είναι σε παύση.' },
+  'workout.motion_session_paused_action': { en: 'Resume workout to play demonstration', es: 'Reanuda el entrenamiento para reproducir la demostración', el: 'Συνέχισε την προπόνηση για αναπαραγωγή της επίδειξης' },
   'workout.exercise_added': { en: 'Added', es: 'Agregado', el: 'Προστέθηκε' },
   'workout.exercise_added_named': { en: '{name} added', es: '{name} agregado', el: 'Προστέθηκε: {name}' },
   'workout.exercise_not_found': { en: 'Exercise not found.', es: 'No se encontró el ejercicio.', el: 'Η άσκηση δεν βρέθηκε.' },

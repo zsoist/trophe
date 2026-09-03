@@ -144,6 +144,8 @@ const DETAIL_COPY_KEYS = [
   'workout.motion_reduced',
   'workout.motion_anatomy_only',
   'workout.motion_no_exact',
+  'workout.motion_session_paused',
+  'workout.motion_session_paused_action',
 ] as const;
 
 beforeEach(() => {

@@ -1480,6 +1480,8 @@ export const pt: Record<string, string> = {
   'workout.motion_reduced': 'É apresentado um póster estático porque a redução de movimento está ativa.',
   'workout.motion_anatomy_only': 'Referência anatómica apresentada. Ainda sem demonstração exata.',
   'workout.motion_no_exact': 'Ainda sem demonstração exata. É apresentado um póster estático.',
+  'workout.motion_session_paused': 'Treino em pausa. Demonstração em pausa.',
+  'workout.motion_session_paused_action': 'Retoma o treino para reproduzir a demonstração',
   'workout.exercise_added': 'Adicionado',
   'workout.exercise_added_named': '{name} adicionado',
   'workout.exercise_not_found': 'Exercício não encontrado.',

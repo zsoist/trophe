@@ -1475,6 +1475,8 @@ export const nl: Record<string, string> = {
   'workout.motion_reduced': 'Er wordt een statische poster getoond omdat minder beweging is ingeschakeld.',
   'workout.motion_anatomy_only': 'Anatomische referentie getoond. Nog geen exacte demonstratie.',
   'workout.motion_no_exact': 'Nog geen exacte demonstratie. Statische poster getoond.',
+  'workout.motion_session_paused': 'Training gepauzeerd. Demonstratie gepauzeerd.',
+  'workout.motion_session_paused_action': 'Hervat de training om de demonstratie af te spelen',
   'workout.exercise_added': 'Toegevoegd',
   'workout.exercise_added_named': '{name} toegevoegd',
   'workout.exercise_not_found': 'Oefening niet gevonden.',

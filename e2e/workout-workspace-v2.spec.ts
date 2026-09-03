@@ -104,6 +104,44 @@ async function assertControlClearsBottomNav(page: Page, control: Locator) {
   expect(controlBox!.y + controlBox!.height).toBeLessThanOrEqual(navBox!.y - 4);
 }
 
+async function assertRoutedExerciseDetailGeometry(page: Page, theme: ThemeMode) {
+  await assertWorkoutSurface(page, theme);
+  const detail = page.locator('.exercise-detail--route');
+  const evidence = detail.getByRole('heading', { name: 'Training evidence' });
+  const action = detail.locator('.exercise-detail__action button');
+  await evidence.scrollIntoViewIfNeeded();
+  await expect(evidence).toBeVisible();
+  await expect(action).toBeVisible();
+  await assertControlClearsBottomNav(page, action);
+  const scroll = await page.evaluate(() => ({
+    top: document.scrollingElement?.scrollTop ?? 0,
+    max: Math.max(0, (document.scrollingElement?.scrollHeight ?? 0) - (window.visualViewport?.height ?? window.innerHeight)),
+  }));
+  expect(scroll.top).toBeGreaterThan(0);
+  expect(scroll.top).toBeLessThanOrEqual(scroll.max + 1);
+}
+
+async function assertLiveExerciseSheetGeometry(page: Page, theme: ThemeMode) {
+  await assertWorkoutSurface(page, theme);
+  const dialog = page.getByRole('dialog');
+  const viewport = page.viewportSize();
+  const box = await dialog.boundingBox();
+  expect(viewport).not.toBeNull();
+  expect(box).not.toBeNull();
+  expect(box!.y).toBeLessThanOrEqual(1);
+  expect(box!.y + box!.height).toBeGreaterThanOrEqual(viewport!.height - 1);
+  expect(box!.y + box!.height).toBeLessThanOrEqual(viewport!.height + 1);
+  await dialog.getByRole('heading', { name: 'Training evidence' }).scrollIntoViewIfNeeded();
+  await expect(dialog.getByRole('heading', { name: 'Training evidence' })).toBeVisible();
+  const containment = await dialog.evaluate((element) => ({
+    clientHeight: element.clientHeight,
+    scrollHeight: element.scrollHeight,
+    pageOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  }));
+  expect(containment.scrollHeight).toBeGreaterThan(containment.clientHeight);
+  expect(containment.pageOverflow).toBeLessThanOrEqual(1);
+}
+
 async function waitForWorkoutBuildAtTop(page: Page) {
   await waitForRouteSettled(page, '/dashboard/workout/build');
   const heading = page.getByRole('heading', { name: 'Build Workout' });
@@ -244,7 +282,7 @@ test.describe('Workout Workspace V2', () => {
       await expect(page.getByRole('heading', { name: detailName!, exact: true })).toBeVisible();
       await expect(page.getByRole('link', { name: 'Back', exact: true })).toHaveAttribute('href', '/dashboard/workout/exercises');
       await captureWorkout(page, testInfo, `${theme}-evidence-05-detail.png`, { atTop: true });
-      await page.getByRole('link', { name: 'Back to exercises' }).click();
+      await page.getByRole('link', { name: 'Back', exact: true }).click();
       await waitForRouteSettled(page, '/dashboard/workout/exercises');
       await page.getByRole('button', { name: 'Close exercise picker' }).click();
       await waitForWorkoutBuildAtTop(page);
@@ -376,6 +414,71 @@ test.describe('Workout Workspace V2', () => {
         await waitForWorkoutHomeSettled(page);
         await expect(page.getByRole('button', { name: 'Build strength workout' })).toBeEnabled();
       }
+      assertNoPaidRequests();
+    });
+  }
+
+  for (const theme of ['light', 'dark'] as const) {
+    test(`${theme}: routed detail and paused live sheet remain reachable at every phone width`, async ({ page }) => {
+      const assertNoPaidRequests = await blockPaidRequests(page);
+      await page.setViewportSize({ width: 390, height: 844 });
+      await loginAs(page, 'client');
+      await setTheme(page, theme);
+      await page.goto('/dashboard/workout');
+      await waitForRouteSettled(page, '/dashboard/workout');
+
+      await currentWorkspace(page).getByRole('link', { name: 'Find an exercise' }).click();
+      await waitForRouteSettled(page, '/dashboard/workout/exercises');
+      await currentWorkspace(page).getByRole('button', { name: 'Create strength draft' }).click();
+      const search = page.getByRole('searchbox', { name: 'Search exercises...' });
+      await search.fill('Bench Press');
+      const exerciseInfo = page.getByRole('button', { name: /^Exercise info:/ }).first();
+      await expect(exerciseInfo).toBeVisible();
+      await exerciseInfo.click();
+      await expect(page).toHaveURL(/\/dashboard\/workout\/exercises\/[^/]+$/);
+      for (const viewport of viewports) {
+        await page.setViewportSize(viewport);
+        await assertRoutedExerciseDetailGeometry(page, theme);
+      }
+
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.locator('.exercise-detail__action button').click();
+      await waitForRouteSettled(page, '/dashboard/workout/build');
+      await currentWorkspace(page).getByRole('button', { name: 'Review workout' }).click();
+      await waitForRouteSettled(page, '/dashboard/workout/review');
+      await currentWorkspace(page).getByRole('button', { name: 'Start live workout' }).click();
+      await waitForRouteSettled(page, '/dashboard/workout/live');
+      await expect(currentWorkspace(page).getByRole('button', { name: 'More exercise options' }).first()).toBeEnabled();
+      await currentWorkspace(page).getByRole('button', { name: 'Pause' }).click();
+      await expect(page.getByText('Paused')).toBeVisible();
+      await currentWorkspace(page).getByRole('button', { name: 'More exercise options' }).first().click();
+      const techniqueOpener = currentWorkspace(page).getByRole('button', { name: 'Technique' }).first();
+      await techniqueOpener.click();
+      const exerciseDialog = page.getByRole('dialog');
+      await expect(exerciseDialog).toBeVisible();
+      for (const viewport of viewports) {
+        await page.setViewportSize(viewport);
+        await assertLiveExerciseSheetGeometry(page, theme);
+      }
+
+      await page.setViewportSize({ width: 390, height: 844 });
+      const phaseControl = exerciseDialog.getByRole('button', { name: 'Work phase' });
+      await phaseControl.focus();
+      await page.waitForTimeout(1_100);
+      await expect(phaseControl).toBeFocused();
+      const closeDetail = exerciseDialog.getByRole('button', { name: 'Close exercise details' });
+      await closeDetail.focus();
+      await page.keyboard.press('Shift+Tab');
+      expect(await exerciseDialog.evaluate((dialog) => dialog.contains(document.activeElement))).toBe(true);
+      await page.keyboard.press('Tab');
+      await expect(closeDetail).toBeFocused();
+      await page.keyboard.press('Escape');
+      await expect(exerciseDialog).toHaveCount(0);
+      await expect(techniqueOpener).toBeFocused();
+
+      await currentWorkspace(page).getByRole('button', { name: /finish workout/i }).click();
+      await page.getByRole('button', { name: 'Discard empty workout' }).click();
+      await waitForRouteSettled(page, '/dashboard/workout');
       assertNoPaidRequests();
     });
   }

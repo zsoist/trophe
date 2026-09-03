@@ -550,7 +550,7 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
       }} onHighSeveritySaved={() => {
         if (state.stage === 'live') workspace.pause();
       }} onClose={() => setPainExerciseId(null)} /> : null}
-      {infoExercise ? <ExerciseInfoSheet exercise={infoExercise} userId={userId} onClose={() => setInfoExercise(null)} /> : null}
+      {infoExercise ? <ExerciseInfoSheet exercise={infoExercise} userId={userId} playbackDisabled={state.stage === 'paused'} onClose={() => setInfoExercise(null)} /> : null}
       {plateContext ? <PlateCalculator weightKg={plateContext.weightKg} unit={unit} exerciseContext={{ exerciseId: plateContext.exerciseId, mode: 'live' }} onAddWarmupSets={async (sets) => {
         if (persistedSets.some((set) => set.exercise_id === plateContext.exerciseId && !set.is_warmup)) return false;
         const fingerprint = sets.map((set) => `${set.weight}:${set.reps}`).join(',');

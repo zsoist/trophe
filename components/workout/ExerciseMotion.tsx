@@ -10,9 +10,10 @@ export interface ExerciseMotionProps {
   alt: string;
   autoplay?: boolean;
   className?: string;
+  playbackDisabled?: boolean;
 }
 
-export function ExerciseMotion({ media, alt, autoplay = false, className = '' }: ExerciseMotionProps) {
+export function ExerciseMotion({ media, alt, autoplay = false, className = '', playbackDisabled = false }: ExerciseMotionProps) {
   const { t } = useI18n();
   const videoRef = useRef<HTMLVideoElement>(null);
   const isExactTechnique = media.tier === 'verified-technique' && Boolean(media.motionSrc);
@@ -40,6 +41,10 @@ export function ExerciseMotion({ media, alt, autoplay = false, className = '' }:
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !isExactTechnique || reducedMotion) return;
+    if (playbackDisabled) {
+      video.pause();
+      return;
+    }
     if (isPlaying && inViewport && pageVisible) {
       try {
         const attempt = video.play();
@@ -50,7 +55,7 @@ export function ExerciseMotion({ media, alt, autoplay = false, className = '' }:
       return;
     }
     video.pause();
-  }, [inViewport, isExactTechnique, isPlaying, pageVisible, reducedMotion]);
+  }, [inViewport, isExactTechnique, isPlaying, pageVisible, playbackDisabled, reducedMotion]);
 
   useEffect(() => {
     if (!isExactTechnique || reducedMotion || typeof IntersectionObserver === 'undefined') return;
@@ -95,11 +100,11 @@ export function ExerciseMotion({ media, alt, autoplay = false, className = '' }:
         <source src={media.motionSrc} type={media.motionType} />
       </video>
       <figcaption className="exercise-motion__controls">
-        <button type="button" onClick={isPlaying ? pause : play} aria-label={t(isPlaying ? 'workout.motion_pause' : 'workout.motion_play')}>
-          {isPlaying ? <Pause size={16} aria-hidden="true" /> : <Play size={16} aria-hidden="true" />}
-          {t(isPlaying ? 'workout.motion_pause' : 'workout.motion_play')}
+        <button type="button" disabled={playbackDisabled} onClick={isPlaying ? pause : play} aria-label={t(playbackDisabled ? 'workout.motion_session_paused_action' : isPlaying ? 'workout.motion_pause' : 'workout.motion_play')}>
+          {playbackDisabled || !isPlaying ? <Play size={16} aria-hidden="true" /> : <Pause size={16} aria-hidden="true" />}
+          {t(playbackDisabled ? 'workout.motion_session_paused_action' : isPlaying ? 'workout.motion_pause' : 'workout.motion_play')}
         </button>
-        <span aria-live="polite">{t(isPlaying ? 'workout.motion_playing' : 'workout.motion_paused')}</span>
+        <span aria-live="polite">{t(playbackDisabled ? 'workout.motion_session_paused' : isPlaying ? 'workout.motion_playing' : 'workout.motion_paused')}</span>
       </figcaption>
     </figure>
   );

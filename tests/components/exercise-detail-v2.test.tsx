@@ -104,6 +104,43 @@ describe('full exercise detail', () => {
     expect(screen.queryByText(/No history yet/)).toBeNull();
   });
 
+  it('hides stale personal records across exercise, null-user, and failed-user request identities', async () => {
+    const firstResult = Promise.resolve({
+      data: [{ weight_kg: 100, reps: 5, workout_sessions: { session_date: '2026-08-24' } }],
+      error: null,
+    });
+    const secondResult = Promise.resolve({
+      data: [{ weight_kg: 90, reps: 6, workout_sessions: { session_date: '2026-08-25' } }],
+      error: null,
+    });
+    const failedResult = Promise.resolve({ data: null, error: { message: 'offline' } });
+    const queryFor = (result: Promise<unknown>) => {
+      const query = Object.assign(result, { select: vi.fn(), eq: vi.fn(), order: vi.fn(), limit: vi.fn() });
+      query.select.mockReturnValue(query);
+      query.eq.mockReturnValue(query);
+      query.order.mockReturnValue(query);
+      query.limit.mockReturnValue(query);
+      return query;
+    };
+    vi.mocked(supabase.from)
+      .mockReturnValueOnce(queryFor(firstResult) as never)
+      .mockReturnValueOnce(queryFor(secondResult) as never)
+      .mockReturnValueOnce(queryFor(failedResult) as never);
+
+    const view = render(<ExerciseDetail exercise={machinePress} userId="user-1" />);
+    expect(await screen.findByText('100 kg')).toBeTruthy();
+    view.rerender(<ExerciseDetail exercise={{ ...machinePress, id: 'machine-press-2', name: 'Second Press' }} userId="user-1" />);
+    expect(screen.queryByText('100 kg')).toBeNull();
+    expect(await screen.findByText('90 kg')).toBeTruthy();
+
+    view.rerender(<ExerciseDetail exercise={{ ...machinePress, id: 'machine-press-2', name: 'Second Press' }} userId={null} />);
+    expect(screen.queryByText('90 kg')).toBeNull();
+
+    view.rerender(<ExerciseDetail exercise={{ ...machinePress, id: 'machine-press-2', name: 'Second Press' }} userId="user-2" />);
+    expect(await screen.findByText('Recent sessions could not be loaded. Try again later.')).toBeTruthy();
+    expect(screen.queryByText('90 kg')).toBeNull();
+  });
+
   it('uses a sticky Add action and switches to Added after the draft accepts it', () => {
     const onAdd = vi.fn();
     const { rerender } = render(

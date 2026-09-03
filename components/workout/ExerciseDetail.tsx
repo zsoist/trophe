@@ -28,6 +28,7 @@ export interface ExerciseDetailProps {
   className?: string;
   presentation?: DetailPresentation;
   headingId?: string;
+  playbackDisabled?: boolean;
 }
 
 const breathingPattern = /\b(?:breath\w*|inhale\w*|exhale\w*|respir\w*|inhala\w*|exhala\w*)\b|αναπν|εισπν|εκπν/i;
@@ -99,13 +100,16 @@ export function ExerciseDetail({
   className = '',
   presentation = 'route',
   headingId,
+  playbackDisabled = false,
 }: ExerciseDetailProps) {
   const { t, lang } = useI18n();
   const [unit] = useWeightUnit();
-  const [pr, setPr] = useState<number | null>(null);
   const [history, setHistory] = useState<HistoryEntry[] | null>(userId ? null : []);
   const [historyError, setHistoryError] = useState(false);
   const [historyRequest, setHistoryRequest] = useState(0);
+  const requestKey = `${userId ?? 'guest'}:${exercise.id}:${historyRequest}`;
+  const [prState, setPrState] = useState<{ requestKey: string; value: number | null }>({ requestKey, value: null });
+  const pr = prState.requestKey === requestKey ? prState.value : null;
   const name = exerciseDisplayName(exercise, lang);
   const instruction = localizedInstructions(exercise, lang);
   const guidance = useMemo(() => organizeExerciseGuidance(instruction.value), [instruction.value]);
@@ -146,6 +150,7 @@ export function ExerciseDetail({
       if (!active) return;
       setHistory(null);
       setHistoryError(false);
+      setPrState({ requestKey, value: null });
     });
     void (async () => {
       // The authenticated browser client and joined user filter preserve workout_sets RLS.
@@ -161,6 +166,7 @@ export function ExerciseDetail({
       if (error) {
         setHistoryError(true);
         setHistory([]);
+        setPrState({ requestKey, value: null });
         return;
       }
 
@@ -173,7 +179,7 @@ export function ExerciseDetail({
         const date = row.workout_sessions.session_date;
         byDate.set(date, [...(byDate.get(date) ?? []), row]);
       }
-      setPr(best > 0 ? best : null);
+      setPrState({ requestKey, value: best > 0 ? best : null });
       setHistoryError(false);
       setHistory([...byDate.entries()]
         .sort(([a], [b]) => b.localeCompare(a))
@@ -186,13 +192,13 @@ export function ExerciseDetail({
         }));
     })();
     return () => { active = false; };
-  }, [exercise.id, historyRequest, userId]);
+  }, [exercise.id, historyRequest, requestKey, userId]);
 
   return (
     <article className={`exercise-detail exercise-detail--${presentation} ${className}`}>
       <section className="exercise-detail__hero" aria-label={t('workout.detail_instruction_title')}>
         <div className="exercise-detail__media-meta"><ExerciseMediaBadge media={media} /></div>
-        <ExerciseMotion media={media} alt={mediaAlt} autoplay={hasExactMotion} />
+        <ExerciseMotion media={media} alt={mediaAlt} autoplay={hasExactMotion} playbackDisabled={playbackDisabled} />
       </section>
 
       <header className="exercise-detail__identity">

@@ -1475,6 +1475,8 @@ export const de: Record<string, string> = {
   'workout.motion_reduced': 'Ein statisches Poster wird angezeigt, da reduzierte Bewegung aktiviert ist.',
   'workout.motion_anatomy_only': 'Anatomische Referenz wird angezeigt. Noch keine exakte Demo.',
   'workout.motion_no_exact': 'Noch keine exakte Demo. Statisches Poster wird angezeigt.',
+  'workout.motion_session_paused': 'Training pausiert. Demonstration pausiert.',
+  'workout.motion_session_paused_action': 'Training fortsetzen, um die Demonstration abzuspielen',
   'workout.exercise_added': 'Hinzugefügt',
   'workout.exercise_added_named': '{name} hinzugefügt',
   'workout.exercise_not_found': 'Übung nicht gefunden.',
