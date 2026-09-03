@@ -372,7 +372,7 @@ test.describe('Workout Workspace V2', () => {
       await waitForRouteSettled(page, '/dashboard/workout/live');
 
       const firstSetRow = currentWorkspace(page).locator('[data-set-row]').first();
-      const firstLiveExerciseName = (await firstSetRow.getByRole('heading').textContent())?.trim();
+      const firstLiveExerciseName = (await currentWorkspace(page).getByRole('heading', { level: 1 }).textContent())?.trim();
       const firstLiveExerciseId = await firstSetRow.getAttribute('data-exercise-id');
       expect(firstLiveExerciseName).toBeTruthy();
       expect(firstLiveExerciseId).toBeTruthy();
@@ -404,7 +404,7 @@ test.describe('Workout Workspace V2', () => {
       await page.getByRole('navigation', { name: 'Workout path' }).getByRole('button').filter({ hasText: 'Floor Press' }).click();
       const floorPressStage = currentWorkspace(page).getByRole('region', { name: 'Floor Press', exact: true });
       await expect(floorPressStage).toBeVisible();
-      const floorPressRow = floorPressStage.locator('[data-set-row]').filter({ has: page.getByRole('heading', { name: 'Floor Press', exact: true }) }).first();
+      const floorPressRow = floorPressStage.locator('[data-set-row]').first();
       await expect(floorPressRow).toBeVisible();
       await floorPressRow.getByRole('spinbutton', { name: 'Weight in kg' }).fill('60');
       await floorPressRow.getByRole('button', { name: 'More exercise options' }).click();
