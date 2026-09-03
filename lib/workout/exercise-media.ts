@@ -47,6 +47,13 @@ export const EXERCISE_MEDIA_REGISTRY: ReadonlyArray<MediaDefinition> = [
   { slug: 'triceps-extension', canonicalNames: ['Cable Triceps Rope Extension', 'Cable Rope Triceps Extension', 'Rope Triceps Pushdown'], equipment: ['Cable'] },
 ];
 
+/**
+ * The generated V3 cohort is deliberately enumerated here rather than inferred
+ * from a display filename. A movement may use this media only after the exact
+ * canonical-name and equipment checks below succeed.
+ */
+const VERIFIED_V3_MEDIA = new Set(EXERCISE_MEDIA_REGISTRY.map(({ slug }) => slug));
+
 const normalize = (value: string): string => value.toLowerCase().normalize('NFKD')
   .replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
 
@@ -83,18 +90,25 @@ const phases = (): ExerciseMediaRecord['phases'] => [
 ];
 
 function recordFor(definition: MediaDefinition, tier: ExerciseMediaRecord['tier'], activations: MuscleActivation[], posterSrc: string): ExerciseMediaRecord {
+  const usesVerifiedV3 = tier === 'verified-technique' && VERIFIED_V3_MEDIA.has(definition.slug);
   return {
     slug: definition.slug,
     canonicalNames: [...definition.canonicalNames],
     equipment: [...definition.equipment],
     posterSrc,
+    ...(usesVerifiedV3 ? {
+      motionSrc: `/workout-v3/motion/${definition.slug}.webm`,
+      motionType: 'video/webm' as const,
+    } : {}),
     tier,
     activations: activations.map((item) => ({ ...item })),
     phases: phases(),
     provenance: {
-      kind: 'repo-vector',
-      source: 'public/workout-v2/manifest.json',
-      reviewedOn: '2026-09-02',
+      kind: usesVerifiedV3 ? 'generated' : 'repo-vector',
+      source: usesVerifiedV3
+        ? `public/workout-v3/manifest.json#${definition.slug}`
+        : 'public/workout-v2/manifest.json',
+      reviewedOn: usesVerifiedV3 ? '2026-09-03' : '2026-09-02',
     },
   };
 }
@@ -112,7 +126,14 @@ export function resolveExerciseMedia(input: ExerciseMediaInput): ExerciseMediaRe
   const group = input.muscleGroup ?? input.muscle_group;
 
   if (definition && equipmentCompatible(input.equipment, definition.equipment)) {
-    return recordFor(definition, 'verified-technique', activations.length ? activations : CURATED_MUSCLE_ACTIVATIONS[definition.slug] ?? [], `/workout-v2/exercises/${definition.slug}.webp`);
+    return recordFor(
+      definition,
+      'verified-technique',
+      activations.length ? activations : CURATED_MUSCLE_ACTIVATIONS[definition.slug] ?? [],
+      VERIFIED_V3_MEDIA.has(definition.slug)
+        ? `/workout-v3/posters/${definition.slug}.webp`
+        : `/workout-v2/exercises/${definition.slug}.webp`,
+    );
   }
 
   const area = anatomyArea(group);

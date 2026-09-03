@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "slug": "floor-press",
+  "canonicalName": "Floor Press",
+  "equipment": "Barbell",
+  "generatedWith": "built-in-image-gen",
+  "sourcePath": "assets/workout-v3/sources/floor-press-contact-sheet.png",
+  "sourceNativeDimensions": {
+    "width": 1774,
+    "height": 887
+  },
+  "prompt": "Use case: photorealistic-natural\nAsset type: premium workout technique motion source contact sheet\nPrimary request: wide three-panel contact sheet of Floor Press, showing setup: bar above chest; work: upper arms meet floor; finish: press overhead.\nScene/backdrop: clean neutral-white/light-gray studio plate.\nSubject: same real clothed adult athlete, full body and exact Barbell equipment fully visible in every panel.\nComposition/framing: fixed wide camera, light and scale; generous 12 percent safe margins.\nConstraints: scientifically plausible sequential phases; no cropped body/equipment, impossible technique, distorted hands/joints, extra equipment, text, logos, watermark, anatomy overlay, or black background.",
+  "promptClass": "photorealistic-natural",
+  "phases": [
+    "setup",
+    "work",
+    "finish"
+  ],
+  "review": {
+    "exerciseIdentity": true,
+    "equipmentIdentity": true,
+    "setupPhase": true,
+    "workPhase": true,
+    "finishPhase": true
+  },
+  "reviewNote": "Visual identity/phase review accepts this generated contact sheet. Curated code-native anatomy remains the authority for muscle activation."
+}
