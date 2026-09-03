@@ -68,6 +68,20 @@ async function captureSurface(
   }
 }
 
+async function captureApprovedHeroReproduction(page: Page) {
+  const viewport = { width: 862, height: 1824 };
+  await page.setViewportSize(viewport);
+  await page.evaluate(() => window.scrollTo({ top: 0, left: 0, behavior: 'auto' }));
+  await waitForSettledArtwork(page);
+  await assertTheme(page, 'dark');
+  await assertNoPageOverflow(page);
+  await page.addStyleTag({ content: 'nextjs-portal { display: none !important; }' });
+  const screenshot = await page.screenshot({ animations: 'disabled' });
+  const reviewDirectory = join(process.cwd(), '.impeccable', 'review');
+  mkdirSync(reviewDirectory, { recursive: true });
+  writeFileSync(join(reviewDirectory, 'hero-repro.png'), screenshot);
+}
+
 async function openLiveAction(page: Page, name: 'Technique' | 'Report pain' | 'Plate calculator') {
   const main = workspace(page);
   const action = main.getByRole('button', { name, exact: true }).first();
@@ -101,6 +115,7 @@ test.describe('premium workout atlas authenticated release journey', () => {
       await expect(page.getByTestId('workout-primary-action')).toHaveText(/Review plan|Build workout/);
       await expect(page.getByRole('heading', { name: "Today's target" })).toBeVisible();
       await captureSurface(page, testInfo, theme, 'home', baseRouteViewports);
+      if (theme === 'dark') await captureApprovedHeroReproduction(page);
 
       // Discovery starts as planning even when the fresh account has a seeded
       // recommendation. It never starts a session or overwrites that offer.
