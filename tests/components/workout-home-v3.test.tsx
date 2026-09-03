@@ -242,9 +242,19 @@ describe('Workout home v3', () => {
     const roles = screen.getByRole('list', { name: 'Highlighted muscle roles' });
     const action = screen.getByTestId('workout-primary-action');
     expect(atlas.className).toContain('muscle-atlas--home-compact');
-    expect(anatomy.getAttribute('height')).toBe('212');
+    expect(anatomy.getAttribute('height')).toBe('228');
     expect(within(roles).getAllByRole('listitem').length).toBeLessThanOrEqual(2);
     expect(atlas.compareDocumentPosition(action) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('marks the readiness, atlas, and primary action as one mobile first-viewport composition', () => {
+    renderHome({ program: coachProgram });
+
+    const composition = screen.getByTestId('workout-home-first-view');
+    expect(composition.className).toContain('workout-home-first-view');
+    expect(within(composition).getByRole('region', { name: "Today's workout status" })).toBeTruthy();
+    expect(within(composition).getByLabelText('Muscle activation atlas')).toBeTruthy();
+    expect(within(composition).getByTestId('workout-primary-action')).toBeTruthy();
   });
 
   it.each([

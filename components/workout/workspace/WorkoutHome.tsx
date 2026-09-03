@@ -198,13 +198,19 @@ export function WorkoutHome({
     <main className="mx-auto max-w-2xl space-y-4 px-4 py-4 sm:py-5">
       {hasDraft || recoveryStage ? <p className="rounded-xl border border-[var(--workout-rail)] bg-[var(--workout-surface)] px-3 py-2 text-xs text-[var(--content-secondary)]">{activeStage ? t('workout.home_recovered_active') : workspace.state.stage === 'completed' ? t('workout.home_recovered_completed') : t('workout.home_recovered_draft')}</p> : null}
 
-      <WorkoutTodayRail title={displayedWorkoutName ?? t('workout.home_build_today')} source={source} readiness={readiness} workSummary={isCardioDraft ? t('workout.home_cardio_session') : displayedTemplate?.exercises.length ? t('workout.exercise_count', { n: displayedTemplate.exercises.length }) : t('workout.home_choose_exercises')} nextAction={primaryAction.label} estimatedDurationMinutes={estimatedDuration} />
+      <div data-testid="workout-home-first-view" className="workout-home-first-view">
+        <WorkoutTodayRail title={displayedWorkoutName ?? t('workout.home_build_today')} source={source} readiness={readiness} workSummary={isCardioDraft ? t('workout.home_cardio_session') : displayedTemplate?.exercises.length ? t('workout.exercise_count', { n: displayedTemplate.exercises.length }) : t('workout.home_choose_exercises')} nextAction={primaryAction.label} estimatedDurationMinutes={estimatedDuration} />
 
-      {(programError || recommendationError) && !offeredTemplate ? <div role="alert" className="rounded-xl border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]">{t('workout.program_load_failed')}</div> : null}
-      {supportError ? <div role="alert" className="rounded-xl border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] p-3 text-sm text-[var(--content-primary)]">{t('workout.support_data_load_failed')}</div> : null}
+        {(programError || recommendationError) && !offeredTemplate ? <div role="alert" className="rounded-xl border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]">{t('workout.program_load_failed')}</div> : null}
+        {supportError ? <div role="alert" className="rounded-xl border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] p-3 text-sm text-[var(--content-primary)]">{t('workout.support_data_load_failed')}</div> : null}
 
-      <WorkoutAtlasHome activations={activations} targetLabel={targetLabel} emptyState={isCardioDraft ? 'cardio' : 'strength'} />
-      <button type="button" data-testid="workout-primary-action" onClick={primaryAction.action} disabled={disabled && !recoveryStage && !hasDraft} className="btn-gold min-h-11 w-full rounded-xl px-4 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50">{primaryAction.label}</button>
+        <WorkoutAtlasHome
+          activations={activations}
+          targetLabel={targetLabel}
+          emptyState={isCardioDraft ? 'cardio' : 'strength'}
+          action={<button type="button" data-testid="workout-primary-action" onClick={primaryAction.action} disabled={disabled && !recoveryStage && !hasDraft} className="btn-gold min-h-11 w-full rounded-xl px-4 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50">{primaryAction.label}</button>}
+        />
+      </div>
 
       {!recoveryStage ? <WorkoutScheduleStrip program={program} todayName={displayedWorkoutName} todaySource={source} /> : null}
 

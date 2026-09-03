@@ -15,10 +15,10 @@ interface WorkoutTodayRailProps {
 export function WorkoutTodayRail({ title, source, readiness, workSummary, nextAction, estimatedDurationMinutes = null }: WorkoutTodayRailProps) {
   const { t } = useI18n();
   return (
-    <section aria-label={t('workout.home_status_label')} className="overflow-hidden rounded-[14px] border border-[var(--workout-rail)] bg-[var(--workout-surface)]">
-      <div className="px-4 py-3">
+    <section aria-label={t('workout.home_status_label')} className="workout-today-rail overflow-hidden rounded-[14px] border border-[var(--workout-rail)] bg-[var(--workout-surface)]">
+      <div className="workout-today-rail__headline px-4 py-3">
         <h2 className="text-lg font-bold tracking-[-0.02em] text-[var(--content-primary)]">{title}</h2>
-        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--content-secondary)]">
+        <div className="workout-today-rail__metrics mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--content-secondary)]">
           <span className="inline-flex items-center gap-1.5"><Dumbbell aria-hidden="true" size={13} />{workSummary}</span>
           {estimatedDurationMinutes ? <span className="inline-flex items-center gap-1.5 font-mono tabular-nums"><Clock3 aria-hidden="true" size={13} />{t('workout.history_minutes', { n: estimatedDurationMinutes })}</span> : null}
         </div>

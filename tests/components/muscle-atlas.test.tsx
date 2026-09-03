@@ -94,6 +94,17 @@ describe('MuscleAtlas', () => {
     expect(roles.textContent).toContain('+2 more highlighted');
   });
 
+  it('adds a non-interactive opposite-side companion for the wide home composition', () => {
+    const { container } = render(<MuscleAtlas activations={benchActivations} selected="pectoralis-major" onSelect={vi.fn()} homeCompact />);
+
+    const pair = container.querySelector('[data-atlas-wide-pair="true"]');
+    const companion = pair?.querySelector('[data-atlas-companion-view="back"]');
+    expect(pair).toBeTruthy();
+    expect(companion).toBeTruthy();
+    expect(companion?.getAttribute('aria-hidden')).toBe('true');
+    expect(companion?.querySelectorAll('.muscle-atlas__region').length).toBeGreaterThan(0);
+  });
+
   it('exposes one complete semantic role list and switches sides when an opposite-side role is chosen', () => {
     const onSelect = vi.fn();
     render(<MuscleAtlas activations={benchActivations} selected="pectoralis-major" onSelect={onSelect} />);
@@ -183,7 +194,7 @@ describe('MuscleAtlas', () => {
 
   it.each([
     ['full', false, 296],
-    ['home compact', true, 212],
+    ['home compact', true, 228],
   ] as const)('keeps every %s 44px target fully inside its actual atlas viewport', (_label, homeCompact, renderedHeight) => {
     render(<MuscleAtlas activations={allActivations} selected={null} onSelect={vi.fn()} homeCompact={homeCompact} />);
 

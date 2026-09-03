@@ -1724,11 +1724,15 @@ body {
 }
 
 .muscle-atlas--home-compact .muscle-atlas__figure-wrap {
-  min-height: 13.25rem;
+  min-height: 14.25rem;
 }
 
 .muscle-atlas--home-compact .muscle-atlas__figure {
-  height: 212px;
+  height: 228px;
+}
+
+.muscle-atlas__figure--companion {
+  display: none;
 }
 
 .muscle-atlas--home-compact .muscle-atlas__roles {
@@ -1836,6 +1840,203 @@ body {
 .muscle-atlas__swatch--primary { background: var(--performance-coral); }
 .muscle-atlas__swatch--secondary { background: repeating-linear-gradient(135deg, var(--performance-cyan) 0 2px, transparent 2px 4px); border-color: var(--performance-cyan); }
 .muscle-atlas__swatch--stabilizer { border-color: var(--performance-lime); background: transparent; }
+
+/* Keep today's readiness, anatomical target, and next action in one useful mobile view. */
+.workout-home-first-view {
+  display: grid;
+  gap: 0.625rem;
+}
+
+@media (max-width: 639px) {
+  .workout-today-rail__headline {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.25rem 0.75rem;
+    padding-block: 0.625rem;
+  }
+
+  .workout-today-rail__headline h2 {
+    overflow: hidden;
+    font-size: 1rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .workout-today-rail__metrics {
+    grid-column: 2;
+    grid-row: 1;
+    justify-content: flex-end;
+    margin-top: 0;
+  }
+
+  .workout-today-rail__metrics > span:first-child {
+    display: none;
+  }
+
+  .workout-today-rail dl {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .workout-today-rail dl > div {
+    min-width: 0;
+    padding: 0.45rem 0.55rem;
+    border-top: 0;
+    border-right: 1px solid var(--workout-rail);
+  }
+
+  .workout-today-rail dl > div:last-child {
+    grid-column: auto;
+    border-right: 0;
+  }
+
+  .workout-today-rail dt {
+    overflow: hidden;
+    font-size: 0.5625rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .workout-today-rail dd {
+    overflow: hidden;
+    margin-top: 0.15rem;
+    font-size: 0.6875rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .workout-atlas-home {
+    display: grid;
+    grid-template-columns: minmax(0, 1.08fr) minmax(8.5rem, 0.92fr);
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    gap: 0.5rem 0.75rem;
+    padding: 0.75rem;
+  }
+
+  .workout-atlas-home__heading {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: end;
+    min-width: 0;
+    margin: 0;
+  }
+
+  .workout-atlas-home__heading h2 {
+    font-size: 0.875rem;
+  }
+
+  .workout-atlas-home__heading p {
+    display: -webkit-box;
+    margin-top: 0.125rem;
+    overflow: hidden;
+    font-size: 0.75rem;
+    line-height: 1rem;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .workout-atlas-home > .muscle-atlas {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-row: 1 / 5;
+    grid-template-columns: subgrid;
+    grid-template-rows: subgrid;
+    gap: inherit;
+    pointer-events: none;
+  }
+
+  .workout-atlas-home .muscle-atlas__figure-wrap {
+    grid-column: 1;
+    grid-row: 1 / 5;
+    min-height: 15.25rem;
+    pointer-events: auto;
+  }
+
+  .workout-atlas-home .muscle-atlas__figure {
+    height: 244px;
+  }
+
+  .workout-atlas-home .muscle-atlas__views {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: stretch;
+    pointer-events: auto;
+  }
+
+  .workout-atlas-home .muscle-atlas__views button {
+    min-width: 0;
+    min-height: 2.75rem;
+    padding-inline: 0.35rem;
+    font-size: 0.6875rem;
+  }
+
+  .workout-atlas-home .muscle-atlas__roles {
+    grid-column: 2;
+    grid-row: 3;
+    grid-template-columns: minmax(0, 1fr);
+    align-self: start;
+    pointer-events: auto;
+  }
+
+  .workout-atlas-home .muscle-atlas__roles li {
+    min-height: 2.75rem;
+  }
+
+  .workout-atlas-home .muscle-atlas__roles li button {
+    min-height: 2.75rem;
+    padding: 0.35rem 0.45rem;
+  }
+
+  .workout-atlas-home .muscle-atlas__roles-summary {
+    display: none;
+  }
+
+  .workout-atlas-home__selection {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .workout-atlas-home__action {
+    z-index: 1;
+    grid-column: 2;
+    grid-row: 4;
+    align-self: end;
+  }
+}
+
+@media (min-width: 640px) {
+  .workout-atlas-home__selection {
+    margin-top: 0.625rem;
+    color: var(--content-secondary);
+    font-size: 0.75rem;
+  }
+
+  .workout-atlas-home__action {
+    margin-top: 0.75rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .muscle-atlas--home-compact .muscle-atlas__figure-wrap {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    min-height: 16.25rem;
+    padding-inline: clamp(1rem, 4vw, 3rem);
+  }
+
+  .muscle-atlas--home-compact .muscle-atlas__figure {
+    height: 260px;
+  }
+
+  .muscle-atlas__figure--companion {
+    display: block;
+  }
+}
 
 /* Motion stays poster-first, controllable, and safe when a clip is unavailable. */
 .exercise-motion {
