@@ -54,3 +54,30 @@ Result: 4 files, 67 tests passed.
 
 - The broader full-suite Node 26 Web Storage collision was not used to mask any product behavior; focused Vitest commands use `NODE_OPTIONS=--no-experimental-webstorage` as required.
 - The Impeccable detector was not run, per the binding instruction.
+
+## Review round 1 fixes
+
+### Outcome
+
+- The compact workout path is now a real, keyboard-accessible navigation control. It selects by stable exercise ID, carries current/completed/pending semantics, and keeps exactly one exercise stage expanded. A completed exercise can be reopened to undo a set or reach technique, pain, and plate controls.
+- A completed prescription no longer coerces `-1` to exercise zero. The unselected terminal state is an honest finish-ready summary with the existing confirmed finish action; selecting a path entry still reopens it for correction.
+- Rest elapsed time snapshots at pause, does not advance while paused, and resumes from that snapshot. The parent preserves the snapshot when a one-stage row unmounts for navigation.
+- Plate calculation now groups load inputs, explicit total-minus-bar/per-side output, warm-up explanation, and an unmistakable close action. Pain reporting now follows a compact three-step where/severity/context structure, retains verified-save-before-pause behavior, and keeps retryable recovery visible.
+
+### RED
+
+`NODE_OPTIONS=--no-experimental-webstorage npx vitest run tests/components/live-workout-v3.test.tsx tests/components/live-workout.test.tsx tests/components/live-workout-plate-real-consumer.test.tsx`
+
+Result before the round-1 implementation: 2 failing new assertions — the static path could not navigate to `Exercise 2 of 2`, and the all-completed recovery state could not render `Ready to finish` (it coerced the missing active index to exercise one).
+
+### GREEN
+
+`NODE_OPTIONS=--no-experimental-webstorage npx vitest run tests/components/live-workout-v3.test.tsx tests/components/live-workout.test.tsx tests/components/live-workout-plate-real-consumer.test.tsx tests/components/plate-calculator-v2.test.tsx tests/components/pain-flag-modal.test.tsx tests/i18n/task8-locale-parity.test.ts tests/lib/overlay-locale-coverage.test.ts tests/workout/live-session.test.ts tests/workout/workout-persistence.test.ts tests/workout/workspace-state.test.ts tests/workout/workspace-storage.test.ts`
+
+Result: 11 files, 145 tests passed. This includes a fake-timer real-consumer test proving rest freezes during pause and resumes from the captured elapsed time.
+
+### Static checks
+
+- `NODE_OPTIONS=--no-experimental-webstorage npm run typecheck` — passed.
+- Targeted ESLint on all modified components, locale dictionaries, and focused tests — passed with no output.
+- `git diff --check` — passed.

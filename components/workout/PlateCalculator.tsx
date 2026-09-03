@@ -88,17 +88,19 @@ export default function PlateCalculator({ weightKg, unit, onClose = noop, exerci
           <div><h3 className="text-base font-bold text-[var(--content-primary)]">{t('workout.plate_title')}</h3><p className="mt-0.5 text-xs text-[var(--content-secondary)]">{t('workout.plate_job')}</p></div>
           <button type="button" disabled={addingWarmups} onClick={() => onCloseRef.current()} aria-label={t('workout.custom_cancel')} className="min-h-11 min-w-11 rounded-lg bg-[var(--surface-subtle)] p-1.5 text-[var(--content-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-50"><X size={16} aria-hidden="true" /></button>
         </div>
+        <section aria-label={t('workout.plate_total_label')}>
         <div className="grid grid-cols-2 gap-3">
           <label className="text-xs font-semibold text-[var(--content-secondary)]">{totalLabel}<input disabled={addingWarmups} aria-label={totalLabel} type="text" inputMode="decimal" value={totalText} onChange={(event) => setTotalText(event.target.value)} className="input-dark mt-1 min-h-11 w-full font-mono text-base tabular-nums disabled:opacity-50" /></label>
           <label className="text-xs font-semibold text-[var(--content-secondary)]">{barLabel}<input disabled={addingWarmups} aria-label={barLabel} type="text" inputMode="decimal" value={barText} onChange={(event) => setBarText(event.target.value)} className="input-dark mt-1 min-h-11 w-full font-mono text-base tabular-nums disabled:opacity-50" /></label>
         </div>
         <label className="mt-3 block text-xs font-semibold text-[var(--content-secondary)]">{t('workout.plate_inventory_label')}<input disabled={addingWarmups} aria-label={t('workout.plate_inventory_label')} value={inventoryText} onChange={(event) => setInventoryText(event.target.value)} className="input-dark mt-1 min-h-11 w-full font-mono text-base tabular-nums disabled:opacity-50" /></label>
         <p className="mt-1 text-xs text-[var(--content-muted)]">{t('workout.plate_inventory_help')}</p>
-        <div className="mt-4 rounded-xl border border-[var(--border-subtle)] p-3">
-          <p className="text-center text-sm font-semibold text-[var(--content-primary)]">{impossible ? t('workout.plate_impossible') : load.exact ? t('workout.plate_exact') : t('workout.plate_nearest')}{!impossible ? <>{' · '}<span className="font-mono tabular-nums">{load.achievedTotal} {unit}</span></> : null}</p>
-          <p className="mt-1 text-center text-xs text-[var(--content-muted)]">{t('workout.plate_per_side')}</p>
+        </section>
+        <section className="mt-4 border-y border-[var(--border-subtle)] py-4" aria-labelledby="plate-result-title">
+          <h4 id="plate-result-title" className="text-sm font-semibold text-[var(--content-primary)]">{impossible ? t('workout.plate_impossible') : load.exact ? t('workout.plate_exact') : t('workout.plate_nearest')}</h4>
+          <output aria-live="polite" className="mt-1 block font-mono text-sm tabular-nums text-[var(--content-secondary)]">{total} − {bar} = {Math.max(0, total - bar)} {unit} · {t('workout.plate_per_side')}: {impossible ? '—' : `${load.achievedTotal} ${unit}`}</output>
           <div className="mt-3 flex gap-3">{stack('left')}{stack('right')}</div>
-        </div>
+        </section>
         <section className="mt-5" aria-labelledby="warmup-title">
           <h4 id="warmup-title" className="text-sm font-semibold text-[var(--content-primary)]">{t('workout.warmup_title')}</h4>
           <p className="mt-1 text-xs text-[var(--content-muted)]">{t('workout.warmup_explanation')}</p>
@@ -106,6 +108,7 @@ export default function PlateCalculator({ weightKg, unit, onClose = noop, exerci
           {canInsertWarmups ? <button type="button" disabled={addingWarmups || warmupRamp.length === 0} onClick={() => void addWarmups()} className="btn-ghost mt-3 min-h-11 w-full rounded-xl text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-50">{addingWarmups ? t('workout.add_warmup_sets_saving') : t('workout.add_warmup_sets')}</button> : null}
           {warmupError ? <p role="alert" className="mt-2 text-xs text-[var(--status-danger-fg)]">{t('workout.add_warmup_sets_failed')}</p> : null}
         </section>
+        <button type="button" disabled={addingWarmups} onClick={() => onCloseRef.current()} className="btn-ghost mt-5 min-h-11 w-full rounded-xl text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-50">{t('workout.custom_cancel')}</button>
       </motion.div>
     </motion.div>
   );

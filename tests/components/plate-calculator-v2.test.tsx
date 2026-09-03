@@ -40,7 +40,8 @@ describe('PlateCalculator', () => {
     expect(plate.className).toContain('text-xs');
     expect(plate.className).toContain('font-mono');
     expect(screen.getByLabelText('Total weight (kg)').className).toContain('font-mono');
-    expect(screen.getByText('100 kg').className).toContain('font-mono');
+    expect(screen.getByText(/100 − 20 = 80 kg/).tagName).toBe('OUTPUT');
+    expect(screen.getAllByRole('button', { name: 'Close' })).toHaveLength(2);
   });
 
   it('makes every load input editable and only offers verified warm-up insertion with exercise context', async () => {

@@ -36,6 +36,7 @@ vi.mock('@/components/workout/workout-persistence', () => ({
 }));
 vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ t: (key: string, values?: { n?: number; unit?: string }) => ({
   'workout.pause': 'Pause', 'workout.resume': 'Resume', 'workout.add_set': 'Add set', 'workout.finish': 'Finish workout', 'workout.saving': 'Saving…',
+  'workout.session_path': 'Workout path', 'workout.path_current': `Exercise ${values?.n}, current`, 'workout.path_completed': `Exercise ${values?.n}, completed`, 'workout.path_pending': `Exercise ${values?.n}, pending`,
   'workout.loading_live_session': 'Loading', 'workout.no_live_session': 'No session', 'workout.weight_in_unit': `Weight in ${values?.unit ?? 'kg'}`, 'workout.reps': 'Reps', 'workout.rpe_optional': 'RPE optional', 'workout.complete_set': 'Complete set', 'workout.undo_set': 'Undo set', 'workout.warmup': 'Warm-up', 'workout.resting': 'Resting', 'workout.set_number': `Set ${values?.n ?? 1}`, 'workout.more': 'More', 'workout.more_exercise_options': 'More exercise options', 'workout.info_technique': 'Technique', 'workout.report_pain': 'Report pain', 'workout.plate_title': 'Plate calculator', 'workout.superset_link': 'Superset', 'workout.remove_exercise': 'Remove',
   'workout.plate_total_label': 'Total weight', 'workout.plate_bar_label': 'Bar weight', 'workout.plate_inventory_label': 'Available plates per side', 'workout.plate_inventory_help': 'Use semicolons.', 'workout.plate_left_side': 'Left side', 'workout.plate_right_side': 'Right side', 'workout.plate_per_side': 'Per side', 'workout.plate_exact': 'Exact load', 'workout.plate_nearest': 'Nearest achievable load', 'workout.plate_impossible': 'No achievable load', 'workout.warmup_title': 'Warm-up ramp', 'workout.warmup_explanation': 'Suggestions.', 'workout.warmup_no_ramp': 'No ramp', 'workout.add_warmup_sets': 'Add warm-up sets', 'workout.add_warmup_sets_saving': 'Adding warm-up sets…', 'workout.add_warmup_sets_failed': 'Warm-up sets could not be added. Retry.', 'workout.custom_cancel': 'Close',
 }[key] ?? key) }) }));
@@ -52,6 +53,7 @@ async function openCalculatorForRow(index = 0) {
 }
 
 beforeEach(() => {
+  workspace.state = state;
   api.saveLiveWorkoutSetAtomic.mockReset(); api.deleteLiveWorkoutSetAtomic.mockReset(); api.loadWorkoutSessionSets.mockReset(); api.loadWorkoutSessionPainFlags.mockReset(); api.loadPrMap.mockReset(); api.loadWorkoutSessionStructure.mockReset();
   api.loadWorkoutSessionSets.mockResolvedValue({ ok: true, sets: [] });
   api.loadWorkoutSessionPainFlags.mockResolvedValue({ ok: true, flags: [] });
@@ -64,6 +66,48 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe('LiveWorkout warm-up real consumer', () => {
+  it('keeps the real completed working set reachable through its compact path', async () => {
+    api.loadWorkoutSessionSets.mockResolvedValueOnce({ ok: true, sets: [persisted(1, false)] });
+    render(<LiveWorkout exercises={[bench]} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Exercise 1, completed' }));
+    const current = await screen.findByRole('button', { name: 'Exercise 1, current' });
+    expect(current.closest('li')?.getAttribute('aria-current')).toBe('step');
+    expect(screen.getByRole('button', { name: 'Undo set' })).toBeTruthy();
+  });
+
+  it('freezes real rest at the exact elapsed value while paused, then resumes from it', async () => {
+    const view = render(<LiveWorkout exercises={[bench]} />);
+    await screen.findByLabelText('Weight in lb');
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-03T12:00:00.000Z'));
+    try {
+      fireEvent.change(screen.getByLabelText('Weight in lb'), { target: { value: '220' } });
+      fireEvent.change(screen.getByLabelText('Reps'), { target: { value: '8' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Complete set' }));
+      await vi.advanceTimersByTimeAsync(0);
+      fireEvent.click(screen.getByRole('button', { name: 'Exercise 1, completed' }));
+      expect(screen.getByRole('button', { name: 'Undo set' })).toBeTruthy();
+
+      await vi.advanceTimersByTimeAsync(7_000);
+      const elapsedBeforePause = Number(screen.getByRole('status').textContent?.match(/· (\d+)s/)?.[1]);
+      expect(elapsedBeforePause).toBeGreaterThanOrEqual(6);
+
+      workspace.state = { ...state, stage: 'paused', clock: { runningSince: null, accumulatedMs: 0 } };
+      view.rerender(<LiveWorkout exercises={[bench]} />);
+      await vi.advanceTimersByTimeAsync(0);
+      const elapsedWhilePaused = Number(screen.getByRole('status').textContent?.match(/· (\d+)s/)?.[1]);
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(screen.getByRole('status').textContent).toContain(`· ${elapsedWhilePaused}s /`);
+
+      workspace.state = { ...state, stage: 'live', clock: { runningSince: Date.now(), accumulatedMs: 0 } };
+      view.rerender(<LiveWorkout exercises={[bench]} />);
+      await vi.advanceTimersByTimeAsync(4_000);
+      expect(screen.getByRole('status').textContent).toContain(`· ${elapsedWhilePaused + 4}s /`);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('persists the real lb calculator ramp as exact kilogram payloads', async () => {
     render(<LiveWorkout exercises={[bench]} />);
     fireEvent.change(await screen.findByLabelText('Weight in lb'), { target: { value: '220' } });
@@ -83,6 +127,7 @@ describe('LiveWorkout warm-up real consumer', () => {
     await vi.waitFor(() => expect(api.saveLiveWorkoutSetAtomic).toHaveBeenCalledTimes(1));
     // The transport invocation precedes the component's mutation-barrier
     // release; wait for the accepted-set UI before opening another control.
+    fireEvent.click(await screen.findByRole('button', { name: 'Exercise 1, completed' }));
     await screen.findByRole('button', { name: 'Undo set' });
     await openCalculatorForRow();
     fireEvent.click(screen.getByRole('button', { name: 'Add warm-up sets' }));
@@ -159,6 +204,7 @@ describe('LiveWorkout warm-up real consumer', () => {
   it('uses real recovery to show only warm-ups one through three and work four', async () => {
     api.loadWorkoutSessionSets.mockResolvedValueOnce({ ok: true, sets: [persisted(1, true), persisted(2, true), persisted(3, true), persisted(4, false)] });
     render(<LiveWorkout exercises={[bench]} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Exercise 1, completed' }));
     await vi.waitFor(() => expect(screen.getAllByRole('article')).toHaveLength(4));
     expect(screen.getAllByText(/Set [1-4]/).map((item) => item.textContent)).toEqual(['Set 1', 'Set 2', 'Set 3', 'Set 4']);
   });
@@ -166,6 +212,7 @@ describe('LiveWorkout warm-up real consumer', () => {
   it('uses real recovery to retain genuine extra set five after the warm-up-prefixed work', async () => {
     api.loadWorkoutSessionSets.mockResolvedValueOnce({ ok: true, sets: [persisted(1, true), persisted(2, true), persisted(3, true), persisted(4, false), persisted(5, false, 'extra-5')] });
     render(<LiveWorkout exercises={[bench]} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Exercise 1, completed' }));
     await vi.waitFor(() => expect(screen.getAllByRole('article')).toHaveLength(5));
     expect(screen.getAllByText(/Set [1-5]/).map((item) => item.textContent)).toEqual(['Set 1', 'Set 2', 'Set 3', 'Set 4', 'Set 5']);
   });

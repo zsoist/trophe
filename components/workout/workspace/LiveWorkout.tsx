@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { CheckCircle2, Plus, Square } from 'lucide-react';
 import ExerciseInfoSheet from '@/components/workout/ExerciseInfoSheet';
@@ -81,6 +81,15 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
     name: string;
     savedSetCount: number;
   } | null>(null);
+  const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
+  // Rest is presentation state, but it must remain exact when the one-stage
+  // view unmounts a completed row during a pause.
+  const [restElapsedBySetId, setRestElapsedBySetId] = useState<Record<string, number>>({});
+  const handleRestElapsedChange = useCallback((setId: string, elapsedSeconds: number) => {
+    setRestElapsedBySetId((current) => current[setId] === elapsedSeconds
+      ? current
+      : { ...current, [setId]: elapsedSeconds });
+  }, []);
 
   const draft = state.draft;
   const sessionId = state.sessionId;
@@ -220,20 +229,18 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
   const durationMinutes = Math.max(0, Math.floor(elapsedMs / 60_000));
   const mutationBlocked = pendingMutations > 0 || failedMutations.size > 0 || recoveryError || !recoveryLoaded;
 
-  const activeExerciseIndex = useMemo(() => {
+  const firstIncompleteIndex = useMemo(() => {
     if (!draft || draft.kind !== 'strength') return 0;
     const firstIncomplete = draft.exercises.findIndex((exercise) => (
       persistedSets.filter((set) => set.exercise_id === exercise.exerciseId && !set.is_warmup).length < exercise.targetSets
     ));
-    if (firstIncomplete <= 0) return Math.max(0, firstIncomplete);
-    const previous = draft.exercises[firstIncomplete - 1];
-    const latestPreviousSet = persistedSets
-      .filter((set) => set.exercise_id === previous.exerciseId && !set.is_warmup)
-      .sort((left, right) => Date.parse(right.created_at ?? '') - Date.parse(left.created_at ?? ''))[0];
-    const restTarget = getRestTarget(previous.exerciseId, exerciseById.get(previous.exerciseId)?.is_compound);
-    if (latestPreviousSet && now - Date.parse(latestPreviousSet.created_at ?? '') < restTarget * 1_000) return firstIncomplete - 1;
     return firstIncomplete;
-  }, [draft, exerciseById, now, persistedSets]);
+  }, [draft, persistedSets]);
+
+  const selectedExerciseIndex = draft?.kind === 'strength' && selectedExerciseId
+    ? draft.exercises.findIndex((exercise) => exercise.exerciseId === selectedExerciseId)
+    : -1;
+  const activeExerciseIndex = selectedExerciseIndex >= 0 ? selectedExerciseIndex : firstIncompleteIndex;
 
   if (!draft || !sessionId || (state.stage !== 'live' && state.stage !== 'paused' && state.stage !== 'finishing' && state.stage !== 'completed')) {
     return <main className="mx-auto max-w-2xl px-4 py-8"><p className="text-[var(--content-secondary)]">{t('workout.no_live_session')}</p></main>;
@@ -418,7 +425,8 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
   };
 
   const finishOpen = finishRequested || state.stage === 'finishing';
-  const activeDraftExercise = draft.exercises[activeExerciseIndex] ?? draft.exercises[0];
+  const allExercisesComplete = firstIncompleteIndex === -1;
+  const activeDraftExercise = allExercisesComplete && selectedExerciseIndex < 0 ? null : draft.exercises[activeExerciseIndex] ?? null;
   const activeExercise = activeDraftExercise ? exerciseById.get(activeDraftExercise.exerciseId) : undefined;
   const activeResolved = activeExercise ?? (activeDraftExercise ? {
     id: activeDraftExercise.exerciseId,
@@ -443,9 +451,19 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
           <p className="font-mono text-sm tabular-nums text-[var(--content-secondary)]">{Math.floor(elapsedMs / 60_000)}:{String(Math.floor(elapsedMs / 1_000) % 60).padStart(2, '0')}</p>
         </div>
       </section>
-      <LiveSessionPath exercises={draft.exercises.map((exercise) => ({ id: exercise.exerciseId, name: exercise.exerciseName ?? exerciseById.get(exercise.exerciseId)?.name ?? exercise.exerciseId }))} currentIndex={activeExerciseIndex} />
+      <LiveSessionPath
+        exercises={draft.exercises.map((exercise) => ({ id: exercise.exerciseId, name: exercise.exerciseName ?? exerciseById.get(exercise.exerciseId)?.name ?? exercise.exerciseId }))}
+        selectedId={activeDraftExercise?.exerciseId ?? null}
+        completedIds={new Set(draft.exercises.filter((exercise) => persistedSets.filter((set) => set.exercise_id === exercise.exerciseId && !set.is_warmup).length >= exercise.targetSets).map((exercise) => exercise.exerciseId))}
+        onSelect={setSelectedExerciseId}
+      />
 
-      {!recoveryLoaded || !activeDraftExercise || !activeResolved ? <div role="status" className="min-h-24 animate-pulse rounded-xl bg-[var(--surface-subtle)]" aria-label={t('workout.loading_live_session')} /> : (
+      {!recoveryLoaded ? <div role="status" className="min-h-24 animate-pulse rounded-xl bg-[var(--surface-subtle)]" aria-label={t('workout.loading_live_session')} /> : allExercisesComplete && !activeDraftExercise ? (
+        <section aria-labelledby="finish-ready-title" className="border-y border-[var(--border-subtle)] py-5">
+          <h1 id="finish-ready-title" className="text-2xl font-bold tracking-[-0.02em] text-[var(--content-primary)]">{t('workout.finish_ready_title')}</h1>
+          <p className="mt-2 text-sm text-[var(--content-secondary)]">{t('workout.finish_ready_message')}</p>
+        </section>
+      ) : !activeDraftExercise || !activeResolved ? <div role="status" className="min-h-24 animate-pulse rounded-xl bg-[var(--surface-subtle)]" aria-label={t('workout.loading_live_session')} /> : (
         <LiveExerciseStage
           exercise={activeResolved}
           position={activeExerciseIndex + 1}
@@ -480,10 +498,13 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
               unit={unit}
               grouped
               focusMode
+              paused={state.stage === 'paused'}
               showExerciseHeader={showExerciseHeader}
               isLastSet={isLastSet}
               initialSetId={persisted?.id}
               initialCompletedAt={persisted?.created_at ?? null}
+              initialRestElapsedSeconds={persisted ? restElapsedBySetId[persisted.id] : undefined}
+              onRestElapsedChange={handleRestElapsedChange}
               disabled={mutationBlocked}
               initialValue={persisted
                 ? { weight: persisted.weight_kg === null ? null : kgToDisplay(persisted.weight_kg, unit), reps: persisted.reps, rpe: persisted.rpe, isWarmup: persisted.is_warmup }
@@ -507,6 +528,10 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
                   (candidate) => candidate.ok,
                 );
                 if (!result?.ok) return null;
+                const finishesEveryExercise = draft.exercises.every((exercise) => {
+                  const completed = persistedSets.filter((set) => set.exercise_id === exercise.exerciseId && !set.is_warmup).length;
+                  return completed + (exercise.exerciseId === row.exerciseId && !value.isWarmup ? 1 : 0) >= exercise.targetSets;
+                });
                 removePendingLiveSet(input);
                 setPendingSetInputs((current) => {
                   const next = { ...current };
@@ -518,6 +543,10 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
                   weight_kg: weightKg, reps: value.reps, rpe: value.rpe, is_warmup: value.isWarmup,
                   is_pr: isPr, superset_group: supersetGroup(row.exerciseId), notes: null, created_at: new Date().toISOString(),
                 }]);
+                // Keep the just-completed stage available for its rest timer and
+                // corrections; only the actual terminal completion returns to
+                // the truthful finish-ready screen.
+                setSelectedExerciseId(finishesEveryExercise ? null : row.exerciseId);
                 if (isPr && weightKg !== null) setPrMap((current) => ({ ...current, [row.exerciseId]: weightKg }));
                 return result.setId;
               }}

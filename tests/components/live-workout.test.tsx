@@ -102,6 +102,16 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.clearAllMocks(); workspace = { state: liveState, pause: vi.fn(), resume: vi.fn(), ...harness }; });
 
 describe('LiveWorkout', () => {
+  it('keeps a recovered completed set reachable for correction instead of treating it as a fresh stage', async () => {
+    harness.loadLiveSessionSets.mockResolvedValue({ ok: true, sets: [{
+      id: 'set-1', session_id: 'session-1', exercise_id: 'bench', set_number: 1,
+      weight_kg: 60, reps: 8, rpe: null, is_warmup: false, is_pr: false, superset_group: null, notes: null, created_at: new Date().toISOString(),
+    }] });
+    render(<LiveWorkout exercises={[]} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'workout.path_completed' }));
+    expect(await screen.findByRole('button', { name: 'Complete Bench Press' })).toBeTruthy();
+  });
+
   it('disables exercise media playback when the live workout is paused', async () => {
     workspace = { ...workspace, state: { ...liveState, stage: 'paused', clock: { runningSince: null, accumulatedMs: 30_000 } } };
     const exercise = {
@@ -331,6 +341,7 @@ describe('LiveWorkout', () => {
       superset_group: null, notes: null, created_at: '2026-08-25T12:00:00.000Z',
     }] });
     render(<LiveWorkout exercises={[]} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'workout.path_completed' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Remove Bench Press' }));
     expect(screen.getByRole('alertdialog', { name: 'Remove Bench Press' })).toBeTruthy();
     expect(screen.getByText('1 completed sets')).toBeTruthy();

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Calculator, Check, ChevronDown, Info, Link2, Trash2 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import type { WeightUnit } from '@/lib/workout/units';
@@ -40,6 +40,10 @@ interface ExerciseSetLoggerProps {
   onRemove?: () => void;
   /** Gives the active live exercise larger, keyboard-friendly set controls. */
   focusMode?: boolean;
+  paused?: boolean;
+  /** A parent-held snapshot lets rest survive a stage change while paused. */
+  initialRestElapsedSeconds?: number;
+  onRestElapsedChange?: (setId: string, elapsedSeconds: number) => void;
 }
 
 function parsedNumber(value: string): number | null {
@@ -68,6 +72,9 @@ export function ExerciseSetLogger({
   onSuperset,
   onRemove,
   focusMode = false,
+  paused = false,
+  initialRestElapsedSeconds,
+  onRestElapsedChange,
 }: ExerciseSetLoggerProps) {
   const { t } = useI18n();
   const [weight, setWeight] = useState(initialValue?.weight == null ? '' : String(initialValue.weight));
@@ -85,10 +92,17 @@ export function ExerciseSetLogger({
     Number.isFinite(recoveredRestStartedAt) ? recoveredRestStartedAt : null,
   );
   const [restElapsed, setRestElapsed] = useState(() => (
-    Number.isFinite(recoveredRestStartedAt)
+    initialRestElapsedSeconds ?? (Number.isFinite(recoveredRestStartedAt)
       ? Math.max(0, Math.floor((Date.now() - recoveredRestStartedAt) / 1_000))
-      : 0
+      : 0)
   ));
+  const restPausedAt = useRef<number | null>(null);
+
+  const setElapsed = useCallback((elapsed: number, id = setId) => {
+    const next = Math.max(0, elapsed);
+    setRestElapsed(next);
+    if (id) onRestElapsedChange?.(id, next);
+  }, [onRestElapsedChange, setId]);
 
   useEffect(() => {
     const recoveredRest = initialSetId && initialCompletedAt
@@ -105,7 +119,7 @@ export function ExerciseSetLogger({
       setSetId(initialSetId);
       setCompletedSetNumber(setNumber);
       setRestStartedAt(Number.isFinite(recoveredRest) ? recoveredRest : null);
-      setRestElapsed(Number.isFinite(recoveredRest) ? Math.max(0, Math.floor((Date.now() - recoveredRest) / 1_000)) : 0);
+      setRestElapsed(initialRestElapsedSeconds ?? (Number.isFinite(recoveredRest) ? Math.max(0, Math.floor((Date.now() - recoveredRest) / 1_000)) : 0));
       return;
     }
 
@@ -123,13 +137,24 @@ export function ExerciseSetLogger({
       setRestStartedAt(null);
       setRestElapsed(0);
     }
-  }, [completedSetNumber, initialCompletedAt, initialSetId, initialValue?.isWarmup, initialValue?.reps, initialValue?.rpe, initialValue?.weight, setId, setNumber]);
+  }, [completedSetNumber, initialCompletedAt, initialRestElapsedSeconds, initialSetId, initialValue?.isWarmup, initialValue?.reps, initialValue?.rpe, initialValue?.weight, setId, setNumber]);
 
   useEffect(() => {
     if (!setId || restStartedAt === null) return;
-    const timer = window.setInterval(() => setRestElapsed(Math.floor((Date.now() - restStartedAt) / 1000)), 1_000);
+    if (paused) {
+      restPausedAt.current = Date.now();
+      const snapshot = window.setTimeout(() => setElapsed(Math.floor((Date.now() - restStartedAt) / 1_000)), 0);
+      return () => window.clearTimeout(snapshot);
+    }
+    if (restPausedAt.current !== null) {
+      const pausedFor = Math.max(0, Date.now() - restPausedAt.current);
+      restPausedAt.current = null;
+      setRestStartedAt((startedAt) => startedAt === null ? null : startedAt + pausedFor);
+      return;
+    }
+    const timer = window.setInterval(() => setElapsed(Math.floor((Date.now() - restStartedAt) / 1000)), 1_000);
     return () => window.clearInterval(timer);
-  }, [restStartedAt, setId]);
+  }, [paused, restStartedAt, setElapsed, setId]);
 
   const toggleComplete = async () => {
     if (saving || disabled) return;
@@ -141,7 +166,7 @@ export function ExerciseSetLogger({
           setSetId(null);
           setCompletedSetNumber(null);
           setRestStartedAt(null);
-          setRestElapsed(0);
+          setElapsed(0, setId);
         }
         return;
       }
@@ -155,6 +180,7 @@ export function ExerciseSetLogger({
         setSetId(savedId);
         setCompletedSetNumber(setNumber);
         setRestStartedAt(Date.now());
+        setElapsed(0, savedId);
       }
     } catch {
       // The row remains editable and retryable.

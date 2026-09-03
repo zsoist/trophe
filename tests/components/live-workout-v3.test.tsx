@@ -43,9 +43,12 @@ vi.mock('@/lib/workout/live-session', () => ({
 vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ t: (key: string, values?: Record<string, unknown>) => ({
   'workout.loading_live_session': 'Loading live workout', 'workout.no_live_session': 'No live workout',
   'workout.pause_workout': 'Pause workout', 'workout.resume_workout': 'Resume workout',
+  'workout.session_path': 'Workout path', 'workout.path_current': `Exercise ${values?.n}, current`,
+  'workout.path_completed': `Exercise ${values?.n}, completed`, 'workout.path_pending': `Exercise ${values?.n}, pending`,
   'workout.exercise_position': `Exercise ${values?.current} of ${values?.total}`,
   'workout.current_target': `Target: ${values?.sets} × ${values?.reps}`,
   'workout.previous_values': 'Previous: no completed sets yet', 'workout.up_next_named': `Up next: ${values?.name}`,
+  'workout.finish_ready_title': 'Ready to finish',
   'workout.complete_set': 'Complete set', 'workout.resting': 'Rest', 'workout.finish': 'Finish workout',
   'workout.weight_in_unit': `Weight in ${values?.unit}`, 'workout.reps': 'Reps', 'workout.rpe_optional': 'RPE optional',
   'workout.undo_set': 'Undo set', 'workout.warmup': 'Warm-up', 'workout.set_number': `Set ${values?.n}`,
@@ -97,6 +100,31 @@ describe('LiveWorkout focused stage', () => {
     render(<LiveWorkout exercises={[bench, row]} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Pause workout' }));
     expect(harness.pause).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses stable path controls to revisit a completed exercise without expanding the whole session', async () => {
+    harness.loadLiveSessionSets.mockResolvedValue({ ok: true, sets: [{
+      id: 'bench-set', session_id: 'session-1', exercise_id: 'bench', set_number: 1,
+      weight_kg: 60, reps: 8, rpe: null, is_warmup: false, is_pr: false, superset_group: null, notes: null, created_at: new Date().toISOString(),
+    }] });
+    render(<LiveWorkout exercises={[bench, row]} />);
+    expect(await screen.findByText('Exercise 2 of 2')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Exercise 1, completed' }));
+    expect(await screen.findByText('Exercise 1 of 2')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Undo set' })).toBeTruthy();
+    expect(screen.queryByText('Dumbbell Row', { selector: 'h3' })).toBeNull();
+  });
+
+  it('renders a finish-ready state after every exercise is complete while retaining the path for corrections', async () => {
+    harness.loadLiveSessionSets.mockResolvedValue({ ok: true, sets: [
+      { id: 'bench-set', session_id: 'session-1', exercise_id: 'bench', set_number: 1, weight_kg: 60, reps: 8, rpe: null, is_warmup: false, is_pr: false, superset_group: null, notes: null, created_at: new Date().toISOString() },
+      { id: 'row-set', session_id: 'session-1', exercise_id: 'row', set_number: 1, weight_kg: 30, reps: 10, rpe: null, is_warmup: false, is_pr: false, superset_group: null, notes: null, created_at: new Date().toISOString() },
+    ] });
+    render(<LiveWorkout exercises={[bench, row]} />);
+    expect(await screen.findByText('Ready to finish')).toBeTruthy();
+    expect(screen.queryByText('Exercise 1 of 2')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Finish workout' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Exercise 1, completed' })).toBeTruthy();
   });
 
   it('keeps the clock paused and stops the exact exercise media until an explicit resume', async () => {
