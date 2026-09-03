@@ -13,13 +13,12 @@ export function RoutedExerciseDetail({ exercise, userId, replaceExerciseId, retu
   const { t } = useI18n();
   const startLocked = Boolean(workspace.state.startRequest);
   const retrospectiveLocked = Boolean(workspace.state.retrospectiveRequest);
-  const acceptsExercises = (workspace.state.stage === 'draft' || workspace.state.stage === 'review')
+  const acceptsExercises = workspace.state.stage === 'draft'
     && workspace.state.draft?.kind === 'strength'
     && !startLocked
     && !retrospectiveLocked;
-  const added = acceptsExercises
-    && workspace.state.draft?.kind === 'strength'
-    && workspace.state.draft.exercises.some((item) => item.exerciseId === exercise.id && item.exerciseId !== replaceExerciseId);
+  const added = workspace.state.draft?.kind === 'strength'
+    && workspace.state.draft.exercises.some((item) => item.exerciseId === exercise.id);
   const canCreate = workspace.state.stage === 'home';
   return (
     <main className="exercise-detail-route">

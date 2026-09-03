@@ -112,6 +112,7 @@ export const it: Record<string, string> = {
   'workout.move_later': 'Dopo',
   'workout.move_named_earlier': 'Sposta {name} prima',
   'workout.move_named_later': 'Sposta {name} dopo',
+  'workout.drag_named': 'Trascina {name} per riordinare',
   'workout.replace_exercise': 'Sostituisci',
   'workout.replace_named': 'Sostituisci {name}',
   'workout.replace_with_named': 'Sostituisci con {name}',

@@ -16,7 +16,7 @@ export function ExerciseBrowser({ initialExercises = [], initialRecentIds = [], 
   const [exercises, setExercises] = useState(initialExercises);
   const startLocked = Boolean(workspace.state.startRequest);
   const retrospectiveLocked = Boolean(workspace.state.retrospectiveRequest);
-  const acceptsExercises = (workspace.state.stage === 'draft' || workspace.state.stage === 'review')
+  const acceptsExercises = workspace.state.stage === 'draft'
     && workspace.state.draft?.kind === 'strength'
     && !startLocked
     && !retrospectiveLocked;

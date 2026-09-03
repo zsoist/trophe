@@ -375,7 +375,7 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
     updateDraft((draft) => {
       if (draft.kind !== 'strength') return draft;
       const index = draft.exercises.findIndex((exercise) => exercise.exerciseId === exerciseId);
-      if (index < 0 || draft.exercises.some((exercise, candidateIndex) => candidateIndex !== index && exercise.exerciseId === replacement.exerciseId)) return draft;
+      if (index < 0 || replacement.exerciseId === exerciseId || draft.exercises.some((exercise, candidateIndex) => candidateIndex !== index && exercise.exerciseId === replacement.exerciseId)) return draft;
       const exercises = [...draft.exercises];
       exercises[index] = {
         ...exercises[index],

@@ -1,6 +1,7 @@
 'use client';
 
-import { ArrowDown, ArrowUp, BookOpen, RefreshCw, Trash2 } from 'lucide-react';
+import { useRef } from 'react';
+import { ArrowDown, ArrowUp, BookOpen, GripVertical, RefreshCw, Trash2 } from 'lucide-react';
 import { ExerciseMediaBadge } from '@/components/workout/ExerciseMediaBadge';
 import { useI18n } from '@/lib/i18n';
 import type { DraftExercise } from '@/lib/workout/workspace-state';
@@ -38,11 +39,24 @@ export function PlanExerciseCard({ draftExercise, exercise, index, total, mode =
   const posterAlt = t(media.tier === 'verified-technique' ? 'workout.picker_exact_poster_alt' : media.tier === 'verified-anatomy' ? 'workout.picker_anatomy_poster_alt' : 'workout.detail_fallback_poster_alt', { name });
   const restSeconds = draftExercise.restSeconds ?? DEFAULT_PLAN_REST_SECONDS;
   const rpe = draftExercise.targetRpe ?? null;
+  const pointerStart = useRef<{ id: number; y: number } | null>(null);
+  const startPointerReorder = (event: React.PointerEvent<HTMLButtonElement>) => {
+    pointerStart.current = { id: event.pointerId, y: event.clientY };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+  const finishPointerReorder = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const start = pointerStart.current;
+    pointerStart.current = null;
+    if (!start || start.id !== event.pointerId) return;
+    const delta = event.clientY - start.y;
+    if (delta <= -32 && index > 0) onMove?.('up');
+    if (delta >= 32 && index < total - 1) onMove?.('down');
+  };
 
   return (
-    <article data-testid="plan-exercise" data-media-tier={media.tier} className={`plan-exercise-card plan-exercise-card--${mode}`}>
+    <article data-testid="plan-exercise" data-exercise-id={draftExercise.exerciseId} data-media-tier={media.tier} className={`plan-exercise-card plan-exercise-card--${mode}`}>
       <div className="plan-exercise-card__identity">
-        <div className="plan-exercise-card__sequence" aria-hidden="true">{String(index + 1).padStart(2, '0')}</div>
+        {mode === 'edit' ? <button type="button" className="plan-exercise-card__sequence plan-exercise-card__drag" disabled={locked || total < 2} aria-label={t('workout.drag_named', { name })} onPointerDown={startPointerReorder} onPointerUp={finishPointerReorder} onPointerCancel={() => { pointerStart.current = null; }}><GripVertical size={17} aria-hidden="true" /><span aria-hidden="true">{String(index + 1).padStart(2, '0')}</span></button> : <div className="plan-exercise-card__sequence" aria-hidden="true">{String(index + 1).padStart(2, '0')}</div>}
         {/* Resolver output guarantees exact movement/equipment media or an honestly labeled fallback. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={media.posterSrc} alt={posterAlt} width={88} height={88} loading="lazy" decoding="async" />

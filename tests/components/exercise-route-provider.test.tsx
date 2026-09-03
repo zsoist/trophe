@@ -291,27 +291,17 @@ describe('exercise routes with the real workout workspace provider', () => {
     expect(createWorkoutSession).not.toHaveBeenCalled();
   });
 
-  it('reopens a reviewed draft before the plan tray navigates to Build', async () => {
-    renderWithWorkspace(<ExerciseBrowser initialExercises={[bench]} />, reviewState());
-    await screen.findByRole('heading', { name: 'What are you training?' });
+  it('keeps a reviewed draft immutable when the browser route is opened directly', async () => {
+    renderWithWorkspace(<ExerciseBrowser initialExercises={[bench]} />, reviewState(['bench']));
 
-    fireEvent.click(screen.getByRole('button', { name: /^Chest/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'Add Bench Press' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Review plan' }));
-
-    expect(push).toHaveBeenCalledWith('/dashboard/workout/build');
-    expect(screen.getByTestId('workspace-state').textContent).toBe('draft:strength:bench');
-    expect(createWorkoutSession).not.toHaveBeenCalled();
-  });
-
-  it('closes the browser back to Review when final editing opened it from Review', async () => {
-    renderWithWorkspace(<ExerciseBrowser initialExercises={[bench]} />, reviewState());
-    await screen.findByRole('heading', { name: 'What are you training?' });
-
-    fireEvent.click(screen.getByRole('button', { name: 'workout.picker_close' }));
+    expect(await screen.findByRole('button', { name: 'Resume current workout' })).toBeTruthy();
+    expect(screen.queryByRole('searchbox', { name: 'Search all exercises' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add Bench Press' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Resume current workout' }));
 
     expect(push).toHaveBeenCalledWith('/dashboard/workout/review');
-    expect(screen.getByTestId('workspace-state').textContent).toBe('review:strength:');
+    expect(screen.getByTestId('workspace-state').textContent).toBe('review:strength:bench');
+    expect(createWorkoutSession).not.toHaveBeenCalled();
   });
 
   it('shows an already-added browser row as disabled and stays on the browser route', async () => {
@@ -430,27 +420,43 @@ describe('exercise routes with the real workout workspace provider', () => {
     expect(createWorkoutSession).not.toHaveBeenCalled();
   });
 
-  it('adds from detail back to Review when final editing opened it from Review', async () => {
+  it('keeps Review drill-down read-only until Edit reopens the draft', async () => {
     renderWithWorkspace(<RoutedExerciseDetail exercise={bench} userId={null} />, reviewState());
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Add Bench Press' }));
+    expect(await screen.findByRole('button', { name: 'Resume current workout' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Add Bench Press' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Resume current workout' }));
 
-    await waitFor(() => expect(screen.getByTestId('workspace-state').textContent).toBe('review:strength:bench'));
     expect(push).toHaveBeenCalledWith('/dashboard/workout/review');
+    expect(screen.getByTestId('workspace-state').textContent).toBe('review:strength:');
     expect(createWorkoutSession).not.toHaveBeenCalled();
   });
 
-  it('replaces from full exercise detail, preserving the review return path without starting', async () => {
+  it('rejects a replacement query against Review without changing the plan', async () => {
     renderWithWorkspace(
       <RoutedExerciseDetail exercise={row} userId={null} replaceExerciseId="bench" returnRoute="review" />,
       reviewState(['bench']),
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Replace with Seated Cable Row' }));
+    expect(await screen.findByRole('button', { name: 'Resume current workout' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Replace with Seated Cable Row' })).toBeNull();
 
-    await waitFor(() => expect(screen.getByTestId('workspace-state').textContent).toBe('review:strength:row'));
-    expect(push).toHaveBeenCalledWith('/dashboard/workout/review');
+    expect(screen.getByTestId('workspace-state').textContent).toBe('review:strength:bench');
+    expect(push).not.toHaveBeenCalled();
     expect(createWorkoutSession).not.toHaveBeenCalled();
+  });
+
+  it('disables selecting the current exercise as its own detail replacement', async () => {
+    renderWithWorkspace(
+      <RoutedExerciseDetail exercise={bench} userId={null} replaceExerciseId="bench" returnRoute="build" />,
+      strengthState(['bench']),
+    );
+
+    const selected = await screen.findByRole('button', { name: 'Bench Press added' });
+    expect(selected.hasAttribute('disabled')).toBe(true);
+    fireEvent.click(selected);
+    expect(screen.getByTestId('workspace-state').textContent).toBe('draft:strength:bench');
+    expect(push).not.toHaveBeenCalled();
   });
 
   it('blocks browser mutations for a recovered pending start and routes Retry to immutable Review', async () => {

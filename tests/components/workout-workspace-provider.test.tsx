@@ -68,6 +68,7 @@ function WorkspaceControls() {
       <button onClick={() => workspace.reorderDraftExercise('shoulder-press', 'up')}>Move Shoulder Press up</button>
       <button onClick={() => workspace.updateDraftExercise('bench-press', { restSeconds: 120, targetRpe: 8, notes: 'Pause on chest.' })}>Prescribe Bench Press</button>
       <button onClick={() => workspace.replaceDraftExercise('bench-press', { exerciseId: 'cable-row', exerciseName: 'Seated Cable Row', muscleGroup: 'back' })}>Replace Bench Press</button>
+      <button onClick={() => workspace.replaceDraftExercise('bench-press', { exerciseId: 'bench-press', exerciseName: 'Renamed Bench Press', muscleGroup: 'chest' })}>Replace Bench with itself</button>
       <button onClick={() => workspace.replaceDraftExercise('bench-press', { exerciseId: 'shoulder-press', exerciseName: 'Shoulder Press', muscleGroup: 'shoulders' })}>Replace Bench with duplicate</button>
       <button onClick={() => workspace.replaceDraftFromTemplate({
         templateKey: 'repeat:22222222-2222-4222-8222-222222222222',
@@ -93,7 +94,7 @@ function WorkspaceControls() {
       <button onClick={() => workspace.acknowledgeCompleted()}>Acknowledge completed summary</button>
       <button onClick={() => void workspace.discardLive()}>Discard empty workout</button>
       {workspace.state.draft?.kind === 'strength' ? (
-        <output>{workspace.state.draft.name}:{workspace.state.draft.exercises.map((exercise) => `${exercise.exerciseId}-${exercise.targetSets}x${exercise.targetReps}${(exercise.restSeconds === undefined || exercise.restSeconds === 90) && (exercise.targetRpe === undefined || exercise.targetRpe === null) && !exercise.notes ? '' : `-${exercise.restSeconds ?? 'default'}-${exercise.targetRpe ?? 'none'}-${exercise.notes ?? ''}`}`).join(',')}</output>
+        <><output>{workspace.state.draft.name}:{workspace.state.draft.exercises.map((exercise) => `${exercise.exerciseId}-${exercise.targetSets}x${exercise.targetReps}${(exercise.restSeconds === undefined || exercise.restSeconds === 90) && (exercise.targetRpe === undefined || exercise.targetRpe === null) && !exercise.notes ? '' : `-${exercise.restSeconds ?? 'default'}-${exercise.targetRpe ?? 'none'}-${exercise.notes ?? ''}`}`).join(',')}</output><output data-testid="draft-updated-at">{workspace.state.draft.updatedAt}</output></>
       ) : null}
     </>
   );
@@ -101,6 +102,7 @@ function WorkspaceControls() {
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   startLiveSession.mockReset();
   discardEmptyLiveSession.mockReset();
   savePreparedRetrospectiveWorkout.mockReset();
@@ -178,6 +180,21 @@ describe('WorkoutWorkspaceProvider', () => {
 
     expect(screen.getByText(/cable-row-4x6-8-120-8-Pause on chest\.,shoulder-press/)).toBeTruthy();
     expect(startLiveSession).not.toHaveBeenCalled();
+  });
+
+  it('treats replacing an exercise with its own stable id as a true no-op', async () => {
+    let now = 100;
+    vi.spyOn(Date, 'now').mockImplementation(() => now++);
+    render(<ProviderHarness userId="nik" />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Create coach draft' })).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Create coach draft' }));
+    const originalUpdatedAt = screen.getByTestId('draft-updated-at').textContent;
+
+    fireEvent.click(screen.getByRole('button', { name: 'Replace Bench with itself' }));
+
+    expect(screen.getByTestId('draft-updated-at').textContent).toBe(originalUpdatedAt);
+    expect(screen.getByText(/bench-press-4x6-8/)).toBeTruthy();
+    expect(screen.queryByText(/Renamed Bench Press/)).toBeNull();
   });
 
   it('fingerprints advanced draft prescriptions without claiming them in the server live structure', async () => {

@@ -41,3 +41,16 @@ All new visible and ARIA copy is present in English, Spanish, Greek, French, Ger
 - Duration is a planning estimate based on 45 seconds per working set, prescribed between-set rest, and 60-second exercise transitions; it is labeled as an estimate.
 - No full browser matrix was run in this task; Task 12 owns the final viewport/theme/locale matrix. Component styling includes the required 320–430px constraints.
 - The Impeccable detector was not run, per the binding task instruction.
+
+## Round 1 review fixes
+
+- Route-layer mutation gates now require `stage === 'draft'`. Direct or query-crafted Review browser/detail routes expose only the read-only return action; they cannot add or replace exercises. Review technique drill-down remains available and immutable, while the explicit Edit action remains the transition back to draft editing.
+- Added a dependency-free pointer reorder handle to editable plan rows. A vertical pointer gesture reorders by the row's stable exercise ID, with pointer capture for mobile continuity. The existing 44px Move earlier/later buttons remain the keyboard and precision fallback.
+- Selecting the current exercise as its own detail replacement is disabled. The provider also treats a same-ID replacement as a true no-op, preserving identity metadata and `updatedAt`.
+
+Round 1 RED/GREEN evidence:
+
+- RED: 6 focused failures reproduced three Review-route mutation paths, the absent pointer interaction, and same-ID detail/provider rewrites.
+- GREEN: `npx vitest run tests/components/exercise-route-provider.test.tsx tests/components/workout-builder-v3.test.tsx tests/components/workout-workspace-provider.test.tsx tests/lib/overlay-locale-coverage.test.ts` — 4 files, 47 tests passed.
+- Broader Task 7 set: 16 files, 170 tests passed.
+- `npm run typecheck`, targeted ESLint, and `git diff --check` passed.

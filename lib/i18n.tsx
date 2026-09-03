@@ -788,6 +788,7 @@ export const translations: Record<string, Record<CoreLanguage, string>> = {
   'workout.move_later': { en: 'Later', es: 'Después', el: 'Αργότερα' },
   'workout.move_named_earlier': { en: 'Move {name} earlier', es: 'Mover {name} antes', el: 'Μετακίνηση του {name} νωρίτερα' },
   'workout.move_named_later': { en: 'Move {name} later', es: 'Mover {name} después', el: 'Μετακίνηση του {name} αργότερα' },
+  'workout.drag_named': { en: 'Drag {name} to reorder', es: 'Arrastrar {name} para reordenar', el: 'Σύρετε το {name} για αναδιάταξη' },
   'workout.replace_exercise': { en: 'Replace', es: 'Sustituir', el: 'Αντικατάσταση' },
   'workout.replace_named': { en: 'Replace {name}', es: 'Sustituir {name}', el: 'Αντικατάσταση του {name}' },
   'workout.replace_with_named': { en: 'Replace with {name}', es: 'Sustituir por {name}', el: 'Αντικατάσταση με {name}' },

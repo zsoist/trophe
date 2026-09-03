@@ -112,6 +112,7 @@ export const nl: Record<string, string> = {
   'workout.move_later': 'Later',
   'workout.move_named_earlier': 'Verplaats {name} naar voren',
   'workout.move_named_later': 'Verplaats {name} naar achteren',
+  'workout.drag_named': 'Sleep {name} om te herschikken',
   'workout.replace_exercise': 'Vervangen',
   'workout.replace_named': 'Vervang {name}',
   'workout.replace_with_named': 'Vervang door {name}',

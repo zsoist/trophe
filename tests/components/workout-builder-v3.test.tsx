@@ -37,6 +37,7 @@ vi.mock('@/lib/i18n', () => ({
       'workout.notes_named': `Notes for ${params.name}`,
       'workout.move_named_earlier': `Move ${params.name} earlier`,
       'workout.move_named_later': `Move ${params.name} later`,
+      'workout.drag_named': `Drag ${params.name} to reorder`,
       'workout.replace_named': `Replace ${params.name}`,
       'workout.technique_named': `View ${params.name} technique`,
       'workout.remove_named': `Remove ${params.name}`,
@@ -121,5 +122,22 @@ describe('WorkoutBuilder premium evidence board', () => {
     workspace.state.draft = { ...draft, exercises: [draft.exercises[1], draft.exercises[0], draft.exercises[2]] };
     view.rerender(<WorkoutBuilder exercises={exercises} onSavePlan={vi.fn()} />);
     expect(screen.getAllByTestId('plan-exercise')[0].textContent).toContain('Seated Cable Row');
+  });
+
+  it('reorders by pointer gesture using the stable exercise id while retaining button controls', () => {
+    workspace.state.draft = draft;
+    render(<WorkoutBuilder exercises={exercises} onSavePlan={vi.fn()} />);
+
+    const handle = screen.getByRole('button', { name: 'Drag Seated Cable Row to reorder' });
+    const down = new Event('pointerdown', { bubbles: true });
+    Object.defineProperties(down, { pointerId: { value: 7 }, clientY: { value: 180 } });
+    const up = new Event('pointerup', { bubbles: true });
+    Object.defineProperties(up, { pointerId: { value: 7 }, clientY: { value: 100 } });
+    fireEvent(handle, down);
+    fireEvent(handle, up);
+
+    expect(workspace.reorderDraftExercise).toHaveBeenCalledWith('row', 'up');
+    expect(screen.getByRole('button', { name: 'Move Seated Cable Row earlier' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Move Seated Cable Row later' })).toBeTruthy();
   });
 });
