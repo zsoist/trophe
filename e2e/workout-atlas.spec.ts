@@ -221,7 +221,7 @@ test.describe('premium workout atlas authenticated release journey', () => {
 
       await page.goto('/dashboard/workout/stats?range=month');
       await waitForPath(page, '/dashboard/workout/stats');
-      await expect(page.getByRole('heading', { name: 'Analytics', exact: true })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Training progress', exact: true })).toBeVisible();
       await captureSurface(page, testInfo, theme, 'analytics', baseRouteViewports);
 
       assertNoPaidRequests();
