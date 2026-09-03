@@ -68,7 +68,7 @@ vi.mock('@/lib/i18n', () => ({
         'workout.picker_choose_area_hint': 'Choose a body area to see relevant exercises.',
         'workout.picker_recent': 'Recent',
         'workout.picker_options': '{n} options',
-        'workout.picker_back_areas': 'Back to body areas',
+        'workout.picker_back_areas': 'Back to muscle groups',
         'workout.picker_result_title': '{area} exercises',
         'workout.picker_result_count': '{n} exercises',
         'workout.picker_none': 'No matching exercises',
@@ -78,6 +78,9 @@ vi.mock('@/lib/i18n', () => ({
         'workout.picker_all_equipment': 'All equipment',
         'workout.picker_all_area': 'All {area}',
         'workout.picker_add_named': 'Add {name}',
+        'workout.picker_selected_one': '{n} exercise selected',
+        'workout.picker_selected_many': '{n} exercises selected',
+        'workout.picker_review_plan': 'Review plan',
         'workout.picker_add': 'Add',
         'workout.picker_info_named': 'Exercise info: {name}',
         'workout.picker_search_results': 'Search results',
@@ -262,7 +265,7 @@ describe('exercise routes with the real workout workspace provider', () => {
     Object.defineProperty(window.navigator, 'userAgent', { configurable: true, value: originalUserAgent });
   });
 
-  it('adds multiple exercises in the browser and returns from the explicit footer without creating a session', async () => {
+  it('adds multiple exercises in the browser and returns from the plan tray without creating a session', async () => {
     renderWithWorkspace(<ExerciseBrowser initialExercises={[bench]} />, strengthState());
     await screen.findByRole('heading', { name: 'What are you training?' });
 
@@ -271,8 +274,21 @@ describe('exercise routes with the real workout workspace provider', () => {
 
     await waitFor(() => expect(screen.getByTestId('workspace-state').textContent).toBe('draft:strength:bench'));
     expect(push).not.toHaveBeenCalledWith('/dashboard/workout/build');
-    fireEvent.click(screen.getByRole('button', { name: /Back to Workout/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Review plan' }));
     expect(push).toHaveBeenCalledWith('/dashboard/workout/build');
+    expect(createWorkoutSession).not.toHaveBeenCalled();
+  });
+
+  it('reopens a reviewed draft before the plan tray navigates to Build', async () => {
+    renderWithWorkspace(<ExerciseBrowser initialExercises={[bench]} />, reviewState());
+    await screen.findByRole('heading', { name: 'What are you training?' });
+
+    fireEvent.click(screen.getByRole('button', { name: /^Chest/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add Bench Press' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Review plan' }));
+
+    expect(push).toHaveBeenCalledWith('/dashboard/workout/build');
+    expect(screen.getByTestId('workspace-state').textContent).toBe('draft:strength:bench');
     expect(createWorkoutSession).not.toHaveBeenCalled();
   });
 

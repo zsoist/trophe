@@ -4,20 +4,20 @@
  * Exercise picker (full-screen) + custom-exercise modal — extracted from
  * app/dashboard/workout/page.tsx in the 10/10 wave.
  *
- * Structure: sticky search + muscle chips → Recent quick-add → sectioned list
- * (muscle headers, 2-col on desktop). Rows expose an info affordance that
- * opens the ExerciseInfoSheet (form cues, muscles, PR, recent history).
+ * Structure: sticky search → selectable atlas + muscle groups → compact
+ * resolver-backed results → persistent multi-add plan tray. Result details
+ * remain separate from Add, and adding never enters a live-session state.
  */
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode, RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { ArrowLeft, Check, ChevronDown, ChevronRight, Dumbbell, Info, Plus, Search, X } from 'lucide-react';
+import { ArrowLeft, Check, ChevronDown, Dumbbell, Plus, Search, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import type { Exercise, MuscleGroup } from '@/lib/types';
-import { resolveWorkoutAsset } from '@/lib/workout-assets';
+import type { AnatomyMuscleId, MuscleActivation } from '@/lib/workout/anatomy';
 import {
   MUSCLE_GROUPS,
   WORKOUT_BODY_AREAS,
@@ -27,7 +27,51 @@ import {
   exerciseDisplayName,
   type WorkoutBodyArea,
 } from './muscle-groups';
-import { MovementVisual } from './MovementVisual';
+import { ExerciseResults } from './ExerciseResults';
+import { MuscleAtlas } from './MuscleAtlas';
+import { WorkoutPlanTray } from './WorkoutPlanTray';
+
+const DISCOVERY_ATLAS_ACTIVATIONS: MuscleActivation[] = [
+  { id: 'pectoralis-major', label: 'Pectoralis major', role: 'primary', view: 'front' },
+  { id: 'anterior-deltoid', label: 'Anterior deltoid', role: 'primary', view: 'front' },
+  { id: 'biceps-brachii', label: 'Biceps brachii', role: 'primary', view: 'front' },
+  { id: 'rectus-abdominis', label: 'Rectus abdominis', role: 'primary', view: 'front' },
+  { id: 'quadriceps', label: 'Quadriceps', role: 'primary', view: 'front' },
+  { id: 'latissimus-dorsi', label: 'Latissimus dorsi', role: 'primary', view: 'back' },
+  { id: 'triceps-brachii', label: 'Triceps brachii', role: 'primary', view: 'back' },
+  { id: 'gluteus-maximus', label: 'Gluteus maximus', role: 'primary', view: 'back' },
+  { id: 'hamstrings', label: 'Hamstrings', role: 'primary', view: 'back' },
+  { id: 'gastrocnemius', label: 'Gastrocnemius', role: 'primary', view: 'back' },
+];
+
+const DISCOVERY_AREA_BY_MUSCLE: Record<AnatomyMuscleId, WorkoutBodyArea> = {
+  'pectoralis-major': 'chest',
+  'serratus-anterior': 'chest',
+  'anterior-deltoid': 'shoulders',
+  'middle-deltoid': 'shoulders',
+  'posterior-deltoid': 'shoulders',
+  'rotator-cuff': 'shoulders',
+  'upper-trapezius': 'back',
+  'lower-trapezius': 'back',
+  'latissimus-dorsi': 'back',
+  rhomboids: 'back',
+  'erector-spinae': 'back',
+  'biceps-brachii': 'arms',
+  'triceps-brachii': 'arms',
+  brachialis: 'arms',
+  'forearm-flexors': 'arms',
+  'forearm-extensors': 'arms',
+  'rectus-abdominis': 'core',
+  obliques: 'core',
+  'gluteus-maximus': 'legs',
+  'gluteus-medius': 'legs',
+  quadriceps: 'legs',
+  hamstrings: 'legs',
+  adductors: 'legs',
+  gastrocnemius: 'legs',
+  soleus: 'legs',
+  'tibialis-anterior': 'legs',
+};
 
 const subscribeToClient = () => () => {};
 const getClientSnapshot = () => true;
@@ -239,72 +283,6 @@ export function CustomExerciseModal({
   );
 }
 
-// ─── Exercise row ───
-/** One exercise, one explicit Add action, with details kept separate. */
-function ExerciseRow({
-  ex,
-  name,
-  isAdded,
-  onPick,
-  onInfo,
-}: {
-  ex: Exercise;
-  name: string;
-  isAdded: boolean;
-  onPick: () => void;
-  onInfo?: (ex: Exercise) => void;
-}) {
-  const color = muscleColor(ex.muscle_group);
-  const { t } = useI18n();
-  const asset = resolveWorkoutAsset({
-    exerciseName: ex.name,
-    equipment: ex.equipment,
-    muscleGroup: ex.muscle_group,
-  });
-  const meta = [
-    ex.equipment ? ex.equipment.charAt(0).toUpperCase() + ex.equipment.slice(1) : null,
-    ex.is_compound ? t('workout.compound') : null,
-  ].filter(Boolean).join(' · ');
-  return (
-    <div
-      className="w-full min-h-[68px] flex items-center gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-2.5 text-left transition-colors hover:border-[var(--border-default)] hover:bg-[var(--surface-hover)] motion-reduce:transition-none"
-    >
-      <div className="flex min-w-0 flex-1 items-center gap-3">
-        <span className="exercise-row__visual" style={{ borderColor: color }}>
-          <MovementVisual
-            asset={asset}
-            alt={asset.kind === 'technique'
-              ? `${name} technique`
-              : `${t(muscleLabelKey(ex.muscle_group))} muscles worked for ${name}`}
-          />
-        </span>
-        <span className="flex-1 min-w-0">
-          <span className="block truncate text-sm font-semibold text-[var(--content-primary)]">{name}</span>
-          {meta && <span className="mt-0.5 block truncate text-xs text-[var(--content-muted)]">{meta}</span>}
-        </span>
-      </div>
-      {onInfo && (
-        <button
-          onClick={() => onInfo(ex)}
-          aria-label={t('workout.picker_info_named', { name })}
-          className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg text-[var(--content-muted)] transition-colors hover:bg-[var(--surface-active)] hover:text-[var(--content-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] motion-reduce:transition-none"
-        >
-          <Info size={18} />
-        </button>
-      )}
-      <button
-        onClick={onPick}
-        disabled={isAdded}
-        aria-label={isAdded ? t('workout.exercise_added_named', { name }) : t('workout.picker_add_named', { name })}
-        className="inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[var(--action-secondary)] px-3 text-sm font-semibold text-[var(--content-primary)] transition-colors hover:bg-[var(--surface-active)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-default disabled:opacity-70 motion-reduce:transition-none"
-      >
-        {isAdded ? <Check size={16} aria-hidden="true" /> : null}
-        {isAdded ? t('workout.exercise_added') : t('workout.picker_add')}
-      </button>
-    </div>
-  );
-}
-
 function EquipmentFilter({
   value,
   options,
@@ -401,6 +379,7 @@ export default function ExercisePicker({
   const [filterMuscle, setFilterMuscle] = useState<MuscleGroup | 'all'>('all');
   const [equipmentFilter, setEquipmentFilter] = useState('all');
   const [showCustomModal, setShowCustomModal] = useState(false);
+  const [optimisticAddedIds, setOptimisticAddedIds] = useState<Set<string>>(() => new Set());
   const inputRef = useRef<HTMLInputElement>(null);
   const firstAreaRef = useRef<HTMLButtonElement>(null);
   const resultHeadingRef = useRef<HTMLHeadingElement>(null);
@@ -448,7 +427,7 @@ export default function ExercisePicker({
   }, [canUseDom]);
 
   const nameOf = (ex: Exercise) => exerciseDisplayName(ex, lang);
-  const addedIds = new Set(addedExerciseIds);
+  const addedIds = new Set([...addedExerciseIds, ...optimisticAddedIds]);
 
   const q = search.trim().toLowerCase();
   const selectedArea = WORKOUT_BODY_AREAS.find((area) => area.key === selectedAreaKey) ?? null;
@@ -489,6 +468,7 @@ export default function ExercisePicker({
   const pick = (ex: Exercise) => {
     if (addedIds.has(ex.id)) return;
     if (presentation === 'page' && onAddToDraft) {
+      setOptimisticAddedIds((current) => new Set(current).add(ex.id));
       onAddToDraft(ex.id);
       return;
     }
@@ -524,6 +504,17 @@ export default function ExercisePicker({
     setEquipmentFilter('all');
     requestAnimationFrame(() => firstAreaRef.current?.focus({ preventScroll: true }));
   };
+
+  const selectedExercises = Array.from(addedIds)
+    .map((id) => exercises.find((exercise) => exercise.id === id))
+    .filter((exercise): exercise is Exercise => Boolean(exercise));
+  const showPlanTray = presentation === 'page'
+    && Boolean(onAddToDraft)
+    && Boolean(onReturnToBuild)
+    && addedIds.size > 0;
+  const scrollPadding = showPlanTray
+    ? 'calc(6rem + var(--client-shell-nav-base-height, 4.5rem) + max(env(safe-area-inset-bottom, 0px), var(--client-shell-nav-min-bottom-padding, 1rem)) + var(--client-shell-content-buffer, 0.625rem))'
+    : 'calc(7rem + env(safe-area-inset-bottom, 0px))';
 
   if (!canUseDom) return null;
 
@@ -575,7 +566,11 @@ export default function ExercisePicker({
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-3xl px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-6">
+        <div
+          data-exercise-picker-scroll-content
+          className="mx-auto w-full max-w-3xl px-4 pt-6"
+          style={{ paddingBottom: scrollPadding }}
+        >
           {isLanding ? (
             <>
               <div className="max-w-xl">
@@ -587,7 +582,17 @@ export default function ExercisePicker({
                 </p>
               </div>
 
-              <div role="group" aria-label={t('workout.picker_choose_area')} className="mt-6 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+              <div className="mt-5 rounded-[0.875rem] border border-[var(--border-subtle)] bg-[var(--surface-1)] p-3">
+                <MuscleAtlas
+                  compact
+                  homeCompact
+                  activations={DISCOVERY_ATLAS_ACTIVATIONS}
+                  selected={null}
+                  onSelect={(muscle) => chooseArea(DISCOVERY_AREA_BY_MUSCLE[muscle])}
+                />
+              </div>
+
+              <div role="group" aria-label={t('workout.picker_choose_area')} className="mt-3 flex flex-wrap gap-2">
                 {orderedAreas.map((area, index) => {
                   const count = exercises.filter((ex) => area.muscles.includes(ex.muscle_group)).length;
                   const label = t(bodyAreaLabelKey(area.key));
@@ -597,15 +602,10 @@ export default function ExercisePicker({
                       ref={index === 0 ? firstAreaRef : undefined}
                       type="button"
                       onClick={() => chooseArea(area.key)}
-                      className="exercise-area-card group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                      className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 text-sm font-semibold text-[var(--content-secondary)] transition-colors hover:border-[var(--border-default)] hover:bg-[var(--surface-hover)] hover:text-[var(--content-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] motion-reduce:transition-none"
                     >
-                      <span className="exercise-area-card__copy">
-                        <span className="block text-sm font-semibold text-[var(--content-primary)]">{label}</span>
-                        <span className="mt-1 block text-xs tabular-nums text-[var(--content-muted)]">{t('workout.picker_options', { n: count })}</span>
-                      </span>
-                      <MovementVisual bodyArea={area.key} alt={`${label} training illustration`} />
-                      <span className="exercise-area-card__scrim" aria-hidden="true" />
-                      <ChevronRight size={18} className="shrink-0 text-[var(--content-muted)] transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" />
+                      <span>{label}</span>
+                      <span className="font-mono text-xs tabular-nums text-[var(--content-muted)]">{t('workout.picker_options', { n: count })}</span>
                     </button>
                   );
                 })}
@@ -724,11 +724,13 @@ export default function ExercisePicker({
                   <p className="mt-1 text-sm text-[var(--content-muted)]">{t('workout.picker_none_hint')}</p>
                 </div>
               ) : (
-                <div className="mt-5 grid grid-cols-1 gap-2 lg:grid-cols-2">
-                  {filtered.map((ex) => (
-                    <ExerciseRow key={ex.id} ex={ex} name={nameOf(ex)} isAdded={addedIds.has(ex.id)} onPick={() => pick(ex)} onInfo={onInfo} />
-                  ))}
-                </div>
+                <ExerciseResults
+                  exercises={filtered}
+                  lang={lang}
+                  selectedIds={addedIds}
+                  onAdd={pick}
+                  onInfo={onInfo}
+                />
               )}
             </>
           )}
@@ -744,19 +746,13 @@ export default function ExercisePicker({
         </div>
       </div>
 
-      {presentation === 'page' && onReturnToBuild ? (
-        <div
-          data-exercise-picker-return-bar
-          className="exercise-picker__return-bar sticky z-20 border-t border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-4 py-3"
-        >
-          <button
-            type="button"
-            onClick={onReturnToBuild}
-            className="mx-auto flex min-h-12 w-full max-w-3xl items-center justify-center rounded-xl bg-[var(--action-primary)] px-4 font-semibold text-[var(--action-on-primary)] transition-colors hover:bg-[var(--action-primary-hover)] motion-reduce:transition-none"
-          >
-            {t('workout.back_to_workout')} · {t('workout.exercise_count', { n: addedExerciseIds.length })}
-          </button>
-        </div>
+      {showPlanTray && onReturnToBuild ? (
+        <WorkoutPlanTray
+          exercises={selectedExercises}
+          selectedCount={addedIds.size}
+          lang={lang}
+          onReview={onReturnToBuild}
+        />
       ) : null}
 
       {/* Custom exercise modal */}

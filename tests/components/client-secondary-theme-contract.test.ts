@@ -175,6 +175,7 @@ const PRESENTATION_SOURCES = [
   'components/health/SupplementCompliance.tsx',
   'components/workout/ExerciseInfoSheet.tsx',
   'components/workout/ExercisePicker.tsx',
+  'components/workout/ExerciseResults.tsx',
   'components/workout/FormCheck.tsx',
   'components/workout/FormScore.tsx',
   'components/workout/GuidedSession.tsx',
@@ -184,6 +185,7 @@ const PRESENTATION_SOURCES = [
   'components/workout/RecentSessionCard.tsx',
   'components/workout/TodayProgramCard.tsx',
   'components/workout/TodayWorkoutCard.tsx',
+  'components/workout/WorkoutPlanTray.tsx',
   'components/workout/workspace/WorkoutHome.tsx',
   'components/workout/workspace/WorkoutBuilder.tsx',
   'components/workout/workspace/WorkoutReview.tsx',
@@ -382,7 +384,7 @@ describe('client secondary theme and accessibility contract', () => {
     expect(screen.getByRole('heading', { name: 'workout.picker_choose_area' })).toBeTruthy();
     expect(screen.getByLabelText('Workspace stage').textContent).toBe('draft');
 
-    fireEvent.click(screen.getByRole('button', { name: /workout.back_to_workout/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'workout.picker_close' }));
     await waitFor(() => expect(screen.getByLabelText('Workout URL').textContent).toBe('/dashboard/workout/build'));
     expect(document.activeElement).toBe(screen.getByRole('main', { name: 'workout.workspace_build_title' }));
   });

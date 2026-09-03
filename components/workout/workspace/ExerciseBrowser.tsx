@@ -62,7 +62,10 @@ export function ExerciseBrowser({ initialExercises = [], initialRecentIds = [] }
       onSelect={() => undefined}
       onClose={() => pushWorkoutRoute(router, parentRoute)}
       onAddToDraft={workspace.addDraftExercise}
-      onReturnToBuild={() => pushWorkoutRoute(router, parentRoute)}
+      onReturnToBuild={() => {
+        if (workspace.state.stage === 'review') workspace.returnToDraft();
+        pushWorkoutRoute(router, WORKOUT_ROUTES.build);
+      }}
       addedExerciseIds={workspace.state.draft?.kind === 'strength'
         ? workspace.state.draft.exercises.map(({ exerciseId }) => exerciseId)
         : []}
