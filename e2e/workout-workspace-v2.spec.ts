@@ -458,8 +458,9 @@ test.describe('Workout Workspace V2', () => {
       await expect(runningExerciseDialog).toBeVisible();
       const runningPhaseControl = runningExerciseDialog.getByRole('button', { name: 'Work phase' });
       await runningPhaseControl.focus();
-      const clockAfterPhaseFocus = await runningClock.textContent();
-      await expect.poll(() => runningClock.textContent(), { timeout: 2_500 }).not.toBe(clockAfterPhaseFocus);
+      await expect(runningPhaseControl).toBeFocused();
+      const focusedClockBaseline = await runningClock.textContent();
+      await expect.poll(() => runningClock.textContent(), { timeout: 2_500 }).not.toBe(focusedClockBaseline);
       await expect(runningPhaseControl).toBeFocused();
       await page.keyboard.press('Escape');
       await expect(runningExerciseDialog).toHaveCount(0);
