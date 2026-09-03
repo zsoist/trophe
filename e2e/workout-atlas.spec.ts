@@ -6,7 +6,7 @@ import { blockPaidRequests, loginAs, setTheme, type ThemeMode } from './helpers/
 
 type EvidenceViewport = { width: number; height: number };
 
-const homeViewports: readonly EvidenceViewport[] = [
+const baseRouteViewports: readonly EvidenceViewport[] = [
   { width: 320, height: 700 },
   { width: 390, height: 844 },
   { width: 430, height: 932 },
@@ -14,7 +14,7 @@ const homeViewports: readonly EvidenceViewport[] = [
   { width: 1280, height: 900 },
 ];
 
-const routedViewports: readonly EvidenceViewport[] = [
+const overlayViewports: readonly EvidenceViewport[] = [
   { width: 390, height: 844 },
   { width: 1280, height: 900 },
 ];
@@ -48,7 +48,7 @@ async function captureSurface(
   testInfo: TestInfo,
   theme: ThemeMode,
   surface: string,
-  viewports: readonly EvidenceViewport[] = routedViewports,
+  viewports: readonly EvidenceViewport[] = overlayViewports,
 ) {
   const reviewDirectory = join(process.cwd(), '.impeccable', 'review');
   mkdirSync(reviewDirectory, { recursive: true });
@@ -100,18 +100,18 @@ test.describe('premium workout atlas authenticated release journey', () => {
       await expect(page.locator('html')).toHaveAttribute('lang', 'en');
       await expect(page.getByTestId('workout-primary-action')).toHaveText(/Review plan|Build workout/);
       await expect(page.getByRole('heading', { name: "Today's target" })).toBeVisible();
-      await captureSurface(page, testInfo, theme, 'home', homeViewports);
+      await captureSurface(page, testInfo, theme, 'home', baseRouteViewports);
 
       // Discovery starts as planning even when the fresh account has a seeded
       // recommendation. It never starts a session or overwrites that offer.
-      await page.setViewportSize(routedViewports[0]);
+      await page.setViewportSize(overlayViewports[0]);
       await page.getByRole('link', { name: 'Find an exercise' }).click();
       await waitForPath(page, '/dashboard/workout/exercises');
       await page.goto('/dashboard/workout/exercises?source=atlas');
       await waitForPath(page, '/dashboard/workout/exercises');
       await page.getByRole('button', { name: 'Create strength draft' }).click();
       await expect(page.getByRole('heading', { name: 'What are you training?' })).toBeVisible();
-      await captureSurface(page, testInfo, theme, 'discovery');
+      await captureSurface(page, testInfo, theme, 'discovery', baseRouteViewports);
 
       const search = page.getByRole('searchbox', { name: 'Search exercises...' });
       // The local release catalogue guarantees this exact, barbell-gated V3
@@ -129,22 +129,20 @@ test.describe('premium workout atlas authenticated release journey', () => {
       await waitForPath(page, detailPath);
       await expect(page.getByRole('heading', { name: 'Floor Press', exact: true })).toBeVisible();
       await expect(page.getByTestId('exercise-motion-video')).toBeVisible();
-      await page.getByRole('button', { name: 'Work phase' }).click();
-      await expect(page.getByRole('button', { name: 'Work phase' })).toHaveAttribute('aria-pressed', 'true');
       const routedPause = page.getByRole('button', { name: 'Pause demonstration' });
       if (await routedPause.isVisible()) await routedPause.click();
-      await captureSurface(page, testInfo, theme, 'exact-detail-phase');
+      await captureSurface(page, testInfo, theme, 'exact-detail', baseRouteViewports);
 
       await page.getByRole('button', { name: 'Add Floor Press', exact: true }).click();
       await waitForPath(page, '/dashboard/workout/build');
       await expect(workspace(page).getByRole('textbox', { name: 'Workout name' })).toHaveValue('Strength');
       await expect(workspace(page).getByText('Draft · Not started')).toBeVisible();
-      await captureSurface(page, testInfo, theme, 'build');
+      await captureSurface(page, testInfo, theme, 'build', baseRouteViewports);
 
       await workspace(page).getByRole('button', { name: 'Review workout' }).click();
       await waitForPath(page, '/dashboard/workout/review');
       await expect(workspace(page).getByRole('button', { name: 'Start workout' })).toBeEnabled();
-      await captureSurface(page, testInfo, theme, 'review');
+      await captureSurface(page, testInfo, theme, 'review', baseRouteViewports);
 
       // A query-only navigation must preserve Review and the prepared draft.
       await page.goto('/dashboard/workout/review?evidence=query-stable');
@@ -156,16 +154,18 @@ test.describe('premium workout atlas authenticated release journey', () => {
       const weight = workspace(page).getByRole('spinbutton', { name: 'Weight in kg' }).first();
       const reps = workspace(page).getByRole('spinbutton', { name: 'Reps' }).first();
       await expect(weight).toBeEnabled();
-      await captureSurface(page, testInfo, theme, 'live');
+      await captureSurface(page, testInfo, theme, 'live', baseRouteViewports);
 
       await openLiveAction(page, 'Technique');
       const technique = page.getByRole('dialog');
       await expect(technique.getByRole('heading', { name: 'Floor Press', exact: true })).toBeVisible();
       await expect(technique.getByTestId('exercise-motion-video')).toBeVisible();
-      await technique.getByRole('button', { name: 'Work phase' }).click();
       const techniquePause = technique.getByRole('button', { name: 'Pause demonstration' });
       if (await techniquePause.isVisible()) await techniquePause.click();
-      await captureSurface(page, testInfo, theme, 'overlay-technique-work-phase');
+      await captureSurface(page, testInfo, theme, 'overlay-technique');
+      await technique.getByRole('button', { name: 'Work phase' }).click();
+      await expect(technique.getByRole('button', { name: 'Work phase' })).toHaveAttribute('aria-pressed', 'true');
+      await captureSurface(page, testInfo, theme, 'overlay-phase-viewer');
       await technique.getByRole('button', { name: 'Close exercise details' }).click();
       await expect(technique).toHaveCount(0);
 
@@ -202,12 +202,12 @@ test.describe('premium workout atlas authenticated release journey', () => {
       await waitForPath(page, '/dashboard/workout/history');
       await expect(page.getByRole('heading', { name: 'History', exact: true })).toHaveCount(1);
       await expect(page.locator('[data-history-card]').first()).toBeVisible();
-      await captureSurface(page, testInfo, theme, 'history');
+      await captureSurface(page, testInfo, theme, 'history', baseRouteViewports);
 
       await page.goto('/dashboard/workout/stats?range=month');
       await waitForPath(page, '/dashboard/workout/stats');
       await expect(page.getByRole('heading', { name: 'Analytics', exact: true })).toBeVisible();
-      await captureSurface(page, testInfo, theme, 'analytics');
+      await captureSurface(page, testInfo, theme, 'analytics', baseRouteViewports);
 
       assertNoPaidRequests();
     });
