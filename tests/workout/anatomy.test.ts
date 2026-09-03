@@ -12,6 +12,15 @@ describe('resolveMuscleActivations', () => {
     );
   });
 
+  it('keeps posterior and posterior-data muscle activations on the back atlas view', () => {
+    expect(resolveMuscleActivations({ name: 'Barbell Bench Press' })).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'triceps-brachii', view: 'back' }),
+    ]));
+    expect(resolveMuscleActivations({ name: 'Pull Up' })).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'forearm-flexors', view: 'back' }),
+    ]));
+  });
+
   it('returns a stable, typed anatomy fallback for an uncovered exercise', () => {
     expect(resolveMuscleActivations({ name: 'Landmine Press', equipment: 'Barbell', muscleGroup: 'chest' })).toEqual([
       expect.objectContaining({ id: 'pectoralis-major', role: 'primary', view: 'front' }),

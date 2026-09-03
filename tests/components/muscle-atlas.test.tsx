@@ -32,17 +32,18 @@ vi.mock('@/lib/i18n', async (importOriginal) => {
   };
 });
 import { MuscleAtlas } from '@/components/workout/MuscleAtlas';
+import { ATLAS_GEOMETRY } from '@/lib/workout/atlas-geometry';
 import type { MuscleActivation } from '@/lib/workout/anatomy';
 
 const benchActivations: MuscleActivation[] = [
   { id: 'pectoralis-major', label: 'Pectoralis major', role: 'primary', view: 'front' },
-  { id: 'triceps-brachii', label: 'Triceps brachii', role: 'secondary', view: 'front' },
+  { id: 'triceps-brachii', label: 'Triceps brachii', role: 'secondary', view: 'back' },
   { id: 'rotator-cuff', label: 'Rotator cuff', role: 'stabilizer', view: 'back' },
 ];
 
 const ariaRoleActivations: MuscleActivation[] = [
   { id: 'pectoralis-major', label: 'Pectoralis major', role: 'primary', view: 'front' },
-  { id: 'triceps-brachii', label: 'Triceps brachii', role: 'secondary', view: 'front' },
+  { id: 'middle-deltoid', label: 'Middle deltoid', role: 'secondary', view: 'front' },
   { id: 'brachialis', label: 'Brachialis', role: 'stabilizer', view: 'front' },
 ];
 
@@ -50,7 +51,7 @@ const allActivations: MuscleActivation[] = [
   ['pectoralis-major', 'front'], ['serratus-anterior', 'front'], ['anterior-deltoid', 'front'], ['middle-deltoid', 'front'],
   ['posterior-deltoid', 'back'], ['rotator-cuff', 'back'], ['upper-trapezius', 'back'], ['lower-trapezius', 'back'],
   ['latissimus-dorsi', 'back'], ['rhomboids', 'back'], ['erector-spinae', 'back'], ['biceps-brachii', 'front'],
-  ['triceps-brachii', 'back'], ['brachialis', 'front'], ['forearm-flexors', 'front'], ['forearm-extensors', 'back'],
+  ['triceps-brachii', 'back'], ['brachialis', 'front'], ['forearm-flexors', 'back'], ['forearm-extensors', 'back'],
   ['rectus-abdominis', 'front'], ['obliques', 'front'], ['gluteus-maximus', 'back'], ['gluteus-medius', 'back'],
   ['quadriceps', 'front'], ['hamstrings', 'back'], ['adductors', 'front'], ['gastrocnemius', 'back'], ['soleus', 'back'],
   ['tibialis-anterior', 'front'],
@@ -69,7 +70,7 @@ describe('MuscleAtlas', () => {
     fireEvent.click(screen.getByRole('button', { name: /pectoralis major.*primary/i }));
 
     expect(onSelect).toHaveBeenCalledWith('pectoralis-major');
-    expect(screen.getByText('Primary')).toBeTruthy();
+    expect(screen.getAllByText('Primary').length).toBeGreaterThan(0);
   });
 
   it('keeps an accessible front/back switch and named keyboard regions', () => {
@@ -88,7 +89,7 @@ describe('MuscleAtlas', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Show back anatomy' }));
 
     const roles = screen.getByRole('list', { name: 'Highlighted muscle roles' });
-    expect(roles.textContent).toContain('Rotator cuff');
+    expect(roles.textContent).toContain('Triceps brachii');
     expect(roles.textContent).not.toContain('Pectoralis major');
     expect(roles.textContent).not.toContain('+2 more highlighted');
   });
@@ -99,21 +100,20 @@ describe('MuscleAtlas', () => {
 
     expect(screen.getByRole('region', { name: 'Atlas de activación muscular' })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Pectoral mayor, músculo principal/i })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Tríceps braquial, músculo secundario' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Mostrar anatomía posterior' })).toBeTruthy();
     expect(screen.getByRole('list', { name: 'Funciones musculares destacadas' }).textContent).toContain('Pectoral mayor');
     expect(document.body.textContent).not.toMatch(/\b(?:Front|Back|Primary|Pectoralis|highlighted)\b/);
   });
 
   it.each([
-    ['en', ['Pectoralis major, primary muscle', 'Triceps brachii, secondary muscle', 'Brachialis, stabilizer muscle']],
-    ['es', ['Pectoral mayor, músculo principal', 'Tríceps braquial, músculo secundario', 'Braquial, músculo estabilizador']],
-    ['el', ['Μείζων θωρακικός, κύριος μυς', 'Τρικέφαλος βραχιόνιος, δευτερεύων μυς', 'Βραχιόνιος, σταθεροποιητικός μυς']],
-    ['de', ['Großer Brustmuskel, primärer Muskel', 'Trizeps, sekundärer Muskel', 'Armbeuger, stabilisierender Muskel']],
-    ['fr', ['Grand pectoral, muscle principal', 'Triceps brachial, muscle secondaire', 'Brachial, muscle stabilisateur']],
-    ['it', ['Grande pettorale, muscolo principale', 'Tricipite brachiale, muscolo secondario', 'Brachiale, muscolo stabilizzatore']],
-    ['nl', ['Grote borstspier, primaire spier', 'Triceps, secundaire spier', 'Brachialis, stabiliserende spier']],
-    ['pt', ['Peitoral maior, músculo principal', 'Tríceps braquial, músculo secundário', 'Braquial, músculo estabilizador']],
+    ['en', ['Pectoralis major, primary muscle', 'Middle deltoid, secondary muscle', 'Brachialis, stabilizer muscle']],
+    ['es', ['Pectoral mayor, músculo principal', 'Deltoides medio, músculo secundario', 'Braquial, músculo estabilizador']],
+    ['el', ['Μείζων θωρακικός, κύριος μυς', 'Μέσος δελτοειδής, δευτερεύων μυς', 'Βραχιόνιος, σταθεροποιητικός μυς']],
+    ['de', ['Großer Brustmuskel, primärer Muskel', 'Mittlerer Deltamuskel, sekundärer Muskel', 'Armbeuger, stabilisierender Muskel']],
+    ['fr', ['Grand pectoral, muscle principal', 'Deltoïde moyen, muscle secondaire', 'Brachial, muscle stabilisateur']],
+    ['it', ['Grande pettorale, muscolo principale', 'Deltoide medio, muscolo secondario', 'Brachiale, muscolo stabilizzatore']],
+    ['nl', ['Grote borstspier, primaire spier', 'Middelste deltaspier, secundaire spier', 'Brachialis, stabiliserende spier']],
+    ['pt', ['Peitoral maior, músculo principal', 'Deltoide médio, músculo secundário', 'Braquial, músculo estabilizador']],
   ])('composes grammatically complete %s region aria labels for every role', (locale, expectedLabels) => {
     atlasLocale.value = locale;
     render(<MuscleAtlas activations={ariaRoleActivations} selected={null} onSelect={vi.fn()} />);
@@ -142,7 +142,7 @@ describe('MuscleAtlas', () => {
     render(<MuscleAtlas activations={[{ id: 'brachialis', label: 'Brachialis', role: 'secondary', view: 'front' }]} selected={null} onSelect={vi.fn()} />);
     const hitTarget = screen.getByTestId('atlas-hit-brachialis');
 
-    expect(hitTarget.getAttribute('r')).toBe('23');
+    expect(hitTarget.getAttribute('r')).toBe('7');
     expect(hitTarget.getAttribute('data-min-hit-target')).toBe('44');
   });
 
@@ -159,14 +159,39 @@ describe('MuscleAtlas', () => {
         const centerX = Number(hitTarget.getAttribute('cx'));
         const centerY = Number(hitTarget.getAttribute('cy'));
         const radius = Number(hitTarget.getAttribute('r'));
-        expect(centerX - radius).toBeGreaterThanOrEqual(0);
-        expect(centerX + radius).toBeLessThanOrEqual(viewBoxWidth);
+        const [minX] = view === 'front' ? [0] : [37];
+        expect(centerX - radius).toBeGreaterThanOrEqual(minX);
+        expect(centerX + radius).toBeLessThanOrEqual(minX + viewBoxWidth);
         expect(centerY - radius).toBeGreaterThanOrEqual(0);
         expect(centerY + radius).toBeLessThanOrEqual(viewBoxHeight);
         expect((radius * 2 * renderedHeight) / viewBoxHeight).toBeGreaterThanOrEqual(44);
       }
       expect(svg.getAttribute('height')).toBe(String(renderedHeight));
     }
+  });
+
+  it('renders all 23 licensed contours and three explicit deep-location guides', async () => {
+    const { rerender } = render(<MuscleAtlas activations={allActivations} selected="rotator-cuff" onSelect={vi.fn()} />);
+    const licensedSurfaceIds = [
+      'pectoralis-major', 'serratus-anterior', 'anterior-deltoid', 'middle-deltoid', 'posterior-deltoid',
+      'upper-trapezius', 'lower-trapezius', 'latissimus-dorsi', 'erector-spinae', 'biceps-brachii',
+      'triceps-brachii', 'forearm-flexors', 'forearm-extensors', 'rectus-abdominis', 'obliques',
+      'gluteus-maximus', 'gluteus-medius', 'quadriceps', 'hamstrings', 'adductors', 'gastrocnemius',
+      'soleus', 'tibialis-anterior',
+    ];
+
+    for (const view of ['front', 'back'] as const) {
+      fireEvent.click(screen.getByRole('button', { name: `Show ${view} anatomy` }));
+      for (const activation of allActivations.filter((item) => ATLAS_GEOMETRY[item.id].view === view && licensedSurfaceIds.includes(item.id))) {
+        expect(screen.getByTestId(`atlas-region-${activation.id}`).getAttribute('data-anatomy-source')).toBe('licensed-surface');
+      }
+    }
+
+    expect(screen.getByTestId('atlas-region-rotator-cuff').getAttribute('data-anatomy-depth')).toBe('deep-guide');
+    expect(screen.getByTestId('atlas-region-rhomboids').getAttribute('data-anatomy-depth')).toBe('deep-guide');
+    rerender(<MuscleAtlas activations={allActivations} selected="brachialis" onSelect={vi.fn()} />);
+    await waitFor(() => expect(screen.getByTestId('atlas-region-brachialis').getAttribute('data-anatomy-depth')).toBe('deep-guide'));
+    expect(screen.getAllByText(/deep location guide/i).length).toBeGreaterThan(0);
   });
 
   it('changes to the selected muscle view when controlled selection crosses sides', async () => {

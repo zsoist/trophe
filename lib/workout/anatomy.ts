@@ -47,12 +47,21 @@ export interface AnatomyExerciseInput {
   muscle_group?: MuscleGroup | string | null;
 }
 
-const activation = (id: AnatomyMuscleId, role: MuscleRole, view: AnatomyView): MuscleActivation => ({
-  id,
-  label: MUSCLE_LABELS[id],
-  role,
-  view,
-});
+/** Canonical display side, kept lightweight for non-visual anatomy consumers. */
+const ATLAS_MUSCLE_VIEWS: Record<AnatomyMuscleId, AnatomyView> = {
+  'pectoralis-major': 'front', 'serratus-anterior': 'front', 'anterior-deltoid': 'front', 'middle-deltoid': 'front',
+  'posterior-deltoid': 'back', 'rotator-cuff': 'back', 'upper-trapezius': 'back', 'lower-trapezius': 'back',
+  'latissimus-dorsi': 'back', rhomboids: 'back', 'erector-spinae': 'back', 'biceps-brachii': 'front',
+  'triceps-brachii': 'back', brachialis: 'front', 'forearm-flexors': 'back', 'forearm-extensors': 'back',
+  'rectus-abdominis': 'front', obliques: 'front', 'gluteus-maximus': 'back', 'gluteus-medius': 'back',
+  quadriceps: 'front', hamstrings: 'back', adductors: 'front', gastrocnemius: 'back', soleus: 'back',
+  'tibialis-anterior': 'front',
+};
+
+const activation = (id: AnatomyMuscleId, role: MuscleRole, view: AnatomyView): MuscleActivation => {
+  void view;
+  return { id, label: MUSCLE_LABELS[id], role, view: ATLAS_MUSCLE_VIEWS[id] };
+};
 
 const MUSCLE_LABELS: Record<AnatomyMuscleId, string> = {
   'pectoralis-major': 'Pectoralis major',
@@ -87,41 +96,41 @@ const MUSCLE_LABELS: Record<AnatomyMuscleId, string> = {
 export const CURATED_MUSCLE_ACTIVATIONS: Readonly<Record<string, MuscleActivation[]>> = {
   'bench-press': [
     activation('pectoralis-major', 'primary', 'front'),
-    activation('triceps-brachii', 'secondary', 'front'),
+    activation('triceps-brachii', 'secondary', 'back'),
     activation('anterior-deltoid', 'secondary', 'front'),
     activation('rotator-cuff', 'stabilizer', 'back'),
   ],
   'incline-press': [
     activation('pectoralis-major', 'primary', 'front'),
     activation('anterior-deltoid', 'secondary', 'front'),
-    activation('triceps-brachii', 'secondary', 'front'),
+    activation('triceps-brachii', 'secondary', 'back'),
     activation('rotator-cuff', 'stabilizer', 'back'),
   ],
   'smith-bench-press': [
     activation('pectoralis-major', 'primary', 'front'),
-    activation('triceps-brachii', 'secondary', 'front'),
+    activation('triceps-brachii', 'secondary', 'back'),
     activation('anterior-deltoid', 'secondary', 'front'),
   ],
   'floor-press': [
     activation('pectoralis-major', 'primary', 'front'),
-    activation('triceps-brachii', 'secondary', 'front'),
+    activation('triceps-brachii', 'secondary', 'back'),
     activation('anterior-deltoid', 'secondary', 'front'),
   ],
   'machine-chest-press': [
     activation('pectoralis-major', 'primary', 'front'),
-    activation('triceps-brachii', 'secondary', 'front'),
+    activation('triceps-brachii', 'secondary', 'back'),
     activation('anterior-deltoid', 'secondary', 'front'),
   ],
   'push-up': [
     activation('pectoralis-major', 'primary', 'front'),
-    activation('triceps-brachii', 'secondary', 'front'),
+    activation('triceps-brachii', 'secondary', 'back'),
     activation('anterior-deltoid', 'secondary', 'front'),
     activation('serratus-anterior', 'stabilizer', 'front'),
     activation('rectus-abdominis', 'stabilizer', 'front'),
   ],
   'overhead-press': [
     activation('anterior-deltoid', 'primary', 'front'),
-    activation('triceps-brachii', 'secondary', 'front'),
+    activation('triceps-brachii', 'secondary', 'back'),
     activation('middle-deltoid', 'secondary', 'front'),
     activation('upper-trapezius', 'stabilizer', 'back'),
     activation('rotator-cuff', 'stabilizer', 'back'),
@@ -138,7 +147,7 @@ export const CURATED_MUSCLE_ACTIVATIONS: Readonly<Record<string, MuscleActivatio
     activation('latissimus-dorsi', 'primary', 'back'),
     activation('biceps-brachii', 'secondary', 'front'),
     activation('lower-trapezius', 'secondary', 'back'),
-    activation('forearm-flexors', 'stabilizer', 'front'),
+    activation('forearm-flexors', 'stabilizer', 'back'),
   ],
   deadlift: [
     activation('gluteus-maximus', 'primary', 'back'),
@@ -154,7 +163,7 @@ export const CURATED_MUSCLE_ACTIVATIONS: Readonly<Record<string, MuscleActivatio
   ],
   dip: [
     activation('pectoralis-major', 'primary', 'front'),
-    activation('triceps-brachii', 'secondary', 'front'),
+    activation('triceps-brachii', 'secondary', 'back'),
     activation('anterior-deltoid', 'secondary', 'front'),
   ],
   row: [
@@ -167,11 +176,11 @@ export const CURATED_MUSCLE_ACTIVATIONS: Readonly<Record<string, MuscleActivatio
   curl: [
     activation('biceps-brachii', 'primary', 'front'),
     activation('brachialis', 'secondary', 'front'),
-    activation('forearm-flexors', 'stabilizer', 'front'),
+    activation('forearm-flexors', 'stabilizer', 'back'),
   ],
   'triceps-extension': [
-    activation('triceps-brachii', 'primary', 'front'),
-    activation('forearm-extensors', 'stabilizer', 'front'),
+    activation('triceps-brachii', 'primary', 'back'),
+    activation('forearm-extensors', 'stabilizer', 'back'),
   ],
 };
 
@@ -183,8 +192,8 @@ const GROUP_ACTIVATIONS: Partial<Record<MuscleGroup | string, MuscleActivation[]
   shoulders: [activation('anterior-deltoid', 'primary', 'front')],
   back: [activation('latissimus-dorsi', 'primary', 'back')],
   biceps: [activation('biceps-brachii', 'primary', 'front')],
-  triceps: [activation('triceps-brachii', 'primary', 'front')],
-  forearms: [activation('forearm-flexors', 'primary', 'front')],
+  triceps: [activation('triceps-brachii', 'primary', 'back')],
+  forearms: [activation('forearm-flexors', 'primary', 'back')],
   quads: [activation('quadriceps', 'primary', 'front')],
   hamstrings: [activation('hamstrings', 'primary', 'back')],
   glutes: [activation('gluteus-maximus', 'primary', 'back')],

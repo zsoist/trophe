@@ -37,6 +37,7 @@ describe('WorkoutAtlasHome localization', () => {
     expect(screen.getByRole('heading', { name: 'Objetivo de hoy' })).toBeTruthy();
     expect(screen.getByRole('status').textContent).toBe('Pectoral mayor · Objetivo principal');
 
+    fireEvent.click(screen.getByRole('button', { name: 'Mostrar anatomía posterior' }));
     fireEvent.click(screen.getByRole('button', { name: 'Tríceps braquial, músculo secundario' }));
     expect(screen.getByRole('status').textContent).toBe('Tríceps braquial · Objetivo de apoyo');
     expect(document.body.textContent).not.toMatch(/Today|Pectoralis|Primary target|Supporting target/);
