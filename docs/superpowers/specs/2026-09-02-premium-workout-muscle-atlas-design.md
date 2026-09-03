@@ -1,7 +1,7 @@
 # Premium Workout Muscle Atlas — Design Specification
 
 **Date:** 2026-09-02  
-**Status:** proposed for implementation  
+**Status:** implemented and release-verified
 **Chosen composition:** Interactive Muscle Atlas  
 **Build path:** comp-first  
 **Decision seed:** `e467ce0c`
@@ -180,6 +180,14 @@ The chosen Interactive Muscle Atlas comp remains inside Personal Best: obsidian/
 - An exact-media mismatch is impossible by resolver contract; unsupported exercises receive a labeled honest fallback.
 - Light/dark modes and mobile safe areas pass visual and interaction checks.
 - The complete test suite, new media-contract tests, mobile browser journeys, production health checks, and post-deploy canary are green before the goal is declared complete.
+
+## Release verification
+
+- The bounded release gate passed typecheck, lint, the complete Vitest suite, and a 70-route production build on 2026-09-03. The full unit run reported 2,295 passing tests, 46 skipped tests, and one intentionally skipped file.
+- The authenticated Chromium journey passed 16/16 cases across plan, live session, overlays, completion, history, analytics, recovery after a committed lost response, stable focus, light/dark themes, and 320, 375, 390, and 430 px phone layouts.
+- The final visual matrix contains 104 valid Workout captures across light/dark themes and 320, 390, 430, 768, and 1280 px widths, plus focused overlay evidence. The single allowed mechanical detector result and the corrective-pass evidence were reviewed before release.
+- Production bundle budgets passed: `/` is 19.4 KiB (+8.5% from baseline) and `/login` is 272.4 KiB (+2.8%). The workout media registry also passes the deterministic asset integrity check.
+- The recommendation and verification paths made no paid AI calls.
 
 ## Evidence used
 

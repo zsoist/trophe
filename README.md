@@ -52,7 +52,9 @@ Partnership with Michael Kavdas (Greek nutritionist, PN L1 certified, COO Athlet
   realtime coach↔client messaging with unread inbox, intake questionnaire (12-question
   interview set), daily lifestyle check-ins, assessment + custom goals, derived calorie
   targets, color-coded coach notes pinned on the client dashboard
-- **Workout module**: 113 exercises, custom exercise modal, PR detection, AI Form Check
+- **Workout module**: interactive front/back muscle atlas, curated technique media,
+  coach-governed recommendations, explicit plan → review → live logging, completed-session
+  analytics, custom exercises, PR detection, pain guidance, and AI Form Check
 - **Coach dashboard**: 52 components across 5 waves (pulse cards, risk heatmap, client detail, smart coaching, workflow)
 - **Nutrition engine**: evidence-based (Mifflin-St Jeor BMR, ISSN macros, 35ml/kg water)
 - **Light + dark theme**: full CSS variable system, no-flash inline script
@@ -118,6 +120,7 @@ npm run canary:prod   # read-only production canary for trophe.app
 - [`ROADMAP.md`](./ROADMAP.md) — day-by-day progress, current phase, deferred items
 - [`BUSINESS.md`](./BUSINESS.md) — business model, pricing, three-tier strategy
 - [`CHANGELOG.md`](./CHANGELOG.md) — per-commit log of shipped work
+- [`docs/superpowers/specs/2026-09-02-premium-workout-muscle-atlas-design.md`](./docs/superpowers/specs/2026-09-02-premium-workout-muscle-atlas-design.md) — shipped Workout product, anatomy, motion, and verification contract
 - [`DEPLOYMENT.md`](./DEPLOYMENT.md) — env vars, Vercel + Supabase setup, rollback
 - [`SECURITY.md`](./SECURITY.md) — threat model, controls, RLS policies
 - [`RUNBOOK.md`](./RUNBOOK.md) — on-call playbooks (auth broken, LLM 429, data loss, etc.)
