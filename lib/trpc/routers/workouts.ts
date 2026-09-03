@@ -401,8 +401,16 @@ export const workoutsRouter = router({
             })
           : [],
       );
+      // Keep the SQL predicate as the primary boundary, and filter again here
+      // so a mocked, misconfigured, or privileged DB client cannot leak a
+      // private exercise into the deterministic draft.
+      const visibleExerciseRows = exerciseRows.filter((exercise) =>
+        exercise.isTemplate === true
+        || exercise.createdBy === ctx.user!.id
+        || (coachTemplateIds.includes(exercise.id) && exercise.createdBy === profile.coachId),
+      );
 
-      const recommendationExercises: Exercise[] = exerciseRows.map((exercise) => ({
+      const recommendationExercises: Exercise[] = visibleExerciseRows.map((exercise) => ({
         id: exercise.id,
         name: exercise.name,
         name_es: exercise.nameEs,
@@ -441,7 +449,7 @@ export const workoutsRouter = router({
           })),
         painRegions,
         activeCoachTemplate,
-        missingCoachTemplateExerciseIds: coachTemplateIds.filter((id) => !exerciseRows.some((exercise) => exercise.id === id)),
+        missingCoachTemplateExerciseIds: coachTemplateIds.filter((id) => !visibleExerciseRows.some((exercise) => exercise.id === id)),
       });
     }),
   }),

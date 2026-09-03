@@ -130,15 +130,27 @@ describe('workouts.recommendation.mine route contract', () => {
       isTemplate: false, instructions: null, instructionsEs: null, instructionsEl: null,
       createdBy: COACH_ID, createdAt: '2026-09-01T00:00:00Z',
     };
-    const currentTemplate = { id: 'wed-template', exercises: [{ exercise_id: 'coach-private', target_sets: 3, target_reps: '8-10' }] };
+    const coachPrivateSafe = {
+      ...coachPrivate, id: 'coach-private-safe', name: 'Private Barbell Curl', muscleGroup: 'biceps',
+    };
+    const otherCoachPrivate = {
+      ...coachPrivate, id: 'other-coach-private', name: 'Other Coach Cable Exercise', muscleGroup: 'full_body',
+      equipment: 'Cable', createdBy: '00000000-0000-4000-8000-000000000099',
+    };
+    const currentTemplate = { id: 'wed-template', exercises: [
+      { exercise_id: 'coach-private', target_sets: 3, target_reps: '8-10' },
+      { exercise_id: 'coach-private-safe', target_sets: 3, target_reps: '8-10' },
+      // A malformed template reference must not authorize another coach's private exercise.
+      { exercise_id: 'other-coach-private', target_sets: 3, target_reps: '8-10' },
+    ] };
     const select = vi.fn()
-      .mockReturnValueOnce(query([{ goal: 'muscle_gain', activityLevel: 'active', coachId: COACH_ID, workoutPreferences: { ...preferences, equipment: ['barbell'] } }]))
+      .mockReturnValueOnce(query([{ goal: 'muscle_gain', activityLevel: 'active', coachId: COACH_ID, workoutPreferences: { ...preferences, equipment: ['barbell', 'cable'] } }]))
       .mockReturnValueOnce(query([{ id: 'program', coachId: COACH_ID }]))
       .mockReturnValueOnce(query([
         { id: 'sun', weekday: 0, sort: 0, template: { id: 'sun-template', exercises: [] } },
         { id: 'wed', weekday: 3, sort: 0, template: currentTemplate },
       ]))
-      .mockReturnValueOnce(query([coachPrivate]))
+      .mockReturnValueOnce(query([coachPrivate, coachPrivateSafe, otherCoachPrivate]))
       .mockReturnValueOnce(query([]))
       .mockReturnValueOnce(query([{ painFlags: [{ body_part: 'shoulder', severity: 2 }] }]));
     const insert = vi.fn();
@@ -151,8 +163,13 @@ describe('workouts.recommendation.mine route contract', () => {
       source: 'coach', reasons: expect.any(Array), estimatedDurationMinutes: expect.any(Number),
       equipment: expect.any(Array), muscleDistribution: expect.any(Object), exercises: expect.any(Array),
     }));
-    expect(result.exercises).toEqual([]);
+    expect(result.exercises.map((exercise) => exercise.exerciseId)).toEqual(['coach-private-safe']);
     expect(result.reasons).toContain('Excluded coach-template exercises affecting painful regions: shoulders.');
+    expect(result.reasons).toContain('Some coach-template exercises are unavailable and need coach review.');
+    expect(result.equipment).toEqual(['Barbell']);
+    expect(result.muscleDistribution).toEqual({ biceps: 3 });
+    expect(result.exercises.map((exercise) => exercise.exerciseId)).not.toContain('other-coach-private');
+    expect(result.reasons.join(' ')).not.toContain('Other Coach Cable Exercise');
     expect(insert).not.toHaveBeenCalled();
     expect(update).not.toHaveBeenCalled();
     vi.useRealTimers();
