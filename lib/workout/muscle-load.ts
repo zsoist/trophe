@@ -43,7 +43,7 @@ export function calculateMuscleLoad(inputOrActivations: MuscleLoadInput | Muscle
   }
 
   for (const set of input.sets) {
-    if (set.completed === false) continue;
+    if (set.completed !== true) continue;
     const warmup = set.isWarmup ?? set.is_warmup ?? false;
     const setScale = warmup ? 0.25 : 1;
     for (const item of input.activations) {

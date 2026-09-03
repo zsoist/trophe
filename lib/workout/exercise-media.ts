@@ -50,12 +50,23 @@ export const EXERCISE_MEDIA_REGISTRY: ReadonlyArray<MediaDefinition> = [
 const normalize = (value: string): string => value.toLowerCase().normalize('NFKD')
   .replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
 
+const EQUIPMENT_ALIASES: Record<string, string[]> = {
+  barbell: ['barbell', 'olympic barbell', 'olympic bar'],
+  dumbbell: ['dumbbell', 'dumbbells', 'pair of dumbbells'],
+  cable: ['cable', 'cable machine'],
+  machine: ['machine', 'weight machine'],
+  'smith machine': ['smith machine', 'smith'],
+  bodyweight: ['bodyweight', 'body weight', 'no equipment'],
+};
+
 const equipmentCompatible = (actual: string | null | undefined, expected: string[]): boolean => {
   if (!actual?.trim()) return false;
   const normalized = normalize(actual);
-  return expected.some((candidate) => normalized === normalize(candidate)
-    || normalized.includes(normalize(candidate))
-    || normalize(candidate).includes(normalized));
+  return expected.some((candidate) => {
+    const candidateKey = normalize(candidate);
+    const aliases = EQUIPMENT_ALIASES[candidateKey] ?? [candidateKey];
+    return aliases.some((alias) => normalize(alias) === normalized);
+  });
 };
 
 function anatomyArea(group?: string | null): string {

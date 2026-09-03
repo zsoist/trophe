@@ -23,5 +23,9 @@ describe('resolveExerciseMedia', () => {
       .not.toBe('verified-technique');
     expect(resolveExerciseMedia({ name: 'Floor Press', muscleGroup: 'chest' }).tier)
       .not.toBe('verified-technique');
+    expect(resolveExerciseMedia({ name: 'Floor Press', equipment: 'bar', muscleGroup: 'chest' }).tier)
+      .not.toBe('verified-technique');
+    expect(resolveExerciseMedia({ name: 'Floor Press', equipment: 'Dumbbell Barbell', muscleGroup: 'chest' }).tier)
+      .not.toBe('verified-technique');
   });
 });

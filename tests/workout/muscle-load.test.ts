@@ -29,4 +29,11 @@ describe('calculateMuscleLoad', () => {
       activations: [{ id: 'pectoralis-major', label: 'Pectoralis major', role: 'primary', view: 'front' }],
     })).toEqual({ 'pectoralis-major': 0 });
   });
+
+  it('does not count sets whose completion state is unknown', () => {
+    expect(calculateMuscleLoad({
+      sets: [{ isWarmup: false }],
+      activations: [{ id: 'pectoralis-major', label: 'Pectoralis major', role: 'primary', view: 'front' }],
+    })).toEqual({ 'pectoralis-major': 0 });
+  });
 });
