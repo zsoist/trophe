@@ -67,13 +67,13 @@ export function WorkoutCalendar({ month, scheduled, completed, today, selectedDa
   };
 
   return (
-    <section aria-labelledby="workout-calendar-title" className="rounded-xl bg-[var(--surface-subtle)] p-3 sm:p-4">
+    <section aria-labelledby="workout-calendar-title" className="rounded-xl bg-[var(--surface-subtle)] p-3 max-[390px]:-mx-4 sm:p-4">
       <div className="mb-3 flex items-center justify-between gap-2">
         <button type="button" onClick={() => moveMonth(-1)} aria-label={t('workout.analytics_previous_month')} className="grid min-h-11 min-w-11 place-items-center rounded-lg text-[var(--content-secondary)] hover:bg-[var(--surface-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"><ChevronLeft size={18} /></button>
         <h2 id="workout-calendar-title" className="text-base font-semibold text-[var(--content-primary)]">{monthLabel}</h2>
         <button type="button" onClick={() => moveMonth(1)} aria-label={t('workout.analytics_next_month')} className="grid min-h-11 min-w-11 place-items-center rounded-lg text-[var(--content-secondary)] hover:bg-[var(--surface-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"><ChevronRight size={18} /></button>
       </div>
-      <div className="grid grid-cols-7 gap-1 text-center" role="grid" aria-label={t('workout.analytics_calendar_grid', { month: monthLabel })}>
+      <div className="grid grid-cols-7 gap-1 text-center max-[390px]:-mx-2 max-[390px]:gap-0" role="grid" aria-label={t('workout.analytics_calendar_grid', { month: monthLabel })}>
         {Array.from({ length: 7 }, (_, index) => <span key={index} className="py-1 text-xs font-medium text-[var(--content-muted)]">{weekdayFormatter.format(new Date(2026, 7, 2 + index, 12))}</span>)}
         {cells.map((date) => {
           const key = dateKey(date);
