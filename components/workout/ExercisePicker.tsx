@@ -31,18 +31,20 @@ import { ExerciseResults } from './ExerciseResults';
 import { MuscleAtlas } from './MuscleAtlas';
 import { WorkoutPlanTray } from './WorkoutPlanTray';
 
-const DISCOVERY_ATLAS_ACTIVATIONS: MuscleActivation[] = [
-  { id: 'pectoralis-major', label: 'Pectoralis major', role: 'primary', view: 'front' },
-  { id: 'anterior-deltoid', label: 'Anterior deltoid', role: 'primary', view: 'front' },
-  { id: 'biceps-brachii', label: 'Biceps brachii', role: 'primary', view: 'front' },
-  { id: 'rectus-abdominis', label: 'Rectus abdominis', role: 'primary', view: 'front' },
-  { id: 'quadriceps', label: 'Quadriceps', role: 'primary', view: 'front' },
-  { id: 'latissimus-dorsi', label: 'Latissimus dorsi', role: 'primary', view: 'back' },
-  { id: 'triceps-brachii', label: 'Triceps brachii', role: 'primary', view: 'back' },
-  { id: 'gluteus-maximus', label: 'Gluteus maximus', role: 'primary', view: 'back' },
-  { id: 'hamstrings', label: 'Hamstrings', role: 'primary', view: 'back' },
-  { id: 'gastrocnemius', label: 'Gastrocnemius', role: 'primary', view: 'back' },
+const DISCOVERY_ATLAS_REGIONS: Array<Omit<MuscleActivation, 'label'>> = [
+  { id: 'pectoralis-major', role: 'primary', view: 'front' },
+  { id: 'anterior-deltoid', role: 'primary', view: 'front' },
+  { id: 'biceps-brachii', role: 'primary', view: 'front' },
+  { id: 'rectus-abdominis', role: 'primary', view: 'front' },
+  { id: 'quadriceps', role: 'primary', view: 'front' },
+  { id: 'latissimus-dorsi', role: 'primary', view: 'back' },
+  { id: 'triceps-brachii', role: 'primary', view: 'back' },
+  { id: 'gluteus-maximus', role: 'primary', view: 'back' },
+  { id: 'hamstrings', role: 'primary', view: 'back' },
+  { id: 'gastrocnemius', role: 'primary', view: 'back' },
 ];
+
+const atlasMuscleLabelKey = (id: AnatomyMuscleId) => `workout.atlas_muscle_${id.replaceAll('-', '_')}`;
 
 const DISCOVERY_AREA_BY_MUSCLE: Record<AnatomyMuscleId, WorkoutBodyArea> = {
   'pectoralis-major': 'chest',
@@ -393,6 +395,10 @@ export default function ExercisePicker({
     getServerSnapshot,
   );
   const { t } = useI18n();
+  const discoveryAtlasActivations = DISCOVERY_ATLAS_REGIONS.map((activation) => ({
+    ...activation,
+    label: t(atlasMuscleLabelKey(activation.id)),
+  }));
 
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -513,7 +519,7 @@ export default function ExercisePicker({
     && Boolean(onReturnToBuild)
     && addedIds.size > 0;
   const scrollPadding = showPlanTray
-    ? 'calc(6rem + var(--client-shell-nav-base-height, 4.5rem) + max(env(safe-area-inset-bottom, 0px), var(--client-shell-nav-min-bottom-padding, 1rem)) + var(--client-shell-content-buffer, 0.625rem))'
+    ? 'calc(var(--workout-plan-tray-reserve, 8rem) + var(--client-shell-nav-base-height, 4.5rem) + max(env(safe-area-inset-bottom, 0px), var(--client-shell-nav-min-bottom-padding, 1rem)) + var(--client-shell-content-buffer, 0.625rem))'
     : 'calc(7rem + env(safe-area-inset-bottom, 0px))';
 
   if (!canUseDom) return null;
@@ -586,7 +592,7 @@ export default function ExercisePicker({
                 <MuscleAtlas
                   compact
                   homeCompact
-                  activations={DISCOVERY_ATLAS_ACTIVATIONS}
+                  activations={discoveryAtlasActivations}
                   selected={null}
                   onSelect={(muscle) => chooseArea(DISCOVERY_AREA_BY_MUSCLE[muscle])}
                 />

@@ -2,6 +2,64 @@
 
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+
+const atlasLocale = vi.hoisted(() => ({ value: 'en' }));
+
+vi.mock('@/lib/i18n', () => ({
+  useI18n: () => ({
+    lang: atlasLocale.value,
+    t: (key: string, params?: Record<string, string | number>) => {
+      const english: Record<string, string> = {
+        'workout.atlas_label': 'Muscle activation atlas',
+        'workout.atlas_focus_title': 'Muscle focus',
+        'workout.atlas_focus_hint': 'Choose a highlighted region to inspect its role.',
+        'workout.atlas_view_label': 'Anatomy view',
+        'workout.atlas_front': 'Front',
+        'workout.atlas_back': 'Back',
+        'workout.atlas_show_front': 'Show front anatomy',
+        'workout.atlas_show_back': 'Show back anatomy',
+        'workout.atlas_front_map': 'Front anatomy map',
+        'workout.atlas_back_map': 'Back anatomy map',
+        'workout.atlas_roles_label': 'Highlighted muscle roles',
+        'workout.atlas_region_label': '{muscle}, {role} muscle',
+        'workout.atlas_more_highlighted': '+{n} more highlighted',
+        'workout.info_primary': 'Primary',
+        'workout.info_secondary': 'Secondary',
+        'workout.info_stabilizer': 'Stabilizer',
+        'workout.atlas_muscle_pectoralis_major': 'Pectoralis major',
+        'workout.atlas_muscle_triceps_brachii': 'Triceps brachii',
+        'workout.atlas_muscle_rotator_cuff': 'Rotator cuff',
+        'workout.atlas_muscle_brachialis': 'Brachialis',
+      };
+      const spanish: Record<string, string> = {
+        'workout.atlas_label': 'Atlas de activación muscular',
+        'workout.atlas_focus_title': 'Enfoque muscular',
+        'workout.atlas_focus_hint': 'Elige una zona destacada para ver su función.',
+        'workout.atlas_view_label': 'Vista anatómica',
+        'workout.atlas_front': 'Frente',
+        'workout.atlas_back': 'Espalda',
+        'workout.atlas_show_front': 'Mostrar anatomía frontal',
+        'workout.atlas_show_back': 'Mostrar anatomía posterior',
+        'workout.atlas_front_map': 'Mapa anatómico frontal',
+        'workout.atlas_back_map': 'Mapa anatómico posterior',
+        'workout.atlas_roles_label': 'Funciones musculares destacadas',
+        'workout.atlas_region_label': '{muscle}, músculo {role}',
+        'workout.atlas_more_highlighted': '+{n} más destacados',
+        'workout.info_primary': 'Principal',
+        'workout.info_secondary': 'Secundario',
+        'workout.info_stabilizer': 'Estabilizador',
+        'workout.atlas_muscle_pectoralis_major': 'Pectoral mayor',
+        'workout.atlas_muscle_triceps_brachii': 'Tríceps braquial',
+        'workout.atlas_muscle_rotator_cuff': 'Manguito rotador',
+      };
+      const copy = atlasLocale.value === 'es' ? { ...english, ...spanish } : english;
+      return Object.entries(params ?? {}).reduce(
+        (text, [name, value]) => text.replaceAll(`{${name}}`, String(value)),
+        copy[key] ?? key,
+      );
+    },
+  }),
+}));
 import { MuscleAtlas } from '@/components/workout/MuscleAtlas';
 import type { MuscleActivation } from '@/lib/workout/anatomy';
 
@@ -21,7 +79,10 @@ const allActivations: MuscleActivation[] = [
   ['tibialis-anterior', 'front'],
 ].map(([id, view]) => ({ id, label: id, role: 'primary', view } as MuscleActivation));
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  atlasLocale.value = 'en';
+});
 
 describe('MuscleAtlas', () => {
   it('selects named regions and exposes their role in text', () => {
@@ -42,6 +103,28 @@ describe('MuscleAtlas', () => {
 
     expect(back.getAttribute('aria-pressed')).toBe('true');
     expect(screen.getByRole('button', { name: /rotator cuff.*stabilizer/i })).toBeTruthy();
+  });
+
+  it('derives the compact back legend and summary from back-visible activations only', () => {
+    render(<MuscleAtlas activations={benchActivations} selected={null} onSelect={vi.fn()} homeCompact />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show back anatomy' }));
+
+    const roles = screen.getByRole('list', { name: 'Highlighted muscle roles' });
+    expect(roles.textContent).toContain('Rotator cuff');
+    expect(roles.textContent).not.toContain('Pectoralis major');
+    expect(roles.textContent).not.toContain('+2 more highlighted');
+  });
+
+  it('localizes atlas names, view controls, roles, summaries, and aria copy', () => {
+    atlasLocale.value = 'es';
+    render(<MuscleAtlas activations={benchActivations} selected={null} onSelect={vi.fn()} homeCompact />);
+
+    expect(screen.getByRole('region', { name: 'Atlas de activación muscular' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Pectoral mayor, músculo Principal/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Mostrar anatomía posterior' })).toBeTruthy();
+    expect(screen.getByRole('list', { name: 'Funciones musculares destacadas' }).textContent).toContain('Pectoral mayor');
+    expect(document.body.textContent).not.toMatch(/\b(?:Front|Back|Primary|Pectoralis|highlighted)\b/);
   });
 
   it('does not select on focus, but selects on Enter, Space, and click', () => {

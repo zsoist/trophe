@@ -110,6 +110,8 @@ describe('exercise picker presentation layering', () => {
   });
 
   it('keeps the fixed plan tray above navigation and reserves both layers in scroll content', () => {
+    vi.stubGlobal('innerWidth', 320);
+    vi.stubGlobal('innerHeight', 844);
     render(React.createElement(ExercisePicker, {
       presentation: 'page',
       exercises: [],
@@ -127,8 +129,11 @@ describe('exercise picker presentation layering', () => {
     expect(tray?.className).toContain('fixed');
     expect(tray?.style.bottom).toContain('var(--client-shell-nav-base-height, 4.5rem)');
     expect(tray?.style.zIndex).toContain('var(--z-nav, 30) + 1');
+    expect(tray?.className).toContain('grid-cols-[auto_minmax(0,1fr)]');
+    expect(tray?.innerHTML).toContain('h-8 w-8');
+    expect(screen.getByRole('button', { name: 'Review plan' }).className).toContain('col-span-2');
     expect(scrollContent?.style.paddingBottom).toContain('var(--client-shell-nav-base-height, 4.5rem)');
-    expect(scrollContent?.style.paddingBottom).toContain('6rem');
+    expect(scrollContent?.style.paddingBottom).toContain('var(--workout-plan-tray-reserve, 8rem)');
     expect(readFileSync('components/ui/BotNav.tsx', 'utf8')).toContain('z-[var(--z-nav,30)]');
   });
 });

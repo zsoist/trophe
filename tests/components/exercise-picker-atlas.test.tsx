@@ -5,6 +5,8 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Exercise } from '@/lib/types';
 
+const pickerLocale = vi.hoisted(() => ({ value: 'en' }));
+
 vi.mock('framer-motion', async () => {
   const ReactModule = await import('react');
   const ignored = new Set(['animate', 'exit', 'initial', 'layout', 'transition', 'whileTap']);
@@ -27,7 +29,7 @@ vi.mock('@/lib/supabase', () => ({
 
 vi.mock('@/lib/i18n', () => ({
   useI18n: () => ({
-    lang: 'en',
+    lang: pickerLocale.value,
     t: (key: string, params?: Record<string, string | number>) => {
       const copy: Record<string, string> = {
         'workout.add_exercise': 'Add exercise',
@@ -52,7 +54,37 @@ vi.mock('@/lib/i18n', () => ({
         'workout.picker_selected_many': '{n} exercises selected',
         'workout.picker_review_plan': 'Review plan',
         'workout.picker_exact_poster': 'Exact technique poster',
+        'workout.picker_exact_poster_detail': 'Exact movement and equipment poster',
+        'workout.picker_exact_poster_alt': '{name} technique poster',
+        'workout.picker_anatomy_poster_alt': '{name} anatomy reference',
+        'workout.media_anatomy_reference': 'Anatomy reference',
+        'workout.media_anatomy_reference_detail': 'Curated muscle roles; not a technique demonstration',
+        'workout.media_no_exact_demo': 'No exact demo yet',
+        'workout.media_no_exact_demo_detail': 'Use the exercise cues and equipment details',
         'workout.info_primary': 'Primary',
+        'workout.info_secondary': 'Secondary',
+        'workout.info_stabilizer': 'Stabilizer',
+        'workout.atlas_label': 'Muscle activation atlas',
+        'workout.atlas_view_label': 'Anatomy view',
+        'workout.atlas_front': 'Front',
+        'workout.atlas_back': 'Back',
+        'workout.atlas_show_front': 'Show front anatomy',
+        'workout.atlas_show_back': 'Show back anatomy',
+        'workout.atlas_front_map': 'Front anatomy map',
+        'workout.atlas_back_map': 'Back anatomy map',
+        'workout.atlas_roles_label': 'Highlighted muscle roles',
+        'workout.atlas_region_label': '{muscle}, {role} muscle',
+        'workout.atlas_more_highlighted': '+{n} more highlighted',
+        'workout.atlas_muscle_pectoralis_major': 'Pectoralis major',
+        'workout.atlas_muscle_anterior_deltoid': 'Anterior deltoid',
+        'workout.atlas_muscle_biceps_brachii': 'Biceps brachii',
+        'workout.atlas_muscle_rectus_abdominis': 'Rectus abdominis',
+        'workout.atlas_muscle_quadriceps': 'Quadriceps',
+        'workout.atlas_muscle_latissimus_dorsi': 'Latissimus dorsi',
+        'workout.atlas_muscle_triceps_brachii': 'Triceps brachii',
+        'workout.atlas_muscle_gluteus_maximus': 'Gluteus maximus',
+        'workout.atlas_muscle_hamstrings': 'Hamstrings',
+        'workout.atlas_muscle_gastrocnemius': 'Gastrocnemius',
         'workout.compound': 'Compound',
         'workout.body_area_chest': 'Chest',
         'workout.body_area_back': 'Back',
@@ -64,9 +96,15 @@ vi.mock('@/lib/i18n', () => ({
         'workout.body_area_cardio': 'Cardio',
         'workout.muscle_chest': 'Chest',
       };
+      const spanish: Record<string, string> = {
+        'workout.picker_exact_poster_alt': 'Póster técnico de {name}',
+        'workout.picker_anatomy_poster_alt': 'Referencia anatómica de {name}',
+        'workout.media_anatomy_reference': 'Referencia anatómica',
+        'workout.media_anatomy_reference_detail': 'Funciones musculares verificadas; no es una demostración técnica',
+      };
       return Object.entries(params ?? {}).reduce(
         (text, [name, value]) => text.replaceAll(`{${name}}`, String(value)),
-        copy[key] ?? key,
+        (pickerLocale.value === 'es' ? spanish[key] : undefined) ?? copy[key] ?? key,
       );
     },
   }),
@@ -95,7 +133,7 @@ const EXERCISES: Exercise[] = [
     name_el: null,
     muscle_group: 'chest',
     secondary_muscles: null,
-    equipment: 'cable',
+    equipment: 'band',
     is_compound: false,
     is_template: true,
     created_by: null,
@@ -116,12 +154,13 @@ function renderPicker() {
     onSelect={vi.fn()}
     onClose={vi.fn()}
     onInfo={vi.fn()}
-    lang="en"
+    lang={pickerLocale.value}
   />);
   return { ...view, onAddToDraft, onReturnToBuild };
 }
 
 beforeEach(() => {
+  pickerLocale.value = 'en';
   vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => { callback(0); return 1; });
   vi.stubGlobal('cancelAnimationFrame', vi.fn());
 });
@@ -156,6 +195,29 @@ describe('exercise discovery atlas and plan tray', () => {
     expect(within(row).getByText('Exact technique poster')).toBeTruthy();
     expect(within(row).getByText('Primary')).toBeTruthy();
     expect(within(row).getByText('Barbell')).toBeTruthy();
+    expect(poster.getAttribute('loading')).toBe('lazy');
+    expect(poster.getAttribute('decoding')).toBe('async');
+  });
+
+  it('keeps an explicit Add affordance visible at the 320px floor', () => {
+    vi.stubGlobal('innerWidth', 320);
+    renderPicker();
+    fireEvent.click(screen.getByRole('button', { name: /^Chest/ }));
+
+    const add = screen.getByRole('button', { name: 'Add Barbell Bench Press' });
+    const text = add.querySelector('span');
+    expect(add.querySelector('.lucide-plus') || (text && !text.className.includes('hidden'))).toBeTruthy();
+  });
+
+  it('localizes fallback poster alt text and media badge copy', () => {
+    pickerLocale.value = 'es';
+    renderPicker();
+    fireEvent.click(screen.getByRole('button', { name: /^Chest/ }));
+
+    const row = screen.getByTestId('exercise-result-fly');
+    expect(within(row).getByRole('img', { name: 'Referencia anatómica de Standing Cable Chest Fly' })).toBeTruthy();
+    expect(within(row).getByText('Referencia anatómica')).toBeTruthy();
+    expect(row.textContent).not.toMatch(/Anatomy reference|technique demonstration/);
   });
 
   it('keeps optimistic multi-add selection in a persistent tray and reviews without starting live', () => {

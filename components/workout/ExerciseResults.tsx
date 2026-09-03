@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, Info } from 'lucide-react';
+import { Check, Info, Plus } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import type { Exercise } from '@/lib/types';
 import { resolveExerciseMedia } from '@/lib/workout/exercise-media';
@@ -30,9 +30,12 @@ export function ExerciseResults({ exercises, lang, selectedIds, onAdd, onInfo }:
           equipment: exercise.equipment,
           muscleGroup: exercise.muscle_group,
         });
-        const posterAlt = media.tier === 'verified-technique'
-          ? `${name} technique poster`
-          : `${name} anatomy reference`;
+        const posterAlt = t(
+          media.tier === 'verified-technique'
+            ? 'workout.picker_exact_poster_alt'
+            : 'workout.picker_anatomy_poster_alt',
+          { name },
+        );
 
         return (
           <article
@@ -48,6 +51,8 @@ export function ExerciseResults({ exercises, lang, selectedIds, onAdd, onInfo }:
               alt={posterAlt}
               width={72}
               height={72}
+              loading="lazy"
+              decoding="async"
               className="h-[4.5rem] w-[4.5rem] shrink-0 rounded-[0.625rem] bg-[var(--workout-visual-surface)] object-contain"
             />
 
@@ -71,7 +76,9 @@ export function ExerciseResults({ exercises, lang, selectedIds, onAdd, onInfo }:
                   aria-label={selected ? t('workout.exercise_added_named', { name }) : t('workout.picker_add_named', { name })}
                   className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-[0.625rem] bg-[var(--action-secondary)] px-2.5 text-sm font-semibold text-[var(--content-primary)] transition-colors hover:bg-[var(--surface-active)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-default disabled:opacity-70 motion-reduce:transition-none"
                 >
-                  {selected ? <Check size={15} aria-hidden="true" /> : null}
+                  {selected
+                    ? <Check size={15} aria-hidden="true" />
+                    : <Plus size={15} aria-hidden="true" className="min-[360px]:hidden" />}
                   <span className="hidden min-[360px]:inline">{selected ? t('workout.exercise_added') : t('workout.picker_add')}</span>
                 </button>
               </div>

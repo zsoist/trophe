@@ -2,6 +2,7 @@
 
 import type { KeyboardEvent } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useI18n } from '@/lib/i18n';
 import type { AnatomyMuscleId, AnatomyView, MuscleActivation, MuscleRole } from '@/lib/workout/anatomy';
 
 export interface MuscleAtlasProps {
@@ -44,11 +45,13 @@ const REGIONS: Record<AnatomyMuscleId, Region> = {
   'tibialis-anterior': { view: 'front', d: 'M38 251h13v45H38z M69 251h13v45H69z' },
 };
 
-const ROLE_LABELS: Record<MuscleRole, string> = {
-  primary: 'Primary',
-  secondary: 'Secondary',
-  stabilizer: 'Stabilizer',
+const ROLE_LABEL_KEYS: Record<MuscleRole, string> = {
+  primary: 'workout.info_primary',
+  secondary: 'workout.info_secondary',
+  stabilizer: 'workout.info_stabilizer',
 };
+
+const muscleLabelKey = (id: AnatomyMuscleId) => `workout.atlas_muscle_${id.replaceAll('-', '_')}`;
 
 /* 46 SVG units render as at least 44 CSS pixels in the fixed 296px / 306-unit map. */
 const HIT_CENTERS: Record<AnatomyMuscleId, readonly [number, number]> = {
@@ -73,13 +76,14 @@ function handleRegionKeyDown(event: KeyboardEvent<SVGGElement>, id: AnatomyMuscl
 }
 
 export function MuscleAtlas({ activations, selected = null, onSelect, compact = false, homeCompact = false }: MuscleAtlasProps) {
+  const { t } = useI18n();
   const [view, setView] = useState<AnatomyView>(() => activations.find((activation) => activation.id === selected)?.view ?? 'front');
   const appliedSelected = useRef<AnatomyMuscleId | null>(selected);
   const selectedActivation = activations.find((activation) => activation.id === selected);
   const visibleActivations = useMemo(() => activations.filter((activation) => activation.view === view), [activations, view]);
   const roleActivations = homeCompact
-    ? selectedActivation ? [selectedActivation] : activations.slice(0, 1)
-    : activations;
+    ? selectedActivation?.view === view ? [selectedActivation] : visibleActivations.slice(0, 1)
+    : visibleActivations;
 
   useEffect(() => {
     if (!selected) {
@@ -93,35 +97,35 @@ export function MuscleAtlas({ activations, selected = null, onSelect, compact = 
   }, [selected, selectedActivation]);
 
   return (
-    <section className={`muscle-atlas${compact ? ' muscle-atlas--compact' : ''}${homeCompact ? ' muscle-atlas--home-compact' : ''}`} aria-label="Muscle activation atlas">
+    <section className={`muscle-atlas${compact ? ' muscle-atlas--compact' : ''}${homeCompact ? ' muscle-atlas--home-compact' : ''}`} aria-label={t('workout.atlas_label')}>
       {!compact ? <div className="muscle-atlas__header">
         <div>
-          <h2>Muscle focus</h2>
-          <p>Choose a highlighted region to inspect its role.</p>
+          <h2>{t('workout.atlas_focus_title')}</h2>
+          <p>{t('workout.atlas_focus_hint')}</p>
         </div>
-        <div className="muscle-atlas__views" aria-label="Anatomy view">
+        <div className="muscle-atlas__views" aria-label={t('workout.atlas_view_label')}>
           {(['front', 'back'] as const).map((candidate) => (
             <button
               key={candidate}
               type="button"
               aria-pressed={view === candidate}
-              aria-label={`Show ${candidate} anatomy`}
+              aria-label={t(candidate === 'front' ? 'workout.atlas_show_front' : 'workout.atlas_show_back')}
               onClick={() => setView(candidate)}
             >
-              {candidate === 'front' ? 'Front' : 'Back'}
+              {t(candidate === 'front' ? 'workout.atlas_front' : 'workout.atlas_back')}
             </button>
           ))}
         </div>
-      </div> : <div className="muscle-atlas__views muscle-atlas__views--compact" aria-label="Anatomy view">
+      </div> : <div className="muscle-atlas__views muscle-atlas__views--compact" aria-label={t('workout.atlas_view_label')}>
         {(['front', 'back'] as const).map((candidate) => (
-          <button key={candidate} type="button" aria-pressed={view === candidate} aria-label={`Show ${candidate} anatomy`} onClick={() => setView(candidate)}>
-            {candidate === 'front' ? 'Front' : 'Back'}
+          <button key={candidate} type="button" aria-pressed={view === candidate} aria-label={t(candidate === 'front' ? 'workout.atlas_show_front' : 'workout.atlas_show_back')} onClick={() => setView(candidate)}>
+            {t(candidate === 'front' ? 'workout.atlas_front' : 'workout.atlas_back')}
           </button>
         ))}
       </div>}
 
       <div className="muscle-atlas__figure-wrap">
-        <svg className="muscle-atlas__figure" height={homeCompact ? 212 : 296} viewBox="0 0 120 306" role="group" aria-label={`${view === 'front' ? 'Front' : 'Back'} anatomy map`}>
+        <svg className="muscle-atlas__figure" height={homeCompact ? 212 : 296} viewBox="0 0 120 306" role="group" aria-label={t(view === 'front' ? 'workout.atlas_front_map' : 'workout.atlas_back_map')}>
           <path className="muscle-atlas__frame" d="M51 13h18v24l10 14 18 12-5 44-12 52-8 42 13 49-6 56H41l-6-56 13-49-8-42-12-52-5-44 18-12 10-14z" />
           <path className="muscle-atlas__axis" d="M60 39v258" />
           {visibleActivations.map((activation) => {
@@ -133,7 +137,10 @@ export function MuscleAtlas({ activations, selected = null, onSelect, compact = 
                 role="button"
                 tabIndex={0}
                 aria-pressed={selected === activation.id}
-                aria-label={`${activation.label}, ${ROLE_LABELS[activation.role]} muscle`}
+                aria-label={t('workout.atlas_region_label', {
+                  muscle: t(muscleLabelKey(activation.id)),
+                  role: t(ROLE_LABEL_KEYS[activation.role]),
+                })}
                 className={regionClass(activation.role, selected === activation.id)}
                 onClick={() => onSelect(activation.id)}
                 onKeyDown={(event) => handleRegionKeyDown(event, activation.id, onSelect)}
@@ -146,15 +153,15 @@ export function MuscleAtlas({ activations, selected = null, onSelect, compact = 
         </svg>
       </div>
 
-      <ul className="muscle-atlas__roles" aria-label="Highlighted muscle roles">
+      <ul className="muscle-atlas__roles" aria-label={t('workout.atlas_roles_label')}>
         {roleActivations.map((activation) => (
           <li key={activation.id} className={selected === activation.id ? 'is-selected' : ''}>
             <span className={`muscle-atlas__swatch muscle-atlas__swatch--${activation.role}`} aria-hidden="true" />
-            <span>{activation.label}</span>
-            <strong>{ROLE_LABELS[activation.role]}</strong>
+            <span>{t(muscleLabelKey(activation.id))}</span>
+            <strong>{t(ROLE_LABEL_KEYS[activation.role])}</strong>
           </li>
         ))}
-        {homeCompact && activations.length > roleActivations.length ? <li className="muscle-atlas__roles-summary"><span aria-hidden="true" /> <span>+{activations.length - roleActivations.length} more highlighted</span></li> : null}
+        {homeCompact && visibleActivations.length > roleActivations.length ? <li className="muscle-atlas__roles-summary"><span aria-hidden="true" /> <span>{t('workout.atlas_more_highlighted', { n: visibleActivations.length - roleActivations.length })}</span></li> : null}
       </ul>
     </section>
   );
