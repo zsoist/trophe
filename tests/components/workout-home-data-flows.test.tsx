@@ -294,7 +294,9 @@ describe('Workout home data flows', () => {
       }],
     };
     renderPage();
-    fireEvent.click(await screen.findByRole('button', { name: 'Review plan' }));
+    const reviewPlan = await screen.findByRole('button', { name: 'Review plan' });
+    await waitFor(() => expect(reviewPlan.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(reviewPlan);
 
     await waitFor(() => expect(harness.push).toHaveBeenCalledWith('/dashboard/workout/review'));
     const state = JSON.parse(screen.getByLabelText('Draft state').textContent ?? '{}');
