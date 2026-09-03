@@ -78,7 +78,7 @@ export function LiveCardio({ draft, mode, paused = false, elapsedMs = 0, saving 
 
       {mode === 'live' ? (
         <div className="grid grid-cols-2 gap-3">
-          <button type="button" disabled={disabled} onClick={paused ? onResume : onPause} className="btn-ghost inline-flex min-h-14 items-center justify-center gap-2 rounded-xl text-base disabled:opacity-50">{paused ? <Play size={17} aria-hidden="true" /> : <Pause size={17} aria-hidden="true" />}{t(paused ? 'workout.resume' : 'workout.pause')}</button>
+          <button type="button" disabled={disabled} onClick={() => { if (paused) onResume?.(); else onPause?.(); }} className="btn-ghost inline-flex min-h-14 items-center justify-center gap-2 rounded-xl text-base disabled:opacity-50">{paused ? <Play size={17} aria-hidden="true" /> : <Pause size={17} aria-hidden="true" />}{t(paused ? 'workout.resume' : 'workout.pause')}</button>
           <button type="button" disabled={disabled} onClick={() => { const candidate = values(); if (validate(candidate)) onFinish?.(candidate); }} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[var(--status-danger-bg)] font-semibold text-[var(--status-danger-fg)] disabled:opacity-50"><Square size={17} aria-hidden="true" />{t('workout.finish')}</button>
         </div>
       ) : (

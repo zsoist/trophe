@@ -3,7 +3,7 @@
 import React from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { WorkoutWorkspaceState } from '@/lib/workout/workspace-state';
+import { workoutWorkspaceReducer, type WorkoutWorkspaceState } from '@/lib/workout/workspace-state';
 
 const harness = vi.hoisted(() => ({
   pause: vi.fn(), resume: vi.fn(), requestFinish: vi.fn(), cancelFinish: vi.fn(),
@@ -96,10 +96,15 @@ describe('LiveWorkout focused stage', () => {
     expect(screen.queryByText('Dumbbell Row', { selector: 'h3' })).toBeNull();
   });
 
-  it('pauses the active workout explicitly before the media is disabled', async () => {
+  it('pauses with a finite elapsed duration instead of forwarding the button event into the clock', async () => {
+    let pausedState = state;
+    harness.pause.mockImplementationOnce((now = Date.now()) => {
+      pausedState = workoutWorkspaceReducer(pausedState, { type: 'live.paused', payload: { now } });
+    });
     render(<LiveWorkout exercises={[bench, row]} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Pause workout' }));
-    expect(harness.pause).toHaveBeenCalledTimes(1);
+    expect(pausedState.stage).toBe('paused');
+    expect(Number.isFinite(pausedState.clock?.accumulatedMs)).toBe(true);
   });
 
   it('uses stable path controls to revisit a completed exercise without expanding the whole session', async () => {

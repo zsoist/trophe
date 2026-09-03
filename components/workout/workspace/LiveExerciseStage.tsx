@@ -41,7 +41,7 @@ export function LiveExerciseStage({
           <p className="text-sm font-semibold text-[var(--content-secondary)]">{t('workout.exercise_position', { current: position, total })}</p>
           <h1 id="live-exercise-title" className="mt-1 text-2xl font-bold tracking-[-0.02em] text-[var(--content-primary)]">{exercise.name}</h1>
         </div>
-        <button type="button" onClick={paused ? onResume : onPause} className="btn-ghost inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl px-3" aria-label={t(paused ? 'workout.resume_workout' : 'workout.pause_workout')}>
+        <button type="button" onClick={() => { if (paused) onResume(); else onPause(); }} className="btn-ghost inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl px-3" aria-label={t(paused ? 'workout.resume_workout' : 'workout.pause_workout')}>
           {paused ? <Play size={17} aria-hidden="true" /> : <Pause size={17} aria-hidden="true" />}
           <span className="hidden sm:inline">{t(paused ? 'workout.resume' : 'workout.pause')}</span>
         </button>
