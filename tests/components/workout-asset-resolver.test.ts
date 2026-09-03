@@ -118,6 +118,12 @@ describe('resolveWorkoutAsset', () => {
       equipment: 'barbell',
       muscleGroup: 'chest',
     }).src).toBe('/workout-v2/exercises/floor-press.webp');
+
+    expect(resolveWorkoutAsset({
+      exerciseName: 'Barbell Bench Press',
+      equipment: 'dumbbell',
+      muscleGroup: 'chest',
+    }).src).toBe('/workout-v2/body-areas/chest.webp');
   });
 
   it('uses full body when no body area is known', () => {

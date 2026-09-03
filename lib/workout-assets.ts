@@ -29,6 +29,18 @@ const exerciseAssets: Array<{ matches: RegExp; equipment: RegExp; slug: string }
   { matches: /^(?:cable triceps rope extension|cable rope triceps extension|rope triceps pushdown)$/, equipment: /cable/, slug: 'triceps-extension' },
 ];
 
+function equipmentMatches(expected: RegExp, actual: string): boolean {
+  if (!expected.test(actual)) return false;
+
+  // A broad substring match (for example, a future alias containing both
+  // "barbell" and "dumbbell") must not silently claim the wrong technique.
+  // Keep this guard deliberately narrow: machine/cable combinations are valid
+  // equipment descriptions, while barbell and dumbbell are alternatives.
+  if (expected.test('barbell') && /dumbbell/.test(actual)) return false;
+  if (expected.test('dumbbell') && /barbell/.test(actual)) return false;
+  return true;
+}
+
 type AnatomyGroup = BodyAreaId | 'biceps' | 'triceps' | 'forearms' | 'quads' | 'hamstrings' | 'glutes' | 'calves';
 
 function anatomyArea(group?: AnatomyGroup | null): Exclude<BodyAreaId, 'full_body'> {
@@ -56,7 +68,7 @@ export function resolveWorkoutAsset({
   const normalizedName = normalize(exerciseName ?? '');
   const normalizedEquipment = normalize(equipment ?? '');
   const named = exerciseAssets.find(({ matches, equipment: expectedEquipment }) => (
-    matches.test(normalizedName) && (!normalizedEquipment || expectedEquipment.test(normalizedEquipment))
+    matches.test(normalizedName) && (!normalizedEquipment || equipmentMatches(expectedEquipment, normalizedEquipment))
   ));
   if (named) {
     return {
