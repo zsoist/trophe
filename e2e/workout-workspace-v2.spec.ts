@@ -419,7 +419,7 @@ test.describe('Workout Workspace V2', () => {
   }
 
   for (const theme of ['light', 'dark'] as const) {
-    test(`${theme}: routed detail and paused live sheet remain reachable at every phone width`, async ({ page }) => {
+    test(`${theme}: routed detail and paused live sheet remain reachable, with running focus stable across a clock tick`, async ({ page }) => {
       const assertNoPaidRequests = await blockPaidRequests(page);
       await page.setViewportSize({ width: 390, height: 844 });
       await loginAs(page, 'client');
@@ -449,31 +449,45 @@ test.describe('Workout Workspace V2', () => {
       await currentWorkspace(page).getByRole('button', { name: 'Start live workout' }).click();
       await waitForRouteSettled(page, '/dashboard/workout/live');
       await expect(currentWorkspace(page).getByRole('button', { name: 'More exercise options' }).first()).toBeEnabled();
-      await currentWorkspace(page).getByRole('button', { name: 'Pause' }).click();
-      await expect(page.getByText('Paused')).toBeVisible();
+      const pauseControl = currentWorkspace(page).getByRole('button', { name: 'Pause' });
+      const runningClock = pauseControl.locator('..').getByText(/^\d+:\d{2}$/);
+      const clockBeforeSheetOpened = await runningClock.textContent();
       await currentWorkspace(page).getByRole('button', { name: 'More exercise options' }).first().click();
       const techniqueOpener = currentWorkspace(page).getByRole('button', { name: 'Technique' }).first();
       await techniqueOpener.click();
-      const exerciseDialog = page.getByRole('dialog');
-      await expect(exerciseDialog).toBeVisible();
+      const runningExerciseDialog = page.getByRole('dialog');
+      await expect(runningExerciseDialog).toBeVisible();
+      const runningPhaseControl = runningExerciseDialog.getByRole('button', { name: 'Work phase' });
+      await runningPhaseControl.focus();
+      await expect.poll(() => runningClock.textContent(), { timeout: 2_500 }).not.toBe(clockBeforeSheetOpened);
+      await expect(runningPhaseControl).toBeFocused();
+      await page.keyboard.press('Escape');
+      await expect(runningExerciseDialog).toHaveCount(0);
+      await expect(techniqueOpener).toBeFocused();
+
+      await pauseControl.click();
+      await expect(page.getByText('Paused')).toBeVisible();
+      await expect(techniqueOpener).toBeVisible();
+      await techniqueOpener.click();
+      const pausedExerciseDialog = page.getByRole('dialog');
+      await expect(pausedExerciseDialog).toBeVisible();
       for (const viewport of viewports) {
         await page.setViewportSize(viewport);
         await assertLiveExerciseSheetGeometry(page, theme);
       }
 
       await page.setViewportSize({ width: 390, height: 844 });
-      const phaseControl = exerciseDialog.getByRole('button', { name: 'Work phase' });
+      const phaseControl = pausedExerciseDialog.getByRole('button', { name: 'Work phase' });
       await phaseControl.focus();
-      await page.waitForTimeout(1_100);
       await expect(phaseControl).toBeFocused();
-      const closeDetail = exerciseDialog.getByRole('button', { name: 'Close exercise details' });
+      const closeDetail = pausedExerciseDialog.getByRole('button', { name: 'Close exercise details' });
       await closeDetail.focus();
       await page.keyboard.press('Shift+Tab');
-      expect(await exerciseDialog.evaluate((dialog) => dialog.contains(document.activeElement))).toBe(true);
+      expect(await pausedExerciseDialog.evaluate((dialog) => dialog.contains(document.activeElement))).toBe(true);
       await page.keyboard.press('Tab');
       await expect(closeDetail).toBeFocused();
       await page.keyboard.press('Escape');
-      await expect(exerciseDialog).toHaveCount(0);
+      await expect(pausedExerciseDialog).toHaveCount(0);
       await expect(techniqueOpener).toBeFocused();
 
       await currentWorkspace(page).getByRole('button', { name: /finish workout/i }).click();
