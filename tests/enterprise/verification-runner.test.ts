@@ -4,6 +4,7 @@ import {
   formatVerificationFailure,
   publishSummary,
   probeDependencyHealth,
+  releaseChildEnvironment,
   runReleaseVerification,
   runStep,
   terminateProcessTree,
@@ -13,6 +14,17 @@ const node = process.execPath;
 const cwd = process.cwd();
 
 describe('verification release runner', () => {
+  it('disables Node experimental web storage only when the runtime supports the flag', () => {
+    expect(releaseChildEnvironment(
+      { NODE_OPTIONS: '--trace-warnings', KEEP_ME: 'yes' },
+      new Set(['--no-experimental-webstorage']),
+    )).toEqual({ NODE_OPTIONS: '--trace-warnings --no-experimental-webstorage', KEEP_ME: 'yes' });
+    expect(releaseChildEnvironment(
+      { NODE_OPTIONS: '--trace-warnings', KEEP_ME: 'yes' },
+      new Set(),
+    )).toEqual({ NODE_OPTIONS: '--trace-warnings', KEEP_ME: 'yes' });
+  });
+
   it('reports the failed step and a safe rerun command without captured output', () => {
     const message = formatVerificationFailure({
       status: 'failed',
