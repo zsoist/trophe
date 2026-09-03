@@ -73,6 +73,15 @@ describe('WP3 delivery truth governance', () => {
     expect(read('.github/workflows/ci.yml')).toContain('npm run test:coverage');
   });
 
+  it('installs the media decoder required by workout asset verification before tests run', () => {
+    const ci = read('.github/workflows/ci.yml');
+    const installIndex = ci.indexOf('sudo apt-get install -y postgresql-client ffmpeg');
+    const testIndex = ci.indexOf('npm run test:coverage');
+
+    expect(installIndex).toBeGreaterThan(-1);
+    expect(testIndex).toBeGreaterThan(installIndex);
+  });
+
   it('the production nutrition benchmark is on-demand only (no schedule — avoids nightly token burn)', () => {
     const nightly = read('.github/workflows/nightly-eval.yml');
 
