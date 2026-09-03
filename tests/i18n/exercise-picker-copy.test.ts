@@ -91,27 +91,4 @@ describe('exercise picker copy coverage', () => {
     }
   });
 
-  it('uses a grammatically singular secondary-role label in every locale', () => {
-    const secondaryRoleByLocale = {
-      en: translations['workout.atlas_role_secondary'].en,
-      es: translations['workout.atlas_role_secondary'].es,
-      el: translations['workout.atlas_role_secondary'].el,
-      de: de['workout.atlas_role_secondary'],
-      fr: fr['workout.atlas_role_secondary'],
-      it: itLocale['workout.atlas_role_secondary'],
-      nl: nl['workout.atlas_role_secondary'],
-      pt: pt['workout.atlas_role_secondary'],
-    };
-
-    expect(secondaryRoleByLocale).toEqual({
-      en: 'Secondary',
-      es: 'Secundario',
-      el: 'Δευτερεύων',
-      de: 'Sekundär',
-      fr: 'Secondaire',
-      it: 'Secondario',
-      nl: 'Secundair',
-      pt: 'Secundário',
-    });
-  });
 });

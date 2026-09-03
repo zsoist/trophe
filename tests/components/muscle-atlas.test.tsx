@@ -7,13 +7,22 @@ const atlasLocale = vi.hoisted(() => ({ value: 'en' }));
 
 vi.mock('@/lib/i18n', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/i18n')>();
+  const [{ de }, { fr }, { it }, { nl }, { pt }] = await Promise.all([
+    import('@/lib/locales/de'),
+    import('@/lib/locales/fr'),
+    import('@/lib/locales/it'),
+    import('@/lib/locales/nl'),
+    import('@/lib/locales/pt'),
+  ]);
+  const overlays: Record<string, Record<string, string>> = { de, fr, it, nl, pt };
   return {
     ...actual,
     useI18n: () => ({
       lang: atlasLocale.value,
       t: (key: string, params?: Record<string, string | number>) => {
-        const language = atlasLocale.value as 'en' | 'es';
-        const source = actual.translations[key]?.[language] ?? actual.translations[key]?.en ?? key;
+        const language = atlasLocale.value;
+        const core = language === 'en' || language === 'es' || language === 'el' ? language : null;
+        const source = (core ? actual.translations[key]?.[core] : overlays[language]?.[key]) ?? actual.translations[key]?.en ?? key;
         return Object.entries(params ?? {}).reduce(
           (text, [name, value]) => text.replaceAll(`{${name}}`, String(value)),
           source,
@@ -29,6 +38,12 @@ const benchActivations: MuscleActivation[] = [
   { id: 'pectoralis-major', label: 'Pectoralis major', role: 'primary', view: 'front' },
   { id: 'triceps-brachii', label: 'Triceps brachii', role: 'secondary', view: 'front' },
   { id: 'rotator-cuff', label: 'Rotator cuff', role: 'stabilizer', view: 'back' },
+];
+
+const ariaRoleActivations: MuscleActivation[] = [
+  { id: 'pectoralis-major', label: 'Pectoralis major', role: 'primary', view: 'front' },
+  { id: 'triceps-brachii', label: 'Triceps brachii', role: 'secondary', view: 'front' },
+  { id: 'brachialis', label: 'Brachialis', role: 'stabilizer', view: 'front' },
 ];
 
 const allActivations: MuscleActivation[] = [
@@ -83,11 +98,29 @@ describe('MuscleAtlas', () => {
     render(<MuscleAtlas activations={benchActivations} selected={null} onSelect={vi.fn()} homeCompact />);
 
     expect(screen.getByRole('region', { name: 'Atlas de activación muscular' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Pectoral mayor, músculo Principal/i })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Tríceps braquial, músculo Secundario' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Pectoral mayor, músculo principal/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Tríceps braquial, músculo secundario' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Mostrar anatomía posterior' })).toBeTruthy();
     expect(screen.getByRole('list', { name: 'Funciones musculares destacadas' }).textContent).toContain('Pectoral mayor');
     expect(document.body.textContent).not.toMatch(/\b(?:Front|Back|Primary|Pectoralis|highlighted)\b/);
+  });
+
+  it.each([
+    ['en', ['Pectoralis major, Primary muscle', 'Triceps brachii, Secondary muscle', 'Brachialis, Stabilizer muscle']],
+    ['es', ['Pectoral mayor, músculo principal', 'Tríceps braquial, músculo secundario', 'Braquial, músculo estabilizador']],
+    ['el', ['Μείζων θωρακικός, Κύριος μυς', 'Τρικέφαλος βραχιόνιος, Δευτερεύων μυς', 'Βραχιόνιος, Σταθεροποιητικός μυς']],
+    ['de', ['Großer Brustmuskel, Primärer Muskel', 'Trizeps, Sekundärer Muskel', 'Armbeuger, Stabilisierender Muskel']],
+    ['fr', ['Grand pectoral, muscle principal', 'Triceps brachial, muscle secondaire', 'Brachial, muscle stabilisateur']],
+    ['it', ['Grande pettorale, muscolo principale', 'Tricipite brachiale, muscolo secondario', 'Brachiale, muscolo stabilizzatore']],
+    ['nl', ['Grote borstspier, Primaire spier', 'Triceps, Secundaire spier', 'Brachialis, Stabiliserende spier']],
+    ['pt', ['Peitoral maior, músculo principal', 'Tríceps braquial, músculo secundário', 'Braquial, músculo estabilizador']],
+  ])('composes grammatically complete %s region aria labels for every role', (locale, expectedLabels) => {
+    atlasLocale.value = locale;
+    render(<MuscleAtlas activations={ariaRoleActivations} selected={null} onSelect={vi.fn()} />);
+
+    for (const label of expectedLabels) {
+      expect(screen.getByRole('button', { name: label })).toBeTruthy();
+    }
   });
 
   it('does not select on focus, but selects on Enter, Space, and click', () => {
