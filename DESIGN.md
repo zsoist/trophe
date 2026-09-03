@@ -136,7 +136,7 @@ components:
 
 Personal Best is a compact athlete evidence board inspired by race timing boards, split sheets, and premium coaching dossiers; it refuses generic glass-card SaaS. Its visual thesis is dense but calm: the interface reads as a sequence of measured facts, coach cues, and clear next actions, organized by disciplined rails instead of ornamental containers.
 
-The material world is obsidian/graphite; Trophē gold for identity and primary actions; lime, cyan, coral, violet as performance channels; disciplined rails; tabular/mono evidence; anatomical workout imagery. In use, Nik opens a compact coach-led day, reads honest nutrition evidence, enters a visual progressive workout flow, and can reach a clearly identified private coach conversation.
+The material world is obsidian/graphite in dark mode and warm paper with white evidence surfaces in light mode; both themes keep the same hierarchy rather than becoming separate visual systems. Trophē gold carries identity and primary actions; lime, cyan, coral, violet, and orange remain performance channels; disciplined rails, tabular/mono evidence, and anatomical workout imagery make the data legible. In use, Nik opens a compact coach-led day, reads honest nutrition evidence, enters an explicit plan → review → live workout flow, and can reach a clearly identified private coach conversation.
 
 **Key Characteristics:**
 
@@ -144,6 +144,7 @@ The material world is obsidian/graphite; Trophē gold for identity and primary a
 - Evidence rows and split-sheet dividers with tabular metrics.
 - Anatomical workout imagery contained on quiet neutral plates, never cropped or obscured.
 - Theme-aware contrast with identical hierarchy in light and dark.
+- Explicit planning, review, live, paused, and completed workout states.
 - A stable floating five-slot navigation rail.
 
 ## Colors
@@ -177,7 +178,7 @@ The palette is an obsidian-and-graphite timing board in dark mode and a warm pap
 
 ### Named Rules
 
-**The Channel Integrity Rule.** Gold identifies Trophē and primary intent; lime, cyan, coral, violet, and orange encode performance meaning and are never sprayed across unrelated decoration.
+**The Channel Integrity Rule.** Gold identifies Trophē, selected controls, personal records, active navigation, and decisive actions. In the anatomical atlas, coral fill means primary muscle, cyan hatching/fill means secondary muscle, and a lime outline means stabilizer; lime also identifies verified technique, while orange identifies warnings and honest media fallbacks. Violet remains an analytical channel. These colors are never sprayed across unrelated decoration, and their meaning is always repeated in text or pattern.
 
 ## Typography
 
@@ -205,7 +206,15 @@ The client app is mobile-first and centered. Content uses a single compact colum
 
 The base rhythm is a 4pt grid. Performance sections use short heading-to-body gaps, rows hold a minimum 44px touch target, the macro strip stays a four-column grid, and Strength/Cardio entry stays a two-column visual choice even on narrow screens. Desktop increases breathing room without turning the app into a wide dashboard; lower home content may flow into two columns while the coach-led first sequence remains linear.
 
+Workout Home keeps readiness and intent in the first useful view: a compact recommendation rail states source, readiness, next step, exercise count, and estimated duration, followed immediately by the anatomical target and its single primary action. Below 768px the atlas shows one interactive front or back figure selected by a two-part toggle; on phones below 640px it becomes an asymmetric figure-and-evidence composition so the action remains visible. At 768px and wider, the neutral anatomy plate presents front and back as a pair while the toggle continues to define the active, announced view.
+
+History and Training progress change evidence composition at the large breakpoint rather than stretching phone cards. History is a linear, month-grouped session list on phone and tablet, then adds a narrower sticky “Recent progress” evidence column on desktop. Training progress stacks summary, calendar, muscle load, exercise progress, and body weight on phone and tablet; desktop separates calendar/load from exercise/weight evidence in two columns divided by a rail. Both surfaces stay centered, preserve tabular values, and use the warm-paper or obsidian workout canvas through every viewport.
+
+The bottom navigation stays fixed above the device safe area with five equal, immovable destinations. It spans the phone width and hides visible labels at 430px and below while retaining accessible names; from 640px upward it becomes a centered capsule capped at 36rem. Every workout surface reserves enough bottom space that sticky actions, inputs, and evidence clear the navigation.
+
 **The Evidence-First Rule.** Identity, greeting, plan, honest nutrition evidence, training intent, and coach access appear in that reading order; visual density must never hide the next useful fact.
+
+**The Compose, Don’t Stretch Rule.** Narrow layouts remain a single task-led reading order; wide layouts may pair anatomy or split evidence into primary and supporting columns, but never become a sprawling control dashboard.
 
 ## Elevation & Depth
 
@@ -255,7 +264,7 @@ Corners are compact and functional rather than bubbly. Small controls and thumbn
 
 ### Navigation
 
-The five-slot bottom navigation floats above the safe area. Inactive items use muted text and reduced icon opacity; the active destination receives a raised tonal cell, Trophē gold type/icon color, and a short gold rail at its top edge. Its targets never move between states, and reduced-motion preferences remove transition animation.
+The five-slot bottom navigation floats above the safe area. Inactive items use muted text and reduced icon opacity; the active destination receives a raised tonal cell, Trophē gold type/icon color, and a short gold rail at its top edge. Its targets never move between states. Phone layouts retain icon-only accessible destinations when labels are hidden; wider layouts show labels inside the centered 36rem rail.
 
 ### Daily Macro Strip
 
@@ -264,6 +273,26 @@ Four equal cells present Protein, Carbs, Fat, and Sugar as honest evidence. Valu
 ### Workout Entry and Session Identity
 
 Strength and Cardio are equal visual choices built from fully contained anatomical imagery, restrained intent color, and direct captions on a neutral surface. Strength enters the body-area picker before Build, while templates remain collapsed until requested. Within a live session, sets are grouped under one exercise identity and keep weight, reps, RPE, completion, technique, pain, and plate actions together without repeating oversized cards.
+
+### Workout Readiness and Anatomical Atlas
+
+The readiness rail is a compact split sheet, not a dashboard card: the workout title and timing lead, then Source, Readiness, and Next step occupy equal evidence cells. The home atlas pairs a quiet neutral anatomy plate with a short target label, a Front/Back segmented control, a role row, and the review/build action. On wide screens both anatomical sides are visible; on narrow screens the segmented control selects the single visible side. Atlas regions are interactive only when their named muscle and role remain available as equivalent text.
+
+### Workout Planning, Review, and Live States
+
+Planning, review, and execution never share ambiguous chrome. Discovery and Build are explicitly drafts and remain editable without creating a session. Review states that the draft has been reviewed and that no session exists yet, summarizes exercise count, working sets, estimated duration, muscle balance, prescriptions, and technique availability, then offers one explicit Start workout action. Live introduces the active clock, exercise position, pause/resume control, set completion, rest state, and a confirmed finish path; Completed becomes a saved evidence summary with History and Done exits.
+
+**The Session Boundary Rule.** Adding, editing, or reviewing exercises never starts a timer or creates a live workout. Only the explicit Start workout action crosses into Live, and finishing remains a confirmed action.
+
+### Live Set Logger
+
+The active set logger outranks technique media and secondary evidence on mobile. At the top of the live route, the current exercise and elapsed time lead directly into large numeric Weight, Reps, and optional RPE fields and a full-width Complete set action; the first set’s core inputs and action must fit above the fixed navigation in the initial phone viewport. Warm-up, rest feedback, and a collapsed More menu stay close to the set, while technique, pain, plates, superset, and destructive removal remain supporting actions. Current target, previous values, session path, motion, and up-next context follow the logger.
+
+### Workout Accessibility and Motion
+
+Workout controls use 44px minimum targets, visible two-pixel focus treatment, named icon actions, 16px mobile form text, explicit labels, and programmatic pressed/current/status states. Atlas selections expose the muscle, side, and role in text, provide keyboard activation, announce the active summary, and never depend on color alone. Loading, persistence, validation, pain, and completion feedback use status or alert semantics as appropriate.
+
+Workout transitions use the restrained 220ms performance easing for route and atlas orientation cues; motion never shifts a target under the user. Verified technique motion is controllable, pauses when the page or media leaves view and when the session is paused, and reports playback state. Reduced-motion mode removes atlas/route transitions and substitutes the static technique poster with an explicit explanation.
 
 ### Coach Conversation Header
 
@@ -277,6 +306,8 @@ The conversation starts with a sticky, clearly identified coach header: a back t
 - **Do** state unavailable or incomplete evidence honestly instead of fabricating a complete metric.
 - **Do** use anatomical workout imagery to make training intent immediately scannable.
 - **Do** preserve 44px minimum touch targets, visible focus, safe areas, and reduced-motion behavior.
+- **Do** keep the readiness rail, target atlas, and next action together in the first useful Workout Home view.
+- **Do** prioritize the active set inputs and Complete set action before technique media on phone layouts.
 - **Do** keep gold rare enough to preserve identity and action priority.
 
 ### Don't:
@@ -284,5 +315,7 @@ The conversation starts with a sticky, clearly identified coach header: a back t
 - **Don't** turn the client app into generic glass-card SaaS.
 - **Don't** use performance channels as interchangeable decoration or allow them to compete with Trophē gold.
 - **Don't** widen compact client flows into sprawling desktop dashboards.
+- **Don't** collapse planning, reviewed draft, and live session into one ambiguous state or start a session as a side effect of adding an exercise.
+- **Don't** let sticky controls, dialogs, or evidence disappear beneath the centered bottom navigation.
 - **Don't** hide the coach's identity or blur the distinction between private conversation and generic messaging.
 - **Don't** replace evidence rails and tabular values with soft ornamental cards or vague summaries.
