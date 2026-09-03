@@ -1,6 +1,9 @@
 // @vitest-environment jsdom
 
 import React from 'react';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import postcss from 'postcss';
 import { act, cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -55,5 +58,51 @@ describe('workout route-owned focus', () => {
 
     expect(document.activeElement).toBe(outside);
     outside.remove();
+  });
+
+  it('marks only the route destination landmark when moving focus after navigation', async () => {
+    const { rerender } = render(
+      <WorkoutLayout>
+        <main>
+          <button type="button">Start workout</button>
+        </main>
+      </WorkoutLayout>,
+    );
+
+    route.pathname = '/dashboard/workout/review';
+    rerender(
+      <WorkoutLayout>
+        <main>
+          <button type="button">Start workout</button>
+        </main>
+      </WorkoutLayout>,
+    );
+    await act(async () => { await Promise.resolve(); });
+
+    const destination = document.querySelector('main');
+    const control = document.querySelector('button');
+    expect(destination?.getAttribute('data-workout-route-focus-target')).toBe('true');
+    expect(document.activeElement).toBe(destination);
+    expect(control?.hasAttribute('data-workout-route-focus-target')).toBe(false);
+  });
+
+  it('suppresses the route landmark outline without weakening control focus rings', () => {
+    const stylesheet = postcss.parse(readFileSync(join(process.cwd(), 'app/globals.css'), 'utf8'));
+    const rules = new Map<string, postcss.Rule>();
+    stylesheet.walkRules((rule) => {
+      rules.set(rule.selector, rule);
+    });
+
+    const routeFocusRule = rules.get(
+      '.workout-route-transition [data-workout-route-focus-target="true"]:focus-visible',
+    );
+    const globalFocusRule = rules.get(':focus-visible');
+    const declaration = (rule: postcss.Rule | undefined, property: string) =>
+      rule?.nodes.find(
+        (node): node is postcss.Declaration => node.type === 'decl' && node.prop === property,
+      )?.value;
+
+    expect(declaration(routeFocusRule, 'outline')).toBe('none');
+    expect(declaration(globalFocusRule, 'outline')).toBe('2px solid var(--focus-ring)');
   });
 });

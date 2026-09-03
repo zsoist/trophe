@@ -556,6 +556,10 @@
   outline-offset: 2px;
 }
 
+.workout-route-transition [data-workout-route-focus-target="true"]:focus-visible {
+  outline: none;
+}
+
 :where(button, input, select, textarea, option):disabled,
 :where([aria-disabled='true']) {
   cursor: not-allowed;

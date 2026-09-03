@@ -26,6 +26,7 @@ export function WorkoutRouteTransition({ children }: { children: ReactNode }) {
     const destination = routeSurface.current?.querySelector<HTMLElement>('main');
     if (!destination) return;
     if (!destination.hasAttribute('tabindex')) destination.tabIndex = -1;
+    destination.dataset.workoutRouteFocusTarget = 'true';
     destination.focus({ preventScroll: true });
   }, [routePathname]);
 
