@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Exercise } from '@/lib/types';
 
 vi.mock('next/image', () => ({
@@ -52,7 +52,21 @@ vi.mock('@/lib/supabase', () => ({
 
 import ExerciseInfoSheet from '@/components/workout/ExerciseInfoSheet';
 
-afterEach(cleanup);
+beforeEach(() => {
+  vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({
+    matches: false,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  }));
+  vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue();
+  vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
+});
+
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 describe('ExerciseInfoSheet', () => {
   it('leads with the movement visual and practical technique guidance', () => {
