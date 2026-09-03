@@ -133,6 +133,15 @@ describe('workouts.recommendation.mine route contract', () => {
     const coachPrivateSafe = {
       ...coachPrivate, id: 'coach-private-safe', name: 'Private Barbell Curl', muscleGroup: 'biceps',
     };
+    const unreferencedCurrentCoachPrivate = {
+      ...coachPrivate,
+      id: 'current-coach-unreferenced',
+      get name(): string {
+        throw new Error('Unreferenced current-coach private exercise reached recommendation mapping');
+      },
+      muscleGroup: 'triceps',
+      equipment: 'Machine',
+    };
     const otherCoachPrivate = {
       ...coachPrivate, id: 'other-coach-private', name: 'Other Coach Cable Exercise', muscleGroup: 'full_body',
       equipment: 'Cable', createdBy: '00000000-0000-4000-8000-000000000099',
@@ -150,7 +159,7 @@ describe('workouts.recommendation.mine route contract', () => {
         { id: 'sun', weekday: 0, sort: 0, template: { id: 'sun-template', exercises: [] } },
         { id: 'wed', weekday: 3, sort: 0, template: currentTemplate },
       ]))
-      .mockReturnValueOnce(query([coachPrivate, coachPrivateSafe, otherCoachPrivate]))
+      .mockReturnValueOnce(query([coachPrivate, coachPrivateSafe, unreferencedCurrentCoachPrivate, otherCoachPrivate]))
       .mockReturnValueOnce(query([]))
       .mockReturnValueOnce(query([{ painFlags: [{ body_part: 'shoulder', severity: 2 }] }]));
     const insert = vi.fn();
@@ -168,6 +177,10 @@ describe('workouts.recommendation.mine route contract', () => {
     expect(result.reasons).toContain('Some coach-template exercises are unavailable and need coach review.');
     expect(result.equipment).toEqual(['Barbell']);
     expect(result.muscleDistribution).toEqual({ biceps: 3 });
+    expect(result.exercises.map((exercise) => exercise.exerciseId)).not.toContain('current-coach-unreferenced');
+    expect(result.equipment).not.toContain('Machine');
+    expect(result.muscleDistribution).not.toHaveProperty('triceps');
+    expect(result.reasons).not.toContain('Excluded coach-template exercises that need unavailable equipment.');
     expect(result.exercises.map((exercise) => exercise.exerciseId)).not.toContain('other-coach-private');
     expect(result.reasons.join(' ')).not.toContain('Other Coach Cable Exercise');
     expect(insert).not.toHaveBeenCalled();
