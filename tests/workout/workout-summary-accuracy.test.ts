@@ -21,7 +21,7 @@ describe('workout completion summaries', () => {
       'utf8',
     );
 
-    expect(review).toContain("t('workout.draft_not_started')");
+    expect(review).toContain("t('workout.review_ready')");
     expect(review).toContain("t('workout.log_completed')");
     expect(review).not.toContain('finishSummary');
     expect(review).not.toContain('kgToDisplay');

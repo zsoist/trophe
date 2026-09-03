@@ -361,6 +361,7 @@ export default function ExercisePicker({
   onAddToDraft,
   onReturnToBuild,
   addedExerciseIds = [],
+  replacementExerciseName,
 }: {
   exercises: Exercise[];
   recentIds: string[];
@@ -375,6 +376,7 @@ export default function ExercisePicker({
   onAddToDraft?: (exerciseId: string) => void;
   onReturnToBuild?: () => void;
   addedExerciseIds?: string[];
+  replacementExerciseName?: string;
 }) {
   const [search, setSearch] = useState('');
   const [selectedAreaKey, setSelectedAreaKey] = useState<WorkoutBodyArea | null>(null);
@@ -476,6 +478,7 @@ export default function ExercisePicker({
     if (presentation === 'page' && onAddToDraft) {
       setOptimisticAddedIds((current) => new Set(current).add(ex.id));
       onAddToDraft(ex.id);
+      if (replacementExerciseName) onReturnToBuild?.();
       return;
     }
     onSelect(ex);
@@ -515,6 +518,7 @@ export default function ExercisePicker({
     .map((id) => exercises.find((exercise) => exercise.id === id))
     .filter((exercise): exercise is Exercise => Boolean(exercise));
   const showPlanTray = presentation === 'page'
+    && !replacementExerciseName
     && Boolean(onAddToDraft)
     && Boolean(onReturnToBuild)
     && addedIds.size > 0;
@@ -579,6 +583,7 @@ export default function ExercisePicker({
         >
           {isLanding ? (
             <>
+              {replacementExerciseName ? <p role="status" className="mb-4 rounded-xl border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] p-3 text-sm text-[var(--content-primary)]">{t('workout.replacement_active', { name: replacementExerciseName })}</p> : null}
               <div className="max-w-xl">
                 <h1 className="text-2xl font-semibold tracking-[-0.02em] text-[var(--content-primary)] sm:text-3xl">
                   {t('workout.picker_choose_area')}
@@ -736,6 +741,8 @@ export default function ExercisePicker({
                   selectedIds={addedIds}
                   onAdd={pick}
                   onInfo={onInfo}
+                  actionLabel={() => replacementExerciseName ? t('workout.replace_exercise') : t('workout.picker_add')}
+                  actionAriaLabel={(exercise) => replacementExerciseName ? t('workout.replace_with_named', { name: nameOf(exercise) }) : t('workout.picker_add_named', { name: nameOf(exercise) })}
                 />
               )}
             </>

@@ -67,6 +67,183 @@
   --font-playfair: var(--font-instrument-serif);
 }
 
+/* Premium plan editor — compact Personal Best evidence board. */
+.workout-plan-editor {
+  width: min(100%, 42rem);
+  margin-inline: auto;
+  padding: 1rem 1rem calc(var(--client-shell-nav-base-height, 4.5rem) + env(safe-area-inset-bottom, 0px) + 2rem);
+  color: var(--content-primary);
+  overflow-x: clip;
+}
+
+.workout-plan-editor:focus { outline: none; }
+.workout-plan-editor--empty { display: grid; min-height: 12rem; place-content: center; gap: 1rem; text-align: center; }
+.workout-plan-editor--empty .btn-gold { min-height: 44px; padding-inline: 1rem; }
+
+.workout-plan-editor__header,
+.workout-plan-review__header {
+  display: grid;
+  gap: .75rem;
+  padding-block: .25rem 1rem;
+  border-bottom: 1px solid var(--workout-rail);
+}
+
+.workout-plan-editor__header h1,
+.workout-plan-review__header h1 {
+  overflow-wrap: anywhere;
+  font-size: clamp(1.35rem, 6vw, 1.75rem);
+  font-weight: 750;
+  letter-spacing: -.025em;
+  line-height: 1.1;
+}
+
+.workout-plan-editor__header p,
+.workout-plan-review__header p { margin-top: .35rem; color: var(--content-secondary); font-size: .8125rem; }
+.workout-plan-editor__header label,
+.workout-cardio-editor label { min-width: 0; color: var(--content-secondary); font-size: .75rem; font-weight: 650; }
+.workout-plan-editor__header label span,
+.workout-cardio-editor label span { display: block; margin-bottom: .3rem; }
+
+.workout-plan-editor__header input,
+.workout-cardio-editor input,
+.workout-cardio-editor select,
+.plan-exercise-card input,
+.plan-exercise-card textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  border: 1px solid var(--border-subtle);
+  border-radius: .625rem;
+  background: var(--surface-subtle);
+  color: var(--content-primary);
+  font-size: 1rem;
+}
+
+.workout-plan-editor__header input,
+.workout-cardio-editor input,
+.workout-cardio-editor select,
+.plan-exercise-card input { padding: .55rem .7rem; }
+.plan-exercise-card textarea { resize: vertical; padding: .65rem .7rem; line-height: 1.4; }
+
+.workout-plan-editor__header input:focus-visible,
+.workout-cardio-editor input:focus-visible,
+.workout-cardio-editor select:focus-visible,
+.plan-exercise-card input:focus-visible,
+.plan-exercise-card textarea:focus-visible,
+.plan-exercise-card button:focus-visible,
+.workout-plan-review__header button:focus-visible,
+.workout-plan-editor__add:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.plan-muscle-summary {
+  margin-top: 1rem;
+  border: 1px solid var(--workout-rail);
+  border-radius: .875rem;
+  background: var(--surface-raised);
+  overflow: hidden;
+}
+
+.plan-muscle-summary__facts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: .35rem 1rem;
+  padding: .75rem;
+  border-bottom: 1px solid var(--workout-rail);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: .75rem;
+  font-variant-numeric: tabular-nums;
+}
+.plan-muscle-summary__facts span { color: var(--content-secondary); }
+.plan-muscle-summary__heading { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; padding: .75rem .75rem .4rem; }
+.plan-muscle-summary__heading h2 { font-size: .9375rem; font-weight: 750; letter-spacing: -.015em; }
+.plan-muscle-summary__heading span { color: var(--content-muted); font-size: .6875rem; text-align: right; }
+.plan-muscle-summary__loads { padding: 0 .75rem .65rem; }
+.plan-muscle-summary__loads li { display: grid; grid-template-columns: minmax(6.5rem, 1fr) minmax(4rem, 1.1fr) 2.25rem; align-items: center; gap: .5rem; min-height: 32px; font-size: .75rem; }
+.plan-muscle-summary__loads li > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plan-muscle-summary__loads li > span:nth-child(2) { height: 4px; overflow: hidden; border-radius: 999px; background: var(--surface-active); }
+.plan-muscle-summary__loads i { display: block; height: 100%; border-radius: inherit; background: var(--workout-strength, var(--action-primary)); }
+.plan-muscle-summary__loads strong { text-align: right; font-family: var(--font-mono, ui-monospace, monospace); font-variant-numeric: tabular-nums; }
+.plan-muscle-summary__empty { padding: .5rem .75rem 1rem; color: var(--content-secondary); font-size: .8125rem; }
+.plan-muscle-summary__warning { display: flex; gap: .5rem; align-items: flex-start; padding: .65rem .75rem; border-top: 1px solid var(--status-warning-border); background: var(--status-warning-bg); color: var(--content-primary); font-size: .75rem; line-height: 1.4; }
+.plan-muscle-summary__warning svg { flex: 0 0 auto; color: var(--status-warning-fg); }
+
+.workout-plan-editor__sequence,
+.workout-plan-review__sequence { margin-top: 1rem; overflow: hidden; border: 1px solid var(--workout-rail); border-radius: .875rem; background: var(--surface-raised); }
+.plan-exercise-card { min-width: 0; padding: .75rem; background: var(--surface-raised); }
+.plan-exercise-card + .plan-exercise-card { border-top: 1px solid var(--workout-rail); }
+.plan-exercise-card__identity { display: grid; grid-template-columns: 1.6rem 4.5rem minmax(0, 1fr); align-items: center; gap: .65rem; }
+.plan-exercise-card__sequence { align-self: start; padding-top: .15rem; color: var(--content-muted); font-family: var(--font-mono, ui-monospace, monospace); font-size: .6875rem; font-variant-numeric: tabular-nums; }
+.plan-exercise-card__identity > img { width: 4.5rem; height: 4.5rem; border-radius: .625rem; background: var(--workout-visual-surface); object-fit: contain; }
+.plan-exercise-card__title { min-width: 0; }
+.plan-exercise-card__title h2 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .9375rem; font-weight: 750; letter-spacing: -.015em; }
+.plan-exercise-card__title p { margin-block: .25rem .35rem; overflow: hidden; color: var(--content-secondary); font-size: .75rem; text-overflow: ellipsis; white-space: nowrap; }
+.plan-exercise-card__prescription { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .55rem; margin-top: .75rem; padding-top: .75rem; border-top: 1px solid var(--workout-rail); }
+.plan-exercise-card__prescription label,
+.plan-exercise-card__notes { min-width: 0; color: var(--content-secondary); font-size: .6875rem; font-weight: 650; }
+.plan-exercise-card__prescription label span,
+.plan-exercise-card__notes span { display: block; margin-bottom: .3rem; }
+.plan-exercise-card__prescription input { font-family: var(--font-mono, ui-monospace, monospace); font-variant-numeric: tabular-nums; }
+.plan-exercise-card__notes { display: block; margin-top: .55rem; }
+.plan-exercise-card__actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .35rem; margin-top: .55rem; padding-top: .55rem; border-top: 1px solid var(--workout-rail); }
+.plan-exercise-card__actions button,
+.plan-exercise-card__review button,
+.workout-plan-review__header button,
+.workout-plan-editor__add { display: inline-flex; min-width: 0; min-height: 44px; align-items: center; justify-content: center; gap: .35rem; border-radius: .625rem; color: var(--content-secondary); font-size: .75rem; font-weight: 700; transition: background-color 160ms ease, color 160ms ease; }
+.plan-exercise-card__actions button:hover:not(:disabled),
+.plan-exercise-card__review button:hover,
+.workout-plan-review__header button:hover,
+.workout-plan-editor__add:hover { background: var(--surface-hover); color: var(--content-primary); }
+.plan-exercise-card__actions button:disabled,
+.workout-plan-review__header button:disabled { cursor: not-allowed; opacity: .4; }
+.plan-exercise-card__actions button:last-child { color: var(--status-danger-fg); }
+.plan-exercise-card__review { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .4rem .75rem; margin-top: .65rem; padding: .6rem 0 0 2.25rem; border-top: 1px solid var(--workout-rail); }
+.plan-exercise-card__review p { min-width: 0; color: var(--content-secondary); font-size: .75rem; line-height: 1.45; }
+.plan-exercise-card__review p:nth-child(2) { grid-column: 1 / -1; color: var(--content-muted); }
+.plan-exercise-card__review button { padding-inline: .6rem; }
+.workout-plan-editor__add { width: 100%; border-radius: 0; border-top: 1px solid var(--workout-rail); }
+
+.workout-cardio-editor,
+.workout-cardio-review { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; margin-top: 1rem; padding: .75rem; border: 1px solid var(--workout-rail); border-radius: .875rem; background: var(--surface-raised); }
+.workout-cardio-review > * { min-width: 0; overflow-wrap: anywhere; }
+.workout-plan-editor__empty-state,
+.workout-plan-editor__save-scope { margin-top: .75rem; color: var(--content-muted); font-size: .75rem; line-height: 1.5; }
+.workout-plan-editor__validation { margin-top: .75rem; color: var(--status-danger-fg); font-size: .8125rem; }
+.workout-plan-editor__notice { margin-top: .75rem; padding: .7rem .75rem; border: 1px solid; border-radius: .75rem; font-size: .8125rem; line-height: 1.45; }
+.workout-plan-editor__notice--error { border-color: var(--status-danger-border); background: var(--status-danger-bg); color: var(--status-danger-fg); }
+.workout-plan-editor__notice--success { border-color: var(--status-success-border); background: var(--status-success-bg); color: var(--status-success-fg); }
+.workout-plan-editor__notice--warning { border-color: var(--status-warning-border); background: var(--status-warning-bg); }
+.workout-plan-editor__footer { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--workout-rail); }
+.workout-plan-editor__footer button,
+.workout-plan-review__decisions button { min-height: 44px; min-width: 0; }
+
+.workout-plan-review__header { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+.workout-plan-review__header button { padding-inline: .65rem; }
+.workout-plan-review__decisions { display: grid; gap: .55rem; margin-top: 1rem; padding: .85rem; border-block: 1px solid var(--workout-rail); background: var(--surface-subtle); }
+.workout-plan-review__decisions > p:first-child { color: var(--content-secondary); font-size: .8125rem; line-height: 1.5; }
+.workout-plan-review__decisions .btn-gold,
+.workout-plan-review__decisions .btn-ghost { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; }
+
+@media (min-width: 430px) {
+  .workout-plan-editor { padding-top: 1.25rem; }
+  .workout-plan-editor__header { grid-template-columns: minmax(0, 1fr) minmax(13rem, .85fr); align-items: end; }
+}
+
+@media (min-width: 560px) {
+  .plan-exercise-card { padding: .875rem; }
+  .plan-exercise-card__prescription { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .plan-exercise-card__actions { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plan-exercise-card__actions button,
+  .plan-exercise-card__review button,
+  .workout-plan-review__header button,
+  .workout-plan-editor__add { transition: none; }
+}
+
 /* ─── Design Tokens (Brand Master v1.0) ─── */
 :root {
   /* Gold spectrum */

@@ -48,7 +48,8 @@ export interface WorkoutWorkspaceContextValue {
   ensureClientRequestId(): string | null;
   addDraftExercise(exerciseId: string): void;
   removeDraftExercise(exerciseId: string): void;
-  updateDraftExercise(exerciseId: string, patch: Partial<Pick<DraftExercise, 'targetSets' | 'targetReps'>>): void;
+  replaceDraftExercise(exerciseId: string, replacement: Pick<DraftExercise, 'exerciseId' | 'exerciseName' | 'muscleGroup'>): void;
+  updateDraftExercise(exerciseId: string, patch: Partial<Pick<DraftExercise, 'targetSets' | 'targetReps' | 'restSeconds' | 'targetRpe' | 'notes'>>): void;
   reorderDraftExercise(exerciseId: string, direction: 'up' | 'down'): void;
   goToReview(): void;
   returnToDraft(): void;
@@ -152,6 +153,9 @@ function draftFingerprint(draft: WorkoutDraft): string {
         exerciseId: exercise.exerciseId,
         targetSets: exercise.targetSets,
         targetReps: exercise.targetReps,
+        restSeconds: exercise.restSeconds ?? null,
+        targetRpe: exercise.targetRpe ?? null,
+        notes: exercise.notes ?? null,
         supersetGroup: supersetGroupFor(draft.exercises, index),
       })),
     }
@@ -355,7 +359,7 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
       return {
         ...draft,
         updatedAt: Date.now(),
-        exercises: [...draft.exercises, { exerciseId, targetSets: 3, targetReps: '8-12' }],
+        exercises: [...draft.exercises, { exerciseId, targetSets: 3, targetReps: '8-12', restSeconds: 90, targetRpe: null, notes: '' }],
       };
     });
   }, [updateDraft]);
@@ -366,9 +370,29 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
       : { ...draft, updatedAt: Date.now(), exercises: draft.exercises.filter((exercise) => exercise.exerciseId !== exerciseId) });
   }, [updateDraft]);
 
-  const updateDraftExercise = useCallback((exerciseId: string, patch: Partial<Pick<DraftExercise, 'targetSets' | 'targetReps'>>) => {
+  const replaceDraftExercise = useCallback((exerciseId: string, replacement: Pick<DraftExercise, 'exerciseId' | 'exerciseName' | 'muscleGroup'>) => {
+    if (!replacement.exerciseId.trim()) return;
+    updateDraft((draft) => {
+      if (draft.kind !== 'strength') return draft;
+      const index = draft.exercises.findIndex((exercise) => exercise.exerciseId === exerciseId);
+      if (index < 0 || draft.exercises.some((exercise, candidateIndex) => candidateIndex !== index && exercise.exerciseId === replacement.exerciseId)) return draft;
+      const exercises = [...draft.exercises];
+      exercises[index] = {
+        ...exercises[index],
+        exerciseId: replacement.exerciseId,
+        ...(replacement.exerciseName === undefined ? { exerciseName: undefined } : { exerciseName: replacement.exerciseName }),
+        ...(replacement.muscleGroup === undefined ? { muscleGroup: undefined } : { muscleGroup: replacement.muscleGroup }),
+      };
+      return { ...draft, exercises, updatedAt: Date.now() };
+    });
+  }, [updateDraft]);
+
+  const updateDraftExercise = useCallback((exerciseId: string, patch: Partial<Pick<DraftExercise, 'targetSets' | 'targetReps' | 'restSeconds' | 'targetRpe' | 'notes'>>) => {
     if (patch.targetReps !== undefined && !patch.targetReps.trim()) return;
     if (patch.targetSets !== undefined && (!Number.isInteger(patch.targetSets) || patch.targetSets <= 0)) return;
+    if (patch.restSeconds !== undefined && (!Number.isInteger(patch.restSeconds) || patch.restSeconds < 0 || patch.restSeconds > 600)) return;
+    if (patch.targetRpe !== undefined && patch.targetRpe !== null && (!Number.isFinite(patch.targetRpe) || patch.targetRpe < 1 || patch.targetRpe > 10)) return;
+    if (patch.notes !== undefined && patch.notes.length > 1000) return;
     updateDraft((draft) => draft.kind !== 'strength'
       ? draft
       : {
@@ -583,6 +607,7 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
     ensureClientRequestId,
     addDraftExercise,
     removeDraftExercise,
+    replaceDraftExercise,
     updateDraftExercise,
     reorderDraftExercise,
     goToReview,
@@ -599,7 +624,7 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
     discardLive,
     acknowledgeCompleted,
     discardDraft,
-  }), [acknowledgeCompleted, addDraftExercise, cancelFinish, commitLiveStrengthStructure, completeFinish, createCardioDraftFromHistory, createDraft, createDraftFromTemplate, discardDraft, discardLive, ensureClientRequestId, goToReview, loading, ownerId, pause, removeDraftExercise, reorderDraftExercise, replaceCardioDraftFromHistory, replaceDraft, replaceDraftFromTemplate, requestFinish, resume, retrospectiveSaving, retryRetrospective, returnToDraft, saveRetrospective, startLive, state, updateCardioDraft, updateDraftExercise, updateDraftName, updateLiveCardioDraft]);
+  }), [acknowledgeCompleted, addDraftExercise, cancelFinish, commitLiveStrengthStructure, completeFinish, createCardioDraftFromHistory, createDraft, createDraftFromTemplate, discardDraft, discardLive, ensureClientRequestId, goToReview, loading, ownerId, pause, removeDraftExercise, reorderDraftExercise, replaceCardioDraftFromHistory, replaceDraft, replaceDraftExercise, replaceDraftFromTemplate, requestFinish, resume, retrospectiveSaving, retryRetrospective, returnToDraft, saveRetrospective, startLive, state, updateCardioDraft, updateDraftExercise, updateDraftName, updateLiveCardioDraft]);
 
   if (loading || ownerId === undefined) {
     return <div role="status" aria-label={t('workout.loading_workspace')} className="min-h-24 animate-pulse rounded-xl bg-[var(--surface-subtle)]" />;

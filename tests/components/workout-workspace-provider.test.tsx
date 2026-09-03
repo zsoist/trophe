@@ -66,6 +66,9 @@ function WorkspaceControls() {
       <button onClick={() => workspace.returnToDraft()}>Return to draft</button>
       <button onClick={() => workspace.updateDraftName('Push A')}>Rename draft</button>
       <button onClick={() => workspace.reorderDraftExercise('shoulder-press', 'up')}>Move Shoulder Press up</button>
+      <button onClick={() => workspace.updateDraftExercise('bench-press', { restSeconds: 120, targetRpe: 8, notes: 'Pause on chest.' })}>Prescribe Bench Press</button>
+      <button onClick={() => workspace.replaceDraftExercise('bench-press', { exerciseId: 'cable-row', exerciseName: 'Seated Cable Row', muscleGroup: 'back' })}>Replace Bench Press</button>
+      <button onClick={() => workspace.replaceDraftExercise('bench-press', { exerciseId: 'shoulder-press', exerciseName: 'Shoulder Press', muscleGroup: 'shoulders' })}>Replace Bench with duplicate</button>
       <button onClick={() => workspace.replaceDraftFromTemplate({
         templateKey: 'repeat:22222222-2222-4222-8222-222222222222',
         templateId: null,
@@ -90,7 +93,7 @@ function WorkspaceControls() {
       <button onClick={() => workspace.acknowledgeCompleted()}>Acknowledge completed summary</button>
       <button onClick={() => void workspace.discardLive()}>Discard empty workout</button>
       {workspace.state.draft?.kind === 'strength' ? (
-        <output>{workspace.state.draft.name}:{workspace.state.draft.exercises.map((exercise) => `${exercise.exerciseId}-${exercise.targetSets}x${exercise.targetReps}`).join(',')}</output>
+        <output>{workspace.state.draft.name}:{workspace.state.draft.exercises.map((exercise) => `${exercise.exerciseId}-${exercise.targetSets}x${exercise.targetReps}${(exercise.restSeconds === undefined || exercise.restSeconds === 90) && (exercise.targetRpe === undefined || exercise.targetRpe === null) && !exercise.notes ? '' : `-${exercise.restSeconds ?? 'default'}-${exercise.targetRpe ?? 'none'}-${exercise.notes ?? ''}`}`).join(',')}</output>
       ) : null}
     </>
   );
@@ -161,6 +164,34 @@ describe('WorkoutWorkspaceProvider', () => {
 
     expect(screen.getByText('Push A:shoulder-press-3x8-10,bench-press-4x6-8')).toBeTruthy();
     expect(startLiveSession).not.toHaveBeenCalled();
+  });
+
+  it('replaces one draft exercise in place, preserves its prescription, and rejects duplicates without starting', async () => {
+    render(<ProviderHarness userId="nik" />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Create coach draft' })).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Create coach draft' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Prescribe Bench Press' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Replace Bench with duplicate' }));
+
+    expect(screen.getByText(/bench-press-4x6-8-120-8-Pause on chest\.,shoulder-press/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Replace Bench Press' }));
+
+    expect(screen.getByText(/cable-row-4x6-8-120-8-Pause on chest\.,shoulder-press/)).toBeTruthy();
+    expect(startLiveSession).not.toHaveBeenCalled();
+  });
+
+  it('fingerprints advanced draft prescriptions without claiming them in the server live structure', async () => {
+    startLiveSession.mockResolvedValue({ ok: false });
+    render(<ProviderHarness userId="nik" />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Create coach draft' })).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Create coach draft' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Prescribe Bench Press' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Start live workout' }));
+
+    await waitFor(() => expect(startLiveSession).toHaveBeenCalledTimes(1));
+    const request = startLiveSession.mock.calls[0][0];
+    expect(request.liveStructure[0]).toEqual({ exerciseId: 'bench-press', targetSets: 4, targetReps: '6-8', supersetGroup: null });
+    expect(JSON.parse(request.draftFingerprint).exercises[0]).toMatchObject({ restSeconds: 120, targetRpe: 8, notes: 'Pause on chest.' });
   });
 
   it('persists a built-in split without sending its local template key as a database UUID', async () => {

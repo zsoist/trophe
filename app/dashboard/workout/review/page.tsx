@@ -18,6 +18,7 @@ export default function WorkoutReviewPage() {
   const workspace = useWorkoutWorkspace();
   const [exercises, setExercises] = useState<WorkoutExerciseOption[]>([]);
   const [libraryLoading, setLibraryLoading] = useState(true);
+  const [libraryError, setLibraryError] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<PlanSaveState>('idle');
   const savedRevisionRef = useRef<number | null>(null);
@@ -33,6 +34,7 @@ export default function WorkoutReviewPage() {
       if (!active) return;
       setUserId(authResult.data.user?.id ?? null);
       setExercises((exerciseResult.data as WorkoutExerciseOption[] | null) ?? []);
+      setLibraryError(Boolean(exerciseResult.error));
       setLibraryLoading(false);
     });
     return () => { active = false; };
@@ -116,7 +118,7 @@ export default function WorkoutReviewPage() {
 
   return (
     <>
-      <WorkoutReview exercises={exercises} onSavePlan={savePlan} saveState={saveState} saveDisabled={libraryLoading} onLogCompleted={(draft) => {
+      <WorkoutReview exercises={exercises} onSavePlan={savePlan} saveState={saveState} saveDisabled={libraryLoading} libraryError={libraryError} onLogCompleted={(draft) => {
         setRetrospective(draft);
       }} />
     </>

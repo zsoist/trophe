@@ -24,7 +24,7 @@ describe('workout workspace state', () => {
     });
     state = workoutWorkspaceReducer(state, { type: 'draft.updated', payload: { draft: {
       ...state.draft!,
-      exercises: [{ exerciseId: 'bench', targetSets: 4, targetReps: '6-8' }],
+      exercises: [{ exerciseId: 'bench', targetSets: 4, targetReps: '6-8', restSeconds: 120, targetRpe: 8, notes: 'Pause on chest.' }],
     } as never } });
     state = workoutWorkspaceReducer(state, { type: 'draft.reviewed' });
 
@@ -32,6 +32,7 @@ describe('workout workspace state', () => {
 
     expect(reopened.stage).toBe('draft');
     expect(reopened.draft).toEqual(state.draft);
+    expect(reopened.draft?.kind === 'strength' ? reopened.draft.exercises[0] : null).toMatchObject({ restSeconds: 120, targetRpe: 8, notes: 'Pause on chest.' });
   });
 
   it('retires a keyed request after the server accepts the live session', () => {

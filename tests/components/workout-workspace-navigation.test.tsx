@@ -31,7 +31,7 @@ const locale = vi.hoisted(() => ({
   } as Record<string, string[]>,
 }));
 
-vi.mock('next/navigation', () => ({ usePathname: () => pathname }));
+vi.mock('next/navigation', () => ({ usePathname: () => pathname, useSearchParams: () => new URLSearchParams() }));
 vi.mock('@/lib/i18n', () => ({
   useI18n: () => ({
     t: (key: string, params?: Record<string, string | number>) => {
@@ -93,6 +93,12 @@ describe('workout workspace navigation', () => {
     [`${WORKOUT_ROUTES.exercises}/bench`, 'review', WORKOUT_ROUTES.exercises],
   ] as const)('maps visible Back from %s in %s to its previous workspace stage', (route, stage, expected) => {
     expect(workoutBackRoute(route, stage)).toBe(expected);
+  });
+
+  it('keeps deterministic edit and replacement return paths on exercise routes', () => {
+    expect(workoutBackRoute(`${WORKOUT_ROUTES.exercises}/bench`, 'draft', { returnRoute: 'build' })).toBe(WORKOUT_ROUTES.build);
+    expect(workoutBackRoute(`${WORKOUT_ROUTES.exercises}/row`, 'review', { replaceExerciseId: 'bench', returnRoute: 'review' })).toBe(`${WORKOUT_ROUTES.exercises}?replace=bench&return=review`);
+    expect(workoutBackRoute(WORKOUT_ROUTES.exercises, 'review', { replaceExerciseId: 'bench', returnRoute: 'review' })).toBe(WORKOUT_ROUTES.review);
   });
 
   it('keeps route-aware Back distinct from the explicit Workout Home action', () => {

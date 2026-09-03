@@ -13,11 +13,13 @@ export interface ExerciseResultsProps {
   selectedIds: ReadonlySet<string>;
   onAdd: (exercise: Exercise) => void;
   onInfo?: (exercise: Exercise) => void;
+  actionLabel?: (exercise: Exercise) => string;
+  actionAriaLabel?: (exercise: Exercise) => string;
 }
 
 const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
 
-export function ExerciseResults({ exercises, lang, selectedIds, onAdd, onInfo }: ExerciseResultsProps) {
+export function ExerciseResults({ exercises, lang, selectedIds, onAdd, onInfo, actionLabel, actionAriaLabel }: ExerciseResultsProps) {
   const { t } = useI18n();
 
   return (
@@ -73,13 +75,13 @@ export function ExerciseResults({ exercises, lang, selectedIds, onAdd, onInfo }:
                   type="button"
                   onClick={() => onAdd(exercise)}
                   disabled={selected}
-                  aria-label={selected ? t('workout.exercise_added_named', { name }) : t('workout.picker_add_named', { name })}
+                  aria-label={selected ? t('workout.exercise_added_named', { name }) : actionAriaLabel?.(exercise) ?? t('workout.picker_add_named', { name })}
                   className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-[0.625rem] bg-[var(--action-secondary)] px-2.5 text-sm font-semibold text-[var(--content-primary)] transition-colors hover:bg-[var(--surface-active)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-default disabled:opacity-70 motion-reduce:transition-none"
                 >
                   {selected
                     ? <Check size={15} aria-hidden="true" />
                     : <Plus size={15} aria-hidden="true" className="min-[360px]:hidden" />}
-                  <span className="hidden min-[360px]:inline">{selected ? t('workout.exercise_added') : t('workout.picker_add')}</span>
+                  <span className="hidden min-[360px]:inline">{selected ? t('workout.exercise_added') : actionLabel?.(exercise) ?? t('workout.picker_add')}</span>
                 </button>
               </div>
               <p className="mt-0.5 truncate text-xs text-[var(--content-muted)]">

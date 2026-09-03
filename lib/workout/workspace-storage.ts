@@ -37,12 +37,15 @@ function hasOnlyKeys(value: Record<string, unknown>, keys: readonly string[]): b
 }
 
 function isDraftExercise(value: unknown): value is DraftExercise {
-  if (!isRecord(value) || !hasOnlyKeys(value, ['exerciseId', 'exerciseName', 'muscleGroup', 'targetSets', 'targetReps', 'linkedBelow'])) return false;
+  if (!isRecord(value) || !hasOnlyKeys(value, ['exerciseId', 'exerciseName', 'muscleGroup', 'targetSets', 'targetReps', 'restSeconds', 'targetRpe', 'notes', 'linkedBelow'])) return false;
   return typeof value.exerciseId === 'string'
     && (value.exerciseName === undefined || typeof value.exerciseName === 'string')
     && (value.muscleGroup === undefined || typeof value.muscleGroup === 'string')
     && typeof value.targetSets === 'number' && Number.isInteger(value.targetSets) && value.targetSets > 0
     && typeof value.targetReps === 'string' && value.targetReps.trim().length > 0
+    && (value.restSeconds === undefined || (typeof value.restSeconds === 'number' && Number.isInteger(value.restSeconds) && value.restSeconds >= 0 && value.restSeconds <= 600))
+    && (value.targetRpe === undefined || value.targetRpe === null || (typeof value.targetRpe === 'number' && Number.isFinite(value.targetRpe) && value.targetRpe >= 1 && value.targetRpe <= 10))
+    && (value.notes === undefined || (typeof value.notes === 'string' && value.notes.length <= 1000))
     && (value.linkedBelow === undefined || typeof value.linkedBelow === 'boolean');
 }
 
@@ -200,12 +203,15 @@ function persistDraft(draft: WorkoutDraft | null): WorkoutDraft | null {
       ...(draft.templateId === undefined ? {} : { templateId: draft.templateId }),
       updatedAt: draft.updatedAt,
       kind: 'strength',
-      exercises: draft.exercises.map(({ exerciseId, exerciseName, muscleGroup, targetSets, targetReps, linkedBelow }) => ({
+      exercises: draft.exercises.map(({ exerciseId, exerciseName, muscleGroup, targetSets, targetReps, restSeconds, targetRpe, notes, linkedBelow }) => ({
         exerciseId,
         ...(exerciseName === undefined ? {} : { exerciseName }),
         ...(muscleGroup === undefined ? {} : { muscleGroup }),
         targetSets: Number.isInteger(targetSets) && targetSets > 0 ? targetSets : 1,
         targetReps: targetReps.trim() || '8-12',
+        ...(restSeconds === undefined ? {} : { restSeconds }),
+        ...(targetRpe === undefined ? {} : { targetRpe }),
+        ...(notes === undefined ? {} : { notes }),
         ...(linkedBelow === undefined ? {} : { linkedBelow }),
       })),
     };

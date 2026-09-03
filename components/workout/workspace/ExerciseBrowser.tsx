@@ -9,7 +9,7 @@ import { useI18n } from '@/lib/i18n';
 import type { Exercise } from '@/lib/types';
 import { pushWorkoutRoute, WORKOUT_ROUTES, workoutRouteForStage } from '@/lib/workout/workspace-routes';
 
-export function ExerciseBrowser({ initialExercises = [], initialRecentIds = [] }: { initialExercises?: Exercise[]; initialRecentIds?: string[] }) {
+export function ExerciseBrowser({ initialExercises = [], initialRecentIds = [], replaceExerciseId, returnRoute }: { initialExercises?: Exercise[]; initialRecentIds?: string[]; replaceExerciseId?: string; returnRoute?: 'build' | 'review' }) {
   const router = useRouter();
   const workspace = useWorkoutWorkspace();
   const { lang, t } = useI18n();
@@ -20,7 +20,12 @@ export function ExerciseBrowser({ initialExercises = [], initialRecentIds = [] }
     && workspace.state.draft?.kind === 'strength'
     && !startLocked
     && !retrospectiveLocked;
-  const parentRoute = workspace.state.stage === 'review' ? WORKOUT_ROUTES.review : WORKOUT_ROUTES.build;
+  const parentRoute = returnRoute === 'review' || (!returnRoute && workspace.state.stage === 'review') ? WORKOUT_ROUTES.review : WORKOUT_ROUTES.build;
+  const replacementName = replaceExerciseId && workspace.state.draft?.kind === 'strength'
+    ? workspace.state.draft.exercises.find((item) => item.exerciseId === replaceExerciseId)?.exerciseName
+      ?? exercises.find((exercise) => exercise.id === replaceExerciseId)?.name
+      ?? replaceExerciseId
+    : undefined;
 
   if (!acceptsExercises) {
     if (startLocked || retrospectiveLocked) {
@@ -61,16 +66,26 @@ export function ExerciseBrowser({ initialExercises = [], initialRecentIds = [] }
       lang={lang}
       onSelect={() => undefined}
       onClose={() => pushWorkoutRoute(router, parentRoute)}
-      onAddToDraft={workspace.addDraftExercise}
+      onAddToDraft={(exerciseId) => {
+        if (!replaceExerciseId) { workspace.addDraftExercise(exerciseId); return; }
+        const replacement = exercises.find((exercise) => exercise.id === exerciseId);
+        if (!replacement) return;
+        workspace.replaceDraftExercise(replaceExerciseId, { exerciseId, exerciseName: replacement.name, muscleGroup: replacement.muscle_group });
+      }}
       onReturnToBuild={() => {
-        if (workspace.state.stage === 'review') workspace.returnToDraft();
-        pushWorkoutRoute(router, WORKOUT_ROUTES.build);
+        if (!replaceExerciseId) {
+          if (workspace.state.stage === 'review') workspace.returnToDraft();
+          pushWorkoutRoute(router, WORKOUT_ROUTES.build);
+          return;
+        }
+        pushWorkoutRoute(router, parentRoute);
       }}
       addedExerciseIds={workspace.state.draft?.kind === 'strength'
         ? workspace.state.draft.exercises.map(({ exerciseId }) => exerciseId)
         : []}
       onCustomCreated={(exercise) => setExercises((current) => [...current, exercise])}
-      onInfo={(exercise) => router.push(`${WORKOUT_ROUTES.exercises}/${encodeURIComponent(exercise.id)}`)}
+      replacementExerciseName={replacementName}
+      onInfo={(exercise) => router.push(`${WORKOUT_ROUTES.exercises}/${encodeURIComponent(exercise.id)}${replaceExerciseId ? `?replace=${encodeURIComponent(replaceExerciseId)}&return=${returnRoute === 'review' ? 'review' : 'build'}` : returnRoute ? `?return=${returnRoute}` : ''}`)}
     />
   );
 }

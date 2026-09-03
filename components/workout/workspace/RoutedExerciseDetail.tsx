@@ -7,7 +7,7 @@ import { useI18n } from '@/lib/i18n';
 import type { Exercise } from '@/lib/types';
 import { WORKOUT_ROUTES, workoutRouteForStage } from '@/lib/workout/workspace-routes';
 
-export function RoutedExerciseDetail({ exercise, userId }: { exercise: Exercise; userId: string | null }) {
+export function RoutedExerciseDetail({ exercise, userId, replaceExerciseId, returnRoute }: { exercise: Exercise; userId: string | null; replaceExerciseId?: string; returnRoute?: 'build' | 'review' }) {
   const router = useRouter();
   const workspace = useWorkoutWorkspace();
   const { t } = useI18n();
@@ -19,7 +19,7 @@ export function RoutedExerciseDetail({ exercise, userId }: { exercise: Exercise;
     && !retrospectiveLocked;
   const added = acceptsExercises
     && workspace.state.draft?.kind === 'strength'
-    && workspace.state.draft.exercises.some((item) => item.exerciseId === exercise.id);
+    && workspace.state.draft.exercises.some((item) => item.exerciseId === exercise.id && item.exerciseId !== replaceExerciseId);
   const canCreate = workspace.state.stage === 'home';
   return (
     <main className="exercise-detail-route">
@@ -27,9 +27,12 @@ export function RoutedExerciseDetail({ exercise, userId }: { exercise: Exercise;
         exercise={exercise}
         userId={userId}
         isAdded={added}
+        actionLabel={replaceExerciseId ? t('workout.replace_exercise') : undefined}
+        actionAriaLabel={replaceExerciseId ? t('workout.replace_with_named', { name: exercise.name }) : undefined}
         onAdd={acceptsExercises ? () => {
-          workspace.addDraftExercise(exercise.id);
-          router.push(workspace.state.stage === 'review' ? WORKOUT_ROUTES.review : WORKOUT_ROUTES.build);
+          if (replaceExerciseId) workspace.replaceDraftExercise(replaceExerciseId, { exerciseId: exercise.id, exerciseName: exercise.name, muscleGroup: exercise.muscle_group });
+          else workspace.addDraftExercise(exercise.id);
+          router.push(returnRoute === 'review' || (!returnRoute && workspace.state.stage === 'review') ? WORKOUT_ROUTES.review : WORKOUT_ROUTES.build);
         } : undefined}
         alternateAction={acceptsExercises ? undefined : {
           label: retrospectiveLocked ? t('workout.retry_same_save') : startLocked ? t('workout.retry_same_start') : canCreate ? t('workout.create_strength_draft') : t('workout.resume_current_workout'),

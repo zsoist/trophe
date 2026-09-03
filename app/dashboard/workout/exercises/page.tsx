@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { ExerciseBrowser } from '@/components/workout/workspace/ExerciseBrowser';
 import { useI18n } from '@/lib/i18n';
 import { supabase } from '@/lib/supabase';
@@ -8,6 +9,7 @@ import type { Exercise } from '@/lib/types';
 
 export default function ExerciseBrowserPage() {
   const { t } = useI18n();
+  const searchParams = useSearchParams();
   const [exercises, setExercises] = useState<Exercise[] | null>(null);
   const [recentIds, setRecentIds] = useState<string[]>([]);
   const [loadError, setLoadError] = useState(false);
@@ -44,5 +46,7 @@ export default function ExerciseBrowserPage() {
 
   if (exercises === null) return <main role="status" className="mx-auto max-w-3xl px-4 py-10 text-sm text-[var(--content-muted)]">{t('chat.loading')}</main>;
   if (loadError) return <main role="alert" className="mx-auto max-w-3xl px-4 py-10 text-sm text-[var(--status-danger-fg)]">{t('workout.program_load_failed')}</main>;
-  return <ExerciseBrowser initialExercises={exercises} initialRecentIds={recentIds} />;
+  const replaceExerciseId = searchParams.get('replace')?.trim() || undefined;
+  const returnRoute = searchParams.get('return') === 'review' ? 'review' : searchParams.get('return') === 'build' ? 'build' : undefined;
+  return <ExerciseBrowser initialExercises={exercises} initialRecentIds={recentIds} replaceExerciseId={replaceExerciseId} returnRoute={returnRoute} />;
 }

@@ -29,6 +29,8 @@ export interface ExerciseDetailProps {
   presentation?: DetailPresentation;
   headingId?: string;
   playbackDisabled?: boolean;
+  actionLabel?: string;
+  actionAriaLabel?: string;
 }
 
 const breathingPattern = /\b(?:breath\w*|inhale\w*|exhale\w*|respir\w*|inhala\w*|exhala\w*)\b|αναπν|εισπν|εκπν/i;
@@ -101,6 +103,8 @@ export function ExerciseDetail({
   presentation = 'route',
   headingId,
   playbackDisabled = false,
+  actionLabel,
+  actionAriaLabel,
 }: ExerciseDetailProps) {
   const { t, lang } = useI18n();
   const [unit] = useWeightUnit();
@@ -292,9 +296,9 @@ export function ExerciseDetail({
       {onAdd || alternateAction ? (
         <div className="exercise-detail__action">
           {onAdd ? (
-            <button type="button" disabled={isAdded} aria-label={isAdded ? t('workout.exercise_added_named', { name }) : t('workout.picker_add_named', { name })} onClick={() => onAdd(exercise)} className="btn-gold">
+            <button type="button" disabled={isAdded} aria-label={isAdded ? t('workout.exercise_added_named', { name }) : actionAriaLabel ?? t('workout.picker_add_named', { name })} onClick={() => onAdd(exercise)} className="btn-gold">
               {isAdded ? <Check size={18} aria-hidden="true" /> : <Plus size={18} aria-hidden="true" />}
-              {isAdded ? t('workout.exercise_added') : t('workout.picker_add')}
+              {isAdded ? t('workout.exercise_added') : actionLabel ?? t('workout.picker_add')}
             </button>
           ) : (
             <div>

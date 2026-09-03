@@ -62,9 +62,18 @@ export function workoutRouteForStage(stage: WorkoutStage): string {
   }
 }
 
-export function workoutBackRoute(pathname: string, stage?: WorkoutStage): string {
-  if (pathname.startsWith(`${WORKOUT_ROUTES.exercises}/`)) return WORKOUT_ROUTES.exercises;
-  if (pathname === WORKOUT_ROUTES.exercises) return stage === 'review' ? WORKOUT_ROUTES.review : WORKOUT_ROUTES.build;
+export interface WorkoutRouteContext {
+  replaceExerciseId?: string;
+  returnRoute?: 'build' | 'review';
+}
+
+export function workoutBackRoute(pathname: string, stage?: WorkoutStage, context: WorkoutRouteContext = {}): string {
+  const returnPath = context.returnRoute === 'review' ? WORKOUT_ROUTES.review : WORKOUT_ROUTES.build;
+  if (pathname.startsWith(`${WORKOUT_ROUTES.exercises}/`)) {
+    if (context.replaceExerciseId) return `${WORKOUT_ROUTES.exercises}?replace=${encodeURIComponent(context.replaceExerciseId)}&return=${context.returnRoute === 'review' ? 'review' : 'build'}`;
+    return context.returnRoute ? returnPath : WORKOUT_ROUTES.exercises;
+  }
+  if (pathname === WORKOUT_ROUTES.exercises) return context.returnRoute ? returnPath : stage === 'review' ? WORKOUT_ROUTES.review : WORKOUT_ROUTES.build;
   if (pathname === WORKOUT_ROUTES.review) return WORKOUT_ROUTES.build;
   return WORKOUT_ROUTES.home;
 }
