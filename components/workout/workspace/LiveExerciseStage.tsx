@@ -8,7 +8,10 @@ import { resolveExerciseMedia } from '@/lib/workout/exercise-media';
 import type { Exercise } from '@/lib/types';
 
 interface LiveExerciseStageProps {
+  /** Canonical exercise row — `name` stays English here because media resolution keys off it. */
   exercise: Pick<Exercise, 'id' | 'name' | 'equipment' | 'muscle_group'>;
+  /** Locale-resolved name (exerciseDisplayName); falls back to the canonical name. */
+  displayName?: string;
   position: number;
   total: number;
   targetSets: number;
@@ -26,7 +29,7 @@ interface LiveExerciseStageProps {
 
 /** The only expanded exercise surface during a strength session. */
 export function LiveExerciseStage({
-  exercise, position, total, targetSets, targetReps, previous, nextExerciseName, sessionName, elapsedText, sessionPath,
+  exercise, displayName, position, total, targetSets, targetReps, previous, nextExerciseName, sessionName, elapsedText, sessionPath,
   paused, onPause, onResume, children,
 }: LiveExerciseStageProps) {
   const { t } = useI18n();
@@ -35,7 +38,8 @@ export function LiveExerciseStage({
     equipment: exercise.equipment,
     muscleGroup: exercise.muscle_group,
   });
-  const mediaAlt = `${exercise.name} ${t('workout.technique_media')}`;
+  const shownName = displayName ?? exercise.name;
+  const mediaAlt = `${shownName} ${t('workout.technique_media')}`;
 
   return (
     <section aria-labelledby="live-exercise-title" className="space-y-4">
@@ -46,7 +50,7 @@ export function LiveExerciseStage({
             {t('workout.exercise_position', { current: position, total })}
             {elapsedText ? <span> · <span aria-label={t('workout.active_duration')} className="font-mono tabular-nums">{elapsedText}</span></span> : null}
           </p>
-          <h1 id="live-exercise-title" className="mt-1 text-2xl font-bold tracking-[-0.02em] text-[var(--content-primary)]">{exercise.name}</h1>
+          <h1 id="live-exercise-title" className="mt-1 text-2xl font-bold tracking-[-0.02em] text-[var(--content-primary)]">{shownName}</h1>
         </div>
         <button type="button" onClick={() => { if (paused) onResume(); else onPause(); }} className="btn-ghost inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl px-3" aria-label={t(paused ? 'workout.resume_workout' : 'workout.pause_workout')}>
           {paused ? <Play size={17} aria-hidden="true" /> : <Pause size={17} aria-hidden="true" />}

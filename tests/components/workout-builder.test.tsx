@@ -35,7 +35,7 @@ vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ lang: 'en', t: (key: string, pa
   'workout.picker_exact_poster_alt': `${params?.name} technique poster`,
   'workout.detail_fallback_poster_alt': `Exercise placeholder for ${params?.name}`,
   'workout.muscle_chest': 'Chest', 'workout.muscle_shoulders': 'Shoulders',
-  'workout.equipment_label': `Equipment: ${params?.equipment}`, 'workout.primary_muscle_label': `Primary muscle: ${params?.muscle}`,
+  'workout.equipment_label': `Equipment: ${params?.equipment}`, 'workout.equipment_barbell': 'Barbell', 'workout.primary_muscle_label': `Primary muscle: ${params?.muscle}`,
   'workout.name_required': 'Enter a workout name.',
   'workout.invalid_prescription': 'Every exercise needs at least one set and a reps target.',
 }[key] ?? key) }) }));
@@ -104,7 +104,7 @@ describe('WorkoutBuilder', () => {
 
     const benchVisual = screen.getByRole('img', { name: 'Anatomy reference for Bench Press' });
     expect(benchVisual.closest('[data-media-tier]')?.getAttribute('data-media-tier')).toBe('verified-anatomy');
-    expect(screen.getByText('Equipment: barbell')).toBeTruthy();
+    expect(screen.getByText('Equipment: Barbell')).toBeTruthy();
   });
 
   it('locks duplicate saves while pending and reports a rejected write without success', () => {

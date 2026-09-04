@@ -107,6 +107,11 @@ vi.mock('@/lib/i18n', () => ({
         'workout.muscle_core': 'Core',
         'workout.muscle_full_body': 'Full body',
         'workout.muscle_cardio': 'Cardio',
+        'workout.equipment_barbell': 'Barbell',
+        'workout.equipment_dumbbell': 'Dumbbell',
+        'workout.equipment_machine': 'Machine',
+        'workout.equipment_cable': 'Cable',
+        'workout.equipment_bodyweight': 'Bodyweight',
       };
       return Object.entries(params ?? {}).reduce(
         (text, [name, value]) => text.replaceAll(`{${name}}`, String(value)),

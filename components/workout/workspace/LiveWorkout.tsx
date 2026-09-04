@@ -13,6 +13,7 @@ import { FinishWorkoutDialog } from '@/components/workout/workspace/FinishWorkou
 import { LiveCardio, type CardioLogValues } from '@/components/workout/workspace/LiveCardio';
 import { LiveExerciseStage } from '@/components/workout/workspace/LiveExerciseStage';
 import { LiveSessionPath } from '@/components/workout/workspace/LiveSessionPath';
+import { exerciseDisplayName } from '@/components/workout/muscle-groups';
 import { useI18n } from '@/lib/i18n';
 import type { Exercise, PainFlag } from '@/lib/types';
 import {
@@ -51,7 +52,7 @@ interface ExtraLoggerRow {
 }
 
 export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const workspace = useWorkoutWorkspace();
   const { state } = workspace;
   const [unit] = useWeightUnit();
@@ -232,6 +233,12 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
   };
 
   const exerciseById = useMemo(() => new Map(exercises.map((exercise) => [exercise.id, exercise])), [exercises]);
+  // Every user-visible exercise name goes through the shared resolver (house rule:
+  // English for Greek, name_es for Spanish). Draft storage keeps the canonical name.
+  const displayNameFor = (exerciseId: string, fallback?: string): string => {
+    const row = exerciseById.get(exerciseId);
+    return row ? exerciseDisplayName(row, lang) : fallback ?? exerciseId;
+  };
   const rows = useMemo(() => {
     if (!draft || draft.kind !== 'strength') return [];
     return draft.exercises.flatMap((exercise) => {
@@ -293,7 +300,7 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
           <h2 id="workout-completed-title" className="mt-1 text-2xl font-bold text-[var(--content-primary)]">{t('workout.completed_title')}</h2>
           <p className="mt-2 text-sm leading-6 text-[var(--content-secondary)]">{t('workout.completed_message')}</p>
           <dl className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-[var(--workout-rail)] bg-[var(--workout-rail)] text-left text-sm">
-            <div className="bg-[var(--surface-subtle)] p-3"><dt className="text-[var(--content-muted)]">{t('workout.completed_duration')}</dt><dd className="mt-1 font-mono font-semibold tabular-nums text-[var(--content-primary)]">{durationMinutes} min</dd></div>
+            <div className="bg-[var(--surface-subtle)] p-3"><dt className="text-[var(--content-muted)]">{t('workout.completed_duration')}</dt><dd className="mt-1 font-mono font-semibold tabular-nums text-[var(--content-primary)]">{durationMinutes} {t('workout.min')}</dd></div>
             <div className="bg-[var(--surface-subtle)] p-3"><dt className="text-[var(--content-muted)]">{t('workout.completed_sets')}</dt><dd className="mt-1 font-mono font-semibold tabular-nums text-[var(--content-primary)]">{completedSets}</dd></div>
             <div className="bg-[var(--surface-subtle)] p-3"><dt className="text-[var(--content-muted)]">{t('workout.completed_pain')}</dt><dd className="mt-1 font-mono font-semibold tabular-nums text-[var(--content-primary)]">{completedPainCount}</dd></div>
             <div className="bg-[var(--surface-subtle)] p-3"><dt className="text-[var(--content-muted)]">{t('workout.completed_prs')}</dt><dd className="mt-1 font-mono font-semibold tabular-nums text-[var(--content-primary)]">{prCount}</dd></div>
@@ -484,7 +491,7 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
         </div>
       </section> : null}
       {!activeDraftExercise ? <LiveSessionPath
-        exercises={draft.exercises.map((exercise) => ({ id: exercise.exerciseId, name: exercise.exerciseName ?? exerciseById.get(exercise.exerciseId)?.name ?? exercise.exerciseId }))}
+        exercises={draft.exercises.map((exercise) => ({ id: exercise.exerciseId, name: displayNameFor(exercise.exerciseId, exercise.exerciseName) }))}
         selectedId={null}
         completedIds={new Set(draft.exercises.filter((exercise) => persistedSets.filter((set) => set.exercise_id === exercise.exerciseId && !set.is_warmup).length >= exercise.targetSets).map((exercise) => exercise.exerciseId))}
         onSelect={setSelectedExerciseId}
@@ -498,16 +505,17 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
       ) : !activeDraftExercise || !activeResolved ? <div role="status" className="min-h-24 animate-pulse rounded-xl bg-[var(--surface-subtle)]" aria-label={t('workout.loading_live_session')} /> : (
         <LiveExerciseStage
           exercise={activeResolved}
+          displayName={displayNameFor(activeResolved.id, activeResolved.name)}
           position={activeExerciseIndex + 1}
           total={draft.exercises.length}
           targetSets={activeDraftExercise.targetSets}
           targetReps={activeDraftExercise.targetReps}
           previous={previousEvidence}
-          nextExerciseName={draft.exercises[activeExerciseIndex + 1]?.exerciseName ?? exerciseById.get(draft.exercises[activeExerciseIndex + 1]?.exerciseId ?? '')?.name}
+          nextExerciseName={draft.exercises[activeExerciseIndex + 1] ? displayNameFor(draft.exercises[activeExerciseIndex + 1].exerciseId, draft.exercises[activeExerciseIndex + 1].exerciseName) : undefined}
           sessionName={draft.name}
           elapsedText={elapsedText}
           sessionPath={<LiveSessionPath
-            exercises={draft.exercises.map((exercise) => ({ id: exercise.exerciseId, name: exercise.exerciseName ?? exerciseById.get(exercise.exerciseId)?.name ?? exercise.exerciseId }))}
+            exercises={draft.exercises.map((exercise) => ({ id: exercise.exerciseId, name: displayNameFor(exercise.exerciseId, exercise.exerciseName) }))}
             selectedId={activeDraftExercise.exerciseId}
             completedIds={new Set(draft.exercises.filter((exercise) => persistedSets.filter((set) => set.exercise_id === exercise.exerciseId && !set.is_warmup).length >= exercise.targetSets).map((exercise) => exercise.exerciseId))}
             onSelect={setSelectedExerciseId}
@@ -533,7 +541,7 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
           return (
             <div key={row.id}>
             <ExerciseSetLogger
-              exercise={{ id: resolved.id, name: resolved.name, isCompound: resolved.is_compound, equipment: resolved.equipment }}
+              exercise={{ id: resolved.id, name: displayNameFor(resolved.id, resolved.name), isCompound: resolved.is_compound, equipment: resolved.equipment }}
               setNumber={row.setNumber}
               unit={unit}
               grouped
@@ -601,7 +609,7 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
               onSuperset={() => void toggleSuperset(row.exerciseId)}
               onRemove={() => setRemoveCandidate({
                 exerciseId: row.exerciseId,
-                name: resolved.name,
+                name: displayNameFor(resolved.id, resolved.name),
                 savedSetCount: persistedSets.filter((set) => set.exercise_id === row.exerciseId).length,
               })}
             />
@@ -659,7 +667,7 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
         }}
       />
 
-      {painExerciseId ? <PainFlagModal exerciseId={painExerciseId} exerciseName={exerciseById.get(painExerciseId)?.name ?? draft.exercises.find((exercise) => exercise.exerciseId === painExerciseId)?.exerciseName ?? t('painflag.current_exercise')} suggestedBodyPart={exerciseById.get(painExerciseId)?.muscle_group ?? ''} onSave={async (flag, mutationId) => {
+      {painExerciseId ? <PainFlagModal exerciseId={painExerciseId} exerciseName={displayNameFor(painExerciseId, draft.exercises.find((exercise) => exercise.exerciseId === painExerciseId)?.exerciseName ?? t('painflag.current_exercise'))} suggestedBodyPart={exerciseById.get(painExerciseId)?.muscle_group ?? ''} onSave={async (flag, mutationId) => {
         const saved = await runMutation('pain', () => appendLivePainFlag(sessionId, mutationId, flag), (candidate) => candidate.ok);
         if (!saved?.ok) return false;
         setPainFlags(saved.flags);

@@ -9,7 +9,7 @@ import type { AnatomyMuscleId } from '@/lib/workout/anatomy';
 import { resolveExerciseMedia } from '@/lib/workout/exercise-media';
 import { resolveExerciseInstructionBlock } from '@/lib/workout/exercise-copy';
 import { kgToDisplay, useWeightUnit } from '@/lib/workout/units';
-import { exerciseDisplayName } from './muscle-groups';
+import { equipmentLabel, exerciseDisplayName } from './muscle-groups';
 import { ExerciseMediaBadge } from './ExerciseMediaBadge';
 import { ExerciseMotion } from './ExerciseMotion';
 import { MuscleAtlas } from './MuscleAtlas';
@@ -202,7 +202,7 @@ export function ExerciseDetail({
       <header className="exercise-detail__identity">
         <h1 id={headingId}>{name}</h1>
         <div className="exercise-detail__identity-meta">
-          <span><Dumbbell size={15} aria-hidden="true" />{exercise.equipment ?? t('workout.equipment_not_required')}</span>
+          <span><Dumbbell size={15} aria-hidden="true" />{equipmentLabel(t, exercise.equipment)}</span>
           {exercise.is_compound ? <span>{t('workout.compound')}</span> : null}
         </div>
       </header>
@@ -239,7 +239,7 @@ export function ExerciseDetail({
           <section className="exercise-detail__section" aria-labelledby={`${exercise.id}-setup-title`}>
             <h2 id={`${exercise.id}-setup-title`}>{t('workout.detail_equipment_setup')}</h2>
             <dl className="exercise-detail__equipment">
-              <div><dt>{t('workout.detail_equipment_label')}</dt><dd>{exercise.equipment ?? t('workout.equipment_not_required')}</dd></div>
+              <div><dt>{t('workout.detail_equipment_label')}</dt><dd>{equipmentLabel(t, exercise.equipment)}</dd></div>
             </dl>
             {instruction.englishFallback ? <p className="exercise-detail__language-note">{t('workout.detail_english_guidance')}</p> : null}
             <GuidanceRow title={t('workout.info_setup')} items={guidance.setup} empty={t('workout.info_not_provided')} />

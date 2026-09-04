@@ -72,7 +72,7 @@ export default function RecentSessionCard({
     if (!sets) return [];
     const map = new Map<string, { name: string; muscle: string; rows: ExpandedSetRow[] }>();
     for (const s of sets) {
-      // Exercise names stay English for Greek users (see exerciseDisplayName).
+      // House rule (enforced by exerciseDisplayName): English for Greek users, name_es for Spanish.
       const name = s.exercise ? exerciseDisplayName(s.exercise, lang) : t('workout.analytics_exercise_fallback');
       if (!map.has(s.exercise_id)) map.set(s.exercise_id, { name, muscle: s.exercise?.muscle_group ?? '', rows: [] });
       map.get(s.exercise_id)!.rows.push(s);
