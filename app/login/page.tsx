@@ -8,17 +8,11 @@ import { Mail, ArrowRight, Loader2, Eye, EyeOff } from 'lucide-react';
 import { submitSignup, resendConfirmation, fetchDeps } from '@/lib/auth/signup-client';
 import { authCallbackErrorNotice, confirmedLoginNotice } from '@/lib/auth/auth-messages';
 import { recoverInvalidBrowserSession } from '@/lib/auth/recover-browser-session';
+import { safeLoginRedirect } from '@/lib/auth/safe-redirect';
 import { ThemeModeProvider, ThemeModeToggle } from '@/components/shared/ThemeMode';
 import { Button, IconButton } from '@/components/ui/Button';
 
 const clearInvalidLocalSession = () => supabase.auth.signOut({ scope: 'local' });
-
-function safeRedirectTo(value: string | null): string | null {
-  if (!value || !value.startsWith('/') || value.startsWith('//') || value.startsWith('/login')) {
-    return null;
-  }
-  return value;
-}
 
 function passwordStrength(password: string): { label: 'Weak' | 'Good' | 'Strong'; percent: number } {
   const checks = [
@@ -37,7 +31,7 @@ function passwordStrength(password: string): { label: 'Weak' | 'Good' | 'Strong'
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = safeRedirectTo(searchParams.get('redirectTo'));
+  const redirectTo = safeLoginRedirect(searchParams.get('redirectTo'));
   // Coach beta invite code (?code=…) — elevates signup to a coach account (B1).
   const inviteCode = searchParams.get('code')?.trim() || undefined;
   // A code link implies signup intent.

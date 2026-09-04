@@ -25,6 +25,8 @@ export const nl: Record<string, string> = {
   'workout.weight_unit_label': 'Gewichtseenheid: {unit}',
   'workout.weight_unit_switch': 'Wisselen naar {unit}',
   'workout.loading_workspace': 'Trainingsruimte laden',
+  'workout.loading_build': 'Trainingsbouwer laden',
+  'workout.loading_review': 'Trainingsoverzicht laden',
   'workout.continue_active': 'Training hervatten',
   'workout.view_completed_summary': 'Trainingssamenvatting bekijken',
   'workout.repeat_replace_title': 'Huidig concept vervangen?',
