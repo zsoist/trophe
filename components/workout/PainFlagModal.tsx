@@ -73,7 +73,7 @@ export default function PainFlagModal({ exerciseId, exerciseName = exerciseId, s
   };
 
   return (
-    <motion.div initial={reducedMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={reducedMotion ? undefined : { opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'var(--surface-overlay)' }} onClick={() => { if (!saving) onCloseRef.current(); }}>
+    <motion.div initial={reducedMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={reducedMotion ? undefined : { opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--scrim)] px-4 backdrop-blur-sm" onClick={() => { if (!saving) onCloseRef.current(); }}>
       <motion.div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} onKeyDown={(event) => trapFocus(event, dialogRef.current)} initial={reducedMotion ? false : { scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={reducedMotion ? undefined : { scale: 0.98, opacity: 0 }} transition={{ duration: reducedMotion ? 0 : 0.22, ease: [0.16, 1, 0.3, 1] }} className="workout-workspace workout-dialog glass-elevated max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] outline-none" onClick={(event) => event.stopPropagation()}>
         <div className="flex items-center gap-2"><AlertTriangle size={20} className="text-[var(--status-danger-fg)]" /><h3 id={titleId} className="text-lg font-semibold text-[var(--content-primary)]">{t('painflag.title')}</h3></div>
         <p className="mt-1 text-sm text-[var(--content-secondary)]"><span className="font-medium">{t('painflag.exercise')}:</span> {exerciseName}</p>

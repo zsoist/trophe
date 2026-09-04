@@ -189,6 +189,7 @@ const PRESENTATION_SOURCES = [
   'components/workout/workspace/WorkoutHome.tsx',
   'components/workout/workspace/WorkoutBuilder.tsx',
   'components/workout/workspace/WorkoutReview.tsx',
+  'components/workout/workspace/FinishWorkoutDialog.tsx',
   'components/shared/ChatThread.tsx',
   'components/shared/CalendarView.tsx',
   'components/shared/ChatThread.tsx',
@@ -218,6 +219,15 @@ const EXPECTED_DIALOG_ROOTS: Record<(typeof OVERLAY_SOURCES)[number], number> = 
   'components/shared/CalendarView.tsx': 1,
   'components/shared/ChatThread.tsx': 1,
 };
+
+/** Full-viewport backdrops behind a dialog panel: translucent scrim, never an opaque surface token. */
+const SCRIM_SOURCES = [
+  'components/workout/ExerciseInfoSheet.tsx',
+  'components/workout/ExercisePicker.tsx',
+  'components/workout/PainFlagModal.tsx',
+  'components/workout/PlateCalculator.tsx',
+  'components/workout/workspace/FinishWorkoutDialog.tsx',
+] as const;
 
 const source = (file: string) => readFileSync(join(process.cwd(), file), 'utf8');
 
@@ -338,6 +348,30 @@ describe('client secondary theme and accessibility contract', () => {
     expect(exercisePicker.match(/aria-modal="true"/g)).toHaveLength(2);
     expect(exercisePicker.match(/previousFocus/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
     expect(exercisePicker).toContain('useReducedMotion');
+  });
+
+  it('defines a translucent --scrim token in both theme blocks and keeps opaque surfaces off dialog backdrops', () => {
+    const css = source('app/globals.css');
+    const darkStart = css.indexOf('--surface-overlay: #1A1A1A');
+    const lightStart = css.indexOf('.light {');
+    expect(darkStart).toBeGreaterThan(-1);
+    expect(lightStart).toBeGreaterThan(darkStart);
+    const scrimDefinition = /--scrim:\s*(?:color-mix\(in srgb, var\(--canvas\) \d{1,2}%, transparent\)|rgba?\([^)]*\))\s*;/g;
+    expect(css.slice(0, lightStart).match(scrimDefinition)).toHaveLength(1);
+    expect(css.slice(lightStart).match(scrimDefinition)).toHaveLength(1);
+
+    const violations = SCRIM_SOURCES.flatMap((file) => {
+      const value = source(file);
+      const backdrops = [...value.matchAll(/fixed inset-0/g)].map(({ index = 0 }) => value.slice(index, index + 320));
+      const scrims = backdrops.filter((backdrop) => /bg-\[var\(--scrim\)\]/.test(backdrop));
+      return [
+        scrims.length === 0 && `${file}: no backdrop uses var(--scrim)`,
+        ...scrims.filter((backdrop) => !/backdrop-blur-sm/.test(backdrop)).map(() => `${file}: scrim backdrop missing backdrop-blur-sm`),
+        ...backdrops.filter((backdrop) => /surface-overlay/.test(backdrop)).map(() => `${file}: backdrop still uses var(--surface-overlay)`),
+      ].filter(Boolean) as string[];
+    });
+
+    expect(violations).toEqual([]);
   });
 
   it('closes only the top custom-exercise dialog on Escape', () => {

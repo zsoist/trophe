@@ -1243,6 +1243,9 @@ export const translations: Record<string, Record<CoreLanguage, string>> = {
   'workout.superset_unlink': { en: 'Unlink superset', es: 'Desenlazar superserie', el: 'Αποσύνδεση superset' },
   'workout.superset_save_failed': { en: 'Superset change was not saved — please try again', es: 'El cambio de superserie no se guardó — inténtalo de nuevo', el: 'Η αλλαγή superset δεν αποθηκεύτηκε — δοκιμάστε ξανά' },
   'workout.rest_target': { en: 'Rest target', es: 'Descanso objetivo', el: 'Στόχος ξεκούρασης' },
+  'workout.rest_timer_label': { en: 'Rest timer', es: 'Temporizador de descanso', el: 'Χρονόμετρο ξεκούρασης' },
+  'workout.rest_started': { en: 'Rest started, {n}s target', es: 'Descanso iniciado, objetivo {n}s', el: 'Η ξεκούραση ξεκίνησε, στόχος {n}s' },
+  'workout.rest_complete': { en: 'Rest complete', es: 'Descanso completado', el: 'Η ξεκούραση ολοκληρώθηκε' },
 
   // ── Weekday names (program cards) ──
   'general.weekday_sunday':    { en: 'Sunday', es: 'domingo', el: 'Κυριακή' },
