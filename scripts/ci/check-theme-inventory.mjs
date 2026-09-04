@@ -25,8 +25,10 @@ const rules = [
     pattern: /(?:bg|text|border|outline|ring|fill|stroke)-\[[^\]\n]*#[\da-f]{3,8}[^\]\n]*\]|(?:background(?:Color)?|color|fill|stroke|border(?:Color)?)\s*:\s*(?:[^,\n}]*?var\([^\)\n]*#[\da-f]{3,8}[^\)\n]*\)|(?:[^(),\n}]|\([^\)\n]*\))*#[\da-f]{3,8})|(?:fill|stroke|color)=["'][^"'\n]*#[\da-f]{3,8}[^"'\n]*["']|(?:fill|stroke|color)\s*=\s*\{[^}\n]*#[\da-f]{3,8}[^}\n]*\}/gi,
   },
   {
+    // Catches `text-[Npx]` under 12px and any `text-[N rem]` under 0.75rem
+    // (0.5625rem = 9px, 0.625rem = 10px, 0.6875rem = 11px, 0.7rem = 11.2px).
     name: 'functional text below 12px',
-    pattern: /text-\[(?:[0-9]|1[01])(?:\.\d+)?px\]/g,
+    pattern: /text-\[(?:(?:[0-9]|1[01])(?:\.\d+)?px|0?\.(?:[0-6]\d*|7(?:[0-4]\d*)?)rem)\]/g,
   },
 ];
 

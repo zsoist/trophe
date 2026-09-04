@@ -25,15 +25,15 @@ export function WorkoutTodayRail({ title, source, readiness, workSummary, nextAc
       </div>
       <dl className="grid grid-cols-2 border-t border-[var(--workout-rail)] min-[390px]:grid-cols-3">
         <div className="border-r border-[var(--workout-rail)] px-3 py-2.5">
-          <dt className="text-[0.6875rem] font-medium uppercase tracking-[0.08em] text-[var(--content-muted)]">{t('workout.home_source_label')}</dt>
+          <dt className="text-xs font-medium uppercase tracking-[0.08em] text-[var(--content-muted)]">{t('workout.home_source_label')}</dt>
           <dd className="mt-1 text-xs font-semibold text-[var(--content-primary)]">{source}</dd>
         </div>
         <div className="px-3 py-2.5 min-[390px]:border-r min-[390px]:border-[var(--workout-rail)]">
-          <dt className="text-[0.6875rem] font-medium uppercase tracking-[0.08em] text-[var(--content-muted)]">{t('workout.home_readiness_label')}</dt>
+          <dt className="text-xs font-medium uppercase tracking-[0.08em] text-[var(--content-muted)]">{t('workout.home_readiness_label')}</dt>
           <dd className="mt-1 text-xs font-semibold text-[var(--content-primary)]">{readiness}</dd>
         </div>
         <div className="col-span-2 border-t border-[var(--workout-rail)] px-3 py-2.5 min-[390px]:col-span-1 min-[390px]:border-t-0">
-          <dt className="text-[0.6875rem] font-medium uppercase tracking-[0.08em] text-[var(--content-muted)]">{t('workout.home_next_step_label')}</dt>
+          <dt className="text-xs font-medium uppercase tracking-[0.08em] text-[var(--content-muted)]">{t('workout.home_next_step_label')}</dt>
           <dd className="mt-1 text-xs font-semibold text-[var(--content-primary)]">{nextAction}</dd>
         </div>
       </dl>

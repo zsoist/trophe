@@ -159,7 +159,7 @@
 .plan-muscle-summary__facts span { color: var(--content-secondary); }
 .plan-muscle-summary__heading { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; padding: .75rem .75rem .4rem; }
 .plan-muscle-summary__heading h2 { font-size: .9375rem; font-weight: 750; letter-spacing: -.015em; }
-.plan-muscle-summary__heading span { color: var(--content-muted); font-size: .6875rem; text-align: right; }
+.plan-muscle-summary__heading span { color: var(--content-muted); font-size: .75rem; text-align: right; }
 .plan-muscle-summary__loads { padding: 0 .75rem .65rem; }
 .plan-muscle-summary__loads li { display: grid; grid-template-columns: minmax(6.5rem, 1fr) minmax(4rem, 1.1fr) 2.25rem; align-items: center; gap: .5rem; min-height: 32px; font-size: .75rem; }
 .plan-muscle-summary__loads li > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -175,7 +175,7 @@
 .plan-exercise-card { min-width: 0; padding: .75rem; background: var(--surface-raised); }
 .plan-exercise-card + .plan-exercise-card { border-top: 1px solid var(--workout-rail); }
 .plan-exercise-card__identity { display: grid; grid-template-columns: 2.75rem 4.5rem minmax(0, 1fr); align-items: center; gap: .65rem; }
-.plan-exercise-card__sequence { align-self: start; padding-top: .15rem; color: var(--content-muted); font-family: var(--font-mono, ui-monospace, monospace); font-size: .6875rem; font-variant-numeric: tabular-nums; }
+.plan-exercise-card__sequence { align-self: start; padding-top: .15rem; color: var(--content-muted); font-family: var(--font-mono, ui-monospace, monospace); font-size: .75rem; font-variant-numeric: tabular-nums; }
 .plan-exercise-card__drag { display: inline-flex; min-width: 44px; min-height: 44px; touch-action: none; align-items: center; justify-content: center; gap: .1rem; border-radius: .625rem; cursor: grab; }
 .plan-exercise-card__drag:active { cursor: grabbing; background: var(--surface-active); color: var(--content-primary); }
 .plan-exercise-card__identity > img { width: 4.5rem; height: 4.5rem; border-radius: .625rem; background: var(--workout-visual-surface); object-fit: contain; }
@@ -184,7 +184,7 @@
 .plan-exercise-card__title p { margin-block: .25rem .35rem; overflow: hidden; color: var(--content-secondary); font-size: .75rem; text-overflow: ellipsis; white-space: nowrap; }
 .plan-exercise-card__prescription { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .55rem; margin-top: .75rem; padding-top: .75rem; border-top: 1px solid var(--workout-rail); }
 .plan-exercise-card__prescription label,
-.plan-exercise-card__notes { min-width: 0; color: var(--content-secondary); font-size: .6875rem; font-weight: 650; }
+.plan-exercise-card__notes { min-width: 0; color: var(--content-secondary); font-size: .75rem; font-weight: 650; }
 .plan-exercise-card__prescription label span,
 .plan-exercise-card__notes span { display: block; margin-bottom: .3rem; }
 .plan-exercise-card__prescription input { font-family: var(--font-mono, ui-monospace, monospace); font-variant-numeric: tabular-nums; }
@@ -517,10 +517,14 @@
   --performance-ink: #171512;
   --performance-muted: #615D55;
   --performance-gold: #765A1D;
+  /* Accents double as 12px uppercase badge text on --performance-surface-raised
+     (#F0EDE4). Contrast there / on #FFFFFF / on #F5F2EA:
+     coral 5.53 / 6.47 / 5.78 · lime 6.14 / 7.19 / 6.43 · cyan 5.92 / 6.94 / 6.20 ·
+     orange 5.81 / 6.81 / 6.08 (previous lime/cyan/orange were 4.39 / 4.23 / 4.38). */
   --performance-coral: #B4233C;
-  --performance-lime: #517900;
-  --performance-cyan: #007A99;
-  --performance-orange: #B94C00;
+  --performance-lime: #3F6100;
+  --performance-cyan: #00627A;
+  --performance-orange: #9A3F00;
   --performance-violet: #6544B8;
 
   --workout-canvas: var(--performance-canvas);
@@ -712,7 +716,21 @@ body {
   transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
-.glass-elevated {
+/* ─── Legacy primitives: two cascade positions ───
+   Tailwind 4 emits utilities in `@layer utilities`; unlayered author CSS beats
+   them regardless of specificity, so `rounded-t-3xl`, `px-3`, `font-bold`, etc.
+   on a `.glass-elevated` / `.btn-gold` / `.input-dark` element were dead.
+
+   Inside workout surfaces (`.workout-workspace`: the /dashboard/workout layout
+   plus the workout dialogs that carry the class themselves) the primitives sit
+   in `@layer components`, so the utilities the components already declare win.
+
+   Everywhere else the `:not(.workout-workspace *)` copies keep the historical
+   unlayered precedence: coach/admin/client pages were written against that
+   behaviour (e.g. `input-dark py-2` relies on the primitive's 12px padding to
+   reach 44px targets). Declarations are identical in both copies — keep them
+   in sync; tests/components/globals-css-layers.test.ts enforces the shape. */
+.glass-elevated:not(.workout-workspace *) {
   background: var(--bg-card-elevated);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
@@ -720,6 +738,18 @@ body {
   border-radius: 20px;
   box-shadow: var(--shadow-card);
   transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+@layer components {
+  .glass-elevated {
+    background: var(--bg-card-elevated);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid var(--border-subtle);
+    border-radius: 20px;
+    box-shadow: var(--shadow-card);
+    transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+  }
 }
 
 /* ─── Gold Accent Glow ─── */
@@ -753,8 +783,8 @@ body {
   transition: stroke-dashoffset 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* ─── Button Variants ─── */
-.btn-gold {
+/* ─── Button Variants + Input Styles (see the two-position note above .glass-elevated) ─── */
+.btn-gold:not(.workout-workspace *) {
   background: linear-gradient(135deg, var(--color-gold-dark), var(--color-gold));
   color: #0a0a0a;
   font-weight: 600;
@@ -765,17 +795,17 @@ body {
   cursor: pointer;
 }
 
-.btn-gold:hover {
+.btn-gold:not(.workout-workspace *):hover {
   background: linear-gradient(135deg, var(--color-gold), var(--color-gold-light));
   transform: translateY(-1px);
   box-shadow: 0 4px 16px rgba(212, 168, 83, 0.3);
 }
 
-.btn-gold:active {
+.btn-gold:not(.workout-workspace *):active {
   transform: translateY(0);
 }
 
-.btn-ghost {
+.btn-ghost:not(.workout-workspace *) {
   background: transparent;
   color: var(--text-secondary);
   border: 1px solid var(--border-default);
@@ -785,14 +815,13 @@ body {
   cursor: pointer;
 }
 
-.btn-ghost:hover {
+.btn-ghost:not(.workout-workspace *):hover {
   background: var(--bg-surface-hover);
   color: var(--text-primary);
   border-color: var(--border-light);
 }
 
-/* ─── Input Styles ─── */
-.input-dark {
+.input-dark:not(.workout-workspace *) {
   background: var(--bg-input);
   border: 1px solid var(--border-default);
   border-radius: 12px;
@@ -804,13 +833,82 @@ body {
   width: 100%;
 }
 
-.input-dark::placeholder {
+.input-dark:not(.workout-workspace *)::placeholder {
   color: var(--text-muted);
 }
 
-.input-dark:focus {
+.input-dark:not(.workout-workspace *):focus {
   border-color: var(--color-gold);
   box-shadow: 0 0 0 3px rgba(212, 168, 83, 0.1);
+}
+
+@layer components {
+  .btn-gold {
+    background: linear-gradient(135deg, var(--color-gold-dark), var(--color-gold));
+    color: #0a0a0a;
+    font-weight: 600;
+    border-radius: 12px;
+    padding: 12px 24px;
+    transition: all 0.2s ease;
+    border: none;
+    cursor: pointer;
+  }
+
+  .btn-gold:hover {
+    background: linear-gradient(135deg, var(--color-gold), var(--color-gold-light));
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(212, 168, 83, 0.3);
+  }
+
+  .btn-gold:active {
+    transform: translateY(0);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-default);
+    border-radius: 12px;
+    padding: 12px 24px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+  }
+
+  .btn-ghost:hover {
+    background: var(--bg-surface-hover);
+    color: var(--text-primary);
+    border-color: var(--border-light);
+  }
+
+  /* ─── Input Styles ─── */
+  .input-dark {
+    background: var(--bg-input);
+    border: 1px solid var(--border-default);
+    border-radius: 12px;
+    padding: 12px 16px;
+    color: var(--text-primary);
+    font-size: 16px; /* prevents iOS zoom; the unlayered `input, textarea, select` floor below still wins */
+    transition: border-color 0.2s, background-color 0.3s ease, color 0.3s ease;
+    outline: none;
+    width: 100%;
+  }
+
+  .input-dark::placeholder {
+    color: var(--text-muted);
+  }
+
+  .input-dark:focus {
+    border-color: var(--color-gold);
+    box-shadow: 0 0 0 3px rgba(212, 168, 83, 0.1);
+  }
+
+  /* Now that `px-*` utilities can shrink a workout button, hold the 44px
+     touch-target floor the workout E2E enforces (icon-only pause/resume). */
+  .workout-workspace .btn-gold,
+  .workout-workspace .btn-ghost {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+  }
 }
 
 /* ─── Food portion review ───
@@ -1133,9 +1231,16 @@ body {
   animation: water-fill 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
-/* ─── Safe Area (iOS) ─── */
-.safe-bottom {
+/* ─── Safe Area (iOS) — layered inside workout surfaces so an explicit
+   pb-[calc(...env(safe-area-inset-bottom))] wins; see note above .glass-elevated ─── */
+.safe-bottom:not(.workout-workspace *) {
   padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px);
+}
+
+@layer components {
+  .safe-bottom {
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px);
+  }
 }
 
 /* ─── Scrollbar ─── */
@@ -1834,8 +1939,8 @@ body {
 
 .muscle-atlas__roles li.is-selected { color: var(--content-primary); }
 .muscle-atlas__roles li button:hover { background: var(--surface-hover); color: var(--content-primary); }
-.muscle-atlas__roles strong { grid-column: 2 / -1; color: var(--content-muted); font-family: var(--font-mono); font-size: 0.625rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; }
-.muscle-atlas__side { color: var(--content-muted); font-family: var(--font-mono); font-size: 0.625rem; letter-spacing: 0.05em; text-transform: uppercase; }
+.muscle-atlas__roles strong { grid-column: 2 / -1; color: var(--content-muted); font-family: var(--font-mono); font-size: 0.75rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; }
+.muscle-atlas__side { color: var(--content-muted); font-family: var(--font-mono); font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; }
 .muscle-atlas__roles-summary { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0.2rem 0.45rem; align-items: center; padding: 0.5rem 0.625rem; }
 .muscle-atlas__swatch { width: 0.6rem; height: 0.6rem; border: 1px solid currentColor; border-radius: 50%; }
 .muscle-atlas__swatch--primary { background: var(--performance-coral); }
@@ -1891,19 +1996,25 @@ body {
     border-right: 0;
   }
 
+  /* 12px floor for functional text; values wrap to two lines instead of clipping. */
   .workout-today-rail dt {
     overflow: hidden;
-    font-size: 0.5625rem;
+    font-size: 0.75rem;
+    line-height: 1.2;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   .workout-today-rail dd {
+    display: -webkit-box;
     overflow: hidden;
     margin-top: 0.15rem;
-    font-size: 0.6875rem;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    font-size: 0.75rem;
+    line-height: 1.25;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow-wrap: break-word;
   }
 
   .workout-atlas-home {
@@ -1968,7 +2079,7 @@ body {
     min-width: 0;
     min-height: 2.75rem;
     padding-inline: 0.35rem;
-    font-size: 0.6875rem;
+    font-size: 0.75rem;
   }
 
   .workout-atlas-home .muscle-atlas__roles {
@@ -2012,6 +2123,22 @@ body {
 }
 
 @media (max-width: 639px) and (max-height: 620px) {
+  /* Short phones (320x568): keep the first view — rail, atlas, primary action —
+     above the bottom nav. Text stays at the 12px floor; only the second value
+     line and cell padding give way. */
+  .workout-today-rail__headline {
+    padding-block: 0.5rem;
+  }
+
+  .workout-today-rail dl > div {
+    padding-block: 0.35rem;
+  }
+
+  .workout-today-rail dd {
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+  }
+
   .workout-atlas-home {
     padding-block: 0.5rem;
   }
@@ -2127,7 +2254,7 @@ body {
   background: var(--workout-surface-raised);
   color: var(--content-secondary);
   font-family: var(--font-mono);
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   font-weight: 500;
   letter-spacing: 0.06em;
   line-height: 1.1;
@@ -2328,7 +2455,7 @@ body {
 .exercise-detail__record h3,
 .exercise-detail__history h3 {
   color: var(--content-muted);
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 650;
   letter-spacing: 0.08em;
   line-height: 1.3;
@@ -2609,7 +2736,7 @@ body {
 .workout-mode-card__copy small {
   margin-top: 0.22rem;
   color: var(--content-muted);
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   line-height: 1.25;
 }
 
