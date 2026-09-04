@@ -129,6 +129,8 @@ export type WorkoutWorkspaceEvent =
   | { type: 'draft.reopened' }
   | { type: 'request.keyed'; payload: { clientRequestId: string } }
   | { type: 'request.prepared'; payload: { startRequest: LiveStartRequestEnvelope } }
+  /** The server gave a definitive refusal for the pinned start envelope; it can never be accepted. */
+  | { type: 'request.rejected' }
   | { type: 'retrospective.prepared'; payload: { retrospectiveRequest: RetrospectiveSaveRequestEnvelope } }
   | { type: 'retrospective.saved'; payload: { sessionId: string } }
   | { type: 'live.started'; payload: { sessionId: string; now: number } }
@@ -139,7 +141,13 @@ export type WorkoutWorkspaceEvent =
   | { type: 'live.finishCancelled'; payload: { now: number } }
   | { type: 'live.completed' }
   | { type: 'live.discarded' }
+  /** Recovery learned the server's truth about the session row and the local stage must follow it. */
+  | { type: 'live.reconciled'; payload: LiveReconciliationOutcome }
   | { type: 'completed.acknowledged' };
+
+export type LiveReconciliationOutcome =
+  | { outcome: 'completed'; now: number; durationMinutes: number | null }
+  | { outcome: 'missing' };
 
 export function createEmptyDraft(kind: WorkoutKind = 'strength', name = '', templateKey?: string, updatedAt = 0, templateId?: string | null): WorkoutDraft {
   if (kind === 'cardio') {
@@ -219,6 +227,13 @@ export function workoutWorkspaceReducer(
         clientRequestId: event.payload.startRequest.idempotencyKey,
         startRequest: event.payload.startRequest,
       };
+    case 'request.rejected':
+      if (state.stage !== 'draft' && state.stage !== 'review') throw new Error(`Cannot reject a start request from ${state.stage}`);
+      if (!state.startRequest) throw new Error('No pending start request to reject');
+      // A definitive server answer is the other safe point to retire the
+      // envelope: the key was bound to a payload the server refused, so it is
+      // released and the next attempt derives a fresh key for its own payload.
+      return { ...state, clientRequestId: null, startRequest: null };
     case 'retrospective.prepared': {
       requireDraft(state);
       if (state.stage !== 'draft' && state.stage !== 'review') throw new Error(`Cannot prepare retrospective save from ${state.stage}`);
@@ -302,6 +317,17 @@ export function workoutWorkspaceReducer(
     case 'live.discarded':
       if (state.stage !== 'finishing') throw new Error(`Cannot discard from ${state.stage}`);
       return createInitialWorkspaceState();
+    case 'live.reconciled': {
+      if (state.stage !== 'live' && state.stage !== 'paused' && state.stage !== 'finishing') {
+        throw new Error(`Cannot reconcile a live session from ${state.stage}`);
+      }
+      if (event.payload.outcome === 'missing') return createInitialWorkspaceState();
+      const clock = requireClock(state);
+      const accumulatedMs = event.payload.durationMinutes === null
+        ? elapsedActiveMs(clock, event.payload.now)
+        : event.payload.durationMinutes * 60_000;
+      return { ...state, stage: 'completed', clock: { runningSince: null, accumulatedMs }, finishingFrom: null };
+    }
     case 'completed.acknowledged':
       if (state.stage !== 'completed') throw new Error(`Cannot acknowledge completion from ${state.stage}`);
       return createInitialWorkspaceState();

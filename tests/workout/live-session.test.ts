@@ -255,7 +255,7 @@ describe('live workout persistence boundary', () => {
   });
 
   it('replays the complete canonical live start envelope', async () => {
-    persistence.startWorkoutSessionAtomic.mockResolvedValue('session-live');
+    persistence.startWorkoutSessionAtomic.mockResolvedValue({ ok: true, sessionId: 'session-live' });
     const input = {
       idempotencyKey,
       draftFingerprint: 'draft:push:1',
@@ -373,11 +373,11 @@ describe('live workout persistence boundary', () => {
       { exercise_id: 'bench', target_sets: 2, target_reps: '8', superset_group: null },
     ] }).mockRejectedValueOnce(new Error('offline'));
     await expect(loadLiveStructure('session-1')).resolves.toMatchObject({ ok: true, version: 3 });
-    await expect(loadLiveStructure('session-1')).resolves.toEqual({ ok: false });
+    await expect(loadLiveStructure('session-1')).resolves.toEqual({ ok: false, reason: 'transport' });
   });
 
   it('bootstraps a verified legacy active session from its recovered draft', async () => {
-    persistence.loadWorkoutSessionStructure.mockResolvedValue({ ok: false, legacy: true });
+    persistence.loadWorkoutSessionStructure.mockResolvedValue({ ok: false, reason: 'legacy', legacy: true });
     persistence.resumeLegacyLiveWorkoutStructureAtomic.mockResolvedValue({ ok: true, version: 0, structure: [
       { exercise_id: 'bench', target_sets: 2, target_reps: '8', superset_group: null },
     ] });

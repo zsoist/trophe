@@ -16,7 +16,9 @@ import {
   deleteWorkoutSets,
   type CompletedSetInput,
   type PersistedWorkoutSet,
+  type LiveStructureLoadResult as PersistedLiveStructureLoadResult,
   type LiveStructureMutationResult,
+  type PersistenceFailure,
   type SupersetGroupUpdate,
 } from '@/components/workout/workout-persistence';
 import type { PainFlag } from '@/lib/types';
@@ -163,6 +165,19 @@ export function persistPendingLiveSet(input: CompleteLiveSetInput, storage?: Sto
   }
 }
 
+/** Drop every queued set for a session the server will never accept writes for again. */
+export function clearPendingLiveSets(sessionId: string, storage?: Storage): boolean {
+  if (!sessionId.trim()) return false;
+  const target = pendingSetStorage(storage);
+  if (!target) return false;
+  try {
+    target.removeItem(pendingSetStorageKey(sessionId));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function removePendingLiveSet(input: CompleteLiveSetInput, storage?: Storage): boolean {
   const target = pendingSetStorage(storage);
   if (!target) return false;
@@ -230,18 +245,18 @@ export async function appendLivePainFlag(
   try { return await appendWorkoutSessionPainFlag(sessionId, mutationId, flag); } catch { return { ok: false }; }
 }
 
-export type LiveStructureLoadResult = LiveStructureMutationResult;
+export type LiveStructureLoadResult = PersistedLiveStructureLoadResult;
 
 export async function loadLiveStructure(
   sessionId: string,
   kind?: 'strength' | 'cardio',
   exercises: LiveStructureExercise[] = [],
 ): Promise<LiveStructureLoadResult> {
-  if (!sessionId.trim()) return { ok: false };
+  if (!sessionId.trim()) return { ok: false, reason: 'transport' };
   try {
     const loaded = await loadWorkoutSessionStructure(sessionId);
-    if (loaded.ok || !loaded.legacy || !kind) return loaded;
-    return await resumeLegacyLiveWorkoutStructureAtomic(
+    if (loaded.ok || loaded.reason !== 'legacy' || !kind) return loaded;
+    const resumed = await resumeLegacyLiveWorkoutStructureAtomic(
       sessionId,
       kind,
       exercises.map((exercise) => ({
@@ -251,8 +266,11 @@ export async function loadLiveStructure(
         superset_group: exercise.supersetGroup,
       })),
     );
+    return resumed.ok
+      ? { ok: true, terminal: false, version: resumed.version, structure: resumed.structure }
+      : { ok: false, reason: 'transport' };
   } catch {
-    return { ok: false };
+    return { ok: false, reason: 'transport' };
   }
 }
 
@@ -338,11 +356,16 @@ export async function discardEmptyLiveSession(sessionId: string): Promise<boolea
   try { return await deleteEmptyWorkoutSession(sessionId); } catch { return false; }
 }
 
-export async function startLiveSession(input: StartLiveSessionInput): Promise<{ ok: true; sessionId: string } | { ok: false }> {
+export type StartLiveSessionResult = { ok: true; sessionId: string } | PersistenceFailure;
+
+export async function startLiveSession(input: StartLiveSessionInput): Promise<StartLiveSessionResult> {
+  // The RPC rejects these shapes unconditionally, so the answer is already definitive.
   if (!input.idempotencyKey.trim() || !input.draftFingerprint.trim() || !/^\d{4}-\d{2}-\d{2}$/.test(input.sessionDate)
-    || !input.name.trim() || (input.kind === 'strength' ? input.liveStructure.length === 0 : input.liveStructure.length !== 0)) return { ok: false };
+    || !input.name.trim() || (input.kind === 'strength' ? input.liveStructure.length === 0 : input.liveStructure.length !== 0)) {
+    return { ok: false, kind: 'rejected', code: 'invalid_request' };
+  }
   try {
-    const sessionId = await startWorkoutSessionAtomic({
+    const result = await startWorkoutSessionAtomic({
       idempotencyKey: input.idempotencyKey,
       draftFingerprint: input.draftFingerprint,
       sessionDate: input.sessionDate,
@@ -356,9 +379,10 @@ export async function startLiveSession(input: StartLiveSessionInput): Promise<{ 
         superset_group: exercise.supersetGroup,
       })),
     });
-    return sessionId ? { ok: true, sessionId } : { ok: false };
+    if (!result.ok) return result;
+    return result.sessionId.trim() ? { ok: true, sessionId: result.sessionId } : { ok: false, kind: 'transient' };
   } catch {
-    return { ok: false };
+    return { ok: false, kind: 'transient' };
   }
 }
 

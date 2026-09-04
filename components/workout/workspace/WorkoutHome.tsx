@@ -196,6 +196,7 @@ export function WorkoutHome({
 
   return (
     <main className="mx-auto max-w-2xl space-y-4 px-4 py-4 sm:py-5">
+      {workspace.liveReconciliation?.outcome === 'missing' ? <p role="status" className="rounded-xl border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-sm leading-6 text-[var(--content-primary)]">{t('workout.live_session_missing')}</p> : null}
       {hasDraft || recoveryStage ? <p className="rounded-xl border border-[var(--workout-rail)] bg-[var(--workout-surface)] px-3 py-2 text-xs text-[var(--content-secondary)]">{activeStage ? t('workout.home_recovered_active') : workspace.state.stage === 'completed' ? t('workout.home_recovered_completed') : t('workout.home_recovered_draft')}</p> : null}
 
       <div data-testid="workout-home-first-view" className="workout-home-first-view">

@@ -12,10 +12,18 @@ export interface FinishWorkoutSummary {
   prs: number;
 }
 
+/**
+ * Why the primary action is unavailable. `loading`/`pending` resolve on their
+ * own; `failed`/`recovery` need the caller's retry affordance.
+ */
+export type FinishBlockedReason = 'loading' | 'pending' | 'failed' | 'recovery';
+
 interface FinishWorkoutDialogProps {
   summary: FinishWorkoutSummary;
   saving?: boolean;
   blocked?: boolean;
+  blockedReason?: FinishBlockedReason | null;
+  onRetry?: () => void;
   error?: boolean;
   isEmpty?: boolean;
   onKeepTraining(): void;
@@ -25,7 +33,7 @@ interface FinishWorkoutDialogProps {
 
 const focusable = 'button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
-export function FinishWorkoutDialog({ summary, saving = false, blocked = false, error = false, isEmpty, onKeepTraining, onSaveAndFinish, onDiscardEmpty }: FinishWorkoutDialogProps) {
+export function FinishWorkoutDialog({ summary, saving = false, blocked = false, blockedReason = null, onRetry, error = false, isEmpty, onKeepTraining, onSaveAndFinish, onDiscardEmpty }: FinishWorkoutDialogProps) {
   const { t } = useI18n();
   const dialogRef = useRef<HTMLDivElement>(null);
   const empty = isEmpty ?? (summary.durationMinutes === 0 && summary.completedSets === 0 && summary.pendingSets === 0);
@@ -59,6 +67,14 @@ export function FinishWorkoutDialog({ summary, saving = false, blocked = false, 
           <div className="col-span-2 rounded-xl bg-[var(--surface-subtle)] p-3"><dt>{t('workout.finish_prs', { n: summary.prs })}</dt></div>
         </dl>
         {error ? <p role="alert" className="mt-3 inline-flex items-center gap-2 rounded-xl bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]"><AlertTriangle size={16} aria-hidden="true" />{t('workout.save_failed')}</p> : null}
+        {blocked && blockedReason ? (
+          <p role="status" className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] p-3 text-sm text-[var(--content-primary)]">
+            <span>{t(`workout.finish_blocked_${blockedReason}`)}</span>
+            {(blockedReason === 'failed' || blockedReason === 'recovery') && onRetry
+              ? <button type="button" onClick={onRetry} className="min-h-11 font-semibold text-[var(--status-warning-fg)] underline">{t('workout.retry_recovery')}</button>
+              : null}
+          </p>
+        ) : null}
         <div className="mt-5 space-y-3">
           {empty ? (
             <button type="button" disabled={saving || blocked} onClick={onDiscardEmpty} className="min-h-12 w-full rounded-xl bg-[var(--status-danger-bg)] px-4 font-semibold text-[var(--status-danger-fg)] disabled:opacity-50">{saving ? t('workout.saving') : t('workout.discard_empty')}</button>
