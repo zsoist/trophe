@@ -82,7 +82,7 @@ export default function PlateCalculator({ weightKg, unit, onClose = noop, exerci
   );
 
   return (
-    <motion.div initial={reducedMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={reducedMotion ? undefined : { opacity: 0 }} className="fixed inset-0 z-[var(--z-modal,60)] flex items-end justify-center" style={{ background: 'var(--surface-overlay)' }} onClick={() => { if (!addingWarmups) onCloseRef.current(); }}>
+    <motion.div initial={reducedMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={reducedMotion ? undefined : { opacity: 0 }} className="fixed inset-0 z-[var(--z-modal,60)] flex items-end justify-center bg-[var(--scrim)] backdrop-blur-sm" onClick={() => { if (!addingWarmups) onCloseRef.current(); }}>
       <motion.div ref={dialogRef} role="dialog" aria-modal="true" aria-label={t('workout.plate_title')} tabIndex={-1} onKeyDown={(event) => trapFocus(event, dialogRef.current)} initial={reducedMotion ? false : { y: 32, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={reducedMotion ? undefined : { y: 24, opacity: 0 }} transition={{ duration: reducedMotion ? 0 : 0.22, ease: [0.16, 1, 0.3, 1] }} className="workout-workspace workout-dialog glass-elevated max-h-[calc(100dvh-1rem)] w-full max-w-md overflow-y-auto rounded-t-2xl px-5 pt-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))] outline-none" onClick={(event) => event.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between">
           <div><h3 className="text-base font-bold text-[var(--content-primary)]">{t('workout.plate_title')}</h3><p className="mt-0.5 text-xs text-[var(--content-secondary)]">{t('workout.plate_job')}</p></div>

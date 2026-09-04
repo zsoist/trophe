@@ -19,7 +19,12 @@ import {
 import { sql } from 'drizzle-orm';
 import { profiles } from './profiles';
 
-/** Exercise library — template exercises are visible to all users. */
+/**
+ * Exercise library — template exercises are visible to all users.
+ * Migration 0083: user-created rows are private by default (is_template = false);
+ * only unowned library rows may be templates, and creators can edit/delete their
+ * own private rows but never promote them to templates.
+ */
 export const exercises = pgTable('exercises', {
   id: uuid().defaultRandom().primaryKey().notNull(),
   name: text().notNull(),
@@ -29,7 +34,7 @@ export const exercises = pgTable('exercises', {
   secondaryMuscles: text('secondary_muscles').array(),
   equipment: text(),
   isCompound: boolean('is_compound').default(false),
-  isTemplate: boolean('is_template').default(true),
+  isTemplate: boolean('is_template').default(false),
   // Migration 0056: one concise form-cue sentence per language (info sheet).
   instructions: text(),
   instructionsEs: text('instructions_es'),
@@ -41,7 +46,11 @@ export const exercises = pgTable('exercises', {
   foreignKey({ columns: [table.createdBy], foreignColumns: [profiles.id], name: 'exercises_created_by_fkey' }),
   pgPolicy('All see template exercises', { as: 'permissive', for: 'select', to: ['authenticated'], using: sql`(is_template = true)` }),
   pgPolicy('Users see own exercises', { as: 'permissive', for: 'select', to: ['authenticated'], using: sql`(created_by = auth.uid())` }),
-  pgPolicy('Users create exercises', { as: 'permissive', for: 'insert', to: ['authenticated'], withCheck: sql`(created_by = auth.uid())` }),
+  pgPolicy('Users create exercises', { as: 'permissive', for: 'insert', to: ['authenticated'], withCheck: sql`(created_by = auth.uid() AND is_template = false)` }),
+  pgPolicy('Users update own exercises', { as: 'permissive', for: 'update', to: ['authenticated'],
+    using: sql`(created_by = auth.uid() AND is_template = false)`, withCheck: sql`(created_by = auth.uid() AND is_template = false)` }),
+  pgPolicy('Users delete own exercises', { as: 'permissive', for: 'delete', to: ['authenticated'], using: sql`(created_by = auth.uid() AND is_template = false)` }),
+  check('exercises_library_rows_unowned_check', sql`is_template = false OR created_by IS NULL`),
   check('exercises_muscle_group_check', sql`muscle_group = ANY (ARRAY['chest'::text, 'back'::text, 'shoulders'::text, 'biceps'::text, 'triceps'::text, 'forearms'::text, 'quads'::text, 'hamstrings'::text, 'glutes'::text, 'calves'::text, 'core'::text, 'full_body'::text, 'cardio'::text])`),
 ]);
 

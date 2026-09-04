@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import React from 'react';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ t: (key: string, values?: Record<string, number>) => ({
@@ -28,6 +28,42 @@ describe('FinishWorkoutDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Keep training' }));
     expect(onKeepTraining).toHaveBeenCalledTimes(1);
     expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('keeps focus inside the dialog across parent re-renders and restores the trigger exactly once on unmount', async () => {
+    const trigger = document.createElement('button');
+    document.body.appendChild(trigger);
+    trigger.focus();
+    const triggerFocus = vi.spyOn(trigger, 'focus');
+    const summary = { durationMinutes: 12, completedSets: 3, pendingSets: 0, painNotes: 0, prs: 0 };
+    const view = render(<FinishWorkoutDialog summary={summary} onKeepTraining={vi.fn()} onSaveAndFinish={vi.fn()} />);
+    const dialog = screen.getByRole('dialog', { name: 'Finish workout?' });
+    await waitFor(() => expect(document.activeElement).toBe(dialog));
+
+    // The rest timer re-renders LiveWorkout every second with a fresh cancelFinish arrow.
+    const latestKeepTraining = vi.fn();
+    for (let tick = 0; tick < 3; tick += 1) {
+      view.rerender(<FinishWorkoutDialog summary={summary} onKeepTraining={tick === 2 ? latestKeepTraining : vi.fn()} onSaveAndFinish={vi.fn()} />);
+      expect(dialog.contains(document.activeElement)).toBe(true);
+    }
+    expect(triggerFocus).not.toHaveBeenCalled();
+
+    // Escape must still reach the newest callback identity.
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(latestKeepTraining).toHaveBeenCalledTimes(1);
+
+    view.unmount();
+    expect(triggerFocus).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).toBe(trigger);
+    trigger.remove();
+  });
+
+  it('uses the translucent scrim token for its backdrop', () => {
+    render(<FinishWorkoutDialog summary={{ durationMinutes: 12, completedSets: 3, pendingSets: 0, painNotes: 0, prs: 0 }} onKeepTraining={vi.fn()} onSaveAndFinish={vi.fn()} />);
+    const backdrop = screen.getByRole('dialog').parentElement as HTMLElement;
+    expect(backdrop.className).toContain('bg-[var(--scrim)]');
+    expect(backdrop.className).toContain('backdrop-blur-sm');
+    expect(backdrop.className).not.toContain('surface-overlay');
   });
 
   it('offers only verified discard for an empty workout', () => {

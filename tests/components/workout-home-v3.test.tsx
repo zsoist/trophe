@@ -276,7 +276,10 @@ describe('Workout home v3', () => {
 
     renderHome({ program: mixedProgram });
 
-    expect(screen.getByRole('button', { name: 'Anterior deltoid, primary muscle' })).toBeTruthy();
+    // The shoulder press only carries a muscle group, so the strongest claim for the
+    // region is the group estimate: it is named by group, never as a primary muscle.
+    expect(screen.getByRole('button', { name: 'Shoulders, muscle group' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Anterior deltoid, primary muscle' })).toBeNull();
   });
 
   it('attributes an adaptive recommendation to the recommendation on a coach rest day', () => {

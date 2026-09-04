@@ -9,6 +9,7 @@ import { useI18n } from '@/lib/i18n';
 import { localeForLanguage } from '@/lib/i18n-locale';
 import { BotNav } from '@/components/ui/BotNav';
 import { Icon } from '@/components/ui';
+import { exerciseDisplayName } from '@/components/workout/muscle-groups';
 import { WorkoutCalendar } from './WorkoutCalendar';
 import { ExerciseProgressChart } from './ExerciseProgressChart';
 import { MuscleLoadChart, type MuscleLoadRange } from './MuscleLoadChart';
@@ -95,7 +96,7 @@ export default function WorkoutAnalyticsSurface() {
       const entry = entries.get(entryKey) ?? { sessionId: set.session_id, date: set.session.session_date, exercise: set.exercise, sets: [] };
       entry.sets.push({ completed: true, isWarmup: set.is_warmup });
       entries.set(entryKey, entry);
-      exerciseNames.set(set.exercise_id, set.exercise.name);
+      exerciseNames.set(set.exercise_id, exerciseDisplayName(set.exercise, lang));
 
       if (!set.is_warmup) {
         const points = progressByExercise.get(set.exercise_id);
@@ -104,7 +105,7 @@ export default function WorkoutAnalyticsSurface() {
       }
     }
     return { setsBySession, entries: [...entries.values()], exerciseNames, progressByExercise };
-  }, [data.sets]);
+  }, [data.sets, lang]);
 
   const exerciseOptions = useMemo(() => [...indexed.exerciseNames.entries()].sort((left, right) => left[1].localeCompare(right[1], locale)), [indexed.exerciseNames, locale]);
   const selectedExercise = exerciseId || exerciseOptions[0]?.[0] || '';

@@ -35,7 +35,7 @@ import { recordAuditEvent } from '@/lib/utils/audit';
 import type { Exercise, Goal, MuscleGroup, TemplateExercise, WorkoutTemplate } from '@/lib/types';
 import { parseWorkoutPreferences, workoutPreferencesSchema } from '@/lib/workout/preferences';
 import { buildWorkoutRecommendation } from '@/lib/workout/recommendation';
-import { resolveMuscleActivations } from '@/lib/workout/anatomy';
+import { resolveCuratedMuscleActivations } from '@/lib/workout/anatomy';
 
 type Db = typeof dbClient;
 
@@ -429,7 +429,10 @@ export const workoutsRouter = router({
         name_el: exercise.nameEl,
         muscle_group: exercise.muscleGroup as MuscleGroup,
         secondary_muscles: exercise.secondaryMuscles,
-        anatomy_activations: resolveMuscleActivations({
+        // Only curated named-muscle roles are persisted. A muscle-group estimate is
+        // already covered by muscle_group/secondary_muscles and must not be recorded
+        // as anatomy, or pain avoidance would act on invented precision.
+        anatomy_activations: resolveCuratedMuscleActivations({
           name: exercise.name,
           equipment: exercise.equipment,
           muscleGroup: exercise.muscleGroup,

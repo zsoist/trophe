@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ExercisePicker from '@/components/workout/ExercisePicker';
 import { ExerciseRouteGate } from '@/components/workout/ExerciseRouteGate';
+import { exerciseDisplayName } from '@/components/workout/muscle-groups';
 import { useWorkoutWorkspace } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
 import { useI18n } from '@/lib/i18n';
 import type { Exercise } from '@/lib/types';
@@ -21,9 +22,11 @@ export function ExerciseBrowser({ initialExercises = [], initialRecentIds = [], 
     && !startLocked
     && !retrospectiveLocked;
   const parentRoute = returnRoute === 'review' || (!returnRoute && workspace.state.stage === 'review') ? WORKOUT_ROUTES.review : WORKOUT_ROUTES.build;
+  const replacedExercise = replaceExerciseId ? exercises.find((exercise) => exercise.id === replaceExerciseId) : undefined;
+  // Localized when the catalogue row is loaded; the draft stores the canonical English name.
   const replacementName = replaceExerciseId && workspace.state.draft?.kind === 'strength'
-    ? workspace.state.draft.exercises.find((item) => item.exerciseId === replaceExerciseId)?.exerciseName
-      ?? exercises.find((exercise) => exercise.id === replaceExerciseId)?.name
+    ? (replacedExercise ? exerciseDisplayName(replacedExercise, lang) : undefined)
+      ?? workspace.state.draft.exercises.find((item) => item.exerciseId === replaceExerciseId)?.exerciseName
       ?? replaceExerciseId
     : undefined;
 

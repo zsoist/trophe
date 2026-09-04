@@ -254,8 +254,8 @@ test.describe('Workout Workspace V2', () => {
       await assertCanonicalWorkoutChrome(page, 'Build Workout');
       const firstBuildCard = currentWorkspace(page).getByTestId('plan-exercise').first();
       await expect(firstBuildCard.locator('img')).toBeVisible();
-      await expect(firstBuildCard).toHaveAttribute('data-media-tier', /^(verified-technique|verified-anatomy|reference)$/);
-      await expect(firstBuildCard.getByText(/^(Technique verified|Anatomy reference|No exact demo yet)$/)).toBeVisible();
+      await expect(firstBuildCard).toHaveAttribute('data-media-tier', /^(verified-technique|verified-anatomy|group-estimate|reference)$/);
+      await expect(firstBuildCard.getByText(/^(Technique verified|Anatomy reference|Muscle group estimate|No exact demo yet)$/)).toBeVisible();
       await expect(firstBuildCard.getByText(/^Equipment:/)).toBeVisible();
       await captureWorkout(page, testInfo, `${theme}-evidence-03-build.png`, { atTop: true });
 
@@ -344,7 +344,7 @@ test.describe('Workout Workspace V2', () => {
       await expect(page.getByRole('link', { name: 'Back', exact: true })).toHaveAttribute('href', '/dashboard/workout/build');
       const firstReviewExercise = currentWorkspace(page).getByTestId('plan-exercise').first();
       await expect(firstReviewExercise.locator('img')).toBeVisible();
-      await expect(firstReviewExercise).toHaveAttribute('data-media-tier', /^(verified-technique|verified-anatomy|reference)$/);
+      await expect(firstReviewExercise).toHaveAttribute('data-media-tier', /^(verified-technique|verified-anatomy|group-estimate|reference)$/);
       await expect(firstReviewExercise.getByText(/^4 sets ·/)).toBeVisible();
       await captureWorkout(page, testInfo, `${theme}-evidence-06-review.png`, { atTop: true });
       await page.getByRole('link', { name: 'Back', exact: true }).click();

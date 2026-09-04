@@ -95,6 +95,13 @@ vi.mock('@/lib/i18n', () => ({
         'workout.body_area_full_body': 'Full body',
         'workout.body_area_cardio': 'Cardio',
         'workout.muscle_chest': 'Chest',
+        'workout.equipment_barbell': 'Barbell',
+        'workout.equipment_dumbbell': 'Dumbbell',
+        'workout.equipment_machine': 'Machine',
+        'workout.equipment_cable': 'Cable',
+        'workout.equipment_bodyweight': 'Bodyweight',
+        'workout.atlas_role_group': 'muscle group',
+        'workout.atlas_role_group_label': 'Group',
       };
       const spanish: Record<string, string> = {
         'workout.picker_exact_poster_alt': 'Póster técnico de {name}',
@@ -177,16 +184,19 @@ describe('exercise discovery atlas and plan tray', () => {
 
     expect(screen.getByRole('heading', { name: 'What are you training?' })).toBeTruthy();
     expect(screen.getByRole('region', { name: 'Muscle activation atlas' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /pectoralis major.*primary muscle/i })).toBeTruthy();
+    // Discovery regions are body-area selectors, so they are named by muscle group
+    // and never presented as a specific primary muscle.
+    expect(screen.getByRole('button', { name: /^chest, muscle group/i })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /pectoralis major.*primary muscle/i })).toBeNull();
     expect(screen.queryByText('Barbell Bench Press')).toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: /pectoralis major.*primary muscle/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^chest, muscle group/i }));
     expect(screen.getByRole('heading', { name: 'Chest exercises' })).toBeTruthy();
   });
 
   it('uses exact resolver media and labels its coaching role without substituting another movement', () => {
     renderPicker();
-    fireEvent.click(screen.getByRole('button', { name: /^Chest/ }));
+    fireEvent.click(within(screen.getByRole('group', { name: 'What are you training?' })).getByRole('button', { name: /^Chest/ }));
 
     const row = screen.getByTestId('exercise-result-bench');
     const poster = within(row).getByRole('img', { name: /barbell bench press technique poster/i });
@@ -202,7 +212,7 @@ describe('exercise discovery atlas and plan tray', () => {
   it('keeps an explicit Add affordance visible at the 320px floor', () => {
     vi.stubGlobal('innerWidth', 320);
     renderPicker();
-    fireEvent.click(screen.getByRole('button', { name: /^Chest/ }));
+    fireEvent.click(within(screen.getByRole('group', { name: 'What are you training?' })).getByRole('button', { name: /^Chest/ }));
 
     const add = screen.getByRole('button', { name: 'Add Barbell Bench Press' });
     const text = add.querySelector('span');
@@ -212,7 +222,7 @@ describe('exercise discovery atlas and plan tray', () => {
   it('localizes fallback poster alt text and media badge copy', () => {
     pickerLocale.value = 'es';
     renderPicker();
-    fireEvent.click(screen.getByRole('button', { name: /^Chest/ }));
+    fireEvent.click(within(screen.getByRole('group', { name: 'What are you training?' })).getByRole('button', { name: /^Chest/ }));
 
     const row = screen.getByTestId('exercise-result-fly');
     expect(within(row).getByRole('img', { name: 'Referencia anatómica de Standing Cable Chest Fly' })).toBeTruthy();
@@ -222,7 +232,7 @@ describe('exercise discovery atlas and plan tray', () => {
 
   it('keeps optimistic multi-add selection in a persistent tray and reviews without starting live', () => {
     const { onAddToDraft, onReturnToBuild } = renderPicker();
-    fireEvent.click(screen.getByRole('button', { name: /^Chest/ }));
+    fireEvent.click(within(screen.getByRole('group', { name: 'What are you training?' })).getByRole('button', { name: /^Chest/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Add Barbell Bench Press' }));
 
     expect(onAddToDraft).toHaveBeenCalledWith('bench');

@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import { clearWorkoutClientStorage } from '@/lib/workout/workspace-storage';
 import { useI18n } from '@/lib/i18n';
 import Avatar from '@/components/shared/Avatar';
 import ShortcutsModal from '@/components/shared/ShortcutsModal';
@@ -862,6 +863,7 @@ export default function CoachDashboard() {
             <button
               onClick={async () => {
                 await supabase.auth.signOut();
+                clearWorkoutClientStorage();
                 router.push('/login');
               }}
               className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] text-[var(--content-muted)] hover:text-[var(--content-secondary)] text-xs flex items-center gap-1.5 transition-colors"

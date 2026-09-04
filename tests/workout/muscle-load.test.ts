@@ -10,9 +10,9 @@ describe('calculateMuscleLoad', () => {
         { completed: true, isWarmup: true },
       ],
       activations: [
-        { id: 'pectoralis-major', label: 'Pectoralis major', role: 'primary', view: 'front' },
-        { id: 'triceps-brachii', label: 'Triceps brachii', role: 'secondary', view: 'front' },
-        { id: 'rotator-cuff', label: 'Rotator cuff', role: 'stabilizer', view: 'back' },
+        { id: 'pectoralis-major', label: 'Pectoralis major', role: 'primary', view: 'front', confidence: 'curated' },
+        { id: 'triceps-brachii', label: 'Triceps brachii', role: 'secondary', view: 'front', confidence: 'curated' },
+        { id: 'rotator-cuff', label: 'Rotator cuff', role: 'stabilizer', view: 'back', confidence: 'curated' },
       ],
     });
 
@@ -26,14 +26,14 @@ describe('calculateMuscleLoad', () => {
   it('ignores incomplete sets', () => {
     expect(calculateMuscleLoad({
       sets: [{ completed: false, isWarmup: false }],
-      activations: [{ id: 'pectoralis-major', label: 'Pectoralis major', role: 'primary', view: 'front' }],
+      activations: [{ id: 'pectoralis-major', label: 'Pectoralis major', role: 'primary', view: 'front', confidence: 'curated' }],
     })).toEqual({ 'pectoralis-major': 0 });
   });
 
   it('does not count sets whose completion state is unknown', () => {
     expect(calculateMuscleLoad({
       sets: [{ isWarmup: false }],
-      activations: [{ id: 'pectoralis-major', label: 'Pectoralis major', role: 'primary', view: 'front' }],
+      activations: [{ id: 'pectoralis-major', label: 'Pectoralis major', role: 'primary', view: 'front', confidence: 'curated' }],
     })).toEqual({ 'pectoralis-major': 0 });
   });
 });

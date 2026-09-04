@@ -103,9 +103,9 @@ const exactMotionMedia: ExerciseMediaRecord = {
   motionType: 'video/webm',
   tier: 'verified-technique',
   activations: [
-    { id: 'pectoralis-major', label: 'Pectoralis major', role: 'primary', view: 'front' },
-    { id: 'triceps-brachii', label: 'Triceps brachii', role: 'secondary', view: 'front' },
-    { id: 'rotator-cuff', label: 'Rotator cuff', role: 'stabilizer', view: 'back' },
+    { id: 'pectoralis-major', label: 'Pectoralis major', role: 'primary', view: 'front', confidence: 'curated' },
+    { id: 'triceps-brachii', label: 'Triceps brachii', role: 'secondary', view: 'front', confidence: 'curated' },
+    { id: 'rotator-cuff', label: 'Rotator cuff', role: 'stabilizer', view: 'back', confidence: 'curated' },
   ],
   phases: [
     { id: 'setup', label: 'Setup', cue: 'Set your shoulders and grip before unracking.' },
@@ -143,7 +143,13 @@ const DETAIL_COPY_KEYS = [
   'workout.motion_paused',
   'workout.motion_reduced',
   'workout.motion_anatomy_only',
+  'workout.motion_group_estimate',
   'workout.motion_no_exact',
+  'workout.media_group_estimate',
+  'workout.media_group_estimate_detail',
+  'workout.picker_group_estimate_poster_alt',
+  'workout.atlas_role_group',
+  'workout.atlas_role_group_label',
   'workout.motion_session_paused',
   'workout.motion_session_paused_action',
 ] as const;
@@ -187,21 +193,55 @@ describe('premium exercise detail', () => {
     expect(screen.getByText('Lower and press the bar with control.')).toBeTruthy();
   });
 
-  it('keeps anatomy-only media static and never calls it a technique demonstration', () => {
+  it('keeps curated anatomy-only media static and never calls it a technique demonstration', () => {
+    // A curated movement pattern whose equipment does not match the technique art.
     detailState.media = {
       ...exactMotionMedia,
-      slug: 'honest-fallback',
+      slug: 'floor-press',
+      canonicalNames: ['Floor Press'],
       tier: 'verified-anatomy',
       motionSrc: undefined,
       motionType: undefined,
       posterSrc: '/workout-v2/body-areas/chest.webp',
     };
 
-    render(<ExerciseDetail exercise={{ ...bench, id: 'landmine', name: 'Landmine Press' }} userId={null} />);
+    render(<ExerciseDetail exercise={{ ...bench, id: 'floor', name: 'Floor Press', equipment: 'Dumbbell' }} userId={null} />);
 
     expect(screen.getByText('Anatomy reference')).toBeTruthy();
+    expect(screen.getByRole('img', { name: 'Floor Press anatomy reference' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /demonstration/i })).toBeNull();
     expect(document.body.textContent).not.toContain('Technique demonstration');
+  });
+
+  it('labels a muscle-group estimate by group and never invents a named primary muscle', () => {
+    detailState.media = {
+      ...exactMotionMedia,
+      slug: 'group-estimate',
+      canonicalNames: ['Lateral Raises'],
+      equipment: ['Dumbbell'],
+      tier: 'group-estimate',
+      motionSrc: undefined,
+      motionType: undefined,
+      posterSrc: '/workout-v2/body-areas/shoulders.webp',
+      activations: [
+        { id: 'anterior-deltoid', label: 'Shoulders', role: 'primary', view: 'front', confidence: 'group', group: 'shoulders' },
+      ],
+    };
+
+    render(<ExerciseDetail exercise={{ ...bench, id: 'lateral', name: 'Lateral Raises', muscle_group: 'shoulders', secondary_muscles: [], equipment: 'Dumbbell' }} userId={null} />);
+
+    expect(screen.getByText('Muscle group estimate')).toBeTruthy();
+    expect(screen.getByText('Muscle group estimate').getAttribute('title')).toBe('Highlights the trained area, not specific muscles');
+    expect(screen.getByRole('img', { name: 'Lateral Raises muscle group estimate' })).toBeTruthy();
+    expect(screen.getByText('Muscle group estimate shown. No exact demo yet.')).toBeTruthy();
+    // The atlas still highlights the region, but names the group and not a specific muscle.
+    expect(screen.getByRole('region', { name: 'Muscle activation atlas' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Shoulders, muscle group' })).toBeTruthy();
+    expect(screen.getByTestId('atlas-region-anterior-deltoid').getAttribute('data-anatomy-confidence')).toBe('group');
+    expect(screen.queryByText('Anatomy reference')).toBeNull();
+    expect(screen.queryByText('Anterior deltoid')).toBeNull();
+    expect(screen.queryByText('Primary')).toBeNull();
+    expect(document.body.textContent).not.toMatch(/primary muscle|anatomy reference|Technique demonstration/i);
   });
 
   it('visibly identifies English instruction fallback when localized exercise guidance is absent', () => {

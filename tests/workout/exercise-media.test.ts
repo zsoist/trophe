@@ -31,6 +31,32 @@ describe('resolveExerciseMedia', () => {
       .not.toBe('verified-technique');
   });
 
+  it('resolves the seeded catalogue names only with their real equipment', () => {
+    expect(resolveExerciseMedia({ name: 'Bench Press', equipment: 'barbell', muscleGroup: 'chest' })).toMatchObject({
+      slug: 'bench-press', tier: 'verified-technique', motionSrc: '/workout-v3/motion/bench-press.webm',
+    });
+    expect(resolveExerciseMedia({ name: 'Bench Press', equipment: 'dumbbell', muscleGroup: 'chest' }).tier).not.toBe('verified-technique');
+    expect(resolveExerciseMedia({ name: 'Bench Press', muscleGroup: 'chest' }).tier).not.toBe('verified-technique');
+    expect(resolveExerciseMedia({ name: 'Tricep Pushdown', equipment: 'cable', muscleGroup: 'triceps' })).toMatchObject({
+      slug: 'triceps-extension', tier: 'verified-technique',
+    });
+    expect(resolveExerciseMedia({ name: 'Tricep Pushdown', equipment: 'machine', muscleGroup: 'triceps' }).tier).not.toBe('verified-technique');
+  });
+
+  it('separates curated anatomy from a muscle-group estimate and from no anatomy at all', () => {
+    // Curated movement pattern, wrong equipment: anatomy stays reviewed, technique does not.
+    expect(resolveExerciseMedia({ name: 'Floor Press', equipment: 'Dumbbell', muscleGroup: 'chest' })).toMatchObject({
+      tier: 'verified-anatomy', posterSrc: '/workout-v2/body-areas/chest.webp',
+    });
+    const estimate = resolveExerciseMedia({ name: 'Lateral Raises', equipment: 'dumbbell', muscleGroup: 'shoulders' });
+    expect(estimate).toMatchObject({ tier: 'group-estimate', posterSrc: '/workout-v2/body-areas/shoulders.webp' });
+    expect(estimate.motionSrc).toBeUndefined();
+    expect(estimate.activations).toEqual([expect.objectContaining({ confidence: 'group', group: 'shoulders' })]);
+    expect(resolveExerciseMedia({ name: 'Custom Press', muscleGroup: 'full_body' })).toMatchObject({
+      tier: 'honest-fallback', activations: [], posterSrc: '/workout-v2/body-areas/full-body.webp',
+    });
+  });
+
   it.each([
     ['Barbell Bench Press', 'Barbell', 'bench-press'],
     ['Incline Dumbbell Press', 'Dumbbell', 'incline-press'],

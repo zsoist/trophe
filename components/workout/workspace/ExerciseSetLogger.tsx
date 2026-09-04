@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { AlertTriangle, Calculator, Check, ChevronDown, Info, Link2, Trash2 } from 'lucide-react';
+import { AlertTriangle, Calculator, Check, ChevronDown, Info, Link2, Trash2, Undo2 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import type { WeightUnit } from '@/lib/workout/units';
 
@@ -58,6 +58,21 @@ function parsedNumber(value: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+/** The primary button flips to Undo in place; a short lock stops a double-tap from undoing the set just logged. */
+const UNDO_COOLDOWN_MS = 600;
+type RestAnnouncement = 'started' | 'complete' | null;
+
+function prefersReducedMotion(): boolean {
+  return typeof window !== 'undefined'
+    && typeof window.matchMedia === 'function'
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+function pulseRestComplete() {
+  if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function' || prefersReducedMotion()) return;
+  navigator.vibrate(200);
+}
+
 export function ExerciseSetLogger({
   exercise,
   setNumber,
@@ -91,6 +106,11 @@ export function ExerciseSetLogger({
   const [completedSetNumber, setCompletedSetNumber] = useState<number | null>(initialSetId ? setNumber : null);
   const [saving, setSaving] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [restComplete, setRestComplete] = useState(false);
+  const [restAnnouncement, setRestAnnouncement] = useState<RestAnnouncement>(null);
+  const [undoCooldown, setUndoCooldown] = useState(false);
+  const undoCooldownTimer = useRef<number | null>(null);
+  useEffect(() => () => { if (undoCooldownTimer.current !== null) window.clearTimeout(undoCooldownTimer.current); }, []);
   const recoverySnapshot = useCallback((): RestClockSnapshot | null => {
     const completedAt = initialSetId && initialCompletedAt ? Date.parse(initialCompletedAt) : Number.NaN;
     if (!Number.isFinite(completedAt)) return null;
@@ -171,13 +191,18 @@ export function ExerciseSetLogger({
       if (!current || !current.running) return;
       const ticked = { elapsedMs: elapsedAt(current, Date.now()), capturedAt: Date.now(), running: true };
       commitRestSnapshot(ticked);
-      if (ticked.elapsedMs >= restTargetSeconds * 1_000) commitRestSnapshot(null);
+      if (ticked.elapsedMs >= restTargetSeconds * 1_000) {
+        commitRestSnapshot(null);
+        setRestComplete(true);
+        setRestAnnouncement('complete');
+        pulseRestComplete();
+      }
     }, 1_000);
     return () => window.clearInterval(timer);
   }, [commitRestSnapshot, paused, restTargetSeconds, setId]);
 
   const toggleComplete = async () => {
-    if (saving || disabled) return;
+    if (saving || disabled || (setId && undoCooldown)) return;
     setSaving(true);
     try {
       if (setId) {
@@ -185,6 +210,7 @@ export function ExerciseSetLogger({
         if (removed) {
           setSetId(null);
           setCompletedSetNumber(null);
+          setRestComplete(false);
           commitRestSnapshot(null, setId);
         }
         return;
@@ -198,6 +224,11 @@ export function ExerciseSetLogger({
       if (savedId) {
         setSetId(savedId);
         setCompletedSetNumber(setNumber);
+        setRestComplete(false);
+        setRestAnnouncement('started');
+        setUndoCooldown(true);
+        if (undoCooldownTimer.current !== null) window.clearTimeout(undoCooldownTimer.current);
+        undoCooldownTimer.current = window.setTimeout(() => { undoCooldownTimer.current = null; setUndoCooldown(false); }, UNDO_COOLDOWN_MS);
         commitRestSnapshot({ elapsedMs: 0, capturedAt: Date.now(), running: !paused }, savedId);
       }
     } catch {
@@ -253,9 +284,15 @@ export function ExerciseSetLogger({
           {t('workout.rpe_optional')}
           <input type="number" min="1" max="10" step="0.5" inputMode="decimal" disabled={completed || disabled} aria-label={t('workout.rpe_optional')} value={rpe} onChange={(event) => setRpe(event.target.value)} className="input-dark mt-1 min-h-12 w-full font-mono text-base tabular-nums" />
         </label>) : null}
-        <button type="button" disabled={saving || disabled} onClick={() => void toggleComplete()} className={`${grouped ? '' : 'mt-6'} btn-gold inline-flex w-full items-center justify-center gap-2 rounded-xl disabled:opacity-50 ${focusMode ? 'min-h-14 text-lg' : 'min-h-12'}`}>
-          <Check size={17} aria-hidden="true" />{saving ? t('workout.saving') : completed ? t('workout.undo_set') : t('workout.complete_set')}
-        </button>
+        {completed ? (
+          <button type="button" disabled={saving || disabled || undoCooldown} onClick={() => void toggleComplete()} className={`${grouped ? '' : 'mt-6'} btn-ghost inline-flex w-full items-center justify-center gap-2 rounded-xl disabled:opacity-50 ${focusMode ? 'min-h-14 text-lg' : 'min-h-12'}`}>
+            <Undo2 size={17} aria-hidden="true" />{saving ? t('workout.saving') : t('workout.undo_set')}
+          </button>
+        ) : (
+          <button type="button" disabled={saving || disabled} onClick={() => void toggleComplete()} className={`${grouped ? '' : 'mt-6'} btn-gold inline-flex w-full items-center justify-center gap-2 rounded-xl disabled:opacity-50 ${focusMode ? 'min-h-14 text-lg' : 'min-h-12'}`}>
+            <Check size={17} aria-hidden="true" />{saving ? t('workout.saving') : t('workout.complete_set')}
+          </button>
+        )}
       </div>
       <label className="mt-3 inline-flex min-h-11 items-center gap-2 text-sm text-[var(--content-secondary)]">
         <input type="checkbox" disabled={completed || disabled} checked={isWarmup} onChange={(event) => setIsWarmup(event.target.checked)} />
@@ -263,10 +300,17 @@ export function ExerciseSetLogger({
       </label>
 
       {completed && activeRestSnapshot !== null ? (
-        <p role="status" className="mt-2 rounded-xl bg-[var(--status-success-bg)] px-3 py-2 text-sm text-[var(--status-success-fg)]">
+        // role="timer" is implicitly aria-live="off": the per-second count is visible but never read aloud.
+        <p role="timer" aria-label={t('workout.rest_timer_label')} className="mt-2 rounded-xl bg-[var(--status-success-bg)] px-3 py-2 text-sm text-[var(--status-success-fg)]">
           {t('workout.resting')} · <span className="font-mono tabular-nums">{Math.floor(activeRestSnapshot.elapsedMs / 1_000)}s / {restTargetSeconds}s</span>
         </p>
+      ) : completed && restComplete ? (
+        <p className="mt-2 rounded-xl bg-[var(--status-success-bg)] px-3 py-2 text-sm font-medium text-[var(--status-success-fg)]">{t('workout.rest_complete')}</p>
       ) : null}
+      {/* One polite announcement on rest start and one at the target; the region exists before it changes so it is reliably read. */}
+      <p className="sr-only" aria-live="polite" aria-atomic="true">
+        {restAnnouncement === 'started' ? t('workout.rest_started', { n: restTargetSeconds }) : restAnnouncement === 'complete' ? t('workout.rest_complete') : null}
+      </p>
 
       {showExerciseHeader && moreOpen ? (
         <div className="mt-3 grid grid-cols-2 gap-2 border-t border-[var(--border-subtle)] pt-3">

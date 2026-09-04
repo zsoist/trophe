@@ -36,15 +36,15 @@ import { ATLAS_GEOMETRY } from '@/lib/workout/atlas-geometry';
 import type { MuscleActivation } from '@/lib/workout/anatomy';
 
 const benchActivations: MuscleActivation[] = [
-  { id: 'pectoralis-major', label: 'Pectoralis major', role: 'primary', view: 'front' },
-  { id: 'triceps-brachii', label: 'Triceps brachii', role: 'secondary', view: 'back' },
-  { id: 'rotator-cuff', label: 'Rotator cuff', role: 'stabilizer', view: 'back' },
+  { id: 'pectoralis-major', label: 'Pectoralis major', role: 'primary', view: 'front', confidence: 'curated' },
+  { id: 'triceps-brachii', label: 'Triceps brachii', role: 'secondary', view: 'back', confidence: 'curated' },
+  { id: 'rotator-cuff', label: 'Rotator cuff', role: 'stabilizer', view: 'back', confidence: 'curated' },
 ];
 
 const ariaRoleActivations: MuscleActivation[] = [
-  { id: 'pectoralis-major', label: 'Pectoralis major', role: 'primary', view: 'front' },
-  { id: 'middle-deltoid', label: 'Middle deltoid', role: 'secondary', view: 'front' },
-  { id: 'brachialis', label: 'Brachialis', role: 'stabilizer', view: 'front' },
+  { id: 'pectoralis-major', label: 'Pectoralis major', role: 'primary', view: 'front', confidence: 'curated' },
+  { id: 'middle-deltoid', label: 'Middle deltoid', role: 'secondary', view: 'front', confidence: 'curated' },
+  { id: 'brachialis', label: 'Brachialis', role: 'stabilizer', view: 'front', confidence: 'curated' },
 ];
 
 const allActivations: MuscleActivation[] = [
@@ -167,8 +167,8 @@ describe('MuscleAtlas', () => {
   it('maps a real pointer coordinate through the SVG viewport to the nearest contour owner', () => {
     const onSelect = vi.fn();
     render(<MuscleAtlas activations={[
-      { id: 'quadriceps', label: 'Quadriceps', role: 'primary', view: 'front' },
-      { id: 'adductors', label: 'Adductors', role: 'secondary', view: 'front' },
+      { id: 'quadriceps', label: 'Quadriceps', role: 'primary', view: 'front', confidence: 'curated' },
+      { id: 'adductors', label: 'Adductors', role: 'secondary', view: 'front', confidence: 'curated' },
     ]} selected={null} onSelect={onSelect} />);
     const svg = screen.getByRole('group', { name: 'Front anatomy map' });
     vi.spyOn(svg, 'getBoundingClientRect').mockReturnValue({
@@ -182,7 +182,7 @@ describe('MuscleAtlas', () => {
   });
 
   it('gives each side of a small bilateral region transparent 44px-equivalent hit geometry', () => {
-    render(<MuscleAtlas activations={[{ id: 'brachialis', label: 'Brachialis', role: 'secondary', view: 'front' }]} selected={null} onSelect={vi.fn()} />);
+    render(<MuscleAtlas activations={[{ id: 'brachialis', label: 'Brachialis', role: 'secondary', view: 'front', confidence: 'curated' }]} selected={null} onSelect={vi.fn()} />);
     const hitTargets = screen.getAllByTestId(/^atlas-hit-brachialis-/);
 
     expect(hitTargets).toHaveLength(2);
@@ -220,8 +220,8 @@ describe('MuscleAtlas', () => {
   it('gives each published forearm contour exact ownership on both sides, independent of render order', () => {
     const onSelect = vi.fn();
     const forearms: MuscleActivation[] = [
-      { id: 'forearm-flexors', label: 'Forearm flexors', role: 'primary', view: 'back' },
-      { id: 'forearm-extensors', label: 'Forearm extensors', role: 'secondary', view: 'back' },
+      { id: 'forearm-flexors', label: 'Forearm flexors', role: 'primary', view: 'back', confidence: 'curated' },
+      { id: 'forearm-extensors', label: 'Forearm extensors', role: 'secondary', view: 'back', confidence: 'curated' },
     ];
     const { rerender } = render(<MuscleAtlas activations={forearms} selected={null} onSelect={onSelect} />);
     fireEvent.click(screen.getByRole('button', { name: 'Show back anatomy' }));

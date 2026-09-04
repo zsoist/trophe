@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { BotNav } from '@/components/ui/BotNav';
 import { Icon } from '@/components/ui';
 import { groupWorkoutSessionsByMonth } from '@/components/workout/analytics/history-grouping';
+import { exerciseDisplayName } from '@/components/workout/muscle-groups';
 import { useI18n } from '@/lib/i18n';
 import { localeForLanguage } from '@/lib/i18n-locale';
 import { supabase } from '@/lib/supabase';
@@ -48,11 +49,7 @@ function SessionCard({ session, lang }: { session: SessionWithSets; lang: string
     return [...map.values()];
   }, [session.sets]);
 
-  const getExerciseName = (exercise: Exercise) => {
-    if (lang === 'es' && exercise.name_es) return exercise.name_es;
-    if (lang === 'el' && exercise.name_el) return exercise.name_el;
-    return exercise.name;
-  };
+  const getExerciseName = (exercise: Exercise) => exerciseDisplayName(exercise, lang);
   const formatDate = (dateString: string) => {
     const date = new Date(`${dateString}T00:00:00`);
     const today = new Date();
@@ -149,12 +146,7 @@ export default function WorkoutHistoryPage() {
     for (const set of latestSession.sets) {
       if (!set.is_warmup) workingSets += 1;
       if (set.is_pr) personalRecords += 1;
-      const name = lang === 'es' && set.exercise.name_es
-        ? set.exercise.name_es
-        : lang === 'el' && set.exercise.name_el
-          ? set.exercise.name_el
-          : set.exercise.name;
-      exercises.set(set.exercise_id, name);
+      exercises.set(set.exercise_id, exerciseDisplayName(set.exercise, lang));
     }
     return { exercises: [...exercises.values()], workingSets, personalRecords };
   }, [lang, latestSession]);

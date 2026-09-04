@@ -305,3 +305,36 @@ export function saveWorkspaceState(storage: WorkspaceStorage, userId: string, st
 export function clearWorkspaceState(storage: WorkspaceStorage, userId: string): void {
   try { storage.removeItem(workspaceStorageKey(userId)); } catch { /* Recovery storage is optional. */ }
 }
+
+/** Every browser-storage namespace the workout module writes. Pain notes live here, so sign-out must clear them. */
+export const WORKOUT_CLIENT_STORAGE_PREFIXES: readonly string[] = [
+  WORKSPACE_STORAGE_PREFIX,
+  'trophe:live-workout:',
+];
+
+export type EnumerableStorage = Pick<Storage, 'length' | 'key' | 'removeItem'>;
+
+/**
+ * Removes every workout draft, retrospective envelope, and pending-set queue
+ * from browser storage. Called on sign-out so health data (pain flags, notes)
+ * does not outlive the session on a shared device. Returns the number of keys
+ * removed; storage failures are swallowed because recovery storage is optional.
+ */
+export function clearWorkoutClientStorage(
+  storage: EnumerableStorage | null | undefined = typeof window === 'undefined' ? undefined : window.localStorage,
+): number {
+  if (!storage) return 0;
+  const keys: string[] = [];
+  try {
+    for (let index = 0; index < storage.length; index += 1) {
+      const key = storage.key(index);
+      if (key && WORKOUT_CLIENT_STORAGE_PREFIXES.some((prefix) => key.startsWith(prefix))) keys.push(key);
+    }
+  } catch {
+    return 0;
+  }
+  for (const key of keys) {
+    try { storage.removeItem(key); } catch { /* Recovery storage is optional. */ }
+  }
+  return keys.length;
+}

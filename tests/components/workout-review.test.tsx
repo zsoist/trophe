@@ -37,7 +37,7 @@ vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ t: (key: string, params?: Recor
   'workout.picker_anatomy_poster_alt': `Anatomy reference for ${params?.name}`,
   'workout.picker_exact_poster_alt': `${params?.name} technique poster`,
   'workout.detail_fallback_poster_alt': `Exercise placeholder for ${params?.name}`,
-  'workout.muscle_chest': 'Chest', 'workout.equipment_label': `Equipment: ${params?.equipment}`,
+  'workout.muscle_chest': 'Chest', 'workout.equipment_label': `Equipment: ${params?.equipment}`, 'workout.equipment_barbell': 'Barbell',
   'workout.primary_muscle_label': `Primary muscle: ${params?.muscle}`,
   'workout.target_sets': 'Target sets', 'workout.target_reps': 'Target reps',
   'workout.invalid_prescription': 'Every exercise needs at least one set and a reps target.',
@@ -92,7 +92,7 @@ describe('WorkoutReview', () => {
     expect(push).toHaveBeenCalledWith('/dashboard/workout/build');
     fireEvent.click(screen.getByRole('button', { name: 'View Bench Press technique' }));
     expect(push).toHaveBeenCalledWith('/dashboard/workout/exercises/bench?return=review');
-    expect(screen.getByText('Equipment: barbell')).toBeTruthy();
+    expect(screen.getByText('Equipment: Barbell')).toBeTruthy();
   });
 
   it('shows save rejection independently from live-start errors', () => {

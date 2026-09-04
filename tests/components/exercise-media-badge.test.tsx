@@ -14,6 +14,8 @@ vi.mock('@/lib/i18n', () => ({
       'workout.media_anatomy_reference_detail': badgeLocale.value === 'es' ? 'Funciones musculares verificadas; no es una demostración técnica' : 'Curated muscle roles; not a technique demonstration',
       'workout.media_no_exact_demo': badgeLocale.value === 'es' ? 'Aún no hay demostración exacta' : 'No exact demo yet',
       'workout.media_no_exact_demo_detail': badgeLocale.value === 'es' ? 'Usa las indicaciones del ejercicio y el equipamiento' : 'Use the exercise cues and equipment details',
+      'workout.media_group_estimate': badgeLocale.value === 'es' ? 'Estimación por grupo muscular' : 'Muscle group estimate',
+      'workout.media_group_estimate_detail': badgeLocale.value === 'es' ? 'Resalta la zona entrenada, no músculos específicos' : 'Highlights the trained area, not specific muscles',
     }[key] ?? key),
   }),
 }));
@@ -34,6 +36,14 @@ describe('ExerciseMediaBadge', () => {
 
     render(<ExerciseMediaBadge tier="honest-fallback" />);
     expect(screen.getByText('No exact demo yet')).toBeTruthy();
+  });
+
+  it('labels a muscle-group estimate as a group, never as an anatomy reference', () => {
+    render(<ExerciseMediaBadge tier="group-estimate" />);
+    const badge = screen.getByText('Muscle group estimate');
+    expect(badge.getAttribute('title')).toBe('Highlights the trained area, not specific muscles');
+    expect(badge.className).toContain('exercise-media-badge--group-estimate');
+    expect(screen.queryByText('Anatomy reference')).toBeNull();
   });
 
   it('identifies only exact playable media as verified technique', () => {

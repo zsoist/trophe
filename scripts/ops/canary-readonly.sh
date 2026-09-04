@@ -1,4 +1,8 @@
-#!/usr/bin/env bash
+csp_no_wasm="${csp//'wasm-unsafe-eval'/}"
+[[ "$csp_no_wasm" != *"'unsafe-eval'"* ]] || fail "CSP contains classic 'unsafe-eval'"
+[[ "$csp" == *"'wasm-unsafe-eval'"* ]] || fail "CSP lacks 'wasm-unsafe-eval' (AI Form Check WASM would be blocked)"
+[[ "$csp" == *"storage.googleapis.com"* ]] || fail "CSP connect-src lacks storage.googleapis.com (MediaPipe model)"
+[[ "$csp" == *"cdn.jsdelivr.net"* ]] || fail "CSP lacks cdn.jsdelivr.net (MediaPipe runtime)"#!/usr/bin/env bash
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -57,7 +61,13 @@ meal_status="$(
 
 csp="$(printf '%s\n' "$root_headers" | header_value content-security-policy)"
 [[ -n "$csp" ]] || fail "missing Content-Security-Policy"
-[[ "$csp" != *"unsafe-eval"* ]] || fail "CSP contains unsafe-eval"
+# 'wasm-unsafe-eval' (WebAssembly only, needed by AI Form Check) contains the
+# substring "unsafe-eval"; strip it before checking for the classic token.
+csp_no_wasm="${csp//\'wasm-unsafe-eval\'/}"
+[[ "$csp_no_wasm" != *"'unsafe-eval'"* ]] || fail "CSP contains classic 'unsafe-eval'"
+[[ "$csp" == *"'wasm-unsafe-eval'"* ]] || fail "CSP lacks 'wasm-unsafe-eval' (AI Form Check WASM would be blocked)"
+[[ "$csp" == *"cdn.jsdelivr.net"* ]] || fail "CSP lacks cdn.jsdelivr.net (MediaPipe runtime)"
+[[ "$csp" == *"storage.googleapis.com"* ]] || fail "CSP connect-src lacks storage.googleapis.com (MediaPipe model)"
 
 hsts="$(printf '%s\n' "$root_headers" | header_value strict-transport-security)"
 [[ -n "$hsts" ]] || fail "missing Strict-Transport-Security"
