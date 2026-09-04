@@ -479,7 +479,9 @@ describe('paid AI tool static inventory and order scanner', () => {
       });
     }
     expect(await scanFixture(REPO_ROOT)).toEqual([]);
-  }, 15_000);
+    // Repo-wide filesystem scan: ~2.5 s alone, but it flaked at 15 s in 2 of 4 full
+    // coverage runs on 2026-09-03 when vitest ran it beside other repo scanners.
+  }, 60_000);
 
   it('prints only file:rule from the CLI', () => {
     const root = fixtureRoot();

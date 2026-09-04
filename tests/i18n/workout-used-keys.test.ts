@@ -11,10 +11,9 @@ import { translations } from '@/lib/i18n';
 const SOURCE_ROOTS = ['components/workout', 'app/dashboard/workout'];
 const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx']);
 
-// TODO(sibling PR): 'workout.loading_build' and 'workout.loading_review' are being added by a
-// sibling PR (build/page.tsx:71 and review/page.tsx:105 already reference them). Remove these
-// two entries once that PR lands so the guard covers them too.
-const KNOWN_MISSING = new Set(['workout.loading_build', 'workout.loading_review']);
+// Keys that are referenced in source but intentionally absent from the dictionary.
+// Keep this empty: a used key that is missing leaks the raw key to users in every locale.
+const KNOWN_MISSING = new Set<string>();
 
 function collectSourceFiles(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {

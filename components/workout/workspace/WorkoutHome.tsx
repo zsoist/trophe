@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Activity, BarChart3, ChevronRight, History, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { ConfirmSheet } from '@/components/ui/ConfirmSheet';
-import { muscleLabelKey } from '@/components/workout/muscle-groups';
+import { exerciseDisplayName, muscleLabelKey } from '@/components/workout/muscle-groups';
 import { WorkoutAtlasHome } from '@/components/workout/workspace/WorkoutAtlasHome';
 import { WorkoutScheduleStrip } from '@/components/workout/workspace/WorkoutScheduleStrip';
 import { WorkoutTodayRail } from '@/components/workout/workspace/WorkoutTodayRail';
@@ -116,11 +116,13 @@ export function WorkoutHome({
   disabled = false,
 }: WorkoutHomeProps) {
   const router = useRouter();
-  const { t } = useI18n();
+  const { lang, t } = useI18n();
   const workspace = useWorkoutWorkspace();
   const [preview, setPreview] = useState<WorkoutHomeTemplate | null>(null);
   const [replacement, setReplacement] = useState<ReplacementChoice | null>(null);
-  const exerciseNames = useMemo(() => new Map(exercises.map((exercise) => [exercise.id, exercise.name])), [exercises]);
+  // Localized display names (house rule: Spanish gets name_es, Greek keeps English). Draft
+  // rows store the canonical English name, so the catalogue lookup comes first.
+  const exerciseNames = useMemo(() => new Map(exercises.map((exercise) => [exercise.id, exerciseDisplayName(exercise, lang)])), [exercises, lang]);
   const recommendedTemplate = useMemo(() => templateFromRecommendation(recommendation, t('workout.home_coach_workout'), t('workout.home_recommended_workout')), [recommendation, t]);
   const assignedTemplate = program?.todayTemplate ?? (recommendation?.source === 'coach' ? recommendedTemplate : null);
   const offeredTemplate = assignedTemplate ?? recommendedTemplate;
@@ -225,7 +227,7 @@ export function WorkoutHome({
 
       {!recoveryStage && routines.length ? <section aria-labelledby="saved-plans-title"><h2 id="saved-plans-title" className="mb-2 text-sm font-bold tracking-[-0.01em] text-[var(--content-primary)]">{t('workout.home_saved_plans')}</h2><div className="overflow-hidden rounded-[14px] border border-[var(--workout-rail)] bg-[var(--workout-surface)]">{routines.map((routine, index) => <button key={routine.templateKey} type="button" disabled={disabled} aria-label={t('workout.preview_named', { name: routine.name })} onClick={() => setPreview(routine)} className={`flex min-h-11 w-full items-center px-3 py-2 text-left text-sm font-medium text-[var(--content-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--focus-ring)] disabled:opacity-50 ${index ? 'border-t border-[var(--workout-rail)]' : ''}`}><span className="flex-1">{routine.name}</span><ChevronRight aria-hidden="true" size={16} /></button>)}</div></section> : null}
 
-      {preview ? <section aria-label={t('workout.preview')} className="rounded-[14px] border border-[var(--action-primary)] bg-[var(--workout-surface)] p-4"><h2 className="text-lg font-bold text-[var(--content-primary)]">{preview.name}</h2><p className="mt-1 text-sm text-[var(--content-secondary)]">{preview.muscleSummary.map((muscle) => t(muscleLabelKey(muscle))).join(' · ')}</p><p className="mt-1 text-sm text-[var(--content-secondary)]">{t('workout.exercise_count', { n: preview.exercises.length })}</p>{preview.exercises.length ? <ul className="mt-3 space-y-1 text-sm text-[var(--content-primary)]">{preview.exercises.map((exercise) => <li key={exercise.exerciseId}>{exercise.exerciseName ?? exerciseNames.get(exercise.exerciseId) ?? exercise.exerciseId}</li>)}</ul> : null}<div className="mt-4 flex gap-2"><button type="button" onClick={() => choose({ name: preview.name, destination: 'build', input: { type: 'template', value: preview } })} className="btn-gold min-h-11 flex-1 rounded-xl px-4">{t('workout.use_template')}</button><button type="button" onClick={() => setPreview(null)} className="btn-ghost min-h-11 rounded-xl px-4">{t('general.cancel')}</button></div></section> : null}
+      {preview ? <section aria-label={t('workout.preview')} className="rounded-[14px] border border-[var(--action-primary)] bg-[var(--workout-surface)] p-4"><h2 className="text-lg font-bold text-[var(--content-primary)]">{preview.name}</h2><p className="mt-1 text-sm text-[var(--content-secondary)]">{preview.muscleSummary.map((muscle) => t(muscleLabelKey(muscle))).join(' · ')}</p><p className="mt-1 text-sm text-[var(--content-secondary)]">{t('workout.exercise_count', { n: preview.exercises.length })}</p>{preview.exercises.length ? <ul className="mt-3 space-y-1 text-sm text-[var(--content-primary)]">{preview.exercises.map((exercise) => <li key={exercise.exerciseId}>{exerciseNames.get(exercise.exerciseId) ?? exercise.exerciseName ?? exercise.exerciseId}</li>)}</ul> : null}<div className="mt-4 flex gap-2"><button type="button" onClick={() => choose({ name: preview.name, destination: 'build', input: { type: 'template', value: preview } })} className="btn-gold min-h-11 flex-1 rounded-xl px-4">{t('workout.use_template')}</button><button type="button" onClick={() => setPreview(null)} className="btn-ghost min-h-11 rounded-xl px-4">{t('general.cancel')}</button></div></section> : null}
 
       {recents.length ? <section aria-labelledby="recent-progress-title"><h2 id="recent-progress-title" className="mb-2 text-sm font-bold tracking-[-0.01em] text-[var(--content-primary)]">{t('workout.home_recent_progress')}</h2><ul className="overflow-hidden rounded-[14px] border border-[var(--workout-rail)] bg-[var(--workout-surface)]">{recents.slice(0, 3).map((session, index) => <li key={session.id} className={`flex items-center justify-between gap-3 px-3 py-2.5 text-sm ${index ? 'border-t border-[var(--workout-rail)]' : ''}`}><span className="truncate font-medium text-[var(--content-primary)]">{session.name ?? t('workout.title')}</span><time className="shrink-0 font-mono text-xs tabular-nums text-[var(--content-muted)]">{session.session_date}</time></li>)}</ul></section> : null}
 
