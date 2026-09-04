@@ -202,7 +202,7 @@ describe('muscle-group-first exercise picker', () => {
       onReturnToBuild: returnToBuild,
     } as never);
 
-    fireEvent.click(screen.getByRole('button', { name: /^Chest/ }));
+    fireEvent.click(within(screen.getByRole('group', { name: 'What are you training?' })).getByRole('button', { name: /^Chest/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Add Bench Press' }));
 
     expect(addDraftExercise).toHaveBeenCalledWith('bench');
@@ -231,7 +231,7 @@ describe('muscle-group-first exercise picker', () => {
 
   it('shows only the chosen body area and uses one explicit add action', () => {
     const { onSelect, onClose } = renderPicker();
-    fireEvent.click(screen.getByRole('button', { name: /^Chest/ }));
+    fireEvent.click(within(screen.getByRole('group', { name: 'What are you training?' })).getByRole('button', { name: /^Chest/ }));
 
     expect(screen.getByRole('heading', { name: 'Chest exercises' })).toBeTruthy();
     expect(screen.getByText('Bench Press')).toBeTruthy();
@@ -273,7 +273,7 @@ describe('muscle-group-first exercise picker', () => {
     renderPicker();
     expect(screen.queryByRole('button', { name: /Equipment/ })).toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: /^Chest/ }));
+    fireEvent.click(within(screen.getByRole('group', { name: 'What are you training?' })).getByRole('button', { name: /^Chest/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Equipment, All equipment' }));
     fireEvent.click(screen.getByRole('option', { name: 'Cable' }));
     expect(screen.getByText('Cable Fly')).toBeTruthy();
@@ -282,7 +282,7 @@ describe('muscle-group-first exercise picker', () => {
 
   it('ranks recent exercises before the rest of the selected area', () => {
     renderPicker({ recentIds: ['fly'] });
-    fireEvent.click(screen.getByRole('button', { name: /^Chest/ }));
+    fireEvent.click(within(screen.getByRole('group', { name: 'What are you training?' })).getByRole('button', { name: /^Chest/ }));
 
     const addActions = screen.getAllByRole('button').filter((button) => button.getAttribute('aria-label')?.startsWith('Add '));
     expect(addActions.map((button) => button.getAttribute('aria-label'))).toEqual([
@@ -301,7 +301,7 @@ describe('muscle-group-first exercise picker', () => {
 
   it('returns to body areas and clears search without losing the simple entry state', () => {
     renderPicker();
-    fireEvent.click(screen.getByRole('button', { name: /^Chest/ }));
+    fireEvent.click(within(screen.getByRole('group', { name: 'What are you training?' })).getByRole('button', { name: /^Chest/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Back to muscle groups' }));
     expect(screen.getByRole('heading', { name: 'What are you training?' })).toBeTruthy();
 
@@ -317,7 +317,7 @@ describe('muscle-group-first exercise picker', () => {
     const recent = screen.getByRole('region', { name: 'Recent' });
     expect(within(recent).getByRole('button', { name: 'Add Cable Fly' })).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: /^Chest/ }));
+    fireEvent.click(within(screen.getByRole('group', { name: 'What are you training?' })).getByRole('button', { name: /^Chest/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Exercise info: Bench Press' }));
     expect(onInfo).toHaveBeenCalledWith(EXERCISES[0]);
     expect(onSelect).not.toHaveBeenCalled();

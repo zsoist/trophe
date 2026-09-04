@@ -13,7 +13,14 @@ export interface ExerciseMediaRecord {
   posterSrc: string;
   motionSrc?: string;
   motionType?: 'video/webm' | 'video/mp4';
-  tier: 'verified-technique' | 'verified-anatomy' | 'honest-fallback';
+  /**
+   * - `verified-technique`: exact movement + equipment art, curated anatomy.
+   * - `verified-anatomy`: curated named-muscle roles, but no exact technique art.
+   * - `group-estimate`: only the seeded muscle group is known; the atlas highlights
+   *   the trained area and labels the group, never a specific primary muscle.
+   * - `honest-fallback`: no anatomy claim at all.
+   */
+  tier: 'verified-technique' | 'verified-anatomy' | 'group-estimate' | 'honest-fallback';
   activations: MuscleActivation[];
   phases: Array<{ id: 'setup' | 'work' | 'finish'; label: string; cue: string }>;
   provenance: { kind: 'repo-vector' | 'generated' | 'sourced'; source: string; reviewedOn: string };
@@ -27,25 +34,41 @@ type MediaDefinition = {
   equipment: string[];
 };
 
-/** The only movements for which the repository currently has exact technique art. */
+/**
+ * The only movements for which the repository currently has exact technique art.
+ * Canonical names include the exact seeded catalogue names (scripts/seed-exercises.js,
+ * drizzle/0055) so the most-logged lifts can actually reach this art; every alias is
+ * still gated by `equipmentCompatible`, so 'Squat' + Dumbbell never borrows back-squat
+ * media. 'Cable Crossover' is deliberately not an alias of the standing cable fly.
+ */
 export const EXERCISE_MEDIA_REGISTRY: ReadonlyArray<MediaDefinition> = [
-  { slug: 'bench-press', canonicalNames: ['Barbell Bench Press'], equipment: ['Barbell'] },
+  { slug: 'bench-press', canonicalNames: ['Barbell Bench Press', 'Bench Press'], equipment: ['Barbell'] },
   { slug: 'incline-press', canonicalNames: ['Incline Dumbbell Press', 'Dumbbell Incline Press'], equipment: ['Dumbbell'] },
   { slug: 'smith-bench-press', canonicalNames: ['Smith Machine Bench Press'], equipment: ['Smith Machine', 'Machine'] },
   { slug: 'floor-press', canonicalNames: ['Floor Press'], equipment: ['Barbell'] },
   { slug: 'machine-chest-press', canonicalNames: ['Machine Chest Press', 'Chest Press Machine'], equipment: ['Machine'] },
   { slug: 'push-up', canonicalNames: ['Push Ups', 'Pushups'], equipment: ['Bodyweight'] },
-  { slug: 'overhead-press', canonicalNames: ['Standing Overhead Barbell Press', 'Standing Barbell Overhead Press'], equipment: ['Barbell'] },
+  { slug: 'overhead-press', canonicalNames: ['Standing Overhead Barbell Press', 'Standing Barbell Overhead Press', 'Overhead Press'], equipment: ['Barbell'] },
   { slug: 'pec-deck', canonicalNames: ['Pec Deck Machine', 'Pec Deck'], equipment: ['Machine'] },
   { slug: 'cable-fly', canonicalNames: ['Standing Cable Chest Fly'], equipment: ['Cable'] },
   { slug: 'pull-up', canonicalNames: ['Pull Ups', 'Pull Up'], equipment: ['Bodyweight'] },
-  { slug: 'deadlift', canonicalNames: ['Conventional Barbell Deadlift', 'Barbell Conventional Deadlift'], equipment: ['Barbell'] },
-  { slug: 'squat', canonicalNames: ['Barbell Back Squat', 'Back Squat'], equipment: ['Barbell'] },
+  { slug: 'deadlift', canonicalNames: ['Conventional Barbell Deadlift', 'Barbell Conventional Deadlift', 'Deadlift'], equipment: ['Barbell'] },
+  { slug: 'squat', canonicalNames: ['Barbell Back Squat', 'Back Squat', 'Squat'], equipment: ['Barbell'] },
   { slug: 'dip', canonicalNames: ['Parallel Bar Chest Dips', 'Chest Dips'], equipment: ['Bodyweight'] },
   { slug: 'row', canonicalNames: ['Seated Cable Row'], equipment: ['Cable'] },
-  { slug: 'curl', canonicalNames: ['Standing Dumbbell Biceps Curl'], equipment: ['Dumbbell'] },
-  { slug: 'triceps-extension', canonicalNames: ['Cable Triceps Rope Extension', 'Cable Rope Triceps Extension', 'Rope Triceps Pushdown'], equipment: ['Cable'] },
+  { slug: 'curl', canonicalNames: ['Standing Dumbbell Biceps Curl', 'Dumbbell Curl'], equipment: ['Dumbbell'] },
+  { slug: 'triceps-extension', canonicalNames: ['Cable Triceps Rope Extension', 'Cable Rope Triceps Extension', 'Rope Triceps Pushdown', 'Tricep Pushdown', 'Triceps Pushdown', 'Rope Pushdown'], equipment: ['Cable'] },
 ];
+
+/** i18n key for the still-image alt text of a tier; motion media has its own alt. */
+export function exercisePosterAltKey(tier: ExerciseMediaRecord['tier']): string {
+  switch (tier) {
+    case 'verified-technique': return 'workout.picker_exact_poster_alt';
+    case 'verified-anatomy': return 'workout.picker_anatomy_poster_alt';
+    case 'group-estimate': return 'workout.picker_group_estimate_poster_alt';
+    default: return 'workout.detail_fallback_poster_alt';
+  }
+}
 
 /**
  * The generated V3 cohort is deliberately enumerated here rather than inferred
@@ -136,13 +159,20 @@ export function resolveExerciseMedia(input: ExerciseMediaInput): ExerciseMediaRe
     );
   }
 
+  // Verified anatomy is claimed only for a curated slug. A muscle-group fallback is
+  // an estimate of the trained area and must not be presented as reviewed anatomy.
+  const curatedSlug = slugForExerciseName(name);
+  const hasCuratedAnatomy = Boolean(curatedSlug && CURATED_MUSCLE_ACTIVATIONS[curatedSlug]);
+  const tier: ExerciseMediaRecord['tier'] = activations.length === 0
+    ? 'honest-fallback'
+    : hasCuratedAnatomy ? 'verified-anatomy' : 'group-estimate';
   const area = anatomyArea(group);
   const fallbackDefinition: MediaDefinition = {
-    slug: definition?.slug ?? 'honest-fallback',
+    slug: definition?.slug ?? (tier === 'group-estimate' ? 'group-estimate' : 'honest-fallback'),
     canonicalNames: definition?.canonicalNames ?? (name ? [name] : []),
     equipment: input.equipment ? [input.equipment] : [],
   };
-  return recordFor(fallbackDefinition, activations.length ? 'verified-anatomy' : 'honest-fallback', activations, `/workout-v2/body-areas/${area}.webp`);
+  return recordFor(fallbackDefinition, tier, activations, `/workout-v2/body-areas/${area}.webp`);
 }
 
 export { slugForExerciseName };

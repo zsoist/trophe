@@ -6,7 +6,7 @@ import { useI18n } from '@/lib/i18n';
 import { supabase } from '@/lib/supabase';
 import type { Exercise, Language } from '@/lib/types';
 import type { AnatomyMuscleId } from '@/lib/workout/anatomy';
-import { resolveExerciseMedia } from '@/lib/workout/exercise-media';
+import { exercisePosterAltKey, resolveExerciseMedia } from '@/lib/workout/exercise-media';
 import { resolveExerciseInstructionBlock } from '@/lib/workout/exercise-copy';
 import { kgToDisplay, useWeightUnit } from '@/lib/workout/units';
 import { equipmentLabel, exerciseDisplayName } from './muscle-groups';
@@ -117,16 +117,7 @@ export function ExerciseDetail({
     muscleGroup: exercise.muscle_group,
   }), [exercise.equipment, exercise.muscle_group, exercise.name]);
   const hasExactMotion = media.tier === 'verified-technique' && Boolean(media.motionSrc);
-  const mediaAlt = t(
-    hasExactMotion
-      ? 'workout.movement_technique_alt'
-      : media.tier === 'verified-technique'
-        ? 'workout.picker_exact_poster_alt'
-        : media.tier === 'verified-anatomy'
-          ? 'workout.picker_anatomy_poster_alt'
-          : 'workout.detail_fallback_poster_alt',
-    { name },
-  );
+  const mediaAlt = t(hasExactMotion ? 'workout.movement_technique_alt' : exercisePosterAltKey(media.tier), { name });
   const [phaseSelection, setPhaseSelection] = useState<{ exerciseId: string; phase: PhaseId }>({ exerciseId: exercise.id, phase: 'setup' });
   const activePhase = phaseSelection.exerciseId === exercise.id ? phaseSelection.phase : 'setup';
   const [muscleSelection, setMuscleSelection] = useState<{ exerciseId: string; muscle: AnatomyMuscleId | null }>({

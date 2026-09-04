@@ -33,6 +33,7 @@ vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ lang: 'en', t: (key: string, pa
   'workout.save_plan_success_limited': 'Routine saved with limited fields.',
   'workout.picker_anatomy_poster_alt': `Anatomy reference for ${params?.name}`,
   'workout.picker_exact_poster_alt': `${params?.name} technique poster`,
+  'workout.picker_group_estimate_poster_alt': `Muscle group estimate for ${params?.name}`,
   'workout.detail_fallback_poster_alt': `Exercise placeholder for ${params?.name}`,
   'workout.muscle_chest': 'Chest', 'workout.muscle_shoulders': 'Shoulders',
   'workout.equipment_label': `Equipment: ${params?.equipment}`, 'workout.equipment_barbell': 'Barbell', 'workout.primary_muscle_label': `Primary muscle: ${params?.muscle}`,
@@ -102,9 +103,15 @@ describe('WorkoutBuilder', () => {
     workspace.state.draft = pushDraft;
     render(<WorkoutBuilder exercises={exercises} onSavePlan={vi.fn()} />);
 
-    const benchVisual = screen.getByRole('img', { name: 'Anatomy reference for Bench Press' });
-    expect(benchVisual.closest('[data-media-tier]')?.getAttribute('data-media-tier')).toBe('verified-anatomy');
+    // The seeded 'Bench Press' + barbell row now reaches the exact technique art.
+    const benchVisual = screen.getByRole('img', { name: 'Bench Press technique poster' });
+    expect(benchVisual.closest('[data-media-tier]')?.getAttribute('data-media-tier')).toBe('verified-technique');
+    // Equipment is localized through workout.equipment_* (never the raw enum value).
     expect(screen.getByText('Equipment: Barbell')).toBeTruthy();
+    // A group-only exercise is labelled as an estimate, never as an anatomy reference.
+    const pressVisual = screen.getByRole('img', { name: 'Muscle group estimate for Shoulder Press' });
+    expect(pressVisual.closest('[data-media-tier]')?.getAttribute('data-media-tier')).toBe('group-estimate');
+    expect(screen.queryByRole('img', { name: /anatomy reference/i })).toBeNull();
   });
 
   it('locks duplicate saves while pending and reports a rejected write without success', () => {

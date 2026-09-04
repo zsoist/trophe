@@ -11,6 +11,7 @@ export interface ExerciseMediaBadgeProps {
 const TIER_COPY_KEYS: Record<MediaTier, { label: string; detail: string }> = {
   'verified-technique': { label: 'workout.media_verified_technique', detail: 'workout.media_verified_technique_detail' },
   'verified-anatomy': { label: 'workout.media_anatomy_reference', detail: 'workout.media_anatomy_reference_detail' },
+  'group-estimate': { label: 'workout.media_group_estimate', detail: 'workout.media_group_estimate_detail' },
   'honest-fallback': { label: 'workout.media_no_exact_demo', detail: 'workout.media_no_exact_demo_detail' },
 };
 

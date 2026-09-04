@@ -80,7 +80,11 @@ describe('full exercise detail', () => {
   it('renders honest fallback semantics and all guidance sections without invented safety facts', () => {
     render(<ExerciseInfoSheet exercise={machinePress} userId={null} onClose={vi.fn()} />);
 
-    expect(screen.getByText('Anatomy reference')).toBeTruthy();
+    // Only the seeded muscle group is known, so the badge names a group estimate and
+    // never claims a curated anatomy reference or a named primary muscle.
+    expect(screen.getByText('Muscle group estimate')).toBeTruthy();
+    expect(screen.queryByText('Anatomy reference')).toBeNull();
+    expect(document.body.textContent).not.toMatch(/primary muscle/i);
     expect(screen.queryByRole('img', { name: /technique/i })).toBeNull();
     for (const heading of ['Equipment & setup', 'Setup', 'Technique guidance', 'Execution', 'Breathing', 'Common mistakes', 'Safety note', 'Training evidence', 'Personal record', 'Recent sessions']) {
       expect(screen.getByRole('heading', { name: heading })).toBeTruthy();
@@ -160,7 +164,8 @@ describe('full exercise detail', () => {
     activeLang = 'es';
     render(<ExerciseDetail exercise={machinePress} userId={null} />);
 
-    expect(screen.getByRole('img', { name: 'Referencia anatómica de Iso-Lateral Machine Press' })).toBeTruthy();
+    expect(screen.getByRole('img', { name: 'Estimación por grupo muscular de Iso-Lateral Machine Press' })).toBeTruthy();
+    expect(screen.queryByRole('img', { name: /Referencia anatómica/ })).toBeNull();
     // Equipment enum is localized through workout.equipment_* (never the raw enum value).
     expect(screen.getAllByText('Máquina')).toHaveLength(2);
     expect(screen.queryByText('machine')).toBeNull();

@@ -24,8 +24,8 @@ vi.mock('@/lib/i18n', async (importOriginal) => {
 import { WorkoutAtlasHome } from '@/components/workout/workspace/WorkoutAtlasHome';
 
 const activations: MuscleActivation[] = [
-  { id: 'pectoralis-major', label: 'Pectoralis major', role: 'primary', view: 'front' },
-  { id: 'triceps-brachii', label: 'Triceps brachii', role: 'secondary', view: 'front' },
+  { id: 'pectoralis-major', label: 'Pectoralis major', role: 'primary', view: 'front', confidence: 'curated' },
+  { id: 'triceps-brachii', label: 'Triceps brachii', role: 'secondary', view: 'front', confidence: 'curated' },
 ];
 
 afterEach(cleanup);
