@@ -9,7 +9,7 @@ import PlateCalculator from '@/components/workout/PlateCalculator';
 import { ConfirmSheet } from '@/components/ui/ConfirmSheet';
 import { useWorkoutWorkspace } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
 import { ExerciseSetLogger, type RestClockSnapshot, type SetLoggerValue } from '@/components/workout/workspace/ExerciseSetLogger';
-import { FinishWorkoutDialog } from '@/components/workout/workspace/FinishWorkoutDialog';
+import { FinishWorkoutDialog, type FinishBlockedReason } from '@/components/workout/workspace/FinishWorkoutDialog';
 import { LiveCardio, type CardioLogValues } from '@/components/workout/workspace/LiveCardio';
 import { LiveExerciseStage } from '@/components/workout/workspace/LiveExerciseStage';
 import { LiveSessionPath } from '@/components/workout/workspace/LiveSessionPath';
@@ -17,6 +17,7 @@ import { exerciseDisplayName } from '@/components/workout/muscle-groups';
 import { useI18n } from '@/lib/i18n';
 import type { Exercise, PainFlag } from '@/lib/types';
 import {
+  clearPendingLiveSets,
   completeLiveSet,
   finishLiveSession,
   appendLivePainFlag,
@@ -129,6 +130,8 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
 
   const strengthDraftExercises = draft?.kind === 'strength' ? draft.exercises : null;
   const commitLiveStrengthStructure = workspace.commitLiveStrengthStructure;
+  const reconcileLive = workspace.reconcileLive;
+  const liveReconciliation = workspace.liveReconciliation;
 
   useEffect(() => {
     let active = true;
@@ -149,6 +152,31 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
       userId && strengthDraftExercises ? loadLivePrMap(userId, strengthDraftExercises.map((exercise) => exercise.exerciseId)) : Promise.resolve({}),
     ]).then(async ([initialSetResult, painResult, structureResult, records]) => {
       if (!active) return;
+      // Server truth first: a frozen or vanished row can never accept live
+      // writes, so the local stage follows it instead of failing every mutation.
+      if (structureResult.ok && structureResult.terminal) {
+        if (state.stage !== 'completed') {
+          clearPendingLiveSets(sessionId);
+          reconcileLive({ outcome: 'completed', durationMinutes: structureResult.durationMinutes });
+          return;
+        }
+        if (!initialSetResult.ok || !painResult.ok) {
+          setRecoveryError(true);
+          setRecoveryLoaded(false);
+          return;
+        }
+        setPersistedSets(initialSetResult.sets);
+        setPainFlags(painResult.flags);
+        setPrMap(records);
+        setRecoveryError(false);
+        setRecoveryLoaded(true);
+        return;
+      }
+      if (!structureResult.ok && structureResult.reason === 'missing' && state.stage !== 'completed') {
+        clearPendingLiveSets(sessionId);
+        reconcileLive({ outcome: 'missing' });
+        return;
+      }
       if (!initialSetResult.ok || !painResult.ok || !structureResult.ok) {
         setRecoveryError(true);
         setRecoveryLoaded(false);
@@ -207,7 +235,14 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
       setRecoveryLoaded(false);
     });
     return () => { active = false; };
-  }, [commitLiveStrengthStructure, completedRetrospective, draft?.kind, recoveryAttempt, sessionId, state.stage, strengthDraftExercises, userId]);
+  }, [commitLiveStrengthStructure, completedRetrospective, draft?.kind, reconcileLive, recoveryAttempt, sessionId, state.stage, strengthDraftExercises, userId]);
+
+  const retryRecovery = () => {
+    setRecoveryLoaded(false);
+    setFailedMutations(new Set());
+    setRecoveryError(false);
+    setRecoveryAttempt((current) => current + 1);
+  };
 
   const runMutation = async <T,>(
     key: string,
@@ -259,7 +294,19 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
   const completedPainCount = completedRetrospective?.painFlags.length ?? painFlags.length;
   const elapsedMs = elapsedActiveMs(state.clock, now);
   const durationMinutes = Math.max(0, Math.floor(elapsedMs / 60_000));
-  const mutationBlocked = pendingMutations > 0 || failedMutations.size > 0 || recoveryError || !recoveryLoaded;
+  // The live surface already explains `loading` (skeleton), `failed` and
+  // `recovery` (alerts with retry) next to Finish; only `pending` needs its own
+  // line there. The finish dialog explains every reason.
+  const blockedReason: FinishBlockedReason | null = recoveryError
+    ? 'recovery'
+    : !recoveryLoaded
+      ? 'loading'
+      : pendingMutations > 0
+        ? 'pending'
+        : failedMutations.size > 0
+          ? 'failed'
+          : null;
+  const mutationBlocked = blockedReason !== null;
 
   const firstIncompleteIndex = useMemo(() => {
     if (!draft || draft.kind !== 'strength') return 0;
@@ -299,6 +346,7 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
           <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-[var(--status-success-fg)]">{t('workout.completed_saved')}</p>
           <h2 id="workout-completed-title" className="mt-1 text-2xl font-bold text-[var(--content-primary)]">{t('workout.completed_title')}</h2>
           <p className="mt-2 text-sm leading-6 text-[var(--content-secondary)]">{t('workout.completed_message')}</p>
+          {liveReconciliation?.outcome === 'completed' ? <p role="status" className="mt-3 rounded-xl border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-3 py-2 text-sm leading-6 text-[var(--content-primary)]">{t('workout.completed_elsewhere')}</p> : null}
           <dl className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-[var(--workout-rail)] bg-[var(--workout-rail)] text-left text-sm">
             <div className="bg-[var(--surface-subtle)] p-3"><dt className="text-[var(--content-muted)]">{t('workout.completed_duration')}</dt><dd className="mt-1 font-mono font-semibold tabular-nums text-[var(--content-primary)]">{durationMinutes} {t('workout.min')}</dd></div>
             <div className="bg-[var(--surface-subtle)] p-3"><dt className="text-[var(--content-muted)]">{t('workout.completed_sets')}</dt><dd className="mt-1 font-mono font-semibold tabular-nums text-[var(--content-primary)]">{completedSets}</dd></div>
@@ -391,12 +439,15 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
           }}
           onFinish={requestFinish}
         />
+        {blockedReason === 'pending' ? <p role="status" className="text-center text-xs leading-5 text-[var(--content-secondary)]">{t('workout.finish_blocked_pending')}</p> : null}
         {(finishRequested || state.stage === 'finishing') ? (
           <FinishWorkoutDialog
             summary={{ durationMinutes: liveCardioValues.durationMinutes, completedSets: 0, pendingSets: 0, painNotes: painFlags.length, prs: 0 }}
             isEmpty={cardioIsEmpty}
             saving={savingFinish}
             blocked={mutationBlocked}
+            blockedReason={blockedReason}
+            onRetry={retryRecovery}
             error={finishError}
             onKeepTraining={cancelFinish}
             onSaveAndFinish={() => void saveAndFinish()}
@@ -632,11 +683,12 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
       {failedMutations.size > 0 ? (
         <div role="alert" className="rounded-xl bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]">
           <p>{t('workout.mutation_failed')}</p>
-          <button type="button" onClick={() => { setRecoveryLoaded(false); setFailedMutations(new Set()); setRecoveryError(false); setRecoveryAttempt((current) => current + 1); }} className="mt-2 min-h-11 underline">{t('workout.retry_recovery')}</button>
+          <button type="button" onClick={retryRecovery} className="mt-2 min-h-11 underline">{t('workout.retry_recovery')}</button>
         </div>
       ) : null}
 
       <button type="button" onClick={() => requestFinish()} disabled={savingFinish || mutationBlocked} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[var(--status-danger-bg)] font-semibold text-[var(--status-danger-fg)] disabled:opacity-50"><Square size={17} aria-hidden="true" />{t('workout.finish')}</button>
+      {blockedReason === 'pending' ? <p role="status" className="text-center text-xs leading-5 text-[var(--content-secondary)]">{t('workout.finish_blocked_pending')}</p> : null}
 
       {finishOpen ? (
         <FinishWorkoutDialog
@@ -644,6 +696,8 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
           isEmpty={completedSets === 0}
           saving={savingFinish}
           blocked={mutationBlocked}
+          blockedReason={blockedReason}
+          onRetry={retryRecovery}
           error={finishError}
           onKeepTraining={cancelFinish}
           onSaveAndFinish={() => void saveAndFinish()}
