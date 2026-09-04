@@ -40,15 +40,20 @@ export type AnatomyView = 'front' | 'back';
  */
 export type AnatomyConfidence = 'curated' | 'group';
 
-export interface MuscleActivation {
+interface MuscleActivationBase {
   id: AnatomyMuscleId;
   label: string;
   role: MuscleRole;
   view: AnatomyView;
-  confidence: AnatomyConfidence;
-  /** The seeded muscle group this estimate stands for. Present only when `confidence === 'group'`. */
-  group?: MuscleGroup | string;
 }
+
+/**
+ * Anatomy claims are discriminated so a group estimate cannot exist without
+ * its group label, and curated muscle roles cannot accidentally carry one.
+ */
+export type MuscleActivation =
+  | (MuscleActivationBase & { confidence: 'curated'; group?: never })
+  | (MuscleActivationBase & { confidence: 'group'; group: MuscleGroup | string; role: 'primary' });
 
 export interface AnatomyExerciseInput {
   name?: string | null;

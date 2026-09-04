@@ -49,4 +49,13 @@ describe('WorkoutAtlasHome localization', () => {
     expect(screen.getByText('El cardio se registra por actividad, duración, distancia y esfuerzo.')).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/Add strength exercises|Cardio is tracked/);
   });
+
+  it('labels fallback anatomy as a muscle-group estimate instead of a named primary muscle', () => {
+    render(<WorkoutAtlasHome activations={[
+      { id: 'anterior-deltoid', label: 'Shoulders', role: 'primary', view: 'front', confidence: 'group', group: 'shoulders' },
+    ]} targetLabel="Hombros" />);
+
+    expect(screen.getByRole('status').textContent).toBe('Hombros · Grupo');
+    expect(screen.getByRole('status').textContent).not.toMatch(/Deltoides anterior|Objetivo principal/);
+  });
 });

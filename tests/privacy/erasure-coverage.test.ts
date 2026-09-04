@@ -93,4 +93,9 @@ describe('erasure coverage (WP5)', () => {
   it('pre-erasure steps use only known actions', () => {
     for (const s of PRE_ERASURE_STEPS) expect(['delete', 'nullify']).toContain(s.action);
   });
+
+  it('anonymizes client-created exercises before deleting the client profile', () => {
+    expect(PRE_ERASURE_STEPS).toContainEqual({ table: 'exercises', column: 'created_by', action: 'nullify' });
+    expect(COACH_SCOPE_ONLY).not.toContainEqual({ table: 'exercises', column: 'created_by' });
+  });
 });

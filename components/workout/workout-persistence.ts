@@ -75,8 +75,41 @@ export type LiveStructureMutationResult =
 
 export type WorkoutSetLoadResult = { ok: true; sets: PersistedWorkoutSet[] } | { ok: false };
 export type LiveStructureLoadResult =
-  | { ok: true; version: number; structure: LiveExerciseStructureInput[] }
-  | { ok: false; legacy?: true };
+  | { ok: true; terminal: false; version: number; structure: LiveExerciseStructureInput[] }
+  /** The row is frozen history (migrations 0079-0081); no live write can ever succeed against it. */
+  | { ok: true; terminal: true; completedAt: string | null; durationMinutes: number | null }
+  /** `missing` is returned only after Auth verifies the current owner. Other answers are non-destructive. */
+  | { ok: false; reason: 'missing' | 'transport' | 'auth' }
+  | { ok: false; reason: 'legacy'; legacy: true };
+
+/** A server answer that can never change by retrying the same request. */
+export interface PersistenceRejection { ok: false; kind: 'rejected'; code: string }
+/** Deterministic API/schema/auth configuration failure; preserve the envelope until repair. */
+export interface PersistenceBlockedFailure { ok: false; kind: 'blocked'; code: string }
+/** Network, timeout, or malformed replies: the request outcome is unknown. */
+export interface PersistenceTransientFailure { ok: false; kind: 'transient' }
+export type PersistenceFailure = PersistenceRejection | PersistenceBlockedFailure | PersistenceTransientFailure;
+export type SessionStartResult = { ok: true; sessionId: string } | PersistenceFailure;
+
+/**
+ * Postgres/PostgREST error codes that are definitive: data exceptions (22xxx),
+ * integrity violations (23xxx), RLS/privilege denial (42501) and RAISE
+ * EXCEPTION defaults (P0001). Definition/schema-cache/auth configuration
+ * failures are blocked without releasing the envelope. Connection, timeout,
+ * serialization, and unclassified failures stay transient so the exact
+ * idempotent envelope is retried.
+ */
+export function classifyPersistenceError(error: unknown): PersistenceFailure {
+  if (!error || typeof error !== 'object') return { ok: false, kind: 'transient' };
+  const code = (error as { code?: unknown }).code;
+  if (typeof code !== 'string') return { ok: false, kind: 'transient' };
+  if (/^(22|23)\d{3}$/.test(code) || code === '42501' || code === 'P0001') return { ok: false, kind: 'rejected', code };
+  // SQL definition/configuration errors and deterministic PostgREST request,
+  // schema-cache, or JWT failures need operator/auth repair. They must be
+  // visible without releasing the byte-exact idempotency envelope.
+  if (/^42[A-Z0-9]{3}$/.test(code) || /^PGRST[123]\d{2}$/.test(code)) return { ok: false, kind: 'blocked', code };
+  return { ok: false, kind: 'transient' };
+}
 
 export interface AtomicLiveSetInput {
   sessionId: string;
@@ -91,7 +124,7 @@ export interface AtomicLiveSetInput {
 }
 
 /** Idempotent live-session start. The RPC derives the owner from auth.uid(). */
-export async function startWorkoutSessionAtomic(input: AtomicSessionStartInput): Promise<string | null> {
+export async function startWorkoutSessionAtomic(input: AtomicSessionStartInput): Promise<SessionStartResult> {
   const { data, error } = await supabase.rpc('start_workout_session', {
     p_idempotency_key: input.idempotencyKey,
     p_draft_fingerprint: input.draftFingerprint,
@@ -101,7 +134,8 @@ export async function startWorkoutSessionAtomic(input: AtomicSessionStartInput):
     p_kind: input.kind,
     p_live_structure: input.liveStructure,
   });
-  return error || typeof data !== 'string' || !data.trim() ? null : data;
+  if (error) return classifyPersistenceError(error);
+  return typeof data === 'string' && data.trim() ? { ok: true, sessionId: data } : { ok: false, kind: 'transient' };
 }
 
 /** One transactional create + set insert + finish boundary for completed history. */
@@ -373,28 +407,55 @@ export async function loadWorkoutSessionSets(sessionId: string): Promise<Workout
   return error ? { ok: false } : { ok: true, sets: (data as PersistedWorkoutSet[] | null) ?? [] };
 }
 
-export async function loadWorkoutSessionStructure(sessionId: string): Promise<LiveStructureLoadResult> {
-  if (!sessionId.trim()) return { ok: false };
+export async function loadWorkoutSessionStructure(sessionId: string, expectedUserId?: string | null): Promise<LiveStructureLoadResult> {
+  // An empty id is a caller bug, not server evidence; fail closed without clearing anything.
+  if (!sessionId.trim()) return { ok: false, reason: 'transport' };
   const { data, error } = await supabase
     .from('workout_sessions')
-    .select('live_structure, live_structure_version, duration_minutes, client_request')
+    .select('live_structure, live_structure_version, duration_minutes, completed_at, client_request')
     .eq('id', sessionId)
     .maybeSingle();
-  if (error || !data) return { ok: false };
+  if (error) return { ok: false, reason: 'transport' };
+  if (!data) {
+    // RLS deliberately turns an unauthenticated/unauthorized SELECT into an
+    // empty result. Never let that ambiguity destroy the device recovery copy:
+    // revalidate Auth, and call the row missing only for the expected owner.
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      const authenticatedUserId = authData.user?.id ?? null;
+      if (authError || !authenticatedUserId || (expectedUserId && authenticatedUserId !== expectedUserId)) {
+        return { ok: false, reason: 'auth' };
+      }
+    } catch {
+      return { ok: false, reason: 'auth' };
+    }
+    return { ok: false, reason: 'missing' };
+  }
+  // Terminal authority (0079): completed_at is database-owned, and any
+  // duration also stamps it. Either marker means the row is frozen history.
+  if (data.completed_at !== null || data.duration_minutes !== null) {
+    return {
+      ok: true,
+      terminal: true,
+      completedAt: typeof data.completed_at === 'string' ? data.completed_at : null,
+      durationMinutes: typeof data.duration_minutes === 'number' ? data.duration_minutes : null,
+    };
+  }
   if (data.live_structure === null) {
     const request = data.client_request;
-    const isLegacyActiveLive = data.duration_minutes === null
-      && request !== null
+    const isLegacyActiveLive = request !== null
       && typeof request === 'object'
       && !Array.isArray(request)
       && (request as { mode?: unknown }).mode === 'live';
-    return isLegacyActiveLive ? { ok: false, legacy: true } : { ok: false };
+    return isLegacyActiveLive ? { ok: false, reason: 'legacy', legacy: true } : { ok: false, reason: 'transport' };
   }
   if (!Array.isArray(data.live_structure) || !Number.isInteger(data.live_structure_version)) {
-    return { ok: false };
+    // A malformed active row is not something the client can resolve; fail closed and allow retry.
+    return { ok: false, reason: 'transport' };
   }
   return {
     ok: true,
+    terminal: false,
     structure: data.live_structure as LiveExerciseStructureInput[],
     version: data.live_structure_version as number,
   };

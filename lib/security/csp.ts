@@ -44,6 +44,7 @@ export function buildContentSecurityPolicy({ isDev, supabaseOrigin }: CspOptions
     "worker-src 'self' blob:",
     "object-src 'none'",
     "base-uri 'self'",
+    "form-action 'self'",
     "frame-ancestors 'none'",
   ].join('; ');
 }

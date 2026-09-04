@@ -211,6 +211,7 @@ export function ExerciseSetLogger({
           setSetId(null);
           setCompletedSetNumber(null);
           setRestComplete(false);
+          setRestAnnouncement(null);
           commitRestSnapshot(null, setId);
         }
         return;

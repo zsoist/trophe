@@ -45,6 +45,9 @@ export const PRE_ERASURE_STEPS: ErasureStep[] = [
   { table: 'invite_reservations', column: 'user_id', action: 'delete' },
   { table: 'custom_foods', column: 'created_by', action: 'delete' },
   { table: 'knowledge_documents', column: 'created_by', action: 'delete' },
+  // Clients can create private exercises. Nulling ownership preserves any paid
+  // workout/form history that references the exercise while removing the user link.
+  { table: 'exercises', column: 'created_by', action: 'nullify' },
   { table: 'agent_runs', column: 'user_id', action: 'nullify' },
 ];
 
@@ -110,7 +113,6 @@ export const CASCADE_COVERED: Array<{ table: string; column: string; rule: 'CASC
 export const COACH_SCOPE_ONLY: Array<{ table: string; column: string }> = [
   { table: 'client_supplements', column: 'assigned_by' },
   { table: 'dish_recipes', column: 'verified_by' },
-  { table: 'exercises', column: 'created_by' },
   { table: 'habits', column: 'created_by' },
   { table: 'supplement_protocols', column: 'coach_id' },
   { table: 'workout_programs', column: 'coach_id' },

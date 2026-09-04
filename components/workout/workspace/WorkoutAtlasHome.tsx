@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { MuscleAtlas } from '@/components/workout/MuscleAtlas';
 import { useI18n } from '@/lib/i18n';
-import type { AnatomyMuscleId, MuscleActivation } from '@/lib/workout/anatomy';
+import { anatomyLabelKey, type AnatomyMuscleId, type MuscleActivation } from '@/lib/workout/anatomy';
 
 interface WorkoutAtlasHomeProps {
   activations: MuscleActivation[];
@@ -19,7 +19,9 @@ const ROLE_TARGET_KEYS = {
   stabilizer: 'workout.atlas_stabilizing_target',
 } as const;
 
-const atlasMuscleLabelKey = (id: AnatomyMuscleId) => `workout.atlas_muscle_${id.replaceAll('-', '_')}`;
+const activationRoleKey = (activation: MuscleActivation) => activation.confidence === 'group'
+  ? 'workout.atlas_role_group_label'
+  : ROLE_TARGET_KEYS[activation.role];
 
 export function WorkoutAtlasHome({ activations, targetLabel, emptyState = 'strength', action }: WorkoutAtlasHomeProps) {
   const { t } = useI18n();
@@ -34,7 +36,7 @@ export function WorkoutAtlasHome({ activations, targetLabel, emptyState = 'stren
         <p className="mt-1 text-sm leading-5 text-[var(--content-secondary)]">{targetLabel}</p>
       </div>
       <MuscleAtlas activations={activations} selected={appliedSelected} onSelect={setSelected} compact homeCompact />
-      {selectedActivation ? <p role="status" className="workout-atlas-home__selection">{t(atlasMuscleLabelKey(selectedActivation.id))}{' · '}{t(ROLE_TARGET_KEYS[selectedActivation.role])}</p> : <p className="workout-atlas-home__selection">{t(emptyState === 'cardio' ? 'workout.atlas_empty_cardio' : 'workout.atlas_empty_strength')}</p>}
+      {selectedActivation ? <p role="status" className="workout-atlas-home__selection">{t(anatomyLabelKey(selectedActivation))}{' · '}{t(activationRoleKey(selectedActivation))}</p> : <p className="workout-atlas-home__selection">{t(emptyState === 'cardio' ? 'workout.atlas_empty_cardio' : 'workout.atlas_empty_strength')}</p>}
       {action ? <div className="workout-atlas-home__action">{action}</div> : null}
     </section>
   );

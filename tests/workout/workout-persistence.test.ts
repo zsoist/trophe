@@ -78,7 +78,7 @@ describe('workout persistence live-session helpers', () => {
       idempotencyKey: '11111111-1111-4111-8111-111111111111', sessionDate: '2026-08-24',
       draftFingerprint: 'draft:push:1', name: 'Push', templateId: null, kind: 'strength',
       liveStructure: [{ exercise_id: '33333333-3333-4333-8333-333333333333', target_sets: 3, target_reps: '8', superset_group: null }],
-    })).resolves.toBe('session-live');
+    })).resolves.toEqual({ ok: true, sessionId: 'session-live' });
     expect(db.rpc).toHaveBeenNthCalledWith(1, 'start_workout_session', {
       p_idempotency_key: '11111111-1111-4111-8111-111111111111', p_draft_fingerprint: 'draft:push:1',
       p_session_date: '2026-08-24', p_name: 'Push', p_template_id: null, p_kind: 'strength',
@@ -137,8 +137,8 @@ describe('workout persistence live-session helpers', () => {
   it('loads canonical structure and version without trusting local storage', async () => {
     const structure = [{ exercise_id: 'bench', target_sets: 3, target_reps: '8', superset_group: null }];
     db.eq.mockReturnValueOnce({ maybeSingle: db.maybeSingle });
-    db.maybeSingle.mockResolvedValueOnce({ data: { live_structure: structure, live_structure_version: 4 }, error: null });
-    await expect(loadWorkoutSessionStructure('session-1')).resolves.toEqual({ ok: true, structure, version: 4 });
+    db.maybeSingle.mockResolvedValueOnce({ data: { live_structure: structure, live_structure_version: 4, duration_minutes: null, completed_at: null }, error: null });
+    await expect(loadWorkoutSessionStructure('session-1')).resolves.toEqual({ ok: true, terminal: false, structure, version: 4 });
   });
 
   it('classifies only active live rows as legacy and bootstraps through the guarded RPC', async () => {
@@ -148,11 +148,12 @@ describe('workout persistence live-session helpers', () => {
         live_structure: null,
         live_structure_version: 0,
         duration_minutes: null,
+        completed_at: null,
         client_request: { mode: 'live' },
       },
       error: null,
     });
-    await expect(loadWorkoutSessionStructure('session-1')).resolves.toEqual({ ok: false, legacy: true });
+    await expect(loadWorkoutSessionStructure('session-1')).resolves.toEqual({ ok: false, reason: 'legacy', legacy: true });
 
     const structure = [{ exercise_id: 'bench', target_sets: 3, target_reps: '8', superset_group: null }];
     db.rpc.mockResolvedValueOnce({ data: { version: 0, structure }, error: null });
@@ -175,10 +176,11 @@ describe('workout persistence live-session helpers', () => {
         live_structure: null,
         live_structure_version: 0,
         duration_minutes: 20,
+        completed_at: null,
         client_request: { mode: 'live' },
       },
       error: null,
     });
-    await expect(loadWorkoutSessionStructure('session-1')).resolves.toEqual({ ok: false });
+    await expect(loadWorkoutSessionStructure('session-1')).resolves.toEqual({ ok: true, terminal: true, completedAt: null, durationMinutes: 20 });
   });
 });

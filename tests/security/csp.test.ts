@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
@@ -49,6 +50,7 @@ describe('Content-Security-Policy', () => {
   it('adds the baseline hardening directives', () => {
     expect(directive(prod, 'object-src')).toBe("object-src 'none'");
     expect(directive(prod, 'base-uri')).toBe("base-uri 'self'");
+    expect(directive(prod, 'form-action')).toBe("form-action 'self'");
     expect(directive(prod, 'frame-ancestors')).toBe("frame-ancestors 'none'");
     expect(directive(prod, 'media-src')).toContain('blob:');
     expect(directive(prod, 'worker-src')).toContain('blob:');
@@ -67,11 +69,12 @@ describe('Content-Security-Policy', () => {
     }
   });
 
-  it('production canary rejects only classic eval, not wasm-unsafe-eval', () => {
-    const canary = readFileSync(join(process.cwd(), 'scripts/ops/canary-readonly.sh'), 'utf8');
-    expect(canary).not.toContain('*"unsafe-eval"*');
-    expect(canary).toContain("'unsafe-eval'");
-    expect(canary).toContain('wasm-unsafe-eval');
-    expect(canary).toContain('storage.googleapis.com');
+  it('production canary reaches the paid-operation guard before running any probe', () => {
+    const canary = join(process.cwd(), 'scripts/ops/canary-readonly.sh');
+    const result = spawnSync('bash', [canary], { encoding: 'utf8' });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('canary-production-ai-route:tool-opt-in-required');
+    expect(result.stderr).not.toContain('command not found');
   });
 });
