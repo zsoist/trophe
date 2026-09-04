@@ -76,6 +76,25 @@ describe('Workout Workspace V2 theme contract', () => {
     expect(css).toMatch(/\.light\s*\{[\s\S]*--performance-gold:\s*#765A1D/);
   });
 
+  it('keeps every light performance accent readable as small uppercase badge text on warm surfaces', () => {
+    const lightBlock = css.slice(css.indexOf('.light {'), css.indexOf('}', css.indexOf('.light {')));
+    const token = (name: string) => {
+      const value = lightBlock.match(new RegExp(`--performance-${name}:\\s*(#[0-9a-f]{6})`, 'i'))?.[1];
+      expect(value, `--performance-${name} must be a hex token in the light block`).toBeDefined();
+      return value!;
+    };
+
+    for (const accent of ['lime', 'cyan', 'orange', 'coral']) {
+      const foreground = token(accent);
+      for (const surface of ['#F0EDE4', '#FFFFFF', '#F5F2EA']) {
+        expect(contrast(foreground, surface), `${accent} ${foreground} on ${surface}`).toBeGreaterThanOrEqual(4.5);
+      }
+      // Badges (.exercise-media-badge) render these accents at 12px uppercase mono on
+      // --workout-surface-raised (#F0EDE4); hold them well above the AA floor there.
+      expect(contrast(foreground, '#F0EDE4'), `${accent} ${foreground} on raised surface`).toBeGreaterThanOrEqual(5.5);
+    }
+  });
+
   it('uses the numeric voice for plates, set evidence, and live timers', () => {
     for (const path of [
       'components/workout/PlateCalculator.tsx',

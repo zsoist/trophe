@@ -4,6 +4,18 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const KIB = 1024;
 
+// Measurement method (identical for every route): parse the route's
+// `page_client-reference-manifest.js`, collect the unique `.js` chunks that any
+// client module in the route tree references, and sum their raw on-disk bytes.
+// This counts every client chunk the route can pull in (layouts, dialogs, and
+// `next/dynamic` islands included) and is stable across hashed file names.
+// It is NOT transfer size: `.next/server/app/<route>.html` first-load gzip is
+// roughly 0.3x of these numbers (see docs/quality/performance-*.md).
+//
+// Baselines are the raw byte sums from `npm run build` on the day the route was
+// added to the guard; each route may grow at most 10% before `perf:budget`
+// fails. Re-baseline deliberately, in its own commit, with the new figure and
+// the reason. Authenticated routes were added 2026-09-03 (Next 16.2.12).
 export const ROUTE_BUDGETS = [
   {
     route: '/',
@@ -18,6 +30,54 @@ export const ROUTE_BUDGETS = [
     routeKey: '/login/page',
     manifest: '.next/server/app/login/page_client-reference-manifest.js',
     baselineBytes: 271_430,
+    maxGrowthRatio: 0.1,
+    maxRouteChunkBytes: 50 * KIB,
+  },
+  {
+    // 2026-09-03: 841.7 KiB raw (243.4 KiB gzip by this method; 404.9 KiB gzip
+    // of every script tag in dashboard.html). The page chunk was already
+    // 52.6 KiB when the guard landed, so its per-chunk cap is 60 KiB: hold the
+    // line, shrink it in the lazy-loading follow-up, then tighten to 50 KiB.
+    route: '/dashboard',
+    routeKey: '/dashboard/page',
+    manifest: '.next/server/app/dashboard/page_client-reference-manifest.js',
+    baselineBytes: 861_880,
+    maxGrowthRatio: 0.1,
+    maxRouteChunkBytes: 60 * KIB,
+  },
+  {
+    // 2026-09-03: 960.3 KiB raw (277.5 KiB gzip; 407.3 KiB gzip HTML scripts).
+    route: '/dashboard/workout',
+    routeKey: '/dashboard/workout/page',
+    manifest: '.next/server/app/dashboard/workout/page_client-reference-manifest.js',
+    baselineBytes: 983_396,
+    maxGrowthRatio: 0.1,
+    maxRouteChunkBytes: 50 * KIB,
+  },
+  {
+    // 2026-09-03: 1039.1 KiB raw (299.8 KiB gzip; 420.9 KiB gzip HTML scripts).
+    route: '/dashboard/workout/live',
+    routeKey: '/dashboard/workout/live/page',
+    manifest: '.next/server/app/dashboard/workout/live/page_client-reference-manifest.js',
+    baselineBytes: 1_063_989,
+    maxGrowthRatio: 0.1,
+    maxRouteChunkBytes: 50 * KIB,
+  },
+  {
+    // 2026-09-03: 989.2 KiB raw (286.3 KiB gzip; 394.8 KiB gzip HTML scripts).
+    route: '/dashboard/workout/build',
+    routeKey: '/dashboard/workout/build/page',
+    manifest: '.next/server/app/dashboard/workout/build/page_client-reference-manifest.js',
+    baselineBytes: 1_012_948,
+    maxGrowthRatio: 0.1,
+    maxRouteChunkBytes: 50 * KIB,
+  },
+  {
+    // 2026-09-03: 983.7 KiB raw (284.6 KiB gzip; 393.1 KiB gzip HTML scripts).
+    route: '/dashboard/workout/history',
+    routeKey: '/dashboard/workout/history/page',
+    manifest: '.next/server/app/dashboard/workout/history/page_client-reference-manifest.js',
+    baselineBytes: 1_007_259,
     maxGrowthRatio: 0.1,
     maxRouteChunkBytes: 50 * KIB,
   },

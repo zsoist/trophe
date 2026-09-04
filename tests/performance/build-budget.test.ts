@@ -1,9 +1,38 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ROUTE_BUDGETS,
   analyzeRouteChunks,
   evaluateRouteBudget,
   parseClientReferenceManifest,
 } from '../../scripts/perf/check-build-budgets.mjs';
+
+describe('authenticated route build budgets', () => {
+  const guardedRoutes = [
+    '/dashboard',
+    '/dashboard/workout',
+    '/dashboard/workout/live',
+    '/dashboard/workout/build',
+    '/dashboard/workout/history',
+  ];
+
+  it.each(guardedRoutes)('guards %s with the same manifest method as the public routes', (route) => {
+    const budget = ROUTE_BUDGETS.find((entry) => entry.route === route);
+    expect(budget, `${route} must have a committed budget`).toBeDefined();
+    expect(budget?.routeKey).toBe(`${route}/page`);
+    expect(budget?.manifest).toBe(`.next/server/app${route}/page_client-reference-manifest.js`);
+    expect(budget?.baselineBytes).toBeGreaterThan(0);
+    expect(budget?.maxGrowthRatio).toBe(0.1);
+    // /dashboard shipped with a 52.6 KiB page chunk; it is capped at 60 KiB until
+    // the lazy-loading follow-up brings it under the shared 50 KiB ceiling.
+    expect(budget?.maxRouteChunkBytes).toBe((route === '/dashboard' ? 60 : 50) * 1024);
+  });
+
+  it('keeps the public routes guarded', () => {
+    expect(ROUTE_BUDGETS.map((entry) => entry.route)).toEqual(
+      expect.arrayContaining(['/', '/login']),
+    );
+  });
+});
 
 const fixtureManifest = {
   clientModules: {

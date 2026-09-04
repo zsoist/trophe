@@ -61,6 +61,24 @@ describe('theme inventory guard', () => {
     expect(result.stderr).toContain('components/Label.tsx:1:');
   });
 
+  it('rejects sub-12px rem text utilities that used to bypass the pixel guard', () => {
+    const result = run(fixture({
+      'components/RemLabel.tsx': "export const label = <dt className=\"text-[0.6875rem] uppercase\">Source</dt>;\n",
+      'components/RemBadge.tsx': "export const badge = <span className=\"font-mono text-[0.625rem]\">Verified</span>;\n",
+      'components/RemTiny.tsx': "export const tiny = <span className=\"text-[0.5625rem]\">9px</span>;\n",
+      'components/RemFloor.tsx': "export const floor = <span className=\"text-[0.75rem]\">12px</span>;\n",
+      'components/RemLarge.tsx': "export const large = <span className=\"text-[1.625rem]\">26px</span>;\n",
+    }));
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('components/RemLabel.tsx:1:');
+    expect(result.stderr).toContain('components/RemBadge.tsx:1:');
+    expect(result.stderr).toContain('components/RemTiny.tsx:1:');
+    expect(result.stderr).not.toContain('components/RemFloor.tsx');
+    expect(result.stderr).not.toContain('components/RemLarge.tsx');
+    expect(result.stderr).toContain('functional text below 12px');
+  });
+
   it('permits dark media paint only at an explicit marker on a real media boundary', () => {
     const result = run(fixture({
       'components/VideoPanel.tsx': "export const view = <div data-theme-exempt=\"media-canvas\" className=\"bg-black\"><video /></div>;\n",
