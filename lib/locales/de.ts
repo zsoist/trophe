@@ -25,6 +25,8 @@ export const de: Record<string, string> = {
   'workout.weight_unit_label': 'Gewichtseinheit: {unit}',
   'workout.weight_unit_switch': 'Zu {unit} wechseln',
   'workout.loading_workspace': 'Trainingsbereich wird geladen',
+  'workout.loading_build': 'Trainingsplaner wird geladen',
+  'workout.loading_review': 'Trainingsübersicht wird geladen',
   'workout.continue_active': 'Training fortsetzen',
   'workout.view_completed_summary': 'Trainingszusammenfassung ansehen',
   'workout.repeat_replace_title': 'Aktuellen Entwurf ersetzen?',

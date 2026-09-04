@@ -30,6 +30,8 @@ export const pt: Record<string, string> = {
   'workout.weight_unit_label': 'Unidade de peso: {unit}',
   'workout.weight_unit_switch': 'Mudar para {unit}',
   'workout.loading_workspace': 'A carregar área de treino',
+  'workout.loading_build': 'A carregar o construtor de treino',
+  'workout.loading_review': 'A carregar a revisão do treino',
   'workout.continue_active': 'Continuar treino',
   'workout.view_completed_summary': 'Ver resumo do treino',
   'workout.repeat_replace_title': 'Substituir o rascunho atual?',

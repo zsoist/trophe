@@ -900,6 +900,8 @@ export const translations: Record<string, Record<CoreLanguage, string>> = {
   'workout.weight_unit_label': { en: 'Weight unit: {unit}', es: 'Unidad de peso: {unit}', el: 'Μονάδα βάρους: {unit}' },
   'workout.weight_unit_switch': { en: 'Switch to {unit}', es: 'Cambiar a {unit}', el: 'Αλλαγή σε {unit}' },
   'workout.loading_workspace': { en: 'Loading workout workspace', es: 'Cargando espacio de entrenamiento', el: 'Φόρτωση χώρου προπόνησης' },
+  'workout.loading_build': { en: 'Loading workout builder', es: 'Cargando el constructor de entrenamiento', el: 'Φόρτωση δημιουργίας προπόνησης' },
+  'workout.loading_review': { en: 'Loading workout review', es: 'Cargando la revisión del entrenamiento', el: 'Φόρτωση επισκόπησης προπόνησης' },
   'workout.continue_active': { en: 'Continue workout', es: 'Continuar entrenamiento', el: 'Συνέχιση προπόνησης' },
   'workout.view_completed_summary': { en: 'View workout summary', es: 'Ver resumen del entrenamiento', el: 'Προβολή σύνοψης προπόνησης' },
   'workout.repeat_replace_title': { en: 'Replace current draft?', es: '¿Reemplazar el borrador actual?', el: 'Αντικατάσταση τρέχοντος πρόχειρου;' },

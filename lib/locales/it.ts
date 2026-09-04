@@ -25,6 +25,8 @@ export const it: Record<string, string> = {
   'workout.weight_unit_label': 'Unità di peso: {unit}',
   'workout.weight_unit_switch': 'Passa a {unit}',
   'workout.loading_workspace': 'Caricamento area allenamento',
+  'workout.loading_build': 'Caricamento del costruttore di allenamento',
+  'workout.loading_review': 'Caricamento della revisione allenamento',
   'workout.continue_active': 'Continua allenamento',
   'workout.view_completed_summary': 'Vedi riepilogo allenamento',
   'workout.repeat_replace_title': 'Sostituire la bozza attuale?',

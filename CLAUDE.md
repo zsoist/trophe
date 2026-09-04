@@ -104,7 +104,7 @@ v0.3-overhaul merged to main 2026-05-03. Nutrition accuracy work ongoing June 20
 - Spike wearable layer
 - tRPC v11
 - Handoff v2 UI (new `components/ui/`, `app/globals.css` primitives)
-- `middleware.ts` (Next.js middleware at repo root)
+- `proxy.ts` (Next.js 16 request gate at repo root; formerly `middleware.ts`)
 
 ---
 
@@ -146,7 +146,7 @@ lib/supabase/server.ts              # createSupabaseServerClient() — reads coo
 lib/supabase/middleware.ts          # edge middleware client
 lib/auth/get-session.ts             # { user, profile, role, orgId }
 lib/auth/require-role.ts            # server-side role guard
-middleware.ts                       # Next.js middleware (repo root; Supabase session + auth gate)
+proxy.ts                            # Next.js 16 request gate (repo root; Supabase session refresh + coarse auth gate)
 ```
 
 ### tRPC
@@ -218,16 +218,13 @@ Public signup always forces `role = 'client'`. Invite token required for elevate
 
 ---
 
-## Middleware routing (middleware.ts)
+## Request gate (proxy.ts)
 
-`middleware.ts` (Next.js middleware at repo root, runs before every request):
-- Creates server Supabase client from `request.cookies` via `lib/supabase/middleware.ts`
-- Calls `getUser()` (not `getSession()` — re-validates JWT against auth server)
-- Enforces role routing:
-  - `/coach/*` → role ∈ `{coach, admin, super_admin}` required
-  - `/admin/*` → role ∈ `{admin, super_admin}` required
-  - `/super/*` → role = `super_admin` only
-  - Unauthenticated → 302 `/login` | Wrong role → 302 `/dashboard`
+`proxy.ts` (Next.js 16 proxy at repo root — the renamed `middleware.ts` convention — runs before every matched request):
+- Creates server Supabase client from `request.cookies` via `lib/supabase/middleware.ts` and refreshes the session cookie
+- Skips `getUser()` entirely when no `sb-*` cookie is present (anonymous fast path); otherwise calls `getUser()` (not `getSession()` — re-validates JWT against auth server) and fails closed on auth outage
+- Coarse auth gate only: `/dashboard/*`, `/coach/*`, `/admin/*`, `/super/*`, `/api/admin/*`, `/api/seed/*` → unauthenticated → 302 `/login?redirectTo=<pathname>`
+- Role checks are NOT done here (no DB at the edge) — they happen inside routes via `requireRole()` / `requireAdmin()` (`lib/auth/require-role.ts`); wrong role → 302 `/dashboard`
 
 ---
 
@@ -416,8 +413,8 @@ Trophē tracks the source and confidence of every food's macro data. This is a c
 ### Auth
 - `@supabase/ssr` IS installed and in use. Sessions in HTTP-only cookies, NOT localStorage. Don't revert to localStorage pattern.
 - Always call `getUser()` not `getSession()` — `getSession()` doesn't re-validate against auth server.
-- middleware lives in `middleware.ts` at repo root (standard Next.js convention). Verified 2026-06-15: `proxy.ts` does not exist (a brief 2026-05 rename experiment was reverted).
-- Always validate auth gating after any middleware file move — a wrong filename makes Next.js skip the middleware entirely and protected routes silently appear public.
+- The request gate lives in `proxy.ts` at repo root (Next.js 16 renamed the `middleware.ts` convention to `proxy.ts`; commit e1ce3c3). `middleware.ts` does NOT exist and must not be recreated — Next 16 refuses to build when both files exist, and a stale `middleware.ts` alone would be silently ignored. Verified 2026-09-03 (owner review): `tests/auth/middleware-cookie-refresh.test.ts` imports `@/proxy`.
+- Always validate auth gating after any gate file move — a wrong filename makes Next.js skip the gate entirely and protected routes silently appear public. `scripts/ops/canary-readonly.sh` asserts anonymous `/dashboard/*` requests redirect to `/login`.
 - Hydration mismatch: never read `localStorage` inside `useState` lazy initializer — use `useEffect` after mount.
 
 ### Supabase / DB
