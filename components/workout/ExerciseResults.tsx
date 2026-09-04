@@ -3,7 +3,7 @@
 import { Check, Info, Plus } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import type { Exercise } from '@/lib/types';
-import { resolveExerciseMedia } from '@/lib/workout/exercise-media';
+import { exercisePosterAltKey, resolveExerciseMedia } from '@/lib/workout/exercise-media';
 import { ExerciseMediaBadge } from './ExerciseMediaBadge';
 import { equipmentLabel, exerciseDisplayName } from './muscle-groups';
 
@@ -30,12 +30,7 @@ export function ExerciseResults({ exercises, lang, selectedIds, onAdd, onInfo, a
           equipment: exercise.equipment,
           muscleGroup: exercise.muscle_group,
         });
-        const posterAlt = t(
-          media.tier === 'verified-technique'
-            ? 'workout.picker_exact_poster_alt'
-            : 'workout.picker_anatomy_poster_alt',
-          { name },
-        );
+        const posterAlt = t(exercisePosterAltKey(media.tier), { name });
 
         return (
           <article

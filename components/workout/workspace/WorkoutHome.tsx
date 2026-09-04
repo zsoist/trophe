@@ -81,10 +81,12 @@ function uniqueActivations(template: WorkoutHomeTemplate | null, exercises: Exer
   });
   const fallbacks = template.muscleSummary.flatMap((muscleGroup) => resolveMuscleActivations({ muscleGroup }));
   const roleStrength = { primary: 3, secondary: 2, stabilizer: 1 } as const;
+  // Stronger role wins; on a tie, a curated named-muscle role beats a group estimate.
+  const strength = (activation: MuscleActivation) => roleStrength[activation.role] * 2 + (activation.confidence === 'group' ? 0 : 1);
   const strongestById = new Map<MuscleActivation['id'], MuscleActivation>();
   for (const activation of [...resolved, ...fallbacks]) {
     const current = strongestById.get(activation.id);
-    if (!current || roleStrength[activation.role] > roleStrength[current.role]) strongestById.set(activation.id, activation);
+    if (!current || strength(activation) > strength(current)) strongestById.set(activation.id, activation);
   }
   return Array.from(strongestById.values());
 }

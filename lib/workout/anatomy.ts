@@ -32,11 +32,22 @@ export type AnatomyMuscleId =
 export type MuscleRole = 'primary' | 'secondary' | 'stabilizer';
 export type AnatomyView = 'front' | 'back';
 
+/**
+ * How much an activation may claim.
+ * - `curated`: a reviewed, per-exercise named-muscle role from CURATED_MUSCLE_ACTIVATIONS.
+ * - `group`: a stand-in region for the seeded muscle group only. It highlights the trained
+ *   area and must be labelled with the group name, never as a specific primary muscle.
+ */
+export type AnatomyConfidence = 'curated' | 'group';
+
 export interface MuscleActivation {
   id: AnatomyMuscleId;
   label: string;
   role: MuscleRole;
   view: AnatomyView;
+  confidence: AnatomyConfidence;
+  /** The seeded muscle group this estimate stands for. Present only when `confidence === 'group'`. */
+  group?: MuscleGroup | string;
 }
 
 export interface AnatomyExerciseInput {
@@ -60,8 +71,23 @@ const ATLAS_MUSCLE_VIEWS: Record<AnatomyMuscleId, AnatomyView> = {
 
 const activation = (id: AnatomyMuscleId, role: MuscleRole, view: AnatomyView): MuscleActivation => {
   void view;
-  return { id, label: MUSCLE_LABELS[id], role, view: ATLAS_MUSCLE_VIEWS[id] };
+  return { id, label: MUSCLE_LABELS[id], role, view: ATLAS_MUSCLE_VIEWS[id], confidence: 'curated' };
 };
+
+/** English group names for estimate labels; UI localizes through `workout.muscle_*`. */
+const GROUP_LABELS: Partial<Record<MuscleGroup | string, string>> = {
+  chest: 'Chest', shoulders: 'Shoulders', back: 'Back', biceps: 'Biceps', triceps: 'Triceps', forearms: 'Forearms',
+  quads: 'Quads', hamstrings: 'Hamstrings', glutes: 'Glutes', calves: 'Calves', core: 'Core',
+};
+
+/**
+ * A muscle-group estimate: the atlas region that best stands for the seeded group.
+ * The role stays `primary` so load weighting treats the group as the main target,
+ * but the claim is explicitly group-level and is never persisted as anatomy.
+ */
+const groupEstimate = (group: MuscleGroup | string, id: AnatomyMuscleId): MuscleActivation => ({
+  id, label: GROUP_LABELS[group] ?? MUSCLE_LABELS[id], role: 'primary', view: ATLAS_MUSCLE_VIEWS[id], confidence: 'group', group,
+});
 
 const MUSCLE_LABELS: Record<AnatomyMuscleId, string> = {
   'pectoralis-major': 'Pectoralis major',
@@ -187,37 +213,47 @@ export const CURATED_MUSCLE_ACTIVATIONS: Readonly<Record<string, MuscleActivatio
 const normalize = (value: string): string => value.toLowerCase().normalize('NFKD')
   .replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
 
+/**
+ * Group-level estimates only. Each entry is the atlas region that stands for a
+ * seeded muscle group; it is not a claim about which specific muscle is primary.
+ */
 const GROUP_ACTIVATIONS: Partial<Record<MuscleGroup | string, MuscleActivation[]>> = {
-  chest: [activation('pectoralis-major', 'primary', 'front')],
-  shoulders: [activation('anterior-deltoid', 'primary', 'front')],
-  back: [activation('latissimus-dorsi', 'primary', 'back')],
-  biceps: [activation('biceps-brachii', 'primary', 'front')],
-  triceps: [activation('triceps-brachii', 'primary', 'back')],
-  forearms: [activation('forearm-flexors', 'primary', 'back')],
-  quads: [activation('quadriceps', 'primary', 'front')],
-  hamstrings: [activation('hamstrings', 'primary', 'back')],
-  glutes: [activation('gluteus-maximus', 'primary', 'back')],
-  calves: [activation('gastrocnemius', 'primary', 'back')],
-  core: [activation('rectus-abdominis', 'primary', 'front')],
+  chest: [groupEstimate('chest', 'pectoralis-major')],
+  shoulders: [groupEstimate('shoulders', 'anterior-deltoid')],
+  back: [groupEstimate('back', 'latissimus-dorsi')],
+  biceps: [groupEstimate('biceps', 'biceps-brachii')],
+  triceps: [groupEstimate('triceps', 'triceps-brachii')],
+  forearms: [groupEstimate('forearms', 'forearm-flexors')],
+  quads: [groupEstimate('quads', 'quadriceps')],
+  hamstrings: [groupEstimate('hamstrings', 'hamstrings')],
+  glutes: [groupEstimate('glutes', 'gluteus-maximus')],
+  calves: [groupEstimate('calves', 'gastrocnemius')],
+  core: [groupEstimate('core', 'rectus-abdominis')],
 };
 
+/**
+ * Canonical names plus the exact seeded catalogue names (scripts/seed-exercises.js,
+ * drizzle/0055). Seeded aliases are only listed where the seeded row's movement is
+ * the curated one; equipment gating lives in exercise-media.ts. 'Cable Crossover'
+ * is deliberately absent: a crossover is not the standing cable fly.
+ */
 const NAME_TO_SLUG: Array<{ names: string[]; slug: string }> = [
-  { names: ['barbell bench press'], slug: 'bench-press' },
+  { names: ['barbell bench press', 'bench press'], slug: 'bench-press' },
   { names: ['incline dumbbell press', 'dumbbell incline press'], slug: 'incline-press' },
   { names: ['smith machine bench press'], slug: 'smith-bench-press' },
   { names: ['floor press'], slug: 'floor-press' },
   { names: ['machine chest press', 'chest press machine'], slug: 'machine-chest-press' },
   { names: ['push ups', 'pushups'], slug: 'push-up' },
-  { names: ['standing overhead barbell press', 'standing barbell overhead press'], slug: 'overhead-press' },
+  { names: ['standing overhead barbell press', 'standing barbell overhead press', 'overhead press'], slug: 'overhead-press' },
   { names: ['pec deck machine', 'pec deck'], slug: 'pec-deck' },
   { names: ['standing cable chest fly'], slug: 'cable-fly' },
   { names: ['pull ups', 'pull up'], slug: 'pull-up' },
-  { names: ['conventional barbell deadlift', 'barbell conventional deadlift'], slug: 'deadlift' },
-  { names: ['barbell back squat', 'back squat'], slug: 'squat' },
+  { names: ['conventional barbell deadlift', 'barbell conventional deadlift', 'deadlift'], slug: 'deadlift' },
+  { names: ['barbell back squat', 'back squat', 'squat'], slug: 'squat' },
   { names: ['parallel bar chest dips', 'chest dips'], slug: 'dip' },
   { names: ['seated cable row'], slug: 'row' },
-  { names: ['standing dumbbell biceps curl'], slug: 'curl' },
-  { names: ['cable triceps rope extension', 'cable rope triceps extension', 'rope triceps pushdown'], slug: 'triceps-extension' },
+  { names: ['standing dumbbell biceps curl', 'dumbbell curl'], slug: 'curl' },
+  { names: ['cable triceps rope extension', 'cable rope triceps extension', 'rope triceps pushdown', 'tricep pushdown', 'triceps pushdown', 'rope pushdown'], slug: 'triceps-extension' },
 ];
 
 export function slugForExerciseName(name: string): string | undefined {
@@ -225,13 +261,30 @@ export function slugForExerciseName(name: string): string | undefined {
   return NAME_TO_SLUG.find(({ names }) => names.includes(normalized))?.slug;
 }
 
-/** Resolve curated roles, falling back to a conservative primary muscle group. */
-export function resolveMuscleActivations(input: AnatomyExerciseInput): MuscleActivation[] {
+/** Curated, reviewed roles only. Empty when the exercise has no curated entry. */
+export function resolveCuratedMuscleActivations(input: AnatomyExerciseInput): MuscleActivation[] {
   const slug = slugForExerciseName(input.name ?? input.exerciseName ?? '');
   const curated = slug ? CURATED_MUSCLE_ACTIVATIONS[slug] : undefined;
+  return (curated ?? []).map((item) => ({ ...item }));
+}
+
+/**
+ * Resolve curated roles, falling back to a group-level estimate. Callers that
+ * persist or reason about named muscles must use `resolveCuratedMuscleActivations`
+ * or check `confidence`, because the fallback is only a trained-area estimate.
+ */
+export function resolveMuscleActivations(input: AnatomyExerciseInput): MuscleActivation[] {
+  const curated = resolveCuratedMuscleActivations(input);
+  if (curated.length) return curated;
   const group = input.muscleGroup ?? input.muscle_group;
-  const selected = curated ?? (group ? GROUP_ACTIVATIONS[group] : undefined) ?? [];
-  return selected.map((item) => ({ ...item }));
+  return ((group ? GROUP_ACTIVATIONS[group] : undefined) ?? []).map((item) => ({ ...item }));
+}
+
+/** i18n key for a group-estimate label; falls back to the named-muscle key for curated roles. */
+export function anatomyLabelKey(activation: Pick<MuscleActivation, 'id' | 'confidence' | 'group'>): string {
+  return activation.confidence === 'group' && activation.group
+    ? `workout.muscle_${activation.group}`
+    : `workout.atlas_muscle_${activation.id.replaceAll('-', '_')}`;
 }
 
 export function muscleLabel(id: AnatomyMuscleId): string {

@@ -2139,6 +2139,7 @@ body {
 
 .exercise-media-badge--verified-technique { color: var(--performance-lime); }
 .exercise-media-badge--verified-anatomy { color: var(--performance-cyan); }
+.exercise-media-badge--group-estimate { color: var(--performance-violet); }
 .exercise-media-badge--honest-fallback { color: var(--performance-orange); }
 
 /* Exercise detail — instruction first, then anatomy, cues, and RLS-scoped evidence. */

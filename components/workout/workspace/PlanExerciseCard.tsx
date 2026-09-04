@@ -6,7 +6,7 @@ import { ExerciseMediaBadge } from '@/components/workout/ExerciseMediaBadge';
 import { equipmentLabel, exerciseDisplayName } from '@/components/workout/muscle-groups';
 import { useI18n } from '@/lib/i18n';
 import type { DraftExercise } from '@/lib/workout/workspace-state';
-import { resolveExerciseMedia } from '@/lib/workout/exercise-media';
+import { exercisePosterAltKey, resolveExerciseMedia } from '@/lib/workout/exercise-media';
 import type { WorkoutExerciseOption } from '@/components/workout/workspace/WorkoutBuilder';
 
 export const DEFAULT_PLAN_REST_SECONDS = 90;
@@ -38,7 +38,7 @@ export function PlanExerciseCard({ draftExercise, exercise, index, total, mode =
   const equipment = exercise?.equipment ?? null;
   const muscleGroup = draftExercise.muscleGroup ?? exercise?.muscle_group ?? null;
   const media = resolveExerciseMedia({ name: exercise?.name ?? name, equipment, muscleGroup });
-  const posterAlt = t(media.tier === 'verified-technique' ? 'workout.picker_exact_poster_alt' : media.tier === 'verified-anatomy' ? 'workout.picker_anatomy_poster_alt' : 'workout.detail_fallback_poster_alt', { name });
+  const posterAlt = t(exercisePosterAltKey(media.tier), { name });
   const restSeconds = draftExercise.restSeconds ?? DEFAULT_PLAN_REST_SECONDS;
   const rpe = draftExercise.targetRpe ?? null;
   const pointerStart = useRef<{ id: number; y: number } | null>(null);

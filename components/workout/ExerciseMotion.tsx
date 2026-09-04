@@ -76,7 +76,9 @@ export function ExerciseMotion({ media, alt, autoplay = false, className = '', p
       ? 'workout.motion_reduced'
       : media.tier === 'verified-anatomy'
         ? 'workout.motion_anatomy_only'
-        : 'workout.motion_no_exact';
+        : media.tier === 'group-estimate'
+          ? 'workout.motion_group_estimate'
+          : 'workout.motion_no_exact';
     return (
       <figure className={`exercise-motion exercise-motion--poster ${className}`}>
         {/* The poster is intentionally a plain image so it remains the complete reduced-motion experience. */}

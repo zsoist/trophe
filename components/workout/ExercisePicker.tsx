@@ -17,7 +17,7 @@ import { ArrowLeft, Check, ChevronDown, Dumbbell, Plus, Search, X } from 'lucide
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import type { Exercise, MuscleGroup } from '@/lib/types';
-import type { AnatomyMuscleId, MuscleActivation } from '@/lib/workout/anatomy';
+import { anatomyLabelKey, type AnatomyMuscleId, type MuscleActivation } from '@/lib/workout/anatomy';
 import {
   MUSCLE_GROUPS,
   WORKOUT_BODY_AREAS,
@@ -33,20 +33,20 @@ import { ExerciseResults } from './ExerciseResults';
 import { MuscleAtlas } from './MuscleAtlas';
 import { WorkoutPlanTray } from './WorkoutPlanTray';
 
+// Discovery regions are body-area selectors: each stands for a muscle group, so they
+// are labelled by group and never presented as a specific primary muscle.
 const DISCOVERY_ATLAS_REGIONS: Array<Omit<MuscleActivation, 'label'>> = [
-  { id: 'pectoralis-major', role: 'primary', view: 'front' },
-  { id: 'anterior-deltoid', role: 'primary', view: 'front' },
-  { id: 'biceps-brachii', role: 'primary', view: 'front' },
-  { id: 'rectus-abdominis', role: 'primary', view: 'front' },
-  { id: 'quadriceps', role: 'primary', view: 'front' },
-  { id: 'latissimus-dorsi', role: 'primary', view: 'back' },
-  { id: 'triceps-brachii', role: 'primary', view: 'back' },
-  { id: 'gluteus-maximus', role: 'primary', view: 'back' },
-  { id: 'hamstrings', role: 'primary', view: 'back' },
-  { id: 'gastrocnemius', role: 'primary', view: 'back' },
+  { id: 'pectoralis-major', role: 'primary', view: 'front', confidence: 'group', group: 'chest' },
+  { id: 'anterior-deltoid', role: 'primary', view: 'front', confidence: 'group', group: 'shoulders' },
+  { id: 'biceps-brachii', role: 'primary', view: 'front', confidence: 'group', group: 'biceps' },
+  { id: 'rectus-abdominis', role: 'primary', view: 'front', confidence: 'group', group: 'core' },
+  { id: 'quadriceps', role: 'primary', view: 'front', confidence: 'group', group: 'quads' },
+  { id: 'latissimus-dorsi', role: 'primary', view: 'back', confidence: 'group', group: 'back' },
+  { id: 'triceps-brachii', role: 'primary', view: 'back', confidence: 'group', group: 'triceps' },
+  { id: 'gluteus-maximus', role: 'primary', view: 'back', confidence: 'group', group: 'glutes' },
+  { id: 'hamstrings', role: 'primary', view: 'back', confidence: 'group', group: 'hamstrings' },
+  { id: 'gastrocnemius', role: 'primary', view: 'back', confidence: 'group', group: 'calves' },
 ];
-
-const atlasMuscleLabelKey = (id: AnatomyMuscleId) => `workout.atlas_muscle_${id.replaceAll('-', '_')}`;
 
 const DISCOVERY_AREA_BY_MUSCLE: Record<AnatomyMuscleId, WorkoutBodyArea> = {
   'pectoralis-major': 'chest',
@@ -401,7 +401,7 @@ export default function ExercisePicker({
   const { t } = useI18n();
   const discoveryAtlasActivations = DISCOVERY_ATLAS_REGIONS.map((activation) => ({
     ...activation,
-    label: t(atlasMuscleLabelKey(activation.id)),
+    label: t(anatomyLabelKey(activation)),
   }));
 
   useEffect(() => {
