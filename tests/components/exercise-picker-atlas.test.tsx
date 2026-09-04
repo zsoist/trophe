@@ -95,6 +95,11 @@ vi.mock('@/lib/i18n', () => ({
         'workout.body_area_full_body': 'Full body',
         'workout.body_area_cardio': 'Cardio',
         'workout.muscle_chest': 'Chest',
+        'workout.equipment_barbell': 'Barbell',
+        'workout.equipment_dumbbell': 'Dumbbell',
+        'workout.equipment_machine': 'Machine',
+        'workout.equipment_cable': 'Cable',
+        'workout.equipment_bodyweight': 'Bodyweight',
       };
       const spanish: Record<string, string> = {
         'workout.picker_exact_poster_alt': 'Póster técnico de {name}',

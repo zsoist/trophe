@@ -5,7 +5,7 @@ import { useI18n } from '@/lib/i18n';
 import type { Exercise } from '@/lib/types';
 import { resolveExerciseMedia } from '@/lib/workout/exercise-media';
 import { ExerciseMediaBadge } from './ExerciseMediaBadge';
-import { exerciseDisplayName } from './muscle-groups';
+import { equipmentLabel, exerciseDisplayName } from './muscle-groups';
 
 export interface ExerciseResultsProps {
   exercises: Exercise[];
@@ -16,8 +16,6 @@ export interface ExerciseResultsProps {
   actionLabel?: (exercise: Exercise) => string;
   actionAriaLabel?: (exercise: Exercise) => string;
 }
-
-const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
 
 export function ExerciseResults({ exercises, lang, selectedIds, onAdd, onInfo, actionLabel, actionAriaLabel }: ExerciseResultsProps) {
   const { t } = useI18n();
@@ -85,7 +83,7 @@ export function ExerciseResults({ exercises, lang, selectedIds, onAdd, onInfo, a
                 </button>
               </div>
               <p className="mt-0.5 truncate text-xs text-[var(--content-muted)]">
-                {exercise.equipment ? titleCase(exercise.equipment) : t('workout.picker_all_equipment')}
+                {exercise.equipment ? equipmentLabel(t, exercise.equipment) : t('workout.picker_all_equipment')}
               </p>
               <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-1.5">
                 <span className="shrink-0 rounded-full border border-[var(--border-subtle)] px-1.5 py-0.5 text-xs font-medium text-[var(--content-secondary)]">

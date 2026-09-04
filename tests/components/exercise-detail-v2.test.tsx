@@ -161,7 +161,9 @@ describe('full exercise detail', () => {
     render(<ExerciseDetail exercise={machinePress} userId={null} />);
 
     expect(screen.getByRole('img', { name: 'Referencia anatómica de Iso-Lateral Machine Press' })).toBeTruthy();
-    expect(screen.getAllByText('machine')).toHaveLength(2);
+    // Equipment enum is localized through workout.equipment_* (never the raw enum value).
+    expect(screen.getAllByText('Máquina')).toHaveLength(2);
+    expect(screen.queryByText('machine')).toBeNull();
     expect(screen.queryByAltText(/muscles worked anatomy/i)).toBeNull();
   });
 });

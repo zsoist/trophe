@@ -46,6 +46,7 @@ export const fr: Record<string, string> = {
   'workout.primary_muscle_label': 'Muscle principal : {muscle}',
   'workout.equipment_value': 'Équipement : {equipment}',
   'workout.equipment_not_required': 'Sans équipement',
+  'workout.equipment_barbell': 'Barre', 'workout.equipment_dumbbell': 'Haltère', 'workout.equipment_machine': 'Machine', 'workout.equipment_cable': 'Poulie', 'workout.equipment_bodyweight': 'Poids du corps', 'workout.equipment_bench': 'Banc', 'workout.equipment_cardio': 'Cardio',
   'workout.exercise_name_unavailable': 'Détails de l’exercice indisponibles',
   'workout.history_sets': '{n} séries',
   'workout.pause': 'Mettre en pause',

@@ -3,6 +3,7 @@
 import { useRef } from 'react';
 import { ArrowDown, ArrowUp, BookOpen, GripVertical, RefreshCw, Trash2 } from 'lucide-react';
 import { ExerciseMediaBadge } from '@/components/workout/ExerciseMediaBadge';
+import { equipmentLabel, exerciseDisplayName } from '@/components/workout/muscle-groups';
 import { useI18n } from '@/lib/i18n';
 import type { DraftExercise } from '@/lib/workout/workspace-state';
 import { resolveExerciseMedia } from '@/lib/workout/exercise-media';
@@ -24,10 +25,11 @@ interface PlanExerciseCardProps {
   onTechnique: () => void;
 }
 
+/** Canonical name from the draft (or the row), then the shared locale resolver. */
 function localizedName(exercise: WorkoutExerciseOption | undefined, draftExercise: DraftExercise, lang: string, unavailableName: string): string {
-  if (lang === 'es' && exercise?.name_es) return exercise.name_es;
-  if (lang === 'el' && exercise?.name_el) return exercise.name_el;
-  return draftExercise.exerciseName?.trim() || exercise?.name?.trim() || unavailableName;
+  const canonical = draftExercise.exerciseName?.trim() || exercise?.name?.trim();
+  if (!canonical) return unavailableName;
+  return exerciseDisplayName({ name: canonical, name_es: exercise?.name_es }, lang);
 }
 
 export function PlanExerciseCard({ draftExercise, exercise, index, total, mode = 'edit', locked = false, onUpdate, onMove, onReplace, onRemove, onTechnique }: PlanExerciseCardProps) {
@@ -62,7 +64,7 @@ export function PlanExerciseCard({ draftExercise, exercise, index, total, mode =
         <img src={media.posterSrc} alt={posterAlt} width={88} height={88} loading="lazy" decoding="async" />
         <div className="plan-exercise-card__title">
           <h2>{name}</h2>
-          <p>{t('workout.equipment_label', { equipment: equipment ?? t('workout.equipment_not_required') })}</p>
+          <p>{t('workout.equipment_label', { equipment: equipmentLabel(t, equipment) })}</p>
           <ExerciseMediaBadge media={media} />
         </div>
       </div>

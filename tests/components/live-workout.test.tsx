@@ -70,7 +70,7 @@ vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ t: (key: string, params?: Recor
   'workout.distance_optional': 'Distance optional', 'workout.effort': 'Effort',
   'workout.save_failed': 'Save failed',
   'workout.completed_title': 'Workout complete', 'workout.completed_message': 'Your workout is saved.',
-  'workout.completed_done': 'Done', 'workout.history': 'History',
+  'workout.completed_done': 'Done', 'workout.history': 'History', 'workout.min': 'min',
   'workout.mutation_failed': 'A workout change could not be saved. Retry that change before finishing.',
   'workout.recovery_failed': 'Workout recovery could not be verified.', 'workout.retry_recovery': 'Retry recovery',
   'workout.remove_named': `Remove ${String(params?.name ?? '')}`, 'workout.finish_completed_sets': `${String(params?.n ?? 0)} completed sets`,

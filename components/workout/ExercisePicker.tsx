@@ -25,6 +25,8 @@ import {
   muscleColor,
   muscleLabelKey,
   exerciseDisplayName,
+  equipmentLabel,
+  WORKOUT_EQUIPMENT_VALUES,
   type WorkoutBodyArea,
 } from './muscle-groups';
 import { ExerciseResults } from './ExerciseResults';
@@ -252,8 +254,8 @@ export function CustomExerciseModal({
             onChange={(e) => setEquipment(e.target.value)}
             className="input-dark w-full text-base"
           >
-            {['barbell', 'dumbbell', 'machine', 'cable', 'bodyweight', 'band', 'kettlebell'].map((eq) => (
-              <option key={eq} value={eq}>{eq.charAt(0).toUpperCase() + eq.slice(1)}</option>
+            {WORKOUT_EQUIPMENT_VALUES.map((eq) => (
+              <option key={eq} value={eq}>{equipmentLabel(t, eq)}</option>
             ))}
           </select>
         </div>
@@ -298,10 +300,11 @@ function EquipmentFilter({
   label: string;
   allLabel: string;
 }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const selectedLabel = value === 'all'
     ? allLabel
-    : value.charAt(0).toUpperCase() + value.slice(1);
+    : equipmentLabel(t, value);
 
   return (
     <div className="equipment-filter">
@@ -323,7 +326,7 @@ function EquipmentFilter({
             {['all', ...options].map((option) => {
               const optionLabel = option === 'all'
                 ? allLabel
-                : option.charAt(0).toUpperCase() + option.slice(1);
+                : equipmentLabel(t, option);
               return (
                 <button
                   type="button"

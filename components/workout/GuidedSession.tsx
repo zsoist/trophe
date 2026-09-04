@@ -524,7 +524,7 @@ export default function GuidedSession({
   const localizedName = (ex: GuidedExercise): string => {
     const info = ex.info;
     if (!info) return 'Exercise';
-    // Exercise names stay English for Greek users (see exerciseDisplayName).
+    // House rule (enforced by exerciseDisplayName): English for Greek users, name_es for Spanish.
     return exerciseDisplayName({ name: info.name, name_es: info.nameEs }, lang);
   };
 
