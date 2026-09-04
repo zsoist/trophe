@@ -49,7 +49,7 @@ vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ t: (key: string) => ({
   'workout.finish': 'Finish workout', 'workout.finish_question': 'Finish workout?',
   'workout.keep_training': 'Keep training', 'workout.save_and_finish': 'Save and finish',
   'workout.completed_title': 'Workout complete', 'workout.completed_message': 'Your workout is saved.',
-  'workout.completed_done': 'Done', 'workout.history': 'History',
+  'workout.completed_done': 'Done', 'workout.history': 'History', 'workout.min': 'min',
   'workout.completed_elsewhere': 'This workout was already completed on another device.',
   'workout.mutation_failed': 'A workout change could not be saved. Retry that change before finishing.',
   'workout.recovery_failed': 'Workout recovery could not be verified.', 'workout.retry_recovery': 'Retry recovery',
