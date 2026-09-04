@@ -35,7 +35,8 @@ import { WorkoutPlanTray } from './WorkoutPlanTray';
 
 // Discovery regions are body-area selectors: each stands for a muscle group, so they
 // are labelled by group and never presented as a specific primary muscle.
-const DISCOVERY_ATLAS_REGIONS: Array<Omit<MuscleActivation, 'label'>> = [
+type GroupMuscleActivation = Extract<MuscleActivation, { confidence: 'group' }>;
+const DISCOVERY_ATLAS_REGIONS: Array<Omit<GroupMuscleActivation, 'label'>> = [
   { id: 'pectoralis-major', role: 'primary', view: 'front', confidence: 'group', group: 'chest' },
   { id: 'anterior-deltoid', role: 'primary', view: 'front', confidence: 'group', group: 'shoulders' },
   { id: 'biceps-brachii', role: 'primary', view: 'front', confidence: 'group', group: 'biceps' },

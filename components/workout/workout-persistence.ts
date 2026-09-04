@@ -78,22 +78,25 @@ export type LiveStructureLoadResult =
   | { ok: true; terminal: false; version: number; structure: LiveExerciseStructureInput[] }
   /** The row is frozen history (migrations 0079-0081); no live write can ever succeed against it. */
   | { ok: true; terminal: true; completedAt: string | null; durationMinutes: number | null }
-  /** `missing`: the owner cannot see such a row. `transport`: the answer is unknown and must be retried. */
-  | { ok: false; reason: 'missing' | 'transport' }
+  /** `missing` is returned only after Auth verifies the current owner. Other answers are non-destructive. */
+  | { ok: false; reason: 'missing' | 'transport' | 'auth' }
   | { ok: false; reason: 'legacy'; legacy: true };
 
 /** A server answer that can never change by retrying the same request. */
 export interface PersistenceRejection { ok: false; kind: 'rejected'; code: string }
+/** Deterministic API/schema/auth configuration failure; preserve the envelope until repair. */
+export interface PersistenceBlockedFailure { ok: false; kind: 'blocked'; code: string }
 /** Network, timeout, or malformed replies: the request outcome is unknown. */
 export interface PersistenceTransientFailure { ok: false; kind: 'transient' }
-export type PersistenceFailure = PersistenceRejection | PersistenceTransientFailure;
+export type PersistenceFailure = PersistenceRejection | PersistenceBlockedFailure | PersistenceTransientFailure;
 export type SessionStartResult = { ok: true; sessionId: string } | PersistenceFailure;
 
 /**
  * Postgres/PostgREST error codes that are definitive: data exceptions (22xxx),
  * integrity violations (23xxx), RLS/privilege denial (42501) and RAISE
- * EXCEPTION defaults (P0001). Everything else (connection, timeout,
- * serialization, PGRST transport, missing code) stays transient so the exact
+ * EXCEPTION defaults (P0001). Definition/schema-cache/auth configuration
+ * failures are blocked without releasing the envelope. Connection, timeout,
+ * serialization, and unclassified failures stay transient so the exact
  * idempotent envelope is retried.
  */
 export function classifyPersistenceError(error: unknown): PersistenceFailure {
@@ -101,6 +104,10 @@ export function classifyPersistenceError(error: unknown): PersistenceFailure {
   const code = (error as { code?: unknown }).code;
   if (typeof code !== 'string') return { ok: false, kind: 'transient' };
   if (/^(22|23)\d{3}$/.test(code) || code === '42501' || code === 'P0001') return { ok: false, kind: 'rejected', code };
+  // SQL definition/configuration errors and deterministic PostgREST request,
+  // schema-cache, or JWT failures need operator/auth repair. They must be
+  // visible without releasing the byte-exact idempotency envelope.
+  if (/^42[A-Z0-9]{3}$/.test(code) || /^PGRST[123]\d{2}$/.test(code)) return { ok: false, kind: 'blocked', code };
   return { ok: false, kind: 'transient' };
 }
 
@@ -400,7 +407,7 @@ export async function loadWorkoutSessionSets(sessionId: string): Promise<Workout
   return error ? { ok: false } : { ok: true, sets: (data as PersistedWorkoutSet[] | null) ?? [] };
 }
 
-export async function loadWorkoutSessionStructure(sessionId: string): Promise<LiveStructureLoadResult> {
+export async function loadWorkoutSessionStructure(sessionId: string, expectedUserId?: string | null): Promise<LiveStructureLoadResult> {
   // An empty id is a caller bug, not server evidence; fail closed without clearing anything.
   if (!sessionId.trim()) return { ok: false, reason: 'transport' };
   const { data, error } = await supabase
@@ -409,7 +416,21 @@ export async function loadWorkoutSessionStructure(sessionId: string): Promise<Li
     .eq('id', sessionId)
     .maybeSingle();
   if (error) return { ok: false, reason: 'transport' };
-  if (!data) return { ok: false, reason: 'missing' };
+  if (!data) {
+    // RLS deliberately turns an unauthenticated/unauthorized SELECT into an
+    // empty result. Never let that ambiguity destroy the device recovery copy:
+    // revalidate Auth, and call the row missing only for the expected owner.
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      const authenticatedUserId = authData.user?.id ?? null;
+      if (authError || !authenticatedUserId || (expectedUserId && authenticatedUserId !== expectedUserId)) {
+        return { ok: false, reason: 'auth' };
+      }
+    } catch {
+      return { ok: false, reason: 'auth' };
+    }
+    return { ok: false, reason: 'missing' };
+  }
   // Terminal authority (0079): completed_at is database-owned, and any
   // duration also stamps it. Either marker means the row is frozen history.
   if (data.completed_at !== null || data.duration_minutes !== null) {

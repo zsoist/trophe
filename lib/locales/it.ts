@@ -88,6 +88,7 @@ export const it: Record<string, string> = {
   'workout.completed_elsewhere': 'Questo allenamento è già stato completato su un altro dispositivo. Non è più possibile modificarlo.',
   'workout.live_session_missing': 'L’allenamento live non esiste più sul server, quindi la copia locale è stata cancellata.',
   'workout.start_rejected': 'Il server ha rifiutato di creare questo allenamento, quindi la richiesta di avvio è stata rilasciata. Torna alla bozza e modificala prima di riprovare.',
+  'workout.start_blocked_configuration': 'La richiesta di avvio salvata è al sicuro, ma la configurazione del server o dell’accesso deve essere corretta prima di riprovare.',
   'workout.back_to_draft': 'Torna alla bozza',
   'workout.name_required': 'Inserisci un nome per l’allenamento.',
   'workout.weight_in_unit': 'Peso in {unit}',

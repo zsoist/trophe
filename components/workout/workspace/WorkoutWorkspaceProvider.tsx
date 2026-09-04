@@ -57,6 +57,8 @@ export interface WorkoutWorkspaceContextValue {
   startLive(): Promise<boolean>;
   /** Set when the server definitively refused the last start envelope; that envelope has been released. */
   startRejection: { code: string } | null;
+  /** Deterministic API/schema/auth failure; the exact start envelope remains pinned for repair + retry. */
+  startBlocked: { code: string } | null;
   /** Set after recovery moved the stage to follow server truth; cleared once the user moves on. */
   liveReconciliation: { outcome: LiveReconciliationOutcome['outcome'] } | null;
   reconcileLive(input: { outcome: 'completed'; durationMinutes: number | null } | { outcome: 'missing' }): void;
@@ -239,6 +241,7 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
   const retrospectivePromiseRef = useRef<Promise<boolean> | null>(null);
   const [retrospectiveSaving, setRetrospectiveSaving] = useState(false);
   const [startRejection, setStartRejection] = useState<{ code: string } | null>(null);
+  const [startBlocked, setStartBlocked] = useState<{ code: string } | null>(null);
   const [liveReconciliation, setLiveReconciliation] = useState<{ outcome: LiveReconciliationOutcome['outcome'] } | null>(null);
   const clientRequestIdRef = useRef<string | null>(null);
   const skipNextPersistRef = useRef(false);
@@ -288,6 +291,9 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
     : null;
   const visibleStartRejection = startRejection && (state.stage === 'draft' || state.stage === 'review') && !state.startRequest
     ? startRejection
+    : null;
+  const visibleStartBlocked = startBlocked && (state.stage === 'draft' || state.stage === 'review') && state.startRequest
+    ? startBlocked
     : null;
 
   const updateDraft = useCallback((updater: (draft: NonNullable<WorkoutWorkspaceState['draft']>) => NonNullable<WorkoutWorkspaceState['draft']>) => {
@@ -506,6 +512,7 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
     const request = ensureLiveStartRequest();
     if (!request) return false;
     setStartRejection(null);
+    setStartBlocked(null);
 
     const pending = startLiveSession(request)
       .then((result) => {
@@ -528,6 +535,8 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
               ? workoutWorkspaceReducer(latest, { type: 'request.rejected' })
               : latest);
             setStartRejection({ code: result.code });
+          } else if (result.kind === 'blocked') {
+            setStartBlocked({ code: result.code });
           }
           return false;
         }
@@ -619,6 +628,7 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
     skipNextPersistRef.current = true;
     setLiveReconciliation(null);
     setStartRejection(null);
+    setStartBlocked(null);
     setState(createInitialWorkspaceState());
   }, []);
 
@@ -689,6 +699,7 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
     returnToDraft,
     startLive,
     startRejection: visibleStartRejection,
+    startBlocked: visibleStartBlocked,
     liveReconciliation: visibleLiveReconciliation,
     reconcileLive,
     saveRetrospective,
@@ -702,7 +713,7 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
     discardLive,
     acknowledgeCompleted,
     discardDraft,
-  }), [acknowledgeCompleted, addDraftExercise, cancelFinish, commitLiveStrengthStructure, completeFinish, createCardioDraftFromHistory, createDraft, createDraftFromTemplate, discardDraft, discardLive, ensureClientRequestId, goToReview, loading, ownerId, pause, reconcileLive, removeDraftExercise, reorderDraftExercise, replaceCardioDraftFromHistory, replaceDraft, replaceDraftExercise, replaceDraftFromTemplate, requestFinish, resume, retrospectiveSaving, retryRetrospective, returnToDraft, saveRetrospective, startLive, state, updateCardioDraft, updateDraftExercise, updateDraftName, updateLiveCardioDraft, visibleLiveReconciliation, visibleStartRejection]);
+  }), [acknowledgeCompleted, addDraftExercise, cancelFinish, commitLiveStrengthStructure, completeFinish, createCardioDraftFromHistory, createDraft, createDraftFromTemplate, discardDraft, discardLive, ensureClientRequestId, goToReview, loading, ownerId, pause, reconcileLive, removeDraftExercise, reorderDraftExercise, replaceCardioDraftFromHistory, replaceDraft, replaceDraftExercise, replaceDraftFromTemplate, requestFinish, resume, retrospectiveSaving, retryRetrospective, returnToDraft, saveRetrospective, startLive, state, updateCardioDraft, updateDraftExercise, updateDraftName, updateLiveCardioDraft, visibleLiveReconciliation, visibleStartBlocked, visibleStartRejection]);
 
   if (loading || ownerId === undefined) {
     return <div role="status" aria-label={t('workout.loading_workspace')} className="min-h-24 animate-pulse rounded-xl bg-[var(--surface-subtle)]" />;

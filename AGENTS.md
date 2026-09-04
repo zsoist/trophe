@@ -24,7 +24,7 @@ This is **Next.js 16.2.7** with React 19. APIs, conventions, and file structure 
 ## Non-negotiable coding conventions
 
 ### Files and architecture
-- **`middleware.ts`** (repo root) is the Next.js middleware — Supabase session refresh + coarse auth gate via `@/lib/supabase/middleware`. Edit it in place; there is no `proxy.ts` (an earlier rename was reverted). Verified 2026-06-15.
+- **`proxy.ts`** (repo root) is the Next.js 16 request proxy — Supabase session refresh + coarse auth gate via `@/lib/supabase/middleware`. Edit it in place; there is no root `middleware.ts`. Verified 2026-09-04.
 - **Auth**: `@supabase/ssr` is installed and active. Sessions are in HTTP-only cookies. Do NOT use `localStorage` for auth tokens. Do NOT revert to the old `lib/supabase.ts` singleton for server-side auth.
 - **Any new LLM feature** → `agents/<name>/` with versioned prompt, typed schema, and `run() → { ok, output, telemetry }` contract. Route is a thin adapter (<60 LOC).
 - **Any new `lib/*.ts` business logic** → matching `tests/*.test.ts` (golden cases, like `nutrition-engine.test.ts`).

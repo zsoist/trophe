@@ -251,10 +251,11 @@ export async function loadLiveStructure(
   sessionId: string,
   kind?: 'strength' | 'cardio',
   exercises: LiveStructureExercise[] = [],
+  expectedUserId?: string | null,
 ): Promise<LiveStructureLoadResult> {
   if (!sessionId.trim()) return { ok: false, reason: 'transport' };
   try {
-    const loaded = await loadWorkoutSessionStructure(sessionId);
+    const loaded = await loadWorkoutSessionStructure(sessionId, expectedUserId);
     if (loaded.ok || loaded.reason !== 'legacy' || !kind) return loaded;
     const resumed = await resumeLegacyLiveWorkoutStructureAtomic(
       sessionId,

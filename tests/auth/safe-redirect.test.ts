@@ -33,6 +33,11 @@ describe('safeLoginRedirect', () => {
     expect(login).toContain("safeLoginRedirect(searchParams.get('redirectTo'))");
     expect(login).not.toContain('function safeRedirectTo(');
   });
+
+  it('stays plain text so redirect-security diffs are reviewable', () => {
+    const source = readFileSync(join(process.cwd(), 'lib/auth/safe-redirect.ts'));
+    expect(source.includes(0)).toBe(false);
+  });
 });
 
 describe('safeRedirectPath', () => {

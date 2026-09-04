@@ -1,8 +1,4 @@
-csp_no_wasm="${csp//'wasm-unsafe-eval'/}"
-[[ "$csp_no_wasm" != *"'unsafe-eval'"* ]] || fail "CSP contains classic 'unsafe-eval'"
-[[ "$csp" == *"'wasm-unsafe-eval'"* ]] || fail "CSP lacks 'wasm-unsafe-eval' (AI Form Check WASM would be blocked)"
-[[ "$csp" == *"storage.googleapis.com"* ]] || fail "CSP connect-src lacks storage.googleapis.com (MediaPipe model)"
-[[ "$csp" == *"cdn.jsdelivr.net"* ]] || fail "CSP lacks cdn.jsdelivr.net (MediaPipe runtime)"#!/usr/bin/env bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

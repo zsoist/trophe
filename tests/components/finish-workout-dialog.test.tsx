@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import React from 'react';
+import React, { useLayoutEffect, useState } from 'react';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -72,5 +72,23 @@ describe('FinishWorkoutDialog', () => {
     expect(screen.queryByRole('button', { name: 'Save and finish' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Discard empty workout' }));
     expect(onDiscard).toHaveBeenCalledTimes(1);
+  });
+
+  it('blocks Escape in the same commit that saving begins', () => {
+    const onKeepTraining = vi.fn();
+    function SavingRace() {
+      const [saving, setSaving] = useState(false);
+      useLayoutEffect(() => {
+        if (saving) document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      }, [saving]);
+      return <>
+        <button type="button" onClick={() => setSaving(true)}>Begin save</button>
+        <FinishWorkoutDialog saving={saving} summary={{ durationMinutes: 12, completedSets: 3, pendingSets: 0, painNotes: 0, prs: 0 }} onKeepTraining={onKeepTraining} onSaveAndFinish={vi.fn()} />
+      </>;
+    }
+
+    render(<SavingRace />);
+    fireEvent.click(screen.getByRole('button', { name: 'Begin save' }));
+    expect(onKeepTraining).not.toHaveBeenCalled();
   });
 });

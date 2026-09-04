@@ -31,6 +31,7 @@ function Controls() {
       <p data-testid="stage">{workspace.state.stage}</p>
       <p data-testid="pinned">{workspace.state.startRequest ? workspace.state.startRequest.idempotencyKey : 'none'}</p>
       <p data-testid="rejection">{workspace.startRejection ? workspace.startRejection.code : 'none'}</p>
+      <p data-testid="blocked">{workspace.startBlocked ? workspace.startBlocked.code : 'none'}</p>
       <p data-testid="reconciliation">{workspace.liveReconciliation?.outcome ?? 'none'}</p>
       <button onClick={() => workspace.createDraft({ name: 'Push', kind: 'strength' })}>Create Push draft</button>
       <button onClick={() => workspace.addDraftExercise('bench-press')}>Add Bench Press</button>
@@ -102,6 +103,21 @@ describe('WorkoutWorkspaceProvider definitive start rejection', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Start live workout' }));
     await waitFor(() => expect(startLiveSession).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(screen.getByTestId('pinned').textContent).not.toBe('none'));
+    expect(screen.getByTestId('rejection').textContent).toBe('none');
+    expect(loadWorkspaceState(storage, 'nik')?.startRequest?.idempotencyKey).toBe(screen.getByTestId('pinned').textContent);
+  });
+
+  it('keeps a deterministic configuration failure pinned and exposes it for repair', async () => {
+    const storage = new MemoryStorage();
+    startLiveSession.mockResolvedValue({ ok: false, kind: 'blocked', code: 'PGRST202' });
+    render(<WorkoutWorkspaceProvider userId="nik" storage={storage}><Controls /></WorkoutWorkspaceProvider>);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Create Push draft' })).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Create Push draft' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add Bench Press' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Start live workout' }));
+
+    await waitFor(() => expect(screen.getByTestId('blocked').textContent).toBe('PGRST202'));
+    expect(screen.getByTestId('pinned').textContent).not.toBe('none');
     expect(screen.getByTestId('rejection').textContent).toBe('none');
     expect(loadWorkspaceState(storage, 'nik')?.startRequest?.idempotencyKey).toBe(screen.getByTestId('pinned').textContent);
   });

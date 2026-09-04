@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const db = vi.hoisted(() => ({
-  from: vi.fn(), rpc: vi.fn(), eq: vi.fn(), select: vi.fn(), maybeSingle: vi.fn(),
+  from: vi.fn(), rpc: vi.fn(), eq: vi.fn(), select: vi.fn(), maybeSingle: vi.fn(), getUser: vi.fn(),
 }));
 
-vi.mock('@/lib/supabase', () => ({ supabase: { from: db.from, rpc: db.rpc } }));
+vi.mock('@/lib/supabase', () => ({ supabase: { from: db.from, rpc: db.rpc, auth: { getUser: db.getUser } } }));
 
 import {
   classifyPersistenceError,
@@ -53,10 +53,18 @@ describe('live structure recovery distinguishes server truth', () => {
 
   it('separates a missing row from a transport failure', async () => {
     db.maybeSingle.mockResolvedValueOnce({ data: null, error: null });
-    await expect(loadWorkoutSessionStructure('session-1')).resolves.toEqual({ ok: false, reason: 'missing' });
+    db.getUser.mockResolvedValueOnce({ data: { user: { id: 'user-1' } }, error: null });
+    await expect(loadWorkoutSessionStructure('session-1', 'user-1')).resolves.toEqual({ ok: false, reason: 'missing' });
 
     db.maybeSingle.mockResolvedValueOnce({ data: null, error: { message: 'offline' } });
     await expect(loadWorkoutSessionStructure('session-1')).resolves.toEqual({ ok: false, reason: 'transport' });
+  });
+
+  it('does not call an RLS-hidden row missing when the current owner cannot be authenticated', async () => {
+    db.maybeSingle.mockResolvedValueOnce({ data: null, error: null });
+    db.getUser.mockResolvedValueOnce({ data: { user: null }, error: { message: 'expired token' } });
+
+    await expect(loadWorkoutSessionStructure('session-1', 'user-1')).resolves.toEqual({ ok: false, reason: 'auth' });
   });
 
   it('keeps the legacy active branch', async () => {
@@ -72,11 +80,12 @@ describe('definitive rejections are separated from transient failures', () => {
 
   it.each([
     ['22023', 'rejected'], ['23505', 'rejected'], ['23503', 'rejected'], ['42501', 'rejected'], ['P0001', 'rejected'],
-    ['08006', 'transient'], ['57014', 'transient'], ['PGRST301', 'transient'], ['40001', 'transient'], [undefined, 'transient'],
+    ['42P01', 'blocked'], ['42883', 'blocked'], ['PGRST202', 'blocked'], ['PGRST301', 'blocked'],
+    ['08006', 'transient'], ['57014', 'transient'], ['40001', 'transient'], [undefined, 'transient'],
   ] as const)('classifies Postgres code %s as %s', (code, kind) => {
     const result = classifyPersistenceError(code === undefined ? { message: 'fetch failed' } : { code, message: 'x' });
     expect(result.kind).toBe(kind);
-    if (result.kind === 'rejected') expect(result.code).toBe(code);
+    if (result.kind === 'rejected' || result.kind === 'blocked') expect(result.code).toBe(code);
   });
 
   it('classifies non-object and network errors as transient', () => {

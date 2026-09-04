@@ -88,6 +88,7 @@ export const de: Record<string, string> = {
   'workout.completed_elsewhere': 'Dieses Training wurde bereits auf einem anderen Gerät abgeschlossen. Es kann nichts mehr geändert werden.',
   'workout.live_session_missing': 'Das Live-Training existiert auf dem Server nicht mehr, daher wurde die lokale Kopie gelöscht.',
   'workout.start_rejected': 'Der Server hat das Erstellen dieses Trainings abgelehnt, daher wurde die Startanfrage freigegeben. Geh zurück zum Entwurf und passe ihn an, bevor du es erneut versuchst.',
+  'workout.start_blocked_configuration': 'Deine gespeicherte Startanfrage ist sicher, aber die Server- oder Anmeldekonfiguration muss vor einem neuen Versuch repariert werden.',
   'workout.back_to_draft': 'Zurück zum Entwurf',
   'workout.name_required': 'Gib einen Trainingsnamen ein.',
   'workout.weight_in_unit': 'Gewicht in {unit}',

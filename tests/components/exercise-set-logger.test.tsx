@@ -182,6 +182,20 @@ describe('ExerciseSetLogger', () => {
       expect(screen.getByRole('button', { name: 'Complete set' })).toBeTruthy();
       expect(screen.queryByRole('timer')).toBeNull();
     });
+
+    it('clears the live rest announcement on undo so a repeated completion is announced again', async () => {
+      await completeSetWithFakeTimers();
+      expect(liveRegion().textContent).toBe('Rest started, 90s target');
+
+      advance(700);
+      await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Undo set' })); });
+      await flushMicrotasks();
+      expect(liveRegion().textContent).toBe('');
+
+      await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Complete set' })); });
+      await flushMicrotasks();
+      expect(liveRegion().textContent).toBe('Rest started, 90s target');
+    });
   });
 
   it('disables edits and conflicting structure controls behind the mutation barrier', () => {

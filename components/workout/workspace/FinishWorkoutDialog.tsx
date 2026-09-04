@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 
@@ -40,7 +40,13 @@ export function FinishWorkoutDialog({ summary, saving = false, blocked = false, 
   const savingRef = useRef(saving);
   const empty = isEmpty ?? (summary.durationMinutes === 0 && summary.completedSets === 0 && summary.pendingSets === 0);
 
-  useEffect(() => { onKeepTrainingRef.current = onKeepTraining; savingRef.current = saving; });
+  // Native document listeners can fire after commit but before passive effects.
+  // A layout effect updates the listener inputs before an ancestor layout
+  // effect (or the browser) can dispatch Escape for this commit.
+  useLayoutEffect(() => {
+    onKeepTrainingRef.current = onKeepTraining;
+    savingRef.current = saving;
+  }, [onKeepTraining, saving]);
 
   // Mount-only: the parent re-renders every rest-timer tick with a fresh
   // onKeepTraining identity, so focus capture/restore must not follow props.

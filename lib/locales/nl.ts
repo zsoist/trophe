@@ -88,6 +88,7 @@ export const nl: Record<string, string> = {
   'workout.completed_elsewhere': 'Deze training is al op een ander apparaat afgerond. Er kan niets meer worden gewijzigd.',
   'workout.live_session_missing': 'De live training bestaat niet meer op de server, dus de lokale kopie is gewist.',
   'workout.start_rejected': 'De server heeft het aanmaken van deze training geweigerd, dus het startverzoek is vrijgegeven. Ga terug naar het concept en pas het aan voordat je het opnieuw probeert.',
+  'workout.start_blocked_configuration': 'Je opgeslagen startverzoek is veilig, maar de server- of aanmeldconfiguratie moet worden hersteld voordat je opnieuw probeert.',
   'workout.back_to_draft': 'Terug naar concept',
   'workout.name_required': 'Voer een trainingsnaam in.',
   'workout.weight_in_unit': 'Gewicht in {unit}',

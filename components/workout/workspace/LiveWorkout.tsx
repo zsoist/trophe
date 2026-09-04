@@ -148,7 +148,7 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
     void Promise.all([
       loadLiveSessionSets(sessionId),
       loadLivePainFlags(sessionId),
-      loadLiveStructure(sessionId, draft?.kind, recoveredStructure),
+      loadLiveStructure(sessionId, draft?.kind, recoveredStructure, userId),
       userId && strengthDraftExercises ? loadLivePrMap(userId, strengthDraftExercises.map((exercise) => exercise.exerciseId)) : Promise.resolve({}),
     ]).then(async ([initialSetResult, painResult, structureResult, records]) => {
       if (!active) return;

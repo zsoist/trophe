@@ -93,6 +93,7 @@ export const pt: Record<string, string> = {
   'workout.completed_elsewhere': 'Este treino já foi concluído noutro dispositivo. Já nada pode ser alterado.',
   'workout.live_session_missing': 'O treino ao vivo já não existe no servidor, por isso a cópia local foi apagada.',
   'workout.start_rejected': 'O servidor recusou criar este treino, por isso o pedido de início foi libertado. Volta ao rascunho e ajusta-o antes de tentar novamente.',
+  'workout.start_blocked_configuration': 'O pedido de início guardado está seguro, mas a configuração do servidor ou da sessão tem de ser corrigida antes de tentares novamente.',
   'workout.back_to_draft': 'Voltar ao rascunho',
   'workout.name_required': 'Introduza um nome para o treino.',
   'workout.weight_in_unit': 'Peso em {unit}',

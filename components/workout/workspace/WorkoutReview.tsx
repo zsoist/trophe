@@ -28,6 +28,7 @@ export function WorkoutReview({ exercises, onSavePlan, onLogCompleted, saveState
   const draft = workspace.state.draft;
   const startLocked = Boolean(workspace.state.startRequest);
   const startRejected = Boolean(workspace.startRejection) && !startLocked;
+  const startBlocked = Boolean(workspace.startBlocked) && startLocked;
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState(false);
   const mainRef = useRef<HTMLElement>(null);
@@ -75,8 +76,10 @@ export function WorkoutReview({ exercises, onSavePlan, onLogCompleted, saveState
           <p>{t('workout.start_rejected')}</p>
           <button type="button" onClick={edit} className="btn-ghost mt-3 inline-flex min-h-11 items-center gap-2 rounded-xl px-4"><Pencil size={17} aria-hidden="true" />{t('workout.back_to_draft')}</button>
         </div>
-      ) : startError ? <p role="alert" className="workout-plan-editor__notice workout-plan-editor__notice--error">{t('workout.start_live_failed')}</p> : null}
-      {startLocked ? <p role="status" className="workout-plan-editor__notice workout-plan-editor__notice--warning">{t('workout.start_request_locked')}</p> : null}
+      ) : startError && !startBlocked ? <p role="alert" className="workout-plan-editor__notice workout-plan-editor__notice--error">{t('workout.start_live_failed')}</p> : null}
+      {startBlocked
+        ? <p role="alert" className="workout-plan-editor__notice workout-plan-editor__notice--error">{t('workout.start_blocked_configuration')}</p>
+        : startLocked ? <p role="status" className="workout-plan-editor__notice workout-plan-editor__notice--warning">{t('workout.start_request_locked')}</p> : null}
       {saveState === 'error' ? <p role="alert" className="workout-plan-editor__notice workout-plan-editor__notice--error">{t('workout.save_plan_failed')}</p> : null}
       {saveState === 'success' ? <p role="status" className="workout-plan-editor__notice workout-plan-editor__notice--success">{t('workout.save_plan_success_limited')}</p> : null}
 
