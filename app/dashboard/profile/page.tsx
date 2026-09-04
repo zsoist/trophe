@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { User, LogOut, Save, Globe, Sun, Moon, Palette, SlidersHorizontal, Download, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { clearWorkoutClientStorage } from '@/lib/workout/workspace-storage';
 import {
   calculateFullProfile,
   nutritionProfileInputIssue,
@@ -228,6 +229,7 @@ export default function ProfilePage() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    clearWorkoutClientStorage();
     router.replace('/login');
   };
 

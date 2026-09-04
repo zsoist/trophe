@@ -8,6 +8,7 @@ import { ConfirmSheet } from '@/components/ui';
 import type { CompletedSetInput } from '@/components/workout/workout-persistence';
 import { ExerciseSetLogger, type SetLoggerValue } from '@/components/workout/workspace/ExerciseSetLogger';
 import { LiveCardio, type CardioLogValues } from '@/components/workout/workspace/LiveCardio';
+import { exerciseDisplayName } from '@/components/workout/muscle-groups';
 import { useI18n } from '@/lib/i18n';
 import type { Exercise, PainFlag } from '@/lib/types';
 import { loadLivePrMap, type RetrospectiveWorkoutInput } from '@/lib/workout/live-session';
@@ -30,7 +31,7 @@ interface RetrospectiveLoggerRow {
 }
 
 export function RetrospectiveWorkoutLogger({ userId, draft, exercises, onSaveRequest, onCancel }: RetrospectiveWorkoutLoggerProps) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [unit] = useWeightUnit();
   const [completed, setCompleted] = useState<Record<string, SetLoggerValue>>({});
   const [linkedBelow, setLinkedBelow] = useState<string[]>([]);
@@ -48,6 +49,11 @@ export function RetrospectiveWorkoutLogger({ userId, draft, exercises, onSaveReq
   const [saveError, setSaveError] = useState(false);
 
   const exerciseById = useMemo(() => new Map(exercises.map((exercise) => [exercise.id, exercise])), [exercises]);
+  // User-visible names go through the shared resolver (English for Greek, name_es for Spanish).
+  const displayNameFor = (exerciseId: string, fallback: string): string => {
+    const row = exerciseById.get(exerciseId);
+    return row ? exerciseDisplayName(row, lang) : fallback;
+  };
 
   useEffect(() => {
     let active = true;
@@ -134,7 +140,7 @@ export function RetrospectiveWorkoutLogger({ userId, draft, exercises, onSaveReq
         return (
           <ExerciseSetLogger
             key={row.id}
-            exercise={{ id: resolved.id, name: resolved.name, isCompound: resolved.is_compound, equipment: resolved.equipment }}
+            exercise={{ id: resolved.id, name: displayNameFor(resolved.id, resolved.name), isCompound: resolved.is_compound, equipment: resolved.equipment }}
             setNumber={row.setNumber}
             unit={unit}
             initialValue={completed[row.id]}
@@ -169,7 +175,7 @@ export function RetrospectiveWorkoutLogger({ userId, draft, exercises, onSaveReq
         }}
       />
 
-      {painExerciseId ? <PainFlagModal exerciseId={painExerciseId} exerciseName={exerciseById.get(painExerciseId)?.name ?? draft.exercises.find((exercise) => exercise.exerciseId === painExerciseId)?.exerciseName ?? t('painflag.current_exercise')} suggestedBodyPart={exerciseById.get(painExerciseId)?.muscle_group ?? ''} onSave={(flag) => setPainFlags((current) => [...current, flag])} onClose={() => setPainExerciseId(null)} /> : null}
+      {painExerciseId ? <PainFlagModal exerciseId={painExerciseId} exerciseName={displayNameFor(painExerciseId, draft.exercises.find((exercise) => exercise.exerciseId === painExerciseId)?.exerciseName ?? t('painflag.current_exercise'))} suggestedBodyPart={exerciseById.get(painExerciseId)?.muscle_group ?? ''} onSave={(flag) => setPainFlags((current) => [...current, flag])} onClose={() => setPainExerciseId(null)} /> : null}
       {infoExercise ? <ExerciseInfoSheet exercise={infoExercise} userId={userId} onClose={() => setInfoExercise(null)} /> : null}
       {plateContext ? <PlateCalculator weightKg={plateContext.weightKg} unit={unit} exerciseContext={{ exerciseId: plateContext.exerciseId, mode: 'draft' }} onAddWarmupSets={async (sets) => {
         const next = sets.map(() => ({ id: `warmup:${plateContext.exerciseId}:${warmupSequence.current++}`, exerciseId: plateContext.exerciseId }));

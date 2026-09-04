@@ -129,9 +129,11 @@ test.describe('premium workout atlas authenticated release journey', () => {
       await captureSurface(page, testInfo, theme, 'discovery', baseRouteViewports);
 
       const search = page.getByRole('searchbox', { name: 'Search exercises...' });
-      // The local release catalogue guarantees this exact, barbell-gated V3
-      // movement. Avoid fuzzy "Bench Press" matching, which can truthfully
-      // return only the Smith-machine movement on older seeded catalogues.
+      // Migration 0055 guarantees this exact, barbell-gated V3 movement on every
+      // local database. The seeded "Bench Press" + barbell row also resolves to
+      // exact technique media now (see lib/workout/exercise-media.ts aliases),
+      // but that row only exists when scripts/seed-exercises.js has been run, so
+      // the release journey keeps the migration-backed movement.
       await search.fill('Floor Press');
       const exactInfo = page.getByRole('button', { name: 'Exercise info: Floor Press', exact: true });
       await expect(exactInfo).toBeVisible();

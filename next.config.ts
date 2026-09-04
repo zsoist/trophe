@@ -3,6 +3,7 @@ import withSerwistInit from "@serwist/next";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { buildContentSecurityPolicy } from './lib/security/csp';
 
 const isDev = process.env.NODE_ENV !== 'production';
 const supabaseOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
@@ -60,26 +61,10 @@ export const nextConfig: NextConfig = {
           { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
           { key: 'Permissions-Policy', value: 'microphone=(self), camera=(self)' },
           {
+            // Directive rationale lives in lib/security/csp.ts (dev-only
+            // 'unsafe-eval', MediaPipe WASM allowances, AI hosts kept out).
             key: 'Content-Security-Policy',
-            value: [
-              "default-src 'self'",
-              // Dev: 'unsafe-eval' is required by React dev tools to reconstruct
-              // component callstacks. Omitted in production (closes codex HIGH #3).
-              // 'unsafe-inline' kept for React hydration inline scripts; nonce-based
-              // CSP is the Phase 8 follow-up.
-              isDev
-                ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net"
-                : "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
-              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-              "font-src 'self' https://fonts.gstatic.com",
-              "img-src 'self' data: blob: https:",
-              // AI provider endpoints (Anthropic/Gemini/DeepSeek) are called
-              // server-side only — they are NOT in connect-src so an XSS can't
-              // exfiltrate to them as a side channel (audit 2026-06-13).
-              `connect-src 'self' ${supabaseOrigin} ${supabaseOrigin.replace('https://', 'wss://')} https://api.nal.usda.gov`,
-              "media-src 'self' blob:",
-              "worker-src 'self' blob:",
-            ].join('; '),
+            value: buildContentSecurityPolicy({ isDev, supabaseOrigin }),
           },
         ],
       },

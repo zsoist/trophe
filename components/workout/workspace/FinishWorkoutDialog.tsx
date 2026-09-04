@@ -36,15 +36,21 @@ const focusable = 'button:not([disabled]),input:not([disabled]),select:not([disa
 export function FinishWorkoutDialog({ summary, saving = false, blocked = false, blockedReason = null, onRetry, error = false, isEmpty, onKeepTraining, onSaveAndFinish, onDiscardEmpty }: FinishWorkoutDialogProps) {
   const { t } = useI18n();
   const dialogRef = useRef<HTMLDivElement>(null);
+  const onKeepTrainingRef = useRef(onKeepTraining);
+  const savingRef = useRef(saving);
   const empty = isEmpty ?? (summary.durationMinutes === 0 && summary.completedSets === 0 && summary.pendingSets === 0);
 
+  useEffect(() => { onKeepTrainingRef.current = onKeepTraining; savingRef.current = saving; });
+
+  // Mount-only: the parent re-renders every rest-timer tick with a fresh
+  // onKeepTraining identity, so focus capture/restore must not follow props.
   useEffect(() => {
-    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const frame = requestAnimationFrame(() => dialogRef.current?.focus());
-    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape' && !saving) onKeepTraining(); };
+    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape' && !savingRef.current) onKeepTrainingRef.current(); };
     document.addEventListener('keydown', escape);
-    return () => { cancelAnimationFrame(frame); document.removeEventListener('keydown', escape); previous?.focus(); };
-  }, [onKeepTraining, saving]);
+    return () => { cancelAnimationFrame(frame); document.removeEventListener('keydown', escape); previousFocus?.focus(); };
+  }, []);
 
   const trapFocus = (event: ReactKeyboardEvent) => {
     if (event.key !== 'Tab' || !dialogRef.current) return;
@@ -56,7 +62,7 @@ export function FinishWorkoutDialog({ summary, saving = false, blocked = false, 
   };
 
   return (
-    <div className="fixed inset-0 z-[var(--z-modal,60)] flex items-end justify-center bg-[var(--surface-overlay)] px-4 sm:items-center" onClick={() => { if (!saving) onKeepTraining(); }}>
+    <div className="fixed inset-0 z-[var(--z-modal,60)] flex items-end justify-center bg-[var(--scrim)] px-4 backdrop-blur-sm sm:items-center" onClick={() => { if (!saving) onKeepTraining(); }}>
       <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="finish-workout-title" tabIndex={-1} onKeyDown={trapFocus} onClick={(event) => event.stopPropagation()} className="glass-elevated safe-bottom w-full max-w-md rounded-t-3xl p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] outline-none sm:rounded-3xl">
         <h2 id="finish-workout-title" className="text-xl font-bold text-[var(--content-primary)]">{t('workout.finish_question')}</h2>
         <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">

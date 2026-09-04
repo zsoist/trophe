@@ -17,7 +17,7 @@ import { ArrowLeft, Check, ChevronDown, Dumbbell, Plus, Search, X } from 'lucide
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import type { Exercise, MuscleGroup } from '@/lib/types';
-import type { AnatomyMuscleId, MuscleActivation } from '@/lib/workout/anatomy';
+import { anatomyLabelKey, type AnatomyMuscleId, type MuscleActivation } from '@/lib/workout/anatomy';
 import {
   MUSCLE_GROUPS,
   WORKOUT_BODY_AREAS,
@@ -25,26 +25,28 @@ import {
   muscleColor,
   muscleLabelKey,
   exerciseDisplayName,
+  equipmentLabel,
+  WORKOUT_EQUIPMENT_VALUES,
   type WorkoutBodyArea,
 } from './muscle-groups';
 import { ExerciseResults } from './ExerciseResults';
 import { MuscleAtlas } from './MuscleAtlas';
 import { WorkoutPlanTray } from './WorkoutPlanTray';
 
+// Discovery regions are body-area selectors: each stands for a muscle group, so they
+// are labelled by group and never presented as a specific primary muscle.
 const DISCOVERY_ATLAS_REGIONS: Array<Omit<MuscleActivation, 'label'>> = [
-  { id: 'pectoralis-major', role: 'primary', view: 'front' },
-  { id: 'anterior-deltoid', role: 'primary', view: 'front' },
-  { id: 'biceps-brachii', role: 'primary', view: 'front' },
-  { id: 'rectus-abdominis', role: 'primary', view: 'front' },
-  { id: 'quadriceps', role: 'primary', view: 'front' },
-  { id: 'latissimus-dorsi', role: 'primary', view: 'back' },
-  { id: 'triceps-brachii', role: 'primary', view: 'back' },
-  { id: 'gluteus-maximus', role: 'primary', view: 'back' },
-  { id: 'hamstrings', role: 'primary', view: 'back' },
-  { id: 'gastrocnemius', role: 'primary', view: 'back' },
+  { id: 'pectoralis-major', role: 'primary', view: 'front', confidence: 'group', group: 'chest' },
+  { id: 'anterior-deltoid', role: 'primary', view: 'front', confidence: 'group', group: 'shoulders' },
+  { id: 'biceps-brachii', role: 'primary', view: 'front', confidence: 'group', group: 'biceps' },
+  { id: 'rectus-abdominis', role: 'primary', view: 'front', confidence: 'group', group: 'core' },
+  { id: 'quadriceps', role: 'primary', view: 'front', confidence: 'group', group: 'quads' },
+  { id: 'latissimus-dorsi', role: 'primary', view: 'back', confidence: 'group', group: 'back' },
+  { id: 'triceps-brachii', role: 'primary', view: 'back', confidence: 'group', group: 'triceps' },
+  { id: 'gluteus-maximus', role: 'primary', view: 'back', confidence: 'group', group: 'glutes' },
+  { id: 'hamstrings', role: 'primary', view: 'back', confidence: 'group', group: 'hamstrings' },
+  { id: 'gastrocnemius', role: 'primary', view: 'back', confidence: 'group', group: 'calves' },
 ];
-
-const atlasMuscleLabelKey = (id: AnatomyMuscleId) => `workout.atlas_muscle_${id.replaceAll('-', '_')}`;
 
 const DISCOVERY_AREA_BY_MUSCLE: Record<AnatomyMuscleId, WorkoutBodyArea> = {
   'pectoralis-major': 'chest',
@@ -201,8 +203,7 @@ export function CustomExerciseModal({
       initial={reducedMotion ? false : { opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={reducedMotion ? undefined : { opacity: 0 }}
-      className="fixed inset-0 z-[var(--z-modal,60)] flex items-center justify-center px-4"
-      style={{ background: 'var(--surface-overlay)' }}
+      className="fixed inset-0 z-[var(--z-modal,60)] flex items-center justify-center bg-[var(--scrim)] px-4 backdrop-blur-sm"
       onClick={onClose}
     >
       <motion.div
@@ -252,8 +253,8 @@ export function CustomExerciseModal({
             onChange={(e) => setEquipment(e.target.value)}
             className="input-dark w-full text-base"
           >
-            {['barbell', 'dumbbell', 'machine', 'cable', 'bodyweight', 'band', 'kettlebell'].map((eq) => (
-              <option key={eq} value={eq}>{eq.charAt(0).toUpperCase() + eq.slice(1)}</option>
+            {WORKOUT_EQUIPMENT_VALUES.map((eq) => (
+              <option key={eq} value={eq}>{equipmentLabel(t, eq)}</option>
             ))}
           </select>
         </div>
@@ -298,10 +299,11 @@ function EquipmentFilter({
   label: string;
   allLabel: string;
 }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const selectedLabel = value === 'all'
     ? allLabel
-    : value.charAt(0).toUpperCase() + value.slice(1);
+    : equipmentLabel(t, value);
 
   return (
     <div className="equipment-filter">
@@ -323,7 +325,7 @@ function EquipmentFilter({
             {['all', ...options].map((option) => {
               const optionLabel = option === 'all'
                 ? allLabel
-                : option.charAt(0).toUpperCase() + option.slice(1);
+                : equipmentLabel(t, option);
               return (
                 <button
                   type="button"
@@ -399,7 +401,7 @@ export default function ExercisePicker({
   const { t } = useI18n();
   const discoveryAtlasActivations = DISCOVERY_ATLAS_REGIONS.map((activation) => ({
     ...activation,
-    label: t(atlasMuscleLabelKey(activation.id)),
+    label: t(anatomyLabelKey(activation)),
   }));
 
   useEffect(() => {

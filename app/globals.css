@@ -336,6 +336,8 @@
   --surface-hover: #222222;
   --surface-active: #2A2A2A;
   --surface-overlay: #1A1A1A;
+  /* Translucent full-viewport backdrop behind dialog panels; panels keep --surface-overlay. */
+  --scrim: color-mix(in srgb, var(--canvas) 72%, transparent);
   --content-primary: #FAFAF9;
   --content-secondary: #D6D3D1;
   --content-muted: #A8A29E;
@@ -473,6 +475,7 @@
   --surface-hover: #E7E5E4;
   --surface-active: #D6D3D1;
   --surface-overlay: #FFFFFF;
+  --scrim: color-mix(in srgb, var(--canvas) 72%, transparent);
   --content-primary: #1C1917;
   --content-secondary: #44403C;
   --content-muted: #57534E;
@@ -2136,6 +2139,7 @@ body {
 
 .exercise-media-badge--verified-technique { color: var(--performance-lime); }
 .exercise-media-badge--verified-anatomy { color: var(--performance-cyan); }
+.exercise-media-badge--group-estimate { color: var(--performance-violet); }
 .exercise-media-badge--honest-fallback { color: var(--performance-orange); }
 
 /* Exercise detail — instruction first, then anatomy, cues, and RLS-scoped evidence. */

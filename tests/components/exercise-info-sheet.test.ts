@@ -96,7 +96,7 @@ describe('ExerciseInfoSheet', () => {
     expect(screen.getByText(/Plant your feet/)).toBeTruthy();
   });
 
-  it('labels fallback anatomy as muscles worked instead of technique', () => {
+  it('labels fallback anatomy as a muscle group estimate instead of technique or verified anatomy', () => {
     const exercise = {
       id: 'machine-press',
       name: 'Iso-Lateral Machine Press',
@@ -116,7 +116,8 @@ describe('ExerciseInfoSheet', () => {
 
     render(React.createElement(ExerciseInfoSheet, { exercise, userId: null, onClose: vi.fn() }));
 
-    expect(screen.getByText('Anatomy reference')).toBeTruthy();
+    expect(screen.getByText('Muscle group estimate')).toBeTruthy();
+    expect(screen.queryByText('Anatomy reference')).toBeNull();
     expect(screen.queryByRole('img', { name: /technique/i })).toBeNull();
   });
 

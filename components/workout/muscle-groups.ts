@@ -4,7 +4,7 @@
  * app/dashboard/workout/page.tsx before the guided-training rebuild.)
  */
 
-import type { MuscleGroup } from '@/lib/types';
+import type { MuscleGroup, WorkoutEquipment } from '@/lib/types';
 
 export type WorkoutBodyArea =
   | 'chest'
@@ -69,16 +69,58 @@ export function muscleLabelKey(group: string | null | undefined): string {
 }
 
 /**
- * Display name for an exercise. Use a complete locale-specific name when the
- * exercise row has one, otherwise keep the canonical name as the whole fallback.
+ * The single display-name resolver for exercises. Every surface that shows an
+ * exercise name (picker, detail, build/review cards, live session, history,
+ * analytics) must go through it so a user never sees two names for one movement.
+ *
+ * House rule: exercise names stay ENGLISH for Greek users (`name_el` is seeded
+ * on some rows but is intentionally never displayed); Spanish users get
+ * `name_es` when the row has one. Every other locale sees the canonical name.
+ * Storage (drafts, routines, sessions) always keeps the canonical English name.
  */
 export function exerciseDisplayName(
   ex: { name: string; name_es?: string | null; name_el?: string | null },
   lang: string,
 ): string {
   if (lang === 'es' && ex.name_es) return ex.name_es;
-  if (lang === 'el' && ex.name_el) return ex.name_el;
   return ex.name;
+}
+
+/** Every value of the `WorkoutEquipment` union, in display order. */
+export const WORKOUT_EQUIPMENT_VALUES: readonly WorkoutEquipment[] = [
+  'barbell',
+  'dumbbell',
+  'machine',
+  'cable',
+  'bodyweight',
+  'bench',
+  'cardio',
+];
+
+function isWorkoutEquipment(value: string): value is WorkoutEquipment {
+  return (WORKOUT_EQUIPMENT_VALUES as readonly string[]).includes(value);
+}
+
+/** i18n key for an equipment enum value (see lib/i18n workout.equipment_*). */
+export function equipmentLabelKey(equipment: WorkoutEquipment): string {
+  return `workout.equipment_${equipment}`;
+}
+
+/**
+ * Localized label for an exercise's equipment. Null/undefined → the shared
+ * "no equipment" copy. Unknown legacy values (custom exercises created before
+ * the enum was enforced) fall back to a title-cased raw value rather than a
+ * leaked translation key.
+ */
+export function equipmentLabel(
+  t: (key: string, params?: Record<string, string | number>) => string,
+  equipment: string | null | undefined,
+): string {
+  if (!equipment || !equipment.trim()) return t('workout.equipment_not_required');
+  const normalized = equipment.trim().toLowerCase();
+  if (isWorkoutEquipment(normalized)) return t(equipmentLabelKey(normalized));
+  const raw = equipment.trim();
+  return raw.charAt(0).toUpperCase() + raw.slice(1);
 }
 
 /** Split presets for the quick-start flow ("chest & triceps day" → suggested list). */

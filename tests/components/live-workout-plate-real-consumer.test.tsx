@@ -93,7 +93,7 @@ describe('LiveWorkout warm-up real consumer', () => {
       expect(screen.getByRole('button', { name: 'Undo set' })).toBeTruthy();
 
       await vi.advanceTimersByTimeAsync(7_000);
-      const elapsedBeforePause = Number(screen.getByRole('status').textContent?.match(/· (\d+)s/)?.[1]);
+      const elapsedBeforePause = Number(screen.getByRole('timer').textContent?.match(/· (\d+)s/)?.[1]);
       expect(elapsedBeforePause).toBe(7);
       // A pause triggers the normal recovery effect; mirror the authoritative
       // atomic write so navigation exercises the real remount path.
@@ -102,7 +102,7 @@ describe('LiveWorkout warm-up real consumer', () => {
       workspace.state = { ...workspace.state, stage: 'paused', clock: { runningSince: null, accumulatedMs: 0 } };
       view.rerender(<LiveWorkout exercises={[bench, row]} />);
       await vi.advanceTimersByTimeAsync(0);
-      const elapsedWhilePaused = Number(screen.getByRole('status').textContent?.match(/· (\d+)s/)?.[1]);
+      const elapsedWhilePaused = Number(screen.getByRole('timer').textContent?.match(/· (\d+)s/)?.[1]);
       fireEvent.click(screen.getByRole('button', { name: 'More exercise options' }));
       fireEvent.click(screen.getByRole('button', { name: 'Superset' }));
       await vi.waitFor(() => expect(api.updateLiveWorkoutStructureAtomic).toHaveBeenCalledTimes(1));
@@ -110,19 +110,19 @@ describe('LiveWorkout warm-up real consumer', () => {
       expect(screen.getAllByRole('heading', { name: 'Dumbbell Row' })).toHaveLength(1);
       await vi.advanceTimersByTimeAsync(30_000);
       fireEvent.click(screen.getByRole('button', { name: 'Exercise 1, completed' }));
-      expect(screen.getByRole('status').textContent).toContain(`· ${elapsedWhilePaused}s /`);
+      expect(screen.getByRole('timer').textContent).toContain(`· ${elapsedWhilePaused}s /`);
 
       workspace.state = { ...workspace.state, stage: 'live', clock: { runningSince: Date.now(), accumulatedMs: 0 } };
       view.rerender(<LiveWorkout exercises={[bench, row]} />);
       await act(async () => {});
       await vi.advanceTimersByTimeAsync(0);
-      const elapsedAfterResume = Number(screen.getByRole('status').textContent?.match(/· (\d+)s/)?.[1]);
+      const elapsedAfterResume = Number(screen.getByRole('timer').textContent?.match(/· (\d+)s/)?.[1]);
       expect(elapsedAfterResume).toBe(elapsedWhilePaused);
       await vi.advanceTimersByTimeAsync(1_000);
-      const elapsedAfterResumeTick = Number(screen.getByRole('status').textContent?.match(/· (\d+)s/)?.[1]);
+      const elapsedAfterResumeTick = Number(screen.getByRole('timer').textContent?.match(/· (\d+)s/)?.[1]);
       expect(elapsedAfterResumeTick).toBe(elapsedAfterResume + 1);
       await vi.advanceTimersByTimeAsync(4_000);
-      expect(screen.getByRole('status').textContent).toContain(`· ${elapsedAfterResumeTick + 4}s /`);
+      expect(screen.getByRole('timer').textContent).toContain(`· ${elapsedAfterResumeTick + 4}s /`);
     } finally {
       vi.useRealTimers();
     }
@@ -209,6 +209,8 @@ describe('LiveWorkout warm-up real consumer', () => {
       { setNumber: 2, isWarmup: false },
     ]);
     await vi.waitFor(() => expect(screen.getAllByRole('button', { name: 'Undo set' })).toHaveLength(2));
+    // Undo is locked for a short cooldown right after completion so a double-tap cannot undo the set just logged.
+    await vi.waitFor(() => expect(screen.getAllByRole('button', { name: 'Undo set' })[1].hasAttribute('disabled')).toBe(false), { timeout: 2_000 });
     fireEvent.click(screen.getAllByRole('button', { name: 'Undo set' })[1]);
     await vi.waitFor(() => expect(api.deleteLiveWorkoutSetAtomic).toHaveBeenCalledWith('session-real', 'set-2'));
 

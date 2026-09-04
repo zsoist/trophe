@@ -448,16 +448,19 @@ describe('exercise routes with the real workout workspace provider', () => {
     expect(createWorkoutSession).not.toHaveBeenCalled();
   });
 
+  // House rule (exerciseDisplayName): Spanish users see name_es; Greek users keep the English
+  // name even when name_el is seeded on the row.
   it.each([
-    ['es', 'Press de banca'],
-    ['el', 'Πιέσεις πάγκου'],
-  ])('uses the localized exercise display name in the %s replacement action', async (language, localizedName) => {
+    ['es', 'Press de banca', 'Press de banca'],
+    ['el', 'Πιέσεις πάγκου', 'Bench Press'],
+  ])('uses the shared exercise display name in the %s replacement action', async (language, seededName, displayedName) => {
     locale.language = language;
-    const localizedExercise = { ...bench, name_es: language === 'es' ? localizedName : null, name_el: language === 'el' ? localizedName : null };
+    const localizedExercise = { ...bench, name_es: language === 'es' ? seededName : null, name_el: language === 'el' ? seededName : null };
     renderWithWorkspace(<RoutedExerciseDetail exercise={localizedExercise} userId={null} replaceExerciseId="other" returnRoute="build" />, strengthState());
 
-    expect(await screen.findByRole('heading', { name: localizedName })).toBeTruthy();
-    expect(screen.getByRole('button', { name: `Replace with ${localizedName}` })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: displayedName })).toBeTruthy();
+    expect(screen.getByRole('button', { name: `Replace with ${displayedName}` })).toBeTruthy();
+    if (displayedName !== seededName) expect(screen.queryByText(seededName)).toBeNull();
   });
 
   it('disables selecting the current exercise as its own detail replacement', async () => {
