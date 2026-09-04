@@ -59,6 +59,7 @@ const IDS = {
   unassignedWorkoutSession: 'f1000000-0000-0000-0000-000000000016',
   assignedFormAnalysis: 'f1000000-0000-0000-0000-000000000017',
   unassignedFormAnalysis: 'f1000000-0000-0000-0000-000000000018',
+  clientPrivateExercise: 'f1000000-0000-0000-0000-000000000019',
 };
 
 /**
@@ -215,6 +216,11 @@ beforeAll(async () => {
       ($2, $4, 'unassigned-form')
     ON CONFLICT (id) DO NOTHING
   `, [IDS.assignedFormAnalysis, IDS.unassignedFormAnalysis, IDS.client, IDS.otherClient]);
+  await asOwner(`
+    INSERT INTO exercises (id, name, muscle_group, is_template, created_by) VALUES
+      ($1, 'client-private-exercise', 'chest', false, $2)
+    ON CONFLICT (id) DO NOTHING
+  `, [IDS.clientPrivateExercise, IDS.client]);
 });
 
 beforeEach((context) => {
@@ -228,6 +234,7 @@ afterAll(async () => {
   }
 
   // Clean up fixture rows (owner bypasses RLS).
+  await asOwner(`DELETE FROM exercises WHERE id = $1 OR created_by IN ($2, $3)`, [IDS.clientPrivateExercise, IDS.client, IDS.otherClient]);
   await asOwner(`DELETE FROM form_analyses WHERE id IN ($1, $2)`, [IDS.assignedFormAnalysis, IDS.unassignedFormAnalysis]);
   await asOwner(`DELETE FROM workout_sessions WHERE id IN ($1, $2)`, [IDS.assignedWorkoutSession, IDS.unassignedWorkoutSession]);
   await asOwner(`DELETE FROM supplement_log WHERE id IN ($1, $2)`, [IDS.assignedSupplementLog, IDS.unassignedSupplementLog]);
@@ -467,6 +474,90 @@ describe('coach/client resources — write-side cross-tenant RLS matrix', () => 
     });
 
     expect(results).toEqual([0, 0, 0]);
+  });
+});
+
+// ─── exercises RLS (migration 0083) ──────────────────────────────────────────
+// Template rows (is_template = true) are readable by every authenticated user,
+// so a client must never be able to create or promote one. User-created rows
+// are private to their creator, who may also edit and delete them.
+
+describe('exercises — private-by-default RLS', () => {
+  it('client CANNOT INSERT an exercise with is_template = true', async () => {
+    await expectRlsWithCheckRejection(() =>
+      asUser(IDS.client, (c) =>
+        c.query(`
+          INSERT INTO exercises (name, muscle_group, is_template, created_by)
+          VALUES ('blocked-global-exercise', 'chest', true, $1)
+        `, [IDS.client]),
+      ),
+    );
+  });
+
+  it('client INSERT without an explicit is_template lands as a private row', async () => {
+    // The column default must be false so an omitted is_template can never
+    // produce a globally visible template row.
+    const inserted = await asUser(IDS.client, (c) =>
+      c.query(`
+        INSERT INTO exercises (name, muscle_group, created_by)
+        VALUES ('default-visibility-exercise', 'back', $1)
+        RETURNING is_template
+      `, [IDS.client]),
+    );
+    expect(inserted.rows[0].is_template).toBe(false);
+  });
+
+  it('a client-created private exercise is visible to its creator but not to another client', async () => {
+    const own = await asUser(IDS.client, (c) =>
+      c.query('SELECT id FROM exercises WHERE id = $1', [IDS.clientPrivateExercise]),
+    );
+    expect(own.rowCount).toBe(1);
+
+    const other = await asUser(IDS.otherClient, (c) =>
+      c.query('SELECT id FROM exercises WHERE id = $1', [IDS.clientPrivateExercise]),
+    );
+    expect(other.rowCount).toBe(0);
+  });
+
+  it('creator can UPDATE and DELETE their own private exercise', async () => {
+    const results = await asUser(IDS.client, async (c) => {
+      const updated = await c.query(
+        `UPDATE exercises SET name = 'client-private-exercise-renamed' WHERE id = $1`,
+        [IDS.clientPrivateExercise],
+      );
+      const deleted = await c.query(
+        `DELETE FROM exercises WHERE id = $1`,
+        [IDS.clientPrivateExercise],
+      );
+      return [updated.rowCount, deleted.rowCount];
+    });
+    expect(results).toEqual([1, 1]);
+  });
+
+  it('another client CANNOT UPDATE or DELETE someone else\'s private exercise', async () => {
+    const results = await asUser(IDS.otherClient, async (c) => {
+      const updated = await c.query(
+        `UPDATE exercises SET name = 'hijacked' WHERE id = $1`,
+        [IDS.clientPrivateExercise],
+      );
+      const deleted = await c.query(
+        `DELETE FROM exercises WHERE id = $1`,
+        [IDS.clientPrivateExercise],
+      );
+      return [updated.rowCount, deleted.rowCount];
+    });
+    expect(results).toEqual([0, 0]);
+  });
+
+  it('creator CANNOT promote a private exercise to a template via UPDATE', async () => {
+    await expectRlsWithCheckRejection(() =>
+      asUser(IDS.client, (c) =>
+        c.query(
+          `UPDATE exercises SET is_template = true WHERE id = $1`,
+          [IDS.clientPrivateExercise],
+        ),
+      ),
+    );
   });
 });
 
