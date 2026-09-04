@@ -66,7 +66,7 @@ export default function ExerciseInfoSheet({
       initial={reducedMotion ? false : { opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={reducedMotion ? undefined : { opacity: 0 }}
-      className="fixed inset-0 z-[var(--z-modal,60)] flex items-end justify-center bg-[var(--surface-overlay)]"
+      className="fixed inset-0 z-[var(--z-modal,60)] flex items-end justify-center bg-[var(--scrim)] backdrop-blur-sm"
       onClick={() => onCloseRef.current()}
     >
       <motion.div

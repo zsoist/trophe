@@ -201,8 +201,7 @@ export function CustomExerciseModal({
       initial={reducedMotion ? false : { opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={reducedMotion ? undefined : { opacity: 0 }}
-      className="fixed inset-0 z-[var(--z-modal,60)] flex items-center justify-center px-4"
-      style={{ background: 'var(--surface-overlay)' }}
+      className="fixed inset-0 z-[var(--z-modal,60)] flex items-center justify-center bg-[var(--scrim)] px-4 backdrop-blur-sm"
       onClick={onClose}
     >
       <motion.div
