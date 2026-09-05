@@ -1,0 +1,13 @@
+# R2 character factory
+
+This is the bounded Blender worker for the complete MPFB baseline comparison. It does not publish assets or change the frozen consumer contract. The private job directory contains `config.json`, exact recipe copies, logs, `terminal.json`, resource samples and `output/`; masters never enter Git.
+
+`blender_job.py` dispatches by `stage`. `build_character` enables installed MPFB and Rigify, creates a complete native MPFB body, imports the supplied compatible weights and calls MPFB's `RigService.generate_rigify_rig`, including its asset adjustment pass. With `preserve_source_form`, it verifies native vertex correspondence against the old unposed phenotype before carrying forward the two static sculpt deltas. This is a form preservation operation, not an elbow pose corrective. The source remains immutable. Native Data Transfer interpolates supplied body weights onto the retained fitted garment design.
+
+`compare_baseline` checks five poses against the previous body using parent-first, rest-relative FK retargeting. Required finger names must resolve. It uses identical cameras, neutral environment and Cycles/OptiX settings, and preserves evaluated equipment geometry and complete hand-relative prop transforms. The two extra articulation poses are stress probes, not approved bench/squat motion. Native rendered stills, landmark data and evaluated handle-clearance checks inform the baseline decision. A successful script exit alone does not pass that decision.
+
+`run-job.ps1` is invoked through the existing interactive Windows task route. It acquires the existing program lease, launches one Blender process, retains its process handle for exit-code capture and records observed resource samples. The controller must reconcile terminal result, task state and process absence before releasing its own lease. The wrapper deliberately does not release an uncertain lease. Admission additionally requires the existing AeroBrain/PC queues to be idle and actual free disk/RAM/VRAM to be checked; another application's GUI is not ours to close.
+
+Installed tool versions are recorded by the actual job. Documentation for this workflow: [MPFB Rigify](https://static.makehumancommunity.org/mpfb/docs/rigging_posing/rigify.html). [Official licensing](https://static.makehumancommunity.org/about/license.html) separates CC0 core source assets from GPL tool code. Current materials and tailored garment geometry come from the preserved private master; no third-party texture collection is downloaded by these jobs.
+
+R1 V2, refine-v3-02 and the rejected experiments stay unchanged. Animated GLB intake remains held. Visual direction and human exercise-technique reviews remain pending for every new candidate.
