@@ -715,16 +715,6 @@ export default function AnatomyExplorer({
                   <div className="anatomy-empty">
                     <Search size={24} aria-hidden="true" />
                     <p>{t("anatomy.no_results")}</p>
-                    <button
-                      onClick={() => {
-                        setQuery("");
-                        setCatalogueSystem("");
-                        setCatalogueSide("");
-                        setBrowseGroup("");
-                      }}
-                    >
-                      {t("anatomy.clear_filters")}
-                    </button>
                   </div>
                 )}
                 <ul className="anatomy-results">
