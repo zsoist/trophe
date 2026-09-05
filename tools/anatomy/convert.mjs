@@ -7,6 +7,7 @@ import { EXTMeshoptCompression } from "@gltf-transform/extensions";
 import { MeshoptEncoder, MeshoptDecoder } from "meshoptimizer";
 import { reorder } from "@gltf-transform/functions";
 import { readObjGeometry } from "./geometry.mjs";
+import sharp from "sharp";
 import { partitionGeometry } from "./partition.mjs";
 const [
   inventoryPath,
@@ -17,7 +18,7 @@ const [
 ] = process.argv.slice(2);
 if (!output || !assemblyReportPath)
   throw Error(
-    "Usage: node tools/anatomy/convert.mjs INVENTORY SOURCE_RECORD OUTPUT ASSEMBLY_REPORT [POSTER_PNG]",
+    "Usage: node tools/anatomy/convert.mjs INVENTORY SOURCE_RECORD OUTPUT ASSEMBLY_REPORT [POSTER_IMAGE]",
   );
 const hash = (b) => createHash("sha256").update(b).digest("hex");
 const inv = JSON.parse(await readFile(inventoryPath)),
@@ -46,12 +47,18 @@ if (
 )
   throw Error("Verified same-source assembly required before bulk conversion");
 const posterBytes = posterPath ? await readFile(posterPath) : null;
+const posterMeta = posterBytes
+  ? await sharp(posterBytes, { limitInputPixels: 2048 * 2048 }).metadata()
+  : null;
 if (
   posterBytes &&
   (posterBytes.length > 1024 * 1024 ||
-    posterBytes.subarray(0, 8).toString("hex") !== "89504e470d0a1a0a")
+    !["png", "jpeg"].includes(posterMeta.format) ||
+    !posterMeta.width ||
+    !posterMeta.height)
 )
-  throw Error("Poster must be bounded PNG from verified geometry");
+  throw Error("Bounded PNG/JPEG poster required");
+const posterName = posterMeta?.format === "jpeg" ? "poster.jpg" : "poster.png";
 const portableInventory = JSON.stringify(inv, (k, v) =>
   k === "source_path" ? undefined : v,
 );
@@ -296,11 +303,12 @@ const manifest = {
   ...(posterBytes
     ? {
         poster: {
-          url: `/anatomy/${key}/poster.png`,
+          url: `/anatomy/${key}/${posterName}`,
+          mime: posterMeta.format === "jpeg" ? "image/jpeg" : "image/png",
           sha256: hash(posterBytes),
           bytes: posterBytes.length,
-          width: posterBytes.readUInt32BE(16),
-          height: posterBytes.readUInt32BE(20),
+          width: posterMeta.width,
+          height: posterMeta.height,
           provenance:
             "Screenshot of verified source skeleton in actual consumer; same global transform, no image generation.",
         },
@@ -333,7 +341,7 @@ const manifest = {
   coverage,
   curation: inv.curation,
 };
-if (posterBytes) await writeFile(join(output, "poster.png"), posterBytes);
+if (posterBytes) await writeFile(join(output, posterName), posterBytes);
 await writeFile(join(output, "manifest.json"), JSON.stringify(manifest));
 await writeFile(
   join(output, "coverage.json"),

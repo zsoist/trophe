@@ -21,7 +21,7 @@ paths. Python uses the standard library. No source archive is executed.
 1. `acquire.py` records official metadata; inspect the ZIP with `archive.py` before extraction.
 2. `inventory.py METADATA MESHES INVENTORY` preserves both typed source memberships.
 3. Verify a small actual assembly with `check-assembly.mjs ASSEMBLY INVENTORY REPORT`.
-4. `convert.mjs INVENTORY SOURCE_RECORD OUTPUT ASSEMBLY_REPORT [POSTER_PNG]` requires
+4. `convert.mjs INVENTORY SOURCE_RECORD OUTPUT ASSEMBLY_REPORT [POSTER_IMAGE]` requires
    same-source/same-geometry-code assembly evidence. One global transform. Reordering
    and triangle partition preserve coordinates/counts; partition boundaries may
    repeat vertices, never source identities or triangles. No texture/upscaling or
@@ -47,3 +47,5 @@ the pre-existing curated exercise model, never inferred from the atlas.
 Both a reviewed pinned release and an explicit flag are required. Clear the flag to
 roll back immediately; retain a reviewed `previous` manifest for a deliberate rollback.
 No candidate, database migration, or atlas derivative is published by this PR.
+
+The ordinary Vitest suite also invokes the14 standard-library Python source/archive tests. No CI workflow permission expansion is required.

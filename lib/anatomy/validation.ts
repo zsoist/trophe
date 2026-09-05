@@ -1,6 +1,6 @@
 import type { AtlasManifest } from "./types";
 export const safeAtlasUrl = (url: string) =>
-  /^\/anatomy\/[a-f0-9]{64}\/[a-z0-9-]+\.(glb|json|webp|png)$/.test(url);
+  /^\/anatomy\/[a-f0-9]{64}\/[a-z0-9-]+\.(glb|json|webp|png|jpg)$/.test(url);
 export function validateChunkBytes(buffer: ArrayBuffer): void {
   if (buffer.byteLength < 20 || buffer.byteLength > 4 * 1024 * 1024)
     throw Error("Atlas chunk size");
@@ -150,7 +150,8 @@ export function validateAtlas(value: unknown): AtlasManifest {
   if (
     m.poster &&
     (!safeAtlasUrl(m.poster.url) ||
-      m.poster.url !== `/anatomy/${m.release}/poster.png` ||
+      m.poster.url !==
+        `/anatomy/${m.release}/${m.poster.mime === "image/jpeg" ? "poster.jpg" : "poster.png"}` ||
       !id(m.poster.sha256, /^[a-f0-9]{64}$/) ||
       m.poster.bytes < 24 ||
       m.poster.bytes > 1024 * 1024 ||

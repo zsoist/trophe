@@ -102,7 +102,9 @@ for (const [eid, r] of seen)
 if (seen.size !== m.coverage.source_elements)
   throw Error("Not every source element verified");
 if (m.poster) {
-  const b = await readFile(join(dir, "poster.png"));
+  const b = await readFile(
+    join(dir, m.poster.mime === "image/jpeg" ? "poster.jpg" : "poster.png"),
+  );
   if (hash(b) !== m.poster.sha256 || b.length !== m.poster.bytes)
     throw Error("Poster identity");
 }

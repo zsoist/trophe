@@ -34,9 +34,12 @@ for (const c of manifest.chunks) {
 }
 if (manifest.poster)
   assets.set(manifest.poster.url, {
-    path: join(directory, "poster.png"),
+    path: join(
+      directory,
+      manifest.poster.mime === "image/jpeg" ? "poster.jpg" : "poster.png",
+    ),
     sha256: manifest.poster.sha256,
-    mime: "image/png",
+    mime: manifest.poster.mime,
     size: manifest.poster.bytes,
   });
 const temp = await mkdtemp(join(directory, "preview-"));

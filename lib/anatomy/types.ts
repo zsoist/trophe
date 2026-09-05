@@ -48,6 +48,7 @@ export interface AtlasChunk {
 export interface AtlasManifest {
   version: "trophe.static-atlas/1";
   poster?: {
+    mime: "image/png" | "image/jpeg";
     url: string;
     sha256: string;
     bytes: number;

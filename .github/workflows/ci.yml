@@ -73,9 +73,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Anatomy source parser and archive boundaries
-        run: python3 -m unittest discover -s tests/anatomy -p 'test_*.py'
-
       - name: Audit production dependencies (high+)
         # Dev-tooling vulns (esbuild via drizzle-kit/tsx) are tracked separately;
         # this gate covers what actually ships.
