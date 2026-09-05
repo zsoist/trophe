@@ -1,0 +1,776 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:trophe:media-package:1",
+  "title": "Trophe Media Package v1 — contract specification",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "release_id",
+    "created_at",
+    "release_status",
+    "assets"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "trophe.media-package/1"
+    },
+    "release_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,79}$"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "release_status": {
+      "enum": [
+        "candidate",
+        "approved"
+      ]
+    },
+    "assets": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 25,
+      "items": {
+        "$ref": "#/$defs/asset"
+      }
+    }
+  },
+  "$defs": {
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "reviewer_role",
+        "reviewer_ref",
+        "reviewed_at",
+        "artifact_set_sha256"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "pending",
+            "passed",
+            "rejected",
+            "not_applicable"
+          ]
+        },
+        "reviewer_role": {
+          "enum": [
+            "agent",
+            "owner",
+            "coach",
+            "physio",
+            null
+          ]
+        },
+        "reviewer_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 120
+        },
+        "reviewed_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "artifact_set_sha256": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 1500
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "passed"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "reviewer_ref": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reviewed_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "artifact_set_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "reviewer_role": {
+                "enum": [
+                  "agent",
+                  "owner",
+                  "coach",
+                  "physio"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "role",
+        "mime_type",
+        "sha256",
+        "bytes"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*[\\\\:])[A-Za-z0-9._/-]+$"
+        },
+        "role": {
+          "enum": [
+            "poster",
+            "video_hd",
+            "video_mobile",
+            "model_glb"
+          ]
+        },
+        "mime_type": {
+          "enum": [
+            "image/webp",
+            "image/png",
+            "video/mp4",
+            "video/webm",
+            "model/gltf-binary"
+          ]
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8192
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8192
+        },
+        "fps": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 120
+        },
+        "duration_seconds": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 60
+        },
+        "triangles": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "estimated_texture_resident_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lod": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5
+        },
+        "clip_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,79}$"
+          },
+          "uniqueItems": true
+        },
+        "native_render": {
+          "type": "boolean"
+        },
+        "upscaled": {
+          "type": "boolean"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "role": {
+                "enum": [
+                  "video_hd",
+                  "video_mobile"
+                ]
+              }
+            },
+            "required": [
+              "role"
+            ]
+          },
+          "then": {
+            "required": [
+              "width",
+              "height",
+              "fps",
+              "duration_seconds",
+              "native_render",
+              "upscaled"
+            ],
+            "properties": {
+              "mime_type": {
+                "enum": [
+                  "video/mp4",
+                  "video/webm"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "role": {
+                "const": "poster"
+              }
+            },
+            "required": [
+              "role"
+            ]
+          },
+          "then": {
+            "required": [
+              "width",
+              "height"
+            ],
+            "properties": {
+              "mime_type": {
+                "enum": [
+                  "image/webp",
+                  "image/png"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "role": {
+                "const": "model_glb"
+              }
+            },
+            "required": [
+              "role"
+            ]
+          },
+          "then": {
+            "required": [
+              "triangles",
+              "clip_ids",
+              "lod",
+              "estimated_texture_resident_bytes"
+            ],
+            "properties": {
+              "mime_type": {
+                "const": "model/gltf-binary"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "asset_id",
+        "kind",
+        "canonical_name",
+        "build_key",
+        "source_fingerprint",
+        "artifact_set_sha256",
+        "provenance",
+        "reviews",
+        "files"
+      ],
+      "properties": {
+        "asset_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,79}$"
+        },
+        "kind": {
+          "enum": [
+            "exercise",
+            "food",
+            "equipment"
+          ]
+        },
+        "canonical_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "build_key": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "source_fingerprint": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "artifact_set_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "exercise": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "catalogue_slug",
+            "equipment",
+            "clip_ids",
+            "phases"
+          ],
+          "properties": {
+            "catalogue_slug": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._-]{0,79}$"
+            },
+            "equipment": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "body_id": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._-]{0,79}$"
+            },
+            "rig_id": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._-]{0,79}$"
+            },
+            "clip_ids": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._-]{0,79}$"
+              },
+              "uniqueItems": true
+            },
+            "anatomy_mapping_ref": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 200
+            },
+            "phases": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 20,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "start_seconds",
+                  "end_seconds",
+                  "label_key"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9][a-z0-9._-]{0,79}$"
+                  },
+                  "start_seconds": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "end_seconds": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "label_key": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 150
+                  }
+                }
+              }
+            }
+          }
+        },
+        "food": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "representation",
+            "measurement_evidence_ref"
+          ],
+          "properties": {
+            "representation": {
+              "enum": [
+                "illustrative",
+                "reconstructed-from-capture",
+                "documented-reference"
+              ]
+            },
+            "measurement_evidence_ref": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 200
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "representation": {
+                    "const": "documented-reference"
+                  }
+                },
+                "required": [
+                  "representation"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "measurement_evidence_ref": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "method",
+            "license_review_ref",
+            "redistribution_reviewed"
+          ],
+          "properties": {
+            "method": {
+              "enum": [
+                "blender-authored",
+                "procedural-authored",
+                "captured-reference",
+                "model-assisted"
+              ]
+            },
+            "license_review_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "redistribution_reviewed": {
+              "type": "boolean"
+            },
+            "credit_text": {
+              "type": "string",
+              "maxLength": 1500
+            }
+          }
+        },
+        "reviews": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "technical",
+            "visual",
+            "technique"
+          ],
+          "properties": {
+            "technical": {
+              "$ref": "#/$defs/review"
+            },
+            "visual": {
+              "$ref": "#/$defs/review",
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "status": {
+                        "const": "passed"
+                      }
+                    },
+                    "required": [
+                      "status"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "reviewer_role": {
+                        "enum": [
+                          "owner"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "technique": {
+              "$ref": "#/$defs/review",
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "status": {
+                        "const": "passed"
+                      }
+                    },
+                    "required": [
+                      "status"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "reviewer_role": {
+                        "enum": [
+                          "coach",
+                          "physio"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "files": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": {
+            "$ref": "#/$defs/file"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "exercise"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "exercise"
+            ],
+            "properties": {
+              "food": false,
+              "reviews": {
+                "properties": {
+                  "technique": {
+                    "properties": {
+                      "status": {
+                        "enum": [
+                          "pending",
+                          "passed",
+                          "rejected"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "food"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "food"
+            ],
+            "properties": {
+              "exercise": false
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "equipment"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "exercise": false,
+              "food": false
+            }
+          }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "release_status": {
+            "const": "approved"
+          }
+        },
+        "required": [
+          "release_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "assets": {
+            "items": {
+              "properties": {
+                "provenance": {
+                  "properties": {
+                    "redistribution_reviewed": {
+                      "const": true
+                    }
+                  }
+                },
+                "reviews": {
+                  "properties": {
+                    "technical": {
+                      "properties": {
+                        "status": {
+                          "const": "passed"
+                        }
+                      }
+                    },
+                    "visual": {
+                      "properties": {
+                        "status": {
+                          "const": "passed"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "kind": {
+                        "const": "exercise"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "reviews": {
+                        "properties": {
+                          "technique": {
+                            "properties": {
+                              "status": {
+                                "const": "passed"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "files": {
+                        "allOf": [
+                          {
+                            "contains": {
+                              "properties": {
+                                "role": {
+                                  "const": "poster"
+                                }
+                              },
+                              "required": [
+                                "role"
+                              ]
+                            }
+                          },
+                          {
+                            "contains": {
+                              "properties": {
+                                "role": {
+                                  "const": "video_hd"
+                                },
+                                "upscaled": {
+                                  "const": false
+                                }
+                              },
+                              "required": [
+                                "role",
+                                "upscaled"
+                              ]
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  ]
+}

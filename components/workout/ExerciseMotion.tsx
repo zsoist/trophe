@@ -6,17 +6,26 @@ import { useI18n } from '@/lib/i18n';
 import type { ExerciseMediaRecord } from '@/lib/workout/exercise-media';
 
 export interface ExerciseMotionProps {
-  media: ExerciseMediaRecord;
+  media: ExerciseMediaRecord | (Omit<ExerciseMediaRecord, 'tier'> & { tier: 'candidate-preview' });
   alt: string;
   autoplay?: boolean;
   className?: string;
   playbackDisabled?: boolean;
+  /** Only for the loopback candidate reviewer; never enabled by catalogue consumers. */
+  previewOnly?: boolean;
 }
 
-export function ExerciseMotion({ media, alt, autoplay = false, className = '', playbackDisabled = false }: ExerciseMotionProps) {
+export function ExerciseMotion(props: ExerciseMotionProps) {
+  return <ExerciseMotionPlayer key={`${props.media.slug}:${props.media.motionSrc ?? ''}`} {...props} />;
+}
+
+function ExerciseMotionPlayer({ media, alt, autoplay = false, className = '', playbackDisabled = false, previewOnly = false }: ExerciseMotionProps) {
   const { t } = useI18n();
+  const [phaseKey, setPhaseKey] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [focused, setFocused] = useState(true);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const isExactTechnique = media.tier === 'verified-technique' && Boolean(media.motionSrc);
+  const isExactTechnique = (media.tier === 'verified-technique' || (previewOnly && media.tier === 'candidate-preview')) && Boolean(media.motionSrc);
   const [reducedMotion, setReducedMotion] = useState<boolean | null>(null);
   const [inViewport, setInViewport] = useState(true);
   const [pageVisible, setPageVisible] = useState(() => typeof document === 'undefined' || !document.hidden);
@@ -39,6 +48,19 @@ export function ExerciseMotion({ media, alt, autoplay = false, className = '', p
   }, []);
 
   useEffect(() => {
+    const blur = () => setFocused(false);
+    const focus = () => setFocused(true);
+    window.addEventListener('blur', blur);
+    window.addEventListener('focus', focus);
+    return () => { window.removeEventListener('blur', blur); window.removeEventListener('focus', focus); };
+  }, []);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    return () => { video?.pause(); };
+  }, [reducedMotion, failed]);
+
+  useEffect(() => {
     const video = videoRef.current;
     const prefersReducedMotion = typeof window !== 'undefined'
       && typeof window.matchMedia === 'function'
@@ -48,7 +70,7 @@ export function ExerciseMotion({ media, alt, autoplay = false, className = '', p
       video.pause();
       return;
     }
-    if (isPlaying && inViewport && pageVisible) {
+    if (isPlaying && inViewport && pageVisible && focused) {
       try {
         const attempt = video.play();
         void attempt?.catch(() => setIsPlaying(false));
@@ -58,7 +80,7 @@ export function ExerciseMotion({ media, alt, autoplay = false, className = '', p
       return;
     }
     video.pause();
-  }, [inViewport, isExactTechnique, isPlaying, pageVisible, playbackDisabled, reducedMotion]);
+  }, [inViewport, isExactTechnique, isPlaying, pageVisible, playbackDisabled, reducedMotion, focused, failed]);
 
   useEffect(() => {
     if (!isExactTechnique || reducedMotion || typeof IntersectionObserver === 'undefined') return;
@@ -66,12 +88,12 @@ export function ExerciseMotion({ media, alt, autoplay = false, className = '', p
     const target = videoRef.current;
     if (target) observer.observe(target);
     return () => observer.disconnect();
-  }, [isExactTechnique, reducedMotion]);
+  }, [isExactTechnique, reducedMotion, failed]);
 
   const pause = () => setIsPlaying(false);
   const play = () => setIsPlaying(true);
 
-  if (reducedMotion !== false || !isExactTechnique) {
+  if (reducedMotion !== false || !isExactTechnique || failed) {
     const statusKey = reducedMotion === true
       ? 'workout.motion_reduced'
       : media.tier === 'verified-anatomy'
@@ -84,7 +106,8 @@ export function ExerciseMotion({ media, alt, autoplay = false, className = '', p
         {/* The poster is intentionally a plain image so it remains the complete reduced-motion experience. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={media.posterSrc} alt={alt} className="exercise-motion__poster" />
-        {reducedMotion === null && isExactTechnique ? null : <figcaption>{t(statusKey)}</figcaption>}
+        {failed ? <figcaption><button type="button" disabled={playbackDisabled} onClick={() => { setFailed(false); setIsPlaying(true); }}>{t('workout.motion_play')}</button></figcaption>
+          : reducedMotion === null && isExactTechnique ? null : <figcaption>{t(statusKey)}</figcaption>}
       </figure>
     );
   }
@@ -97,14 +120,20 @@ export function ExerciseMotion({ media, alt, autoplay = false, className = '', p
         muted
         loop
         playsInline
-        preload="metadata"
+        preload="none"
+        onTimeUpdate={(event) => {
+          const time = event.currentTarget.currentTime;
+          setPhaseKey(media.timedPhases?.find(phase => time >= phase.startSeconds && time < phase.endSeconds)?.labelKey ?? null);
+        }}
+        onError={() => { setFailed(true); setIsPlaying(false); }}
         aria-label={alt}
         data-testid="exercise-motion-video"
         className="exercise-motion__video"
       >
-        <source src={media.motionSrc} type={media.motionType} />
+        <source src={media.motionSrc} type={media.motionType} onError={() => { setFailed(true); setIsPlaying(false); }} />
       </video>
       <figcaption className="exercise-motion__controls">
+        {phaseKey ? <span>{t(phaseKey)}</span> : null}
         <button type="button" disabled={playbackDisabled} onClick={isPlaying ? pause : play} aria-label={t(playbackDisabled ? 'workout.motion_session_paused_action' : isPlaying ? 'workout.motion_pause' : 'workout.motion_play')}>
           {playbackDisabled || !isPlaying ? <Play size={16} aria-hidden="true" /> : <Pause size={16} aria-hidden="true" />}
           {t(playbackDisabled ? 'workout.motion_session_paused_action' : isPlaying ? 'workout.motion_pause' : 'workout.motion_play')}

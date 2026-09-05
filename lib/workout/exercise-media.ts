@@ -1,3 +1,4 @@
+import { applyVideoRelease, APPROVED_VIDEO_RELEASE } from './media-release';
 import {
   CURATED_MUSCLE_ACTIVATIONS,
   resolveMuscleActivations,
@@ -12,6 +13,7 @@ export interface ExerciseMediaRecord {
   equipment: string[];
   posterSrc: string;
   motionSrc?: string;
+  timedPhases?: Array<{ id: string; startSeconds: number; endSeconds: number; labelKey: string }>;
   motionType?: 'video/webm' | 'video/mp4';
   /**
    * - `verified-technique`: exact movement + equipment art, curated anatomy.
@@ -28,7 +30,7 @@ export interface ExerciseMediaRecord {
 
 export type ExerciseMediaInput = AnatomyExerciseInput;
 
-type MediaDefinition = {
+export type MediaDefinition = {
   slug: string;
   canonicalNames: string[];
   equipment: string[];
@@ -47,18 +49,23 @@ export const EXERCISE_MEDIA_REGISTRY: ReadonlyArray<MediaDefinition> = [
   { slug: 'smith-bench-press', canonicalNames: ['Smith Machine Bench Press'], equipment: ['Smith Machine', 'Machine'] },
   { slug: 'floor-press', canonicalNames: ['Floor Press'], equipment: ['Barbell'] },
   { slug: 'machine-chest-press', canonicalNames: ['Machine Chest Press', 'Chest Press Machine'], equipment: ['Machine'] },
-  { slug: 'push-up', canonicalNames: ['Push Ups', 'Pushups'], equipment: ['Bodyweight'] },
+  { slug: 'push-up', canonicalNames: ['Push Ups', 'Push Up', 'Pushups', 'Pushup'], equipment: ['Bodyweight'] },
   { slug: 'overhead-press', canonicalNames: ['Standing Overhead Barbell Press', 'Standing Barbell Overhead Press', 'Overhead Press'], equipment: ['Barbell'] },
   { slug: 'pec-deck', canonicalNames: ['Pec Deck Machine', 'Pec Deck'], equipment: ['Machine'] },
   { slug: 'cable-fly', canonicalNames: ['Standing Cable Chest Fly'], equipment: ['Cable'] },
   { slug: 'pull-up', canonicalNames: ['Pull Ups', 'Pull Up'], equipment: ['Bodyweight'] },
   { slug: 'deadlift', canonicalNames: ['Conventional Barbell Deadlift', 'Barbell Conventional Deadlift', 'Deadlift'], equipment: ['Barbell'] },
   { slug: 'squat', canonicalNames: ['Barbell Back Squat', 'Back Squat', 'Squat'], equipment: ['Barbell'] },
-  { slug: 'dip', canonicalNames: ['Parallel Bar Chest Dips', 'Chest Dips'], equipment: ['Bodyweight'] },
+  { slug: 'dip', canonicalNames: ['Parallel Bar Chest Dips', 'Parallel Bar Chest Dip', 'Chest Dips', 'Chest Dip'], equipment: ['Bodyweight'] },
   { slug: 'row', canonicalNames: ['Seated Cable Row'], equipment: ['Cable'] },
   { slug: 'curl', canonicalNames: ['Standing Dumbbell Biceps Curl', 'Dumbbell Curl'], equipment: ['Dumbbell'] },
   { slug: 'triceps-extension', canonicalNames: ['Cable Triceps Rope Extension', 'Cable Rope Triceps Extension', 'Rope Triceps Pushdown', 'Tricep Pushdown', 'Triceps Pushdown', 'Rope Pushdown'], equipment: ['Cable'] },
 ];
+
+/** Exact identity shared by current and legacy consumers. Missing equipment is never inferred here. */
+export function findExerciseMediaDefinition(name: string, equipment: string | null | undefined): MediaDefinition | undefined {
+  return EXERCISE_MEDIA_REGISTRY.find(record => record.canonicalNames.some(alias => normalize(alias) === normalize(name)) && equipmentCompatible(equipment, record.equipment));
+}
 
 /** i18n key for the still-image alt text of a tier; motion media has its own alt. */
 export function exercisePosterAltKey(tier: ExerciseMediaRecord['tier']): string {
@@ -89,7 +96,7 @@ const EQUIPMENT_ALIASES: Record<string, string[]> = {
   bodyweight: ['bodyweight', 'body weight', 'no equipment'],
 };
 
-const equipmentCompatible = (actual: string | null | undefined, expected: string[]): boolean => {
+export const equipmentCompatible = (actual: string | null | undefined, expected: string[]): boolean => {
   if (!actual?.trim()) return false;
   const normalized = normalize(actual);
   return expected.some((candidate) => {
@@ -149,14 +156,14 @@ export function resolveExerciseMedia(input: ExerciseMediaInput): ExerciseMediaRe
   const group = input.muscleGroup ?? input.muscle_group;
 
   if (definition && equipmentCompatible(input.equipment, definition.equipment)) {
-    return recordFor(
+    return applyVideoRelease(recordFor(
       definition,
       'verified-technique',
       activations.length ? activations : CURATED_MUSCLE_ACTIVATIONS[definition.slug] ?? [],
       VERIFIED_V3_MEDIA.has(definition.slug)
         ? `/workout-v3/posters/${definition.slug}.webp`
         : `/workout-v2/exercises/${definition.slug}.webp`,
-    );
+    ), APPROVED_VIDEO_RELEASE, process.env.NEXT_PUBLIC_WORKOUT_MEDIA_V4 === '1');
   }
 
   // Verified anatomy is claimed only for a curated slug. A muscle-group fallback is
