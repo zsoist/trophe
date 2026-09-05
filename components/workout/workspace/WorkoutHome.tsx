@@ -10,7 +10,7 @@ import { WorkoutAtlasHome } from '@/components/workout/workspace/WorkoutAtlasHom
 import { WorkoutScheduleStrip } from '@/components/workout/workspace/WorkoutScheduleStrip';
 import { WorkoutTodayRail } from '@/components/workout/workspace/WorkoutTodayRail';
 import { useWorkoutWorkspace, type WorkoutDraftTemplateInput } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
-import { resolveMuscleActivations, type MuscleActivation } from '@/lib/workout/anatomy';
+import { anatomyLabelKey, resolveMuscleActivations, type MuscleActivation } from '@/lib/workout/anatomy';
 import { useI18n } from '@/lib/i18n';
 import type { Exercise, MuscleGroup, WorkoutRecommendation, WorkoutSession } from '@/lib/types';
 import type { WorkoutKind, WorkoutWorkspaceState } from '@/lib/workout/workspace-state';
@@ -135,6 +135,7 @@ export function WorkoutHome({
   const isCardioDraft = workspace.state.draft?.kind === 'cardio';
   const targetLabel = displayedTemplate?.muscleSummary.length
     ? displayedTemplate.muscleSummary.map((muscle) => t(muscleLabelKey(muscle))).join(' · ')
+    : activations.length ? activations.map((activation) => t(anatomyLabelKey(activation))).join(' · ')
     : t(isCardioDraft ? 'workout.atlas_cardio_target' : 'workout.atlas_no_target');
   const source = activeStage ? t('workout.home_source_in_progress') : workspace.state.stage === 'completed' ? t('workout.home_source_completed') : hasDraft ? t('workout.home_source_saved') : assignedTemplate ? t('workout.home_source_coach') : recommendedTemplate ? t('workout.home_source_recommended') : t('workout.home_source_open');
   const displayedWorkoutName = displayedTemplate?.name ?? workspace.state.draft?.name ?? null;

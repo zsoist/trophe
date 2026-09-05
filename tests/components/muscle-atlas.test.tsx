@@ -301,6 +301,12 @@ describe('MuscleAtlas', () => {
     expect(screen.getAllByText(/deep location/i).length).toBeGreaterThan(0);
   });
 
+  it('explains a selected front structure when the user explicitly chooses the back view', () => {
+    render(<MuscleAtlas activations={benchActivations} selected="pectoralis-major" onSelect={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Show back anatomy' }));
+    expect(screen.getByText('This selection is on the other view. Use its muscle action to show it.')).toBeTruthy();
+  });
+
   it('changes to the selected muscle view when controlled selection crosses sides', async () => {
     const { rerender } = render(<MuscleAtlas activations={benchActivations} selected="pectoralis-major" onSelect={vi.fn()} />);
 
