@@ -35,7 +35,7 @@ def build_character(config, output):
     source_body = None
     if config.get('preserve_source_form'):
         with bpy.data.libraries.load(config['material_source'], link=False) as (available, requested):
-            requested.objects = ['Athlete01', 'SportsTank', 'SportsShorts']
+            requested.objects = ['Athlete01', 'SportsTank', 'SportsShorts'] + (['Athlete01.shoes01', 'Athlete01.low-poly'] if config.get('preserve_presentation') else [])
         source_body = requested.objects[0]
         assert len(source_body.data.vertices) == len(body.data.vertices)
         def surface_coords(obj):
@@ -82,7 +82,7 @@ def build_character(config, output):
         layer = bm.verts.layers.deform.active
         bmesh.ops.delete(bm, geom=[v for v in bm.verts if v[layer].get(visible, 0) < .5], context='VERTS')
         bm.to_mesh(donor.data); bm.free()
-        for garment in requested.objects[1:]:
+        for garment in (requested.objects[1:4] if config.get('preserve_presentation') else requested.objects[1:]):
             bpy.context.collection.objects.link(garment)
             garment.parent = None
             garment.vertex_groups.clear()
@@ -107,6 +107,18 @@ def build_character(config, output):
         coverage.add(ids, 1, 'REPLACE')
         mask = body.modifiers.new('Sportswear coverage only', 'MASK')
         mask.vertex_group = coverage.name; mask.invert_vertex_group = True
+        if config.get('preserve_presentation'):
+            shoe = requested.objects[3]; shoe.name = 'Trophe_R2_Trainers'
+            old_eye = requested.objects[4]
+            eye = bpy.data.objects[next(a['object'] for a in assets if a['role']=='Eyes')]
+            eye.data.materials.clear()
+            for mat in old_eye.data.materials: eye.data.materials.append(mat)
+            bpy.data.objects.remove(old_eye, do_unlink=True)
+            original = source_body.vertex_groups['TrainerCoverage']
+            foot = body.vertex_groups.new(name='TrainerCoverage')
+            ids = [v.index for v in source_body.data.vertices if any(g.group==original.index and g.weight>.5 for g in v.groups)]
+            foot.add(ids,1,'REPLACE')
+            mask = body.modifiers.new('Trainer foot coverage','MASK');mask.vertex_group=foot.name;mask.invert_vertex_group=True
         bpy.data.objects.remove(source_body, do_unlink=True)
     assert any(m.type == 'ARMATURE' and m.object == rig for m in body.modifiers)
     assert len([b for b in rig.data.bones if b.use_deform]) > 50
@@ -137,7 +149,7 @@ def build_character(config, output):
     weighted = sum(any(body.vertex_groups[g.group].name in deform_names and g.weight > 0 for g in v.groups) for v in body.data.vertices)
     assert weighted > 10000, weighted
     record = {'body': body.name, 'rig': rig.name, 'meta_rig': meta.name, 'vertices': len(body.data.vertices), 'weighted_vertices': weighted,
-              'shape_keys': [k.name for k in body.data.shape_keys.key_blocks], 'core_assets': assets, 'supplied_rig_sources': rig_files,
+              'source_form': {k: body[k] for k in body.keys() if k.startswith('source_form')}, 'modifiers': [{'name':m.name,'type':m.type,'preserve_volume':m.use_deform_preserve_volume if m.type=='ARMATURE' else None} for m in body.modifiers], 'shape_keys': [k.name for k in body.data.shape_keys.key_blocks], 'core_assets': assets, 'supplied_rig_sources': rig_files,
               'import_weights': True, 'generation_method': 'MPFB HumanService.add_builtin_rig + RigService.generate_rigify_rig (includes adjust_children_for_rigify)',
               'preset': config['character'], 'macros_full': macros,
               'bones': {b.name: {'head': list(b.head_local), 'tail': list(b.tail_local), 'deform': b.use_deform} for b in rig.data.bones},
@@ -160,7 +172,12 @@ def main():
     start = time.monotonic()
     sys.path.insert(0, str(Path(__file__).parent))
     import compare_baseline
-    dispatch = {'build_character': build_character, 'compare_baseline': compare_baseline.run}
+    import playback_qa
+    import render_media
+    import localize_contact
+    import contact_fit
+    import shirt_clearance
+    dispatch = {'build_character': build_character, 'compare_baseline': compare_baseline.run, 'playback_qa': playback_qa.run, 'render_media': render_media.run, 'localize_contact': localize_contact.run, 'contact_fit': contact_fit.run, 'shirt_clearance': shirt_clearance.run}
     result = dispatch[config['stage']](config, output)
     write_json(output / 'result.json', {'job_id': config['id'], 'stage': config['stage'], 'created_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
         'elapsed_seconds': time.monotonic() - start, 'blender': bpy.app.version_string, 'blender_build': bpy.app.build_hash.decode(),

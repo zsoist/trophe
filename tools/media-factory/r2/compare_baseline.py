@@ -83,7 +83,7 @@ def run(config,output):
     cam=studio(scene)
     base_checks=[]
     import surface_qa
-    for pose in source_poses:
+    for pose in (source_poses if config.get('check_baseline',True) or config.get('render_images',True) else []):
         for bone in old.pose.bones:bone.matrix=pose['bones'][bone.name];bpy.context.view_layer.update()
         for prop in props:
             prop.hide_render=pose['name'] in {'shoulder','shallow_bend'}
@@ -117,8 +117,10 @@ def run(config,output):
     prop_objects=[]
     for record in prop_records:
         obj=bpy.data.objects.new(record['name'],record['mesh']);scene.collection.objects.link(obj);prop_objects.append((obj,record['side']))
-    cam=studio(scene);records=[]
+    cam=studio(scene);records=[];anchors={};previous_rotations={}
+    scene.render.fps=30;scene.frame_start=1;scene.frame_end=180
     for pose in source_poses:
+        if config.get('animate'):scene.frame_set(pose['frame'])
         for bone in rig.pose.bones:bone.matrix_basis=Matrix.Identity(4)
         bpy.context.view_layer.update()
         if pose['name']=='shallow_bend':
@@ -135,14 +137,47 @@ def run(config,output):
             newhand=rig.pose.bones['hand_fk.'+side.upper()]
             newdelta=newhand.matrix@newhand.bone.matrix_local.inverted()
             olddelta=pose['bones']['hand_'+side]@oldrest['hand_'+side].inverted()
-            obj.matrix_world=newdelta@olddelta.inverted()@pose['props'][obj.name]
-            handframes[side]=newdelta@olddelta.inverted()@pose['handles'][side]
+            desired=newdelta@olddelta.inverted()@pose['props'][obj.name]
+            handle=newdelta@olddelta.inverted()@pose['handles'][side]
+            if config.get('animate'):
+                if side not in anchors:
+                    anchor=bpy.data.objects.new('R2_Grip_'+side,None);scene.collection.objects.link(anchor)
+                    anchor.parent=rig;anchor.parent_type='BONE';anchor.parent_bone=newhand.name
+                    bpy.context.view_layer.update();anchor.matrix_world=handle;bpy.context.view_layer.update()
+                    anchors[side]=anchor
+                if obj.parent is None:
+                    obj.parent=anchors[side];obj.matrix_parent_inverse=Matrix.Identity(4)
+                    bpy.context.view_layer.update();obj.matrix_world=desired
+                bpy.context.view_layer.update();handframes[side]=anchors[side].matrix_world.copy()
+            else:
+                obj.matrix_world=desired;handframes[side]=handle
         bpy.context.view_layer.update()
+        if config.get('animate'):
+            for name in set(mapping.values())|{'torso'}:
+                bone=rig.pose.bones[name]
+                channel='rotation_quaternion' if bone.rotation_mode=='QUATERNION' else 'rotation_euler'
+                rotation=getattr(bone,channel)
+                if name in previous_rotations:
+                    if channel=='rotation_quaternion':
+                        if rotation.dot(previous_rotations[name])<0:rotation.negate()
+                    else:rotation.make_compatible(previous_rotations[name])
+                previous_rotations[name]=rotation.copy()
+                for prop in ['location',channel,'scale']:bone.keyframe_insert(prop,frame=pose['frame'],group=name)
         landmarks={n:{'source':list(pose['bones'][n].translation),'target':list(rig.pose.bones[v].head),'distance_m':(pose['bones'][n].translation-rig.pose.bones[v].head).length} for n,v in mapping.items() if n in pose['bones'] and v in rig.pose.bones}
-        records.append({'pose':pose['name'],'source_frame':pose['frame'],'landmarks':landmarks,'contact':contact_check(body,handframes) if handframes else None,'regions':surface_qa.check(body,config['skin_regions']) if config.get('skin_regions') else None,'controls_basis':{b.name:[list(row) for row in b.matrix_basis] for b in rig.pose.bones if not b.bone.use_deform and not b.name.startswith(('MCH-','ORG-'))},'handle_frames':{side:[list(row) for row in m] for side,m in handframes.items()}})
+        records.append({'pose':pose['name'],'source_frame':pose['frame'],'landmarks':landmarks,'contact':contact_check(body,handframes) if handframes else None,'regions':surface_qa.check(body,config['skin_regions']) if config.get('skin_regions') else None,'controls_basis':{b.name:[list(row) for row in b.matrix_basis] for b in rig.pose.bones if b.name in set(mapping.values())|{'torso'}},'handle_frames':{side:[list(row) for row in m] for side,m in handframes.items()}})
         render(scene,cam,output,'supported-'+pose['name'])
         if pose['name'] in {'relaxed','mid','peak'}:render(scene,cam,output,'supported-arm-'+pose['name'],True)
-    scene.frame_set(1);bpy.ops.wm.save_as_mainfile(filepath=str(output/'comparison.blend'))
+    if config.get('animate'):
+        action=rig.animation_data.action
+        for layer in action.layers:
+            for strip in layer.strips:
+                for bag in strip.channelbags:
+                    for curve in bag.fcurves:
+                        curve.modifiers.new('CYCLES')
+                        for key in curve.keyframe_points:
+                            key.interpolation='BEZIER';key.handle_left_type='AUTO_CLAMPED';key.handle_right_type='AUTO_CLAMPED'
+        (output/'contact-spec.json').write_text(json.dumps({'exercise':'standing bilateral fixed-supinated dumbbell curl','duration_s':6,'fps':30,'render_frames':[1,180],'closure_frame':181,'authority':'Rigify hand_fk controls -> bone-parented R2_Grip full transform -> rigid equipment meshes; native finger controls inherit hand, no feedback cycle','handle_radius_m':.014,'tolerance_m':.001,'intended_contact_phases':'entire repetition','method':'controlled kinematic grip; evaluated geometric checks, no simulated friction/pressure','anchors':{side:{'bone':a.parent_bone,'matrix_basis':[list(row) for row in a.matrix_basis]} for side,a in anchors.items()},'human_reviews':'pending'},indent=2))
+    scene.frame_set(1);bpy.context.view_layer.update();bpy.ops.wm.save_as_mainfile(filepath=str(output/'comparison.blend'))
     (output/'comparison.json').write_text(json.dumps({'method':'Complete MPFB supplied-weight Rigify; parent-first rest-relative FK adapter, no automatic weights or new smoothing','poses':records,'base_surface':base_checks,'contact':'retargeted grip intent and complete prop transforms; evaluated surface contact not yet certified','human_reviews':'pending'},indent=2))
     return {'native_stills':16 if config.get('render_images',True) else 0,'poses':len(source_poses),'geometry_gate':'pending visible review and evaluated surface checks'}
 
