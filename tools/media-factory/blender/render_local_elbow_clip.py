@@ -1,0 +1,33 @@
+import os
+import bpy, json, time, hashlib
+from pathlib import Path
+from mathutils import Vector
+root = Path(os.environ['TROPHE_PROGRAM_ROOT'])
+out = root / 'factory-work/evidence/visual-02/elbow-local-native-01'
+source = out / 'curl.blend'
+bpy.ops.wm.open_mainfile(filepath=str(source))
+s = bpy.context.scene
+s.render.engine = 'CYCLES'
+s.cycles.device = 'CPU'
+s.cycles.samples = 8
+s.cycles.use_denoising = True
+s.render.threads_mode = 'FIXED'
+s.render.threads = 2
+s.render.resolution_x = 384
+s.render.resolution_y = 480
+s.render.resolution_percentage = 100
+s.frame_start = 1
+s.frame_end = 180
+s.render.fps = 30
+s.camera.location = (3, -0.1, 1.25)
+s.camera.rotation_euler = (Vector((0, -0.12, 1.15)) - s.camera.location).to_track_quat('-Z', 'Y').to_euler()
+s.camera.data.ortho_scale = 1.18
+s.render.image_settings.media_type = 'VIDEO'
+s.render.ffmpeg.format = 'MPEG4'
+s.render.ffmpeg.codec = 'H264'
+s.render.ffmpeg.constant_rate_factor = 'HIGH'
+s.render.filepath = str(out / 'local-side.mp4')
+start = time.monotonic()
+bpy.ops.render.render(animation=True)
+(out / 'clip-result.json').write_text(json.dumps({'source_sha256': hashlib.sha256(source.read_bytes()).hexdigest(), 'recipe_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(), 'backend': 'Cycles CPU2threads8samples', 'width': 384, 'height': 480, 'fps': 30, 'frames': 180, 'duration': 6, 'elapsed_seconds': time.monotonic() - start, 'purpose': 'private temporal elbow/wrist/hand diagnostic; camera fixed, original amplitude retained', 'human_reviews': 'pending', 'script_exit': 0}, indent=2))
+print('TEMPORAL_SIDE_COMPLETE')
