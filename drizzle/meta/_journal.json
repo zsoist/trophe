@@ -596,6 +596,13 @@
       "when": 1788526800000,
       "tag": "0084_owner_scoped_live_session_reconciliation",
       "breakpoints": true
+    },
+    {
+      "idx": 85,
+      "version": "7",
+      "when": 1788625788738,
+      "tag": "0085_revoke_workout_table_truncate",
+      "breakpoints": true
     }
   ]
 }
