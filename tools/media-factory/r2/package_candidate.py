@@ -53,6 +53,9 @@ def run(config):
     with Image.open(poster) as im:assert im.format=='WEBP' and im.size==(960,540);im.load()
     assert poster.stat().st_size<150000
     vault.mkdir();shutil.copy2(master,vault/'curl.blend')
+    master_job=master.parent.parent;master_recipe=vault/'master-recipe';master_recipe.mkdir()
+    for file in list(master_job.glob('*.py'))+[master_job/'config.json',master_job/'terminal.json',master_job/'output/result.json']:
+        shutil.copy2(file,master_recipe/file.name)
     recipe=json.loads((source/'config.json').read_text());normalized={k:v for k,v in recipe.items() if k not in {'id','animation_source'}}
     fingerprint={'master_sha256':sha(master),'render_recipe':normalized,'modules':result['recipe_modules'],'blender':result['blender'],'blender_build':result['blender_build'],'mpfb':'2.0.17','sources':{Path(v).name:sha(v) for v in config['source_records']}}
     for file in source.glob('*.py'):shutil.copy2(file,vault/file.name)
@@ -63,6 +66,7 @@ def run(config):
     now=datetime.datetime.now(datetime.timezone.utc).isoformat()
     evidence={'created_at':now,'source_master':str(master),'source_sha256':sha(master),'render_job':str(source),'render_result_sha256':sha(source/'output/result.json'),'code_checkpoint':config['code_checkpoint'],'exact_executed_modules':result['recipe_modules'],'fingerprint':fingerprint,'playback_qa':{'path':config['playback_qa'],'sha256':sha(config['playback_qa'])},'triangle_qa':{'path':config['contact_qa'],'sha256':sha(config['contact_qa'])},'binary_probe':probe,'decoded_frames':180,'distinct_frames':180,'technical_scope':'file, common elbow/wrist regions, handle tracking, feet, actual shirt/body/self and disk/body intersections through181states; not pressure/friction or human exercise technique','cloth_representation':'fitted double-sided textile surface; no volumetric thickness or simulation claimed','human_reviews':'pending'}
     evidence['coverage_qa']=coverage_records
+    evidence['master_recipe']={'path':str(master_recipe),'config_sha256':sha(master_recipe/'config.json'),'result_sha256':sha(master_recipe/'result.json')}
     evidence['technical_scope']+='; bounded source01 missing-skin regression and restored common surface comparison; visible armhole renders inspected separately'
     (vault/'source-record.json').write_text(json.dumps(evidence,indent=2));(vault/'decoded-frames.md5').write_text(decoded)
     staging=root/'factory-work/r2/staging'/release;(staging/'assets/curl').mkdir(parents=True)
