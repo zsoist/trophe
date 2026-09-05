@@ -177,7 +177,9 @@ def main():
     import localize_contact
     import contact_fit
     import shirt_clearance
-    dispatch = {'build_character': build_character, 'compare_baseline': compare_baseline.run, 'playback_qa': playback_qa.run, 'render_media': render_media.run, 'localize_contact': localize_contact.run, 'contact_fit': contact_fit.run, 'shirt_clearance': shirt_clearance.run}
+    import garment_binding
+    import garment_pattern
+    dispatch = {'build_character': build_character, 'compare_baseline': compare_baseline.run, 'playback_qa': playback_qa.run, 'render_media': render_media.run, 'localize_contact': localize_contact.run, 'contact_fit': contact_fit.run, 'shirt_clearance': shirt_clearance.run, 'garment_binding': garment_binding.run, 'garment_pattern': garment_pattern.run}
     result = dispatch[config['stage']](config, output)
     write_json(output / 'result.json', {'job_id': config['id'], 'stage': config['stage'], 'created_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
         'elapsed_seconds': time.monotonic() - start, 'blender': bpy.app.version_string, 'blender_build': bpy.app.build_hash.decode(),
