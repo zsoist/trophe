@@ -534,3 +534,162 @@
     display: none;
   }
 }
+
+.anatomy-category-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+  margin: 16px 0;
+}
+.anatomy-category-grid button {
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 9px;
+  min-height: 82px;
+  padding: 13px 6px;
+  font-size: 11px;
+  text-align: center;
+  background: var(--bg-surface);
+  border: 1px solid transparent;
+}
+.anatomy-category-grid button svg {
+  color: var(--atlas-muted);
+}
+.anatomy-category-grid button[aria-pressed="true"] {
+  border-color: var(--accent);
+}
+.anatomy-category-grid button[aria-pressed="true"] svg {
+  color: var(--accent);
+}
+.anatomy-group-list {
+  padding-block: 0 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.anatomy-group-list p {
+  width: 100%;
+  margin: 0 0 5px;
+  color: var(--atlas-muted);
+  font-size: 12px;
+}
+.anatomy-group-list button {
+  border: 1px solid var(--atlas-rail);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+.anatomy-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+.anatomy-presets button {
+  font-size: 11px;
+  background: var(--bg-surface);
+  padding-inline: 8px;
+}
+.anatomy-full-catalogue {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 44px;
+  font-size: 11px;
+  color: var(--atlas-muted);
+  cursor: pointer;
+}
+.anatomy-full-catalogue input {
+  accent-color: var(--accent);
+  width: 16px;
+  height: 16px;
+}
+.anatomy-browse-start {
+  color: var(--atlas-muted);
+  padding: 8px 0;
+}
+.anatomy-pick-card {
+  position: absolute;
+  bottom: 75px;
+  left: 20px;
+  right: 20px;
+  max-width: 360px;
+  z-index: 2;
+  padding: 14px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg-primary) 90%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 12px 32px #0003;
+  animation: atlas-card-enter 150ms ease-out;
+}
+.anatomy-pick-title {
+  display: flex;
+  gap: 8px;
+  align-items: start;
+  justify-content: space-between;
+}
+.anatomy-pick-title h2 {
+  font-size: 18px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.anatomy-pick-title > button {
+  flex-shrink: 0;
+  width: 44px;
+  padding: 0;
+  margin: -6px -6px 0 0;
+}
+.anatomy-pick-card p {
+  font-size: 11px;
+  margin: 3px 0;
+  color: var(--atlas-muted);
+}
+.anatomy-pick-title p {
+  font-size: 10px;
+  margin: 0 0 5px;
+}
+.anatomy-pick-card .anatomy-actions {
+  margin-top: 8px;
+}
+.anatomy-pick-card .anatomy-actions button {
+  font-size: 11px;
+}
+.anatomy-explorer :is(button, .anatomy-layer) {
+  transition:
+    background-color 120ms ease-out,
+    border-color 120ms ease-out;
+}
+@keyframes atlas-card-enter {
+  from {
+    opacity: 0.7;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .anatomy-explorer * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+.anatomy-pick-card {
+  max-width: 300px;
+}
+.anatomy-pick-card[data-edge="top"] {
+  top: 80px;
+  bottom: auto;
+}
+.anatomy-pick-card .anatomy-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.anatomy-pick-card .anatomy-actions button {
+  padding: 6px 4px;
+  gap: 5px;
+  white-space: nowrap;
+}

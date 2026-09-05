@@ -30,6 +30,7 @@ import {
   selectionElements,
   visibleSelection,
 } from "@/lib/anatomy/selection";
+import { BROWSE_GROUPS, browseConcepts } from "@/lib/anatomy/browse";
 import { fitsAtlasMemory } from "@/lib/anatomy/budget";
 import { mappingForMuscle } from "@/lib/anatomy/mapping";
 import { muscleLabel, type AnatomyMuscleId } from "@/lib/workout/anatomy";
@@ -71,6 +72,10 @@ export default function AnatomyExplorer({
   const [catalogueSystem, setCatalogueSystem] = useState("");
   const [panel, setPanel] = useState<"layers" | "search">("layers");
   const [catalogueSide, setCatalogueSide] = useState("");
+  const [browseGroup, setBrowseGroup] = useState("");
+  const [fullCatalogue, setFullCatalogue] = useState(false);
+  const [cardEdge, setCardEdge] = useState<"top" | "bottom">("top");
+  const stage = useRef<HTMLElement>(null);
   const [layerLimited, setLayerLimited] = useState(false);
   const openButton = useRef<HTMLButtonElement>(null);
   const focusOnClose = useRef(false);
@@ -113,26 +118,42 @@ export default function AnatomyExplorer({
   const matches = useMemo(
     () =>
       manifest
-        ? Object.values(manifest.concepts)
-            .filter(
-              (c) =>
-                (!catalogueSystem ||
-                  c.elements.some(
-                    (id) => manifest.elements[id]?.system === catalogueSystem,
-                  )) &&
-                (!catalogueSide || c.laterality === catalogueSide) &&
-                (!query ||
-                  `${c.id} ${c.source_names.join(" ")}`
-                    .toLowerCase()
-                    .includes(query.trim().toLowerCase())),
-            )
-            .sort((a, b) => a.source_names[0].localeCompare(b.source_names[0]))
+        ? browseConcepts(manifest, {
+            query,
+            system: catalogueSystem,
+            side: catalogueSide,
+            group: browseGroup,
+            fullCatalogue,
+          })
         : [],
-    [manifest, query, catalogueSystem, catalogueSide],
+    [
+      manifest,
+      query,
+      catalogueSystem,
+      catalogueSide,
+      browseGroup,
+      fullCatalogue,
+    ],
+  );
+  const browsing = !!(query.trim() || catalogueSystem || fullCatalogue);
+  const systemCounts = useMemo(
+    () =>
+      Object.fromEntries(
+        SYSTEMS.map((system) => [
+          system,
+          manifest
+            ? Object.values(manifest.elements).filter(
+                (e) => e.system === system && e.availability === "available",
+              ).length
+            : 0,
+        ]),
+      ),
+    [manifest],
   );
   const concept = manifest && selected ? manifest.concepts[selected] : null;
   const onPick = useCallback(
-    (id: string) => {
+    (id: string, position?: { x: number; y: number }) => {
+      setCardEdge(position && position.y < 0.5 ? "bottom" : "top");
       if (manifest) setSelected(conceptForElement(manifest, id));
     },
     [manifest],
@@ -182,7 +203,11 @@ export default function AnatomyExplorer({
         </section>
       )}
       <div className="anatomy-workspace">
-        <section className="anatomy-stage" aria-label={t("anatomy.viewer")}>
+        <section
+          ref={stage}
+          className="anatomy-stage"
+          aria-label={t("anatomy.viewer")}
+        >
           <div
             className="anatomy-viewbar"
             role="group"
@@ -285,6 +310,68 @@ export default function AnatomyExplorer({
               {t("anatomy.retry")}
             </button>
           )}
+          {concept && show3d && !error && (
+            <section
+              className="anatomy-pick-card"
+              data-edge={cardEdge}
+              aria-label={t("anatomy.structure_card")}
+            >
+              <div className="anatomy-pick-title">
+                <div>
+                  <p>
+                    {t("anatomy.source_english")} · {concept.id}
+                  </p>
+                  <h2>{concept.source_names[0]}</h2>
+                </div>
+                <button
+                  aria-label={t("anatomy.dismiss_selection")}
+                  onClick={() => {
+                    setSelected(null);
+                    setIsolated(false);
+                  }}
+                >
+                  <X size={18} aria-hidden="true" />
+                </button>
+              </div>
+              <p>
+                {t(`anatomy.${concept.laterality}`)} ·{" "}
+                {t(`anatomy.${concept.availability}`)}
+              </p>
+              {parents
+                .filter((p) => p.type === "partof")
+                .slice(0, 2)
+                .map((p) => (
+                  <p key={p.parent}>
+                    {t("anatomy.part_of")}{" "}
+                    <strong>
+                      {manifest!.concepts[p.parent]?.source_names[0] ??
+                        p.parent}
+                    </strong>
+                  </p>
+                ))}
+              {selectionVisibility?.hidden.length !== 0 && (
+                <p role="status">{t("anatomy.hidden_target")}</p>
+              )}
+              <div className="anatomy-actions">
+                <button
+                  aria-pressed={isolated}
+                  onClick={() => setIsolated((v) => !v)}
+                >
+                  <Focus size={16} aria-hidden="true" />
+                  {t("anatomy.isolate")}
+                </button>
+                <button
+                  onClick={() => {
+                    setSelected(null);
+                    setIsolated(false);
+                  }}
+                >
+                  <Scan size={16} aria-hidden="true" />
+                  {t("anatomy.whole_body")}
+                </button>
+              </div>
+            </section>
+          )}
           {show3d && (
             <div className="anatomy-stage-footer">
               <p
@@ -362,6 +449,36 @@ export default function AnatomyExplorer({
               </span>
             </div>
             <p className="anatomy-panel-hint">{t("anatomy.layers_hint")}</p>
+            <div
+              className="anatomy-presets"
+              role="group"
+              aria-label={t("anatomy.presets")}
+            >
+              <button
+                onClick={() => {
+                  changeSystems(["skeleton"]);
+                  setHidden([]);
+                  setIsolated(false);
+                }}
+              >
+                <Bone size={16} aria-hidden="true" />
+                {t("anatomy.short_skeleton")}
+              </button>
+              <button
+                onClick={() => {
+                  changeSystems(["skeleton", "muscles"]);
+                  setHidden([]);
+                  setIsolated(false);
+                }}
+              >
+                <Dumbbell size={16} aria-hidden="true" />
+                {t("anatomy.movement_layers")}
+              </button>
+              <button onClick={() => changeSystems([])}>
+                <EyeOff size={16} aria-hidden="true" />
+                {t("anatomy.hide_all")}
+              </button>
+            </div>
             <fieldset>
               <legend className="anatomy-sr-only">
                 {t("anatomy.systems")}
@@ -380,15 +497,7 @@ export default function AnatomyExplorer({
                       aria-hidden="true"
                     />
                     <span>{t(`anatomy.short_${system}`)}</span>
-                    <small>
-                      {manifest
-                        ? Object.values(manifest.elements).filter(
-                            (e) =>
-                              e.system === system &&
-                              e.availability === "available",
-                          ).length
-                        : ""}
-                    </small>
+                    <small>{systemCounts[system]}</small>
                     <input
                       aria-label={t(`anatomy.${system}`)}
                       type="checkbox"
@@ -467,7 +576,12 @@ export default function AnatomyExplorer({
                   {parents.map((p) => (
                     <li key={`${p.type}-${p.parent}`}>
                       <button onClick={() => setSelected(p.parent)}>
-                        {p.type === "isa" ? "IS-A" : "PART-OF"} ·{" "}
+                        {t(
+                          p.type === "isa"
+                            ? "anatomy.kind_of"
+                            : "anatomy.part_of",
+                        )}{" "}
+                        ·{" "}
                         {manifest!.concepts[p.parent]?.source_names[0] ??
                           p.parent}
                       </button>
@@ -487,6 +601,7 @@ export default function AnatomyExplorer({
               <Search size={18} aria-hidden="true" />
               <h2>{t("anatomy.catalogue")}</h2>
             </div>
+            <p className="anatomy-panel-hint">{t("anatomy.browse_hint")}</p>
             <label className="anatomy-search">
               <span className="anatomy-sr-only">{t("anatomy.search")}</span>
               <Search size={18} aria-hidden="true" />
@@ -498,74 +613,150 @@ export default function AnatomyExplorer({
                 maxLength={100}
               />
             </label>
-            <div className="anatomy-filters">
-              <label>
-                <span>{t("anatomy.group_filter")}</span>
-                <select
-                  value={catalogueSystem}
-                  onChange={(e) => setCatalogueSystem(e.target.value)}
-                >
-                  <option value="">{t("anatomy.all_systems")}</option>
-                  {SYSTEMS.map((system) => (
-                    <option key={system} value={system}>
-                      {t(`anatomy.short_${system}`)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                <span>{t("anatomy.side_filter")}</span>
-                <select
-                  value={catalogueSide}
-                  onChange={(e) => setCatalogueSide(e.target.value)}
-                >
-                  <option value="">{t("anatomy.all_sides")}</option>
-                  {["left", "right", "unspecified"].map((side) => (
-                    <option key={side} value={side}>
-                      {t(`anatomy.${side}`)}
-                    </option>
-                  ))}
-                </select>
-              </label>
+            <div
+              className="anatomy-category-grid"
+              role="group"
+              aria-label={t("anatomy.group_filter")}
+            >
+              {SYSTEMS.map((system, index) => {
+                const CategoryIcon = SYSTEM_ICONS[index];
+                return (
+                  <button
+                    key={system}
+                    aria-pressed={catalogueSystem === system}
+                    onClick={() => {
+                      setCatalogueSystem(
+                        catalogueSystem === system ? "" : system,
+                      );
+                      setBrowseGroup("");
+                    }}
+                  >
+                    <CategoryIcon
+                      size={22}
+                      strokeWidth={1.6}
+                      aria-hidden="true"
+                    />
+                    <span>{t(`anatomy.short_${system}`)}</span>
+                  </button>
+                );
+              })}
             </div>
-            <p className="anatomy-result-count" role="status">
-              {matches.length} · {t("anatomy.results")}
-            </p>
-            {matches.length === 0 && manifest && (
-              <div className="anatomy-empty">
-                <Search size={24} aria-hidden="true" />
-                <p>{t("anatomy.no_results")}</p>
+            {BROWSE_GROUPS.some((g) => g.system === catalogueSystem) && (
+              <div
+                className="anatomy-group-list"
+                role="group"
+                aria-label={t("anatomy.groups")}
+              >
+                <p>{t("anatomy.groups")}</p>
+                {BROWSE_GROUPS.filter((g) => g.system === catalogueSystem).map(
+                  (group) => (
+                    <button
+                      key={group.id}
+                      aria-pressed={browseGroup === group.id}
+                      onClick={() =>
+                        setBrowseGroup(browseGroup === group.id ? "" : group.id)
+                      }
+                    >
+                      {t(`anatomy.group_${group.id}`)}
+                    </button>
+                  ),
+                )}
+              </div>
+            )}
+            {browsing && (
+              <div className="anatomy-filters">
+                <label>
+                  <span>{t("anatomy.side_filter")}</span>
+                  <select
+                    value={catalogueSide}
+                    onChange={(e) => setCatalogueSide(e.target.value)}
+                  >
+                    <option value="">{t("anatomy.all_sides")}</option>
+                    {["left", "right", "unspecified"].map((side) => (
+                      <option key={side} value={side}>
+                        {t(`anatomy.${side}`)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <button
                   onClick={() => {
                     setQuery("");
                     setCatalogueSystem("");
                     setCatalogueSide("");
+                    setBrowseGroup("");
+                    setFullCatalogue(false);
                   }}
                 >
+                  <RotateCcw size={15} aria-hidden="true" />
                   {t("anatomy.clear_filters")}
                 </button>
               </div>
             )}
-            <ul className="anatomy-results">
-              {matches.slice(0, 100).map((c) => (
-                <li key={c.id}>
-                  <button
-                    aria-pressed={selected === c.id}
-                    onClick={() => setSelected(c.id)}
-                  >
-                    <span className="anatomy-result-name">
-                      {c.source_names[0]}
-                      <ArrowUpRight size={16} aria-hidden="true" />
-                    </span>
-                    <small>
-                      {c.id} · {t(`anatomy.${c.laterality}`)}
-                    </small>
-                  </button>
-                </li>
-              ))}
-            </ul>
-            {matches.length > 100 && (
-              <p className="anatomy-panel-hint">{t("anatomy.refine")}</p>
+            {!browsing && (
+              <p className="anatomy-browse-start">
+                {t("anatomy.browse_start")}
+              </p>
+            )}
+            <label className="anatomy-full-catalogue">
+              <input
+                type="checkbox"
+                checked={fullCatalogue}
+                onChange={(e) => setFullCatalogue(e.target.checked)}
+              />
+              {t("anatomy.full_catalogue")}
+            </label>
+            {browsing && (
+              <>
+                <p className="anatomy-result-count" role="status">
+                  {matches.length} · {t("anatomy.results")}
+                </p>
+                {matches.length === 0 && manifest && (
+                  <div className="anatomy-empty">
+                    <Search size={24} aria-hidden="true" />
+                    <p>{t("anatomy.no_results")}</p>
+                    <button
+                      onClick={() => {
+                        setQuery("");
+                        setCatalogueSystem("");
+                        setCatalogueSide("");
+                        setBrowseGroup("");
+                      }}
+                    >
+                      {t("anatomy.clear_filters")}
+                    </button>
+                  </div>
+                )}
+                <ul className="anatomy-results">
+                  {matches.slice(0, 100).map((c) => (
+                    <li key={c.id}>
+                      <button
+                        aria-pressed={selected === c.id}
+                        onClick={() => {
+                          setSelected(c.id);
+                          setCardEdge("top");
+                          setShow3d(true);
+                          stage.current?.scrollIntoView({
+                            block: "start",
+                            behavior: "instant",
+                          });
+                        }}
+                      >
+                        <span className="anatomy-result-name">
+                          {c.source_names[0]}
+                          <ArrowUpRight size={16} aria-hidden="true" />
+                        </span>
+                        <small>
+                          {c.id} · {t(`anatomy.${c.laterality}`)}
+                        </small>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                {matches.length > 100 && (
+                  <p className="anatomy-panel-hint">{t("anatomy.refine")}</p>
+                )}
+              </>
             )}
           </section>
         </aside>

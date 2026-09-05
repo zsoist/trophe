@@ -26,7 +26,7 @@ export interface CanvasProps {
   reset: number;
   zoom: number;
   interactive: boolean;
-  onPick: (id: string) => void;
+  onPick: (id: string, position?: { x: number; y: number }) => void;
   onError: (reason: string) => void;
   onProgress: (loaded: number, total: number) => void;
   label: string;
@@ -351,7 +351,10 @@ export default function AtlasCanvas(props: CanvasProps) {
           hit.object.userData.elementId ??
           hit.object.parent?.userData.elementId ??
           hit.object.name;
-        latest.current.onPick(id);
+        latest.current.onPick(id, {
+          x: (e.clientX - rect.left) / rect.width,
+          y: (e.clientY - rect.top) / rect.height,
+        });
       }
     };
     const lost = (e: Event) => {

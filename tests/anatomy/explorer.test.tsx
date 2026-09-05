@@ -26,6 +26,10 @@ vi.mock("../../lib/anatomy/validation", () => ({
 }));
 import AnatomyExplorer from "../../components/anatomy/AnatomyExplorer";
 import { I18nProvider } from "../../lib/i18n";
+Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+  configurable: true,
+  value: vi.fn(),
+});
 afterEach(cleanup);
 const open = () =>
   render(
@@ -53,10 +57,10 @@ it("picking and search select the same source identity and explain hidden layers
   open();
   fireEvent.click(await screen.findByRole("button", { name: "Open 3D view" }));
   fireEvent.click(screen.getByRole("button", { name: "Pick left femur" }));
-  expect(screen.getByRole("heading", { name: "left femur" })).toBeTruthy();
+  expect(screen.getAllByRole("heading", { name: "left femur" })).toBeTruthy();
   fireEvent.click(screen.getByRole("checkbox", { name: /Skeleton/ }));
   expect(
-    screen.getByText(/Some or all of this selection is hidden/),
+    screen.getAllByText(/Some or all of this selection is hidden/),
   ).toBeTruthy();
   fireEvent.change(screen.getByRole("searchbox"), {
     target: { value: "FMA24475" },
@@ -67,7 +71,7 @@ it("picking and search select the same source identity and explain hidden layers
     ).toBeTruthy(),
   );
   fireEvent.click(screen.getByRole("button", { name: /left femur FMA24475/ }));
-  expect(screen.getByRole("heading", { name: "left femur" })).toBeTruthy();
+  expect(screen.getAllByRole("heading", { name: "left femur" })).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Reveal" }));
   expect(
     screen.queryByText(/Some or all of this selection is hidden/),
@@ -83,16 +87,12 @@ it("filters catalogue independently of visible layers and clears an empty combin
   fireEvent.change(screen.getByRole("searchbox"), {
     target: { value: "FMA24475" },
   });
-  fireEvent.change(screen.getByRole("combobox", { name: "System" }), {
-    target: { value: "muscles" },
-  });
+  fireEvent.click(screen.getByRole("button", { name: "Muscles" }));
   expect(
     screen.queryByRole("button", { name: /left femur FMA24475/ }),
   ).toBeNull();
   expect(skeleton.checked).toBe(true);
-  fireEvent.change(screen.getByRole("combobox", { name: "System" }), {
-    target: { value: "skeleton" },
-  });
+  fireEvent.click(screen.getAllByRole("button", { name: "Skeleton" }).at(-1)!);
   expect(
     screen.getByRole("button", { name: /left femur FMA24475/ }),
   ).toBeTruthy();
@@ -102,14 +102,28 @@ it("filters catalogue independently of visible layers and clears an empty combin
   expect(
     screen.queryByRole("button", { name: /left femur FMA24475/ }),
   ).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+  fireEvent.click(screen.getAllByRole("button", { name: "Clear filters" })[0]);
   expect((screen.getByRole("searchbox") as HTMLInputElement).value).toBe("");
-  expect(
-    (screen.getByRole("combobox", { name: "System" }) as HTMLSelectElement)
-      .value,
-  ).toBe("");
-  expect(
-    (screen.getByRole("combobox", { name: "Side" }) as HTMLSelectElement).value,
-  ).toBe("");
+
+  expect(screen.queryByRole("combobox", { name: "Side" })).toBeNull();
   expect(skeleton.checked).toBe(true);
+});
+
+it("keeps viewer mounted while browsing and shows source-backed identification on pick", async () => {
+  open();
+  fireEvent.click(await screen.findByRole("button", { name: "Open 3D view" }));
+  const canvas = screen.getByTestId("canvas");
+  fireEvent.click(screen.getByRole("button", { name: "Search" }));
+  expect(screen.getByTestId("canvas")).toBe(canvas);
+  fireEvent.click(screen.getByRole("button", { name: "Pick left femur" }));
+  const card = screen.getByRole("region", {
+    name: "Selected structure in viewer",
+  });
+  expect(card.textContent).toContain("FMA24475");
+  expect(card.textContent).toContain("left femur");
+  fireEvent.click(screen.getByRole("button", { name: "Dismiss selection" }));
+  expect(
+    screen.queryByRole("region", { name: "Selected structure in viewer" }),
+  ).toBeNull();
+  expect(screen.getByTestId("canvas")).toBe(canvas);
 });
