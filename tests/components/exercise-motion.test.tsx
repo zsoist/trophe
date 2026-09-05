@@ -31,6 +31,7 @@ const benchMedia: ExerciseMediaRecord = {
 };
 
 beforeEach(() => {
+  vi.spyOn(document, 'hasFocus').mockReturnValue(true);
   vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({
     matches: false,
     addEventListener: vi.fn(),
@@ -172,4 +173,18 @@ it('offers mobile WebM and does not discard the HD fallback when the mobile sour
   expect(sources).toHaveLength(2); expect(sources[0].getAttribute('media')).toBe('(max-width: 720px)');
   fireEvent.error(sources[0]); expect(screen.getByTestId('exercise-motion-video')).toBe(video);
   fireEvent.error(sources[1]); expect(screen.queryByTestId('exercise-motion-video')).toBeNull();
+});
+
+
+it('does not autoplay when mounted or replaced in an already blurred window', async () => {
+  vi.mocked(document.hasFocus).mockReturnValue(false);
+  const play = vi.mocked(HTMLMediaElement.prototype.play);
+  const view = render(<ExerciseMotion media={benchMedia} alt="First exercise" autoplay />);
+  await waitFor(() => expect(screen.getByTestId('exercise-motion-video')).toBeTruthy());
+  expect(play).not.toHaveBeenCalled();
+  view.rerender(<ExerciseMotion media={{ ...benchMedia, slug: 'replacement', motionSrc: '/workout-v2/motion/replacement.webm' }} alt="Replacement" autoplay />);
+  expect(play).not.toHaveBeenCalled();
+  vi.mocked(document.hasFocus).mockReturnValue(true);
+  fireEvent.focus(window);
+  await waitFor(() => expect(play).toHaveBeenCalledOnce());
 });

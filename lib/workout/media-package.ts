@@ -2,7 +2,7 @@
 import { createHash } from 'node:crypto';
 import { lstat, readFile, readdir, realpath } from 'node:fs/promises';
 import { resolve, join, relative, extname } from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import Ajv2020 from 'ajv/dist/2020';
 import addFormats from 'ajv-formats';
 import sharp from 'sharp';
@@ -91,7 +91,13 @@ async function probeFile(root: string, file: MediaFile, publication: boolean) {
     if (publication) assert(file.bytes <= 4_000_000 && fps >= 29.9 && fps <= 30.1 && duration >= 4 && duration <= 8 && file.upscaled === false && file.native_render === true, 'video publication budget');
     // Admit bounded metadata before decoding. Publication must reach EOF: no -t/-frames cutoff.
     assert(video.width <= 1920 && video.height <= 1080 && fps > 0 && fps <= 60 && duration > 0 && duration <= 8, 'video decode resource cap');
-    execFileSync('ffmpeg', ['-v','error','-xerror','-err_detect','explode','-threads','1','-filter_threads','1','-protocol_whitelist','file','-i',path,...(publication ? [] : ['-t','1']),'-f','null','-'], { timeout: 15000, maxBuffer: 1024 * 1024, stdio: 'pipe' });
+    const decoded = spawnSync('ffmpeg', ['-v','error','-xerror','-err_detect','explode','-threads','1','-filter_threads','1','-protocol_whitelist','file','-i',path,...(publication ? [] : ['-t','1']),'-fps_mode','passthrough','-f','framemd5','-'], { timeout: 15000, maxBuffer: 1024 * 1024, encoding: 'utf8' });
+    // Some ffmpeg versions report corrupt/dropped packets on stderr yet exit 0.
+    assert(!decoded.error && decoded.status === 0 && !decoded.stderr.trim(), 'video full decode failed');
+    if (publication) {
+      const frames = decoded.stdout.split('\n').filter(line => line.trim() && !line.startsWith('#')).length;
+      assert(frames === Math.round(duration * fps), 'video decoded frame count mismatch');
+    }
   }
 }
 export async function validateMediaPackage(directory: string, options: { publication?: boolean; evidence?: PublicationEvidence } = {}): Promise<MediaPackage> {

@@ -23,7 +23,7 @@ function ExerciseMotionPlayer({ media, alt, autoplay = false, className = '', pl
   const { t } = useI18n();
   const [phaseKey, setPhaseKey] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
-  const [focused, setFocused] = useState(true);
+  const [focused, setFocused] = useState(() => typeof document !== 'undefined' && document.hasFocus());
   const videoRef = useRef<HTMLVideoElement>(null);
   const isExactTechnique = (media.tier === 'verified-technique' || (previewOnly && media.tier === 'candidate-preview')) && Boolean(media.motionSrc);
   const [reducedMotion, setReducedMotion] = useState<boolean | null>(null);
