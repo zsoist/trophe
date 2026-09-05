@@ -89,3 +89,34 @@ it('rejects mobile and HD derivatives with different phase timelines', async () 
   asset.files.push(Object.assign({ ...f.file }, { path: 'assets/curl/mobile.webm', role: 'video_mobile', mime_type: 'video/webm', fps: 30, duration_seconds: 2, native_render: true, upscaled: false }));
   await f.save(); await expect(validateMediaPackage(f.root)).rejects.toThrow(/timeline/i);
 });
+
+
+it('rejects publication corruption after a valid first second, but accepts the complete valid clip', async () => {
+  const f = await fixture();
+  const poster = await sharp({ create: { width: 960, height: 540, channels: 3, background: '#808080' } }).png().toBuffer();
+  Object.assign(f.file, { width: 960, height: 540, bytes: poster.length, sha256: hash(poster) });
+  await writeFile(join(f.root, f.file.path), poster);
+  const path = 'assets/synthetic-food/motion.mp4'; const absolute = join(f.root, path);
+  const limits = { timeout: 15000, maxBuffer: 1024 * 1024, stdio: 'pipe' as const };
+  execFileSync('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'color=c=gray:s=1920x1080:r=30:d=4', '-c:v', 'libx264', '-preset', 'ultrafast', '-threads', '1', '-g', '30', '-bf', '0', '-pix_fmt', 'yuv420p', absolute], limits);
+  const valid = await readFile(absolute);
+  const video = Object.assign({ ...f.file }, { path, role: 'video_hd', mime_type: 'video/mp4', width: 1920, height: 1080, bytes: valid.length, sha256: hash(valid), fps: 30, duration_seconds: 4, native_render: true, upscaled: false });
+  const asset = f.manifest.assets[0]; asset.files.push(video);
+  f.manifest.release_status = 'approved'; asset.provenance.redistribution_reviewed = true;
+  const approveSyntheticBytes = async () => {
+    asset.artifact_set_sha256 = artifactSetHash(asset.files);
+    for (const [kind, role] of [['technical', 'agent'], ['visual', 'owner']] as const) Object.assign(asset.reviews[kind], { status: 'passed', reviewer_role: role, reviewer_ref: 'SYNTHETIC-TEST-ONLY', reviewed_at: f.manifest.created_at, artifact_set_sha256: asset.artifact_set_sha256 });
+    await f.save();
+    return JSON.parse(JSON.stringify({ reviews: [asset.reviews.technical, asset.reviews.visual].map(r => ({ ...r, decision_source: 'synthetic fixture only' })), licenses: [{ reference: 'synthetic-fixture', redistribution_allowed: true, artifact_set_sha256: asset.artifact_set_sha256, decision_source: 'synthetic fixture only' }] }));
+  };
+  await expect(validateMediaPackage(f.root, { publication: true, evidence: await approveSyntheticBytes() })).resolves.toBeDefined();
+  const packets = JSON.parse(execFileSync('ffprobe', ['-v', 'error', '-show_packets', '-show_entries', 'packet=pts_time,pos,size', '-of', 'json', absolute], limits).toString()).packets as Array<{ pts_time: string; pos: string; size: string }>;
+  const packet = packets.find(p => Number(p.pts_time) >= 2)!;
+  expect(packet).toBeDefined();
+  const corrupt = Buffer.from(valid);
+  // Invalidate the H264 NAL length in a packet at >= 2 s; retain container/timing.
+  corrupt.writeUInt32BE(0x7fffffff, Number(packet.pos));
+  await writeFile(absolute, corrupt); video.sha256 = hash(corrupt);
+  expect(() => execFileSync('ffmpeg', ['-v', 'error', '-xerror', '-threads', '1', '-i', absolute, '-t', '1', '-f', 'null', '-'], limits)).not.toThrow();
+  await expect(validateMediaPackage(f.root, { publication: true, evidence: await approveSyntheticBytes() })).rejects.toThrow();
+});

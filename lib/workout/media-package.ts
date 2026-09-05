@@ -87,9 +87,11 @@ async function probeFile(root: string, file: MediaFile, publication: boolean) {
     const [num, den] = video.avg_frame_rate.split('/').map(Number); const fps = num / den;
     const duration = Number(probe.format.duration);
     assert(video.width === file.width && video.height === file.height && Math.abs(fps - (file.fps ?? 0)) < 0.05 && Math.abs(duration - (file.duration_seconds ?? 0)) < 0.1, 'video probe metadata mismatch');
-    execFileSync('ffmpeg', ['-v','error','-xerror','-threads','1','-i',path,'-t','1','-f','null','-'], { timeout: 15000, maxBuffer: 1024 * 1024 });
     if (publication) assert(file.width === (file.role === 'video_hd' ? 1920 : 1280) && file.height === (file.role === 'video_hd' ? 1080 : 720), 'video publication dimensions');
     if (publication) assert(file.bytes <= 4_000_000 && fps >= 29.9 && fps <= 30.1 && duration >= 4 && duration <= 8 && file.upscaled === false && file.native_render === true, 'video publication budget');
+    // Admit bounded metadata before decoding. Publication must reach EOF: no -t/-frames cutoff.
+    assert(video.width <= 1920 && video.height <= 1080 && fps > 0 && fps <= 60 && duration > 0 && duration <= 8, 'video decode resource cap');
+    execFileSync('ffmpeg', ['-v','error','-xerror','-err_detect','explode','-threads','1','-filter_threads','1','-protocol_whitelist','file','-i',path,...(publication ? [] : ['-t','1']),'-f','null','-'], { timeout: 15000, maxBuffer: 1024 * 1024, stdio: 'pipe' });
   }
 }
 export async function validateMediaPackage(directory: string, options: { publication?: boolean; evidence?: PublicationEvidence } = {}): Promise<MediaPackage> {
