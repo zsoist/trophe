@@ -131,8 +131,14 @@ def run(config,output):
             band={j for i in rings[-1] for j in adj[i]}-seen;rings.append(band);seen|=band
         for band,weight in zip(rings,[1.,2/3,1/3]):
             if band:group.add(sorted(band),weight,'REPLACE')
-        correction=body.modifiers.new('Bench pose-dependent inner elbow fold','SMOOTH');correction.vertex_group=group.name;correction.factor=0.;correction.iterations=5
-        setup_record['elbow_pose_corrective']={'native_modifier':'SMOOTH','core_source_ids':sorted(core),'feather_rings':[sorted(v) for v in rings[1:]],'iterations':5,'factor_at_top':0,'factor_at_bottom':setup['elbow_pose_smooth'],'meaning':'Local soft-tissue fold response to flexion, not activation or a force simulation; body/hand weights unchanged.'}
+        correction=body.modifiers.new('Bench pose-dependent inner elbow fold','CORRECTIVE_SMOOTH' if setup.get('elbow_native_corrective') else 'SMOOTH');correction.vertex_group=group.name;correction.factor=0.;correction.iterations=5
+        if setup.get('elbow_native_corrective'):
+            correction.rest_source='BIND';correction.smooth_type='LENGTH_WEIGHTED'
+            saved_pose=rig.data.pose_position;rig.data.pose_position='REST';bpy.context.view_layer.update()
+            bpy.ops.object.select_all(action='DESELECT');body.select_set(True);bpy.context.view_layer.objects.active=body
+            bpy.ops.object.correctivesmooth_bind(modifier=correction.name);bpy.context.view_layer.update();assert correction.is_bind
+            rig.data.pose_position=saved_pose;bpy.context.view_layer.update()
+        setup_record['elbow_pose_corrective']={'native_modifier':correction.type,'reference':'Original skeleton REST with active body shape and masks; frame1 factor0 preserves animated initial surface','core_source_ids':sorted(core),'feather_rings':[sorted(v) for v in rings[1:]],'iterations':5,'factor_at_top':0,'factor_at_bottom':setup['elbow_pose_smooth'],'meaning':'Local soft-tissue fold response to flexion, not activation or a force simulation; body/hand weights unchanged.'}
     if setup.get('tank_native_fit'):
         shirt=bpy.data.objects['SportsTank'];group=shirt.vertex_groups.new(name='Bench shoulder textile fit')
         for v in shirt.data.vertices:
