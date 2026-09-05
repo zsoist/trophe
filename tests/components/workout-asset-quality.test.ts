@@ -1,3 +1,4 @@
+import { EXERCISE_MEDIA_REGISTRY } from '@/lib/workout/exercise-media';
 import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import sharp from 'sharp';
@@ -167,7 +168,7 @@ describe('workout V2 asset quality', () => {
       row: 'Seated Cable Row', curl: 'Standing Dumbbell Biceps Curl',
       'triceps-extension': 'Cable Rope Triceps Extension',
     }[slug];
-    expect(resolveWorkoutAsset({ exerciseName })).toEqual(expect.objectContaining({
+    expect(resolveWorkoutAsset({ exerciseName, equipment: EXERCISE_MEDIA_REGISTRY.find(r => r.slug === slug)?.equipment[0] })).toEqual(expect.objectContaining({
       src: `/workout-v2/exercises/${slug}.webp`, kind: 'technique', fit: 'contain',
     }));
   });

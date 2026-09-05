@@ -31,6 +31,7 @@ const benchMedia: ExerciseMediaRecord = {
 };
 
 beforeEach(() => {
+  vi.spyOn(document, 'hasFocus').mockReturnValue(true);
   vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({
     matches: false,
     addEventListener: vi.fn(),
@@ -121,4 +122,69 @@ describe('ExerciseMotion', () => {
     await waitFor(() => expect(pause).toHaveBeenCalledTimes(2));
     Object.defineProperty(document, 'hidden', { configurable: true, value: false });
   });
+});
+
+it('falls back to the poster after a source error and permits an explicit retry', async () => {
+  render(<ExerciseMotion media={benchMedia} alt="Synthetic demonstration" autoplay />);
+  fireEvent.error(screen.getByTestId('exercise-motion-video'));
+  expect(screen.getByRole('img', { name: 'Synthetic demonstration' }).getAttribute('src')).toBe(benchMedia.posterSrc);
+  expect(screen.queryByTestId('exercise-motion-video')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: /play demonstration/i }));
+  await waitFor(() => expect(screen.getByTestId('exercise-motion-video')).toBeTruthy());
+});
+
+it('replaces the video element on exercise change and pauses it on unmount', async () => {
+  const view = render(<ExerciseMotion media={benchMedia} alt="Synthetic demonstration" autoplay />);
+  const oldVideo = screen.getByTestId('exercise-motion-video');
+  view.rerender(<ExerciseMotion media={{ ...benchMedia, slug: 'curl', motionSrc: '/synthetic-curl.mp4', motionType: 'video/mp4' }} alt="Synthetic curl" autoplay />);
+  expect(screen.getByTestId('exercise-motion-video')).not.toBe(oldVideo);
+  const pause = vi.mocked(HTMLMediaElement.prototype.pause); pause.mockClear(); view.unmount();
+  expect(pause).toHaveBeenCalled();
+});
+
+it('does not request metadata before playback and pauses on window blur', async () => {
+  render(<ExerciseMotion media={benchMedia} alt="Synthetic demonstration" autoplay />);
+  expect(screen.getByTestId('exercise-motion-video').getAttribute('preload')).toBe('none');
+  const pause = vi.mocked(HTMLMediaElement.prototype.pause); pause.mockClear();
+  fireEvent(window, new Event('blur'));
+  await waitFor(() => expect(pause).toHaveBeenCalled());
+});
+
+it('shows localized phases from actual video time without changing workout state', () => {
+  render(<ExerciseMotion media={{ ...benchMedia, timedPhases: [{ id: 'setup', startSeconds: 0, endSeconds: 1, labelKey: 'workout.detail_phase_setup' }, { id: 'work', startSeconds: 1, endSeconds: 4, labelKey: 'workout.detail_phase_work' }] }} alt="Synthetic demonstration" />);
+  const video = screen.getByTestId('exercise-motion-video') as HTMLVideoElement;
+  video.currentTime = 2; fireEvent.timeUpdate(video);
+  expect(screen.getByText('Work')).toBeTruthy();
+});
+
+it('observes the replacement video after a source error and retry', async () => {
+  const observe = vi.fn();
+  vi.stubGlobal('IntersectionObserver', class { disconnect() {} observe(element: Element) { observe(element); } });
+  render(<ExerciseMotion media={benchMedia} alt="Synthetic demonstration" autoplay />);
+  const first = screen.getByTestId('exercise-motion-video');
+  fireEvent.error(first); fireEvent.click(screen.getByRole('button', { name: /play demonstration/i }));
+  const replacement = screen.getByTestId('exercise-motion-video');
+  expect(replacement).not.toBe(first); await waitFor(() => expect(observe).toHaveBeenCalledWith(replacement));
+});
+
+it('offers mobile WebM and does not discard the HD fallback when the mobile source fails', () => {
+  render(<ExerciseMotion media={{ ...benchMedia, motionType: 'video/mp4', motionSrc: '/synthetic/hd.mp4', mobileMotionSrc: '/synthetic/mobile.webm', mobileMotionType: 'video/webm' }} alt="Synthetic demonstration" />);
+  const video = screen.getByTestId('exercise-motion-video'); const sources = video.querySelectorAll('source');
+  expect(sources).toHaveLength(2); expect(sources[0].getAttribute('media')).toBe('(max-width: 720px)');
+  fireEvent.error(sources[0]); expect(screen.getByTestId('exercise-motion-video')).toBe(video);
+  fireEvent.error(sources[1]); expect(screen.queryByTestId('exercise-motion-video')).toBeNull();
+});
+
+
+it('does not autoplay when mounted or replaced in an already blurred window', async () => {
+  vi.mocked(document.hasFocus).mockReturnValue(false);
+  const play = vi.mocked(HTMLMediaElement.prototype.play);
+  const view = render(<ExerciseMotion media={benchMedia} alt="First exercise" autoplay />);
+  await waitFor(() => expect(screen.getByTestId('exercise-motion-video')).toBeTruthy());
+  expect(play).not.toHaveBeenCalled();
+  view.rerender(<ExerciseMotion media={{ ...benchMedia, slug: 'replacement', motionSrc: '/workout-v2/motion/replacement.webm' }} alt="Replacement" autoplay />);
+  expect(play).not.toHaveBeenCalled();
+  vi.mocked(document.hasFocus).mockReturnValue(true);
+  fireEvent.focus(window);
+  await waitFor(() => expect(play).toHaveBeenCalledOnce());
 });

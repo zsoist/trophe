@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { EXERCISE_MEDIA_REGISTRY } from '@/lib/workout/exercise-media';
 import { resolveWorkoutAsset } from '@/lib/workout-assets';
 
 describe('resolveWorkoutAsset', () => {
   it('uses a named movement asset when the library has one', () => {
-    expect(resolveWorkoutAsset({ exerciseName: 'Barbell Bench Press', bodyArea: 'chest' })).toEqual({
+    expect(resolveWorkoutAsset({ exerciseName: 'Barbell Bench Press', bodyArea: 'chest', equipment: 'Barbell' })).toEqual({
       src: '/workout-v2/exercises/bench-press.webp',
       kind: 'technique',
       fit: 'contain',
@@ -13,8 +14,8 @@ describe('resolveWorkoutAsset', () => {
   });
 
   it('normalizes punctuation and common exercise naming variants', () => {
-    expect(resolveWorkoutAsset({ exerciseName: 'Pull-Up', bodyArea: 'back' }).src).toBe('/workout-v2/exercises/pull-up.webp');
-    expect(resolveWorkoutAsset({ exerciseName: 'Pec Deck Machine', bodyArea: 'chest' }).src).toBe('/workout-v2/exercises/pec-deck.webp');
+    expect(resolveWorkoutAsset({ exerciseName: 'Pull-Up', equipment: 'Bodyweight', bodyArea: 'back' }).src).toBe('/workout-v2/exercises/pull-up.webp');
+    expect(resolveWorkoutAsset({ exerciseName: 'Pec Deck Machine', equipment: 'Machine', bodyArea: 'chest' }).src).toBe('/workout-v2/exercises/pec-deck.webp');
   });
 
   it.each([
@@ -35,7 +36,7 @@ describe('resolveWorkoutAsset', () => {
     ['Machine Chest Press', 'chest', 'machine-chest-press'],
     ['Push-Ups', 'chest', 'push-up'],
   ] as const)('maps the represented %s technique exactly', (exerciseName, muscleGroup, slug) => {
-    expect(resolveWorkoutAsset({ exerciseName, muscleGroup })).toMatchObject({
+    expect(resolveWorkoutAsset({ exerciseName, muscleGroup, equipment: EXERCISE_MEDIA_REGISTRY.find(r => r.slug === slug)?.equipment[0] })).toMatchObject({
       src: `/workout-v2/exercises/${slug}.webp`,
       kind: 'technique',
     });
@@ -124,6 +125,10 @@ describe('resolveWorkoutAsset', () => {
       equipment: 'dumbbell',
       muscleGroup: 'chest',
     }).src).toBe('/workout-v2/body-areas/chest.webp');
+  });
+
+  it('does not infer equipment from a familiar name', () => {
+    expect(resolveWorkoutAsset({ exerciseName: 'Barbell Bench Press', bodyArea: 'chest' }).kind).toBe('anatomy');
   });
 
   it('uses full body when no body area is known', () => {
