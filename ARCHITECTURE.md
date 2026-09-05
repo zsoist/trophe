@@ -36,8 +36,8 @@ AI cost governance: `agent_runs` is the trusted table for cost and LLM observabi
 
 - Public routes, including `/`, do not mount the authenticated provider graph. Supabase, i18n, appearance, toast, and service-worker providers are mounted only by the `dashboard`, `coach`, `admin`, `super`, and `onboarding` layouts.
 - The service worker is registered from authenticated layouts only. Because its scope is `/`, a previously authenticated browser can still be worker-controlled when it later visits a public route.
-- `public/sw.js` is a generated production-build artifact and is not source-controlled. The worker precaches only the self-contained `/offline.html` shell; documents, RSC payloads, APIs, and Supabase traffic are network-only. Runtime caching is limited to immutable same-origin Next.js assets and named public images/icons.
-- The v2 worker auto-activates once to retire legacy caches. Later updates wait for explicit user approval before reloading the page.
+- `public/sw.js` is a generated production-build artifact and is not source-controlled. The current worker is a one-time migration/self-destruct worker: it purges retired caches and unregisters itself. Trophē is online-only; documents, RSC payloads, APIs, and Supabase traffic are network-delivered, with no application precache or runtime cache.
+- The migration worker activates immediately to retire legacy caches, then unregisters itself; no later worker update or reload prompt is expected.
 
 ```
 ┌──────────────┐   HTTPS    ┌──────────────┐   direct    ┌─────────────────────┐
@@ -66,16 +66,16 @@ AI cost governance: `agent_runs` is the trusted table for cost and LLM observabi
 
 ## Auth flow (v0.3 — cookie-based SSR)
 
-`@supabase/ssr` replaced the v0.2 localStorage approach. Sessions now live in **HTTP-only cookies**, readable by middleware and server components.
+`@supabase/ssr` replaced the v0.2 localStorage approach. Sessions now live in **HTTP-only cookies**, readable by the request proxy and server components.
 
 ```
 1. User submits login form
    → app/auth/login/page.tsx calls lib/supabase/browser.ts (createBrowserClient)
 
 2. Cookie set in response
-   → supabase/ssr automatically refreshes the cookie on each response via middleware
+   → supabase/ssr automatically refreshes the cookie on each response via the request proxy
 
-3. Middleware (`middleware.ts`) reads the cookie
+3. `proxy.ts` reads the cookie and provides the coarse request gate
    → lib/supabase/middleware.ts creates a server client against request.cookies
    → lib/auth/require-role.ts checks profile.role:
        /coach/*   requires role ∈ {coach, admin, super_admin}
@@ -267,7 +267,7 @@ trophe/
   public/
     sprite.svg        # 56-icon SVG sprite
   drizzle.config.ts
-  middleware.ts       # Next.js middleware (root; Supabase session + auth gate)
+  proxy.ts             # Next.js 16 request proxy (root; Supabase session + coarse auth gate)
   .env.local.example
 ```
 

@@ -357,7 +357,7 @@ export default function DemoPage() {
             <Chip icon={Lightbulb} label="Daily Insights" />
             <Chip icon={Heart} label="Pain Flags" color="#ef4444" />
             <Chip icon={Shield} label="Evidence Protocols" />
-            <Chip icon={Wifi} label="Works Offline" color="#22c55e" />
+            <Chip icon={Wifi} label="On-device form check" color="#22c55e" />
           </div>
         </motion.div>
 
@@ -402,7 +402,7 @@ export default function DemoPage() {
             <Wifi size={16} className="text-green-400" />
             <div>
               <p className="text-xs text-green-300 font-medium">100% Client-Side</p>
-              <p className="text-xs text-[var(--content-muted)]">Video never leaves device. Zero API cost. Works offline.</p>
+              <p className="text-xs text-[var(--content-muted)]">Video never leaves device. Zero API cost. Runs locally in your browser.</p>
             </div>
           </div>
           <DetailBlock title="33 Body Landmarks" body="MediaPipe Pose via WebAssembly. 30+ FPS desktop, 25 FPS mobile. Knee angle, torso inclination, neck inclination." />

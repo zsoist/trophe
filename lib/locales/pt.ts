@@ -6,6 +6,7 @@
 import { workoutAnalyticsPt } from './workout-analytics';
 
 export const pt: Record<string, string> = {
+  'install.faster_access': 'Instala para um acesso mais rápido.',
   'workout.home_status_label': 'Estado do treino de hoje', 'workout.home_source_label': 'Origem', 'workout.home_readiness_label': 'Preparação', 'workout.home_next_step_label': 'Próximo passo', 'workout.home_schedule': 'Programa', 'workout.home_schedule_empty': 'Não há sessão do coach agendada. Cria um treino adequado para hoje.', 'workout.home_explore_plan': 'Explorar e planear', 'workout.home_find_exercise': 'Encontrar exercício', 'workout.home_plan_cardio': 'Planear cardio', 'workout.home_training_progress': 'Progresso do treino', 'workout.home_saved_plans': 'Planos guardados', 'workout.home_recent_progress': 'Progresso recente',
   'workout.home_loading_title': 'A carregar o treino de hoje', 'workout.home_loading_body': 'A verificar a atribuição do coach e a recomendação antes de ativar as ações.', 'workout.home_recovered_active': 'A tua sessão ativa foi recuperada. Os registos continuam aqui.', 'workout.home_recovered_completed': 'A tua sessão concluída está pronta para revisão.', 'workout.home_recovered_draft': 'O teu rascunho guardado está disponível neste dispositivo.', 'workout.home_build_today': 'Criar o treino de hoje', 'workout.home_source_in_progress': 'Treino em curso', 'workout.home_source_completed': 'Treino concluído', 'workout.home_source_saved': 'O teu rascunho guardado', 'workout.home_source_coach': 'Atribuído pelo coach', 'workout.home_source_recommended': 'Recomendado pela Trophē', 'workout.home_source_open': 'Treino livre', 'workout.home_ready_resume': 'Pronto para continuar', 'workout.home_ready_recovered': 'Sessão recuperada', 'workout.home_ready_draft': 'Rascunho guardado', 'workout.home_ready_review': 'Pronto para rever', 'workout.home_ready_build': 'Pronto para criar', 'workout.home_cardio_session': 'Sessão de cardio', 'workout.home_choose_exercises': 'Escolhe os exercícios', 'workout.home_review_plan': 'Rever plano', 'workout.home_build_workout': 'Criar treino', 'workout.home_coach_schedule': 'Programa do coach', 'workout.home_adaptive_plan': 'Plano adaptativo', 'workout.home_later_today': 'Mais tarde hoje', 'workout.home_next': 'Seguinte', 'workout.home_coach_workout': 'Treino do coach', 'workout.home_recommended_workout': 'Treino recomendado', 'workout.home_workout_draft': 'Rascunho de treino',
   'workout.repeat_last': 'Repetir último treino',
@@ -84,6 +85,7 @@ export const pt: Record<string, string> = {
   'workout.effort': 'Esforço',
   'workout.invalid_cardio_metrics': 'Introduza uma duração positiva, uma distância não negativa e um esforço de 1 a 10.',
   'workout.mutation_failed': 'Não foi possível guardar uma alteração do treino. Tente novamente antes de terminar.',
+  'workout.set_not_saved': 'Esta série não foi guardada. Edite-a e tente novamente.',
   'workout.recovery_failed': 'Não foi possível verificar a recuperação do treino.',
   'workout.retry_recovery': 'Tentar recuperar novamente',
   'workout.finish_blocked_loading': 'Não é possível terminar enquanto o treino está a ser recuperado.',

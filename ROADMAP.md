@@ -180,7 +180,7 @@
 - [x] ✅ Gold demo banner removed from landing page
 - [x] ✅ Form analyses saved to Supabase form_analyses table (was TODO/alert)
 - [x] ✅ Dimitra Kavdas account created (dimitra@kavdas.com, client, Greek)
-- [x] ✅ middleware.ts rebuilt: server-side JWT verification + role-based routing
+- [x] ✅ proxy.ts provides server-side JWT verification + coarse auth routing
 
 ## Michael Feedback #1 — April 13 (same-day turnaround)
 - [x] ✅ **(a)** MealSlotConfig: drag-to-reorder with GripVertical handle (HTML5 drag + touch events)
@@ -199,7 +199,7 @@
 - [x] ✅ SQL injection in food search routes — sanitized ilike inputs (strip %, _, \)
 - [x] ✅ Prompt injection in food parse + meal suggest — input capped at 500 chars, control chars stripped
 - [x] ✅ Signup rate limiting (5/hour per IP)
-- [x] ✅ Server-side auth middleware (middleware.ts) with JWT verification + role routing
+- [x] ✅ Server-side auth proxy (`proxy.ts`) with JWT verification + role routing
 - [x] ✅ Role gating: clients can't access /coach/*, coaches redirect from /dashboard/*
 - [x] ✅ RLS enabled on api_usage_log
 
@@ -352,7 +352,7 @@ Goal: 10-20 user enterprise discipline at near-zero cost. Two parallel tracks: M
 - [ ] `/admin/ops` dashboard (LLM spend, error rate, active users)
 - [ ] Shared-components light-mode sweep (110+ classes in `/components/*`, out of Michael's critical path — spawned as background task)
 - [ ] Large-file refactor (coach/client/[id]/page.tsx 1499 LOC, coach/page.tsx 1338 LOC, dashboard/log/page.tsx 1040 LOC)
-- [ ] `@supabase/ssr` migration → re-enable server-side middleware auth + nonce CSP
+- [ ] `@supabase/ssr` migration → re-enable server-side proxy auth + nonce CSP
 
 ### Commits (6 today, all on main + pushed)
 - `fceeeaa` fix(security): server-side admin guard

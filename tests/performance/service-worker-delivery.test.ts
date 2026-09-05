@@ -5,14 +5,14 @@ import { describe, expect, it } from 'vitest';
 const read = (path: string) => readFileSync(join(process.cwd(), path), 'utf8');
 
 describe('service-worker delivery budget', () => {
-  it('keeps serwist bundling wired and precaches only the offline fallback', () => {
+  it('keeps the retired worker build explicit and does not advertise an offline app shell', () => {
     const config = read('next.config.ts');
 
     expect(config).toMatch(/register:\s*false/);
     expect(config).toMatch(/reloadOnOnline:\s*false/);
     expect(config).toMatch(/exclude:\s*\[\/\.\*\/\]/);
-    expect(config).toMatch(/url:\s*["']\/offline\.html["']/);
-    expect(config).toMatch(/revision:\s*offlineHtmlRevision/);
+    expect(config).not.toMatch(/additionalPrecacheEntries/);
+    expect(config).not.toMatch(/offlineHtmlRevision/);
 
     const offline = read('public/offline.html');
     expect(offline).not.toMatch(/<script\b/i);
@@ -20,6 +20,14 @@ describe('service-worker delivery budget', () => {
     expect(offline).not.toMatch(/<link\b[^>]+rel=["'](?:stylesheet|preload)/i);
     expect(offline).toContain('<html lang="en">');
     expect(offline).not.toMatch(/[\u0370-\u03ff]/u);
+  });
+
+  it('keeps product copy and operational docs honest about online-only delivery', () => {
+    expect(read('components/shared/InstallCard.tsx')).not.toContain('offline access');
+    expect(read('app/demo/page.tsx')).not.toContain('Works offline');
+    expect(read('app/demo/page.tsx')).not.toContain('Works Offline');
+    expect(read('ARCHITECTURE.md')).not.toContain('precache only the self-contained `/offline.html` shell');
+    expect(read('DEPLOYMENT.md')).not.toContain('preserve only the offline shell');
   });
 
   it('ships a self-destructing worker — no runtime caching, unregisters + purges', () => {

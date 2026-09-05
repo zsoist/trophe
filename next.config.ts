@@ -1,16 +1,9 @@
 import type { NextConfig } from "next";
 import withSerwistInit from "@serwist/next";
-import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { buildContentSecurityPolicy } from './lib/security/csp';
 
 const isDev = process.env.NODE_ENV !== 'production';
 const supabaseOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
-const offlineHtmlRevision = createHash('sha256')
-  .update(readFileSync(join(process.cwd(), 'public/offline.html')))
-  .digest('hex');
-
 const withSerwist = withSerwistInit({
   swSrc: "app/sw.ts",
   swDest: "public/sw.js",
@@ -18,7 +11,6 @@ const withSerwist = withSerwistInit({
   register: false,
   reloadOnOnline: false,
   exclude: [/.*/],
-  additionalPrecacheEntries: [{ url: "/offline.html", revision: offlineHtmlRevision }],
 });
 
 export const nextConfig: NextConfig = {

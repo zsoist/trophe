@@ -154,7 +154,11 @@ export function ExerciseSetLogger({
       setCompletedSetNumber(setNumber);
       // A supplied snapshot is authoritative after a paused-stage remount.
       // Only a newly observed persisted set falls back to its server timestamp.
-      if (initialSetId !== setId) commitRestSnapshot(suppliedRestSnapshot ?? recoverySnapshot(), initialSetId);
+      if (initialSetId !== setId) {
+        setRestComplete(false);
+        setRestAnnouncement(null);
+        commitRestSnapshot(suppliedRestSnapshot ?? recoverySnapshot(), initialSetId);
+      }
       return;
     }
 
@@ -169,6 +173,8 @@ export function ExerciseSetLogger({
       setIsWarmup(initialValue?.isWarmup ?? false);
       setSetId(null);
       setCompletedSetNumber(null);
+      setRestComplete(false);
+      setRestAnnouncement(null);
       commitRestSnapshot(null, setId);
     }
   }, [commitRestSnapshot, completedSetNumber, initialSetId, initialValue?.isWarmup, initialValue?.reps, initialValue?.rpe, initialValue?.weight, recoverySnapshot, setId, setNumber, suppliedRestSnapshot]);

@@ -10,6 +10,7 @@ import {
   loadWorkoutSessionPainFlags,
   saveRetrospectiveWorkoutAtomic,
   saveLiveWorkoutSetAtomic,
+  saveLiveWorkoutSetAtomicResult,
   startWorkoutSessionAtomic,
   updateLiveWorkoutStructureAtomic,
   updateWorkoutSupersetGroups,
@@ -107,6 +108,30 @@ export async function completeLiveSet(input: CompleteLiveSetInput): Promise<{ ok
   }
 }
 
+/**
+ * Detailed live-set boundary used by the recoverable workspace. A rejected
+ * set (for example 22023 when its exercise was removed) is not a transport
+ * failure: the queue can be released and the row made editable again.
+ */
+export async function completeLiveSetDetailed(input: CompleteLiveSetInput): Promise<{ ok: true; setId: string } | PersistenceFailure> {
+  if (!validSet(input)) return { ok: false, kind: 'rejected', code: 'INVALID_INPUT' };
+  try {
+    return await saveLiveWorkoutSetAtomicResult({
+      sessionId: input.sessionId,
+      exerciseId: input.exerciseId,
+      setNumber: input.setNumber,
+      weightKg: input.weightKg,
+      reps: input.reps as number,
+      rpe: input.rpe ?? null,
+      isWarmup: input.isWarmup ?? false,
+      isPr: input.isPr ?? false,
+      supersetGroup: input.supersetGroup ?? null,
+    });
+  } catch {
+    return { ok: false, kind: 'transient' };
+  }
+}
+
 export async function uncompleteLiveSet(sessionId: string, setId: string): Promise<boolean> {
   if (!sessionId.trim() || !setId.trim()) return false;
   try { return await deleteLiveWorkoutSetAtomic(sessionId, setId); } catch { return false; }
@@ -195,26 +220,33 @@ export function removePendingLiveSet(input: CompleteLiveSetInput, storage?: Stor
 
 export async function replayPendingLiveSets(
   sessionId: string,
-  persist: (input: CompleteLiveSetInput) => Promise<{ ok: true; setId: string } | { ok: false }> = completeLiveSet,
+  persist: (input: CompleteLiveSetInput) => Promise<{ ok: true; setId: string } | { ok: false } | PersistenceFailure> = completeLiveSetDetailed,
   storage?: Storage,
 ): Promise<{
   saved: Array<{ input: CompleteLiveSetInput; setId: string }>;
   failed: CompleteLiveSetInput[];
+  rejected: CompleteLiveSetInput[];
 }> {
   const pending = loadPendingLiveSets(sessionId, storage);
   const saved: Array<{ input: CompleteLiveSetInput; setId: string }> = [];
   const failed: CompleteLiveSetInput[] = [];
+  const rejected: CompleteLiveSetInput[] = [];
   for (const input of pending) {
-    let result: { ok: true; setId: string } | { ok: false } = { ok: false };
+    let result: { ok: true; setId: string } | { ok: false } | PersistenceFailure = { ok: false };
     try { result = await persist(input); } catch { /* retain the exact envelope */ }
     if (result.ok) {
       saved.push({ input, setId: result.setId });
+      removePendingLiveSet(input, storage);
+    } else if ('kind' in result && result.kind === 'rejected') {
+      // The server has confirmed this exact set can never be accepted. Do not
+      // let it poison the session-wide finish barrier; the row is editable.
+      rejected.push(input);
       removePendingLiveSet(input, storage);
     } else {
       failed.push(input);
     }
   }
-  return { saved, failed };
+  return { saved, failed, rejected };
 }
 
 export type LiveSetLoadResult = { ok: true; sets: PersistedWorkoutSet[] } | { ok: false };

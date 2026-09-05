@@ -50,7 +50,7 @@ vi.mock('@/components/workout/workspace/ExerciseSetLogger', () => ({
 vi.mock('@/lib/workout/live-session', () => ({
   finishLiveSession: harness.finishLiveSession,
   loadLiveSessionSets: harness.loadLiveSessionSets,
-  completeLiveSet: harness.completeLiveSet, uncompleteLiveSet: vi.fn(),
+  completeLiveSet: harness.completeLiveSet, completeLiveSetDetailed: harness.completeLiveSet, uncompleteLiveSet: vi.fn(),
   loadLivePrMap: harness.loadLivePrMap, loadLivePainFlags: harness.loadLivePainFlags,
   recoverLiveExtraRows: vi.fn(() => []),
   appendLivePainFlag: harness.appendLivePainFlag, loadLiveStructure: harness.loadLiveStructure,
@@ -72,6 +72,7 @@ vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ t: (key: string, params?: Recor
   'workout.completed_title': 'Workout complete', 'workout.completed_message': 'Your workout is saved.',
   'workout.completed_done': 'Done', 'workout.history': 'History', 'workout.min': 'min',
   'workout.mutation_failed': 'A workout change could not be saved. Retry that change before finishing.',
+  'workout.set_not_saved': 'This set was not saved. Edit it and try again.',
   'workout.recovery_failed': 'Workout recovery could not be verified.', 'workout.retry_recovery': 'Retry recovery',
   'workout.remove_named': `Remove ${String(params?.name ?? '')}`, 'workout.finish_completed_sets': `${String(params?.n ?? 0)} completed sets`,
   'workout.remove_exercise': 'Remove exercise', 'workout.cancel': 'Cancel',
@@ -245,6 +246,30 @@ describe('LiveWorkout', () => {
     await vi.waitFor(() => expect(screen.getByRole('button', { name: 'Complete Bench Press' }).hasAttribute('disabled')).toBe(false));
     fireEvent.click(screen.getByRole('button', { name: 'Complete Bench Press' }));
     await vi.waitFor(() => expect(screen.getByRole('button', { name: 'Finish workout' }).hasAttribute('disabled')).toBe(false));
+  });
+
+  it('releases a permanently rejected set so the row stays editable and Finish is not poisoned', async () => {
+    harness.completeLiveSet.mockResolvedValueOnce({ ok: false, kind: 'rejected', code: '22023' });
+    render(<LiveWorkout exercises={[]} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Complete Bench Press' }));
+    expect(await screen.findByText('This set was not saved. Edit it and try again.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Complete Bench Press' }).hasAttribute('disabled')).toBe(false);
+    expect(screen.getByRole('button', { name: 'Finish workout' }).hasAttribute('disabled')).toBe(false);
+    expect(harness.removePendingLiveSet).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not cancel a finish that has already started saving', async () => {
+    workspace = { ...workspace, state: { ...liveState, stage: 'finishing', finishingFrom: 'live', clock: { runningSince: null, accumulatedMs: 60_000 } } };
+    harness.loadLiveSessionSets.mockResolvedValueOnce({ ok: true, sets: [{ id: 'set-1', session_id: 'session-1', exercise_id: 'bench', set_number: 1, weight_kg: 60, reps: 8, rpe: null, is_warmup: false, is_pr: false, superset_group: null, notes: null }] });
+    let resolveFinish!: (value: { ok: false }) => void;
+    harness.finishLiveSession.mockReturnValueOnce(new Promise((resolve) => { resolveFinish = resolve; }));
+    render(<LiveWorkout exercises={[]} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Save and finish' }));
+    expect(screen.getByRole('button', { name: 'Keep training' }).hasAttribute('disabled')).toBe(true);
+    expect(harness.cancelFinish).not.toHaveBeenCalled();
+    resolveFinish({ ok: false });
   });
 
   it('never replaces pain flags after an unverified read and offers recovery retry', async () => {

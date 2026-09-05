@@ -68,6 +68,18 @@ describe('workout analytics evidence surfaces', () => {
     expect(screen.getByRole('table', { name: /weekly muscle load values/i })).toBeTruthy();
   });
 
+  it('does not invent a named muscle for a group-only exercise', () => {
+    render(<MuscleLoadChart range="week" data={[{
+      sessionId: 'shoulder-session',
+      date: '2026-09-03',
+      exercise: { name: 'Lateral Raises', equipment: 'Dumbbell', muscleGroup: 'shoulders' },
+      sets: [{ completed: true, isWarmup: false }],
+    }]} now="2026-09-03" />);
+
+    expect(screen.queryByText('Anterior deltoid')).toBeNull();
+    expect(screen.getByText(/completed strength sets with a resolved exercise/i)).toBeTruthy();
+  });
+
   it('explains which completed evidence is required when muscle load is empty', () => {
     render(<MuscleLoadChart range="month" data={[]} now="2026-09-03" />);
     expect(screen.getByText(/completed strength sets with a resolved exercise/i)).toBeTruthy();

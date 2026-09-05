@@ -73,13 +73,42 @@ describe('live structure recovery distinguishes server truth', () => {
     }, error: null });
     await expect(loadWorkoutSessionStructure('session-1')).resolves.toEqual({ ok: false, reason: 'legacy', legacy: true });
   });
+
+  it('prefers the owner-scoped reconciliation RPC when migration 0084 is installed', async () => {
+    const structure = [{ exercise_id: 'bench', target_sets: 3, target_reps: '8', superset_group: null }];
+    db.rpc.mockResolvedValueOnce({ data: { state: 'active', version: 5, structure }, error: null });
+
+    await expect(loadWorkoutSessionStructure('session-1', 'user-1')).resolves.toEqual({
+      ok: true, terminal: false, version: 5, structure,
+    });
+    expect(db.rpc).toHaveBeenCalledWith('resolve_live_workout_session', { p_session_id: 'session-1' });
+    expect(db.from).not.toHaveBeenCalled();
+  });
+
+  it('keeps forbidden and missing RPC states non-destructive and distinct', async () => {
+    db.rpc.mockResolvedValueOnce({ data: { state: 'forbidden' }, error: null });
+    await expect(loadWorkoutSessionStructure('session-1', 'user-1')).resolves.toEqual({ ok: false, reason: 'forbidden' });
+
+    db.rpc.mockResolvedValueOnce({ data: { state: 'missing' }, error: null });
+    await expect(loadWorkoutSessionStructure('session-1', 'user-1')).resolves.toEqual({ ok: false, reason: 'missing' });
+  });
+
+  it('falls back to the guarded SELECT while the reconciliation migration rolls out', async () => {
+    db.rpc.mockResolvedValueOnce({ data: null, error: { code: 'PGRST202' } });
+    db.maybeSingle.mockResolvedValueOnce({ data: {
+      live_structure: null, live_structure_version: 0, duration_minutes: null, completed_at: null, client_request: { mode: 'live' },
+    }, error: null });
+
+    await expect(loadWorkoutSessionStructure('session-1')).resolves.toEqual({ ok: false, reason: 'legacy', legacy: true });
+    expect(db.from).toHaveBeenCalledWith('workout_sessions');
+  });
 });
 
 describe('definitive rejections are separated from transient failures', () => {
   beforeEach(() => { vi.resetAllMocks(); });
 
   it.each([
-    ['22023', 'rejected'], ['23505', 'rejected'], ['23503', 'rejected'], ['42501', 'rejected'], ['P0001', 'rejected'],
+    ['22023', 'rejected'], ['23505', 'rejected'], ['23503', 'rejected'], ['42501', 'blocked'], ['P0001', 'blocked'],
     ['42P01', 'blocked'], ['42883', 'blocked'], ['PGRST202', 'blocked'], ['PGRST301', 'blocked'],
     ['08006', 'transient'], ['57014', 'transient'], ['40001', 'transient'], [undefined, 'transient'],
   ] as const)('classifies Postgres code %s as %s', (code, kind) => {
@@ -98,11 +127,19 @@ describe('definitive rejections are separated from transient failures', () => {
     await expect(startWorkoutSessionAtomic(startInput)).resolves.toEqual({ ok: true, sessionId: 'session-live' });
   });
 
-  it('surfaces RLS and constraint refusals as rejected with their code', async () => {
+  it('surfaces RLS/auth configuration failures as blocked while keeping data refusals rejected', async () => {
     db.rpc.mockResolvedValueOnce({ data: null, error: { code: '42501', message: 'permission denied' } });
-    await expect(startWorkoutSessionAtomic(startInput)).resolves.toEqual({ ok: false, kind: 'rejected', code: '42501' });
+    await expect(startWorkoutSessionAtomic(startInput)).resolves.toEqual({ ok: false, kind: 'blocked', code: '42501' });
     db.rpc.mockResolvedValueOnce({ data: null, error: { code: '22023', message: 'The request key is already bound to a different workout' } });
     await expect(startWorkoutSessionAtomic(startInput)).resolves.toEqual({ ok: false, kind: 'rejected', code: '22023' });
+  });
+
+  it('keeps a lapsed-auth retry blocked instead of releasing the lost-reply envelope', async () => {
+    db.rpc.mockResolvedValueOnce({ data: null, error: { message: 'network timeout' } });
+    await expect(startWorkoutSessionAtomic(startInput)).resolves.toEqual({ ok: false, kind: 'transient' });
+
+    db.rpc.mockResolvedValueOnce({ data: null, error: { code: '42501', message: 'permission denied after session expiry' } });
+    await expect(startWorkoutSessionAtomic(startInput)).resolves.toEqual({ ok: false, kind: 'blocked', code: '42501' });
   });
 
   it('keeps timeouts, network failures, and malformed replies transient', async () => {
