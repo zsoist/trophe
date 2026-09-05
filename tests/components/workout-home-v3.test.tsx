@@ -155,6 +155,12 @@ describe('Workout home v3', () => {
     expect(startLiveSession).not.toHaveBeenCalled();
   });
 
+  it('does not label a represented strength target as absent when template summary is empty', async () => {
+    renderHome({ program: { ...coachProgram, todayTemplate: { ...coachProgram.todayTemplate!, muscleSummary: [] } } });
+    expect(await screen.findByText(/pectoralis major · primary target/i)).toBeTruthy();
+    expect(screen.queryByText('No muscle target selected')).toBeNull();
+  });
+
   it('renders an honest neutral atlas when there is no strength target', () => {
     renderHome();
 

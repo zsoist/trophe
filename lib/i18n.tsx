@@ -5,6 +5,7 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+import { anatomyTranslations } from './locales/anatomy';
 import type { Language, CoreLanguage } from './types';
 import { interpolateTranslation } from './i18n-interpolate';
 import { coreWorkoutAnalyticsTranslations, WORKOUT_ANALYTICS_COPY_KEYS as WORKOUT_ANALYTICS_NEW_COPY_KEYS } from './locales/workout-analytics';
@@ -48,6 +49,7 @@ function isOverlayLang(lang: Language): lang is OverlayLang {
 
 // ─── Translation Dictionary ───
 export const translations: Record<string, Record<CoreLanguage, string>> = {
+  ...anatomyTranslations,
   // ── App ──
   'app.name': { en: 'Trophē', es: 'Trophē', el: 'τροφή' },
   'app.tagline': { en: 'One habit. Two weeks. Transform.', es: 'Un hábito. Dos semanas. Transforma.', el: 'Μία συνήθεια. Δύο εβδομάδες. Μεταμόρφωση.' },

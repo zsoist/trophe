@@ -1,0 +1,284 @@
+{
+  "version": "trophe.static-atlas/1",
+  "release": "6eb6e12f661fdf527bc79acb431aedad072ca9f02d057c474ce7a75381ce606e",
+  "source": {
+    "name": "BodyParts3D",
+    "release": "4.0",
+    "sha256": "40665852c49f218326590e204db91064a1ecfc3c6f8cbd7bbbcaac62c7cd409e",
+    "url": "https://dbarchive.biosciencedbc.jp/data/bodyparts3d/LATEST/isa_BP3D_4.0_obj_99.zip",
+    "retrieved_at": "2026-09-05T19:59:44.036501+00:00",
+    "bytes": 142903898,
+    "generic": "adult male; source coverage only"
+  },
+  "license": {
+    "id": "CC-BY-4.0",
+    "url": "https://creativecommons.org/licenses/by/4.0/",
+    "attribution": "BodyParts3D, \u00a9 The Database Center for Life Science licensed under CC Attribution 4.0 International",
+    "modifications": [
+      "OBJ converted to GLB; millimeter Z-up to meter Y-up rotation; normals recomputed; shared materials; lossless meshopt compression/reordering and triangle partition; no simplification or coordinate quantization."
+    ]
+  },
+  "transform": {
+    "matrix": [
+      0.001,
+      0,
+      0,
+      0,
+      0,
+      0,
+      -0.001,
+      0,
+      0,
+      0.001,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1
+    ],
+    "source_units": "millimeters",
+    "output_units": "meters",
+    "evidence": "official coordinate_system.png; check-assembly verifies exact positions, count, skull/femur/humerus/talus/sternum landmarks before bulk",
+    "verified": true
+  },
+  "concepts": {
+    "FMA24475": {
+      "availability": "available",
+      "elements": [
+        "FJ3259"
+      ],
+      "id": "FMA24475",
+      "laterality": "left",
+      "memberships": {
+        "isa": {
+          "elements": [
+            "FJ3259"
+          ],
+          "representations": [
+            "BP9042"
+          ]
+        },
+        "partof": {
+          "elements": [
+            "FJ3259"
+          ],
+          "representations": [
+            "BP10115"
+          ]
+        }
+      },
+      "missing_elements": [],
+      "representations": [
+        "BP10115",
+        "BP9042"
+      ],
+      "source_names": [
+        "left femur"
+      ],
+      "trees": [
+        "isa",
+        "partof"
+      ]
+    },
+    "FMA24474": {
+      "availability": "available",
+      "elements": [
+        "FJ3365"
+      ],
+      "id": "FMA24474",
+      "laterality": "right",
+      "memberships": {
+        "isa": {
+          "elements": [
+            "FJ3365"
+          ],
+          "representations": [
+            "BP8920"
+          ]
+        },
+        "partof": {
+          "elements": [
+            "FJ3365"
+          ],
+          "representations": [
+            "BP10053"
+          ]
+        }
+      },
+      "missing_elements": [],
+      "representations": [
+        "BP10053",
+        "BP8920"
+      ],
+      "source_names": [
+        "right femur"
+      ],
+      "trees": [
+        "isa",
+        "partof"
+      ]
+    }
+  },
+  "elements": {
+    "FJ3259": {
+      "availability": "available",
+      "concept_ids": [
+        "FMA24475"
+      ],
+      "id": "FJ3259",
+      "region": "lower",
+      "system": "skeleton",
+      "bounds": [
+        [
+          0.0319661982357502,
+          0.3680559992790222,
+          0.04948220029473305
+        ],
+        [
+          0.15023699402809143,
+          0.8342390060424805,
+          0.11227600276470184
+        ]
+      ],
+      "vertices": 1604,
+      "triangles": 3204,
+      "source_sha256": "d291cc3619c32c68edb9d29e0b755634c2cb85e3db89f0d0b63a316f879ef86d",
+      "fragments": [
+        {
+          "chunk": "skeleton-lower-0",
+          "node": "FJ3259-0"
+        }
+      ]
+    },
+    "FJ3365": {
+      "availability": "available",
+      "concept_ids": [
+        "FMA24474"
+      ],
+      "id": "FJ3365",
+      "region": "lower",
+      "system": "skeleton",
+      "bounds": [
+        [
+          -0.15013399720191956,
+          0.368149995803833,
+          0.04953020066022873
+        ],
+        [
+          -0.03189430013298988,
+          0.8342519998550415,
+          0.11219200491905212
+        ]
+      ],
+      "vertices": 1553,
+      "triangles": 3102,
+      "source_sha256": "5eff0f92905dd45bd0e79b1de0144dc15988c73c683468163255ba1452d58037",
+      "fragments": [
+        {
+          "chunk": "skeleton-lower-0",
+          "node": "FJ3365-0"
+        }
+      ]
+    }
+  },
+  "relations": [],
+  "chunks": [
+    {
+      "id": "skeleton-lower-0",
+      "url": "/anatomy/6eb6e12f661fdf527bc79acb431aedad072ca9f02d057c474ce7a75381ce606e/skeleton-lower-0.glb",
+      "sha256": "5f78daef5aa1ca9650d973dc6781224a86b6fb8a9f826c4e775fd9d77c5fd8ec",
+      "bytes": 823204,
+      "system": "skeleton",
+      "region": "lower",
+      "element_ids": [
+        "FJ3259",
+        "FJ3365"
+      ],
+      "bounds": [
+        [
+          -0.3239139914512634,
+          -0.07047989964485168,
+          0.02400510013103485
+        ],
+        [
+          0.32393500208854675,
+          0.8342519998550415,
+          0.2360440045595169
+        ]
+      ],
+      "vertices": 31897,
+      "triangles": 63302
+    }
+  ],
+  "bounds": [
+    [
+      -0.3341189920902252,
+      -0.0781112015247345,
+      -0.045247599482536316
+    ],
+    [
+      0.3328250050544739,
+      1.6516300439834595,
+      0.24678300321102142
+    ]
+  ],
+  "coverage": {
+    "concepts": 2,
+    "source_elements": 2,
+    "converted": 2,
+    "rejected": 0,
+    "missing": 0,
+    "unmapped": 0
+  },
+  "curation": {
+    "mapping": "Exercise roles remain in existing curated workout model",
+    "regions": "Source-coordinate spatial bands for transfer only: upper >=1.35m, middle >=0.82m, lower below0.82m; not anatomical region labels",
+    "system_priority": [
+      "connective",
+      "skeleton",
+      "muscles",
+      "vascular",
+      "nervous",
+      "organs"
+    ],
+    "system_roots": {
+      "connective": [
+        "FMA9721",
+        "FMA55107"
+      ],
+      "muscles": [
+        "FMA5022",
+        "FMA10474",
+        "FMA32558"
+      ],
+      "nervous": [
+        "FMA7157",
+        "FMA50801",
+        "FMA7647",
+        "FMA65132"
+      ],
+      "organs": [
+        "FMA7152",
+        "FMA7158",
+        "FMA9668",
+        "FMA7203",
+        "FMA7210",
+        "FMA15900",
+        "FMA7159"
+      ],
+      "skeleton": [
+        "FMA5018",
+        "FMA12516",
+        "FMA23881",
+        "FMA7485"
+      ],
+      "vascular": [
+        "FMA50720",
+        "FMA50723",
+        "FMA7161"
+      ]
+    },
+    "systems": "Trophe display buckets, source root closure through IS-A and PART-OF child edges; overlap resolved by declared priority, not a clinical ontology"
+  }
+}

@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+import {activeAtlasRelease} from '@/lib/anatomy/release';
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Check, Dumbbell, Plus, RefreshCw, Trophy } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
@@ -212,6 +214,7 @@ export function ExerciseDetail({
 
       <div className="exercise-detail__body">
         <div className="exercise-detail__anatomy">
+          {presentation==='route'&&activeAtlasRelease(process.env.NEXT_PUBLIC_ANATOMY_ATLAS_ENABLED)&&<Link prefetch={false} href={`/dashboard/anatomy${selectedMuscle?`?muscle=${selectedMuscle}`:''}`} className="inline-flex min-h-11 items-center underline">{t('anatomy.title')}</Link>}
           {media.activations.length > 0 ? (
             <MuscleAtlas
               activations={media.activations}

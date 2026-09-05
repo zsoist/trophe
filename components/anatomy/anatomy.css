@@ -1,0 +1,167 @@
+.anatomy-explorer {
+  max-width: 1120px;
+  margin: auto;
+  padding: 16px 12px calc(120px + env(safe-area-inset-bottom));
+  color: var(--text-primary);
+  background: var(--bg-primary);
+}
+.anatomy-explorer h1 {
+  font:
+    36px/1.15 var(--font-serif, Georgia),
+    serif;
+  margin: 8px 0;
+}
+.anatomy-explorer h2 {
+  font-size: 18px;
+}
+.anatomy-explorer p {
+  font-size: 14px;
+  line-height: 1.55;
+}
+.anatomy-eyebrow {
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.anatomy-workspace {
+  display: grid;
+  gap: 18px;
+}
+.anatomy-stage,
+.anatomy-context {
+  min-width: 0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 16px;
+  padding: 12px;
+}
+.anatomy-viewbar,
+.anatomy-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.anatomy-explorer button {
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 9px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 14px;
+  text-align: left;
+}
+.anatomy-explorer button[aria-pressed="true"] {
+  border-color: var(--accent);
+  box-shadow: inset 0 -2px var(--accent);
+}
+.anatomy-explorer button:focus-visible,
+.anatomy-explorer input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.anatomy-canvas,
+.anatomy-poster {
+  height: 440px;
+  max-height: 65vh;
+  min-height: 280px;
+  width: 100%;
+  overflow: hidden;
+}
+.anatomy-poster {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.anatomy-canvas canvas {
+  display: block;
+  max-width: 100%;
+}
+.anatomy-explorer fieldset {
+  border: 0;
+  border-top: 1px solid var(--border-default);
+  padding: 12px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.anatomy-explorer fieldset label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 4px 8px;
+}
+.anatomy-explorer input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+.anatomy-search {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.anatomy-search input {
+  width: 100%;
+  font-size: 16px;
+  padding: 12px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+}
+.anatomy-results {
+  list-style: none;
+  padding: 0;
+  max-height: 320px;
+  overflow: auto;
+}
+.anatomy-results button {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin-bottom: 5px;
+}
+.anatomy-results small {
+  color: var(--text-secondary);
+}
+.anatomy-explorer details {
+  margin-top: 20px;
+  border-top: 1px solid var(--border-default);
+  padding: 16px 0;
+}
+.anatomy-explorer summary {
+  min-height: 44px;
+  cursor: pointer;
+}
+.anatomy-hash {
+  overflow-wrap: anywhere;
+  font-family: monospace;
+  font-size: 11px !important;
+}
+@media (min-width: 768px) {
+  .anatomy-workspace {
+    grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr);
+  }
+  .anatomy-canvas,
+  .anatomy-poster {
+    height: 600px;
+    max-height: 70vh;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .anatomy-explorer * {
+    scroll-behavior: auto !important;
+    transition: none !important;
+  }
+}
+
+.anatomy-poster img {
+  max-height: 65%;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+}
