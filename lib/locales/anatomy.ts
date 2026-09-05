@@ -1,5 +1,48 @@
 import type { CoreLanguage } from "../types";
 const rows: Record<string, [string, string, string]> = {
+  explore_controls: [
+    "Explore controls",
+    "Controles de exploración",
+    "Στοιχεία εξερεύνησης",
+  ],
+  layers_tab: ["Layers", "Capas", "Επίπεδα"],
+  search_tab: ["Search", "Buscar", "Αναζήτηση"],
+  ready: ["Ready to explore", "Listo para explorar", "Έτοιμο για εξερεύνηση"],
+  layers: ["Body layers", "Capas del cuerpo", "Επίπεδα σώματος"],
+  layers_hint: [
+    "Choose what appears in the viewer.",
+    "Elige qué aparece en el visor.",
+    "Επιλέξτε τι εμφανίζεται στην προβολή.",
+  ],
+  orbit_short: ["Rotate body", "Girar cuerpo", "Περιστροφή σώματος"],
+  scroll_short: ["Finish rotating", "Terminar giro", "Τέλος περιστροφής"],
+  catalogue: ["Find a structure", "Buscar estructura", "Εύρεση δομής"],
+  search_placeholder: [
+    "Name in English or FMA ID",
+    "Nombre en inglés o ID FMA",
+    "Αγγλικό όνομα ή ID FMA",
+  ],
+  group_filter: ["System", "Sistema", "Σύστημα"],
+  side_filter: ["Side", "Lado", "Πλευρά"],
+  all_systems: ["All systems", "Todos los sistemas", "Όλα τα συστήματα"],
+  all_sides: ["Both / any", "Todos", "Όλες"],
+  no_results: [
+    "No structures match these filters. Try another name or system.",
+    "No hay estructuras con estos filtros. Prueba otro nombre o sistema.",
+    "Δεν βρέθηκαν δομές. Δοκιμάστε άλλο όνομα ή σύστημα.",
+  ],
+  clear_filters: ["Clear filters", "Limpiar filtros", "Καθαρισμός φίλτρων"],
+  short_skeleton: ["Skeleton", "Esqueleto", "Σκελετός"],
+  short_muscles: ["Muscles", "Músculos", "Μύες"],
+  short_connective: [
+    "Connective tissue",
+    "Tejido conectivo",
+    "Συνδετικός ιστός",
+  ],
+  short_vascular: ["Blood vessels", "Vasos sanguíneos", "Αγγεία"],
+  short_nervous: ["Nerves", "Nervios", "Νεύρα"],
+  short_organs: ["Organs", "Órganos", "Όργανα"],
+  short_other: ["Other structures", "Otras estructuras", "Άλλες δομές"],
   other_view_selection: [
     "This selection is on the other view. Use its muscle action to show it.",
     "Esta selección está en la otra vista. Usa su botón muscular para mostrarla.",

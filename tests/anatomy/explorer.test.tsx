@@ -73,3 +73,43 @@ it("picking and search select the same source identity and explain hidden layers
     screen.queryByText(/Some or all of this selection is hidden/),
   ).toBeNull();
 });
+
+it("filters catalogue independently of visible layers and clears an empty combination", async () => {
+  open();
+  await screen.findByRole("button", { name: "Open 3D view" });
+  const skeleton = screen.getByRole("checkbox", {
+    name: /Skeleton/,
+  }) as HTMLInputElement;
+  fireEvent.change(screen.getByRole("searchbox"), {
+    target: { value: "FMA24475" },
+  });
+  fireEvent.change(screen.getByRole("combobox", { name: "System" }), {
+    target: { value: "muscles" },
+  });
+  expect(
+    screen.queryByRole("button", { name: /left femur FMA24475/ }),
+  ).toBeNull();
+  expect(skeleton.checked).toBe(true);
+  fireEvent.change(screen.getByRole("combobox", { name: "System" }), {
+    target: { value: "skeleton" },
+  });
+  expect(
+    screen.getByRole("button", { name: /left femur FMA24475/ }),
+  ).toBeTruthy();
+  fireEvent.change(screen.getByRole("combobox", { name: "Side" }), {
+    target: { value: "right" },
+  });
+  expect(
+    screen.queryByRole("button", { name: /left femur FMA24475/ }),
+  ).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+  expect((screen.getByRole("searchbox") as HTMLInputElement).value).toBe("");
+  expect(
+    (screen.getByRole("combobox", { name: "System" }) as HTMLSelectElement)
+      .value,
+  ).toBe("");
+  expect(
+    (screen.getByRole("combobox", { name: "Side" }) as HTMLSelectElement).value,
+  ).toBe("");
+  expect(skeleton.checked).toBe(true);
+});
