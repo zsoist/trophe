@@ -5,8 +5,18 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "meshoptimizer";
 import type { AtlasManifest } from "@/lib/anatomy/types";
+import { ATLAS_GEOMETRY_BUDGET, fitsAtlasMemory } from "@/lib/anatomy/budget";
 import { fetchAtlasChunk } from "@/lib/anatomy/validation";
+export interface RenderObservation {
+  timestamp: number;
+  durationMs: number;
+  drawCalls: number;
+  triangles: number;
+  geometries: number;
+  textures: number;
+}
 export interface CanvasProps {
+  onRender?: (value: RenderObservation) => void;
   manifest: AtlasManifest;
   systems: string[];
   selectedElements: string[];
@@ -81,6 +91,20 @@ export default function AtlasCanvas(props: CanvasProps) {
     const center = box.getCenter(new THREE.Vector3());
     const height = box.getSize(new THREE.Vector3()).y;
     const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+    const residentBytes = new Map<string, number>();
+    const geometryBytes = (group: THREE.Object3D) => {
+      let bytes = 0;
+      const seen = new Set<THREE.BufferGeometry>();
+      group.traverse((o) => {
+        if (o instanceof THREE.Mesh && !seen.has(o.geometry)) {
+          seen.add(o.geometry);
+          for (const a of Object.values(o.geometry.attributes))
+            bytes += (a as THREE.BufferAttribute).array.byteLength;
+          bytes += o.geometry.index?.array.byteLength ?? 0;
+        }
+      });
+      return bytes;
+    };
     const loaded = new Map<string, THREE.Group>();
     const loading = new Set<string>();
     const failed = new Set<string>();
@@ -116,12 +140,25 @@ export default function AtlasCanvas(props: CanvasProps) {
       if (dead || document.hidden || !inViewport || frame) return;
       frame = requestAnimationFrame(() => {
         frame = 0;
-        if (!dead && !document.hidden && inViewport)
+        if (!dead && !document.hidden && inViewport) {
+          const start = latest.current.onRender ? performance.now() : 0;
           renderer.render(scene, camera);
+          latest.current.onRender?.({
+            timestamp: performance.now(),
+            durationMs: performance.now() - start,
+            drawCalls: renderer.info.render.calls,
+            triangles: renderer.info.render.triangles,
+            geometries: renderer.info.memory.geometries,
+            textures: renderer.info.memory.textures,
+          });
+        }
       });
     };
     const refresh = () => {
       const p = latest.current;
+      const boneColor = getComputedStyle(container)
+        .getPropertyValue("--anatomy-bone")
+        .trim();
       const selected = new Set(p.selectedElements),
         hidden = new Set(p.hiddenElements);
       for (const [id, g] of loaded) {
@@ -134,6 +171,14 @@ export default function AtlasCanvas(props: CanvasProps) {
             const chosen = selected.has(eid);
             o.visible = !hidden.has(eid) && (!p.isolated || chosen);
             if (!materials.has(o)) materials.set(o, o.material);
+            if (chunk?.system === "skeleton" && boneColor) {
+              const original = materials.get(o)!;
+              for (const material of Array.isArray(original)
+                ? original
+                : [original])
+                if (material instanceof THREE.MeshStandardMaterial)
+                  material.color.set(boneColor);
+            }
             o.material = chosen ? highlight : materials.get(o)!;
           }
         });
@@ -177,6 +222,10 @@ export default function AtlasCanvas(props: CanvasProps) {
     const load = () => {
       if (dead || document.hidden || !inViewport) return;
       const p = latest.current;
+      if (!fitsAtlasMemory(p.manifest, p.systems)) {
+        p.onError("resident-budget");
+        return;
+      }
       const desired = p.manifest.chunks.filter((c) =>
         p.systems.includes(c.system),
       );
@@ -185,6 +234,7 @@ export default function AtlasCanvas(props: CanvasProps) {
           scene.remove(g);
           dispose(g);
           loaded.delete(id);
+          residentBytes.delete(id);
         }
       for (const [id, controller] of requests)
         if (!desired.some((c) => c.id === id)) controller.abort();
@@ -215,6 +265,15 @@ export default function AtlasCanvas(props: CanvasProps) {
               dispose(gltf.scene);
               return;
             }
+            const bytes = geometryBytes(gltf.scene);
+            if (
+              bytes + [...residentBytes.values()].reduce((n, b) => n + b, 0) >
+              ATLAS_GEOMETRY_BUDGET
+            ) {
+              dispose(gltf.scene);
+              throw Error("resident-budget");
+            }
+            residentBytes.set(chunk.id, bytes);
             loaded.set(chunk.id, gltf.scene);
             scene.add(gltf.scene);
             refresh();
@@ -314,6 +373,11 @@ export default function AtlasCanvas(props: CanvasProps) {
     renderer.domElement.addEventListener("pointerup", onUp);
     renderer.domElement.addEventListener("webglcontextlost", lost);
     document.addEventListener("visibilitychange", visibility);
+    const themeObserver = new MutationObserver(refresh);
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
     controls.addEventListener("change", draw);
     runtime.current = { refresh, setView, load, controls };
     setView();
@@ -325,6 +389,7 @@ export default function AtlasCanvas(props: CanvasProps) {
       cancelAnimationFrame(frame);
       for (const c of requests.values()) c.abort();
       observer.disconnect();
+      themeObserver.disconnect();
       intersection.disconnect();
       document.removeEventListener("visibilitychange", visibility);
       controls.dispose();

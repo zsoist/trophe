@@ -1,9 +1,13 @@
 .anatomy-explorer {
+  --anatomy-bone: #dfd5bb;
   max-width: 1120px;
   margin: auto;
   padding: 16px 12px calc(120px + env(safe-area-inset-bottom));
   color: var(--text-primary);
   background: var(--bg-primary);
+}
+.light .anatomy-explorer {
+  --anatomy-bone: #746b57;
 }
 .anatomy-explorer h1 {
   font:

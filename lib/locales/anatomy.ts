@@ -7,6 +7,11 @@ const rows: Record<string, [string, string, string]> = {
   ],
   zoom_in: ["Zoom in", "Ampliar", "Μεγέθυνση"],
   zoom_out: ["Zoom out", "Reducir", "Σμίκρυνση"],
+  layer_limit: [
+    "Hide another layer before adding this one. The full catalogue remains available.",
+    "Oculta otra capa antes de añadir esta. El catálogo completo sigue disponible.",
+    "Αποκρύψτε ένα άλλο επίπεδο πριν προσθέσετε αυτό. Ο πλήρης κατάλογος παραμένει διαθέσιμος.",
+  ],
   mapped_group: [
     "Curated muscle group",
     "Grupo muscular curado",
@@ -95,7 +100,11 @@ const rows: Record<string, [string, string, string]> = {
     "Estructuras conectivas",
     "Συνδετικές δομές",
   ],
-  vascular: ["Blood vessels", "Vasos sanguíneos", "Αιμοφόρα αγγεία"],
+  vascular: [
+    "Cardiovascular structures",
+    "Estructuras cardiovasculares",
+    "Αιμοφόρα αγγεία",
+  ],
   nervous: ["Nervous structures", "Estructuras nerviosas", "Νευρικές δομές"],
   organs: ["Organs", "Órganos", "Όργανα"],
   other: [

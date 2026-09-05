@@ -49,3 +49,24 @@ roll back immediately; retain a reviewed `previous` manifest for a deliberate ro
 No candidate, database migration, or atlas derivative is published by this PR.
 
 The ordinary Vitest suite also invokes the14 standard-library Python source/archive tests. No CI workflow permission expansion is required.
+
+## Private device review
+
+A 96 MiB resident geometry-buffer cap is checked before selecting systems and after
+real GLB decoding. GPU copies, JavaScript and temporary decoder allocations are
+additional; this is not a claim of total browser memory. Source fidelity is unchanged.
+Skeleton and muscles fit together; larger combinations ask the user to hide a layer.
+
+After committing a clean tree, `preview.mjs OUTPUT --export-review PRIVATE_DIRECTORY`
+exports only allowlisted component bundles and derived assets to Vercel Build Output.
+Deploy only to the existing project's SSO-protected preview target, never production.
+Verify anonymous HTML and GLB requests are blocked before sharing the private URL.
+The export records code/release/manifest and every served asset's digest. It contains
+no original OBJ archive, athlete candidate, database data or private diagnostic logs.
+
+Reference physical devices: iPhone 15 Pro Max and iPhone 13, initially Safari.
+Record actual iOS/browser version, source/release and code identity. The private review
+wrapper collects bounded renderer submissions during a manual gesture and reports
+its method/limits. This is browser submission cadence, not GPU presentation timing.
+No automatic camera animation, remote telemetry or logger integration. Emulation is
+reported separately and cannot close the physical-device gate.

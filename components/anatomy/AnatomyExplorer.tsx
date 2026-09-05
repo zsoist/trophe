@@ -1,7 +1,8 @@
 "use client";
+import type { RenderObservation } from "./AtlasCanvas";
 import Image from "next/image";
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useI18n } from "@/lib/i18n";
 import type { AtlasManifest } from "@/lib/anatomy/types";
 import {
@@ -9,6 +10,7 @@ import {
   selectionElements,
   visibleSelection,
 } from "@/lib/anatomy/selection";
+import { fitsAtlasMemory } from "@/lib/anatomy/budget";
 import { mappingForMuscle } from "@/lib/anatomy/mapping";
 import { muscleLabel, type AnatomyMuscleId } from "@/lib/workout/anatomy";
 import { fetchAtlasManifest } from "@/lib/anatomy/validation";
@@ -26,15 +28,20 @@ const SYSTEMS = [
 export default function AnatomyExplorer({
   manifestUrl,
   initialMuscle,
+  onRender,
 }: {
   manifestUrl: string;
   initialMuscle?: string;
+  onRender?: (value: RenderObservation) => void;
 }) {
   const { t, lang } = useI18n();
   const [manifest, setManifest] = useState<AtlasManifest | null>(null);
   const [error, setError] = useState(false);
   const [retry, setRetry] = useState(0);
   const [query, setQuery] = useState("");
+  const [layerLimited, setLayerLimited] = useState(false);
+  const openButton = useRef<HTMLButtonElement>(null);
+  const focusOnClose = useRef(false);
   const [systems, setSystems] = useState(["skeleton"]);
   const [selected, setSelected] = useState<string | null>(null);
   const [hidden, setHidden] = useState<string[]>([]);
@@ -93,6 +100,20 @@ export default function AnatomyExplorer({
     },
     [manifest],
   );
+  const changeSystems = (next: string[]) => {
+    if (manifest && !fitsAtlasMemory(manifest, next)) {
+      setLayerLimited(true);
+      return;
+    }
+    setLayerLimited(false);
+    setSystems(next);
+  };
+  useEffect(() => {
+    if (!show3d && focusOnClose.current) {
+      openButton.current?.focus();
+      focusOnClose.current = false;
+    }
+  }, [show3d]);
   const muscleMapping = initialMuscle ? mappingForMuscle(initialMuscle) : null;
   const parents =
     manifest && selected
@@ -165,6 +186,7 @@ export default function AnatomyExplorer({
             <AtlasCanvas
               key={retry}
               manifest={manifest}
+              onRender={onRender}
               systems={systems}
               selectedElements={selectedElements}
               hiddenElements={hidden}
@@ -199,7 +221,7 @@ export default function AnatomyExplorer({
                 )}
               </p>
               {manifest && !error && (
-                <button onClick={() => setShow3d(true)}>
+                <button ref={openButton} onClick={() => setShow3d(true)}>
                   {t("anatomy.open")}
                 </button>
               )}
@@ -229,6 +251,7 @@ export default function AnatomyExplorer({
               </button>
               <button
                 onClick={() => {
+                  focusOnClose.current = true;
                   setShow3d(false);
                   setInteractive(false);
                 }}
@@ -245,8 +268,10 @@ export default function AnatomyExplorer({
                   type="checkbox"
                   checked={systems.includes(s)}
                   onChange={() =>
-                    setSystems((v) =>
-                      v.includes(s) ? v.filter((x) => x !== s) : [...v, s],
+                    changeSystems(
+                      systems.includes(s)
+                        ? systems.filter((x) => x !== s)
+                        : [...systems, s],
                     )
                   }
                 />
@@ -259,6 +284,7 @@ export default function AnatomyExplorer({
               </label>
             ))}
           </fieldset>
+          {layerLimited && <p role="status">{t("anatomy.layer_limit")}</p>}
         </section>
         <aside className="anatomy-context">
           <h2>{t("anatomy.selection")}</h2>
@@ -281,9 +307,9 @@ export default function AnatomyExplorer({
                     setHidden((h) =>
                       h.filter((id) => !selectedElements.includes(id)),
                     );
-                    setSystems((s) => [
+                    changeSystems([
                       ...new Set([
-                        ...s,
+                        ...systems,
                         ...selectedElements
                           .map((id) => manifest!.elements[id]?.system)
                           .filter(Boolean),

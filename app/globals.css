@@ -2612,6 +2612,11 @@ body {
   backdrop-filter: blur(12px);
 }
 
+.exercise-detail--route .exercise-detail__action {
+  position: static;
+  backdrop-filter: none;
+}
+
 .exercise-detail--sheet .exercise-detail__action {
   bottom: 0;
   padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));

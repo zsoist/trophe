@@ -1,17 +1,33 @@
 /** Private local QA of the actual product component; no atlas copied to public/. */
-import { readFile, mkdtemp, stat } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { readFile, mkdtemp, stat, mkdir, writeFile } from "node:fs/promises";
+import { join, resolve, dirname } from "node:path";
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createServer } from "node:http";
 import { build } from "esbuild";
 import { gzipSync } from "node:zlib";
 import { tsImport } from "tsx/esm/api";
+const exportAt = process.argv.indexOf("--export-review");
+const exportDirectory =
+  exportAt >= 0 ? resolve(process.argv[exportAt + 1]) : null;
 const directory = resolve(process.argv[2]);
 const root = resolve(new URL("../..", import.meta.url).pathname);
 const { validateAtlas } = await tsImport(
   "../../lib/anatomy/validation.ts",
   import.meta.url,
 );
+const codeSha = execFileSync("git", ["rev-parse", "HEAD"], {
+  cwd: root,
+  encoding: "utf8",
+}).trim();
+if (
+  exportDirectory &&
+  execFileSync("git", ["status", "--porcelain"], {
+    cwd: root,
+    encoding: "utf8",
+  }).trim()
+)
+  throw Error("Commit review code before exporting an exact-SHA deployment");
 const light = process.argv.includes("--light");
 const manifestBytes = await readFile(join(directory, "manifest.json"));
 if (manifestBytes.length > 8 * 1024 * 1024) throw Error("Manifest cap");
@@ -45,7 +61,7 @@ if (manifest.poster)
 const temp = await mkdtemp(join(directory, "preview-"));
 const result = await build({
   stdin: {
-    contents: `import React from 'react';import {createRoot} from 'react-dom/client';import AnatomyExplorer from './components/anatomy/AnatomyExplorer';import {I18nProvider} from './lib/i18n';createRoot(document.getElementById('root')).render(<I18nProvider defaultLang="es"><AnatomyExplorer manifestUrl="${prefix}manifest.json"/></I18nProvider>);`,
+    contents: `import React from 'react';import {createRoot} from 'react-dom/client';import {PrivateAtlasReview} from './tools/anatomy/private-review';import {I18nProvider} from './lib/i18n';createRoot(document.getElementById('root')).render(<I18nProvider defaultLang="es"><PrivateAtlasReview manifestUrl="${prefix}manifest.json" identity={${JSON.stringify({ codeSha, manifestSha256: createHash("sha256").update(manifestBytes).digest("hex"), release: manifest.release })}}/></I18nProvider>);`,
     resolveDir: root,
     loader: "tsx",
   },
@@ -56,7 +72,10 @@ const result = await build({
   outdir: temp,
   jsx: "automatic",
   minify: true,
-  define: { "process.env.NODE_ENV": '"production"' },
+  define: {
+    "process.env.NODE_ENV": '"production"',
+    "process.env.__NEXT_IMAGE_OPTS": "undefined",
+  },
 });
 for (const f of result.outputFiles)
   assets.set("/_qa/" + f.path.slice(temp.length + 1), {
@@ -65,7 +84,7 @@ for (const f of result.outputFiles)
   });
 assets.set("/_qa/theme.css", {
   bytes: Buffer.from(
-    ":root{color-scheme:dark;--bg-primary:#181c1d;--bg-surface:#222828;--text-primary:#f3f1e9;--text-secondary:#b9c0b7;--border-default:#59605d;--accent:#d4a853}:root.light{color-scheme:light;--bg-primary:#faf9f6;--bg-surface:#eeeae1;--text-primary:#242a27;--text-secondary:#55615b;--border-default:#a7aea6;--accent:#71531c}*{box-sizing:border-box}body{margin:0;font:16px system-ui;background:var(--bg-primary);color:var(--text-primary)}button,input{font:inherit}a{color:inherit}",
+    ":root{color-scheme:dark;--bg-primary:#181c1d;--bg-surface:#222828;--text-primary:#f3f1e9;--text-secondary:#b9c0b7;--border-default:#59605d;--accent:#d4a853}:root.light{color-scheme:light;--bg-primary:#faf9f6;--bg-surface:#eeeae1;--text-primary:#242a27;--text-secondary:#55615b;--border-default:#a7aea6;--accent:#71531c}*{box-sizing:border-box}.private-device-review{padding:12px;max-width:1120px;margin:auto}.private-device-review pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}.private-device-review button,.private-device-review select{min-height:44px}.private-device-review summary{min-height:44px}body{margin:0;font:16px system-ui;background:var(--bg-primary);color:var(--text-primary)}button,input{font:inherit}a{color:inherit}",
   ),
   mime: "text/css",
 });
@@ -77,6 +96,76 @@ assets.set("/", {
   ),
   mime: "text/html",
 });
+if (exportDirectory) {
+  const output = join(exportDirectory, ".vercel/output"),
+    staticRoot = join(output, "static");
+  await mkdir(staticRoot, { recursive: true });
+  const routes = [],
+    records = [];
+  for (const [url, asset] of assets) {
+    const bytes = asset.bytes ?? (await readFile(asset.path));
+    if (
+      asset.path &&
+      (bytes.length !== asset.size ||
+        createHash("sha256").update(bytes).digest("hex") !== asset.sha256)
+    )
+      throw Error("Source changed");
+    const file = url === "/" ? "index.html" : url.slice(1),
+      path = join(staticRoot, file);
+    await mkdir(dirname(path), { recursive: true });
+    const compressed = gzipSync(bytes);
+    await writeFile(path, compressed);
+    records.push({
+      url,
+      bytes: bytes.length,
+      transferBytes: compressed.length,
+      sha256: createHash("sha256").update(bytes).digest("hex"),
+    });
+    routes.push({
+      src: "^" + url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "$",
+      dest: "/" + file,
+      headers: {
+        "Content-Type": asset.mime,
+        "Content-Encoding": "gzip",
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+        "X-Robots-Tag": "noindex, nofollow",
+        "Content-Security-Policy":
+          "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
+      },
+    });
+  }
+  await writeFile(
+    join(output, "config.json"),
+    JSON.stringify({ version: 3, routes }),
+  );
+  await writeFile(
+    join(exportDirectory, "review-export.json"),
+    JSON.stringify(
+      {
+        codeSha,
+        release: manifest.release,
+        manifestSha256: createHash("sha256")
+          .update(manifestBytes)
+          .digest("hex"),
+        records,
+        protection_required:
+          "Existing Vercel SSO protection, preview only; do not promote this diagnostic deployment",
+      },
+      null,
+      2,
+    ),
+  );
+  console.log(
+    JSON.stringify({
+      exportDirectory,
+      files: records.length,
+      bytes: records.reduce((n, r) => n + r.transferBytes, 0),
+      deployment: "not performed",
+    }),
+  );
+  process.exit(0);
+}
 let active = 0;
 const server = createServer(async (req, res) => {
   const host = `127.0.0.1:${server.address().port}`;
