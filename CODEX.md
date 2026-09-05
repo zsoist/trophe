@@ -118,7 +118,7 @@
 
 ```
 Browser → Vercel Edge
-  → middleware.ts (Next.js middleware)
+  → proxy.ts (Next.js 16 request proxy)
     → lib/supabase/middleware.ts → getUser() → role check
     → Unauthenticated: 302 /login
     → Wrong role: 302 /dashboard
@@ -416,7 +416,7 @@ AutoMacroOptimizer, BatchHabitAssign, BatchNote, BehavioralSignals, CalorieCycli
 
 ### Session model (v0.3)
 `@supabase/ssr` stores tokens in **HTTP-only cookies** (not localStorage). This means:
-- Middleware (`middleware.ts`) can read the session
+- `proxy.ts` can read the session before the request reaches the route
 - Server Components can read the session via `cookies()`
 - JavaScript cannot access the token (XSS protection)
 
@@ -618,7 +618,7 @@ Coach pages use tRPC hooks. REST routes remain as thin adapters for mobile clien
 
 These must never be broken:
 
-1. **`getUser()` not `getSession()`** — `getSession()` doesn't re-validate against auth server. Always use `getUser()` in middleware and server components.
+1. **`getUser()` not `getSession()`** — `getSession()` doesn't re-validate against auth server. Always use `getUser()` in the request proxy and server components.
 2. **Never `.single()`** — always `.maybeSingle()` on all Supabase queries.
 3. **LLM never emits macro numbers** in food-parse (v0.3). If you add a new food agent that lets LLM guess macros, expect ~20% overestimation.
 4. **All dates use `lib/dates.ts`** — `localToday()`, `localDateStr()`. UTC caused day-boundary bugs.

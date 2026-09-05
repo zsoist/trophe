@@ -10,14 +10,14 @@ _Last updated: 2026-05-03_
 
 | Threat | Asset | Likelihood | Impact | Control |
 |--------|-------|------------|--------|---------|
-| Account takeover | User session | Medium | High (health data exposed) | `@supabase/ssr` HTTP-only cookies + middleware role gate + RLS |
+| Account takeover | User session | Medium | High (health data exposed) | `@supabase/ssr` HTTP-only cookies + proxy request gate + route guards + RLS |
 | Cross-client data leak | Other users' food logs, notes | Low | High (GDPR) | Postgres RLS — `auth.uid() = user_id` on every client table |
 | Coach sees wrong client | client_profile of non-roster client | Medium | Medium | Coach RLS: `auth.uid() IN (SELECT coach_id FROM client_profiles WHERE user_id = row.user_id)` |
-| Role escalation | Accessing /admin or /super routes | Low | Critical | Middleware role gate (server-side, pre-render). `require-role.ts` checks `profiles.role` enum. RLS secondary barrier. |
+| Role escalation | Accessing /admin or /super routes | Low | Critical | `proxy.ts` request gate plus server-side route guards. `require-role.ts` checks `profiles.role` enum. RLS is the secondary barrier. |
 | Prompt injection via food input | LLM goes off-script | Medium | Low | 500-char cap, control-char strip, LLM output contract enforced by `extract.ts` type-guard |
 | Wearable token theft | Spike OAuth tokens | Low | Medium | Tokens stored encrypted via `pgcrypto pgp_sym_encrypt` in `wearable_connections` |
 | SQL injection | DB compromise | Low | High | All queries use Drizzle parameterized or Supabase PostgREST parameterized. No raw `ilike` on unsanitized input. |
-| Admin bypass | Full DB access | Low | Critical | 4-tier role enum in `profiles.role`. `super_admin` required for `/super/*`; `admin+` for `/admin/*`. Enforced in middleware before render. |
+| Admin bypass | Full DB access | Low | Critical | 4-tier role enum in `profiles.role`. `super_admin` required for `/super/*`; `admin+` for `/admin/*`. Enforced by `proxy.ts` and route-level guards before render. |
 | Secret exfiltration | API keys | Low | High | `.env.local` in `.gitignore`; service role key never `NEXT_PUBLIC_`; `grep` in pre-deploy checklist |
 | LLM cost abuse | OpenAI/Anthropic consumer bill; DeepSeek synthetic-factory bill | Medium | Low ($) | `guardAiRoute` rate limiter, per-request ceilings, governed factory telemetry, and `agent_runs` reconciliation |
 | XSS via user content | Session hijack | Low | High | React auto-escapes; CSP header; no `dangerouslySetInnerHTML` except hardcoded pre-paint theme script |
@@ -30,8 +30,8 @@ _Last updated: 2026-05-03_
 
 ### Authentication (v0.3)
 
-- **`@supabase/ssr`** replaces localStorage sessions. Tokens live in HTTP-only cookies — inaccessible to JavaScript, readable by server middleware.
-- **`middleware.ts` (Next.js middleware)** runs before every request. Creates a server Supabase client from `request.cookies`, calls `getUser()` (not `getSession()` — re-validates against auth server), enforces role routing:
+- **`@supabase/ssr`** replaces localStorage sessions. Tokens live in HTTP-only cookies — inaccessible to JavaScript, refreshed by `proxy.ts` and server components.
+- **`proxy.ts` (Next.js 16 request proxy)** runs before every matched request. Creates a server Supabase client from `request.cookies`, calls `getUser()` (not `getSession()` — re-validates against auth server), and provides the coarse auth gate. Route-level guards enforce role routing:
   - `/coach/*` → role ∈ `{coach, admin, super_admin}` required
   - `/admin/*` → role ∈ `{admin, super_admin}` required
   - `/super/*` → role = `super_admin` required
@@ -152,9 +152,9 @@ See `RUNBOOK.md` for operational playbooks. For security incidents:
 
 ## Completed (was v0.2 scheduled work)
 
-- ✅ Migrated to `@supabase/ssr` — server-side middleware auth with HTTP-only cookies (Phase 2)
+- ✅ Migrated to `@supabase/ssr` — server-side proxy auth with HTTP-only cookies (Phase 2)
 - ✅ Email allowlist admin gates replaced with canonical role guards and invariant tests
-- ✅ Middleware now enforces role gates server-side before any page render (Phase 2)
+- ✅ `proxy.ts` plus route guards enforce role gates server-side before any page render (Phase 2)
 - ✅ `audit_log` table + Drizzle writes on sensitive mutations (Phase 1)
 - ✅ RLS test suite in CI (`tests/db/rls.test.ts`) (Phase 1)
 - ⬜ Nonce-based CSP — deferred v1.0

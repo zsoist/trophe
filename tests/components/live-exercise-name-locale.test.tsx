@@ -48,7 +48,7 @@ vi.mock('@/components/workout/workspace/ExerciseSetLogger', () => ({
 }));
 vi.mock('@/lib/workout/live-session', () => ({
   finishLiveSession: harness.finishLiveSession, loadLiveSessionSets: harness.loadLiveSessionSets,
-  completeLiveSet: harness.completeLiveSet, uncompleteLiveSet: vi.fn(),
+  completeLiveSet: harness.completeLiveSet, completeLiveSetDetailed: harness.completeLiveSet, uncompleteLiveSet: vi.fn(),
   loadLivePrMap: harness.loadLivePrMap, loadLivePainFlags: harness.loadLivePainFlags,
   recoverLiveExtraRows: vi.fn(() => []),
   appendLivePainFlag: harness.appendLivePainFlag, loadLiveStructure: harness.loadLiveStructure,
@@ -65,6 +65,7 @@ vi.mock('@/lib/i18n', () => ({ useI18n: () => ({
     'workout.finish_completed_sets': `${String(params?.n ?? 0)} completed sets`,
     'workout.remove_exercise': 'Remove exercise', 'workout.cancel': 'Cancel',
     'workout.finish': 'Finish workout', 'workout.min': 'min',
+    'workout.set_not_saved': 'This set was not saved. Edit it and try again.',
   }[key] ?? key),
 }) }));
 

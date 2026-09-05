@@ -18,6 +18,7 @@ import {
   resumeLegacyLiveWorkoutStructureAtomic,
   saveRetrospectiveWorkoutAtomic,
   saveLiveWorkoutSetAtomic,
+  saveLiveWorkoutSetAtomicResult,
   startWorkoutSessionAtomic,
   updateLiveWorkoutStructureAtomic,
 } from '@/components/workout/workout-persistence';
@@ -132,6 +133,15 @@ describe('workout persistence live-session helpers', () => {
       p_template_id: null, p_cardio_activity: 'run', p_cardio_distance_km: 4.2,
       p_cardio_effort: 7,
     });
+  });
+
+  it('preserves a definitive live-set rejection for the caller to make editable', async () => {
+    db.rpc.mockResolvedValueOnce({ data: null, error: { code: '22023', message: 'exercise is no longer in the live structure' } });
+
+    await expect(saveLiveWorkoutSetAtomicResult({
+      sessionId: 'session-1', exerciseId: 'bench', setNumber: 2,
+      weightKg: 60, reps: 8, rpe: null, isWarmup: false, isPr: false, supersetGroup: null,
+    })).resolves.toEqual({ ok: false, kind: 'rejected', code: '22023' });
   });
 
   it('loads canonical structure and version without trusting local storage', async () => {

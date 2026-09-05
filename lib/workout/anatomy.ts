@@ -55,6 +55,9 @@ export type MuscleActivation =
   | (MuscleActivationBase & { confidence: 'curated'; group?: never })
   | (MuscleActivationBase & { confidence: 'group'; group: MuscleGroup | string; role: 'primary' });
 
+/** Named-muscle evidence that has been reviewed for the exact movement. */
+export type CuratedMuscleActivation = Extract<MuscleActivation, { confidence: 'curated' }>;
+
 export interface AnatomyExerciseInput {
   name?: string | null;
   exerciseName?: string | null;
@@ -74,7 +77,7 @@ const ATLAS_MUSCLE_VIEWS: Record<AnatomyMuscleId, AnatomyView> = {
   'tibialis-anterior': 'front',
 };
 
-const activation = (id: AnatomyMuscleId, role: MuscleRole, view: AnatomyView): MuscleActivation => {
+const activation = (id: AnatomyMuscleId, role: MuscleRole, view: AnatomyView): CuratedMuscleActivation => {
   void view;
   return { id, label: MUSCLE_LABELS[id], role, view: ATLAS_MUSCLE_VIEWS[id], confidence: 'curated' };
 };
@@ -124,7 +127,7 @@ const MUSCLE_LABELS: Record<AnatomyMuscleId, string> = {
 };
 
 /** Curated anatomy roles for the named technique cohort. */
-export const CURATED_MUSCLE_ACTIVATIONS: Readonly<Record<string, MuscleActivation[]>> = {
+export const CURATED_MUSCLE_ACTIVATIONS: Readonly<Record<string, CuratedMuscleActivation[]>> = {
   'bench-press': [
     activation('pectoralis-major', 'primary', 'front'),
     activation('triceps-brachii', 'secondary', 'back'),
@@ -267,7 +270,7 @@ export function slugForExerciseName(name: string): string | undefined {
 }
 
 /** Curated, reviewed roles only. Empty when the exercise has no curated entry. */
-export function resolveCuratedMuscleActivations(input: AnatomyExerciseInput): MuscleActivation[] {
+export function resolveCuratedMuscleActivations(input: AnatomyExerciseInput): CuratedMuscleActivation[] {
   const slug = slugForExerciseName(input.name ?? input.exerciseName ?? '');
   const curated = slug ? CURATED_MUSCLE_ACTIVATIONS[slug] : undefined;
   return (curated ?? []).map((item) => ({ ...item }));

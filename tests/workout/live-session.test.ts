@@ -6,6 +6,7 @@ const persistence = vi.hoisted(() => ({
   startWorkoutSessionAtomic: vi.fn(),
   saveRetrospectiveWorkoutAtomic: vi.fn(),
   saveLiveWorkoutSetAtomic: vi.fn(),
+  saveLiveWorkoutSetAtomicResult: vi.fn(),
   finishLiveWorkoutSessionAtomic: vi.fn(),
   updateLiveWorkoutStructureAtomic: vi.fn(),
   insertWorkoutSet: vi.fn(),
@@ -29,6 +30,7 @@ vi.mock('@/components/workout/workout-persistence', () => persistence);
 
 import {
   completeLiveSet,
+  completeLiveSetDetailed,
   discardEmptyLiveSession,
   finishLiveSession,
   loadLiveSessionSets,
@@ -109,6 +111,14 @@ describe('live workout persistence boundary', () => {
     await expect(completeLiveSet({ sessionId: 'session-1', exerciseId: 'bench', setNumber: 1, weightKg: 60, reps: 8 })).resolves.toEqual({ ok: false });
   });
 
+  it('returns the server classification needed to release a permanently stale set', async () => {
+    persistence.saveLiveWorkoutSetAtomicResult.mockResolvedValueOnce({ ok: false, kind: 'rejected', code: '22023' });
+
+    await expect(completeLiveSetDetailed({ sessionId: 'session-1', exerciseId: 'bench', setNumber: 2, weightKg: 60, reps: 8 }))
+      .resolves.toEqual({ ok: false, kind: 'rejected', code: '22023' });
+    expect(persistence.saveLiveWorkoutSetAtomicResult).toHaveBeenCalledTimes(1);
+  });
+
   it('uncompletes an active set through the session-locking RPC and reloads sets', async () => {
     persistence.deleteLiveWorkoutSetAtomic.mockResolvedValue(true);
     persistence.loadWorkoutSessionSets.mockResolvedValue({ ok: true, sets: [{ id: 'set-1', exercise_id: 'bench' }] });
@@ -170,16 +180,36 @@ describe('live workout persistence boundary', () => {
 
     const persist = vi.fn().mockResolvedValueOnce({ ok: false }).mockResolvedValueOnce({ ok: true, setId: 'set-2' });
     await expect(replayPendingLiveSets('session-1', persist, storage)).resolves.toEqual({
-      saved: [], failed: [pending],
+      saved: [], failed: [pending], rejected: [],
     });
     expect(persist).toHaveBeenCalledTimes(1);
     expect(persist).toHaveBeenLastCalledWith(pending);
     expect(loadPendingLiveSets('session-1', storage)).toEqual([pending]);
 
     await expect(replayPendingLiveSets('session-1', persist, storage)).resolves.toEqual({
-      saved: [{ input: pending, setId: 'set-2' }], failed: [],
+      saved: [{ input: pending, setId: 'set-2' }], failed: [], rejected: [],
     });
     expect(persist).toHaveBeenCalledTimes(2);
+    expect(loadPendingLiveSets('session-1', storage)).toEqual([]);
+  });
+
+  it('drops a permanently rejected queued set and reports it as editable instead of failed', async () => {
+    const values = new Map<string, string>();
+    const storage: Storage = {
+      get length() { return values.size; },
+      clear: () => values.clear(),
+      getItem: (key) => values.get(key) ?? null,
+      key: (index) => [...values.keys()][index] ?? null,
+      removeItem: (key) => { values.delete(key); },
+      setItem: (key, value) => { values.set(key, value); },
+    };
+    const pending = { sessionId: 'session-1', exerciseId: 'bench', setNumber: 2, weightKg: 62.5, reps: 7, rpe: 8.5, isWarmup: false, isPr: true, supersetGroup: 1 };
+    expect(persistPendingLiveSet(pending, storage)).toBe(true);
+
+    const persist = vi.fn().mockResolvedValue({ ok: false, kind: 'rejected', code: '22023' });
+    await expect(replayPendingLiveSets('session-1', persist, storage)).resolves.toEqual({
+      saved: [], failed: [], rejected: [pending],
+    });
     expect(loadPendingLiveSets('session-1', storage)).toEqual([]);
   });
 

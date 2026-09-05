@@ -84,7 +84,7 @@ git push origin main
 
 ### PWA build artifact
 
-`npm run build` generates `public/sw.js` from `app/sw.ts`; the generated file is intentionally ignored by git. Before deploying service-worker changes, verify that the generated manifest contains only `/offline.html` and that no application document, RSC, API, or Supabase route is precached. Do not commit the generated worker.
+`npm run build` generates `public/sw.js` from `app/sw.ts`; the generated file is intentionally ignored by git. The current worker is a migration/self-destruct artifact with no precache entries or runtime caching. Verify that the built worker still purges legacy caches and unregisters itself, and that no application document, RSC, API, or Supabase route is precached. Do not commit the generated worker.
 
 ## Truth table
 
@@ -115,11 +115,30 @@ npm run db:migrate      # applies pending migrations to local DB
 DIRECT_URL=... npm run db:migrate  # direct/session connection, never transaction pooler
 ```
 
-Migration files live in `drizzle/`. The repo currently has **57 migrations** (filenames `0000`…`0048`, with 8 duplicate-prefix files for `0008`–`0015` from a branch merge — `drizzle/meta/_journal.json`'s max idx is 56); `_journal.json` is the authoritative index. Notable early ones:
+Migration files live in `drizzle/`. The repo currently has **85 migrations** (filenames `0000`…`0084`, with duplicate-prefix files retained from earlier branch merges — `drizzle/meta/_journal.json`'s max idx is 84); `_journal.json` is the authoritative index. Notable early ones:
 - `0000_complex_johnny_blaze.sql` — initial schema
 - `0001_tearful_machine_man.sql` — organizations + roles
 - `0002_role_backfill.sql` — seeds Daniel as super_admin
-- `0003`+ — subsequent schema additions through `0048` (run `ls drizzle/*.sql | wc -l` to confirm the count: 57)
+- `0003`+ — subsequent schema additions through `0084` (run `ls drizzle/*.sql | wc -l` to confirm the count: 85)
+
+### Live-workout reconciliation (P2-10)
+
+`0084_owner_scoped_live_session_reconciliation.sql` adds the authenticated-only,
+read-only `public.resolve_live_workout_session(uuid)` RPC. It distinguishes
+`missing`, `forbidden`, `terminal`, `legacy`, `invalid`, and `active` sessions
+without exposing owner or free-form content. The client has a safe SELECT
+fallback for rolling deploys and missing-function errors.
+
+Apply this migration to production with the normal direct/session connection
+as an operator; this agent has **not** written to the production database:
+
+```bash
+DIRECT_URL=... npm run db:migrate
+```
+
+Afterward, verify that `EXECUTE` is granted only to `authenticated` (not
+`PUBLIC`, `anon`, or `service_role`) and that unauthenticated RPC calls fail
+with `42501`.
 
 **Note**: `supabase-schema.sql` and `supabase-workout-schema.sql` in the repo root are **DEPRECATED** — kept as reference only. Drizzle migrations are the source of truth for v0.3+.
 
@@ -200,7 +219,7 @@ curl -sI https://trophe.app | grep -E "(X-Frame|Content-Security)"
 For service-worker releases, verify two browser cohorts:
 
 1. A clean public visitor: `/` must not register a worker or eagerly request login/Supabase resources.
-2. A previously controlled browser: the v2 worker must activate, purge retired runtime caches, preserve only the offline shell plus allowed static/public-asset caches, and keep documents/RSC/APIs network-only.
+2. A previously controlled browser: the migration worker must activate, purge retired runtime caches, unregister itself, and leave documents/RSC/APIs/Supabase traffic network-only. The app does not promise offline navigation.
 
 ---
 

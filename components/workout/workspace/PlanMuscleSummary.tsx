@@ -2,7 +2,7 @@
 
 import { AlertTriangle } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
-import { muscleLabel, resolveMuscleActivations, type AnatomyMuscleId } from '@/lib/workout/anatomy';
+import { muscleLabel, resolveCuratedMuscleActivations, type AnatomyMuscleId } from '@/lib/workout/anatomy';
 import { calculateCombinedMuscleLoad } from '@/lib/workout/muscle-load';
 import type { DraftExercise } from '@/lib/workout/workspace-state';
 import type { WorkoutExerciseOption } from '@/components/workout/workspace/WorkoutBuilder';
@@ -25,7 +25,9 @@ export function buildPlanEvidenceSummary(draftExercises: DraftExercise[], exerci
   let estimatedSeconds = Math.max(0, draftExercises.length - 1) * 60;
   const loadInputs = draftExercises.map((draftExercise) => {
     const exercise = byId.get(draftExercise.exerciseId);
-    const activations = resolveMuscleActivations({ name: exercise?.name ?? draftExercise.exerciseName, equipment: exercise?.equipment, muscleGroup: draftExercise.muscleGroup ?? exercise?.muscle_group });
+    // A plan summary is evidence, not a prediction. Keep group-only rows out
+    // of named-muscle load totals and surface them through missingEvidenceCount.
+    const activations = resolveCuratedMuscleActivations({ name: exercise?.name ?? draftExercise.exerciseName, equipment: exercise?.equipment, muscleGroup: draftExercise.muscleGroup ?? exercise?.muscle_group });
     if (activations.length === 0) missingEvidenceCount += 1;
     const sets = Math.max(0, draftExercise.targetSets);
     const rest = draftExercise.restSeconds ?? DEFAULT_PLAN_REST_SECONDS;

@@ -64,6 +64,7 @@ export const translations: Record<string, Record<CoreLanguage, string>> = {
   'auth.role_select': { en: 'I am a...', es: 'Soy un...', el: 'Είμαι...' },
   'auth.role_client': { en: 'Client', es: 'Cliente', el: 'Πελάτης' },
   'auth.role_coach': { en: 'Coach', es: 'Coach', el: 'Coach' },
+  'install.faster_access': { en: 'Install for faster access.', es: 'Instálala para acceder más rápido.', el: 'Εγκατάστησέ το για ταχύτερη πρόσβαση.' },
 
   // ── Onboarding ──
   'onboard.welcome': { en: 'Welcome to Trophē', es: 'Bienvenido a Trophē', el: 'Καλώς ήρθατε στο τροφή' },
@@ -799,6 +800,7 @@ export const translations: Record<string, Record<CoreLanguage, string>> = {
   'workout.start_live': { en: 'Start live workout', es: 'Iniciar entrenamiento en vivo', el: 'Έναρξη ζωντανής προπόνησης' },
   'workout.start_live_failed': { en: 'Workout could not start. Try again.', es: 'No se pudo iniciar el entrenamiento. Inténtalo de nuevo.', el: 'Η προπόνηση δεν μπόρεσε να ξεκινήσει. Δοκίμασε ξανά.' },
   'workout.mutation_failed': { en: 'A workout change could not be saved. Retry that change before finishing.', es: 'No se pudo guardar un cambio. Reinténtalo antes de finalizar.', el: 'Μια αλλαγή δεν αποθηκεύτηκε. Δοκιμάστε ξανά πριν την ολοκλήρωση.' },
+  'workout.set_not_saved': { en: 'This set was not saved. Edit it and try again.', es: 'Esta serie no se guardó. Edítala e inténtalo de nuevo.', el: 'Αυτό το σετ δεν αποθηκεύτηκε. Επεξεργάσου το και δοκίμασε ξανά.' },
   'workout.recovery_failed': { en: 'Workout recovery could not be verified.', es: 'No se pudo verificar la recuperación del entrenamiento.', el: 'Δεν ήταν δυνατή η επαλήθευση της ανάκτησης προπόνησης.' },
   'workout.info_history_failed': { en: 'Recent sessions could not be loaded. Try again later.', es: 'No se pudieron cargar las sesiones recientes. Inténtalo más tarde.', el: 'Δεν ήταν δυνατή η φόρτωση των πρόσφατων προπονήσεων. Δοκιμάστε ξανά αργότερα.' },
   'workout.support_data_load_failed': { en: 'Some workout history or saved routines could not be loaded. Your coach program is still available.', es: 'No se pudo cargar parte del historial o las rutinas guardadas. Tu programa del coach sigue disponible.', el: 'Δεν φορτώθηκε μέρος του ιστορικού ή των αποθηκευμένων ρουτινών. Το πρόγραμμα του προπονητή παραμένει διαθέσιμο.' },

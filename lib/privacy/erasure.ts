@@ -45,8 +45,9 @@ export const PRE_ERASURE_STEPS: ErasureStep[] = [
   { table: 'invite_reservations', column: 'user_id', action: 'delete' },
   { table: 'custom_foods', column: 'created_by', action: 'delete' },
   { table: 'knowledge_documents', column: 'created_by', action: 'delete' },
-  // Clients can create private exercises. Nulling ownership preserves any paid
-  // workout/form history that references the exercise while removing the user link.
+  // Clients can create private exercises. The scrub above removes authored
+  // names/cues; nulling ownership then keeps only a generic referential row for
+  // any retained aggregate, without retaining the user's identity or content.
   { table: 'exercises', column: 'created_by', action: 'nullify' },
   { table: 'agent_runs', column: 'user_id', action: 'nullify' },
 ];
@@ -217,7 +218,38 @@ export async function eraseUser(userId: string, opts: { dryRun: boolean }): Prom
     }
   }
 
-  // 1) Straggler steps (would block or escape the cascade)
+  // 1) Scrub authored exercise content before ownership is nulled. Workout
+  // history normally cascades with the profile, but a historical set or form
+  // row can still hold an FK to an exercise created by this client. Keeping a
+  // generic row avoids an FK failure while ensuring no authored name or cue is
+  // retained after erasure.
+  {
+    const authoredExerciseIds: string[] = [];
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await service
+        .from('exercises').select('id').eq('created_by', userId).range(from, from + 999);
+      if (error) {
+        result.errors.push(`exercises (content scrub): count failed — ${error.message}`);
+        break;
+      }
+      authoredExerciseIds.push(...(data ?? []).map((row) => row.id as string).filter(Boolean));
+      if (!data || data.length < 1000) break;
+    }
+    result.counts['exercises (content scrub)'] = authoredExerciseIds.length;
+    if (!opts.dryRun && authoredExerciseIds.length > 0) {
+      const { error } = await service.from('exercises').update({
+        name: 'Deleted exercise',
+        name_es: null,
+        name_el: null,
+        instructions: null,
+        instructions_es: null,
+        instructions_el: null,
+      }).in('id', authoredExerciseIds);
+      if (error) result.errors.push(`exercises (content scrub): ${error.message}`);
+    }
+  }
+
+  // 2) Straggler steps (would block or escape the cascade)
   for (const step of PRE_ERASURE_STEPS) {
     const key = `${step.table}.${step.column} (${step.action})`;
     const { count, error: countErr } = await service
@@ -231,7 +263,7 @@ export async function eraseUser(userId: string, opts: { dryRun: boolean }): Prom
     if (error) result.errors.push(`${key}: ${error.message}`);
   }
 
-  // 2) Cascade root — count the big tables for the evidence trail, then delete
+  // 3) Cascade root — count the big tables for the evidence trail, then delete
   for (const t of ['food_log', 'water_log', 'measurements', 'messages', 'workout_sessions', 'consents'] as const) {
     const col = t === 'messages' ? 'client_id' : 'user_id';
     const { count } = await service.from(t).select('*', { count: 'exact', head: true }).eq(col, userId);
@@ -243,7 +275,7 @@ export async function eraseUser(userId: string, opts: { dryRun: boolean }): Prom
       result.errors.push(`profiles delete: ${profileErr.message}`);
     } else {
       result.counts['profiles (deleted)'] = 1;
-      // 3) auth.users — idempotent admin delete (lib/auth/auth-admin.ts pattern)
+      // 4) auth.users — idempotent admin delete (lib/auth/auth-admin.ts pattern)
       const { error: authErr } = await service.auth.admin.deleteUser(userId);
       if (authErr && !/user.*not.*found/i.test(authErr.message)) {
         result.errors.push(`auth delete: ${authErr.message}`);

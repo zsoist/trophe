@@ -5,7 +5,7 @@ import { BarChart3 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { localeForLanguage } from '@/lib/i18n-locale';
 import { calculateMuscleLoad } from '@/lib/workout/muscle-load';
-import { resolveMuscleActivations, type AnatomyMuscleId } from '@/lib/workout/anatomy';
+import { resolveCuratedMuscleActivations, type AnatomyMuscleId } from '@/lib/workout/anatomy';
 
 export type MuscleLoadRange = 'last' | 'week' | 'month' | 'all';
 export interface MuscleLoadEntry {
@@ -64,7 +64,10 @@ export function MuscleLoadChart({
   const values = useMemo(() => {
     const loads = new Map<AnatomyMuscleId, number>();
     for (const entry of filtered) {
-      const activations = resolveMuscleActivations(entry.exercise);
+      // Analytics must only aggregate reviewed, named-muscle evidence. A
+      // group-level fallback is useful for the atlas, but would turn an
+      // estimate into a false claim such as "Anterior deltoid" here.
+      const activations = resolveCuratedMuscleActivations(entry.exercise);
       const calculated = calculateMuscleLoad({ activations, sets: entry.sets });
       for (const activation of activations) loads.set(activation.id, (loads.get(activation.id) ?? 0) + (calculated[activation.id] ?? 0));
     }

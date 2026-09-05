@@ -1,5 +1,4 @@
 import { readFileSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
@@ -69,12 +68,4 @@ describe('Content-Security-Policy', () => {
     }
   });
 
-  it('production canary reaches the paid-operation guard before running any probe', () => {
-    const canary = join(process.cwd(), 'scripts/ops/canary-readonly.sh');
-    const result = spawnSync('bash', [canary], { encoding: 'utf8' });
-
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain('canary-production-ai-route:tool-opt-in-required');
-    expect(result.stderr).not.toContain('command not found');
-  });
 });

@@ -1,4 +1,4 @@
-import type { AnatomyMuscleId, MuscleActivation, MuscleRole } from '@/lib/workout/anatomy';
+import type { AnatomyMuscleId, CuratedMuscleActivation, MuscleRole } from '@/lib/workout/anatomy';
 
 export interface MuscleLoadSet {
   completed?: boolean;
@@ -7,12 +7,12 @@ export interface MuscleLoadSet {
 }
 
 export interface MuscleLoadInput {
-  activations: MuscleActivation[];
+  activations: CuratedMuscleActivation[];
   sets: MuscleLoadSet[];
 }
 
 export interface MuscleLoadExercise {
-  activations: MuscleActivation[];
+  activations: CuratedMuscleActivation[];
   sets: MuscleLoadSet[];
 }
 
@@ -29,8 +29,8 @@ const ROLE_WEIGHT: Record<MuscleRole, number> = {
  * warm-up contributes one quarter of the role's normal set weight.
  */
 export function calculateMuscleLoad(input: MuscleLoadInput): MuscleLoad;
-export function calculateMuscleLoad(activations: MuscleActivation[], sets: MuscleLoadSet[]): MuscleLoad;
-export function calculateMuscleLoad(inputOrActivations: MuscleLoadInput | MuscleActivation[], setsArg?: MuscleLoadSet[]): MuscleLoad {
+export function calculateMuscleLoad(activations: CuratedMuscleActivation[], sets: MuscleLoadSet[]): MuscleLoad;
+export function calculateMuscleLoad(inputOrActivations: MuscleLoadInput | CuratedMuscleActivation[], setsArg?: MuscleLoadSet[]): MuscleLoad {
   const input: MuscleLoadInput = Array.isArray(inputOrActivations)
     ? { activations: inputOrActivations, sets: setsArg ?? [] }
     : inputOrActivations;

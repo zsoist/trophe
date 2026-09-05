@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { useInstallPrompt } from "@/hooks/useInstallPrompt";
+import { useI18n } from "@/lib/i18n";
 
 const subscribeHydration = () => () => {};
 
@@ -13,6 +14,7 @@ const subscribeHydration = () => () => {};
  * Hidden when: already installed in standalone, user dismissed within 7 days.
  */
 export function InstallCard() {
+  const { t } = useI18n();
   const { canInstall, isIOS, isInstalled, isDismissed, triggerInstall, dismiss } =
     useInstallPrompt();
   // The server cannot know the browser's iOS/install state. Keep the first
@@ -125,7 +127,7 @@ export function InstallCard() {
             </p>
           ) : (
             <p style={{ fontSize: 12, color: "var(--content-secondary)", lineHeight: 1.5 }}>
-              Install for offline access and faster loading.
+              {t('install.faster_access')}
             </p>
           )}
         </div>

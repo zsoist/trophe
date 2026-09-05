@@ -79,7 +79,7 @@ export type LiveStructureLoadResult =
   /** The row is frozen history (migrations 0079-0081); no live write can ever succeed against it. */
   | { ok: true; terminal: true; completedAt: string | null; durationMinutes: number | null }
   /** `missing` is returned only after Auth verifies the current owner. Other answers are non-destructive. */
-  | { ok: false; reason: 'missing' | 'transport' | 'auth' }
+  | { ok: false; reason: 'missing' | 'transport' | 'auth' | 'forbidden' }
   | { ok: false; reason: 'legacy'; legacy: true };
 
 /** A server answer that can never change by retrying the same request. */
@@ -92,9 +92,9 @@ export type PersistenceFailure = PersistenceRejection | PersistenceBlockedFailur
 export type SessionStartResult = { ok: true; sessionId: string } | PersistenceFailure;
 
 /**
- * Postgres/PostgREST error codes that are definitive: data exceptions (22xxx),
- * integrity violations (23xxx), RLS/privilege denial (42501) and RAISE
- * EXCEPTION defaults (P0001). Definition/schema-cache/auth configuration
+ * Postgres/PostgREST error codes that are definitive: data exceptions (22xxx)
+ * and integrity violations (23xxx). RLS/privilege denial (42501), RAISE
+ * EXCEPTION defaults (P0001), and definition/schema-cache/auth configuration
  * failures are blocked without releasing the envelope. Connection, timeout,
  * serialization, and unclassified failures stay transient so the exact
  * idempotent envelope is retried.
@@ -103,11 +103,11 @@ export function classifyPersistenceError(error: unknown): PersistenceFailure {
   if (!error || typeof error !== 'object') return { ok: false, kind: 'transient' };
   const code = (error as { code?: unknown }).code;
   if (typeof code !== 'string') return { ok: false, kind: 'transient' };
-  if (/^(22|23)\d{3}$/.test(code) || code === '42501' || code === 'P0001') return { ok: false, kind: 'rejected', code };
+  if (/^(22|23)\d{3}$/.test(code)) return { ok: false, kind: 'rejected', code };
   // SQL definition/configuration errors and deterministic PostgREST request,
   // schema-cache, or JWT failures need operator/auth repair. They must be
   // visible without releasing the byte-exact idempotency envelope.
-  if (/^42[A-Z0-9]{3}$/.test(code) || /^PGRST[123]\d{2}$/.test(code)) return { ok: false, kind: 'blocked', code };
+  if (code === '42501' || code === 'P0001' || /^42[A-Z0-9]{3}$/.test(code) || /^PGRST[123]\d{2}$/.test(code)) return { ok: false, kind: 'blocked', code };
   return { ok: false, kind: 'transient' };
 }
 
@@ -175,7 +175,12 @@ export async function updateLiveWorkoutStructureAtomic(
   return { ok: true, version: result.version as number, structure: result.structure as LiveExerciseStructureInput[] };
 }
 
-export async function saveLiveWorkoutSetAtomic(input: AtomicLiveSetInput): Promise<string | null> {
+/**
+ * Preserve the server's classification for callers that need to decide
+ * whether a queued set is retryable or permanently stale. The legacy helper
+ * below intentionally keeps its string/null contract for older callers.
+ */
+export async function saveLiveWorkoutSetAtomicResult(input: AtomicLiveSetInput): Promise<{ ok: true; setId: string } | PersistenceFailure> {
   const { data, error } = await supabase.rpc('save_live_workout_set', {
     p_session_id: input.sessionId,
     p_exercise_id: input.exerciseId,
@@ -187,7 +192,13 @@ export async function saveLiveWorkoutSetAtomic(input: AtomicLiveSetInput): Promi
     p_is_pr: input.isPr,
     p_superset_group: input.supersetGroup,
   });
-  return error || typeof data !== 'string' || !data.trim() ? null : data;
+  if (error) return classifyPersistenceError(error);
+  return typeof data === 'string' && data.trim() ? { ok: true, setId: data } : { ok: false, kind: 'transient' };
+}
+
+export async function saveLiveWorkoutSetAtomic(input: AtomicLiveSetInput): Promise<string | null> {
+  const result = await saveLiveWorkoutSetAtomicResult(input);
+  return result.ok ? result.setId : null;
 }
 
 export async function appendWorkoutSessionPainFlag(
@@ -407,9 +418,67 @@ export async function loadWorkoutSessionSets(sessionId: string): Promise<Workout
   return error ? { ok: false } : { ok: true, sets: (data as PersistedWorkoutSet[] | null) ?? [] };
 }
 
-export async function loadWorkoutSessionStructure(sessionId: string, expectedUserId?: string | null): Promise<LiveStructureLoadResult> {
-  // An empty id is a caller bug, not server evidence; fail closed without clearing anything.
-  if (!sessionId.trim()) return { ok: false, reason: 'transport' };
+type ResolveLiveWorkoutSessionReply = {
+  state?: unknown;
+  version?: unknown;
+  structure?: unknown;
+  completed_at?: unknown;
+  duration_minutes?: unknown;
+};
+
+function parseResolvedLiveWorkoutSession(data: unknown): LiveStructureLoadResult | null {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return { ok: false, reason: 'transport' };
+  const reply = data as ResolveLiveWorkoutSessionReply;
+  switch (reply.state) {
+    case 'missing': return { ok: false, reason: 'missing' };
+    case 'forbidden': return { ok: false, reason: 'forbidden' };
+    case 'legacy': return { ok: false, reason: 'legacy', legacy: true };
+    case 'terminal':
+      return {
+        ok: true,
+        terminal: true,
+        completedAt: typeof reply.completed_at === 'string' ? reply.completed_at : null,
+        durationMinutes: typeof reply.duration_minutes === 'number' ? reply.duration_minutes : null,
+      };
+    case 'active':
+      if (!Array.isArray(reply.structure) || !Number.isInteger(reply.version)) return { ok: false, reason: 'transport' };
+      return {
+        ok: true,
+        terminal: false,
+        structure: reply.structure as LiveExerciseStructureInput[],
+        version: reply.version as number,
+      };
+    default: return { ok: false, reason: 'transport' };
+  }
+}
+
+/**
+ * Read the canonical owner-scoped state when migration 0084 is available.
+ * `null` means the function is not installed yet, so callers can use the
+ * pre-0084 SELECT fallback during a rolling deploy without turning every
+ * active session into a recovery error.
+ */
+async function resolveLiveWorkoutSessionRpc(sessionId: string): Promise<LiveStructureLoadResult | null> {
+  try {
+    const response = await supabase.rpc('resolve_live_workout_session', { p_session_id: sessionId });
+    if (!response || typeof response !== 'object') return null;
+    const { data, error } = response as { data?: unknown; error?: { code?: unknown } | null };
+    if (error) {
+      const code = typeof error.code === 'string' ? error.code : '';
+      // PostgREST's schema cache and Postgres both report a missing function
+      // differently. Treat only those two codes as rollout fallback signals.
+      if (code === '42883' || code === 'PGRST202') return null;
+      return { ok: false, reason: 'transport' };
+    }
+    return parseResolvedLiveWorkoutSession(data);
+  } catch {
+    // A transient RPC transport failure may still be served by the legacy
+    // owner-filtered SELECT (and gives the user a chance to retry if it is not).
+    return null;
+  }
+}
+
+async function loadWorkoutSessionStructureFromSelect(sessionId: string, expectedUserId?: string | null): Promise<LiveStructureLoadResult> {
   const { data, error } = await supabase
     .from('workout_sessions')
     .select('live_structure, live_structure_version, duration_minutes, completed_at, client_request')
@@ -459,6 +528,13 @@ export async function loadWorkoutSessionStructure(sessionId: string, expectedUse
     structure: data.live_structure as LiveExerciseStructureInput[],
     version: data.live_structure_version as number,
   };
+}
+
+export async function loadWorkoutSessionStructure(sessionId: string, expectedUserId?: string | null): Promise<LiveStructureLoadResult> {
+  // An empty id is a caller bug, not server evidence; fail closed without clearing anything.
+  if (!sessionId.trim()) return { ok: false, reason: 'transport' };
+  const resolved = await resolveLiveWorkoutSessionRpc(sessionId);
+  return resolved ?? loadWorkoutSessionStructureFromSelect(sessionId, expectedUserId);
 }
 
 /** One-time, owner-scoped upgrade of an active pre-0076 live session. */

@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WorkoutWorkspaceState } from '@/lib/workout/workspace-state';
 
 const api = vi.hoisted(() => ({
-  saveLiveWorkoutSetAtomic: vi.fn(), deleteLiveWorkoutSetAtomic: vi.fn(), loadWorkoutSessionSets: vi.fn(), loadWorkoutSessionPainFlags: vi.fn(), loadPrMap: vi.fn(), loadWorkoutSessionStructure: vi.fn(), updateLiveWorkoutStructureAtomic: vi.fn(),
+  saveLiveWorkoutSetAtomic: vi.fn(), saveLiveWorkoutSetAtomicResult: vi.fn(), deleteLiveWorkoutSetAtomic: vi.fn(), loadWorkoutSessionSets: vi.fn(), loadWorkoutSessionPainFlags: vi.fn(), loadPrMap: vi.fn(), loadWorkoutSessionStructure: vi.fn(), updateLiveWorkoutStructureAtomic: vi.fn(),
 }));
 
 const state: WorkoutWorkspaceState = {
@@ -33,7 +33,7 @@ vi.mock('@/components/workout/workout-persistence', () => ({
   deleteEmptyWorkoutSession: vi.fn(), deleteWorkoutSet: vi.fn(), deleteLiveWorkoutSetAtomic: api.deleteLiveWorkoutSetAtomic, appendWorkoutSessionPainFlag: vi.fn(), finishLiveWorkoutSessionAtomic: vi.fn(),
   loadWorkoutSessionSets: api.loadWorkoutSessionSets, loadWorkoutSessionStructure: api.loadWorkoutSessionStructure, resumeLegacyLiveWorkoutStructureAtomic: vi.fn(),
   loadPrMap: api.loadPrMap, loadWorkoutSessionPainFlags: api.loadWorkoutSessionPainFlags, saveRetrospectiveWorkoutAtomic: vi.fn(),
-  saveLiveWorkoutSetAtomic: api.saveLiveWorkoutSetAtomic, startWorkoutSessionAtomic: vi.fn(), updateLiveWorkoutStructureAtomic: api.updateLiveWorkoutStructureAtomic, updateWorkoutSupersetGroups: vi.fn(), deleteWorkoutSets: vi.fn(),
+  saveLiveWorkoutSetAtomic: api.saveLiveWorkoutSetAtomic, saveLiveWorkoutSetAtomicResult: api.saveLiveWorkoutSetAtomicResult, startWorkoutSessionAtomic: vi.fn(), updateLiveWorkoutStructureAtomic: api.updateLiveWorkoutStructureAtomic, updateWorkoutSupersetGroups: vi.fn(), deleteWorkoutSets: vi.fn(),
 }));
 vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ t: (key: string, values?: { n?: number; unit?: string }) => ({
   'workout.pause': 'Pause', 'workout.resume': 'Resume', 'workout.add_set': 'Add set', 'workout.finish': 'Finish workout', 'workout.saving': 'Saving…',
@@ -55,12 +55,16 @@ async function openCalculatorForRow(index = 0) {
 
 beforeEach(() => {
   workspace.state = state;
-  api.saveLiveWorkoutSetAtomic.mockReset(); api.deleteLiveWorkoutSetAtomic.mockReset(); api.loadWorkoutSessionSets.mockReset(); api.loadWorkoutSessionPainFlags.mockReset(); api.loadPrMap.mockReset(); api.loadWorkoutSessionStructure.mockReset(); api.updateLiveWorkoutStructureAtomic.mockReset();
+  api.saveLiveWorkoutSetAtomic.mockReset(); api.saveLiveWorkoutSetAtomicResult.mockReset(); api.deleteLiveWorkoutSetAtomic.mockReset(); api.loadWorkoutSessionSets.mockReset(); api.loadWorkoutSessionPainFlags.mockReset(); api.loadPrMap.mockReset(); api.loadWorkoutSessionStructure.mockReset(); api.updateLiveWorkoutStructureAtomic.mockReset();
   api.loadWorkoutSessionSets.mockResolvedValue({ ok: true, sets: [] });
   api.loadWorkoutSessionPainFlags.mockResolvedValue({ ok: true, flags: [] });
   api.loadPrMap.mockResolvedValue({});
   api.loadWorkoutSessionStructure.mockResolvedValue({ ok: true, version: 0, structure: [{ exercise_id: 'bench', target_sets: 1, target_reps: '8', superset_group: null }] });
   api.saveLiveWorkoutSetAtomic.mockImplementation(async (input: { setNumber: number }) => `set-${input.setNumber}`);
+  api.saveLiveWorkoutSetAtomicResult.mockImplementation(async (input: { setNumber: number }) => {
+    const setId = await api.saveLiveWorkoutSetAtomic(input);
+    return typeof setId === 'string' ? { ok: true, setId } : { ok: false, kind: 'transient' };
+  });
   api.deleteLiveWorkoutSetAtomic.mockResolvedValue(true);
   api.updateLiveWorkoutStructureAtomic.mockResolvedValue({ ok: true, version: 1, structure: [] });
   if (state.draft?.kind === 'strength') state.draft.exercises[0].targetSets = 1;

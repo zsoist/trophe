@@ -59,7 +59,7 @@ afterEach(() => { cleanup(); startLiveSession.mockReset(); });
 describe('WorkoutWorkspaceProvider definitive start rejection', () => {
   it('releases the pinned envelope and exposes the refusal, then clears it on return to draft', async () => {
     const storage = new MemoryStorage();
-    startLiveSession.mockResolvedValue({ ok: false, kind: 'rejected', code: '42501' });
+    startLiveSession.mockResolvedValue({ ok: false, kind: 'rejected', code: '22023' });
     render(<WorkoutWorkspaceProvider userId="nik" storage={storage}><Controls /></WorkoutWorkspaceProvider>);
     await waitFor(() => expect(screen.getByRole('button', { name: 'Create Push draft' })).toBeTruthy());
     fireEvent.click(screen.getByRole('button', { name: 'Create Push draft' }));
@@ -67,7 +67,7 @@ describe('WorkoutWorkspaceProvider definitive start rejection', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Review draft' }));
     fireEvent.click(screen.getByRole('button', { name: 'Start live workout' }));
 
-    await waitFor(() => expect(screen.getByTestId('rejection').textContent).toBe('42501'));
+    await waitFor(() => expect(screen.getByTestId('rejection').textContent).toBe('22023'));
     expect(screen.getByTestId('stage').textContent).toBe('review');
     expect(screen.getByTestId('pinned').textContent).toBe('none');
     expect(loadWorkspaceState(storage, 'nik')?.startRequest ?? null).toBeNull();

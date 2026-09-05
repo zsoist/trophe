@@ -107,6 +107,16 @@ describe('ExerciseSetLogger', () => {
     expect((screen.getByLabelText('RPE optional') as HTMLInputElement).value).toBe('7');
   });
 
+  it('clears a stale rest announcement when warm-up insertion reuses a planned row', async () => {
+    const { rerender } = render(<ExerciseSetLogger exercise={{ id: 'bench', name: 'Bench Press' }} setNumber={1} unit="kg" onComplete={vi.fn().mockResolvedValue('set-1')} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Complete set' }));
+    expect(await screen.findByText('Rest started, 90s target', { selector: '[aria-live="polite"]' })).toBeTruthy();
+
+    rerender(<ExerciseSetLogger exercise={{ id: 'bench', name: 'Bench Press' }} setNumber={2} unit="kg" initialValue={{ weight: 40, reps: 10, isWarmup: true }} onComplete={vi.fn()} />);
+    await waitFor(() => expect(liveRegion().textContent).toBe(''));
+    expect(screen.getByRole('button', { name: 'Complete set' })).toBeTruthy();
+  });
+
   it('re-enables completion when persistence rejects', async () => {
     render(<ExerciseSetLogger exercise={{ id: 'bench', name: 'Bench Press' }} setNumber={1} unit="kg" onComplete={vi.fn().mockRejectedValue(new Error('offline'))} />);
     fireEvent.click(screen.getByRole('button', { name: 'Complete set' }));
