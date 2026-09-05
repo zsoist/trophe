@@ -158,7 +158,7 @@ it("opens workout focus without organs and preserves deep exploration as a separ
   expect(
     screen.queryByRole("link", { name: "Find exercises for this group" }),
   ).toBeNull();
-  expect(screen.getByText(/Partial source coverage/)).toBeTruthy();
+  expect(screen.getByText("No source geometry mapping")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Explore full anatomy" }));
   expect(screen.getByRole("heading", { name: "Explore anatomy" })).toBeTruthy();
   expect(screen.getByRole("checkbox", { name: "Organs" })).toBeTruthy();

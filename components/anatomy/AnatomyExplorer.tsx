@@ -312,6 +312,7 @@ export default function AnatomyExplorer({
               <h2>{t(`anatomy.focus_${focusGroup}`)}</h2>
               <button
                 aria-pressed={subgroupColors}
+                disabled={!focused?.elements.length}
                 onClick={() => setSubgroupColors((v) => !v)}
               >
                 <Shapes size={17} aria-hidden="true" />
@@ -321,7 +322,7 @@ export default function AnatomyExplorer({
           )}
           {focused?.partial && (
             <p className="anatomy-panel-hint" role="status">
-              {t("anatomy.focus_partial")}
+              {t(focused.elements.length ? "anatomy.focus_partial" : "anatomy.unmapped")}
             </p>
           )}
           {focusGroup && (
