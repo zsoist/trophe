@@ -6,11 +6,12 @@ import ExercisePicker from '@/components/workout/ExercisePicker';
 import { ExerciseRouteGate } from '@/components/workout/ExerciseRouteGate';
 import { exerciseDisplayName } from '@/components/workout/muscle-groups';
 import { useWorkoutWorkspace } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
+import { workoutAtlasFilter } from '@/lib/anatomy/workout-navigation';
 import { useI18n } from '@/lib/i18n';
 import type { Exercise } from '@/lib/types';
 import { pushWorkoutRoute, WORKOUT_ROUTES, workoutRouteForStage } from '@/lib/workout/workspace-routes';
 
-export function ExerciseBrowser({ initialExercises = [], initialRecentIds = [], replaceExerciseId, returnRoute }: { initialExercises?: Exercise[]; initialRecentIds?: string[]; replaceExerciseId?: string; returnRoute?: 'build' | 'review' }) {
+export function ExerciseBrowser({ initialExercises = [], initialRecentIds = [], replaceExerciseId, returnRoute, atlasGroup }: { initialExercises?: Exercise[]; initialRecentIds?: string[]; replaceExerciseId?: string; returnRoute?: 'build' | 'review'; atlasGroup?: string | null }) {
   const router = useRouter();
   const workspace = useWorkoutWorkspace();
   const { lang, t } = useI18n();
@@ -63,6 +64,7 @@ export function ExerciseBrowser({ initialExercises = [], initialRecentIds = [], 
 
   return (
     <ExercisePicker
+      initialAtlasFilter={workoutAtlasFilter(atlasGroup)}
       presentation="page"
       exercises={exercises}
       recentIds={initialRecentIds}

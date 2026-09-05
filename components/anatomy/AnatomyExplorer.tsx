@@ -1,6 +1,7 @@
 "use client";
 import type { RenderObservation } from "./AtlasCanvas";
 import Image from "next/image";
+import { workoutAtlasFilter } from "@/lib/anatomy/workout-navigation";
 import {
   Bone,
   Dumbbell,
@@ -31,6 +32,14 @@ import {
   visibleSelection,
 } from "@/lib/anatomy/selection";
 import { BROWSE_GROUPS, browseConcepts } from "@/lib/anatomy/browse";
+import {
+  WORKOUT_FOCUS_GROUPS,
+  WORKOUT_SYSTEMS,
+  workoutFocus,
+  workoutContext,
+  isWorkoutFocusGroup,
+  type WorkoutFocusGroup,
+} from "@/lib/anatomy/workout-focus";
 import { fitsAtlasMemory } from "@/lib/anatomy/budget";
 import { mappingForMuscle } from "@/lib/anatomy/mapping";
 import { muscleLabel, type AnatomyMuscleId } from "@/lib/workout/anatomy";
@@ -59,12 +68,27 @@ export default function AnatomyExplorer({
   manifestUrl,
   initialMuscle,
   onRender,
+  workout = false,
+  initialGroup,
 }: {
   manifestUrl: string;
   initialMuscle?: string;
+  workout?: boolean;
+  initialGroup?: string;
   onRender?: (value: RenderObservation) => void;
 }) {
   const { t, lang } = useI18n();
+  const [workoutMode, setWorkoutMode] = useState(workout);
+  const [focusGroup, setFocusGroup] = useState<WorkoutFocusGroup | "">(() =>
+    initialGroup && isWorkoutFocusGroup(initialGroup)
+      ? initialGroup
+      : initialMuscle
+        ? ((Object.entries(WORKOUT_FOCUS_GROUPS).find(([, ids]) =>
+            (ids as string[]).includes(initialMuscle),
+          )?.[0] as WorkoutFocusGroup) ?? "")
+        : "",
+  );
+  const [subgroupColors, setSubgroupColors] = useState(false);
   const [manifest, setManifest] = useState<AtlasManifest | null>(null);
   const [error, setError] = useState(false);
   const [retry, setRetry] = useState(0);
@@ -79,15 +103,19 @@ export default function AnatomyExplorer({
   const [layerLimited, setLayerLimited] = useState(false);
   const openButton = useRef<HTMLButtonElement>(null);
   const focusOnClose = useRef(false);
-  const [systems, setSystems] = useState(["skeleton"]);
+  const [systems, setSystems] = useState(
+    workout ? WORKOUT_SYSTEMS : ["skeleton"],
+  );
   const [selected, setSelected] = useState<string | null>(null);
   const [hidden, setHidden] = useState<string[]>([]);
   const [isolated, setIsolated] = useState(false);
-  const [view, setView] = useState<"front" | "back" | "side">("front");
+  const [view, setView] = useState<"front" | "back" | "side">(
+    focusGroup === "back" || focusGroup === "glutes" ? "back" : "front",
+  );
   const [zoom, setZoom] = useState(0);
   const [reset, setReset] = useState(0);
   const [interactive, setInteractive] = useState(false);
-  const [show3d, setShow3d] = useState(false);
+  const [show3d, setShow3d] = useState(workout);
   const [progress, setProgress] = useState([0, 0]);
   useEffect(() => {
     const controller = new AbortController();
@@ -111,6 +139,25 @@ export default function AnatomyExplorer({
     () => (manifest && selected ? selectionElements(manifest, [selected]) : []),
     [manifest, selected],
   );
+  const focused = useMemo(
+    () => (manifest ? workoutFocus(manifest, focusGroup) : null),
+    [manifest, focusGroup],
+  );
+  const context = useMemo(
+    () => (manifest && workoutMode ? workoutContext(manifest, []) : null),
+    [manifest, workoutMode],
+  );
+  const colors = useMemo(() => {
+    const values: Record<string, string> = {};
+    if (subgroupColors)
+      for (const subgroup of focused?.subgroups ?? [])
+        for (const id of subgroup.elements)
+          values[id] =
+            values[id] && values[id] !== subgroup.color
+              ? "#b9bdba"
+              : subgroup.color;
+    return values;
+  }, [focused, subgroupColors]);
   const selectionVisibility =
     manifest && selected
       ? visibleSelection(manifest, selected, new Set(systems), new Set(hidden))
@@ -178,10 +225,32 @@ export default function AnatomyExplorer({
       ? manifest.relations.filter((r) => r.child === selected)
       : [];
   return (
-    <main className="anatomy-explorer">
+    <main
+      className={`anatomy-explorer ${workoutMode ? "anatomy-workout-mode" : ""}`}
+    >
       <header>
-        <h1>{t("anatomy.title")}</h1>
-        <p className="anatomy-intro">{t("anatomy.scope")}</p>
+        <h1>{t(workoutMode ? "anatomy.workout_title" : "anatomy.title")}</h1>
+        <p className="anatomy-intro">
+          {t(workoutMode ? "anatomy.workout_intro" : "anatomy.scope")}
+        </p>
+        {workout && (
+          <button
+            className="anatomy-depth-toggle"
+            onClick={() => {
+              setWorkoutMode((v) => !v);
+              setSystems(
+                workoutMode ? ["muscles", "skeleton"] : WORKOUT_SYSTEMS,
+              );
+              setSelected(null);
+              setIsolated(false);
+            }}
+          >
+            <Layers size={17} aria-hidden="true" />
+            {t(
+              workoutMode ? "anatomy.explore_deep" : "anatomy.back_to_workout",
+            )}
+          </button>
+        )}
         {!["en", "es", "el"].includes(lang) && (
           <p>{t("anatomy.english_chrome")}</p>
         )}
@@ -200,6 +269,98 @@ export default function AnatomyExplorer({
               </li>
             ))}
           </ul>
+        </section>
+      )}
+      {workoutMode && (
+        <section
+          className="anatomy-training-controls"
+          aria-label={t("anatomy.training_groups")}
+        >
+          <div className="anatomy-training-groups">
+            <button
+              aria-pressed={!focusGroup}
+              onClick={() => {
+                setFocusGroup("");
+                setSelected(null);
+                setIsolated(false);
+              }}
+            >
+              {t("anatomy.whole_body")}
+            </button>
+            {(Object.keys(WORKOUT_FOCUS_GROUPS) as WorkoutFocusGroup[]).map(
+              (group) => (
+                <button
+                  key={group}
+                  aria-pressed={focusGroup === group}
+                  onClick={() => {
+                    setFocusGroup(group);
+                    setSelected(null);
+                    setIsolated(false);
+                    setShow3d(true);
+                    setView(
+                      ["back", "glutes"].includes(group) ? "back" : "front",
+                    );
+                  }}
+                >
+                  {t(`anatomy.focus_${group}`)}
+                </button>
+              ),
+            )}
+          </div>
+          {focusGroup && (
+            <div className="anatomy-focus-summary">
+              <h2>{t(`anatomy.focus_${focusGroup}`)}</h2>
+              <button
+                aria-pressed={subgroupColors}
+                onClick={() => setSubgroupColors((v) => !v)}
+              >
+                <Shapes size={17} aria-hidden="true" />
+                {t("anatomy.subgroup_colors")}
+              </button>
+            </div>
+          )}
+          {focused?.partial && (
+            <p className="anatomy-panel-hint" role="status">
+              {t("anatomy.focus_partial")}
+            </p>
+          )}
+          {focusGroup && (
+            <ul className="anatomy-focus-legend">
+              {focused?.subgroups.map((group) => (
+                <li key={group.id}>
+                  <span
+                    style={{
+                      background: subgroupColors
+                        ? group.color
+                        : "var(--accent)",
+                    }}
+                    aria-hidden="true"
+                  />
+                  <span>
+                    {t(`workout.atlas_muscle_${group.id.replaceAll("-", "_")}`)}
+                    {!group.elements.length
+                      ? ` · ${t("anatomy.unmapped")}`
+                      : group.scope === "partial"
+                        ? ` · ${t("anatomy.partial")}`
+                        : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="anatomy-panel-hint">{t("anatomy.focus_role_limit")}</p>
+          {subgroupColors && Object.values(colors).includes("#b9bdba") && (
+            <p className="anatomy-panel-hint">{t("anatomy.shared_geometry")}</p>
+          )}
+          {workoutAtlasFilter(focusGroup) && (
+            <a
+              className="anatomy-exercise-link"
+              href={`${onRender ? "https://trophe.app" : ""}/dashboard/workout/exercises?atlas=${encodeURIComponent(focusGroup)}`}
+            >
+              {t("anatomy.find_group_exercises")}
+              <ArrowUpRight size={17} aria-hidden="true" />
+            </a>
+          )}
         </section>
       )}
       <div className="anatomy-workspace">
@@ -257,7 +418,11 @@ export default function AnatomyExplorer({
           {manifest && show3d && !error ? (
             <AtlasCanvas
               key={retry}
-              manifest={manifest}
+              manifest={context?.manifest ?? manifest}
+              focusElements={
+                workoutMode && focusGroup ? focused?.elements : undefined
+              }
+              elementColors={workoutMode ? colors : undefined}
               onRender={onRender}
               systems={systems}
               selectedElements={selectedElements}
@@ -298,6 +463,15 @@ export default function AnatomyExplorer({
                 </button>
               )}
             </div>
+          )}
+          {workoutMode && context && (
+            <p className="anatomy-context-note">
+              {t("anatomy.workout_layers")} ·{" "}
+              {t("anatomy.vascular_context", {
+                n: context.vascularChunks,
+                total: context.totalVascularChunks,
+              })}
+            </p>
           )}
           {error && (
             <button

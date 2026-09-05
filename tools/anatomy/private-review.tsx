@@ -94,6 +94,7 @@ export function PrivateAtlasReview({
         </details>
       </aside>
       <AnatomyExplorer
+        workout
         manifestUrl={manifestUrl}
         onRender={(value) => {
           if (sample.current && sample.current.frames.length < 10000)

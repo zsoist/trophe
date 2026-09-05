@@ -1,5 +1,80 @@
 import type { CoreLanguage } from "../types";
 const rows: Record<string, [string, string, string]> = {
+  workout_title: [
+    "Workout atlas",
+    "Atlas de entrenamiento",
+    "Άτλας προπόνησης",
+  ],
+  workout_intro: [
+    "Choose a muscle group. See it on the body, then explore exercises.",
+    "Elige un grupo muscular. Ubícalo en el cuerpo y explora sus ejercicios.",
+    "Επιλέξτε μυϊκή ομάδα. Δείτε τη στο σώμα και εξερευνήστε ασκήσεις.",
+  ],
+  workout_entry: [
+    "Explore muscle groups in 3D",
+    "Explora grupos musculares en 3D",
+    "Εξερευνήστε μυϊκές ομάδες σε 3D",
+  ],
+  explore_deep: [
+    "Explore full anatomy",
+    "Explorar anatomía completa",
+    "Εξερεύνηση πλήρους ανατομίας",
+  ],
+  back_to_workout: [
+    "Back to workout atlas",
+    "Volver al atlas de entrenamiento",
+    "Επιστροφή στον άτλαντα προπόνησης",
+  ],
+  training_groups: [
+    "Workout muscle groups",
+    "Grupos musculares de entrenamiento",
+    "Μυϊκές ομάδες προπόνησης",
+  ],
+  subgroup_colors: [
+    "Subgroup colors",
+    "Colores por subgrupo",
+    "Χρώματα ανά υποομάδα",
+  ],
+  focus_partial: [
+    "Partial source coverage for this group. Unmapped muscles are not highlighted.",
+    "La fuente cubre este grupo parcialmente. Los músculos sin mapear no se resaltan.",
+    "Μερική κάλυψη ομάδας. Οι μη αντιστοιχισμένοι μύες δεν επισημαίνονται.",
+  ],
+  focus_role_limit: [
+    "Color identifies anatomy, not effort, activation percentage or exercise technique.",
+    "El color identifica anatomía; no indica esfuerzo, porcentajes de activación ni técnica del ejercicio.",
+    "Το χρώμα δείχνει ανατομία, όχι προσπάθεια, ποσοστά ενεργοποίησης ή τεχνική.",
+  ],
+  workout_layers: [
+    "Muscles, bones, nerves · no organs",
+    "Músculos, huesos y nervios · sin órganos",
+    "Μύες, οστά, νεύρα · χωρίς όργανα",
+  ],
+  vascular_context: [
+    "Blood vessels: {n}/{total} blocks; partial spatial view",
+    "Vasos sanguíneos: {n}/{total} bloques; contexto espacial parcial",
+    "Αιμοφόρα αγγεία: {n}/{total} τμήματα· μερική χωρική προβολή",
+  ],
+  shared_geometry: [
+    "Gray in the legend view marks geometry shared by more than one source subgroup.",
+    "En esta vista, el gris también identifica geometría compartida por varios subgrupos de la fuente.",
+    "Το γκρι δείχνει επίσης γεωμετρία κοινή σε πολλές υποομάδες.",
+  ],
+  find_group_exercises: [
+    "Find exercises for this group",
+    "Buscar ejercicios de este grupo",
+    "Ασκήσεις για αυτή την ομάδα",
+  ],
+  focus_chest: ["Chest", "Pecho", "Στήθος"],
+  focus_back: ["Back", "Espalda", "Πλάτη"],
+  focus_shoulders: ["Shoulders", "Hombros", "Ώμοι"],
+  focus_arms: ["Arms", "Brazos", "Χέρια"],
+  focus_biceps: ["Biceps", "Bíceps", "Δικέφαλοι"],
+  focus_triceps: ["Triceps", "Tríceps", "Τρικέφαλοι"],
+  focus_legs: ["Legs", "Piernas", "Πόδια"],
+  focus_glutes: ["Glutes", "Glúteos", "Γλουτοί"],
+  focus_core: ["Abdomen", "Abdomen", "Κοιλιά"],
+  focus_neck: ["Neck", "Cuello", "Αυχένας"],
   structure_card: [
     "Selected structure in viewer",
     "Estructura seleccionada en el visor",

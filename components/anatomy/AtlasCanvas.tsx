@@ -20,6 +20,8 @@ export interface CanvasProps {
   manifest: AtlasManifest;
   systems: string[];
   selectedElements: string[];
+  focusElements?: string[];
+  elementColors?: Record<string, string>;
   hiddenElements: string[];
   isolated: boolean;
   view: "front" | "back" | "side";
@@ -115,6 +117,24 @@ export default function AtlasCanvas(props: CanvasProps) {
       roughness: 0.75,
       side: THREE.DoubleSide,
     });
+    const muted = new THREE.MeshStandardMaterial({
+      color: 0x727875,
+      roughness: 0.85,
+      side: THREE.DoubleSide,
+    });
+    const focusMaterials = new Map<string, THREE.MeshStandardMaterial>();
+    const focusMaterial = (color: string) => {
+      if (!focusMaterials.has(color))
+        focusMaterials.set(
+          color,
+          new THREE.MeshStandardMaterial({
+            color,
+            roughness: 0.75,
+            side: THREE.DoubleSide,
+          }),
+        );
+      return focusMaterials.get(color)!;
+    };
     let dead = false,
       frame = 0,
       lastView = "",
@@ -159,6 +179,7 @@ export default function AtlasCanvas(props: CanvasProps) {
       const boneColor = getComputedStyle(container)
         .getPropertyValue("--anatomy-bone")
         .trim();
+      const focus = new Set(p.focusElements ?? []);
       const selected = new Set(p.selectedElements),
         hidden = new Set(p.hiddenElements);
       for (const [id, g] of loaded) {
@@ -179,7 +200,15 @@ export default function AtlasCanvas(props: CanvasProps) {
                 if (material instanceof THREE.MeshStandardMaterial)
                   material.color.set(boneColor);
             }
-            o.material = chosen ? highlight : materials.get(o)!;
+            o.material = chosen
+              ? highlight
+              : p.elementColors?.[eid]
+                ? focusMaterial(p.elementColors[eid])
+                : focus.has(eid)
+                  ? highlight
+                  : p.focusElements !== undefined && chunk?.system === "muscles"
+                    ? muted
+                    : materials.get(o)!;
           }
         });
       }
@@ -398,6 +427,8 @@ export default function AtlasCanvas(props: CanvasProps) {
       controls.dispose();
       for (const g of loaded.values()) dispose(g);
       highlight.dispose();
+      muted.dispose();
+      for (const material of focusMaterials.values()) material.dispose();
       renderer.domElement.removeEventListener("webglcontextlost", lost);
       renderer.dispose();
       renderer.forceContextLoss();

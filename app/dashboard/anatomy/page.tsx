@@ -6,15 +6,17 @@ import { mappingForMuscle } from "@/lib/anatomy/mapping";
 export default async function AnatomyPage({
   searchParams,
 }: {
-  searchParams: Promise<{ muscle?: string }>;
+  searchParams: Promise<{ muscle?: string; group?: string }>;
 }) {
   const release = activeAtlasRelease(
     process.env.NEXT_PUBLIC_ANATOMY_ATLAS_ENABLED,
   );
   if (!release) notFound();
-  const { muscle } = await searchParams;
+  const { muscle, group } = await searchParams;
   return (
     <AnatomyExplorer
+      workout
+      initialGroup={group}
       manifestUrl={`/anatomy/${release}/manifest.json`}
       initialMuscle={muscle && mappingForMuscle(muscle) ? muscle : undefined}
     />

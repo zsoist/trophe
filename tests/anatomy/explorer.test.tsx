@@ -10,9 +10,13 @@ import {
 import { afterEach, it, expect, vi } from "vitest";
 import fixture from "./catalogue.fixture.json";
 import type { CanvasProps } from "../../components/anatomy/AtlasCanvas";
+const canvasObservation = vi.hoisted(() => ({
+  props: null as CanvasProps | null,
+}));
 vi.mock("next/dynamic", () => ({
   default: () =>
     function FakeCanvas(p: CanvasProps) {
+      canvasObservation.props = p;
       return (
         <div data-testid="canvas">
           <button onClick={() => p.onPick("FJ3259")}>Pick left femur</button>
@@ -126,4 +130,36 @@ it("keeps viewer mounted while browsing and shows source-backed identification o
     screen.queryByRole("region", { name: "Selected structure in viewer" }),
   ).toBeNull();
   expect(screen.getByTestId("canvas")).toBe(canvas);
+});
+
+it("opens workout focus without organs and preserves deep exploration as a separate mode", async () => {
+  render(
+    <I18nProvider defaultLang="en">
+      <AnatomyExplorer
+        workout
+        initialGroup="chest"
+        manifestUrl="/manifest.json"
+      />
+    </I18nProvider>,
+  );
+  await screen.findByTestId("canvas");
+  expect(screen.getByRole("heading", { name: "Workout atlas" })).toBeTruthy();
+  expect(
+    screen
+      .getByRole("link", { name: "Find exercises for this group" })
+      .getAttribute("href"),
+  ).toBe("/dashboard/workout/exercises?atlas=chest");
+  const loadedManifest = canvasObservation.props!.manifest;
+  fireEvent.click(screen.getByRole("button", { name: "Glutes" }));
+  expect(canvasObservation.props!.manifest).toBe(loadedManifest);
+  expect(canvasObservation.props!.view).toBe("back");
+  fireEvent.click(screen.getByRole("button", { name: "Neck" }));
+  expect(canvasObservation.props!.manifest).toBe(loadedManifest);
+  expect(
+    screen.queryByRole("link", { name: "Find exercises for this group" }),
+  ).toBeNull();
+  expect(screen.getByText(/Partial source coverage/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Explore full anatomy" }));
+  expect(screen.getByRole("heading", { name: "Explore anatomy" })).toBeTruthy();
+  expect(screen.getByRole("checkbox", { name: "Organs" })).toBeTruthy();
 });

@@ -1,4 +1,5 @@
 'use client';
+import { WorkoutAtlasEntry } from '@/components/anatomy/WorkoutAtlasEntry';
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -210,6 +211,7 @@ export function WorkoutHome({
         {(programError || recommendationError) && !offeredTemplate ? <div role="alert" className="rounded-xl border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]">{t('workout.program_load_failed')}</div> : null}
         {supportError ? <div role="alert" className="rounded-xl border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] p-3 text-sm text-[var(--content-primary)]">{t('workout.support_data_load_failed')}</div> : null}
 
+        <WorkoutAtlasEntry />
         <WorkoutAtlasHome
           activations={activations}
           targetLabel={targetLabel}
