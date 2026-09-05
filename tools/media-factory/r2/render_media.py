@@ -30,5 +30,8 @@ def run(config,output):
         scene.render.resolution_x=view['resolution'][0];scene.render.resolution_y=view['resolution'][1]
         for frame in view['frames']:
             scene.frame_set(frame);scene.render.image_settings.media_type='IMAGE';scene.render.image_settings.file_format='PNG'
+            if view.get('target_object'):
+                bpy.context.view_layer.update();target=bpy.data.objects[view['target_object']].matrix_world.translation
+                place(camera,target+Vector(view['position']),target,view['ortho_scale'])
             name=view['id']+'-%03d.png'%frame;scene.render.filepath=str(output/name);bpy.ops.render.render(write_still=True);artifacts.append(name)
     return {'engine':scene.render.engine,'renderer':gpu.platform.renderer_get(),'resolution':config['resolution'],'native_render':True,'upscaled':False,'frames':180 if config.get('video') else len(config.get('stills',[1])),'fps':30,'duration_s':6 if config.get('video') else None,'render_elapsed_s':time.monotonic()-start,'artifacts':artifacts,'reviews':{'visual_human':'pending','technique_human':'pending'}}
