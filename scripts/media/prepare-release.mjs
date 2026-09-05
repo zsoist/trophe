@@ -27,8 +27,8 @@ try {
     const manifestTarget = join(stage, 'public/workout-v4', asset.build_key, `${asset.asset_id}.manifest.json`);
     await writeFile(manifestTarget, JSON.stringify(publicManifest, null, 2) + '\n', { flag: 'wx' });
     if (asset.kind === 'exercise') {
-      const poster = asset.files.find(f => f.role === 'poster'); const video = asset.files.find(f => f.role === 'video_hd');
-      activation.push({ slug: asset.exercise.catalogue_slug, buildKey: asset.build_key, equipment: asset.exercise.equipment, posterSrc: `/workout-v4/${asset.build_key}/${poster.path}`, motionSrc: `/workout-v4/${asset.build_key}/${video.path}`, motionType: video.mime_type, artifactSetSha256: asset.artifact_set_sha256, reviewedOn: asset.reviews.visual.reviewed_at, phases: asset.exercise.phases.map(p => ({ id: p.id, startSeconds: p.start_seconds, endSeconds: p.end_seconds, labelKey: p.label_key })) });
+      const poster = asset.files.find(f => f.role === 'poster'); const video = asset.files.find(f => f.role === 'video_hd'); const mobile = asset.files.find(f => f.role === 'video_mobile');
+      activation.push({ slug: asset.exercise.catalogue_slug, buildKey: asset.build_key, equipment: asset.exercise.equipment, posterSrc: `/workout-v4/${asset.build_key}/${poster.path}`, motionSrc: `/workout-v4/${asset.build_key}/${video.path}`, motionType: video.mime_type, ...(mobile ? { mobileSrc: `/workout-v4/${asset.build_key}/${mobile.path}`, mobileType: mobile.mime_type } : {}), artifactSetSha256: asset.artifact_set_sha256, reviewedOn: asset.reviews.visual.reviewed_at, phases: asset.exercise.phases.map(p => ({ id: p.id, startSeconds: p.start_seconds, endSeconds: p.end_seconds, labelKey: p.label_key })) });
     }
   }
   await writeFile(join(stage, 'SHA256SUMS'), checksums.sort().join('\n') + '\n');

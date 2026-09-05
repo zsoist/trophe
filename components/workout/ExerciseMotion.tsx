@@ -16,7 +16,7 @@ export interface ExerciseMotionProps {
 }
 
 export function ExerciseMotion(props: ExerciseMotionProps) {
-  return <ExerciseMotionPlayer key={`${props.media.slug}:${props.media.motionSrc ?? ''}`} {...props} />;
+  return <ExerciseMotionPlayer key={`${props.media.slug}:${props.media.motionSrc ?? ''}:${props.media.mobileMotionSrc ?? ''}`} {...props} />;
 }
 
 function ExerciseMotionPlayer({ media, alt, autoplay = false, className = '', playbackDisabled = false, previewOnly = false }: ExerciseMotionProps) {
@@ -125,11 +125,12 @@ function ExerciseMotionPlayer({ media, alt, autoplay = false, className = '', pl
           const time = event.currentTarget.currentTime;
           setPhaseKey(media.timedPhases?.find(phase => time >= phase.startSeconds && time < phase.endSeconds)?.labelKey ?? null);
         }}
-        onError={() => { setFailed(true); setIsPlaying(false); }}
+        onError={(event) => { if (event.target === event.currentTarget) { setFailed(true); setIsPlaying(false); } }}
         aria-label={alt}
         data-testid="exercise-motion-video"
         className="exercise-motion__video"
       >
+        {media.mobileMotionSrc ? <source src={media.mobileMotionSrc} type={media.mobileMotionType} media="(max-width: 720px)" /> : null}
         <source src={media.motionSrc} type={media.motionType} onError={() => { setFailed(true); setIsPlaying(false); }} />
       </video>
       <figcaption className="exercise-motion__controls">

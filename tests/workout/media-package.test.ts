@@ -80,3 +80,12 @@ it('rejects HD video dimensions below the publication profile even when metadata
   // Runtime evidence is deliberately serialized: no real approval is asserted by this fixture.
   await expect(validateMediaPackage(f.root, { publication: true, evidence: JSON.parse(JSON.stringify(evidence)) })).rejects.toThrow(/dimensions/i);
 });
+
+it('rejects mobile and HD derivatives with different phase timelines', async () => {
+  const f = await fixture(); const asset = f.manifest.assets[0];
+  Object.assign(asset, { asset_id: 'curl', kind: 'exercise', canonical_name: 'Standing Dumbbell Biceps Curl', food: undefined, exercise: { catalogue_slug: 'curl', equipment: 'Dumbbell', clip_ids: ['curl'], phases: [{ id: 'setup', start_seconds: 0, end_seconds: 1, label_key: 'workout.detail_phase_setup' }, { id: 'work', start_seconds: 1, end_seconds: 4, label_key: 'workout.detail_phase_work' }] } });
+  asset.reviews.technique.status = 'pending'; f.file.path = 'assets/curl/poster.png';
+  asset.files.push(Object.assign({ ...f.file }, { path: 'assets/curl/hd.mp4', role: 'video_hd', mime_type: 'video/mp4', fps: 30, duration_seconds: 4, native_render: true, upscaled: false }));
+  asset.files.push(Object.assign({ ...f.file }, { path: 'assets/curl/mobile.webm', role: 'video_mobile', mime_type: 'video/webm', fps: 30, duration_seconds: 2, native_render: true, upscaled: false }));
+  await f.save(); await expect(validateMediaPackage(f.root)).rejects.toThrow(/timeline/i);
+});

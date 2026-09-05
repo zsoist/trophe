@@ -112,9 +112,11 @@ export async function validateMediaPackage(directory: string, options: { publica
       assert(asset.asset_id === ex.catalogue_slug, 'catalogue asset ID mismatch');
       const duration = asset.files.find(f => f.role === 'video_hd')?.duration_seconds;
       assert(duration && roles.has('poster'), 'exercise requires poster/video_hd');
+      const mobileDuration = asset.files.find(f => f.role === 'video_mobile')?.duration_seconds;
+      assert(mobileDuration === undefined || Math.abs(mobileDuration - duration) < 0.1, 'mobile/HD timeline mismatch');
       let end = 0; const phaseIds = new Set<string>();
       for (const phase of ex.phases) {
-        assert(!phaseIds.has(phase.id) && phase.start_seconds >= end && phase.end_seconds > phase.start_seconds && phase.end_seconds <= duration, 'invalid phases');
+        assert(!phaseIds.has(phase.id) && phase.start_seconds >= end && phase.end_seconds > phase.start_seconds && phase.end_seconds <= Math.min(duration, mobileDuration ?? duration), 'invalid phases');
         assert(['workout.detail_phase_setup', 'workout.detail_phase_work', 'workout.detail_phase_finish'].includes(phase.label_key), 'phase i18n key invalid');
         end = phase.end_seconds; phaseIds.add(phase.id);
       }

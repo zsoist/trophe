@@ -13,6 +13,8 @@ export interface ExerciseMediaRecord {
   equipment: string[];
   posterSrc: string;
   motionSrc?: string;
+  mobileMotionSrc?: string;
+  mobileMotionType?: 'video/mp4' | 'video/webm';
   timedPhases?: Array<{ id: string; startSeconds: number; endSeconds: number; labelKey: string }>;
   motionType?: 'video/webm' | 'video/mp4';
   /**

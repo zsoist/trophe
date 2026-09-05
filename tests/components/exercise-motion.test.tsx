@@ -165,3 +165,11 @@ it('observes the replacement video after a source error and retry', async () => 
   const replacement = screen.getByTestId('exercise-motion-video');
   expect(replacement).not.toBe(first); await waitFor(() => expect(observe).toHaveBeenCalledWith(replacement));
 });
+
+it('offers mobile WebM and does not discard the HD fallback when the mobile source fails', () => {
+  render(<ExerciseMotion media={{ ...benchMedia, motionType: 'video/mp4', motionSrc: '/synthetic/hd.mp4', mobileMotionSrc: '/synthetic/mobile.webm', mobileMotionType: 'video/webm' }} alt="Synthetic demonstration" />);
+  const video = screen.getByTestId('exercise-motion-video'); const sources = video.querySelectorAll('source');
+  expect(sources).toHaveLength(2); expect(sources[0].getAttribute('media')).toBe('(max-width: 720px)');
+  fireEvent.error(sources[0]); expect(screen.getByTestId('exercise-motion-video')).toBe(video);
+  fireEvent.error(sources[1]); expect(screen.queryByTestId('exercise-motion-video')).toBeNull();
+});
