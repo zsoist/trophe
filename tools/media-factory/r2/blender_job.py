@@ -180,11 +180,13 @@ def main():
     import garment_binding
     import garment_pattern
     import cohort
+    import arnold
     import bench_qa
     import export_unreal
     dispatch = {'build_character': build_character, 'compare_baseline': compare_baseline.run, 'playback_qa': playback_qa.run, 'render_media': render_media.run, 'localize_contact': localize_contact.run, 'contact_fit': contact_fit.run, 'shirt_clearance': shirt_clearance.run, 'garment_binding': garment_binding.run, 'garment_pattern': garment_pattern.run}
     dispatch['cohort']=cohort.run
     dispatch['bench_qa']=bench_qa.run
+    dispatch['arnold']=arnold.run
     dispatch['coverage_finish']=garment_pattern.finish_coverage
     dispatch['coverage_check']=garment_pattern.check_coverage
     dispatch['coverage_regression']=garment_pattern.coverage_regression
