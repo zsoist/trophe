@@ -145,21 +145,32 @@ it("opens workout focus without organs and preserves deep exploration as a separ
   await screen.findByTestId("canvas");
   expect(screen.getByRole("heading", { name: "Workout atlas" })).toBeTruthy();
   expect(
-    screen
-      .getByRole("link", { name: "Find exercises for this group" })
-      .getAttribute("href"),
+    screen.getByRole("link", { name: "Exercises" }).getAttribute("href"),
   ).toBe("/dashboard/workout/exercises?atlas=chest");
   expect(canvasObservation.props!.interactive).toBe(true);
   const loadedManifest = canvasObservation.props!.manifest;
+  fireEvent.click(screen.getByRole("button", { name: "Groups" }));
   fireEvent.click(screen.getByRole("button", { name: "Glutes" }));
   expect(canvasObservation.props!.manifest).toBe(loadedManifest);
   expect(canvasObservation.props!.view).toBe("back");
+  expect(
+    screen
+      .getByRole("button", { name: "Groups" })
+      .getAttribute("aria-expanded"),
+  ).toBe("false");
+  fireEvent.change(screen.getByRole("combobox", { name: "View direction" }), {
+    target: { value: "side" },
+  });
+  expect(canvasObservation.props!.view).toBe("side");
+  fireEvent.click(screen.getByRole("button", { name: "Groups" }));
   fireEvent.click(screen.getByRole("button", { name: "Neck" }));
   expect(canvasObservation.props!.manifest).toBe(loadedManifest);
   expect(
-    screen.queryByRole("link", { name: "Find exercises for this group" }),
-  ).toBeNull();
-  expect(screen.getByText("No source geometry mapping")).toBeTruthy();
+    screen.getByRole("link", { name: "Exercises" }).getAttribute("href"),
+  ).toBe("/dashboard/workout/exercises");
+  expect(
+    screen.getByText(/This group has no highlight available yet/),
+  ).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Explore full anatomy" }));
   expect(screen.getByRole("heading", { name: "Explore anatomy" })).toBeTruthy();
   expect(screen.getByRole("checkbox", { name: "Organs" })).toBeTruthy();

@@ -90,9 +90,34 @@ export function workoutContext(
   manifest: AtlasManifest,
   focusElements: readonly string[],
 ) {
-  const core = manifest.chunks.filter((c) =>
-    ["muscles", "skeleton", "nervous"].includes(c.system),
+  // Curated muscle membership takes precedence in this consumer view only.
+  // Some source heads are partitioned under "other". Keep original files/hashes
+  // and charge the ENTIRE fetched chunk, while displaying only curated elements.
+  const curated = new Set(
+    Object.values(ATLAS_MUSCLE_MAPPING).flatMap((mapping) =>
+      mapping.concepts.flatMap((id) => manifest.concepts[id]?.elements ?? []),
+    ),
   );
+  const supplemental = manifest.chunks
+    .filter(
+      (c) =>
+        c.system === "other" && c.element_ids.some((id) => curated.has(id)),
+    )
+    .map((c) => ({
+      ...c,
+      system: "muscles" as const,
+      element_ids: c.element_ids.filter((id) => curated.has(id)),
+    }));
+  const core = [
+    ...manifest.chunks.filter((c) =>
+      ["muscles", "skeleton", "nervous"].includes(c.system),
+    ),
+    ...supplemental,
+  ];
+  const elements = { ...manifest.elements };
+  for (const chunk of supplemental)
+    for (const id of chunk.element_ids)
+      elements[id] = { ...elements[id], system: "muscles" };
   const bytes = (c: AtlasManifest["chunks"][number]) =>
     c.vertices * 24 + c.triangles * 12;
   let used = core.reduce((n, c) => n + bytes(c), 0);
@@ -123,7 +148,7 @@ export function workoutContext(
       used += bytes(chunk);
     }
   return {
-    manifest: { ...manifest, chunks: selected },
+    manifest: { ...manifest, elements, chunks: selected },
     bytes: used,
     vascularChunks: selected.length - core.length,
     totalVascularChunks: vascular.length,

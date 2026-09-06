@@ -1,5 +1,42 @@
 import type { CoreLanguage } from "../types";
 const rows: Record<string, [string, string, string]> = {
+  choose_groups: ["Groups", "Grupos", "Ομάδες"],
+  exercises: ["Exercises", "Ejercicios", "Ασκήσεις"],
+  inspect_group: [
+    "Tap a muscle to inspect it. Drag to explore every angle.",
+    "Toca un músculo para verlo en detalle. Arrastra para cambiar el ángulo.",
+    "Πατήστε έναν μυ για λεπτομέρειες. Σύρετε για κάθε γωνία.",
+  ],
+  choose_group_hint: [
+    "Open Groups to focus on the area you want to train.",
+    "Abre Grupos para elegir la zona que quieres entrenar.",
+    "Ανοίξτε τις Ομάδες για την περιοχή που θέλετε να προπονήσετε.",
+  ],
+  muscles_in_view: [
+    "Muscles in this group",
+    "Músculos del grupo",
+    "Μύες αυτής της ομάδας",
+  ],
+  highlight_unavailable: [
+    "Not highlighted in this model",
+    "Sin resaltar en este modelo",
+    "Δεν επισημαίνεται σε αυτό το μοντέλο",
+  ],
+  group_unavailable: [
+    "This group has no highlight available yet. Choose another group to explore in 3D, or open Exercises to browse the library.",
+    "Este grupo aún no tiene resaltado disponible. Elige otro para explorar en 3D o abre Ejercicios para ver el catálogo.",
+    "Δεν υπάρχει ακόμα επισήμανση για αυτή την ομάδα. Επιλέξτε άλλη ομάδα για 3D ή ανοίξτε τις Ασκήσεις.",
+  ],
+  about_highlights: [
+    "About these highlights",
+    "Sobre el resaltado",
+    "Σχετικά με τις επισημάνσεις",
+  ],
+  source_details: [
+    "Anatomy source details",
+    "Detalles de la fuente anatómica",
+    "Λεπτομέρειες ανατομικής πηγής",
+  ],
   gesture_hint: [
     "Drag to rotate · Pinch to zoom",
     "Arrastra para girar · Pellizca para ampliar",

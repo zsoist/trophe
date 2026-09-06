@@ -126,7 +126,7 @@
 .anatomy-zoom {
   position: absolute;
   right: 12px;
-  top: 82px;
+  top: 12px;
   display: flex;
   flex-direction: column;
   border-radius: 10px;
@@ -820,4 +820,193 @@
 }
 .anatomy-workout-mode .anatomy-canvas {
   height: clamp(360px, 58svh, 650px);
+}
+
+/* Current selection leads; the grid opens only when choosing a different group. */
+.anatomy-selection-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.anatomy-selection-bar .anatomy-group-selector {
+  justify-content: space-between;
+  flex: 1;
+  min-height: 48px;
+  padding: 12px 16px;
+  border: 1px solid var(--atlas-rail);
+  border-radius: 12px;
+}
+.anatomy-group-selector[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+.anatomy-group-selector svg {
+  transition: transform 180ms ease-out;
+}
+.anatomy-exercise-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  color: var(--bg-primary);
+  background: var(--accent);
+  font-size: 14px;
+  font-weight: 650;
+  text-decoration: none;
+}
+.anatomy-explorer .anatomy-current-group {
+  font-size: clamp(34px, 5vw, 44px);
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  margin: 24px 0 8px;
+  font-weight: 650;
+}
+.anatomy-selection-help {
+  color: var(--atlas-muted);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0 0 20px;
+}
+.anatomy-training-groups {
+  margin: 16px 0;
+}
+.anatomy-focus-summary {
+  margin-top: 16px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.anatomy-focus-summary h3 {
+  font-size: 14px;
+  margin: 0;
+}
+.anatomy-focus-summary button {
+  font-size: 12px;
+  padding-inline: 8px;
+}
+.anatomy-focus-legend {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin: 8px 0 16px;
+}
+.anatomy-focus-legend li {
+  color: var(--text-primary);
+  font-size: 14px;
+  align-items: baseline;
+}
+.anatomy-focus-legend small {
+  display: block;
+  color: var(--atlas-muted);
+  font-size: 12px;
+  margin-top: 4px;
+}
+.anatomy-group-details {
+  color: var(--atlas-muted);
+  font-size: 12px;
+  margin-top: 16px;
+}
+.anatomy-group-details summary,
+.anatomy-source-detail summary {
+  cursor: pointer;
+  min-height: 44px;
+  align-content: center;
+}
+.anatomy-group-details p {
+  line-height: 1.6;
+}
+.anatomy-viewbar select {
+  min-height: 44px;
+  min-width: 112px;
+  color: var(--accent);
+  background: var(--bg-primary);
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+}
+.anatomy-source-detail {
+  color: var(--atlas-muted);
+  font-size: 11px;
+}
+.anatomy-source-detail p {
+  overflow-wrap: anywhere;
+}
+.anatomy-pick-title h2 {
+  font-size: 22px;
+  line-height: 1.15;
+}
+@media (max-width: 899px) {
+  .anatomy-training-controls {
+    padding-bottom: 12px;
+  }
+  .anatomy-selection-bar {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    background: var(--bg-primary);
+    padding-block: 8px;
+  }
+  .anatomy-focus-legend {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 16px;
+  }
+  .anatomy-workout-mode .anatomy-canvas {
+    height: clamp(360px, 58svh, 650px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .anatomy-group-selector svg {
+    transition: none;
+  }
+}
+
+.anatomy-selection-bar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  grid-column: 1 / -1;
+  background: var(--bg-primary);
+  padding-block: 8px;
+  margin-bottom: 12px;
+}
+.anatomy-group-selector > span {
+  display: grid;
+  text-align: left;
+  gap: 2px;
+}
+.anatomy-group-selector small {
+  font-size: 11px;
+  color: var(--atlas-muted);
+  font-weight: 400;
+}
+.anatomy-group-selector strong {
+  font-size: 15px;
+  line-height: 1.2;
+}
+.anatomy-selection-bar .anatomy-training-groups {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: min(100%, 440px);
+  margin: 0;
+  padding: 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--atlas-rail);
+  border-radius: 12px;
+  max-height: 65svh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.anatomy-selection-bar .anatomy-group-selector {
+  max-width: 300px;
+}
+.anatomy-selection-bar .anatomy-exercise-button {
+  min-height: 60px;
+}
+.anatomy-stage {
+  scroll-margin-top: 92px;
 }

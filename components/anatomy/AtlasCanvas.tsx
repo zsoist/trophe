@@ -246,7 +246,10 @@ export default function AtlasCanvas(props: CanvasProps) {
             const eid =
               o.userData.elementId ?? o.parent?.userData.elementId ?? o.name;
             const chosen = selected.has(eid);
-            o.visible = !hidden.has(eid) && (!p.isolated || chosen);
+            o.visible =
+              !!chunk?.element_ids.includes(eid) &&
+              !hidden.has(eid) &&
+              (!p.isolated || chosen);
             if (!materials.has(o)) materials.set(o, o.material);
             if (chunk?.system === "skeleton" && boneColor) {
               const original = materials.get(o)!;
