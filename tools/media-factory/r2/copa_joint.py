@@ -190,5 +190,34 @@ def time_fix(config,out):
                                 q=-q;changes.append({'object':obj.name,'path':path,'frame':points[0].co.x})
                             previous=q
                         for fc in curves:fc.update()
+    from mathutils import Euler
+    euler_changes=[];seen=set()
+    for obj in s.objects:
+        action=obj.animation_data.action if obj.animation_data else None
+        if not action or action.as_pointer() in seen:continue
+        seen.add(action.as_pointer())
+        for layer in action.layers:
+            for strip in layer.strips:
+                for bag in strip.channelbags:
+                    groups={}
+                    for fc in bag.fcurves:
+                        if fc.data_path.endswith('rotation_euler'):groups.setdefault(fc.data_path,{})[fc.array_index]=fc
+                    for path,channels in groups.items():
+                        if set(channels)!={0,1,2}:continue
+                        owner=obj.path_resolve(path.rsplit('.',1)[0]) if '.' in path else obj
+                        order=owner.rotation_mode;curves=[channels[i] for i in range(3)];previous=None
+                        for points in zip(*(fc.keyframe_points for fc in curves)):
+                            old=Euler([p.co.y for p in points],order);new=old.copy()
+                            if previous is not None:new.make_compatible(previous)
+                            delta=[new[i]-old[i] for i in range(3)]
+                            if max(abs(x) for x in delta)>1e-4:
+                                # Native Euler compatibility changes the chart,
+                                # not the represented orientation at a key.
+                                assert abs(old.to_quaternion().dot(new.to_quaternion()))>.99999
+                                for p,offset in zip(points,delta):
+                                    y,l,h=p.co.y,p.handle_left.y,p.handle_right.y;p.co.y=y+offset;p.handle_left.y=l+offset;p.handle_right.y=h+offset
+                                euler_changes.append({'object':obj.name,'path':path,'frame':points[0].co.x,'delta_rad':delta})
+                            previous=new
+                        for fc in curves:fc.update()
     s.frame_set(1);bpy.ops.wm.save_as_mainfile(filepath=str(out/'triceps.blend'))
-    (out/'quaternion-continuity.json').write_text(json.dumps({'hemisphere_flips':changes,'method':'q and -q represent identical key poses, but component F-curves interpolate badly between opposite signs. Flip keys and handles to a continuous hemisphere; original integer key poses preserved.','human_reviews':'pending'},indent=2));return {'flips':len(changes)}
+    (out/'quaternion-continuity.json').write_text(json.dumps({'hemisphere_flips':changes,'native_euler_compatibility':euler_changes,'method':'q and -q represent identical key poses, but component F-curves interpolate badly between opposite signs. Flip keys and handles to a continuous hemisphere; original integer key poses preserved.','human_reviews':'pending'},indent=2));return {'flips':len(changes),'euler_keys_adjusted':len(euler_changes)}
