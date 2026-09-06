@@ -83,12 +83,60 @@ def run(config,out):
     for bag in strip.channelbags:
      for fc in bag.fcurves:
       for p in fc.keyframe_points:p.interpolation='BEZIER';p.handle_left_type='AUTO_CLAMPED';p.handle_right_type='AUTO_CLAMPED'
+      for p in fc.keyframe_points:
+       if any(abs(p.co.x-boundary)<.001 for boundary in [1,down+1,down+pause+1,down+pause+up+1,frames+1]):
+        p.handle_left_type='FREE';p.handle_right_type='FREE';p.handle_left=(p.co.x-1/3,p.co.y);p.handle_right=(p.co.x+1/3,p.co.y)
       fc.modifiers.new('CYCLES')
  scene.frame_start=1;scene.frame_end=frames;scene.render.fps=30;scene.frame_set(1);bpy.context.view_layer.update()
  report={'source':config['animation_source'],'baseline_measured':old,'head_neck_baseline':head,'frames':frames,'closure_frame':frames+1,'fps':30,'timing':{'down_s':down/30,'bottom_pause_s':pause/30,'up_s':up/30,'top_pause_s':(frames-down-pause-up)/30},'authority':'Fixed native FK upper arm; FK forearm -> complete hand transforms follow a single rigid prop; preserved finger local poses; no IK evaluator used for arm path','tilt_with_forearm':config.get('tilt_with_forearm',True),'rows':rows,'human_reviews':'pending','notes':'Tilt is a deliberate proposed change: fixed grip plus vertical prop cannot preserve wrist alignment throughout a large elbow arc. No internal activation added; anatomical surface QA required.'}
+ if config.get('axilla_seeds'):
+  # Local native corrective, seeded only by actually crossed source triangles.
+  seeds=set(config['axilla_seeds']);adj={i:set() for i in range(len(body.data.vertices))}
+  for edge in body.data.edges:
+   a,b=edge.vertices;adj[a].add(b);adj[b].add(a)
+  distance={i:0 for i in seeds};front=set(seeds)
+  for depth in range(1,5):
+   nxt={j for i in front for j in adj[i] if j not in distance}
+   distance.update({i:depth for i in nxt});front=nxt
+  group=body.vertex_groups.new(name='Copa QA localized axillary fold')
+  for i,d in distance.items():group.add([i],(1-d/5)**2,'REPLACE')
+  modifier=body.modifiers.new('Copa native axillary pose correction','CORRECTIVE_SMOOTH');modifier.vertex_group=group.name;modifier.factor=.5;modifier.iterations=5;modifier.smooth_type='LENGTH_WEIGHTED';modifier.rest_source='BIND'
+  body.modifiers.move(len(body.modifiers)-1,min(i for i,m in enumerate(body.modifiers) if m.type=='MASK'))
+  rig.data.pose_position='REST';bpy.context.view_layer.update();bpy.ops.object.select_all(action='DESELECT');body.select_set(True);bpy.context.view_layer.objects.active=body;bpy.ops.object.correctivesmooth_bind(modifier=modifier.name);assert modifier.is_bind
+  on=points(body);modifier.show_viewport=False;bpy.context.view_layer.update();off=points(body);rest_delta=float(np.max(np.linalg.norm(on-off,axis=1)))
+  modifier.show_viewport=True;rig.data.pose_position='POSE';bpy.context.view_layer.update();effects=[]
+  for f in [1,33,64,95,121]:
+   scene.frame_set(f);bpy.context.view_layer.update();on=points(body);modifier.show_viewport=False;bpy.context.view_layer.update();off=points(body);modifier.show_viewport=True;bpy.context.view_layer.update();effects.append({'frame':f,'max_surface_change_m':float(np.max(np.linalg.norm(on-off,axis=1)))})
+  report['local_corrective']={'type':'CORRECTIVE_SMOOTH','seeds':sorted(seeds),'vertices':len(distance),'iterations':5,'factor':.5,'rest':'skeleton REST with active source shape, before masks','rest_delta_m':rest_delta,'effects':effects,'not_muscle_activation':True}
+ scene.frame_set(1);bpy.context.view_layer.update()
  (out/'revision.json').write_text(json.dumps(report,indent=2));bpy.ops.wm.save_as_mainfile(filepath=str(out/'triceps.blend'))
  cam=studio(scene);cam.data.sensor_fit='VERTICAL';scene.render.engine='BLENDER_EEVEE';scene.render.resolution_x=1280;scene.render.resolution_y=720
  for view,pos,target,scale in [('side',(3,0,1.05),(0,.04,1.05),1.8),('front',(2,-4,1.7),(0,.03,.88),2.08),('rear',(-1.7,4,1.7),(0,.08,1.20),1.4)]:
   for f in [1,down+1]:
    scene.frame_set(f);bpy.context.view_layer.update();place(cam,pos,target,scale);scene.render.filepath=str(out/(view+'-%03d.png'%f));bpy.ops.render.render(write_still=True)
  return {'max_elbow_error_m':max(j['elbow_error_m'] for r in rows for j in r['sides'].values()),'max_palm_forearm_deg':max(j['forearm_palm_deg'] for r in rows for j in r['sides'].values()),'frames':frames,'diagnostic':True}
+
+def cross_section_area(p,tri,source,body,rig,side,fraction):
+ """Convex cross-sectional envelope from actual plane/mesh crossings; not volume."""
+ group={v.index for v in body.data.vertices if any(g.weight>.20 and body.vertex_groups[g.group].name.startswith('DEF-upper_arm') and body.vertex_groups[g.group].name.endswith('.'+side) for g in v.groups)}
+ s=rig.matrix_world@rig.pose.bones['ORG-upper_arm.'+side].head;e=rig.matrix_world@rig.pose.bones['ORG-forearm.'+side].head
+ normal=(e-s).normalized();center=s+(e-s)*fraction;axis=normal.cross(Vector((0,1,0))).normalized();second=normal.cross(axis).normalized();hits=[]
+ for t in tri:
+  if not all(source[i] in group for i in t):continue
+  verts=[Vector(p[i]) for i in t];ds=[(v-center).dot(normal) for v in verts]
+  for k in range(3):
+   j=(k+1)%3
+   if ds[k]*ds[j]<0:
+    q=verts[k]+(verts[j]-verts[k])*(ds[k]/(ds[k]-ds[j]))-center;hits.append((q.dot(axis),q.dot(second)))
+ xy=sorted(set(hits))
+ if len(xy)<3:return {'area_m2':None,'plane_hits':len(xy),'method':'insufficient cut'}
+ def turn(o,a,b):return (a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0])
+ lower=[];upper=[]
+ for q in xy:
+  while len(lower)>1 and turn(lower[-2],lower[-1],q)<=0:lower.pop()
+  lower.append(q)
+ for q in reversed(xy):
+  while len(upper)>1 and turn(upper[-2],upper[-1],q)<=0:upper.pop()
+  upper.append(q)
+ hull=lower[:-1]+upper[:-1];area=abs(sum(a[0]*b[1]-a[1]*b[0] for a,b in zip(hull,hull[1:]+hull[:1])))*.5
+ return {'area_m2':area,'plane_hits':len(xy),'method':'convex envelope of actual triangle-plane crossings; not local tissue volume or fold validation'}

@@ -255,6 +255,9 @@ def qa(config,out):
             inside=(radial<radius-.001)&(local[:,2]>lo+.001)&(local[:,2]<hi-.001)
             affected=[int(source[i]) for i in np.where(inside)[0]]
             row['bounds'][name]={'inside_1mm_vertices':len(affected),'head_inside':len(set(affected)&head_ids),'hand_inside':len(set(affected)&(hand_ids['L']|hand_ids['R'])),'source_ids':affected}
+        if config.get('joint_sections'):
+            from triceps_refine import cross_section_area
+            row['arm_sections']={side:{str(fraction):cross_section_area(p,tri,source,body,rig,side,fraction) for fraction in [.5,.8]} for side in ['L','R']}
         if f in exact:
             row['actual_equipment']={o.name:crossings(data,mesh_data(o)) for o in equipment}
             row['hand_hand_crossings']=crossings(subsets['L'],subsets['R'])
