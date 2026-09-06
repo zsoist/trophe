@@ -786,6 +786,14 @@ export default function AnatomyExplorer({
             <div className="anatomy-focus-caption">
               <strong>{t(part.labelKey)}</strong>
               <button
+                aria-pressed={isolated}
+                aria-label={t("anatomy.isolate")}
+                title={t("anatomy.isolate")}
+                onClick={() => setIsolated((v) => !v)}
+              >
+                <Focus size={17} aria-hidden="true" />
+              </button>
+              <button
                 aria-label={t("anatomy.show_group")}
                 onClick={() => {
                   setFocusedPart(null);
