@@ -53,7 +53,7 @@ def run(config,out):
     targets={};elbows={};hand_local={}
     for side,sign in [('L',1),('R',-1)]:
         target=empty('Copa wrist target '+side);target.parent=prop
-        target.matrix_basis=axes(Vector((0,0,sign)),Vector((-sign*.40,.916,0)),Vector((sign*.082,-.065,-.013)))
+        target.matrix_basis=axes(Vector((0,0,sign)),Vector((-sign*.40,.916,0)),Vector((sign*config.get('grip_half_width',.082),-.065,-.013)))
         hand_local[side]=target.matrix_basis.copy();targets[side]=target
         c=rig.pose.bones['hand_ik.'+side].constraints.new('COPY_TRANSFORMS');c.name='Copa shared object owns full wrist';c.target=target;c.owner_space='WORLD';c.target_space='WORLD'
         s=rig.matrix_world@rig.pose.bones['ORG-upper_arm.'+side].head
@@ -63,7 +63,7 @@ def run(config,out):
         elbows[side]=Vector((ex,ey,ez))
     e=sum(elbows.values(),Vector())/2
     fore=rig.data.bones['ORG-forearm.L'].length
-    radius=math.sqrt(fore*fore-(.082-abs(elbows['L'].x))**2)
+    radius=math.sqrt(fore*fore-(config.get('grip_half_width',.082)-abs(elbows['L'].x))**2)
     def pose(frame):
         scene.frame_set(frame);phase=(frame-1)/180.;q=ease(phase*2 if phase<=.5 else 2-phase*2)
         angle=math.radians(config.get('top_forearm_deg',15)+(config.get('bottom_forearm_deg',110)-config.get('top_forearm_deg',15))*q)
@@ -119,6 +119,15 @@ def run(config,out):
             key(b,1);key(b,181)
     clothing={}
     if config.get('fit_shorts'):
+        if config.get('shorts_source'):
+            old=bpy.data.objects['SportsShorts']
+            with bpy.data.libraries.load(config['shorts_source'],link=False) as (available,requested):requested.objects=['SportsShorts']
+            repaired=requested.objects[0];repaired.parent=None;repaired.matrix_world=Matrix.Identity(4);repaired.animation_data_clear()
+            scene.collection.objects.link(repaired);bpy.data.objects.remove(old,do_unlink=True);repaired.name='SportsShorts'
+            for m in repaired.modifiers:
+                if m.type=='ARMATURE':m.object=rig
+            clothing['prepared_rest_source']=config['shorts_source']
+            clothing['prepared_method']='Reuse existing native exact-union and transferred-body-weight sports shorts from compatible bench master; clear bench placement, bind current identical rig'
         shorts_obj=bpy.data.objects['SportsShorts']
         native=next(m for m in body.modifiers if m.type=='ARMATURE' and m.use_multi_modifier)
         if shorts_obj.vertex_groups.get(native.vertex_group):
@@ -129,8 +138,9 @@ def run(config,out):
         clothing['removed_shells']=[]
         for m in list(shorts_obj.modifiers):
             if m.type=='SOLIDIFY':clothing['removed_shells'].append(m.name);shorts_obj.modifiers.remove(m)
-        wrap=shorts_obj.modifiers.new('Copa seated shorts surface clearance','SHRINKWRAP');wrap.target=body;wrap.wrap_method='NEAREST_SURFACEPOINT';wrap.wrap_mode='ABOVE_SURFACE';wrap.offset=.006
-        clothing['native_fit']='Above-surface6mm Shrinkwrap after subdivision; no cloth physics or skin masking'
+        if config.get('wrap_shorts',True):
+            wrap=shorts_obj.modifiers.new('Copa seated shorts surface clearance','SHRINKWRAP');wrap.target=body;wrap.wrap_method='NEAREST_SURFACEPOINT';wrap.wrap_mode='ABOVE_SURFACE';wrap.offset=.006
+            clothing['native_fit']='Above-surface6mm Shrinkwrap after subdivision; no cloth physics or skin masking'
         bpy.context.view_layer.update()
     shoe=bpy.data.objects['Trophe_R2_Trainers'];sole=points(shoe)
     shorts=points(bpy.data.objects['SportsShorts'])
