@@ -21,10 +21,14 @@ def mesh(name,verts,faces,mat):
  return o
 
 def interpolate(table,t):
- for a,b in zip(table,table[1:]):
+ for index,(a,b) in enumerate(zip(table,table[1:])):
   if a[0]<=t<=b[0]:
-   f=(t-a[0])/(b[0]-a[0]);f=f*f*(3-2*f)
-   return [a[i]*(1-f)+b[i]*f for i in range(1,len(a))]
+   f=(t-a[0])/(b[0]-a[0]);prev=table[max(0,index-1)];nxt=table[min(len(table)-1,index+2)];span=b[0]-a[0]
+   result=[]
+   for k in range(1,len(a)):
+    m0=(b[k]-prev[k])/(b[0]-prev[0])*span;m1=(nxt[k]-a[k])/(nxt[0]-a[0])*span
+    result.append((2*f**3-3*f*f+1)*a[k]+(f**3-2*f*f+f)*m0+(-2*f**3+3*f*f)*b[k]+(f**3-f*f)*m1)
+   return result
  return table[0][1:] if t<table[0][0] else table[-1][1:]
 
 def rectus(sign,mat,recipe):
@@ -52,7 +56,9 @@ def latissimus(sign,mat,recipe):
     u=j/nx;x=xi+(xo-xi)*u
     y=yi+(yo-yi)*u+.008*math.sin(math.pi*u)
     thickness=.0018+.0042*math.sin(math.pi*u)*math.sin(math.pi*t)
-    verts.append((sign*x,y+side*thickness,z))
+    # Inferomedial fascial border ascends laterally toward iliac crest.
+    edge_rise=recipe.get('inferior_lateral_rise_m',0)*u*(1-t)**2
+    verts.append((sign*x,y+side*thickness,z+edge_rise))
  sheet=(nz+1)*(nx+1)
  for side in [0,1]:
   for i in range(nz):
