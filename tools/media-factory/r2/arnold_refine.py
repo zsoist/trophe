@@ -102,6 +102,7 @@ def anatomy(config,out):
     key.value=1.;basis=body.data.shape_keys.key_blocks[0];changes=[]
     for i in ids:
         p=coords[i];delta=Vector(smoothed[i])-p
+        contour_delta=Vector((0,0,0))
         t,n,lat,lateral,front,back=local(p,'ORG-upper_arm')
         support=fade(abs(p.x),.13,.19)*fade(t,-.20,-.05)*(1-fade(t,.79,.94))
         if 1.13<p.z<1.60 and support>0:
@@ -109,10 +110,10 @@ def anatomy(config,out):
             cap=.010*bell(t,.14,.25)*lateral**2
             boundary=-.007*bell(t,.39,.105)*(lateral**3+.30*(front**3+back**3))
             side_septum=-.006*bell(t,.61,.22)*lateral**6
-            delta+=n*(cap+boundary+side_septum)*support
+            contour_delta+=n*(cap+boundary+side_septum)*support
             # Fusiform anterior biceps and posterior triceps, with tapered ends.
-            delta.y+=(-.014*bell(t,.60,.19)*front**3+.014*bell(t,.52,.22)*back**3)*support
-            delta+=lat*(.004*bell(t,.66,.18)*back*lateral*support)
+            contour_delta.y+=(-.014*bell(t,.60,.19)*front**3+.014*bell(t,.52,.22)*back**3)*support
+            contour_delta+=lat*(.004*bell(t,.66,.18)*back*lateral*support)
         ft,fn,flat,flateral,ffront,fback=local(p,'ORG-forearm')
         fore_support=fade(ft,.06,.17)*(1-fade(ft,.70,.84))*fade(abs(p.x),.27,.34)
         # Stay away from the hand and elbow fold; superficial forearm volumes
@@ -120,9 +121,10 @@ def anatomy(config,out):
         if fore_support>0 and .72<p.z<1.26:
             ridge=.008*bell(ft,.27,.22)*flateral**3
             groove=-.003*bell(ft,.48,.25)*flateral**6
-            delta+=fn*(ridge+groove)*fore_support
-            delta.y+=(-.0055*bell(ft,.38,.24)*ffront**3+.007*bell(ft,.38,.26)*fback**3)*fore_support
-            delta+=flat*(.003*bell(ft,.60,.25)*fback*flateral*fore_support)
+            contour_delta+=fn*(ridge+groove)*fore_support
+            contour_delta.y+=(-.0055*bell(ft,.38,.24)*ffront**3+.007*bell(ft,.38,.26)*fback**3)*fore_support
+            contour_delta+=flat*(.003*bell(ft,.60,.25)*fback*flateral*fore_support)
+        delta+=contour_delta*config.get('contour_relief_scale',1.)
         key.data[i].co=basis.data[i].co+delta
         if delta.length>1e-7:changes.append({'id':i,'delta_m':list(delta)})
     assert all(abs(coords[c['id']].x)>.10 for c in changes)
@@ -147,7 +149,7 @@ def anatomy(config,out):
         corrective.show_viewport=True;bpy.context.view_layer.update()
         samples.append({'frame':f,'common_base_surface_max_m':float(np.max(np.linalg.norm(on-baseline[f],axis=1))),
                         'native_corrective_only_max_m':float(np.max(np.linalg.norm(on-off,axis=1)))})
-    report={'source':config['animation_source'],'shape_key':key.name,'changed_vertices':changes,
+    report={'source':config['animation_source'],'shape_key':key.name,'contour_relief_scale':config.get('contour_relief_scale',1.),'changed_vertices':changes,
             'shoulder_weights':weights,'max_rest_sculpt_delta_m':max(Vector(c['delta_m']).length for c in changes),
             'native_modifier':{'type':corrective.type,'factor':corrective.factor,'iterations':corrective.iterations,
                                'rest_source':'Skeleton REST with active intended shape; before MASK topology changes',
