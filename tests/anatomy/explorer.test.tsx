@@ -183,6 +183,13 @@ it("opens workout focus without organs and preserves deep exploration as a separ
   fireEvent.click(screen.getByRole("button", { name: /Explore full atlas/ }));
   expect(screen.getByRole("heading", { name: "Explore anatomy" })).toBeTruthy();
   expect(screen.getByRole("checkbox", { name: "Organs" })).toBeTruthy();
+  expect(
+    screen.getByRole("link", { name: "Exercises" }).getAttribute("href"),
+  ).toBe("/dashboard/workout/exercises");
+  fireEvent.click(screen.getByRole("button", { name: "Groups" }));
+  fireEvent.click(screen.getByRole("button", { name: "Chest" }));
+  expect(screen.getByRole("heading", { name: "Muscle Atlas" })).toBeTruthy();
+  expect(canvasObservation.props!.systems).not.toContain("organs");
 });
 
 it("toggles a muscle off and restores group framing from both return buttons", async () => {

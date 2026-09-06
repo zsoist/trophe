@@ -1,5 +1,6 @@
 import type { CoreLanguage } from "../types";
 const rows: Record<string, [string, string, string]> = {
+  full_atlas: ["Full atlas", "Atlas completo", "Πλήρης άτλαντας"],
   authored_model: [
     "Illustrated 3D model",
     "Modelo 3D ilustrado",

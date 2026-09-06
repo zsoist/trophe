@@ -385,7 +385,7 @@ export default function AnatomyExplorer({
           </ul>
         </section>
       )}
-      {workoutMode && (
+      {workout && (
         <nav
           className="anatomy-selection-bar"
           aria-label={t("anatomy.training_groups")}
@@ -409,9 +409,11 @@ export default function AnatomyExplorer({
               <small>{t("anatomy.choose_groups")}</small>
               <strong>
                 {t(
-                  focusGroup
-                    ? `anatomy.focus_${focusGroup}`
-                    : "anatomy.whole_body",
+                  !workoutMode
+                    ? "anatomy.full_atlas"
+                    : focusGroup
+                      ? `anatomy.focus_${focusGroup}`
+                      : "anatomy.whole_body",
                 )}
               </strong>
             </span>
@@ -419,7 +421,7 @@ export default function AnatomyExplorer({
           </button>
           <a
             className="anatomy-exercise-button"
-            href={`${onRender ? "https://trophe.app" : ""}/dashboard/workout/exercises${workoutAtlasFilter(focusGroup) ? `?atlas=${encodeURIComponent(focusGroup)}` : ""}`}
+            href={`${onRender ? "https://trophe.app" : ""}/dashboard/workout/exercises${workoutMode && workoutAtlasFilter(focusGroup) ? `?atlas=${encodeURIComponent(focusGroup)}` : ""}`}
           >
             <Dumbbell size={18} aria-hidden="true" />
             {t("anatomy.exercises")}
@@ -434,8 +436,10 @@ export default function AnatomyExplorer({
               }}
             >
               <button
-                aria-pressed={!focusGroup}
+                aria-pressed={workoutMode && !focusGroup}
                 onClick={() => {
+                  setWorkoutMode(true);
+                  setSystems(WORKOUT_SYSTEMS);
                   setFocusGroup("");
                   setFocusedPart(null);
                   setManualView(false);
@@ -457,8 +461,10 @@ export default function AnatomyExplorer({
                   return (
                     <button
                       key={group}
-                      aria-pressed={focusGroup === group}
+                      aria-pressed={workoutMode && focusGroup === group}
                       onClick={() => {
+                        setWorkoutMode(true);
+                        setSystems(WORKOUT_SYSTEMS);
                         setFocusGroup(group);
                         setFocusedPart(null);
                         setManualView(false);
