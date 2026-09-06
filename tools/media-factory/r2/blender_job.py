@@ -197,6 +197,7 @@ def main():
     dispatch['triceps']=triceps.run
     dispatch['triceps_qa']=triceps.qa
     dispatch['atlas_patch']=atlas_patch.run
+    dispatch['atlas_validate']=atlas_patch.validate
     dispatch['coverage_finish']=garment_pattern.finish_coverage
     dispatch['coverage_check']=garment_pattern.check_coverage
     dispatch['coverage_regression']=garment_pattern.coverage_regression

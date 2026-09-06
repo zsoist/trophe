@@ -114,3 +114,15 @@ def run(config,output):
  report={'identity':config['id'],'authored':stats,'glb_bytes':glb.stat().st_size,'glb_sha256':digest(glb),'context_source':manifest,'coordinates':{'input':'BodyParts3D millimeter Z-up','master':'meter Z-up, original origin','glb':'meter Y-up [x,z,-y], no recenter/rescale'},'human_reviews':{'visual':'pending','anatomical':'pending'},'limits':['Illustrative authored reconstruction anchored to source bones, not recovered missing source anatomy.','Tendinous segmentation remains within each continuous rectus mesh.','Latissimus insertion routing and fascial thickness require specialist review; no biomechanical simulation.','Existing lateral/core/triceps meshes included as unmodified context; not claimed refined by this addition.']}
  (output/'atlas-report.json').write_text(json.dumps(report,indent=2))
  return {'generated_meshes':len(generated),'glb_bytes':glb.stat().st_size,'stats':stats,'rendered_photos':8,'human_reviews':'pending'}
+
+def validate(config,output):
+ bpy.ops.wm.open_mainfile(filepath=config['master_source'],load_ui=False,use_scripts=False)
+ expected={o.name:sorted(tuple(round(c,6) for c in v.co) for v in o.data.vertices) for o in bpy.data.objects if o.name.startswith('AG2_authored_') and o.type=='MESH'}
+ assert len(expected)==4
+ bpy.ops.object.select_all(action='SELECT');bpy.ops.object.delete(use_global=False)
+ bpy.ops.import_scene.gltf(filepath=config['glb_source'])
+ imported={o.name:sorted(tuple(round(c,6) for c in o.matrix_world@v.co) for v in o.data.vertices) for o in bpy.data.objects if o.type=='MESH'}
+ assert set(expected)==set(imported)
+ checks={n:set(expected[n])==set(imported[n]) for n in expected};assert all(checks.values()),checks
+ result={'master_reopened':True,'native_glb_reimport':True,'four_authored_meshes_only':True,'positions_match_master_at_1um':checks,'master_sha256':digest(config['master_source']),'glb_sha256':digest(config['glb_source']),'human_review':'pending; transport validation only'}
+ (output/'native-roundtrip.json').write_text(json.dumps(result,indent=2));return result
