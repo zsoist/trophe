@@ -33,6 +33,136 @@ def fade(x,a,b):
     t=max(0,min(1,(x-a)/(b-a)));return t*t*(3-2*t)
 
 
+def anatomy(config,out):
+    """Recontour shoulder/arm forms and correct local skin distortion natively.
+
+    No armature, action, hand or equipment change. The native corrective is bound
+    before topology masks, in skeleton REST with all intended shape keys active.
+    """
+    bpy.ops.wm.open_mainfile(filepath=config['animation_source'])
+    scene=bpy.context.scene
+    rig=bpy.data.objects['Trophe_R2_Authoring']
+    body=bpy.data.objects['Trophe_R2_Athlete']
+    coords=coordinates(body)
+    body_group=body.vertex_groups['body'].index
+    ids={v.index for v in body.data.vertices if any(g.group==body_group and g.weight>.5 for g in v.groups)}
+    frames=[1,31,46,61,91,121,151,181]
+    cam=studio(scene);scene.render.engine='BLENDER_EEVEE'
+    scene.render.resolution_x=1280;scene.render.resolution_y=720
+    cam.data.sensor_fit='VERTICAL'
+
+    def render_comparable(label):
+        for suffix,pos in [('front',(1.7,-4,1.65)),('rear',(-1.2,4,1.65))]:
+            for f in [46,91]:
+                scene.frame_set(f);bpy.context.view_layer.update()
+                place(cam,pos,(0,0,1.52),1.36)
+                scene.render.filepath=str(out/(label+'-'+suffix+'-%03d.png'%f))
+                bpy.ops.render.render(write_still=True)
+        rig.data.pose_position='REST';bpy.context.view_layer.update()
+        bells=[o for o in scene.objects if o.name.startswith('Dumbbell')]
+        hidden=[o.hide_render for o in bells]
+        for o in bells:o.hide_render=True
+        place(cam,(1.7,-4,1.65),(0,0,1.42),1.1)
+        scene.render.filepath=str(out/(label+'-rest.png'));bpy.ops.render.render(write_still=True)
+        for o,state in zip(bells,hidden):o.hide_render=state
+        rig.data.pose_position='POSE';bpy.context.view_layer.update()
+
+    render_comparable('before')
+    baseline={}
+    for f in frames:
+        scene.frame_set(f);bpy.context.view_layer.update();baseline[f]=points(body)
+
+    def local(p,name):
+        sign=1 if p.x>0 else -1;suffix='L' if sign>0 else 'R'
+        bone=rig.data.bones[name+'.'+suffix];axis=bone.tail_local-bone.head_local
+        t=(p-bone.head_local).dot(axis)/axis.length_squared
+        radial=p-(bone.head_local+axis*t)
+        n=radial.normalized()
+        lat=Vector((-axis.z,0,axis.x)).normalized()*sign
+        return t,n,lat,max(0,n.dot(lat)),max(0,-n.y),max(0,n.y)
+
+    # Native rest-mesh smoothing only over the jagged shoulder cap, feathered
+    # before reaching elbow, neck centre, chest centre or forearm.
+    weights={}
+    for i in ids:
+        p=coords[i];t,n,lat,lateral,front,back=local(p,'ORG-upper_arm')
+        w=fade(abs(p.x),.105,.165)*fade(t,-.42,-.15)*(1-fade(t,.28,.51))
+        w*=fade(p.z,1.23,1.32)*(1-fade(p.z,1.57,1.64))
+        if w>1e-5:weights[i]=w
+    mesh=bpy.data.meshes.new('Temporary native shoulder rest surface')
+    mesh.from_pydata(coords,[],[list(p.vertices) for p in body.data.polygons]);mesh.update()
+    donor=bpy.data.objects.new(mesh.name,mesh);scene.collection.objects.link(donor)
+    group=donor.vertex_groups.new(name='Shoulder cap only')
+    for i,w in weights.items():group.add([i],w,'REPLACE')
+    smooth=donor.modifiers.new('Native rest shoulder contour','SMOOTH')
+    smooth.factor=.65;smooth.iterations=8;smooth.vertex_group=group.name
+    bpy.context.view_layer.update();smoothed=points(donor)
+    bpy.data.objects.remove(donor,do_unlink=True);bpy.data.meshes.remove(mesh)
+    key=body.shape_key_add(name='Arnold V3 deltoid arm forearm contours',from_mix=False)
+    key.value=1.;basis=body.data.shape_keys.key_blocks[0];changes=[]
+    for i in ids:
+        p=coords[i];delta=Vector(smoothed[i])-p
+        t,n,lat,lateral,front,back=local(p,'ORG-upper_arm')
+        support=fade(abs(p.x),.13,.19)*fade(t,-.20,-.05)*(1-fade(t,.79,.94))
+        if 1.13<p.z<1.60 and support>0:
+            # One continuous cap tapering into a distal insertion, not two beads.
+            cap=.010*bell(t,.14,.25)*lateral**2
+            boundary=-.007*bell(t,.39,.105)*(lateral**3+.30*(front**3+back**3))
+            side_septum=-.006*bell(t,.61,.22)*lateral**6
+            delta+=n*(cap+boundary+side_septum)*support
+            # Fusiform anterior biceps and posterior triceps, with tapered ends.
+            delta.y+=(-.014*bell(t,.60,.19)*front**3+.014*bell(t,.52,.22)*back**3)*support
+            delta+=lat*(.004*bell(t,.66,.18)*back*lateral*support)
+        ft,fn,flat,flateral,ffront,fback=local(p,'ORG-forearm')
+        fore_support=fade(ft,.06,.17)*(1-fade(ft,.70,.84))*fade(abs(p.x),.27,.34)
+        # Stay away from the hand and elbow fold; superficial forearm volumes
+        # converge distally, leaving the previously fitted wrist/hand untouched.
+        if fore_support>0 and .72<p.z<1.26:
+            ridge=.008*bell(ft,.27,.22)*flateral**3
+            groove=-.003*bell(ft,.48,.25)*flateral**6
+            delta+=fn*(ridge+groove)*fore_support
+            delta.y+=(-.0055*bell(ft,.38,.24)*ffront**3+.007*bell(ft,.38,.26)*fback**3)*fore_support
+            delta+=flat*(.003*bell(ft,.60,.25)*fback*flateral*fore_support)
+        key.data[i].co=basis.data[i].co+delta
+        if delta.length>1e-7:changes.append({'id':i,'delta_m':list(delta)})
+    assert all(abs(coords[c['id']].x)>.10 for c in changes)
+    # Binding matches the native active shape, not the unshaped Basis or frame1.
+    native_group=body.vertex_groups.new(name='Arnold V3 local shoulder articulation')
+    for i,w in weights.items():native_group.add([i],w,'REPLACE')
+    corrective=body.modifiers.new('Arnold V3 native shoulder deformation','CORRECTIVE_SMOOTH')
+    corrective.vertex_group=native_group.name;corrective.factor=config.get('corrective_factor',.65)
+    corrective.iterations=8;corrective.smooth_type='LENGTH_WEIGHTED';corrective.rest_source='BIND'
+    masks=[i for i,m in enumerate(body.modifiers) if m.type=='MASK']
+    body.modifiers.move(len(body.modifiers)-1,min(masks))
+    rig.data.pose_position='REST';bpy.context.view_layer.update()
+    bpy.ops.object.select_all(action='DESELECT');body.select_set(True);bpy.context.view_layer.objects.active=body
+    bpy.ops.object.correctivesmooth_bind(modifier=corrective.name)
+    bpy.context.view_layer.update();assert corrective.is_bind
+    rest_on=points(body);corrective.show_viewport=False;bpy.context.view_layer.update();rest_off=points(body)
+    corrective.show_viewport=True;rig.data.pose_position='POSE';bpy.context.view_layer.update()
+    samples=[]
+    for f in frames:
+        scene.frame_set(f);bpy.context.view_layer.update();on=points(body)
+        corrective.show_viewport=False;bpy.context.view_layer.update();off=points(body)
+        corrective.show_viewport=True;bpy.context.view_layer.update()
+        samples.append({'frame':f,'common_base_surface_max_m':float(np.max(np.linalg.norm(on-baseline[f],axis=1))),
+                        'native_corrective_only_max_m':float(np.max(np.linalg.norm(on-off,axis=1)))})
+    report={'source':config['animation_source'],'shape_key':key.name,'changed_vertices':changes,
+            'shoulder_weights':weights,'max_rest_sculpt_delta_m':max(Vector(c['delta_m']).length for c in changes),
+            'native_modifier':{'type':corrective.type,'factor':corrective.factor,'iterations':corrective.iterations,
+                               'rest_source':'Skeleton REST with active intended shape; before MASK topology changes',
+                               'bind_rest_change_max_m':float(np.max(np.linalg.norm(rest_on-rest_off,axis=1)))},
+            'samples':samples,'preserved':'Rig rest bones, weights, controls, all actions, complete hand/dumbbell relationship, neck centre, hands and lower body',
+            'limits':'Authored superficial shape plus local native distortion correction; not a force/activation or anatomical certification.',
+            'references':['https://openstax.org/books/anatomy-and-physiology-2e/pages/11-5-muscles-of-the-pectoral-girdle-and-upper-limbs','https://docs.blender.org/manual/en/5.0/modeling/modifiers/deform/corrective_smooth.html'],
+            'human_reviews':'pending'}
+    (out/'anatomy.json').write_text(json.dumps(report,indent=2))
+    scene.frame_set(1);bpy.ops.wm.save_as_mainfile(filepath=str(out/'arnold.blend'))
+    render_comparable('after')
+    return {'changed_vertices':len(changes),'shoulder_group_vertices':len(weights),
+            'max_rest_sculpt_delta_m':report['max_rest_sculpt_delta_m'],'native_bind_rest_change_max_m':report['native_modifier']['bind_rest_change_max_m']}
+
+
 def revise(config,out):
     bpy.ops.wm.open_mainfile(filepath=config['animation_source']);s=bpy.context.scene;rig=bpy.data.objects['Trophe_R2_Authoring'];body=bpy.data.objects['Trophe_R2_Athlete'];shoes=bpy.data.objects['Trophe_R2_Trainers']
     original=[];anchors={side:bpy.data.objects['R2_Grip_'+side] for side in ['l','r']};relations={side:bpy.data.objects['Arnold wrist target '+side].matrix_basis.inverted() for side in anchors}

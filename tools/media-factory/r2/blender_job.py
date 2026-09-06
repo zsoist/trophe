@@ -190,6 +190,7 @@ def main():
     dispatch['arnold']=arnold.run
     dispatch['arnold_inspect']=arnold_refine.inspect
     dispatch['arnold_refine']=arnold_refine.revise
+    dispatch['arnold_anatomy']=arnold_refine.anatomy
     dispatch['coverage_finish']=garment_pattern.finish_coverage
     dispatch['coverage_check']=garment_pattern.check_coverage
     dispatch['coverage_regression']=garment_pattern.coverage_regression
