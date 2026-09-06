@@ -1139,3 +1139,143 @@
 .anatomy-focus-caption button {
   min-width: 44px;
 }
+
+/* Muscle Atlas: compact brand, useful location previews and explicit return. */
+.anatomy-brand-header {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  border-bottom: 1px solid var(--atlas-rail);
+  margin-bottom: 16px;
+}
+.anatomy-brand-mark {
+  width: 76px;
+  height: 76px;
+  border-radius: 18px;
+}
+.anatomy-brand-copy {
+  min-width: 0;
+}
+.anatomy-brand-header h1 {
+  margin-bottom: 8px;
+  font-size: clamp(30px, 5vw, 46px);
+}
+.anatomy-explorer .anatomy-depth-toggle {
+  grid-column: 1 / -1;
+  display: flex;
+  width: 100%;
+  justify-content: flex-start;
+  gap: 16px;
+  padding: 18px !important;
+  margin-top: 4px;
+  border: 1px solid var(--atlas-rail);
+  border-radius: 14px;
+  background: var(--bg-surface);
+}
+.anatomy-depth-toggle span {
+  flex: 1;
+}
+.anatomy-depth-toggle strong {
+  display: block;
+  font-size: 16px;
+}
+.anatomy-depth-toggle small {
+  display: block;
+  color: var(--atlas-muted);
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 400;
+  margin-top: 5px;
+}
+.anatomy-depth-toggle > svg {
+  flex-shrink: 0;
+}
+.anatomy-explorer {
+  --atlas-preview-line: color-mix(
+    in srgb,
+    var(--text-secondary) 60%,
+    transparent
+  );
+}
+.anatomy-muscle-options {
+  gap: 8px;
+}
+.anatomy-muscle-options li {
+  min-width: 0;
+}
+.anatomy-muscle-options button {
+  height: 100%;
+  padding: 10px;
+  gap: 9px;
+  position: relative;
+  min-height: 90px;
+}
+.anatomy-muscle-options button > span {
+  min-width: 0;
+  flex: 1;
+}
+.anatomy-muscle-options strong {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.anatomy-muscle-options button > svg.anatomy-muscle-preview {
+  width: 38px;
+  height: 58px;
+  margin: 0;
+  flex: 0 0 38px;
+}
+.anatomy-muscle-options button > svg:not(.anatomy-muscle-preview) {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 11px;
+  height: 11px;
+  color: var(--accent);
+}
+.anatomy-muscle-count {
+  color: var(--atlas-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.anatomy-explorer .anatomy-show-group {
+  min-height: 44px;
+  border: 1px solid var(--atlas-rail);
+  background: var(--bg-primary);
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+.anatomy-training-controls > .anatomy-show-group {
+  width: 100%;
+}
+.anatomy-focus-caption {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.anatomy-focus-caption strong {
+  flex: 1;
+  min-width: 120px;
+}
+.anatomy-focus-caption .anatomy-show-group {
+  flex-basis: 100%;
+}
+@media (min-width: 900px) {
+  .anatomy-brand-header {
+    grid-template-columns: 96px minmax(0, 1fr) minmax(260px, 360px);
+    gap: 24px;
+  }
+  .anatomy-brand-mark {
+    width: 96px;
+    height: 96px;
+  }
+  .anatomy-brand-header .anatomy-depth-toggle {
+    grid-column: auto;
+    margin: 0;
+  }
+  .anatomy-muscle-options button {
+    min-height: 76px;
+  }
+  .anatomy-muscle-options strong {
+    font-size: 14px;
+  }
+}

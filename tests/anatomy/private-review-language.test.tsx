@@ -33,15 +33,13 @@ afterEach(() => {
 
 it("starts in English and changes the viewer and review panel together", () => {
   open();
-  expect(screen.getByRole("heading", { name: "Workout atlas" })).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "Muscle Atlas" })).toBeTruthy();
   expect(screen.getByText("Private device check")).toBeTruthy();
   expect(document.documentElement.lang).toBe("en");
   fireEvent.change(screen.getByRole("combobox", { name: "Language" }), {
     target: { value: "es" },
   });
-  expect(
-    screen.getByRole("heading", { name: "Atlas de entrenamiento" }),
-  ).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "Muscle Atlas" })).toBeTruthy();
   expect(screen.getByText("Revisión privada del dispositivo")).toBeTruthy();
   expect(localStorage.getItem("trophe_lang")).toBe("es");
 });
@@ -50,9 +48,7 @@ it("honors a saved language without resetting the user's preference", async () =
   localStorage.setItem("trophe_lang", "el");
   open();
   await waitFor(() =>
-    expect(
-      screen.getByRole("heading", { name: "Άτλας προπόνησης" }),
-    ).toBeTruthy(),
+    expect(screen.getByRole("heading", { name: "Muscle Atlas" })).toBeTruthy(),
   );
   expect(screen.getByText("Ιδιωτικός έλεγχος συσκευής")).toBeTruthy();
   expect(document.documentElement.lang).toBe("el");

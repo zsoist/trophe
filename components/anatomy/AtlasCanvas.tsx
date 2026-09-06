@@ -141,6 +141,7 @@ export default function AtlasCanvas(props: CanvasProps) {
       lastFocus = "",
       lastReset = -1,
       lastZoom = 0,
+      manualCamera = false,
       inViewport = true;
     const dispose = (obj: THREE.Object3D) => {
       const seen = new Set<THREE.Material>();
@@ -196,6 +197,7 @@ export default function AtlasCanvas(props: CanvasProps) {
       transition.start = performance.now();
     };
     const cancelTransition = () => {
+      manualCamera = true;
       transition = null;
       latest.current.onManualView?.();
     };
@@ -317,6 +319,7 @@ export default function AtlasCanvas(props: CanvasProps) {
       const changedReset = lastReset !== p.reset;
       const initial = lastReset === -1;
       if (changedFocus || changedReset || lastView !== p.view) {
+        manualCamera = false;
         const bounds =
           changedReset && !initial
             ? p.manifest.bounds
@@ -439,9 +442,14 @@ export default function AtlasCanvas(props: CanvasProps) {
       const w = container.clientWidth,
         h = container.clientHeight;
       if (w && h) {
+        const aspectChanged = Math.abs(camera.aspect - w / h) > 0.01;
         renderer.setSize(w, h);
         camera.aspect = w / h;
         camera.updateProjectionMatrix();
+        if (aspectChanged && !manualCamera) {
+          lastFocus = "";
+          setView();
+        }
         draw();
       }
     };

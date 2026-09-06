@@ -2,9 +2,9 @@ import type { CoreLanguage } from "../types";
 const rows: Record<string, [string, string, string]> = {
   explore_muscles: ["Explore muscles", "Explorar músculos", "Εξερευνήστε μύες"],
   part_selection_hint: [
-    "Choose one to focus on it. The rest stays in the background.",
-    "Elige uno para enfocarlo. El resto queda en segundo plano.",
-    "Επιλέξτε έναν για εστίαση. Οι υπόλοιποι μένουν στο φόντο.",
+    "Tap to explore. Tap again to return to the group.",
+    "Toca para explorar. Toca de nuevo para volver al grupo.",
+    "Πατήστε για εξερεύνηση. Πατήστε ξανά για όλη την ομάδα.",
   ],
   inspect_muscle: ["Focus in 3D", "Enfocar en 3D", "Εστίαση σε 3D"],
   show_group: ["Show full group", "Ver grupo completo", "Ολόκληρη η ομάδα"],
@@ -136,14 +136,10 @@ const rows: Record<string, [string, string, string]> = {
     "Arrastra el modelo durante al menos 5 segundos. Copia el informe y anota saltos o defectos visuales. Repite con huesos y músculos. Registra envíos de render del navegador, no la tasa de cuadros de la pantalla o GPU.",
     "Σύρετε το μοντέλο για τουλάχιστον 5 δευτερόλεπτα. Αντιγράψτε την αναφορά και σημειώστε καθυστερήσεις ή οπτικά σφάλματα. Επαναλάβετε με οστά και μύες. Καταγράφονται υποβολές απόδοσης του προγράμματος περιήγησης, όχι ο ρυθμός καρέ της οθόνης ή της GPU.",
   ],
-  workout_title: [
-    "Workout atlas",
-    "Atlas de entrenamiento",
-    "Άτλας προπόνησης",
-  ],
+  workout_title: ["Muscle Atlas", "Muscle Atlas", "Muscle Atlas"],
   workout_intro: [
-    "Choose a muscle group. See it on the body, then explore exercises.",
-    "Elige un grupo muscular. Ubícalo en el cuerpo y explora sus ejercicios.",
+    "Meet the muscles behind your movement. Explore a group, find your exercises.",
+    "Conoce los músculos que te mueven. Explora un grupo y encuentra sus ejercicios.",
     "Επιλέξτε μυϊκή ομάδα. Δείτε τη στο σώμα και εξερευνήστε ασκήσεις.",
   ],
   workout_entry: [
@@ -151,14 +147,24 @@ const rows: Record<string, [string, string, string]> = {
     "Explora grupos musculares en 3D",
     "Εξερευνήστε μυϊκές ομάδες σε 3D",
   ],
+  explore_deep_hint: [
+    "Every layer. Every angle. Explore the body in 3D.",
+    "Cada capa, cada ángulo. Explora el cuerpo en 3D.",
+    "Κάθε στρώμα, κάθε γωνία. Εξερευνήστε το σώμα σε 3D.",
+  ],
+  preview_source: [
+    "Location previews use the app’s 2D muscle atlas; the viewer shows the available 3D anatomy.",
+    "Las miniaturas muestran la ubicación en el atlas 2D; el visor muestra la anatomía 3D disponible.",
+    "Οι μικρογραφίες δείχνουν τη θέση στον δισδιάστατο άτλαντα· η προβολή δείχνει τη διαθέσιμη τρισδιάστατη ανατομία.",
+  ],
   explore_deep: [
-    "Explore full anatomy",
-    "Explorar anatomía completa",
+    "Explore full atlas",
+    "Explorar atlas completo",
     "Εξερεύνηση πλήρους ανατομίας",
   ],
   back_to_workout: [
-    "Back to workout atlas",
-    "Volver al atlas de entrenamiento",
+    "Back to Muscle Atlas",
+    "Volver a Muscle Atlas",
     "Επιστροφή στον άτλαντα προπόνησης",
   ],
   training_groups: [

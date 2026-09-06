@@ -2,6 +2,44 @@ import type { AtlasManifest } from "./types";
 
 export type CameraView = "front" | "back" | "side";
 export type Bounds = [number[], number[]];
+export function preferredView(id: string): CameraView {
+  return id.includes("triceps") ||
+    id.includes("trapezius") ||
+    [
+      "back",
+      "glutes",
+      "gastrocnemius",
+      "soleus",
+      "hamstrings",
+      "erector-spinae",
+      "rhomboids",
+      "posterior-deltoid",
+      "posterior-rectus-capitis",
+      "forearm-flexors",
+      "forearm-extensors",
+    ].includes(id)
+    ? "back"
+    : "front";
+}
+export function partCameraGroup(group: string, part?: string) {
+  if (!part) return group;
+  if (part.startsWith("triceps-")) return "triceps";
+  if (part === "biceps-brachii" || part === "brachialis") return "biceps";
+  if (part.includes("deltoid")) return "shoulders";
+  if (
+    [
+      "serratus-anterior",
+      "pectoral-clavicular",
+      "pectoral-sternocostal",
+      "pectoral-abdominal",
+      "sternocleidomastoid",
+      "scalenes",
+      "obliques",
+    ].includes(part)
+  )
+    return part;
+  return group;
+}
 export function focusBounds(
   manifest: AtlasManifest,
   ids: readonly string[],
@@ -11,7 +49,21 @@ export function focusBounds(
     manifest.elements[id]?.bounds ? [manifest.elements[id].bounds!] : [],
   );
   // A side close-up makes bilateral arm/shoulder groups readable. Both sides remain highlighted.
-  if (["shoulders", "arms", "biceps", "triceps"].includes(group ?? "")) {
+  if (
+    [
+      "shoulders",
+      "arms",
+      "biceps",
+      "triceps",
+      "serratus-anterior",
+      "pectoral-clavicular",
+      "pectoral-sternocostal",
+      "pectoral-abdominal",
+      "sternocleidomastoid",
+      "scalenes",
+      "obliques",
+    ].includes(group ?? "")
+  ) {
     const side = boxes.filter(([min, max]) => (min[0] + max[0]) / 2 > 0);
     if (side.length) boxes = side;
   }
@@ -25,6 +77,18 @@ export function cameraAngle(view: CameraView, group?: string) {
   if (view === "side") return Math.PI / 2;
   if (view === "back") return group === "triceps" ? Math.PI * 0.7 : Math.PI;
   if (group === "neck") return Math.PI / 5;
+  if (
+    [
+      "serratus-anterior",
+      "pectoral-abdominal",
+      "scalenes",
+      "obliques",
+    ].includes(group ?? "")
+  )
+    return Math.PI / 3;
+  if (["pectoral-clavicular", "pectoral-sternocostal"].includes(group ?? ""))
+    return Math.PI / 8;
+  if (group === "sternocleidomastoid") return Math.PI / 5;
   if (group === "shoulders") return Math.PI / 3;
   if (["arms", "biceps"].includes(group ?? "")) return Math.PI / 5;
   return 0;

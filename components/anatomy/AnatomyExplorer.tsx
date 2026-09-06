@@ -1,9 +1,10 @@
 "use client";
+import { MusclePreview, MuscleColorsIcon } from "./MusclePreview";
+import { preferredView, partCameraGroup } from "@/lib/anatomy/camera";
 import type { RenderObservation } from "./AtlasCanvas";
 import Image from "next/image";
 import { workoutAtlasFilter } from "@/lib/anatomy/workout-navigation";
 import {
-  SwatchBook,
   Check,
   ChevronDown,
   PersonStanding,
@@ -183,6 +184,14 @@ export default function AnatomyExplorer({
   );
   const part = focused?.subgroups.find((g) => g.id === focusedPart);
   const focusElements = part?.elements ?? focused?.elements;
+  const showFullGroup = () => {
+    setFocusedPart(null);
+    setSelected(null);
+    setIsolated(false);
+    setManualView(false);
+    setView(preferredView(focusGroup));
+    setCameraRequest((n) => n + 1);
+  };
   const ocularElements = useMemo(
     () => (manifest ? workoutOcularElements(manifest) : []),
     [manifest],
@@ -261,7 +270,10 @@ export default function AnatomyExplorer({
   const onPick = useCallback(
     (id: string, position?: { x: number; y: number }) => {
       setCardEdge(position && position.y < 0.5 ? "bottom" : "top");
-      if (manifest) setSelected(conceptForElement(manifest, id));
+      if (manifest) {
+        const next = conceptForElement(manifest, id);
+        setSelected((current) => (current === next ? null : next));
+      }
     },
     [manifest, setCardEdge, setSelected],
   );
@@ -296,11 +308,23 @@ export default function AnatomyExplorer({
     <main
       className={`anatomy-explorer ${workoutMode ? "anatomy-workout-mode" : ""}`}
     >
-      <header>
-        <h1>{t(workoutMode ? "anatomy.workout_title" : "anatomy.title")}</h1>
-        <p className="anatomy-intro">
-          {t(workoutMode ? "anatomy.workout_intro" : "anatomy.scope")}
-        </p>
+      <header className={workoutMode ? "anatomy-brand-header" : undefined}>
+        {workoutMode && (
+          <Image
+            className="anatomy-brand-mark"
+            unoptimized
+            src="/anatomy/muscle-atlas-mark.webp"
+            width={96}
+            height={96}
+            alt=""
+          />
+        )}
+        <div className="anatomy-brand-copy">
+          <h1>{t(workoutMode ? "anatomy.workout_title" : "anatomy.title")}</h1>
+          <p className="anatomy-intro">
+            {t(workoutMode ? "anatomy.workout_intro" : "anatomy.scope")}
+          </p>
+        </div>
         {workout && (
           <button
             className="anatomy-depth-toggle"
@@ -313,10 +337,24 @@ export default function AnatomyExplorer({
               setIsolated(false);
             }}
           >
-            <Layers size={17} aria-hidden="true" />
-            {t(
-              workoutMode ? "anatomy.explore_deep" : "anatomy.back_to_workout",
-            )}
+            <Layers size={25} aria-hidden="true" />
+            <span>
+              <strong>
+                {t(
+                  workoutMode
+                    ? "anatomy.explore_deep"
+                    : "anatomy.back_to_workout",
+                )}
+              </strong>
+              <small>
+                {t(
+                  workoutMode
+                    ? "anatomy.explore_deep_hint"
+                    : "anatomy.workout_entry",
+                )}
+              </small>
+            </span>
+            <ArrowUpRight size={20} aria-hidden="true" />
           </button>
         )}
         {!["en", "es", "el"].includes(lang) && (
@@ -511,19 +549,9 @@ export default function AnatomyExplorer({
             <>
               <div className="anatomy-focus-summary">
                 <h3>{t("anatomy.explore_muscles")}</h3>
-                {part && (
-                  <button
-                    onClick={() => {
-                      setFocusedPart(null);
-                      setSelected(null);
-                      setIsolated(false);
-                      setCameraRequest((n) => n + 1);
-                      setManualView(false);
-                    }}
-                  >
-                    {t("anatomy.show_group")}
-                  </button>
-                )}
+                <span className="anatomy-muscle-count">
+                  {focused?.subgroups.length}
+                </span>
               </div>
               <p className="anatomy-selection-help">
                 {t("anatomy.part_selection_hint")}
@@ -535,26 +563,15 @@ export default function AnatomyExplorer({
                       disabled={!group.elements.length}
                       aria-pressed={focusedPart === group.id}
                       onClick={() => {
-                        setFocusedPart(group.id);
-                        setSelected(null);
-                        setIsolated(false);
-                        setManualView(false);
-                        setCameraRequest((n) => n + 1);
-                        if (
-                          group.id.includes("triceps") ||
-                          group.id.includes("trapezius") ||
-                          [
-                            "gastrocnemius",
-                            "soleus",
-                            "hamstrings",
-                            "erector-spinae",
-                            "rhomboids",
-                            "posterior-deltoid",
-                            "posterior-rectus-capitis",
-                          ].includes(group.id)
-                        )
-                          setView("back");
-                        else setView("front");
+                        if (focusedPart === group.id) showFullGroup();
+                        else {
+                          setFocusedPart(group.id);
+                          setSelected(null);
+                          setIsolated(false);
+                          setManualView(false);
+                          setCameraRequest((n) => n + 1);
+                          setView(preferredView(group.id));
+                        }
                         if (window.matchMedia?.("(max-width: 899px)").matches)
                           requestAnimationFrame(() =>
                             stage.current?.scrollIntoView({
@@ -568,36 +585,35 @@ export default function AnatomyExplorer({
                           );
                       }}
                     >
-                      <span
-                        className="anatomy-muscle-swatch"
-                        style={{
-                          background: group.elements.length
+                      <MusclePreview
+                        id={group.id}
+                        color={
+                          group.elements.length
                             ? subgroupColors
                               ? group.color
                               : "var(--accent)"
-                            : "var(--atlas-rail)",
-                        }}
-                        aria-hidden="true"
+                            : "var(--atlas-preview-line)"
+                        }
                       />
                       <span>
                         <strong>{t(group.labelKey)}</strong>
-                        <small>
-                          {t(
-                            group.elements.length
-                              ? "anatomy.inspect_muscle"
-                              : "anatomy.highlight_unavailable",
-                          )}
-                        </small>
+                        {!group.elements.length && (
+                          <small>{t("anatomy.highlight_unavailable")}</small>
+                        )}
                       </span>
                       {focusedPart === group.id ? (
                         <Check size={16} aria-hidden="true" />
-                      ) : group.elements.length ? (
-                        <Focus size={16} aria-hidden="true" />
                       ) : null}
                     </button>
                   </li>
                 ))}
               </ul>
+              {part && (
+                <button className="anatomy-show-group" onClick={showFullGroup}>
+                  <RotateCcw size={17} aria-hidden="true" />
+                  {t("anatomy.show_group")}
+                </button>
+              )}
               {!focused?.elements.length && (
                 <p role="status" className="anatomy-panel-hint">
                   {t("anatomy.group_unavailable")}
@@ -606,6 +622,7 @@ export default function AnatomyExplorer({
               <details className="anatomy-group-details">
                 <summary>{t("anatomy.about_highlights")}</summary>
                 <p>{t("anatomy.focus_role_limit")}</p>
+                <p>{t("anatomy.preview_source")}</p>
                 {focused?.partial && <p>{t("anatomy.focus_partial")}</p>}
                 {subgroupColors &&
                   Object.values(colors).includes("#b9bdba") && (
@@ -700,7 +717,7 @@ export default function AnatomyExplorer({
                 disabled={!focused?.elements.length}
                 onClick={() => setSubgroupColors((v) => !v)}
               >
-                <SwatchBook size={19} aria-hidden="true" />
+                <MuscleColorsIcon active={subgroupColors} />
               </button>
             )}
           </div>
@@ -741,13 +758,7 @@ export default function AnatomyExplorer({
               interactive
               onManualView={onManualView}
               cameraGroup={
-                workoutMode
-                  ? part?.id === "biceps-brachii"
-                    ? "biceps"
-                    : part?.id === "triceps-brachii"
-                      ? "triceps"
-                      : focusGroup
-                  : undefined
+                workoutMode ? partCameraGroup(focusGroup, part?.id) : undefined
               }
               cameraRequest={cameraRequest}
               onPick={onPick}
@@ -793,16 +804,9 @@ export default function AnatomyExplorer({
               >
                 <Focus size={17} aria-hidden="true" />
               </button>
-              <button
-                aria-label={t("anatomy.show_group")}
-                onClick={() => {
-                  setFocusedPart(null);
-                  setSelected(null);
-                  setIsolated(false);
-                  setCameraRequest((n) => n + 1);
-                }}
-              >
-                <X size={16} aria-hidden="true" />
+              <button className="anatomy-show-group" onClick={showFullGroup}>
+                <RotateCcw size={16} aria-hidden="true" />
+                {t("anatomy.show_group")}
               </button>
             </div>
           )}

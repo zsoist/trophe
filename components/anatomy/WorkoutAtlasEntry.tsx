@@ -1,6 +1,7 @@
 "use client";
+import Image from "next/image";
 import Link from "next/link";
-import { ArrowUpRight, Dumbbell } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { activeAtlasRelease } from "@/lib/anatomy/release";
 import { mappingForMuscle } from "@/lib/anatomy/mapping";
@@ -19,7 +20,14 @@ export function WorkoutAtlasEntry({ muscle }: { muscle?: string | null }) {
       href={`/dashboard/anatomy${suffix}`}
       className="my-3 flex min-h-14 items-center gap-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3 text-[var(--text-primary)]"
     >
-      <Dumbbell size={22} aria-hidden="true" className="text-[var(--accent)]" />
+      <Image
+        unoptimized
+        src="/anatomy/muscle-atlas-mark.webp"
+        width={48}
+        height={48}
+        alt=""
+        className="rounded-lg"
+      />
       <span className="flex-1">
         <strong className="block text-sm">{t("anatomy.workout_title")}</strong>
         <span className="block text-xs text-[var(--text-secondary)]">

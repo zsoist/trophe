@@ -1,6 +1,8 @@
 import { expect, it } from "vitest";
 import {
   cameraAngle,
+  partCameraGroup,
+  preferredView,
   cameraEase,
   fitCamera,
   focusBounds,
@@ -72,4 +74,40 @@ it("uses the short orbit path without crossing through the model, and finishes e
 
 it("opens the expanded neck and shoulder region at an oblique angle", () => {
   expect(cameraAngle("front", "neck")).toBeCloseTo(Math.PI / 5);
+});
+
+it("focuses one side for small chest and neck structures and restores a complete group", () => {
+  const manifest = {
+    elements: {
+      left: {
+        bounds: [
+          [-0.2, 1.1, 0],
+          [-0.1, 1.4, 0.1],
+        ],
+      },
+      right: {
+        bounds: [
+          [0.1, 1.1, 0],
+          [0.2, 1.4, 0.1],
+        ],
+      },
+    },
+  } as unknown as AtlasManifest;
+  for (const part of ["serratus-anterior", "pectoral-abdominal", "scalenes"]) {
+    const group = partCameraGroup("chest", part);
+    expect(focusBounds(manifest, ["left", "right"], group)).toEqual(
+      manifest.elements.right.bounds,
+    );
+    expect(cameraAngle(preferredView(part), group)).toBeCloseTo(Math.PI / 3);
+  }
+  expect(
+    focusBounds(manifest, ["left", "right"], partCameraGroup("chest")),
+  ).toEqual([
+    [-0.2, 1.1, 0],
+    [0.2, 1.4, 0.1],
+  ]);
+  expect(partCameraGroup("arms", "triceps-medial")).toBe("triceps");
+  expect(preferredView("triceps-medial")).toBe("back");
+  expect(preferredView("back")).toBe("back");
+  expect(preferredView("chest")).toBe("front");
 });

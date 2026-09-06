@@ -33,6 +33,10 @@ const manifestBytes = await readFile(join(directory, "manifest.json"));
 if (manifestBytes.length > 8 * 1024 * 1024) throw Error("Manifest cap");
 const manifest = validateAtlas(JSON.parse(manifestBytes));
 const assets = new Map();
+assets.set("/anatomy/muscle-atlas-mark.webp", {
+  bytes: await readFile(join(root, "public/anatomy/muscle-atlas-mark.webp")),
+  mime: "image/webp",
+});
 const prefix = `/anatomy/${manifest.release}/`;
 assets.set(prefix + "manifest.json", {
   bytes: manifestBytes,
@@ -92,7 +96,7 @@ assets.set("/", {
   bytes: Buffer.from(
     '<!doctype html><html lang="en" class="' +
       (light ? "light" : "") +
-      '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Trophē · Workout atlas</title><link rel="stylesheet" href="/_qa/theme.css"><link rel="stylesheet" href="/_qa/stdin.css"></head><body><div id="root"></div><script type="module" src="/_qa/stdin.js"></script></body></html>',
+      '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Trophē · Muscle Atlas</title><link rel="stylesheet" href="/_qa/theme.css"><link rel="stylesheet" href="/_qa/stdin.css"></head><body><div id="root"></div><script type="module" src="/_qa/stdin.js"></script></body></html>',
   ),
   mime: "text/html",
 });

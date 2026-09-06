@@ -144,7 +144,7 @@ it("opens workout focus without organs and preserves deep exploration as a separ
     </I18nProvider>,
   );
   await screen.findByTestId("canvas");
-  expect(screen.getByRole("heading", { name: "Workout atlas" })).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "Muscle Atlas" })).toBeTruthy();
   expect(
     screen.getByRole("link", { name: "Exercises" }).getAttribute("href"),
   ).toBe("/dashboard/workout/exercises?atlas=chest");
@@ -180,7 +180,65 @@ it("opens workout focus without organs and preserves deep exploration as a separ
   expect(
     screen.getByText(/This group has no highlight available yet/),
   ).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Explore full anatomy" }));
+  fireEvent.click(screen.getByRole("button", { name: /Explore full atlas/ }));
   expect(screen.getByRole("heading", { name: "Explore anatomy" })).toBeTruthy();
   expect(screen.getByRole("checkbox", { name: "Organs" })).toBeTruthy();
+});
+
+it("toggles a muscle off and restores group framing from both return buttons", async () => {
+  const { fetchAtlasManifest } = await import("../../lib/anatomy/validation");
+  const source = structuredClone(fixture);
+  Object.assign(source.concepts, {
+    FMA13397: {
+      ...source.concepts.FMA24475,
+      id: "FMA13397",
+      elements: ["FJ3259"],
+    },
+    FMA34687: {
+      ...source.concepts.FMA24474,
+      id: "FMA34687",
+      elements: ["FJ3365"],
+    },
+  });
+  vi.mocked(fetchAtlasManifest).mockResolvedValueOnce(
+    source as unknown as CanvasProps["manifest"],
+  );
+  render(
+    <I18nProvider defaultLang="en">
+      <AnatomyExplorer
+        workout
+        initialGroup="chest"
+        manifestUrl="/manifest.json"
+      />
+    </I18nProvider>,
+  );
+  const serratus = await screen.findByRole("button", {
+    name: "Serratus anterior",
+  });
+  await waitFor(() =>
+    expect((serratus as HTMLButtonElement).disabled).toBe(false),
+  );
+  const resident = canvasObservation.props!.manifest;
+  fireEvent.click(serratus);
+  expect(canvasObservation.props!.focusElements).toEqual(["FJ3259"]);
+  expect(canvasObservation.props!.cameraGroup).toBe("serratus-anterior");
+  fireEvent.click(serratus);
+  expect(serratus.getAttribute("aria-pressed")).toBe("false");
+  expect(canvasObservation.props!.cameraGroup).toBe("chest");
+  expect(canvasObservation.props!.focusElements).toHaveLength(2);
+  for (const index of [0, 1]) {
+    fireEvent.click(serratus);
+    fireEvent.click(screen.getByRole("button", { name: "Isolate selection" }));
+    act(() => canvasObservation.props!.onManualView?.());
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Show full group" })[index],
+    );
+    expect(canvasObservation.props!.isolated).toBe(false);
+    expect(canvasObservation.props!.cameraGroup).toBe("chest");
+    expect(canvasObservation.props!.view).toBe("front");
+    expect(
+      screen.getByRole("button", { name: "View direction" }).textContent,
+    ).not.toContain("Free view");
+    expect(canvasObservation.props!.manifest).toBe(resident);
+  }
 });
