@@ -116,13 +116,18 @@ def run(config,out):
    scene.frame_set(f);bpy.context.view_layer.update();place(cam,pos,target,scale);scene.render.filepath=str(out/(view+'-%03d.png'%f));bpy.ops.render.render(write_still=True)
  return {'max_elbow_error_m':max(j['elbow_error_m'] for r in rows for j in r['sides'].values()),'max_palm_forearm_deg':max(j['forearm_palm_deg'] for r in rows for j in r['sides'].values()),'frames':frames,'diagnostic':True}
 
+_CUT_CACHE={}
+
 def cross_section_area(p,tri,source,body,rig,side,fraction):
  """Convex cross-sectional envelope from actual plane/mesh crossings; not volume."""
- group={v.index for v in body.data.vertices if any(g.weight>.20 and body.vertex_groups[g.group].name.startswith('DEF-upper_arm') and body.vertex_groups[g.group].name.endswith('.'+side) for g in v.groups)}
+ cache_key=(body.data.as_pointer(),side,len(source),len(tri))
+ if cache_key not in _CUT_CACHE:
+  group={v.index for v in body.data.vertices if any(g.weight>.20 and body.vertex_groups[g.group].name.startswith('DEF-upper_arm.'+side) for g in v.groups)}
+  _CUT_CACHE[cache_key]=[t for t in tri if all(source[i] in group for i in t)]
+ selected_triangles=_CUT_CACHE[cache_key]
  s=rig.matrix_world@rig.pose.bones['ORG-upper_arm.'+side].head;e=rig.matrix_world@rig.pose.bones['ORG-forearm.'+side].head
  normal=(e-s).normalized();center=s+(e-s)*fraction;axis=normal.cross(Vector((0,1,0))).normalized();second=normal.cross(axis).normalized();hits=[]
- for t in tri:
-  if not all(source[i] in group for i in t):continue
+ for t in selected_triangles:
   verts=[Vector(p[i]) for i in t];ds=[(v-center).dot(normal) for v in verts]
   for k in range(3):
    j=(k+1)%3
