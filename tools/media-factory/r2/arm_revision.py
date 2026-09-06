@@ -88,7 +88,8 @@ def run(config,out):
     if x>limit:return False
     if z>(1.492 if y<0 else 1.532) and x<.078:return False
     return True
-   faces=[list(f.vertices) for f in body.data.polygons if all(i in skin and covered(coords[i]) for i in f.vertices)];bound=sorted({i for f in faces for i in f});lookup={i:j for j,i in enumerate(bound)}
+   garment_arm={v.index:sum(g.weight for g in v.groups if body.vertex_groups[g.group].name.startswith(('DEF-upper_arm','DEF-shoulder-helper'))) for v in body.data.vertices}
+   faces=[list(f.vertices) for f in body.data.polygons if all(i in skin and covered(coords[i]) and garment_arm[i]<config.get('garment_arm_threshold',1.01) for i in f.vertices)];bound=sorted({i for f in faces for i in f});lookup={i:j for j,i in enumerate(bound)}
    mesh=bpy.data.meshes.new('Copa higher armhole tailored shell');mesh.from_pydata([coords[i] for i in bound],[],[[lookup[i] for i in f] for f in faces]);mesh.update()
    shirt=bpy.data.objects.new('SportsTank',mesh);scene.collection.objects.link(shirt)
    for mat in materials:mesh.materials.append(mat)
@@ -107,6 +108,12 @@ def run(config,out):
     for name in ['use_deform_preserve_volume','use_multi_modifier','vertex_group','invert_vertex_group','use_vertex_groups','use_bone_envelopes']:setattr(m,name,getattr(source,name))
    sub=shirt.modifiers.new('Tailored smooth textile','SUBSURF');sub.levels=2;sub.render_levels=2
    wrap=shirt.modifiers.new('Native fitted textile clearance','SHRINKWRAP');wrap.target=body;wrap.wrap_method='NEAREST_SURFACEPOINT';wrap.wrap_mode='ABOVE_SURFACE';wrap.offset=.006
+   smooth=shirt.modifiers.new('Textile surface finish','SMOOTH');smooth.factor=.35;smooth.iterations=4
+   edges={e:0 for f in mesh.polygons for e in f.edge_keys}
+   for f in mesh.polygons:
+    for e in f.edge_keys:edges[e]+=1
+   borderids={v for e,n in edges.items() if n==1 for v in e};edgeattr=mesh.attributes.new('BoundEdge','FLOAT','POINT')
+   for v in mesh.vertices:edgeattr.data[v.index].value=max(0,1-min((v.co-mesh.vertices[j].co).length for j in borderids)/.018)
    solid=shirt.modifiers.new('Textile thickness','SOLIDIFY');solid.thickness=.0012;solid.offset=1
    for f in mesh.polygons:f.use_smooth=True
    report['garment']={'reason':'Previous armhole exposed a long lateral thoracic patch visually merging with arm. Raise lower armhole to just below axillary fold; retain bare deltoid and upper arm. No skin masking.','vertices':len(bound),'faces':len(faces),'old_preserved_hidden':old.name,'body_ids':bound,'native_modifiers':[m.type for m in shirt.modifiers]}
