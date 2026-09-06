@@ -42,6 +42,20 @@ def run(config,output):
                 for bag in strip.channelbags:
                     for fc in bag.fcurves:
                         for p in fc.keyframe_points:p.interpolation='LINEAR'
+    if config.get('full_body_framing_gate'):
+        from bpy_extras.object_utils import world_to_camera_view
+        observed=[]
+        for frame in sorted(set(list(range(1,scene.frame_end+2,30))+config.get('stills',[]))):
+            scene.frame_set(frame);bpy.context.view_layer.update();dg=bpy.context.evaluated_depsgraph_get();uv=[]
+            for obj in scene.objects:
+                if obj.type!='MESH' or obj.hide_render:continue
+                if obj.name not in ['Trophe_R2_Athlete','Trophe_R2_Trainers','SportsTank','SportsShorts'] and not obj.name.startswith(('Copa weight','Copa bench')):continue
+                ev=obj.evaluated_get(dg)
+                uv.extend(world_to_camera_view(scene,camera,ev.matrix_world@Vector(p)) for p in ev.bound_box)
+            margins=[min(p.x for p in uv),min(p.y for p in uv),max(p.x for p in uv),max(p.y for p in uv)]
+            observed.append({'frame':frame,'bounds':margins})
+            assert min(margins[:2])>.015 and max(margins[2:])<.985,observed[-1]
+        (output/'framing-gate.json').write_text(json.dumps(observed,indent=2))
     scene.frame_set(1);bpy.context.view_layer.update()
     bpy.ops.wm.save_as_mainfile(filepath=str(output/'render-source.blend'))
     start=time.monotonic();artifacts=[]

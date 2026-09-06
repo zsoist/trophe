@@ -154,7 +154,7 @@ def verify_render(config,out):
     orbit=[]
     for f in [1,91,181,271,361]:
         s.frame_set(f);bpy.context.view_layer.update();camera=s.camera;world=[]
-        for obj in [b]+[o for o in s.objects if o.type=='MESH' and o.name.startswith('Copa weight')]:world.extend(points(obj))
+        for obj in [b]+[o for o in s.objects if o.type=='MESH' and not o.hide_render and (o.name.startswith(('Copa weight','Copa bench')) or o.name in ['Trophe_R2_Trainers','SportsTank','SportsShorts'])]:world.extend(points(obj))
         uv=np.array([list(world_to_camera_view(s,camera,Vector(p))) for p in world]);pivot=bpy.data.objects['Review camera orbit only'];orbit.append({'frame':f,'angle_deg':math.degrees(pivot.rotation_euler.z),'camera_world':list(camera.matrix_world.translation),'screen_min':uv[:,:2].min(axis=0).tolist(),'screen_max':uv[:,:2].max(axis=0).tolist(),'near_depth_min':float(uv[:,2].min())})
         assert (uv[:,:2]>.015).all() and (uv[:,:2]<.985).all(),orbit[-1]
     assert abs(orbit[-1]['angle_deg']-360)<.001
