@@ -184,6 +184,7 @@ def main():
     import arnold_refine
     import triceps
     import triceps_refine
+    import copa_joint
     import arm_revision
     import atlas_patch
     import bench_qa
@@ -199,6 +200,9 @@ def main():
     dispatch['triceps']=triceps.run
     dispatch['triceps_qa']=triceps.qa
     dispatch['triceps_refine']=triceps_refine.run
+    dispatch['copa_joint_stabilize']=copa_joint.stabilize
+    dispatch['copa_joint_surface']=copa_joint.surface
+    dispatch['copa_joint_audit']=copa_joint.audit
     dispatch['arm_revision']=arm_revision.run
     dispatch['arm_validate']=arm_revision.validate
     dispatch['arm_panel']=arm_revision.panel
