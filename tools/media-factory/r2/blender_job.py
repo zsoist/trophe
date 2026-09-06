@@ -194,6 +194,7 @@ def main():
     dispatch['arnold_anatomy']=arnold_refine.anatomy
     dispatch['triceps_inspect']=triceps.inspect
     dispatch['triceps']=triceps.run
+    dispatch['triceps_qa']=triceps.qa
     dispatch['coverage_finish']=garment_pattern.finish_coverage
     dispatch['coverage_check']=garment_pattern.check_coverage
     dispatch['coverage_regression']=garment_pattern.coverage_regression
