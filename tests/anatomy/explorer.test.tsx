@@ -149,6 +149,7 @@ it("opens workout focus without organs and preserves deep exploration as a separ
       .getByRole("link", { name: "Find exercises for this group" })
       .getAttribute("href"),
   ).toBe("/dashboard/workout/exercises?atlas=chest");
+  expect(canvasObservation.props!.interactive).toBe(true);
   const loadedManifest = canvasObservation.props!.manifest;
   fireEvent.click(screen.getByRole("button", { name: "Glutes" }));
   expect(canvasObservation.props!.manifest).toBe(loadedManifest);

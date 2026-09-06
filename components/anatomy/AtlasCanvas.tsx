@@ -6,6 +6,13 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "meshoptimizer";
 import type { AtlasManifest } from "@/lib/anatomy/types";
 import { ATLAS_GEOMETRY_BUDGET, fitsAtlasMemory } from "@/lib/anatomy/budget";
+import {
+  cameraAngle,
+  cameraEase,
+  fitCamera,
+  focusBounds,
+  shortestAngle,
+} from "@/lib/anatomy/camera";
 import { fetchAtlasChunk } from "@/lib/anatomy/validation";
 export interface RenderObservation {
   timestamp: number;
@@ -21,6 +28,8 @@ export interface CanvasProps {
   systems: string[];
   selectedElements: string[];
   focusElements?: string[];
+  cameraGroup?: string;
+  cameraRequest?: number;
   elementColors?: Record<string, string>;
   hiddenElements: string[];
   isolated: boolean;
@@ -82,16 +91,6 @@ export default function AtlasCanvas(props: CanvasProps) {
     const light = new THREE.DirectionalLight(0xffffff, 2);
     light.position.set(2, 3, 4);
     scene.add(light);
-    const box = new THREE.Box3(
-      new THREE.Vector3(
-        ...(props.manifest.bounds[0] as [number, number, number]),
-      ),
-      new THREE.Vector3(
-        ...(props.manifest.bounds[1] as [number, number, number]),
-      ),
-    );
-    const center = box.getCenter(new THREE.Vector3());
-    const height = box.getSize(new THREE.Vector3()).y;
     const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
     const residentBytes = new Map<string, number>();
     const geometryBytes = (group: THREE.Object3D) => {
@@ -138,6 +137,7 @@ export default function AtlasCanvas(props: CanvasProps) {
     let dead = false,
       frame = 0,
       lastView = "",
+      lastFocus = "",
       lastReset = -1,
       lastZoom = 0,
       inViewport = true;
@@ -156,11 +156,66 @@ export default function AtlasCanvas(props: CanvasProps) {
         }
       });
     };
+    const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+    let transition: {
+      start: number;
+      from: THREE.Vector3;
+      to: THREE.Vector3;
+      radius: number;
+      endRadius: number;
+      theta: number;
+      endTheta: number;
+      phi: number;
+      endPhi: number;
+    } | null = null;
+    const applyPose = (t: NonNullable<typeof transition>, progress: number) => {
+      const eased = cameraEase(progress);
+      controls.target.lerpVectors(t.from, t.to, eased);
+      camera.position
+        .copy(controls.target)
+        .add(
+          new THREE.Vector3().setFromSphericalCoords(
+            THREE.MathUtils.lerp(t.radius, t.endRadius, eased),
+            THREE.MathUtils.lerp(t.phi, t.endPhi, eased),
+            THREE.MathUtils.lerp(t.theta, t.endTheta, eased),
+          ),
+        );
+      controls.update();
+    };
+    const resumeTransition = () => {
+      if (!transition) return;
+      const offset = new THREE.Spherical().setFromVector3(
+        camera.position.clone().sub(controls.target),
+      );
+      transition.from.copy(controls.target);
+      transition.radius = offset.radius;
+      transition.theta = offset.theta;
+      transition.endTheta = shortestAngle(offset.theta, transition.endTheta);
+      transition.phi = offset.phi;
+      transition.start = performance.now();
+    };
+    const cancelTransition = () => {
+      transition = null;
+    };
+    controls.addEventListener("start", cancelTransition);
+    const reduceMotion = () => {
+      if (reducedMotion.matches && transition) {
+        applyPose(transition, 1);
+        transition = null;
+        draw();
+      }
+    };
+    reducedMotion.addEventListener("change", reduceMotion);
     const draw = () => {
       if (dead || document.hidden || !inViewport || frame) return;
-      frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame((now) => {
         frame = 0;
         if (!dead && !document.hidden && inViewport) {
+          if (transition) {
+            const progress = Math.min(1, (now - transition.start) / 520);
+            applyPose(transition, progress);
+            if (progress === 1) transition = null;
+          }
           const start = latest.current.onRender ? performance.now() : 0;
           renderer.render(scene, camera);
           latest.current.onRender?.({
@@ -171,6 +226,7 @@ export default function AtlasCanvas(props: CanvasProps) {
             geometries: renderer.info.memory.geometries,
             textures: renderer.info.memory.textures,
           });
+          if (transition) draw();
         }
       });
     };
@@ -216,37 +272,82 @@ export default function AtlasCanvas(props: CanvasProps) {
       renderer.domElement.style.touchAction = p.interactive ? "none" : "pan-y";
       draw();
     };
+    const moveCamera = (
+      target: THREE.Vector3,
+      distance: number,
+      theta: number,
+      immediate = false,
+      endPhi = Math.PI / 2,
+    ) => {
+      const offset = new THREE.Spherical().setFromVector3(
+        camera.position.clone().sub(controls.target),
+      );
+      transition = {
+        start: performance.now(),
+        from: controls.target.clone(),
+        to: target,
+        radius: offset.radius || distance,
+        endRadius: distance,
+        theta: offset.theta,
+        endTheta: shortestAngle(offset.theta, theta),
+        phi: offset.phi || Math.PI / 2,
+        endPhi,
+      };
+      if (immediate || reducedMotion.matches) {
+        applyPose(transition, 1);
+        transition = null;
+      }
+      draw();
+    };
     const setView = () => {
       const p = latest.current;
-      if (p.zoom !== lastZoom) {
-        const offset = camera.position.clone().sub(controls.target);
-        offset.setLength(
-          THREE.MathUtils.clamp(
-            offset.length() * Math.pow(0.8, p.zoom - lastZoom),
-            controls.minDistance,
-            controls.maxDistance,
-          ),
+      const ids = p.selectedElements.length
+        ? p.selectedElements
+        : (p.focusElements ?? []);
+      const group = p.selectedElements.length ? undefined : p.cameraGroup;
+      const focusKey = `${p.cameraRequest ?? 0}:${group ?? ""}:${ids.join(",")}`;
+      const changedFocus = lastFocus !== focusKey;
+      const changedReset = lastReset !== p.reset;
+      const initial = lastReset === -1;
+      if (changedFocus || changedReset || lastView !== p.view) {
+        const bounds =
+          changedReset && !initial
+            ? p.manifest.bounds
+            : (focusBounds(p.manifest, ids, group) ?? p.manifest.bounds);
+        const pose = fitCamera(
+          bounds,
+          container.clientWidth / Math.max(1, container.clientHeight),
+          cameraAngle(p.view, changedReset && !initial ? undefined : group),
         );
-        camera.position.copy(controls.target).add(offset);
+        moveCamera(
+          new THREE.Vector3(...(pose.center as [number, number, number])),
+          pose.distance,
+          pose.theta,
+          initial,
+        );
+        lastFocus = focusKey;
+        lastReset = p.reset;
+        lastView = p.view;
         lastZoom = p.zoom;
-        controls.update();
-        draw();
-      }
-      if (lastView === p.view && lastReset === p.reset) return;
-      lastView = p.view;
-      lastReset = p.reset;
-      const distance =
-        (height / (2 * Math.tan(THREE.MathUtils.degToRad(16)))) * 1.15;
-      controls.target.copy(center);
-      camera.position
-        .copy(center)
-        .add(
-          p.view === "side"
-            ? new THREE.Vector3(distance, 0, 0)
-            : new THREE.Vector3(0, 0, p.view === "back" ? -distance : distance),
+      } else if (p.zoom !== lastZoom) {
+        const offset = new THREE.Spherical().setFromVector3(
+          camera.position.clone().sub(controls.target),
         );
-      controls.update();
-      draw();
+        const distance = THREE.MathUtils.clamp(
+          (transition?.endRadius ?? offset.radius) *
+            Math.pow(0.8, p.zoom - lastZoom),
+          controls.minDistance,
+          controls.maxDistance,
+        );
+        moveCamera(
+          transition?.to.clone() ?? controls.target.clone(),
+          distance,
+          transition?.endTheta ?? offset.theta,
+          false,
+          transition?.endPhi ?? offset.phi,
+        );
+        lastZoom = p.zoom;
+      }
     };
     const load = () => {
       if (dead || document.hidden || !inViewport) return;
@@ -342,6 +443,7 @@ export default function AtlasCanvas(props: CanvasProps) {
     const intersection = new IntersectionObserver((entries) => {
       inViewport = entries[0]?.isIntersecting ?? false;
       if (inViewport) {
+        resumeTransition();
         load();
         draw();
       } else {
@@ -396,6 +498,7 @@ export default function AtlasCanvas(props: CanvasProps) {
         frame = 0;
         for (const c of requests.values()) c.abort();
       } else {
+        resumeTransition();
         loading.clear();
         load();
         draw();
@@ -424,6 +527,9 @@ export default function AtlasCanvas(props: CanvasProps) {
       themeObserver.disconnect();
       intersection.disconnect();
       document.removeEventListener("visibilitychange", visibility);
+      cancelTransition();
+      reducedMotion.removeEventListener("change", reduceMotion);
+      controls.removeEventListener("start", cancelTransition);
       controls.dispose();
       for (const g of loaded.values()) dispose(g);
       highlight.dispose();

@@ -3,6 +3,14 @@ import type { RenderObservation } from "./AtlasCanvas";
 import Image from "next/image";
 import { workoutAtlasFilter } from "@/lib/anatomy/workout-navigation";
 import {
+  PersonStanding,
+  Shirt,
+  BicepsFlexed,
+  Footprints,
+  Armchair,
+  Shrink,
+  MoveUpRight,
+  MoveDownRight,
   Bone,
   Dumbbell,
   Link2,
@@ -64,6 +72,18 @@ const SYSTEMS = [
   "organs",
   "other",
 ];
+const TRAINING_ICONS = {
+  chest: Shirt,
+  back: Layers,
+  shoulders: MoveUpRight,
+  arms: BicepsFlexed,
+  biceps: BicepsFlexed,
+  triceps: MoveDownRight,
+  legs: Footprints,
+  glutes: Armchair,
+  core: Shrink,
+  neck: Move,
+};
 export default function AnatomyExplorer({
   manifestUrl,
   initialMuscle,
@@ -110,13 +130,26 @@ export default function AnatomyExplorer({
   const [hidden, setHidden] = useState<string[]>([]);
   const [isolated, setIsolated] = useState(false);
   const [view, setView] = useState<"front" | "back" | "side">(
-    focusGroup === "back" || focusGroup === "glutes" ? "back" : "front",
+    ["back", "glutes", "triceps"].includes(focusGroup) ? "back" : "front",
   );
   const [zoom, setZoom] = useState(0);
   const [reset, setReset] = useState(0);
-  const [interactive, setInteractive] = useState(false);
+  const [cameraRequest, setCameraRequest] = useState(0);
+
   const [show3d, setShow3d] = useState(workout);
   const [progress, setProgress] = useState([0, 0]);
+  const revealViewer = () => {
+    if (window.matchMedia?.("(max-width: 899px)").matches)
+      requestAnimationFrame(() =>
+        stage.current?.scrollIntoView({
+          block: "start",
+          behavior: window.matchMedia("(prefers-reduced-motion: reduce)")
+            .matches
+            ? "instant"
+            : "smooth",
+        }),
+      );
+  };
   useEffect(() => {
     const controller = new AbortController();
     void fetchAtlasManifest(manifestUrl, controller.signal)
@@ -283,28 +316,41 @@ export default function AnatomyExplorer({
                 setFocusGroup("");
                 setSelected(null);
                 setIsolated(false);
+                setView("front");
+                setReset((v) => v + 1);
+                setShow3d(true);
+                revealViewer();
               }}
             >
-              {t("anatomy.whole_body")}
+              <PersonStanding size={24} aria-hidden="true" />
+              <span>{t("anatomy.whole_body")}</span>
             </button>
             {(Object.keys(WORKOUT_FOCUS_GROUPS) as WorkoutFocusGroup[]).map(
-              (group) => (
-                <button
-                  key={group}
-                  aria-pressed={focusGroup === group}
-                  onClick={() => {
-                    setFocusGroup(group);
-                    setSelected(null);
-                    setIsolated(false);
-                    setShow3d(true);
-                    setView(
-                      ["back", "glutes"].includes(group) ? "back" : "front",
-                    );
-                  }}
-                >
-                  {t(`anatomy.focus_${group}`)}
-                </button>
-              ),
+              (group) => {
+                const GroupIcon = TRAINING_ICONS[group];
+                return (
+                  <button
+                    key={group}
+                    aria-pressed={focusGroup === group}
+                    onClick={() => {
+                      setFocusGroup(group);
+                      setCameraRequest((v) => v + 1);
+                      setSelected(null);
+                      setIsolated(false);
+                      setShow3d(true);
+                      setView(
+                        ["back", "glutes", "triceps"].includes(group)
+                          ? "back"
+                          : "front",
+                      );
+                      revealViewer();
+                    }}
+                  >
+                    <GroupIcon size={24} aria-hidden="true" />
+                    <span>{t(`anatomy.focus_${group}`)}</span>
+                  </button>
+                );
+              },
             )}
           </div>
           {focusGroup && (
@@ -322,7 +368,11 @@ export default function AnatomyExplorer({
           )}
           {focused?.partial && (
             <p className="anatomy-panel-hint" role="status">
-              {t(focused.elements.length ? "anatomy.focus_partial" : "anatomy.unmapped")}
+              {t(
+                focused.elements.length
+                  ? "anatomy.focus_partial"
+                  : "anatomy.unmapped",
+              )}
             </p>
           )}
           {focusGroup && (
@@ -379,7 +429,10 @@ export default function AnatomyExplorer({
               <button
                 key={v}
                 aria-pressed={view === v}
-                onClick={() => setView(v)}
+                onClick={() => {
+                  setView(v);
+                  setCameraRequest((n) => n + 1);
+                }}
               >
                 {t(`anatomy.${v}`)}
               </button>
@@ -432,7 +485,9 @@ export default function AnatomyExplorer({
               view={view}
               reset={reset}
               zoom={zoom}
-              interactive={interactive}
+              interactive
+              cameraGroup={workoutMode ? focusGroup : undefined}
+              cameraRequest={cameraRequest}
               onPick={onPick}
               onError={onError}
               onProgress={onProgress}
@@ -561,22 +616,10 @@ export default function AnatomyExplorer({
                     : "anatomy.loading",
                 )}
               </p>
-              <button
-                aria-pressed={interactive}
-                aria-label={t(
-                  interactive ? "anatomy.unlock_scroll" : "anatomy.orbit",
-                )}
-                onClick={() => setInteractive((v) => !v)}
-              >
+              <span className="anatomy-gesture-hint">
                 <Move size={17} aria-hidden="true" />
-                <span>
-                  {t(
-                    interactive
-                      ? "anatomy.scroll_short"
-                      : "anatomy.orbit_short",
-                  )}
-                </span>
-              </button>
+                {t("anatomy.gesture_hint")}
+              </span>
               <button
                 className="anatomy-icon-button"
                 aria-label={t("anatomy.close")}
@@ -584,7 +627,6 @@ export default function AnatomyExplorer({
                 onClick={() => {
                   focusOnClose.current = true;
                   setShow3d(false);
-                  setInteractive(false);
                 }}
               >
                 <X size={18} aria-hidden="true" />

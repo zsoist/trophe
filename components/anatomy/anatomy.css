@@ -703,16 +703,60 @@
   padding: 0 4px 20px;
 }
 .anatomy-training-groups {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
 }
 .anatomy-training-groups button {
-  border: 1px solid var(--atlas-rail);
-  padding: 9px 14px;
+  flex-direction: column;
+  gap: 9px;
+  min-height: 82px;
+  background: var(--bg-surface);
+  border: 1px solid transparent;
+  padding: 12px 6px;
+  border-radius: 12px;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    transform 150ms ease;
+}
+.anatomy-training-groups button:active {
+  transform: scale(0.97);
+}
+.anatomy-training-groups button svg {
+  color: var(--atlas-muted);
 }
 .anatomy-training-groups button[aria-pressed="true"] {
   border-color: var(--accent);
+}
+.anatomy-training-groups button[aria-pressed="true"] svg {
+  color: var(--accent);
+}
+.anatomy-gesture-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--atlas-muted);
+  font-size: 11px;
+}
+.anatomy-stage {
+  scroll-margin-top: 16px;
+}
+@media (min-width: 900px) {
+  .anatomy-workout-mode {
+    display: grid;
+    grid-template-columns: 340px minmax(0, 1fr);
+    gap: 0 28px;
+    align-items: start;
+  }
+  .anatomy-workout-mode > header,
+  .anatomy-workout-mode > details {
+    grid-column: 1 / -1;
+  }
+  .anatomy-workout-mode .anatomy-workspace {
+    position: sticky;
+    top: 20px;
+  }
 }
 .anatomy-focus-summary {
   display: flex;
@@ -776,16 +820,4 @@
 }
 .anatomy-workout-mode .anatomy-canvas {
   height: clamp(360px, 58svh, 650px);
-}
-@media (max-width: 599px) {
-  .anatomy-training-groups {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    padding-bottom: 8px;
-    scrollbar-width: thin;
-    scrollbar-color: var(--atlas-rail) transparent;
-  }
-  .anatomy-training-groups button {
-    flex-shrink: 0;
-  }
 }

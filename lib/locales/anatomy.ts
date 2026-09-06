@@ -1,5 +1,10 @@
 import type { CoreLanguage } from "../types";
 const rows: Record<string, [string, string, string]> = {
+  gesture_hint: [
+    "Drag to rotate · Pinch to zoom",
+    "Arrastra para girar · Pellizca para ampliar",
+    "Σύρετε για περιστροφή · Τσιμπήστε για ζουμ",
+  ],
   review_language: ["Language", "Idioma", "Γλώσσα"],
   review_device_title: [
     "Private device check",
@@ -15,9 +20,9 @@ const rows: Record<string, [string, string, string]> = {
   review_copy: ["Copy report", "Copiar informe", "Αντιγραφή αναφοράς"],
   review_copied: ["Copied", "Copiado", "Αντιγράφηκε"],
   review_instructions: [
-    "Enable Rotate body, then drag for at least 5 seconds. Copy the report and note any stutter or visual defects. Repeat with bones and muscles. This records browser render submissions, not measured display or GPU frame rates.",
-    "Activa Girar cuerpo y arrastra durante al menos 5 segundos. Copia el informe y anota saltos o defectos visuales. Repite con huesos y músculos. Registra envíos de render del navegador, no la tasa de cuadros de la pantalla o GPU.",
-    "Ενεργοποιήστε την περιστροφή και σύρετε για τουλάχιστον 5 δευτερόλεπτα. Αντιγράψτε την αναφορά και σημειώστε καθυστερήσεις ή οπτικά σφάλματα. Επαναλάβετε με οστά και μύες. Καταγράφονται υποβολές απόδοσης του προγράμματος περιήγησης, όχι ο ρυθμός καρέ της οθόνης ή της GPU.",
+    "Drag the model for at least 5 seconds. Copy the report and note any stutter or visual defects. Repeat with bones and muscles. This records browser render submissions, not measured display or GPU frame rates.",
+    "Arrastra el modelo durante al menos 5 segundos. Copia el informe y anota saltos o defectos visuales. Repite con huesos y músculos. Registra envíos de render del navegador, no la tasa de cuadros de la pantalla o GPU.",
+    "Σύρετε το μοντέλο για τουλάχιστον 5 δευτερόλεπτα. Αντιγράψτε την αναφορά και σημειώστε καθυστερήσεις ή οπτικά σφάλματα. Επαναλάβετε με οστά και μύες. Καταγράφονται υποβολές απόδοσης του προγράμματος περιήγησης, όχι ο ρυθμός καρέ της οθόνης ή της GPU.",
   ],
   workout_title: [
     "Workout atlas",
