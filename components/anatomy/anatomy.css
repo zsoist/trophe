@@ -1010,3 +1010,34 @@
 .anatomy-stage {
   scroll-margin-top: 92px;
 }
+
+.anatomy-view-picker {
+  position: relative;
+}
+.anatomy-view-picker > button {
+  color: var(--accent);
+  gap: 10px;
+  min-width: 132px;
+  justify-content: space-between;
+}
+.anatomy-view-options {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 180px;
+  padding: 6px;
+  background: var(--bg-primary);
+  border: 1px solid var(--atlas-rail);
+  border-radius: 12px;
+}
+.anatomy-view-options button {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  min-height: 48px;
+  padding: 12px;
+  border-radius: 8px;
+}
+.anatomy-viewbar:focus-within {
+  z-index: 4;
+}

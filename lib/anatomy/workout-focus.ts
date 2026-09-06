@@ -57,20 +57,84 @@ export function workoutFocus(
   group: WorkoutFocusGroup | "",
 ) {
   const muscles: AnatomyMuscleId[] = group ? WORKOUT_FOCUS_GROUPS[group] : [];
-  const subgroups = muscles.map((id, index) => {
-    const mapping = ATLAS_MUSCLE_MAPPING[id];
-    return {
-      id,
-      scope: mapping.scope,
-      color: SUBGROUP_COLORS[index % SUBGROUP_COLORS.length],
-      elements: [
-        ...new Set(
-          mapping.concepts.flatMap((c) => manifest.concepts[c]?.elements ?? []),
-        ),
-      ],
-    };
-  });
+  const definitions = muscles.map((id) => ({
+    id: id as string,
+    labelKey: `workout.atlas_muscle_${id.replaceAll("-", "_")}`,
+    ...ATLAS_MUSCLE_MAPPING[id],
+  }));
+  // Source-only display subdivisions; these do not create workout muscle IDs or roles.
+  if (group === "chest")
+    definitions.splice(
+      0,
+      1,
+      {
+        id: "pectoral-clavicular",
+        labelKey: "anatomy.pectoral_clavicular",
+        concepts: ["FMA34687"],
+        scope: "named",
+        note: "Clavicular source portion",
+      },
+      {
+        id: "pectoral-sternocostal",
+        labelKey: "anatomy.pectoral_sternocostal",
+        concepts: ["FMA34696"],
+        scope: "named",
+        note: "Sternocostal source portion",
+      },
+      {
+        id: "pectoral-abdominal",
+        labelKey: "anatomy.pectoral_abdominal",
+        concepts: ["FMA34699"],
+        scope: "named",
+        note: "Abdominal source portion, not rectus abdominis",
+      },
+    );
+  if (group === "neck")
+    definitions.push(
+      {
+        id: "sternocleidomastoid",
+        labelKey: "anatomy.neck_scm",
+        concepts: ["FMA13407"],
+        scope: "named",
+        note: "Both sides",
+      },
+      {
+        id: "scalenes",
+        labelKey: "anatomy.neck_scalenes",
+        concepts: ["FMA64829"],
+        scope: "group",
+        note: "Source scalene group",
+      },
+      {
+        id: "posterior-rectus-capitis",
+        labelKey: "anatomy.neck_posterior",
+        concepts: ["FMA32525", "FMA32526"],
+        scope: "partial",
+        note: "Posterior rectus capitis major/minor only; not complete suboccipital coverage",
+      },
+    );
+  if (group === "core") {
+    const oblique = definitions.find((d) => d.id === "obliques");
+    if (oblique) oblique.labelKey = "anatomy.external_obliques";
+  }
+  const chestColors = ["#edc987", "#dbab5c", "#bc986c", "#78bed2"];
+  const subgroups = definitions.map((mapping, index) => ({
+    id: mapping.id,
+    labelKey: mapping.labelKey,
+    concepts: mapping.concepts,
+    scope: mapping.scope,
+    color: (group === "chest" ? chestColors : SUBGROUP_COLORS)[
+      index % SUBGROUP_COLORS.length
+    ],
+    elements: [
+      ...new Set(
+        mapping.concepts.flatMap((c) => manifest.concepts[c]?.elements ?? []),
+      ),
+    ],
+  }));
   return {
+    superficialElements:
+      group === "neck" ? (manifest.concepts.FMA45738?.elements ?? []) : [],
     subgroups,
     elements: [...new Set(subgroups.flatMap((s) => s.elements))],
     partial:

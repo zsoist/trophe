@@ -1,5 +1,52 @@
 import type { CoreLanguage } from "../types";
 const rows: Record<string, [string, string, string]> = {
+  show_neck_surface: [
+    "Show surface layer",
+    "Mostrar capa superficial",
+    "Εμφάνιση επιφανειακού στρώματος",
+  ],
+  hide_neck_surface: [
+    "Hide surface layer",
+    "Ocultar capa superficial",
+    "Απόκρυψη επιφανειακού στρώματος",
+  ],
+  neck_surface_hidden: [
+    "Platysma hidden to reveal the deeper neck muscles.",
+    "Platisma oculto para mostrar los músculos más profundos del cuello.",
+    "Το πλάτυσμα είναι κρυφό για να φανούν οι βαθύτεροι μύες του λαιμού.",
+  ],
+  pectoral_clavicular: [
+    "Upper chest · clavicular",
+    "Pecho superior · clavicular",
+    "Άνω θώρακας · κλειδική μοίρα",
+  ],
+  pectoral_sternocostal: [
+    "Chest · sternocostal",
+    "Pecho · esternocostal",
+    "Θώρακας · στερνοπλευρική μοίρα",
+  ],
+  pectoral_abdominal: [
+    "Lower chest · abdominal portion",
+    "Pecho inferior · porción abdominal",
+    "Κάτω θώρακας · κοιλιακή μοίρα",
+  ],
+  neck_scm: [
+    "Sternocleidomastoid",
+    "Esternocleidomastoideo",
+    "Στερνοκλειδομαστοειδής",
+  ],
+  neck_scalenes: ["Scalenes", "Escalenos", "Σκαληνοί"],
+  neck_posterior: [
+    "Posterior rectus capitis · major & minor",
+    "Rectos posteriores de la cabeza · mayor y menor",
+    "Οπίσθιος ορθός κεφαλής · μείζων και ελάσσων",
+  ],
+  external_obliques: ["External obliques", "Oblicuos externos", "Έξω λοξοί"],
+  abdomen_coverage: [
+    "The side abdominal muscles are shown here. The front abdominal muscle (rectus abdominis) is not represented in this model yet.",
+    "Aquí se muestran los músculos laterales del abdomen. El recto abdominal frontal aún no está representado en este modelo.",
+    "Εμφανίζονται οι πλάγιοι κοιλιακοί. Ο ορθός κοιλιακός δεν αναπαρίσταται ακόμα σε αυτό το μοντέλο.",
+  ],
   choose_groups: ["Groups", "Grupos", "Ομάδες"],
   exercises: ["Exercises", "Ejercicios", "Ασκήσεις"],
   inspect_group: [

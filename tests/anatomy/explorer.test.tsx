@@ -158,9 +158,8 @@ it("opens workout focus without organs and preserves deep exploration as a separ
       .getByRole("button", { name: "Groups" })
       .getAttribute("aria-expanded"),
   ).toBe("false");
-  fireEvent.change(screen.getByRole("combobox", { name: "View direction" }), {
-    target: { value: "side" },
-  });
+  fireEvent.click(screen.getByRole("button", { name: "View direction" }));
+  fireEvent.click(screen.getByRole("button", { name: "Side" }));
   expect(canvasObservation.props!.view).toBe("side");
   fireEvent.click(screen.getByRole("button", { name: "Groups" }));
   fireEvent.click(screen.getByRole("button", { name: "Neck" }));

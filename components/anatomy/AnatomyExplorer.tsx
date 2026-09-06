@@ -3,6 +3,7 @@ import type { RenderObservation } from "./AtlasCanvas";
 import Image from "next/image";
 import { workoutAtlasFilter } from "@/lib/anatomy/workout-navigation";
 import {
+  Check,
   ChevronDown,
   PersonStanding,
   Shirt,
@@ -109,6 +110,7 @@ export default function AnatomyExplorer({
           )?.[0] as WorkoutFocusGroup) ?? "")
         : "",
   );
+  const [showSuperficial, setShowSuperficial] = useState(false);
   const [subgroupColors, setSubgroupColors] = useState(true);
   const [groupsOpen, setGroupsOpen] = useState(false);
   const groupButton = useRef<HTMLButtonElement>(null);
@@ -135,6 +137,8 @@ export default function AnatomyExplorer({
   const [view, setView] = useState<"front" | "back" | "side">(
     ["back", "glutes", "triceps"].includes(focusGroup) ? "back" : "front",
   );
+  const [viewOpen, setViewOpen] = useState(false);
+  const viewButton = useRef<HTMLButtonElement>(null);
   const [zoom, setZoom] = useState(0);
   const [reset, setReset] = useState(0);
   const [cameraRequest, setCameraRequest] = useState(0);
@@ -171,6 +175,13 @@ export default function AnatomyExplorer({
     () => (manifest ? workoutFocus(manifest, focusGroup) : null),
     [manifest, focusGroup],
   );
+  const effectiveHidden = useMemo(
+    () =>
+      workoutMode && !showSuperficial
+        ? [...hidden, ...(focused?.superficialElements ?? [])]
+        : hidden,
+    [hidden, focused, workoutMode, showSuperficial],
+  );
   const context = useMemo(
     () => (manifest && workoutMode ? workoutContext(manifest, []) : null),
     [manifest, workoutMode],
@@ -192,7 +203,7 @@ export default function AnatomyExplorer({
           context?.manifest ?? manifest,
           selected,
           new Set(systems),
-          new Set(hidden),
+          new Set(effectiveHidden),
         )
       : null;
   const matches = useMemo(
@@ -259,7 +270,7 @@ export default function AnatomyExplorer({
     ) ?? [];
   const selectionName =
     selectedMuscles.length === 1
-      ? t(`workout.atlas_muscle_${selectedMuscles[0].id.replaceAll("-", "_")}`)
+      ? t(selectedMuscles[0].labelKey)
       : concept?.source_names[0];
   const parents =
     manifest && selected
@@ -423,6 +434,35 @@ export default function AnatomyExplorer({
                 : "anatomy.choose_group_hint",
             )}
           </p>
+          {focusGroup === "neck" && (
+            <div className="anatomy-neck-layer">
+              <button
+                aria-pressed={showSuperficial}
+                onClick={() => setShowSuperficial((v) => !v)}
+              >
+                {showSuperficial ? (
+                  <EyeOff size={16} aria-hidden="true" />
+                ) : (
+                  <Eye size={16} aria-hidden="true" />
+                )}
+                {t(
+                  showSuperficial
+                    ? "anatomy.hide_neck_surface"
+                    : "anatomy.show_neck_surface",
+                )}
+              </button>
+              {!showSuperficial && (
+                <p className="anatomy-selection-help">
+                  {t("anatomy.neck_surface_hidden")}
+                </p>
+              )}
+            </div>
+          )}
+          {focusGroup === "core" && (
+            <p className="anatomy-selection-help">
+              {t("anatomy.abdomen_coverage")}
+            </p>
+          )}
           {focusGroup && (
             <>
               <div className="anatomy-focus-summary">
@@ -448,9 +488,7 @@ export default function AnatomyExplorer({
                       aria-hidden="true"
                     />
                     <span>
-                      {t(
-                        `workout.atlas_muscle_${group.id.replaceAll("-", "_")}`,
-                      )}
+                      {t(group.labelKey)}
                       {!group.elements.length && (
                         <small>{t("anatomy.highlight_unavailable")}</small>
                       )}
@@ -487,20 +525,55 @@ export default function AnatomyExplorer({
             role="group"
             aria-label={t("anatomy.orientation")}
           >
-            <select
-              aria-label={t("anatomy.orientation")}
-              value={view}
-              onChange={(e) => {
-                setView(e.target.value as typeof view);
-                setCameraRequest((n) => n + 1);
+            <div
+              className="anatomy-view-picker"
+              onBlur={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node | null))
+                  setViewOpen(false);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setViewOpen(false);
+                  viewButton.current?.focus();
+                }
               }}
             >
-              {(["front", "back", "side"] as const).map((v) => (
-                <option key={v} value={v}>
-                  {t(`anatomy.${v}`)}
-                </option>
-              ))}
-            </select>
+              <button
+                ref={viewButton}
+                aria-label={t("anatomy.orientation")}
+                aria-expanded={viewOpen}
+                aria-controls="anatomy-view-options"
+                onClick={() => setViewOpen((v) => !v)}
+              >
+                <Eye size={17} aria-hidden="true" />
+                {t(`anatomy.${view}`)}
+                <ChevronDown size={16} aria-hidden="true" />
+              </button>
+              {viewOpen && (
+                <div
+                  id="anatomy-view-options"
+                  className="anatomy-view-options"
+                  role="group"
+                  aria-label={t("anatomy.orientation")}
+                >
+                  {(["front", "back", "side"] as const).map((v) => (
+                    <button
+                      key={v}
+                      aria-pressed={view === v}
+                      onClick={() => {
+                        setView(v);
+                        setCameraRequest((n) => n + 1);
+                        setViewOpen(false);
+                        viewButton.current?.focus();
+                      }}
+                    >
+                      <span>{t(`anatomy.${v}`)}</span>
+                      {view === v && <Check size={16} aria-hidden="true" />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <button
               className="anatomy-icon-button"
               aria-label={t("anatomy.reset")}
@@ -544,7 +617,7 @@ export default function AnatomyExplorer({
               onRender={onRender}
               systems={systems}
               selectedElements={selectedElements}
-              hiddenElements={hidden}
+              hiddenElements={effectiveHidden}
               isolated={isolated}
               view={view}
               reset={reset}

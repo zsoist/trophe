@@ -122,3 +122,39 @@ it("loads curated arm heads classified as other, without admitting unrelated nod
   expect(context.bytes).toBeLessThanOrEqual(ATLAS_GEOMETRY_BUDGET);
   expect(JSON.stringify(source)).toBe(before);
 });
+
+it("uses source-only neck and pectoral subdivisions without fabricating abdominal geometry", () => {
+  const source = {
+    ...manifest,
+    concepts: Object.fromEntries(
+      [
+        "FMA45738",
+        "FMA13407",
+        "FMA64829",
+        "FMA32525",
+        "FMA32526",
+        "FMA34687",
+        "FMA34696",
+        "FMA34699",
+        "FMA13397",
+        "FMA13335",
+      ].map((id) => [id, { elements: [`mesh-${id}`] }]),
+    ),
+  } as unknown as AtlasManifest;
+  const neck = workoutFocus(source, "neck");
+  expect(neck.elements).toHaveLength(4);
+  expect(neck.superficialElements).toEqual(["mesh-FMA45738"]);
+  expect(neck.partial).toBe(true);
+  expect(neck.subgroups.map((g) => g.labelKey)).toContain("anatomy.neck_scm");
+  const chest = workoutFocus(source, "chest");
+  expect(chest.subgroups).toHaveLength(4);
+  expect(new Set(chest.subgroups.map((g) => g.color)).size).toBe(4);
+  expect(chest.elements).not.toContain("mesh-FMA13335");
+  const abdomen = workoutFocus(source, "core");
+  expect(
+    abdomen.subgroups.find((g) => g.id === "rectus-abdominis")?.elements,
+  ).toEqual([]);
+  expect(abdomen.subgroups.find((g) => g.id === "obliques")?.labelKey).toBe(
+    "anatomy.external_obliques",
+  );
+});
