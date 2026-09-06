@@ -164,7 +164,7 @@ def verify_render(config,out):
     (out/'render-regression.json').write_text(json.dumps(report,indent=2));return report
 
 def time_fix(config,out):
-    """Keep quaternion keys on a continuous hemisphere before subframe sampling."""
+    """Keep native quaternion hemispheres and Euler charts continuous in time."""
     bpy.ops.wm.open_mainfile(filepath=config['animation_source'],load_ui=False,use_scripts=False)
     s=bpy.context.scene;changes=[];seen=set()
     for obj in s.objects:
@@ -220,4 +220,4 @@ def time_fix(config,out):
                             previous=new
                         for fc in curves:fc.update()
     s.frame_set(1);bpy.ops.wm.save_as_mainfile(filepath=str(out/'triceps.blend'))
-    (out/'quaternion-continuity.json').write_text(json.dumps({'hemisphere_flips':changes,'native_euler_compatibility':euler_changes,'method':'q and -q represent identical key poses, but component F-curves interpolate badly between opposite signs. Flip keys and handles to a continuous hemisphere; original integer key poses preserved.','human_reviews':'pending'},indent=2));return {'flips':len(changes),'euler_keys_adjusted':len(euler_changes)}
+    (out/'quaternion-continuity.json').write_text(json.dumps({'hemisphere_flips':changes,'native_euler_compatibility':euler_changes,'method':'Native Euler.make_compatible removes equivalent-angle chart jumps; quaternion hemispheres are checked separately. Orientations at existing keys are preserved while component interpolation becomes continuous.','human_reviews':'pending'},indent=2));return {'flips':len(changes),'euler_keys_adjusted':len(euler_changes)}
