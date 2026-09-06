@@ -32,15 +32,27 @@ def interpolate(table,t):
  return table[0][1:] if t<table[0][0] else table[-1][1:]
 
 def rectus(sign,mat,recipe):
- rings=40;sides=16;verts=[];faces=[];lo,hi=recipe['z_range_m']
+ rings=recipe.get('rings',40);sides=recipe.get('sides',16);verts=[];faces=[];lo,hi=recipe['z_range_m']
  for i in range(rings+1):
   t=i/rings;z=lo+(hi-lo)*t;width,y,depth=interpolate(recipe['profile'],z)
-  # Tendinous intersections modulate a continuous belly; no independent abs nodes.
-  depression=max(math.exp(-((z-k)/.006)**2) for k in recipe['intersection_z_m'])
-  depth*=1-.38*depression
+  # A continuous belly with an anterior tendinous furrow; resolve the furrow explicitly.
   for j in range(sides):
    a=2*math.pi*j/sides
-   verts.append((sign*(.003+width*.5+width*.5*math.cos(a)),y+depth*math.sin(a),z))
+   x=.003+width*.5+width*.5*math.cos(a)
+   if recipe.get('refined_surface'):
+    offset=.004*math.cos(a)+.0015*math.sin(2*a)
+    depression=max(math.exp(-((z-k-offset)/.006)**2) for k in recipe['intersection_z_m'])
+    # Remove local prominence at the anterior inscriptions; do not add global volume.
+    anterior=max(0,-math.sin(a))
+    local_depth=depth*(1-.64*depression*anterior)
+    x-=width*.035*depression*math.cos(a)
+    # Shallow longitudinal fascicle relief is real geometry, exported with the surface.
+    fiber=.00018*math.sin(12*a+.35*math.sin(t*math.pi))*math.sin(math.pi*t)**2
+    local_depth+=fiber*anterior*(1-depression)
+   else:
+    depression=max(math.exp(-((z-k)/.006)**2) for k in recipe['intersection_z_m'])
+    local_depth=depth*(1-.38*depression)
+   verts.append((sign*x,y+local_depth*math.sin(a),z))
  for i in range(rings):
   for j in range(sides):
    k=i*sides+j;n=i*sides+(j+1)%sides;faces.append((k,n,n+sides,k+sides))
@@ -56,8 +68,13 @@ def latissimus(sign,mat,recipe):
     u=j/nx;x=xi+(xo-xi)*u
     y=yi+(yo-yi)*u+.008*math.sin(math.pi*u)
     thickness=.0018+.0042*math.sin(math.pi*u)*math.sin(math.pi*t)
+    if recipe.get('refined_surface'):
+     # Feather sheet edges and blend the medial surface; preserve maximum belly thickness.
+     thickness=.0006+.0054*math.sin(math.pi*u)*math.sin(math.pi*t)
+     y-=.010*(1-u)**3*math.sin(math.pi*t)
+     y+=.0004*math.sin(2*math.pi*(4*u+1.5*t))*math.sin(math.pi*u)*math.sin(math.pi*t)
     # Inferomedial fascial border ascends laterally toward iliac crest.
-    edge_rise=recipe.get('inferior_lateral_rise_m',0)*u*(1-t)**2
+    edge_rise=recipe.get('inferior_lateral_rise_m',0)*(u**.7 if recipe.get('refined_surface') else u)*(1-t)**2
     verts.append((sign*x,y+side*thickness,z+edge_rise))
  sheet=(nz+1)*(nx+1)
  for side in [0,1]:
