@@ -137,3 +137,28 @@ def surface(config,out):
     photos('after');s.frame_set(1);bpy.ops.wm.save_as_mainfile(filepath=str(out/'triceps.blend'))
     (out/'surface.json').write_text(json.dumps({'method':'Local removal of accumulated hand-authored arm distortions, retaining native MPFB macro muscle/gender/age form. Feathered by native arm influence, excludes hand/wrist and torso. No invented muscle bulges or rig change.','changed_vertices':sorted(changes),'elbow_corrective_smooth':bool(config.get('local_elbow_smooth')),'removed_layers':[q.name for q in authored],'human_reviews':'pending'},indent=2))
     return {'changed_vertices':len(changes),'human_reviews':'pending'}
+
+def verify_render(config,out):
+    """Compare retimed render master with native source and verify actual orbit."""
+    import numpy as np
+    from playback_qa import points
+    from bpy_extras.object_utils import world_to_camera_view
+    frames=[1,17,33,49,64,76,95,112,121]
+    bpy.ops.wm.open_mainfile(filepath=config['comparison_source'],load_ui=False,use_scripts=False)
+    original={}
+    for f in frames:
+        bpy.context.scene.frame_set(f);bpy.context.view_layer.update();original[f]=points(bpy.data.objects['Trophe_R2_Athlete'])
+    bpy.ops.wm.open_mainfile(filepath=config['animation_source'],load_ui=False,use_scripts=False);s=bpy.context.scene;b=bpy.data.objects['Trophe_R2_Athlete'];r=bpy.data.objects['Trophe_R2_Authoring'];rows=[]
+    for f in frames:
+        actual=1+(f-1)*config.get('retime_factor',1.5);s.frame_set(math.floor(actual),subframe=actual-math.floor(actual));bpy.context.view_layer.update();delta=float(np.linalg.norm(points(b)-original[f],axis=1).max());rows.append({'base_frame':f,'render_frame':actual,'surface_max_delta_m':delta});assert delta<1e-5,(f,actual,delta)
+    orbit=[]
+    for f in [1,91,181,271,361]:
+        s.frame_set(f);bpy.context.view_layer.update();camera=s.camera;world=[]
+        for obj in [b]+[o for o in s.objects if o.type=='MESH' and o.name.startswith('Copa weight')]:world.extend(points(obj))
+        uv=np.array([list(world_to_camera_view(s,camera,Vector(p))) for p in world]);pivot=bpy.data.objects['Review camera orbit only'];orbit.append({'frame':f,'angle_deg':math.degrees(pivot.rotation_euler.z),'camera_world':list(camera.matrix_world.translation),'screen_min':uv[:,:2].min(axis=0).tolist(),'screen_max':uv[:,:2].max(axis=0).tolist(),'near_depth_min':float(uv[:,2].min())})
+        assert (uv[:,:2]>.015).all() and (uv[:,:2]<.985).all(),orbit[-1]
+    assert abs(orbit[-1]['angle_deg']-360)<.001
+    assert max(abs(np.diff([q['angle_deg'] for q in orbit])-90))<.001
+    assert np.linalg.norm(np.array(orbit[0]['camera_world'])-orbit[-1]['camera_world'])<1e-5
+    report={'passed':True,'retiming':rows,'orbit':orbit,'method':'Evaluated source surface compared at corresponding retimed subframes; world camera quarter-turns, closure, actual skin/equipment projected margins. Not human anatomy/technique approval.'}
+    (out/'render-regression.json').write_text(json.dumps(report,indent=2));return report

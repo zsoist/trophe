@@ -202,6 +202,7 @@ def main():
     dispatch['triceps_refine']=triceps_refine.run
     dispatch['copa_joint_stabilize']=copa_joint.stabilize
     dispatch['copa_joint_surface']=copa_joint.surface
+    dispatch['copa_render_verify']=copa_joint.verify_render
     dispatch['copa_joint_audit']=copa_joint.audit
     dispatch['arm_revision']=arm_revision.run
     dispatch['arm_validate']=arm_revision.validate
