@@ -842,7 +842,7 @@
 .anatomy-group-selector svg {
   transition: transform 180ms ease-out;
 }
-.anatomy-exercise-button {
+.anatomy-explorer .anatomy-exercise-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1287,3 +1287,44 @@
   color: var(--atlas-muted);
   margin-top: 4px;
 }
+
+/* Contextual exercise guides share the atlas palette and leave the scene mounted. */
+.atlas-exercise-suggestions { padding: 12px 0; border-top: 1px solid var(--border-default); margin-top: 12px; }
+.anatomy-stage > .atlas-exercise-suggestions { padding: 16px; }
+.atlas-exercise-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; font-size:13px; }
+.atlas-exercise-row { display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; text-align:left; padding:12px 0; border:0; border-bottom:1px solid var(--border-default); background:transparent; color:var(--text-primary); cursor:pointer; }
+.atlas-exercise-row span { min-width:0; }
+.atlas-exercise-row strong { display:block; font-size:14px; font-weight:600; overflow-wrap:anywhere; }
+.atlas-exercise-row small { display:block; color:var(--text-secondary); font-size:11px; margin-top:4px; }
+.atlas-exercise-row > svg { flex-shrink:0; color:var(--accent); }
+.atlas-exercise-more, .atlas-exercise-library { display:flex; align-items:center; justify-content:center; gap:8px; padding:12px; width:100%; min-height:44px; margin-top:12px; border:1px solid var(--border-default); border-radius:12px; background:transparent; color:var(--text-primary); font-size:13px; cursor:pointer; text-decoration:none; }
+.atlas-exercise-dialog { --atlas-preview-line:color-mix(in srgb, var(--text-secondary) 65%, transparent); --atlas-muted:var(--text-secondary); padding:0; border:1px solid var(--border-default); border-radius:24px 24px 0 0; width:min(100%, 620px); max-width:100%; max-height:90dvh; margin:auto auto 0; background:var(--bg-primary); color:var(--text-primary); box-shadow:0 -12px 60px #0004; }
+.atlas-exercise-dialog::backdrop { background:#0009; backdrop-filter:blur(4px); }
+.atlas-exercise-sheet { padding-bottom:env(safe-area-inset-bottom, 12px); }
+.atlas-exercise-toolbar { display:flex; align-items:center; gap:12px; position:sticky; top:0; padding:12px 16px; background:var(--bg-primary); border-bottom:1px solid var(--border-default); z-index:1; }
+.atlas-exercise-toolbar span { flex:1; font-size:13px; color:var(--text-secondary); }
+.atlas-exercise-toolbar button { display:grid; place-items:center; flex-shrink:0; width:44px; height:44px; border:0; border-radius:50%; color:var(--text-primary); background:var(--bg-surface); cursor:pointer; }
+.atlas-exercise-content { padding:24px; }
+.atlas-exercise-content h2 { margin:0 0 12px; font-size:28px; line-height:1.15; letter-spacing:-.03em; }
+.atlas-exercise-content h3 { font-size:15px; margin:0 0 12px; }
+.atlas-exercise-content p { color:var(--text-secondary); font-size:14px; line-height:1.6; }
+.atlas-exercise-content section { margin-top:24px; }
+.atlas-exercise-equipment { display:flex; align-items:center; gap:8px; }
+.atlas-exercise-guide { padding:20px; border-radius:16px; background:var(--bg-surface); }
+.atlas-exercise-guide p { margin-bottom:0; color:var(--text-primary); }
+.atlas-exercise-muscles { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.atlas-exercise-muscles > div { display:flex; align-items:center; gap:10px; min-width:0; }
+.atlas-exercise-muscles svg { width:40px; height:84px; flex-shrink:0; }
+.atlas-exercise-muscles strong { display:block; font-size:12px; overflow-wrap:anywhere; }
+.atlas-exercise-muscles small { display:block; font-size:11px; color:var(--text-secondary); margin-top:4px; }
+.atlas-exercise-dialog :is(button,a):focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+.atlas-exercise-dialog .atlas-exercise-row:hover { background:var(--bg-surface); }
+.anatomy-pick-card { max-height:min(70dvh, 520px); overflow-y:auto; overscroll-behavior:contain; }
+.anatomy-pick-card .atlas-exercise-row { border-radius:0; padding:10px 0; background:transparent; }
+@media(min-width:640px) { .atlas-exercise-dialog { margin:auto; border-radius:24px; } }
+
+.anatomy-explorer .atlas-exercise-row { justify-content:space-between; border-bottom:1px solid var(--atlas-rail); }
+.anatomy-explorer .atlas-exercise-more { border:1px solid var(--atlas-rail); }
+.anatomy-pick-card { max-width:360px; }
+.anatomy-pick-card .anatomy-source-detail { margin:8px 0 0; padding:0; border-top:1px solid var(--atlas-rail); }
+.anatomy-pick-card .anatomy-source-detail summary { padding:8px 0; }

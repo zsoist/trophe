@@ -35,6 +35,8 @@ Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
   configurable: true,
   value: vi.fn(),
 });
+Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value() { this.setAttribute("open", ""); } });
+Object.defineProperty(HTMLDialogElement.prototype, "close", { configurable: true, value() { this.removeAttribute("open"); } });
 afterEach(cleanup);
 const open = () =>
   render(
@@ -145,9 +147,14 @@ it("opens workout focus without organs and preserves deep exploration as a separ
   );
   await screen.findByTestId("canvas");
   expect(screen.getByRole("heading", { name: "Muscle Atlas" })).toBeTruthy();
-  expect(
-    screen.getByRole("link", { name: "Exercises" }).getAttribute("href"),
-  ).toBe("/dashboard/workout/exercises?atlas=chest");
+  const originalCanvas = screen.getByTestId("canvas");
+  const originalFocus = canvasObservation.props!.focusElements;
+  fireEvent.click(screen.getByRole("button", { name: "Exercises" }));
+  expect(screen.getByRole("dialog")).toBeTruthy();
+  expect(screen.getByRole("link", { name: "Open exercise library" }).getAttribute("href")).toBe("/dashboard/workout/exercises?atlas=chest");
+  fireEvent.click(screen.getByRole("button", { name: "Close exercise details" }));
+  expect(screen.getByTestId("canvas")).toBe(originalCanvas);
+  expect(canvasObservation.props!.focusElements).toBe(originalFocus);
   expect(canvasObservation.props!.interactive).toBe(true);
   act(() => canvasObservation.props!.onManualView?.());
   expect(
@@ -174,18 +181,14 @@ it("opens workout focus without organs and preserves deep exploration as a separ
   fireEvent.click(screen.getByRole("button", { name: "Groups" }));
   fireEvent.click(screen.getByRole("button", { name: "Neck & shoulders" }));
   expect(canvasObservation.props!.manifest).toBe(loadedManifest);
-  expect(
-    screen.getByRole("link", { name: "Exercises" }).getAttribute("href"),
-  ).toBe("/dashboard/workout/exercises");
+  expect(screen.getByRole("button", { name: "Exercises" })).toBeTruthy();
   expect(
     screen.getByText(/This group has no highlight available yet/),
   ).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: /Explore full atlas/ }));
   expect(screen.getByRole("heading", { name: "Explore anatomy" })).toBeTruthy();
   expect(screen.getByRole("checkbox", { name: "Organs" })).toBeTruthy();
-  expect(
-    screen.getByRole("link", { name: "Exercises" }).getAttribute("href"),
-  ).toBe("/dashboard/workout/exercises");
+  expect(screen.getByRole("button", { name: "Exercises" })).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Groups" }));
   fireEvent.click(screen.getByRole("button", { name: "Chest" }));
   expect(screen.getByRole("heading", { name: "Muscle Atlas" })).toBeTruthy();

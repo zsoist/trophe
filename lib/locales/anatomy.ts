@@ -1,5 +1,14 @@
 import type { CoreLanguage } from "../types";
 const rows: Record<string, [string, string, string]> = {
+  exercises_for_selection: ["Exercises for this muscle", "Ejercicios para este músculo", "Ασκήσεις για αυτόν τον μυ"],
+  exercises_parent: ["Matched to {muscle}. The catalogue does not distinguish this portion.", "Asociados a {muscle}. El catálogo no distingue esta porción.", "Αντιστοίχιση στον μυ {muscle}. Ο κατάλογος δεν διακρίνει αυτό το τμήμα."],
+  exercises_unmapped: ["No specific exercise matches in the catalogue yet. Explore the group for more options.", "Aún no hay ejercicios específicos asociados en el catálogo. Explora el grupo para ver más opciones.", "Δεν υπάρχουν ακόμη συγκεκριμένες αντιστοιχίσεις ασκήσεων. Εξερεύνησε την ομάδα για περισσότερες επιλογές."],
+  exercises_view_all: ["Explore exercises", "Explorar ejercicios", "Εξερεύνηση ασκήσεων"],
+  exercises_back: ["Back to exercises", "Volver a ejercicios", "Επιστροφή στις ασκήσεις"],
+  exercises_intro: ["Choose an exercise to see its technique and muscles involved.", "Elige un ejercicio para ver su técnica y los músculos que participan.", "Επίλεξε μια άσκηση για να δεις την τεχνική και τους μύες που συμμετέχουν."],
+  exercises_group: ["Explore the whole group", "Explorar todo el grupo", "Εξερεύνηση ολόκληρης της ομάδας"],
+  exercises_library: ["Open exercise library", "Abrir biblioteca de ejercicios", "Άνοιγμα βιβλιοθήκης ασκήσεων"],
+  exercise_muscles: ["Muscles involved", "Músculos que participan", "Μύες που συμμετέχουν"],
   full_atlas: ["Full atlas", "Atlas completo", "Πλήρης άτλαντας"],
   authored_model: [
     "Illustrated 3D model",

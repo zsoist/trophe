@@ -4,6 +4,7 @@ import { MusclePreview, MuscleColorsIcon } from "./MusclePreview";
 import { preferredView, partCameraGroup } from "@/lib/anatomy/camera";
 import type { RenderObservation } from "./AtlasCanvas";
 import Image from "next/image";
+import AtlasExercises, { AtlasExerciseSuggestions, type AtlasExerciseTarget } from "./AtlasExercises";
 import { workoutAtlasFilter } from "@/lib/anatomy/workout-navigation";
 import {
   Check,
@@ -133,6 +134,7 @@ export default function AnatomyExplorer({
   const [error, setError] = useState(false);
   const [retry, setRetry] = useState(0);
   const [query, setQuery] = useState("");
+  const [exerciseTarget, setExerciseTarget] = useState<AtlasExerciseTarget | null>(null);
   const [catalogueSystem, setCatalogueSystem] = useState("");
   const [panel, setPanel] = useState<"layers" | "search">("layers");
   const [catalogueSide, setCatalogueSide] = useState("");
@@ -300,14 +302,28 @@ export default function AnatomyExplorer({
     }
   }, [show3d]);
   const muscleMapping = initialMuscle ? mappingForMuscle(initialMuscle) : null;
-  const selectedMuscles =
-    focused?.subgroups.filter((g) =>
-      selectedElements.some((id) => g.elements.includes(id)),
-    ) ?? [];
+  const currentSelectionMuscles = focused?.subgroups.filter((g) => selectedElements.some((id) => g.elements.includes(id))) ?? [];
+  const otherSelectionGroup = (() => {
+    if (!manifest || !selectedElements.length || currentSelectionMuscles.length) return null;
+    for (const group of Object.keys(WORKOUT_FOCUS_GROUPS) as WorkoutFocusGroup[]) {
+      const matches = workoutFocus(manifest, group).subgroups.filter(g => selectedElements.some(id => g.elements.includes(id)));
+      if (matches.length === 1) return { group, muscle: matches[0] };
+    }
+    return null;
+  })();
+  const selectedMuscles = currentSelectionMuscles.length ? currentSelectionMuscles : otherSelectionGroup ? [otherSelectionGroup.muscle] : [];
   const selectionName =
     selectedMuscles.length === 1
       ? t(selectedMuscles[0].labelKey)
       : concept?.source_names[0];
+  const exerciseSelection = selectedMuscles.length === 1 ? selectedMuscles[0] : !selected ? part : null;
+  const exerciseContext: AtlasExerciseTarget = {
+    group: selected && !currentSelectionMuscles.length && otherSelectionGroup ? otherSelectionGroup.group : workoutMode ? focusGroup : "",
+    selection: exerciseSelection?.id,
+    label: exerciseSelection ? t(exerciseSelection.labelKey) : t(workoutMode && focusGroup ? `anatomy.focus_${focusGroup}` : "anatomy.whole_body"),
+    legRegion,
+  };
+  const exerciseLibraryHref = `${onRender ? "https://trophe.app" : ""}/dashboard/workout/exercises${workoutMode && workoutAtlasFilter(focusGroup) ? `?atlas=${encodeURIComponent(focusGroup)}` : ""}`;
   const parents =
     manifest && selected
       ? manifest.relations.filter((r) => r.child === selected)
@@ -419,14 +435,14 @@ export default function AnatomyExplorer({
             </span>
             <ChevronDown size={18} aria-hidden="true" />
           </button>
-          <a
+          <button
             className="anatomy-exercise-button"
-            href={`${onRender ? "https://trophe.app" : ""}/dashboard/workout/exercises${workoutMode && workoutAtlasFilter(focusGroup) ? `?atlas=${encodeURIComponent(focusGroup)}` : ""}`}
+            onClick={() => setExerciseTarget(exerciseContext)}
           >
             <Dumbbell size={18} aria-hidden="true" />
             {t("anatomy.exercises")}
             <ArrowUpRight size={16} aria-hidden="true" />
-          </a>
+          </button>
           {groupsOpen && (
             <div
               id="anatomy-group-options"
@@ -838,6 +854,7 @@ export default function AnatomyExplorer({
               </button>
             </div>
           )}
+          {part && !concept && <AtlasExerciseSuggestions target={exerciseContext} onOpen={setExerciseTarget} />}
           {error && (
             <button
               onClick={() => {
@@ -874,6 +891,29 @@ export default function AnatomyExplorer({
                   ? concept.source_names[0]
                   : t(`anatomy.${concept.laterality}`)}
               </p>
+
+              {selectionVisibility?.hidden.length !== 0 && (
+                <p role="status">{t("anatomy.hidden_target")}</p>
+              )}
+              {exerciseSelection && <AtlasExerciseSuggestions target={exerciseContext} onOpen={setExerciseTarget} />}
+              <div className="anatomy-actions">
+                <button
+                  aria-pressed={isolated}
+                  onClick={() => setIsolated((v) => !v)}
+                >
+                  <Focus size={16} aria-hidden="true" />
+                  {t("anatomy.isolate")}
+                </button>
+                <button
+                  onClick={() => {
+                    setSelected(null);
+                    setIsolated(false);
+                  }}
+                >
+                  <Scan size={16} aria-hidden="true" />
+                  {t("anatomy.whole_body")}
+                </button>
+              </div>
               <details className="anatomy-source-detail">
                 <summary>{t("anatomy.source_details")}</summary>
                 <p>
@@ -894,27 +934,6 @@ export default function AnatomyExplorer({
                     </p>
                   ))}
               </details>
-              {selectionVisibility?.hidden.length !== 0 && (
-                <p role="status">{t("anatomy.hidden_target")}</p>
-              )}
-              <div className="anatomy-actions">
-                <button
-                  aria-pressed={isolated}
-                  onClick={() => setIsolated((v) => !v)}
-                >
-                  <Focus size={16} aria-hidden="true" />
-                  {t("anatomy.isolate")}
-                </button>
-                <button
-                  onClick={() => {
-                    setSelected(null);
-                    setIsolated(false);
-                  }}
-                >
-                  <Scan size={16} aria-hidden="true" />
-                  {t("anatomy.whole_body")}
-                </button>
-              </div>
             </section>
           )}
           {show3d && (
@@ -1323,6 +1342,7 @@ export default function AnatomyExplorer({
           </>
         )}
       </details>
+      {exerciseTarget && <AtlasExercises target={exerciseTarget} libraryHref={exerciseLibraryHref} onClose={() => setExerciseTarget(null)} />}
     </main>
   );
 }
