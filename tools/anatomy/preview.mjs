@@ -47,6 +47,20 @@ assets.set("/anatomy/muscle-atlas-mark.webp", {
   bytes: await readFile(join(root, "public/anatomy/muscle-atlas-mark.webp")),
   mime: "image/webp",
 });
+// Serve only media resolved by the production catalogue; never candidate or AG2 review media.
+const { resolveExerciseMedia } = await tsImport('../../lib/workout/exercise-media.ts', import.meta.url);
+const { ATLAS_EXERCISES } = await tsImport('../../lib/anatomy/exercises.ts', import.meta.url);
+for (const exercise of ATLAS_EXERCISES) {
+  const media = resolveExerciseMedia({ name: exercise.name, equipment: exercise.equipment, muscleGroup: exercise.muscle_group });
+  for (const url of [media.posterSrc, media.motionSrc, media.mobileMotionSrc].filter(Boolean)) {
+    if (!/^\/workout(?:-v[23])?\//.test(url) || url.includes('..')) throw Error('Unexpected catalogue media path');
+    const extension = url.split('.').at(-1);
+    const mime = { webp: 'image/webp', svg: 'image/svg+xml', webm: 'video/webm', mp4: 'video/mp4' }[extension];
+    if (!mime) throw Error('Unexpected catalogue media type');
+    assets.set(url, { bytes: await readFile(join(root, 'public', url)), mime });
+  }
+}
+assets.set('/_qa/workout.css', { bytes: Buffer.from((await readFile(join(root, 'app/globals.css'), 'utf8')).replace('@import "tailwindcss";', '')), mime: 'text/css' });
 const prefix = `/anatomy/${manifest.release}/`;
 if (authoredSupplement) {
   if (authoredSupplement.baseRelease !== manifest.release)
@@ -98,8 +112,12 @@ const result = await build({
   jsx: "automatic",
   minify: true,
   define: {
+    // Standalone review has no Next runtime or host environment. Only explicit
+    // public flags below are available; never serialize the process environment.
+    "process.env": "{}",
     "process.env.NODE_ENV": '"production"',
     "process.env.__NEXT_IMAGE_OPTS": "undefined",
+    "process.env.NEXT_PUBLIC_ANATOMY_ATLAS_ENABLED": '"false"',
   },
 });
 for (const f of result.outputFiles)
@@ -117,7 +135,7 @@ assets.set("/", {
   bytes: Buffer.from(
     '<!doctype html><html lang="en" class="' +
       (light ? "light" : "") +
-      '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Trophē · Muscle Atlas</title><link rel="stylesheet" href="/_qa/theme.css"><link rel="stylesheet" href="/_qa/stdin.css"></head><body><div id="root"></div><script type="module" src="/_qa/stdin.js"></script></body></html>',
+      '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Trophē · Muscle Atlas</title><link rel="stylesheet" href="/_qa/workout.css"><link rel="stylesheet" href="/_qa/theme.css"><link rel="stylesheet" href="/_qa/stdin.css"></head><body><div id="root"></div><script type="module" src="/_qa/stdin.js"></script></body></html>',
   ),
   mime: "text/html",
 });
@@ -138,7 +156,7 @@ if (exportDirectory) {
     const file = url === "/" ? "index.html" : url.slice(1),
       path = join(staticRoot, file);
     await mkdir(dirname(path), { recursive: true });
-    const compressed = gzipSync(bytes);
+    const compressed = asset.mime.startsWith('video/') ? bytes : gzipSync(bytes);
     await writeFile(path, compressed);
     records.push({
       url,
@@ -151,7 +169,7 @@ if (exportDirectory) {
       dest: "/" + file,
       headers: {
         "Content-Type": asset.mime,
-        "Content-Encoding": "gzip",
+        ...(asset.mime.startsWith("video/") ? {} : { "Content-Encoding": "gzip" }),
         "Cache-Control": "no-store",
         "X-Content-Type-Options": "nosniff",
         "X-Robots-Tag": "noindex, nofollow",
@@ -234,7 +252,16 @@ const server = createServer(async (req, res) => {
         createHash("sha256").update(bytes).digest("hex") !== asset.sha256)
     )
       throw Error("Source changed");
-    const compressed = req.headers["accept-encoding"]?.includes("gzip")
+    if (asset.mime.startsWith('video/') && req.headers.range) {
+      const range = /^bytes=(\d+)-(\d*)$/.exec(req.headers.range);
+      const start = range ? Number(range[1]) : -1;
+      const end = range?.[2] ? Math.min(Number(range[2]), bytes.length - 1) : bytes.length - 1;
+      if (start < 0 || start >= bytes.length || end < start) { res.writeHead(416, { 'Content-Range': `bytes */${bytes.length}` }).end(); return; }
+      res.writeHead(206, { 'Content-Type': asset.mime, 'Content-Range': `bytes ${start}-${end}/${bytes.length}`, 'Accept-Ranges': 'bytes', 'Content-Length': end - start + 1 });
+      res.end(req.method === 'HEAD' ? undefined : bytes.subarray(start, end + 1));
+      return;
+    }
+    const compressed = !asset.mime.startsWith('video/') && req.headers["accept-encoding"]?.includes("gzip")
       ? gzipSync(bytes)
       : bytes;
     if (compressed !== bytes) res.setHeader("Content-Encoding", "gzip");

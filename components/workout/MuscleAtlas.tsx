@@ -13,6 +13,7 @@ export interface MuscleAtlasProps {
   onSelect: (id: AnatomyMuscleId) => void;
   compact?: boolean;
   homeCompact?: boolean;
+  viewOverride?: AnatomyView;
 }
 
 const ROLE_LABEL_KEYS: Record<MuscleRole, string> = { primary: 'workout.info_primary', secondary: 'workout.info_secondary', stabilizer: 'workout.info_stabilizer' };
@@ -64,10 +65,11 @@ function pointerToAtlasPoint(svg: SVGSVGElement, event: ReactPointerEvent<SVGSVG
   ];
 }
 
-export function MuscleAtlas({ activations, selected = null, onSelect, compact = false, homeCompact = false }: MuscleAtlasProps) {
+export function MuscleAtlas({ activations, selected = null, onSelect, compact = false, homeCompact = false, viewOverride }: MuscleAtlasProps) {
   const { t } = useI18n();
   const selectedActivation = activations.find((activation) => activation.id === selected);
-  const [view, setView] = useState<AnatomyView>(() => selected ? ATLAS_GEOMETRY[selected].view : 'front');
+  const [internalView, setView] = useState<AnatomyView>(() => selected ? ATLAS_GEOMETRY[selected].view : 'front');
+  const view = viewOverride ?? internalView;
   const appliedSelected = useRef<AnatomyMuscleId | null>(selected);
   const visibleActivations = useMemo(() => activations.filter((activation) => ATLAS_GEOMETRY[activation.id].view === view), [activations, view]);
   const roleActivations = homeCompact ? [selectedActivation ?? activations[0]].filter(Boolean) as MuscleActivation[] : activations;

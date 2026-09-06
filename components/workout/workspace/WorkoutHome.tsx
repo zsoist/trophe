@@ -39,6 +39,7 @@ interface WorkoutHomeProps {
   recommendationError?: boolean;
   supportError?: boolean;
   recents: WorkoutSession[];
+  workedExerciseIds?: string[] | null;
   routines: WorkoutHomeTemplate[];
   disabled?: boolean;
 }
@@ -113,6 +114,7 @@ export function WorkoutHome({
   recommendationError = false,
   supportError = false,
   recents,
+  workedExerciseIds = null,
   routines,
   disabled = false,
 }: WorkoutHomeProps) {
@@ -133,6 +135,7 @@ export function WorkoutHome({
   const recoveredTemplate = workspaceTemplate(workspace.state, t('workout.home_workout_draft'));
   const displayedTemplate = workspace.state.draft ? recoveredTemplate : offeredTemplate;
   const activations = useMemo(() => uniqueActivations(displayedTemplate, exercises), [displayedTemplate, exercises]);
+  const workedActivations = useMemo(() => uniqueActivations({ templateKey: 'recorded-today', name: '', muscleSummary: [], exercises: exercises.filter(exercise => workedExerciseIds?.includes(exercise.id)).map(exercise => ({ exerciseId: exercise.id, exerciseName: exercise.name, muscleGroup: exercise.muscle_group, targetSets: 0, targetReps: '' })) }, exercises), [workedExerciseIds, exercises]);
   const isCardioDraft = workspace.state.draft?.kind === 'cardio';
   const targetLabel = displayedTemplate?.muscleSummary.length
     ? displayedTemplate.muscleSummary.map((muscle) => t(muscleLabelKey(muscle))).join(' · ')
@@ -214,6 +217,8 @@ export function WorkoutHome({
         <WorkoutAtlasEntry />
         <WorkoutAtlasHome
           activations={activations}
+          workedActivations={workedActivations}
+          workedAvailable={workedExerciseIds !== null}
           targetLabel={targetLabel}
           emptyState={isCardioDraft ? 'cardio' : 'strength'}
           action={<button type="button" data-testid="workout-primary-action" onClick={primaryAction.action} disabled={disabled && !recoveryStage && !hasDraft} className="btn-gold min-h-11 w-full rounded-xl px-4 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50">{primaryAction.label}</button>}

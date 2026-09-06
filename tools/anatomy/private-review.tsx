@@ -4,6 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { useI18n, LANGUAGE_OPTIONS } from "../../lib/i18n";
 import type { AuthoredSupplement } from "../../lib/anatomy/authored";
 import type { Language } from "../../lib/types";
+import { WorkoutAtlasHome } from '../../components/workout/workspace/WorkoutAtlasHome';
+import { WorkoutAnatomySource } from '../../components/anatomy/WorkoutAnatomyModel';
+import { resolveMuscleActivations } from '../../lib/workout/anatomy';
 import AnatomyExplorer from "../../components/anatomy/AnatomyExplorer";
 import type { RenderObservation } from "../../components/anatomy/AtlasCanvas";
 export function PrivateAtlasReview({
@@ -21,6 +24,7 @@ export function PrivateAtlasReview({
   };
 }) {
   const { t, lang, setLang } = useI18n();
+  const [homePreview, setHomePreview] = useState(false);
   const [device, setDevice] = useState("desktop/emulation");
   const [report, setReport] = useState<object | null>(null);
   const [copied, setCopied] = useState(false);
@@ -114,6 +118,8 @@ export function PrivateAtlasReview({
           )}
         </details>
       </aside>
+      <nav className="private-review-switch" aria-label={t('anatomy.review_home')}><button aria-pressed={!homePreview} onClick={() => setHomePreview(false)}>{t('anatomy.review_atlas')}</button><button aria-pressed={homePreview} onClick={() => setHomePreview(true)}>{t('anatomy.review_home')}</button></nav>
+      {homePreview ? <div className="private-home-preview"><WorkoutAnatomySource.Provider value={{ manifestUrl, authoredSupplement }}><WorkoutAtlasHome activations={[...resolveMuscleActivations({ name: 'Bench Press', muscleGroup: 'chest' }), ...resolveMuscleActivations({ name: 'Squat', muscleGroup: 'quads' })].filter((a, i, list) => list.findIndex(b => b.id === a.id) === i)} workedActivations={resolveMuscleActivations({ name: 'Bench Press', muscleGroup: 'chest' })} targetLabel={t("anatomy.review_example")} /></WorkoutAnatomySource.Provider></div> :
       <AnatomyExplorer
         workout
         authoredSupplement={authoredSupplement}
@@ -122,7 +128,7 @@ export function PrivateAtlasReview({
           if (sample.current && sample.current.frames.length < 10000)
             sample.current.frames.push(value);
         }}
-      />
+      />}
     </>
   );
 }

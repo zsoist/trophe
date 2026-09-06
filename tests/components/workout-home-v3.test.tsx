@@ -85,12 +85,14 @@ function renderHome({
   initialState,
   programLoading = false,
   recommendationLoading = false,
+  workedExerciseIds = null,
 }: {
   program?: WorkoutHomeProgram | null;
   recommended?: WorkoutRecommendation | null;
   initialState?: WorkoutWorkspaceState;
   programLoading?: boolean;
   recommendationLoading?: boolean;
+  workedExerciseIds?: string[] | null;
 } = {}) {
   const storage = new MemoryStorage();
   if (initialState) saveWorkspaceState(storage, 'nik', initialState);
@@ -98,6 +100,7 @@ function renderHome({
     <WorkoutWorkspaceProvider userId="nik" storage={storage}>
       <WorkoutHome
         exercises={exercises}
+        workedExerciseIds={workedExerciseIds}
         program={program}
         recommendation={recommended}
         programLoading={programLoading}
@@ -116,6 +119,29 @@ afterEach(() => {
 });
 
 describe('Workout home v3', () => {
+  it('separates recorded muscles from the planned workout and switches to their view', () => {
+    renderHome({ program: coachProgram, workedExerciseIds: ['row'] });
+    const home = screen.getByRole('region', { name: "Today's target" });
+    fireEvent.click(within(home).getByRole('button', { name: /Worked today/ }));
+    expect(within(home).getByRole('button', { name: /^Latissimus dorsi primary muscle$/i })).toBeTruthy();
+    expect(within(home).queryByRole('button', { name: /^Pectoralis major primary muscle$/i })).toBeNull();
+    fireEvent.click(within(home).getByRole('button', { name: /^Latissimus dorsi primary muscle$/i }));
+    expect(within(home).getByRole('button', { name: /^Back$/ }).getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(within(home).getByRole('button', { name: /^Latissimus dorsi primary muscle$/i }));
+    expect(within(home).getByRole('button', { name: /^Latissimus dorsi primary muscle$/i }).getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(within(home).getByRole('button', { name: /Planned/ }));
+    expect(within(home).getByRole('button', { name: /^Pectoralis major primary muscle$/i })).toBeTruthy();
+  });
+
+  it.each([
+    [[], 'No working sets recorded today yet.'],
+    [null, 'Recorded muscles are unavailable right now. Your planned workout is still here.'],
+  ] as const)('distinguishes an empty recorded day from unavailable data: %s', (ids, message) => {
+    renderHome({ program: coachProgram, workedExerciseIds: ids ? [...ids] : null });
+    fireEvent.click(screen.getByRole('button', { name: /Worked today/ }));
+    expect(screen.getByText(message)).toBeTruthy();
+    expect(screen.getByTestId('workout-primary-action')).toBeTruthy();
+  });
   it('makes a coach assignment, plan readiness, target, and review action immediately explicit', async () => {
     renderHome({ program: coachProgram, recommended: recommendation });
 
@@ -130,7 +156,7 @@ describe('Workout home v3', () => {
     expect(screen.queryByRole('button', { name: /workout templates/i })).toBeNull();
 
     fireEvent.click(screen.getByTestId('atlas-region-pectoralis-major'));
-    expect(await screen.findByText(/pectoralis major · primary target/i)).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^Pectoralis major primary muscle$/i })).toBeTruthy();
   });
 
   it('presents a deterministic recommendation for review without starting a live session', () => {
@@ -157,7 +183,7 @@ describe('Workout home v3', () => {
 
   it('does not label a represented strength target as absent when template summary is empty', async () => {
     renderHome({ program: { ...coachProgram, todayTemplate: { ...coachProgram.todayTemplate!, muscleSummary: [] } } });
-    expect(await screen.findByText(/pectoralis major · primary target/i)).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^Pectoralis major primary muscle$/i })).toBeTruthy();
     expect(screen.queryByText('No muscle target selected')).toBeNull();
   });
 
@@ -240,17 +266,14 @@ describe('Workout home v3', () => {
     expect(screen.queryByRole('button', { name: 'Review plan' })).toBeNull();
   });
 
-  it('keeps the home atlas compact and places its contextual action immediately after it', () => {
+  it('separates the model, muscle controls and primary action in normal flow', () => {
     renderHome({ program: coachProgram });
-
-    const atlas = screen.getByLabelText('Muscle activation atlas');
-    const anatomy = screen.getByRole('group', { name: 'Front anatomy map' });
-    const roles = screen.getByRole('list', { name: 'Highlighted muscle roles' });
+    const home = screen.getByRole('region', { name: "Today's target" });
+    expect(within(home).getByRole('group', { name: 'Training view' })).toBeTruthy();
+    expect(within(home).getByRole('button', { name: /^Pectoralis major primary muscle$/i })).toBeTruthy();
+    expect(home.querySelector('.workout-muscle-body')).toBeTruthy();
     const action = screen.getByTestId('workout-primary-action');
-    expect(atlas.className).toContain('muscle-atlas--home-compact');
-    expect(anatomy.getAttribute('height')).toBe('228');
-    expect(within(roles).getAllByRole('listitem').length).toBeLessThanOrEqual(2);
-    expect(atlas.compareDocumentPosition(action) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(home.contains(action)).toBe(true);
   });
 
   it('marks the readiness, atlas, and primary action as one mobile first-viewport composition', () => {

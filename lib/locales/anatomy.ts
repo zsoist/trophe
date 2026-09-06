@@ -1,5 +1,18 @@
 import type { CoreLanguage } from "../types";
 const rows: Record<string, [string, string, string]> = {
+  model_fallback: ["3D is unavailable. Showing the muscle map.", "El 3D no está disponible. Se muestra el mapa muscular.", "Το 3D δεν είναι διαθέσιμο. Εμφανίζεται ο μυϊκός χάρτης."],
+  training_state: ["Training view", "Vista del entrenamiento", "Προβολή προπόνησης"],
+  planned: ["Planned", "Planificados", "Προγραμματισμένοι"],
+  worked: ["Worked today", "Trabajados hoy", "Γυμνασμένοι σήμερα"],
+  planned_note: ["Muscles involved in your selected workout. Choose one to find it on the body.", "Músculos de tu entrenamiento seleccionado. Elige uno para ubicarlo en el cuerpo.", "Μύες της επιλεγμένης προπόνησης. Επίλεξε έναν για να τον εντοπίσεις στο σώμα."],
+  worked_note: ["Based on recorded working sets today. This shows involvement, not fatigue or recovery.", "Según las series de trabajo registradas hoy. Indica participación, no fatiga ni recuperación.", "Βάσει των καταγεγραμμένων σετ εργασίας σήμερα. Δείχνει συμμετοχή, όχι κόπωση ή αποκατάσταση."],
+  no_worked: ["No working sets recorded today yet.", "Aún no hay series de trabajo registradas hoy.", "Δεν έχουν καταγραφεί ακόμη σετ εργασίας σήμερα."],
+  worked_unavailable: ["Recorded muscles are unavailable right now. Your planned workout is still here.", "Los músculos registrados no están disponibles ahora. Tu entrenamiento planificado sigue aquí.", "Οι καταγεγραμμένοι μύες δεν είναι διαθέσιμοι τώρα. Η προγραμματισμένη προπόνηση παραμένει εδώ."],
+  review_home: ["Workout Home preview", "Vista previa de Workout Home", "Προεπισκόπηση αρχικής προπόνησης"],
+  review_example: ["Example workout · Bench Press & Squat", "Entrenamiento de ejemplo · Bench Press y Squat", "Παράδειγμα προπόνησης · Bench Press & Squat"],
+  exercise_main: ["Main: {muscles}", "Principal: {muscles}", "Κύριοι: {muscles}"],
+  review_atlas: ["Muscle Atlas", "Muscle Atlas", "Muscle Atlas"],
+  exercise_supports: ["Also: {muscles}", "También: {muscles}", "Επίσης: {muscles}"],
   exercises_for_selection: ["Exercises for this muscle", "Ejercicios para este músculo", "Ασκήσεις για αυτόν τον μυ"],
   exercises_parent: ["Matched to {muscle}. The catalogue does not distinguish this portion.", "Asociados a {muscle}. El catálogo no distingue esta porción.", "Αντιστοίχιση στον μυ {muscle}. Ο κατάλογος δεν διακρίνει αυτό το τμήμα."],
   exercises_unmapped: ["No specific exercise matches in the catalogue yet. Explore the group for more options.", "Aún no hay ejercicios específicos asociados en el catálogo. Explora el grupo para ver más opciones.", "Δεν υπάρχουν ακόμη συγκεκριμένες αντιστοιχίσεις ασκήσεων. Εξερεύνησε την ομάδα για περισσότερες επιλογές."],
