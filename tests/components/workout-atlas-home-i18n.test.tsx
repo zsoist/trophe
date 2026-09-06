@@ -34,10 +34,13 @@ describe('WorkoutAtlasHome localization', () => {
   it('uses production locale copy for the heading, anatomy names, roles, and selected status', () => {
     render(<WorkoutAtlasHome activations={activations} targetLabel="Pecho" />);
 
+    fireEvent.click(screen.getByRole('button', { name: /^Planificados/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Pecho \d/ }));
     expect(screen.getByRole('heading', { name: 'Objetivo de hoy' })).toBeTruthy();
     const home = screen.getByRole('region', { name: 'Objetivo de hoy' });
     expect(within(home).getByRole('button', { name: 'Pectoral mayor músculo principal' })).toBeTruthy();
 
+    fireEvent.click(within(home).getByRole('button', { name: /^Tríceps \d/ }));
     fireEvent.click(within(home).getByRole('button', { name: 'Tríceps braquial músculo secundario' }));
     expect(within(home).getByRole('button', { name: 'Espalda' }).getAttribute('aria-pressed')).toBe('true');
     expect(within(home).getByRole('button', { name: 'Tríceps braquial músculo secundario' }).getAttribute('aria-pressed')).toBe('true');
@@ -47,6 +50,7 @@ describe('WorkoutAtlasHome localization', () => {
   it('localizes the cardio empty state instead of accepting English consumer copy', () => {
     render(<WorkoutAtlasHome activations={[]} targetLabel="Sesión de cardio · sin objetivo muscular" emptyState="cardio" />);
 
+    fireEvent.click(screen.getByRole('button', { name: /^Planificados/ }));
     expect(screen.getByText('El cardio se registra por actividad, duración, distancia y esfuerzo.')).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/Add strength exercises|Cardio is tracked/);
   });
@@ -56,6 +60,8 @@ describe('WorkoutAtlasHome localization', () => {
       { id: 'anterior-deltoid', label: 'Shoulders', role: 'primary', view: 'front', confidence: 'group', group: 'shoulders' },
     ]} targetLabel="Hombros" />);
 
+    fireEvent.click(screen.getByRole('button', { name: /^Planificados/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Cuello/ }));
     expect(screen.getByRole('button', { name: 'Hombros Grupo' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Deltoides anterior músculo principal' })).toBeNull();
   });

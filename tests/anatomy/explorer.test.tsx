@@ -252,3 +252,25 @@ it("toggles a muscle off and restores group framing from both return buttons", a
     expect(canvasObservation.props!.manifest).toBe(resident);
   }
 });
+
+it('keeps explanations in Info and colors every declared muscle in the main view', async () => {
+  const { fetchAtlasManifest } = await import('../../lib/anatomy/validation');
+  const source = structuredClone(fixture);
+  const first = source.chunks[0];
+  first.system = 'muscles';
+  vi.mocked(fetchAtlasManifest).mockResolvedValueOnce(source as unknown as CanvasProps['manifest']);
+  render(<I18nProvider defaultLang="en"><AnatomyExplorer workout initialGroup="chest" manifestUrl="/manifest.json" /></I18nProvider>);
+  await screen.findByTestId('canvas');
+  expect(screen.queryByRole('heading', { name: 'Chest' })).toBeNull();
+  expect(screen.queryByText('Explore muscles')).toBeNull();
+  expect(screen.queryByText('About these highlights')).toBeNull();
+  expect(screen.queryByText('Source, coverage and limitations')).toBeNull();
+  for (const id of first.element_ids) expect(canvasObservation.props!.elementColors?.[id]).toBe('#bc8078');
+  const canvas = screen.getByTestId('canvas');
+  fireEvent.click(screen.getByRole('button', { name: 'About this atlas' }));
+  expect(screen.getByRole('dialog', { name: 'About this atlas' })).toBeTruthy();
+  expect(screen.getByText(/Color identifies anatomy/)).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Close information' }));
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(screen.getByTestId('canvas')).toBe(canvas);
+});

@@ -39,3 +39,25 @@
 .workout-model-source summary { min-height:32px; cursor:pointer; }
 .workout-model-source p { line-height:1.5; }
 .workout-model-loading { position:absolute; bottom:10px; left:0; right:0; text-align:center; font-size:12px; color:var(--text-secondary); }
+
+.workout-muscle-home { --anatomy-bone:#707875; }
+.light .workout-muscle-home { --anatomy-bone:#8a918e; }
+.workout-anatomy-model.anatomy-stage { height:420px; }
+.workout-muscle-views { width:196px; }
+.workout-muscle-views > button:last-child { flex:0; min-width:36px; padding:6px; }
+.workout-muscle-figure > .atlas-information { position:absolute; left:8px; top:12px; z-index:2; }
+.workout-muscle-section-title { font-size:14px; margin:0 0 12px; }
+.workout-muscle-section { border:1px solid var(--border-default); border-radius:12px; overflow:hidden; }
+.workout-muscle-section h4 { margin:0; }
+.workout-muscle-accordions { display:grid; gap:8px; }
+.workout-muscle-groups .workout-muscle-group-toggle { min-height:60px; border:0; border-radius:0; }
+.workout-muscle-group-toggle strong { flex:1; font-size:14px; }
+.workout-muscle-group-toggle small { margin:0; }
+.workout-muscle-group-toggle[aria-expanded=true] { background:color-mix(in srgb,var(--workout-target-color) 10%,transparent); }
+.workout-muscle-group-toggle[aria-expanded=true] > svg { transform:rotate(180deg); }
+.workout-muscle-section ul { display:block; padding:0 12px 8px; }
+.workout-muscle-section ul[hidden] { display:none; }
+.workout-muscle-section li button { border:0; border-top:1px solid var(--border-default); border-radius:0; justify-content:space-between; min-height:54px; padding:12px 4px; }
+.workout-muscle-role { width:fit-content; padding:2px 6px; border-radius:4px; background:var(--bg-primary); }
+.workout-muscle-role--primary { color:var(--text-primary)!important; font-weight:650; }
+@media(min-width:640px) { .workout-anatomy-model.anatomy-stage { height:460px; } }

@@ -86,6 +86,7 @@ function renderHome({
   programLoading = false,
   recommendationLoading = false,
   workedExerciseIds = null,
+  trainingMode = 'planned',
 }: {
   program?: WorkoutHomeProgram | null;
   recommended?: WorkoutRecommendation | null;
@@ -93,10 +94,11 @@ function renderHome({
   programLoading?: boolean;
   recommendationLoading?: boolean;
   workedExerciseIds?: string[] | null;
+  trainingMode?: 'planned' | 'worked';
 } = {}) {
   const storage = new MemoryStorage();
   if (initialState) saveWorkspaceState(storage, 'nik', initialState);
-  return render(
+  const result = render(
     <WorkoutWorkspaceProvider userId="nik" storage={storage}>
       <WorkoutHome
         exercises={exercises}
@@ -110,6 +112,9 @@ function renderHome({
       />
     </WorkoutWorkspaceProvider>,
   );
+  const planned = screen.queryByRole('button', { name: /^Planned/ });
+  if (trainingMode === 'planned' && planned) fireEvent.click(planned);
+  return result;
 }
 
 afterEach(() => {
@@ -119,10 +124,18 @@ afterEach(() => {
 });
 
 describe('Workout home v3', () => {
+  it('opens Worked today by default with collapsed major groups', () => {
+    renderHome({ program: coachProgram, workedExerciseIds: ['bench'], trainingMode: 'worked' });
+    expect(screen.getByRole('button', { name: /^Worked today/ }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('button', { name: /^Chest \d/ }).getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByRole('button', { name: /^Pectoralis major primary muscle$/i })).toBeNull();
+  });
   it('separates recorded muscles from the planned workout and switches to their view', () => {
     renderHome({ program: coachProgram, workedExerciseIds: ['row'] });
     const home = screen.getByRole('region', { name: "Today's target" });
     fireEvent.click(within(home).getByRole('button', { name: /Worked today/ }));
+    expect(within(home).queryByRole('button', { name: /^Latissimus dorsi primary muscle$/i })).toBeNull();
+    fireEvent.click(within(home).getByRole('button', { name: /^Back \d/ }));
     expect(within(home).getByRole('button', { name: /^Latissimus dorsi primary muscle$/i })).toBeTruthy();
     expect(within(home).queryByRole('button', { name: /^Pectoralis major primary muscle$/i })).toBeNull();
     fireEvent.click(within(home).getByRole('button', { name: /^Latissimus dorsi primary muscle$/i }));
@@ -130,6 +143,7 @@ describe('Workout home v3', () => {
     fireEvent.click(within(home).getByRole('button', { name: /^Latissimus dorsi primary muscle$/i }));
     expect(within(home).getByRole('button', { name: /^Latissimus dorsi primary muscle$/i }).getAttribute('aria-pressed')).toBe('false');
     fireEvent.click(within(home).getByRole('button', { name: /Planned/ }));
+    fireEvent.click(within(home).getByRole('button', { name: /^Chest \d/ }));
     expect(within(home).getByRole('button', { name: /^Pectoralis major primary muscle$/i })).toBeTruthy();
   });
 
@@ -156,6 +170,7 @@ describe('Workout home v3', () => {
     expect(screen.queryByRole('button', { name: /workout templates/i })).toBeNull();
 
     fireEvent.click(screen.getByTestId('atlas-region-pectoralis-major'));
+    if (!screen.queryByRole('button', { name: /^Pectoralis major primary muscle$/i })) fireEvent.click(screen.getByRole('button', { name: /^Chest \d/ }));
     expect(screen.getByRole('button', { name: /^Pectoralis major primary muscle$/i })).toBeTruthy();
   });
 
@@ -183,6 +198,7 @@ describe('Workout home v3', () => {
 
   it('does not label a represented strength target as absent when template summary is empty', async () => {
     renderHome({ program: { ...coachProgram, todayTemplate: { ...coachProgram.todayTemplate!, muscleSummary: [] } } });
+    if (!screen.queryByRole('button', { name: /^Pectoralis major primary muscle$/i })) fireEvent.click(screen.getByRole('button', { name: /^Chest \d/ }));
     expect(screen.getByRole('button', { name: /^Pectoralis major primary muscle$/i })).toBeTruthy();
     expect(screen.queryByText('No muscle target selected')).toBeNull();
   });
@@ -270,7 +286,7 @@ describe('Workout home v3', () => {
     renderHome({ program: coachProgram });
     const home = screen.getByRole('region', { name: "Today's target" });
     expect(within(home).getByRole('group', { name: 'Training view' })).toBeTruthy();
-    expect(within(home).getByRole('button', { name: /^Pectoralis major primary muscle$/i })).toBeTruthy();
+    expect(within(home).getByRole('button', { name: /^Chest \d/ })).toBeTruthy();
     expect(home.querySelector('.workout-muscle-body')).toBeTruthy();
     const action = screen.getByTestId('workout-primary-action');
     expect(home.contains(action)).toBe(true);

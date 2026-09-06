@@ -21,7 +21,7 @@ const props = { activations: [], selected: null, onSelect: vi.fn(), view: 'back'
 it('uses the shared renderer with neutral unselected muscles and only muscle/skeleton layers', async () => {
   render(<I18nProvider defaultLang="en"><WorkoutAnatomySource.Provider value={{ manifestUrl: '/anatomy/review/manifest.json' }}><WorkoutAnatomyModel {...props} /></WorkoutAnatomySource.Provider></I18nProvider>);
   await waitFor(() => expect(observed.props).not.toBeNull());
-  expect(observed.props).toMatchObject({ systems: ['muscles', 'skeleton'], focusElements: [], selectedElements: [], view: 'back', interactive: false });
+  expect(observed.props).toMatchObject({ systems: ['muscles', 'skeleton'], focusElements: [], selectedElements: [], view: 'back', interactive: true, framingScale: 0.83 });
   fireEvent.click(screen.getByRole('button', { name: 'Lose context' }));
   expect(screen.getByText('3D is unavailable. Showing the muscle map.')).toBeTruthy();
   expect(screen.getByRole('group', { name: 'Back anatomy map' })).toBeTruthy();

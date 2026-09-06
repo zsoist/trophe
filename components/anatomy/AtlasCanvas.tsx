@@ -37,6 +37,7 @@ export interface CanvasProps {
   view: "front" | "back" | "side";
   reset: number;
   zoom: number;
+  framingScale?: number;
   interactive: boolean;
   onPick: (id: string, position?: { x: number; y: number }) => void;
   onError: (reason: string) => void;
@@ -331,7 +332,7 @@ export default function AtlasCanvas(props: CanvasProps) {
         );
         moveCamera(
           new THREE.Vector3(...(pose.center as [number, number, number])),
-          pose.distance,
+          pose.distance * Math.max(0.75, Math.min(1, p.framingScale ?? 1)),
           pose.theta,
           initial,
         );

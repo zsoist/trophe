@@ -1,5 +1,6 @@
 "use client";
 import { withAuthored, type AuthoredSupplement } from "@/lib/anatomy/authored";
+import { AtlasInformation } from "./AtlasInformation";
 import { MusclePreview, MuscleColorsIcon } from "./MusclePreview";
 import { preferredView, partCameraGroup } from "@/lib/anatomy/camera";
 import type { RenderObservation } from "./AtlasCanvas";
@@ -223,15 +224,18 @@ export default function AnatomyExplorer({
   );
   const colors = useMemo(() => {
     const values: Record<string, string> = {};
+    // Color every source-declared muscle, including curated muscle meshes
+    // originally partitioned under other. Bone/connective tissue remains neutral.
+    for (const chunk of (context?.manifest ?? manifest)?.chunks ?? [])
+      if (chunk.system === "muscles") for (const id of chunk.element_ids) values[id] = "#bc8078";
+    for (const id of focusElements ?? []) values[id] = "#d4a853";
     if (subgroupColors)
       for (const subgroup of part ? [part] : (focused?.subgroups ?? []))
         for (const id of subgroup.elements)
           values[id] =
-            values[id] && values[id] !== subgroup.color
-              ? "#b9bdba"
-              : subgroup.color;
+            subgroup.color;
     return values;
-  }, [focused, subgroupColors, part]);
+  }, [focused, subgroupColors, part, context, manifest, focusElements]);
   const selectionVisibility =
     manifest && selected
       ? visibleSelection(
@@ -349,6 +353,44 @@ export default function AnatomyExplorer({
             {t(workoutMode ? "anatomy.workout_intro" : "anatomy.scope")}
           </p>
         </div>
+      <AtlasInformation>
+        <p>{t("anatomy.focus_role_limit")}</p>
+        <p>{t("anatomy.preview_source")}</p>
+        {manifest && (
+          <>
+            <p>
+              {manifest.license.attribution} ·{" "}
+              <a href={manifest.license.url}>CC BY 4.0</a>
+            </p>
+            {workoutMode && context && (
+              <p className="anatomy-context-note">
+                {t("anatomy.workout_layers")} ·{" "}
+                {t("anatomy.vascular_context", {
+                  n: context.vascularChunks,
+                  total: context.totalVascularChunks,
+                })}
+              </p>
+            )}
+            <p>{t("anatomy.not_clinical")}</p>
+            {manifest.authored && (
+              <p>
+                {t("anatomy.authored_explanation")} · {manifest.authored.author}{" "}
+                · {manifest.authored.license}
+              </p>
+            )}
+            <p>
+              {t("anatomy.coverage")}: {manifest.coverage.converted}/
+              {manifest.coverage.source_elements} · {t("anatomy.rejected")}:{" "}
+              {manifest.coverage.rejected} · {t("anatomy.missing")}:{" "}
+              {manifest.coverage.missing}
+            </p>
+            <p>{manifest.license.modifications.join(" ")}</p>
+            <p className="anatomy-hash">
+              {manifest.source.release} · SHA256 {manifest.source.sha256}
+            </p>
+          </>
+        )}
+      </AtlasInformation>
         {workout && (
           <button
             className="anatomy-depth-toggle"
@@ -511,18 +553,6 @@ export default function AnatomyExplorer({
           className="anatomy-training-controls"
           aria-label={t("anatomy.training_groups")}
         >
-          <h2 className="anatomy-current-group">
-            {t(
-              focusGroup ? `anatomy.focus_${focusGroup}` : "anatomy.whole_body",
-            )}
-          </h2>
-          <p className="anatomy-selection-help">
-            {t(
-              focusGroup
-                ? "anatomy.inspect_group"
-                : "anatomy.choose_group_hint",
-            )}
-          </p>
           {focusGroup === "legs" && (
             <div
               className="anatomy-region-tabs"
@@ -570,26 +600,8 @@ export default function AnatomyExplorer({
               )}
             </div>
           )}
-          {focusGroup === "core" && (
-            <p className="anatomy-selection-help">
-              {t(
-                manifest?.authored?.muscleElements["rectus-abdominis"]
-                  ? "anatomy.core_intro"
-                  : "anatomy.abdomen_coverage",
-              )}
-            </p>
-          )}
           {focusGroup && (
             <>
-              <div className="anatomy-focus-summary">
-                <h3>{t("anatomy.explore_muscles")}</h3>
-                <span className="anatomy-muscle-count">
-                  {focused?.subgroups.length}
-                </span>
-              </div>
-              <p className="anatomy-selection-help">
-                {t("anatomy.part_selection_hint")}
-              </p>
               <ul className="anatomy-muscle-options">
                 {focused?.subgroups.map((group) => (
                   <li key={group.id}>
@@ -653,19 +665,7 @@ export default function AnatomyExplorer({
                   {t("anatomy.group_unavailable")}
                 </p>
               )}
-              <details className="anatomy-group-details">
-                <summary>{t("anatomy.about_highlights")}</summary>
-                <p>{t("anatomy.focus_role_limit")}</p>
-                <p>{t("anatomy.preview_source")}</p>
-                {manifest?.authored && (
-                  <p>{t("anatomy.authored_explanation")}</p>
-                )}
-                {focused?.partial && <p>{t("anatomy.focus_partial")}</p>}
-                {subgroupColors &&
-                  Object.values(colors).includes("#b9bdba") && (
-                    <p>{t("anatomy.shared_geometry")}</p>
-                  )}
-              </details>
+
             </>
           )}
         </section>
@@ -1305,43 +1305,7 @@ export default function AnatomyExplorer({
           </section>
         </aside>
       </div>
-      <details>
-        <summary>{t("anatomy.details")}</summary>
-        {manifest && (
-          <>
-            <p>
-              {manifest.license.attribution} ·{" "}
-              <a href={manifest.license.url}>CC BY 4.0</a>
-            </p>
-            {workoutMode && context && (
-              <p className="anatomy-context-note">
-                {t("anatomy.workout_layers")} ·{" "}
-                {t("anatomy.vascular_context", {
-                  n: context.vascularChunks,
-                  total: context.totalVascularChunks,
-                })}
-              </p>
-            )}
-            <p>{t("anatomy.not_clinical")}</p>
-            {manifest.authored && (
-              <p>
-                {t("anatomy.authored_explanation")} · {manifest.authored.author}{" "}
-                · {manifest.authored.license}
-              </p>
-            )}
-            <p>
-              {t("anatomy.coverage")}: {manifest.coverage.converted}/
-              {manifest.coverage.source_elements} · {t("anatomy.rejected")}:{" "}
-              {manifest.coverage.rejected} · {t("anatomy.missing")}:{" "}
-              {manifest.coverage.missing}
-            </p>
-            <p>{manifest.license.modifications.join(" ")}</p>
-            <p className="anatomy-hash">
-              {manifest.source.release} · SHA256 {manifest.source.sha256}
-            </p>
-          </>
-        )}
-      </details>
+
       {exerciseTarget && <AtlasExercises target={exerciseTarget} libraryHref={exerciseLibraryHref} onClose={() => setExerciseTarget(null)} />}
     </main>
   );

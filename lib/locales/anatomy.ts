@@ -1,5 +1,9 @@
 import type { CoreLanguage } from "../types";
 const rows: Record<string, [string, string, string]> = {
+  close_info: ["Close information", "Cerrar información", "Κλείσιμο πληροφοριών"],
+  info: ["About this atlas", "Información del atlas", "Σχετικά με τον άτλαντα"],
+  involved: ["Muscles involved", "Músculos involucrados", "Μύες που συμμετέχουν"],
+  role: ["Role", "Función", "Ρόλος"],
   model_fallback: ["3D is unavailable. Showing the muscle map.", "El 3D no está disponible. Se muestra el mapa muscular.", "Το 3D δεν είναι διαθέσιμο. Εμφανίζεται ο μυϊκός χάρτης."],
   training_state: ["Training view", "Vista del entrenamiento", "Προβολή προπόνησης"],
   planned: ["Planned", "Planificados", "Προγραμματισμένοι"],
