@@ -219,9 +219,9 @@ def qa(config,out):
     head_ids={i for i in body_ids if rest[i].z>1.51}
     core_ids={i for i in body_ids if abs(rest[i].x)<.09 and .94<rest[i].z<1.30}
     equipment=[o for o in scene.objects if o.type=='MESH' and o.name.startswith('Copa weight')]
-    rows=[];initial_hand={};initial_contact={};initial_feet=None;initial_core=None;initial_elbow={}
+    rows=[];initial_hand={};initial_contact={};initial_feet=None;initial_core=None;initial_elbow={};initial_axis={}
     exact=set(config.get('exact_frames',[1,31,46,61,91,121,151,176,181]))
-    for f in config.get('frames',range(1,182)):
+    for f in config.get('frames',range(1,scene.frame_end+2)):
         scene.frame_set(f);bpy.context.view_layer.update();data=mesh_data(body);p,tri,source=data;lookup={v:i for i,v in enumerate(source)}
         local=(np.c_[p,np.ones(len(p))]@np.array(prop.matrix_world.inverted()).T)[:,:3]
         feet=points(shoes);core=p[[lookup[i] for i in core_ids if i in lookup]]
@@ -243,8 +243,8 @@ def qa(config,out):
             selected=set(ids);subsets[side]=(p,[t for t in tri if all(i in selected for i in t)],source)
             point=lambda n:rig.matrix_world@rig.pose.bones[n+'.'+side].head
             shoulder=point('ORG-upper_arm');elbow=point('ORG-forearm');wrist=point('ORG-hand');palm=point('ORG-f_middle.01')
-            if side not in initial_elbow:initial_elbow[side]=elbow.copy()
-            row['joints'][side]={'elbow_flexion_deg':math.degrees((elbow-shoulder).angle(wrist-elbow)),
+            if side not in initial_elbow:initial_elbow[side]=elbow.copy();initial_axis[side]=(elbow-shoulder).normalized()
+            row['joints'][side]={'upper_arm_axis_drift_deg':math.degrees(initial_axis[side].angle((elbow-shoulder).normalized())), 'upper_arm_vertical_deg':math.degrees(Vector((0,0,1)).angle((elbow-shoulder).normalized())), 'elbow_flexion_deg':math.degrees((elbow-shoulder).angle(wrist-elbow)),
                                  'forearm_palm_angle_deg':math.degrees((wrist-elbow).angle(palm-wrist)),
                                  'elbow_motion_from_frame1_m':(elbow-initial_elbow[side]).length,
                                  'wrist_target_error_m':(wrist-bpy.data.objects['Copa wrist target '+side].matrix_world.translation).length}
@@ -267,7 +267,7 @@ def qa(config,out):
         if f%30==0:print('TRICEPS_QA_FRAME',f,flush=True)
     def sample(f):
         scene.frame_set(math.floor(f),subframe=f-math.floor(f));bpy.context.view_layer.update();return points(body)
-    a=sample(1);b=sample(181);before=sample(180.9);after=sample(181.1)
+    closure=scene.frame_end+1;a=sample(1);b=sample(closure);before=sample(closure-.1);after=sample(closure+.1)
     report={'source':config['animation_source'],'rows':rows,'human_reviews':'pending','closure':{'position_max_m':float(np.max(np.linalg.norm(a-b,axis=1))),'velocity_gap_m_s_epsilon_0_1':float(np.max(np.linalg.norm((b-before)*300-(after-b)*300,axis=1)))},'method':'Evaluated surface and existing native rig. Cylinder bounds all sampled frames; actual noncoplanar triangle crossings at selected frames. Cup contact uses actual upper-head underside; hand-hand intersection and bench support included.','limits':['Bounds are not exact beveled surfaces; triangle contacts may include shallow overlap and require localization.','Wrist/palm angles are geometric diagnostics of cupped support, not clinical limits.','Surface deformation is not internal muscle activation or a force simulation.']}
     (out/'triceps-qa.json').write_text(json.dumps(report,indent=2))
     return {'frames':len(rows),'closure':report['closure'],'max_hand_drift_m':max(h['max_object_relative_drift_m'] for r in rows for h in r['hands'].values()),'head_bounds_flag_frames':[r['frame'] for r in rows if any(b['head_inside'] for b in r['bounds'].values())]}

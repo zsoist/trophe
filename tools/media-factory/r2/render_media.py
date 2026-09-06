@@ -9,7 +9,7 @@ def run(config,output):
     scene=bpy.context.scene;camera=studio(scene);scene.render.engine=config.get('engine','BLENDER_EEVEE')
     preset=config['camera'];place(camera,preset['position'],preset['target'],preset['ortho_scale']);camera.data.sensor_fit='VERTICAL'
     scene.render.resolution_x=config['resolution'][0];scene.render.resolution_y=config['resolution'][1];scene.render.resolution_percentage=100
-    scene.render.fps=30;scene.frame_start=1;scene.frame_end=180
+    scene.render.fps=30;scene.frame_start=1;scene.frame_end=config.get('frames',180)
     if config.get('floor_z') is not None:
         bpy.ops.mesh.primitive_plane_add(size=200,location=(0,0,config['floor_z']))
         floor=bpy.context.object;floor.name='Neutral floor'
@@ -34,4 +34,4 @@ def run(config,output):
                 bpy.context.view_layer.update();target=bpy.data.objects[view['target_object']].matrix_world.translation
                 place(camera,target+Vector(view['position']),target,view['ortho_scale'])
             name=view['id']+'-%03d.png'%frame;scene.render.filepath=str(output/name);bpy.ops.render.render(write_still=True);artifacts.append(name)
-    return {'engine':scene.render.engine,'renderer':gpu.platform.renderer_get(),'resolution':config['resolution'],'native_render':True,'upscaled':False,'frames':180 if config.get('video') else len(config.get('stills',[1])),'fps':30,'duration_s':6 if config.get('video') else None,'render_elapsed_s':time.monotonic()-start,'artifacts':artifacts,'reviews':{'visual_human':'pending','technique_human':'pending'}}
+    return {'engine':scene.render.engine,'renderer':gpu.platform.renderer_get(),'resolution':config['resolution'],'native_render':True,'upscaled':False,'frames':scene.frame_end if config.get('video') else len(config.get('stills',[1])),'fps':30,'duration_s':scene.frame_end/30 if config.get('video') else None,'render_elapsed_s':time.monotonic()-start,'artifacts':artifacts,'reviews':{'visual_human':'pending','technique_human':'pending'}}
