@@ -183,6 +183,7 @@ def main():
     import arnold
     import arnold_refine
     import triceps
+    import triceps_refine
     import atlas_patch
     import bench_qa
     import export_unreal
@@ -196,6 +197,7 @@ def main():
     dispatch['triceps_inspect']=triceps.inspect
     dispatch['triceps']=triceps.run
     dispatch['triceps_qa']=triceps.qa
+    dispatch['triceps_refine']=triceps_refine.run
     dispatch['atlas_patch']=atlas_patch.run
     dispatch['atlas_validate']=atlas_patch.validate
     dispatch['coverage_finish']=garment_pattern.finish_coverage
