@@ -183,6 +183,7 @@ def main():
     import arnold
     import arnold_refine
     import triceps
+    import atlas_patch
     import bench_qa
     import export_unreal
     dispatch = {'build_character': build_character, 'compare_baseline': compare_baseline.run, 'playback_qa': playback_qa.run, 'render_media': render_media.run, 'localize_contact': localize_contact.run, 'contact_fit': contact_fit.run, 'shirt_clearance': shirt_clearance.run, 'garment_binding': garment_binding.run, 'garment_pattern': garment_pattern.run}
@@ -195,6 +196,7 @@ def main():
     dispatch['triceps_inspect']=triceps.inspect
     dispatch['triceps']=triceps.run
     dispatch['triceps_qa']=triceps.qa
+    dispatch['atlas_patch']=atlas_patch.run
     dispatch['coverage_finish']=garment_pattern.finish_coverage
     dispatch['coverage_check']=garment_pattern.check_coverage
     dispatch['coverage_regression']=garment_pattern.coverage_regression
