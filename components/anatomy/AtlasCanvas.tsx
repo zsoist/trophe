@@ -6,6 +6,13 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "meshoptimizer";
 import type { AtlasManifest } from "@/lib/anatomy/types";
 import { ATLAS_GEOMETRY_BUDGET, fitsAtlasMemory } from "@/lib/anatomy/budget";
+import {
+  cameraAngle,
+  cameraEase,
+  fitCamera,
+  focusBounds,
+  shortestAngle,
+} from "@/lib/anatomy/camera";
 import { fetchAtlasChunk } from "@/lib/anatomy/validation";
 export interface RenderObservation {
   timestamp: number;
@@ -20,13 +27,19 @@ export interface CanvasProps {
   manifest: AtlasManifest;
   systems: string[];
   selectedElements: string[];
+  focusElements?: string[];
+  cameraGroup?: string;
+  onManualView?: () => void;
+  cameraRequest?: number;
+  elementColors?: Record<string, string>;
   hiddenElements: string[];
   isolated: boolean;
   view: "front" | "back" | "side";
   reset: number;
   zoom: number;
+  framingScale?: number;
   interactive: boolean;
-  onPick: (id: string) => void;
+  onPick: (id: string, position?: { x: number; y: number }) => void;
   onError: (reason: string) => void;
   onProgress: (loaded: number, total: number) => void;
   label: string;
@@ -80,16 +93,6 @@ export default function AtlasCanvas(props: CanvasProps) {
     const light = new THREE.DirectionalLight(0xffffff, 2);
     light.position.set(2, 3, 4);
     scene.add(light);
-    const box = new THREE.Box3(
-      new THREE.Vector3(
-        ...(props.manifest.bounds[0] as [number, number, number]),
-      ),
-      new THREE.Vector3(
-        ...(props.manifest.bounds[1] as [number, number, number]),
-      ),
-    );
-    const center = box.getCenter(new THREE.Vector3());
-    const height = box.getSize(new THREE.Vector3()).y;
     const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
     const residentBytes = new Map<string, number>();
     const geometryBytes = (group: THREE.Object3D) => {
@@ -115,11 +118,31 @@ export default function AtlasCanvas(props: CanvasProps) {
       roughness: 0.75,
       side: THREE.DoubleSide,
     });
+    const muted = new THREE.MeshStandardMaterial({
+      color: 0x727875,
+      roughness: 0.85,
+      side: THREE.DoubleSide,
+    });
+    const focusMaterials = new Map<string, THREE.MeshStandardMaterial>();
+    const focusMaterial = (color: string) => {
+      if (!focusMaterials.has(color))
+        focusMaterials.set(
+          color,
+          new THREE.MeshStandardMaterial({
+            color,
+            roughness: 0.75,
+            side: THREE.DoubleSide,
+          }),
+        );
+      return focusMaterials.get(color)!;
+    };
     let dead = false,
       frame = 0,
       lastView = "",
+      lastFocus = "",
       lastReset = -1,
       lastZoom = 0,
+      manualCamera = false,
       inViewport = true;
     const dispose = (obj: THREE.Object3D) => {
       const seen = new Set<THREE.Material>();
@@ -136,11 +159,68 @@ export default function AtlasCanvas(props: CanvasProps) {
         }
       });
     };
+    const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+    let transition: {
+      start: number;
+      from: THREE.Vector3;
+      to: THREE.Vector3;
+      radius: number;
+      endRadius: number;
+      theta: number;
+      endTheta: number;
+      phi: number;
+      endPhi: number;
+    } | null = null;
+    const applyPose = (t: NonNullable<typeof transition>, progress: number) => {
+      const eased = cameraEase(progress);
+      controls.target.lerpVectors(t.from, t.to, eased);
+      camera.position
+        .copy(controls.target)
+        .add(
+          new THREE.Vector3().setFromSphericalCoords(
+            THREE.MathUtils.lerp(t.radius, t.endRadius, eased),
+            THREE.MathUtils.lerp(t.phi, t.endPhi, eased),
+            THREE.MathUtils.lerp(t.theta, t.endTheta, eased),
+          ),
+        );
+      controls.update();
+    };
+    const resumeTransition = () => {
+      if (!transition) return;
+      const offset = new THREE.Spherical().setFromVector3(
+        camera.position.clone().sub(controls.target),
+      );
+      transition.from.copy(controls.target);
+      transition.radius = offset.radius;
+      transition.theta = offset.theta;
+      transition.endTheta = shortestAngle(offset.theta, transition.endTheta);
+      transition.phi = offset.phi;
+      transition.start = performance.now();
+    };
+    const cancelTransition = () => {
+      manualCamera = true;
+      transition = null;
+      if (!dead) latest.current.onManualView?.();
+    };
+    controls.addEventListener("start", cancelTransition);
+    const reduceMotion = () => {
+      if (reducedMotion.matches && transition) {
+        applyPose(transition, 1);
+        transition = null;
+        draw();
+      }
+    };
+    reducedMotion.addEventListener("change", reduceMotion);
     const draw = () => {
       if (dead || document.hidden || !inViewport || frame) return;
-      frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame((now) => {
         frame = 0;
         if (!dead && !document.hidden && inViewport) {
+          if (transition) {
+            const progress = Math.min(1, (now - transition.start) / 520);
+            applyPose(transition, progress);
+            if (progress === 1) transition = null;
+          }
           const start = latest.current.onRender ? performance.now() : 0;
           renderer.render(scene, camera);
           latest.current.onRender?.({
@@ -151,6 +231,7 @@ export default function AtlasCanvas(props: CanvasProps) {
             geometries: renderer.info.memory.geometries,
             textures: renderer.info.memory.textures,
           });
+          if (transition) draw();
         }
       });
     };
@@ -159,6 +240,7 @@ export default function AtlasCanvas(props: CanvasProps) {
       const boneColor = getComputedStyle(container)
         .getPropertyValue("--anatomy-bone")
         .trim();
+      const focus = new Set(p.focusElements ?? []);
       const selected = new Set(p.selectedElements),
         hidden = new Set(p.hiddenElements);
       for (const [id, g] of loaded) {
@@ -169,7 +251,12 @@ export default function AtlasCanvas(props: CanvasProps) {
             const eid =
               o.userData.elementId ?? o.parent?.userData.elementId ?? o.name;
             const chosen = selected.has(eid);
-            o.visible = !hidden.has(eid) && (!p.isolated || chosen);
+            o.visible =
+              !!chunk?.element_ids.includes(eid) &&
+              !hidden.has(eid) &&
+              (!p.isolated ||
+                chosen ||
+                (!p.selectedElements.length && focus.has(eid)));
             if (!materials.has(o)) materials.set(o, o.material);
             if (chunk?.system === "skeleton" && boneColor) {
               const original = materials.get(o)!;
@@ -179,7 +266,15 @@ export default function AtlasCanvas(props: CanvasProps) {
                 if (material instanceof THREE.MeshStandardMaterial)
                   material.color.set(boneColor);
             }
-            o.material = chosen ? highlight : materials.get(o)!;
+            o.material = chosen
+              ? highlight
+              : p.elementColors?.[eid]
+                ? focusMaterial(p.elementColors[eid])
+                : focus.has(eid)
+                  ? highlight
+                  : p.focusElements !== undefined && chunk?.system === "muscles"
+                    ? muted
+                    : materials.get(o)!;
           }
         });
       }
@@ -187,37 +282,83 @@ export default function AtlasCanvas(props: CanvasProps) {
       renderer.domElement.style.touchAction = p.interactive ? "none" : "pan-y";
       draw();
     };
+    const moveCamera = (
+      target: THREE.Vector3,
+      distance: number,
+      theta: number,
+      immediate = false,
+      endPhi = Math.PI / 2,
+    ) => {
+      const offset = new THREE.Spherical().setFromVector3(
+        camera.position.clone().sub(controls.target),
+      );
+      transition = {
+        start: performance.now(),
+        from: controls.target.clone(),
+        to: target,
+        radius: offset.radius || distance,
+        endRadius: distance,
+        theta: offset.theta,
+        endTheta: shortestAngle(offset.theta, theta),
+        phi: offset.phi || Math.PI / 2,
+        endPhi,
+      };
+      if (immediate || reducedMotion.matches) {
+        applyPose(transition, 1);
+        transition = null;
+      }
+      draw();
+    };
     const setView = () => {
       const p = latest.current;
-      if (p.zoom !== lastZoom) {
-        const offset = camera.position.clone().sub(controls.target);
-        offset.setLength(
-          THREE.MathUtils.clamp(
-            offset.length() * Math.pow(0.8, p.zoom - lastZoom),
-            controls.minDistance,
-            controls.maxDistance,
-          ),
+      const ids = p.selectedElements.length
+        ? p.selectedElements
+        : (p.focusElements ?? []);
+      const group = p.selectedElements.length ? undefined : p.cameraGroup;
+      const focusKey = `${p.cameraRequest ?? 0}:${group ?? ""}:${ids.join(",")}`;
+      const changedFocus = lastFocus !== focusKey;
+      const changedReset = lastReset !== p.reset;
+      const initial = lastReset === -1;
+      if (changedFocus || changedReset || lastView !== p.view) {
+        manualCamera = false;
+        const bounds =
+          changedReset && !initial
+            ? p.manifest.bounds
+            : (focusBounds(p.manifest, ids, group) ?? p.manifest.bounds);
+        const pose = fitCamera(
+          bounds,
+          container.clientWidth / Math.max(1, container.clientHeight),
+          cameraAngle(p.view, changedReset && !initial ? undefined : group),
         );
-        camera.position.copy(controls.target).add(offset);
+        moveCamera(
+          new THREE.Vector3(...(pose.center as [number, number, number])),
+          pose.distance * Math.max(0.75, Math.min(1, p.framingScale ?? 1)),
+          pose.theta,
+          initial,
+        );
+        lastFocus = focusKey;
+        lastReset = p.reset;
+        lastView = p.view;
         lastZoom = p.zoom;
-        controls.update();
-        draw();
-      }
-      if (lastView === p.view && lastReset === p.reset) return;
-      lastView = p.view;
-      lastReset = p.reset;
-      const distance =
-        (height / (2 * Math.tan(THREE.MathUtils.degToRad(16)))) * 1.15;
-      controls.target.copy(center);
-      camera.position
-        .copy(center)
-        .add(
-          p.view === "side"
-            ? new THREE.Vector3(distance, 0, 0)
-            : new THREE.Vector3(0, 0, p.view === "back" ? -distance : distance),
+      } else if (p.zoom !== lastZoom) {
+        const offset = new THREE.Spherical().setFromVector3(
+          camera.position.clone().sub(controls.target),
         );
-      controls.update();
-      draw();
+        const distance = THREE.MathUtils.clamp(
+          (transition?.endRadius ?? offset.radius) *
+            Math.pow(0.8, p.zoom - lastZoom),
+          controls.minDistance,
+          controls.maxDistance,
+        );
+        moveCamera(
+          transition?.to.clone() ?? controls.target.clone(),
+          distance,
+          transition?.endTheta ?? offset.theta,
+          false,
+          transition?.endPhi ?? offset.phi,
+        );
+        lastZoom = p.zoom;
+      }
     };
     const load = () => {
       if (dead || document.hidden || !inViewport) return;
@@ -302,9 +443,14 @@ export default function AtlasCanvas(props: CanvasProps) {
       const w = container.clientWidth,
         h = container.clientHeight;
       if (w && h) {
+        const aspectChanged = Math.abs(camera.aspect - w / h) > 0.01;
         renderer.setSize(w, h);
         camera.aspect = w / h;
         camera.updateProjectionMatrix();
+        if (aspectChanged && !manualCamera) {
+          lastFocus = "";
+          setView();
+        }
         draw();
       }
     };
@@ -313,6 +459,7 @@ export default function AtlasCanvas(props: CanvasProps) {
     const intersection = new IntersectionObserver((entries) => {
       inViewport = entries[0]?.isIntersecting ?? false;
       if (inViewport) {
+        resumeTransition();
         load();
         draw();
       } else {
@@ -351,7 +498,10 @@ export default function AtlasCanvas(props: CanvasProps) {
           hit.object.userData.elementId ??
           hit.object.parent?.userData.elementId ??
           hit.object.name;
-        latest.current.onPick(id);
+        latest.current.onPick(id, {
+          x: (e.clientX - rect.left) / rect.width,
+          y: (e.clientY - rect.top) / rect.height,
+        });
       }
     };
     const lost = (e: Event) => {
@@ -364,6 +514,7 @@ export default function AtlasCanvas(props: CanvasProps) {
         frame = 0;
         for (const c of requests.values()) c.abort();
       } else {
+        resumeTransition();
         loading.clear();
         load();
         draw();
@@ -392,9 +543,14 @@ export default function AtlasCanvas(props: CanvasProps) {
       themeObserver.disconnect();
       intersection.disconnect();
       document.removeEventListener("visibilitychange", visibility);
+      cancelTransition();
+      reducedMotion.removeEventListener("change", reduceMotion);
+      controls.removeEventListener("start", cancelTransition);
       controls.dispose();
       for (const g of loaded.values()) dispose(g);
       highlight.dispose();
+      muted.dispose();
+      for (const material of focusMaterials.values()) material.dispose();
       renderer.domElement.removeEventListener("webglcontextlost", lost);
       renderer.dispose();
       renderer.forceContextLoss();

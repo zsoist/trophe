@@ -1,0 +1,63 @@
+.workout-muscle-home { padding:20px; border:1px solid var(--border-default); border-radius:20px; background:var(--bg-surface); color:var(--text-primary); }
+.workout-muscle-home header { padding:0 0 16px; }
+.workout-muscle-eyebrow { display:flex; gap:6px; align-items:center; font-size:11px; color:var(--text-secondary); }
+.workout-muscle-home h2 { margin:8px 0 0; font-size:22px; letter-spacing:-.025em; }
+.workout-muscle-home header p { margin:6px 0 0; font-size:13px; color:var(--text-secondary); line-height:1.5; }
+.workout-muscle-tabs, .workout-muscle-views { display:flex; gap:4px; padding:4px; border-radius:12px; background:var(--bg-primary); }
+.workout-muscle-tabs button, .workout-muscle-views button { display:flex; flex:1; justify-content:center; align-items:center; gap:8px; border:0; border-radius:9px; min-height:44px; padding:8px 12px; color:var(--text-secondary); background:transparent; font:inherit; font-size:13px; cursor:pointer; }
+.workout-muscle-tabs button[aria-pressed=true], .workout-muscle-views button[aria-pressed=true] { color:var(--text-primary); background:var(--bg-surface); box-shadow:0 1px 4px #0002; }
+.workout-muscle-tabs small { min-width:20px; border-radius:6px; background:var(--bg-primary); padding:2px 5px; }
+.workout-muscle-body { display:grid; gap:16px; margin-top:16px; }
+.workout-muscle-figure { min-width:0; position:relative; background:var(--bg-primary); border-radius:16px; overflow:hidden; }
+.workout-muscle-views { margin:8px 8px 0 auto; width:154px; position:relative; z-index:1; border:1px solid var(--border-default); }
+.workout-anatomy-model.anatomy-stage { height:320px; padding:0; background:transparent; border-radius:0; }
+.workout-anatomy-model .anatomy-canvas { height:100%; min-height:0; }
+.workout-muscle-state-label { font-size:12px; line-height:1.5; color:var(--text-secondary); margin:0 0 12px; }
+.workout-muscle-groups ul { display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:0; list-style:none; margin:0; }
+.workout-muscle-groups li { min-width:0; }
+.workout-muscle-groups button { display:flex; align-items:center; gap:9px; width:100%; min-height:64px; border:1px solid var(--border-default); border-radius:12px; padding:10px; color:var(--text-primary); background:transparent; text-align:left; cursor:pointer; }
+.workout-muscle-groups button[aria-pressed=true] { border-color:var(--accent); background:color-mix(in srgb,var(--accent) 10%, transparent); }
+.workout-muscle-marker { display:grid; place-items:center; width:12px; height:28px; border-radius:4px; flex-shrink:0; background:var(--accent); }
+.workout-muscle-marker--worked { background:#78bdb2; color:#182625; }
+.workout-muscle-groups strong { display:block; font-size:12px; line-height:1.3; overflow-wrap:anywhere; }
+.workout-muscle-groups small { display:block; margin-top:4px; font-size:10px; line-height:1.4; color:var(--text-secondary); }
+.workout-muscle-action { margin-top:16px; }
+.workout-muscle-action > button { min-height:48px; width:100%; border:0; border-radius:12px; background:var(--accent); color:var(--bg-primary); font:inherit; font-weight:650; }
+.workout-model-fallback .muscle-atlas__views, .workout-model-fallback .muscle-atlas__roles, .workout-model-fallback .muscle-atlas__summary { display:none; }
+.workout-model-fallback .muscle-atlas { border:0; padding:0; }
+.workout-model-fallback .muscle-atlas__figure-wrap { height:320px; }
+.workout-model-fallback .muscle-atlas__silhouette path { fill:transparent; stroke:var(--text-secondary); stroke-width:.35; }
+.workout-muscle-home { --workout-target-color:var(--accent); }
+.workout-muscle-home[data-mode=worked] { --workout-target-color:#78bdb2; }
+.workout-model-fallback .muscle-atlas__region--primary path,
+.workout-model-fallback .muscle-atlas__region--secondary path { fill:var(--workout-target-color); stroke:var(--bg-primary); }
+.workout-model-fallback .muscle-atlas__region--stabilizer path,
+.workout-model-fallback .muscle-atlas__region--deep-guide path { fill:none; stroke:var(--workout-target-color); }
+.workout-muscle-home button:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+@media(min-width:640px) { .workout-muscle-body { grid-template-columns:minmax(180px,.9fr) minmax(0,1.1fr); align-items:start; }.workout-anatomy-model.anatomy-stage { height:360px; }.workout-model-fallback .muscle-atlas__figure-wrap { height:360px; } }
+.workout-model-source { font-size:10px; padding:8px 12px; color:var(--text-secondary); border-top:1px solid var(--border-default); }
+.workout-model-source summary { min-height:32px; cursor:pointer; }
+.workout-model-source p { line-height:1.5; }
+.workout-model-loading { position:absolute; bottom:10px; left:0; right:0; text-align:center; font-size:12px; color:var(--text-secondary); }
+
+.workout-muscle-home { --anatomy-bone:#707875; }
+.light .workout-muscle-home { --anatomy-bone:#8a918e; }
+.workout-anatomy-model.anatomy-stage { height:420px; }
+.workout-muscle-views { width:196px; }
+.workout-muscle-views > button:last-child { flex:0; min-width:36px; padding:6px; }
+.workout-muscle-figure > .atlas-information { position:absolute; left:8px; top:12px; z-index:2; }
+.workout-muscle-section-title { font-size:14px; margin:0 0 12px; }
+.workout-muscle-section { border:1px solid var(--border-default); border-radius:12px; overflow:hidden; }
+.workout-muscle-section h4 { margin:0; }
+.workout-muscle-accordions { display:grid; gap:8px; }
+.workout-muscle-groups .workout-muscle-group-toggle { min-height:60px; border:0; border-radius:0; }
+.workout-muscle-group-toggle strong { flex:1; font-size:14px; }
+.workout-muscle-group-toggle small { margin:0; }
+.workout-muscle-group-toggle[aria-expanded=true] { background:color-mix(in srgb,var(--workout-target-color) 10%,transparent); }
+.workout-muscle-group-toggle[aria-expanded=true] > svg { transform:rotate(180deg); }
+.workout-muscle-section ul { display:block; padding:0 12px 8px; }
+.workout-muscle-section ul[hidden] { display:none; }
+.workout-muscle-section li button { border:0; border-top:1px solid var(--border-default); border-radius:0; justify-content:space-between; min-height:54px; padding:12px 4px; }
+.workout-muscle-role { width:fit-content; padding:2px 6px; border-radius:4px; background:var(--bg-primary); }
+.workout-muscle-role--primary { color:var(--text-primary)!important; font-weight:650; }
+@media(min-width:640px) { .workout-anatomy-model.anatomy-stage { height:460px; } }

@@ -87,6 +87,7 @@ vi.mock('@/lib/supabase', () => ({
       const query: Record<string, unknown> = {};
       query.select = vi.fn(() => query);
       query.eq = vi.fn((key: string, value: unknown) => { filters.push([key, value]); return query; });
+      query.gt = vi.fn((key: string, value: unknown) => { filters.push([key + ':gt', value]); return query; });
       query.order = vi.fn(() => query);
       query.limit = vi.fn(() => query);
       query.maybeSingle = vi.fn(() => Promise.resolve(result()));
@@ -140,6 +141,18 @@ function recoveredWorkspace(stage: 'draft' | 'review') {
     clock: null,
   };
 }
+
+it('reads only today’s owned working sets with completed repetitions', async () => {
+  renderPage();
+  await waitFor(() => expect(harness.queries.some(query => query.table === 'workout_sets')).toBe(true));
+  const query = harness.queries.find(query => query.table === 'workout_sets')!;
+  expect(query.filters).toEqual(expect.arrayContaining([
+    ['workout_sessions.user_id', harness.userId],
+    ['workout_sessions.session_date', '2026-08-24'],
+    ['is_warmup', false],
+    ['reps:gt', 0],
+  ]));
+});
 
 afterEach(() => {
   cleanup();

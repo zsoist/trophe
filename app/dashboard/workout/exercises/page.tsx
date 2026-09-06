@@ -48,5 +48,5 @@ export default function ExerciseBrowserPage() {
   if (loadError) return <main role="alert" className="mx-auto max-w-3xl px-4 py-10 text-sm text-[var(--status-danger-fg)]">{t('workout.program_load_failed')}</main>;
   const replaceExerciseId = searchParams.get('replace')?.trim() || undefined;
   const returnRoute = searchParams.get('return') === 'review' ? 'review' : searchParams.get('return') === 'build' ? 'build' : undefined;
-  return <ExerciseBrowser initialExercises={exercises} initialRecentIds={recentIds} replaceExerciseId={replaceExerciseId} returnRoute={returnRoute} />;
+  return <ExerciseBrowser atlasGroup={searchParams.get("atlas")} initialExercises={exercises} initialRecentIds={recentIds} replaceExerciseId={replaceExerciseId} returnRoute={returnRoute} />;
 }

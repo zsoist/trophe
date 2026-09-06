@@ -1,15 +1,30 @@
 "use client";
 /** Review-only wrapper. Never imported by product routes or the live logger. */
 import { useEffect, useRef, useState } from "react";
+import { useI18n, LANGUAGE_OPTIONS } from "../../lib/i18n";
+import type { AuthoredSupplement } from "../../lib/anatomy/authored";
+import type { Language } from "../../lib/types";
+import { WorkoutAtlasHome } from '../../components/workout/workspace/WorkoutAtlasHome';
+import { WorkoutAnatomySource } from '../../components/anatomy/WorkoutAnatomyModel';
+import { resolveMuscleActivations } from '../../lib/workout/anatomy';
 import AnatomyExplorer from "../../components/anatomy/AnatomyExplorer";
 import type { RenderObservation } from "../../components/anatomy/AtlasCanvas";
 export function PrivateAtlasReview({
   manifestUrl,
   identity,
+  authoredSupplement,
 }: {
   manifestUrl: string;
-  identity: { codeSha: string; manifestSha256: string; release: string };
+  authoredSupplement?: AuthoredSupplement;
+  identity: {
+    codeSha: string;
+    manifestSha256: string;
+    release: string;
+    authoredSha256?: string | null;
+  };
 }) {
+  const { t, lang, setLang } = useI18n();
+  const [homePreview, setHomePreview] = useState(false);
   const [device, setDevice] = useState("desktop/emulation");
   const [report, setReport] = useState<object | null>(null);
   const [copied, setCopied] = useState(false);
@@ -61,18 +76,28 @@ export function PrivateAtlasReview({
   return (
     <>
       <aside className="private-device-review">
+        <label className="private-review-language">
+          {t("anatomy.review_language")}
+          <select
+            value={lang}
+            onChange={(event) => setLang(event.target.value as Language)}
+          >
+            {LANGUAGE_OPTIONS.map(({ code, label }) => (
+              <option key={code} value={code}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
         <details>
-          <summary>Revisión privada del dispositivo</summary>
-          <p>
-            Activa el giro en el visor, arrastra el cuerpo durante al menos 5
-            segundos y copia el informe. Repite con esqueleto y músculos. Esto
-            mide el envío de cuadros del navegador; confirma también si observas
-            saltos o defectos.
-          </p>
+          <summary>{t("anatomy.review_device_title")}</summary>
+          <p>{t("anatomy.review_instructions")}</p>
           <label>
-            Dispositivo{" "}
+            {t("anatomy.review_device")}{" "}
             <select value={device} onChange={(e) => setDevice(e.target.value)}>
-              <option value="desktop/emulation">Escritorio / emulación</option>
+              <option value="desktop/emulation">
+                {t("anatomy.review_desktop")}
+              </option>
               <option value="iPhone 15 Pro Max">iPhone 15 Pro Max</option>
               <option value="iPhone 13">iPhone 13</option>
             </select>
@@ -87,19 +112,23 @@ export function PrivateAtlasReview({
                     .then(() => setCopied(true))
                 }
               >
-                {copied ? "Copiado" : "Copiar informe"}
+                {t(copied ? "anatomy.review_copied" : "anatomy.review_copy")}
               </button>
             </>
           )}
         </details>
       </aside>
+      <nav className="private-review-switch" aria-label={t('anatomy.review_home')}><button aria-pressed={!homePreview} onClick={() => setHomePreview(false)}>{t('anatomy.review_atlas')}</button><button aria-pressed={homePreview} onClick={() => setHomePreview(true)}>{t('anatomy.review_home')}</button></nav>
+      {homePreview ? <div className="private-home-preview"><WorkoutAnatomySource.Provider value={{ manifestUrl, authoredSupplement }}><WorkoutAtlasHome activations={[...resolveMuscleActivations({ name: 'Bench Press', muscleGroup: 'chest' }), ...resolveMuscleActivations({ name: 'Squat', muscleGroup: 'quads' })].filter((a, i, list) => list.findIndex(b => b.id === a.id) === i)} workedActivations={resolveMuscleActivations({ name: 'Bench Press', muscleGroup: 'chest' })} targetLabel={t("anatomy.review_example")} /></WorkoutAnatomySource.Provider></div> :
       <AnatomyExplorer
+        workout
+        authoredSupplement={authoredSupplement}
         manifestUrl={manifestUrl}
         onRender={(value) => {
           if (sample.current && sample.current.frames.length < 10000)
             sample.current.frames.push(value);
         }}
-      />
+      />}
     </>
   );
 }

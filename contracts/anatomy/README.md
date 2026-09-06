@@ -70,3 +70,21 @@ wrapper collects bounded renderer submissions during a manual gesture and report
 its method/limits. This is browser submission cadence, not GPU presentation timing.
 No automatic camera animation, remote telemetry or logger integration. Emulation is
 reported separately and cannot close the physical-device gate.
+
+### Private authored illustrations
+
+`AnatomyExplorer` accepts an optional validated `AuthoredSupplement`. The private
+review exporter can load it with `--authored /absolute/path/supplement.json`;
+`authored-core.glb` must sit beside that JSON. The exporter verifies the GLB hash
+and size and includes the supplement identity in its report. Product routes do
+not enable this addition automatically.
+
+The supplement is bound to one source release, keeps `AG2_authored_*` geometry
+and `AUTHORED_*` display identities, and does not rewrite FMA mappings, source
+coverage, transforms, or files. `validateAtlas` rejects embedded authored data;
+composition happens only after source validation. The illustrations support
+normal selection, focus, isolation and full-atlas exploration and are identified
+as illustrated models. Source and illustration attribution remain separate.
+The complete supplemental chunk is charged against the same 96 MiB geometry
+budget before optional vascular context is selected. Integrity and transport
+checks do not constitute anatomical approval.
