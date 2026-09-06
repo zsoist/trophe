@@ -199,7 +199,7 @@ export default function AtlasCanvas(props: CanvasProps) {
     const cancelTransition = () => {
       manualCamera = true;
       transition = null;
-      latest.current.onManualView?.();
+      if (!dead) latest.current.onManualView?.();
     };
     controls.addEventListener("start", cancelTransition);
     const reduceMotion = () => {
