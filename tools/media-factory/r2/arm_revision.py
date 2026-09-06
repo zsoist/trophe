@@ -279,3 +279,62 @@ def validate(config,out):
  masks=[m.vertex_group for m in body.modifiers if m.type=='MASK'];assert 'CoveredBySportswear' not in masks
  report={'passed':True,'hands_and_prop_comparison':rows,'pose_driver':{'elevated':elevated,'lowered_native_FK_controls':lowered},'preserved_masks':masks,'limits':'Driver tests shoulder elevation response, not physiology. Actual collisions and temporal surface checks reported separately.'}
  (out/'arm-regression.json').write_text(json.dumps(report,indent=2));return report
+
+
+def panel(config,out):
+ """Extend only existing lower armhole panels; keep original neck, straps and hem."""
+ import bmesh
+ from collections import defaultdict
+ bpy.ops.wm.open_mainfile(filepath=config['animation_source'],load_ui=False,use_scripts=False)
+ scene=bpy.context.scene;body=bpy.data.objects['Trophe_R2_Athlete'];shirt=bpy.data.objects['SportsTank'];coords=coordinates(body)
+ cam=studio(scene);cam.data.sensor_fit='VERTICAL';scene.render.engine='BLENDER_EEVEE';scene.render.resolution_x=1280;scene.render.resolution_y=720
+ def picture(name,frame=64,rear=False):
+  scene.frame_set(frame);bpy.context.view_layer.update();place(cam,(2.294,3.277 if rear else -3.277,2.15),(0,.03,1.15),1.6);scene.render.filepath=str(out/(name+'.png'));bpy.ops.render.render(write_still=True)
+ picture('before');old_materials=list(body.data.materials);old_indices=[p.material_index for p in body.data.polygons]
+ weights={v.index:{body.vertex_groups[g.group].name:g.weight for g in v.groups} for v in body.data.vertices}
+ for name,color in [('torso assignment',(.04,.20,.7,1)),('arm assignment',(.65,.10,.04,1)),('shoulder assignment',(.55,.42,.04,1))]:
+  m=bpy.data.materials.new('Diagnostic '+name);m.diffuse_color=color;body.data.materials.append(m)
+ for face in body.data.polygons:
+  arm=sum(sum(w for n,w in weights[i].items() if n.startswith(('DEF-upper_arm','DEF-forearm','DEF-hand','DEF-f_','DEF-thumb'))) for i in face.vertices)/len(face.vertices)
+  torso=sum(sum(w for n,w in weights[i].items() if n.startswith(('DEF-spine','DEF-breast'))) for i in face.vertices)/len(face.vertices)
+  face.material_index=len(old_materials)+(1 if arm>.5 else 0 if torso>.45 else 2)
+ picture('diagnostic-bone-influence-not-anatomy')
+ for face,index in zip(body.data.polygons,old_indices):face.material_index=index
+ body.data.materials.clear()
+ for m in old_materials:body.data.materials.append(m)
+ skin={i for i,w in weights.items() if w.get('body',0)>.5}
+ arm={i:sum(v for n,v in w.items() if n.startswith(('DEF-upper_arm','DEF-shoulder-helper'))) for i,w in weights.items()}
+ bm=bmesh.new();bm.from_mesh(shirt.data);bind=bm.verts.layers.int['R2 garment body bind'];deform=bm.verts.layers.deform.verify();mapping={v[bind]:v for v in bm.verts}
+ old_source_faces={frozenset(v[bind] for v in f.verts) for f in bm.faces}
+ candidates={f.index:list(f.vertices) for f in body.data.polygons if frozenset(f.vertices) not in old_source_faces and all(i in skin and .085<abs(coords[i].x)<.23 and 1.20<coords[i].z<1.405 and arm[i]<.35 for i in f.vertices)}
+ existing_edges={tuple(sorted((e.verts[0][bind],e.verts[1][bind]))) for e in bm.edges if e.is_boundary and all(abs(v.co.x)>.08 and 1.20<v.co.z<1.45 for v in e.verts)}
+ added=[];new_vertices=[];new_sources=[]
+ while True:
+  found=[i for i,face in candidates.items() if any(tuple(sorted((face[j],face[(j+1)%len(face)]))) in existing_edges for j in range(len(face)))]
+  if not found:break
+  for i in found:
+   face=candidates.pop(i);vertices=[]
+   for source in face:
+    if source not in mapping:
+     v=bm.verts.new(coords[source]+body.data.vertices[source].normal*.006);v[bind]=source;mapping[source]=v;new_vertices.append(v);new_sources.append(source)
+     for name,w in weights[source].items():
+      group=shirt.vertex_groups.get(name) or shirt.vertex_groups.new(name=name);v[deform][group.index]=w
+    vertices.append(mapping[source])
+   bm.faces.new(vertices);added.append(face)
+   for j in range(len(face)):existing_edges.add(tuple(sorted((face[j],face[(j+1)%len(face)]))))
+ assert added,'No connected lower armhole panel found'
+ bm.normal_update();edge_new=[v for v in new_vertices if v.is_boundary]
+ for _ in range(3):bmesh.ops.smooth_vert(bm,verts=edge_new,factor=.35,use_axis_x=True,use_axis_y=True,use_axis_z=True)
+ bm.to_mesh(shirt.data);bm.free();shirt.data.update()
+ border_counts=defaultdict(int)
+ for f in shirt.data.polygons:
+  for e in f.edge_keys:border_counts[e]+=1
+ border={i for e,n in border_counts.items() if n==1 for i in e}
+ for v in shirt.data.vertices:
+  shirt.data.attributes['BoundEdge'].data[v.index].value=max(0,1-min((v.co-shirt.data.vertices[j].co).length for j in border)/.018)
+  if shirt.data.attributes.get('r2_garment_rest_position'):shirt.data.attributes['r2_garment_rest_position'].data[v.index].vector=v.co
+ for f in shirt.data.polygons:f.use_smooth=True
+ report={'added_faces_source_ids':added,'new_vertices_source_ids':new_sources,'old_vertices_kept':len(mapping)-len(new_sources),'original_modifiers':[m.type for m in shirt.modifiers],'source':config['animation_source'],'method':'Connected lower-armhole extension on original topology using body-bind IDs and exact native weights. Neck, straps, hem and existing vertices retained; no whole-shirt rebuild or body masking.','diagnostic_color':'Bone-weight assignment, not anatomical segmentation or activation.','human_reviews':'pending'}
+ for rear in [False,True]:
+  for f in [1,33,64,95]:picture(('rear35' if rear else 'front35')+'-%03d'%f,f,rear)
+ scene.frame_set(1);bpy.ops.wm.save_as_mainfile(filepath=str(out/'triceps.blend'));(out/'panel.json').write_text(json.dumps(report,indent=2));return {'added_faces':len(added),'new_vertices':len(new_sources)}

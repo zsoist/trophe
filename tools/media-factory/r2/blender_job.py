@@ -201,6 +201,7 @@ def main():
     dispatch['triceps_refine']=triceps_refine.run
     dispatch['arm_revision']=arm_revision.run
     dispatch['arm_validate']=arm_revision.validate
+    dispatch['arm_panel']=arm_revision.panel
     dispatch['atlas_patch']=atlas_patch.run
     dispatch['atlas_validate']=atlas_patch.validate
     dispatch['coverage_finish']=garment_pattern.finish_coverage
