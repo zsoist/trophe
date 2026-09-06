@@ -162,3 +162,33 @@ def verify_render(config,out):
     assert np.linalg.norm(np.array(orbit[0]['camera_world'])-orbit[-1]['camera_world'])<1e-5
     report={'passed':True,'retiming':rows,'orbit':orbit,'method':'Evaluated source surface compared at corresponding retimed subframes; world camera quarter-turns, closure, actual skin/equipment projected margins. Not human anatomy/technique approval.'}
     (out/'render-regression.json').write_text(json.dumps(report,indent=2));return report
+
+def time_fix(config,out):
+    """Keep quaternion keys on a continuous hemisphere before subframe sampling."""
+    bpy.ops.wm.open_mainfile(filepath=config['animation_source'],load_ui=False,use_scripts=False)
+    s=bpy.context.scene;changes=[];seen=set()
+    for obj in s.objects:
+        action=obj.animation_data.action if obj.animation_data else None
+        if not action or action.as_pointer() in seen:continue
+        seen.add(action.as_pointer())
+        for layer in action.layers:
+            for strip in layer.strips:
+                for bag in strip.channelbags:
+                    groups={}
+                    for fc in bag.fcurves:
+                        if fc.data_path.endswith('rotation_quaternion'):groups.setdefault(fc.data_path,{})[fc.array_index]=fc
+                    for path,channels in groups.items():
+                        if set(channels)!={0,1,2,3}:continue
+                        curves=[channels[i] for i in range(4)];assert len({len(fc.keyframe_points) for fc in curves})==1
+                        previous=None
+                        for points in zip(*(fc.keyframe_points for fc in curves)):
+                            assert len({round(p.co.x,5) for p in points})==1
+                            q=Vector([p.co.y for p in points])
+                            if previous is not None and previous.dot(q)<0:
+                                for p in points:
+                                    y,l,h=p.co.y,p.handle_left.y,p.handle_right.y;p.co.y=-y;p.handle_left.y=-l;p.handle_right.y=-h
+                                q=-q;changes.append({'object':obj.name,'path':path,'frame':points[0].co.x})
+                            previous=q
+                        for fc in curves:fc.update()
+    s.frame_set(1);bpy.ops.wm.save_as_mainfile(filepath=str(out/'triceps.blend'))
+    (out/'quaternion-continuity.json').write_text(json.dumps({'hemisphere_flips':changes,'method':'q and -q represent identical key poses, but component F-curves interpolate badly between opposite signs. Flip keys and handles to a continuous hemisphere; original integer key poses preserved.','human_reviews':'pending'},indent=2));return {'flips':len(changes)}
