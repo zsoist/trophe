@@ -1,5 +1,20 @@
 import type { CoreLanguage } from "../types";
 const rows: Record<string, [string, string, string]> = {
+  authored_model: [
+    "Illustrated 3D model",
+    "Modelo 3D ilustrado",
+    "Εικονογραφημένο μοντέλο 3D",
+  ],
+  authored_explanation: [
+    "The front abs and lats include original illustrated models. Their shape is simplified and is being reviewed separately from the source anatomy.",
+    "Los abdominales centrales y dorsales incluyen modelos ilustrados originales. Su forma es simplificada y se revisa por separado de la anatomía fuente.",
+    "Οι κοιλιακοί και οι πλατείς ραχιαίοι περιλαμβάνουν πρωτότυπα εικονογραφημένα μοντέλα. Η μορφή τους είναι απλοποιημένη και ελέγχεται ξεχωριστά από την αρχική ανατομία.",
+  ],
+  core_intro: [
+    "Explore your front abs, obliques and lower back. Upper and lower abs are regions of the same muscle.",
+    "Explora abdominales centrales, oblicuos y zona lumbar. El abdomen superior e inferior son regiones del mismo músculo.",
+    "Εξερευνήστε κοιλιακούς, λοξούς και μέση. Οι άνω και κάτω κοιλιακοί είναι περιοχές του ίδιου μυός.",
+  ],
   explore_muscles: ["Explore muscles", "Explorar músculos", "Εξερευνήστε μύες"],
   part_selection_hint: [
     "Tap to explore. Tap again to return to the group.",

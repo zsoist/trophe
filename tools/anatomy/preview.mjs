@@ -29,6 +29,16 @@ if (
 )
   throw Error("Commit review code before exporting an exact-SHA deployment");
 const light = process.argv.includes("--light");
+const authoredAt = process.argv.indexOf("--authored");
+const authoredPath =
+  authoredAt < 0 ? null : resolve(process.argv[authoredAt + 1]);
+const { validateAuthored } = await tsImport(
+  "../../lib/anatomy/authored.ts",
+  import.meta.url,
+);
+const authoredSupplement = authoredPath
+  ? validateAuthored(JSON.parse(await readFile(authoredPath, "utf8")))
+  : undefined;
 const manifestBytes = await readFile(join(directory, "manifest.json"));
 if (manifestBytes.length > 8 * 1024 * 1024) throw Error("Manifest cap");
 const manifest = validateAtlas(JSON.parse(manifestBytes));
@@ -38,6 +48,17 @@ assets.set("/anatomy/muscle-atlas-mark.webp", {
   mime: "image/webp",
 });
 const prefix = `/anatomy/${manifest.release}/`;
+if (authoredSupplement) {
+  if (authoredSupplement.baseRelease !== manifest.release)
+    throw Error("Authored base release mismatch");
+  const c = authoredSupplement.chunk;
+  assets.set(c.url, {
+    path: join(dirname(authoredPath), "authored-core.glb"),
+    sha256: c.sha256,
+    size: c.bytes,
+    mime: "model/gltf-binary",
+  });
+}
 assets.set(prefix + "manifest.json", {
   bytes: manifestBytes,
   mime: "application/json",
@@ -65,7 +86,7 @@ if (manifest.poster)
 const temp = await mkdtemp(join(directory, "preview-"));
 const result = await build({
   stdin: {
-    contents: `import React from 'react';import {createRoot} from 'react-dom/client';import {PrivateAtlasReview} from './tools/anatomy/private-review';import {I18nProvider} from './lib/i18n';createRoot(document.getElementById('root')).render(<I18nProvider defaultLang="en"><PrivateAtlasReview manifestUrl="${prefix}manifest.json" identity={${JSON.stringify({ codeSha, manifestSha256: createHash("sha256").update(manifestBytes).digest("hex"), release: manifest.release })}}/></I18nProvider>);`,
+    contents: `import React from 'react';import {createRoot} from 'react-dom/client';import {PrivateAtlasReview} from './tools/anatomy/private-review';import {I18nProvider} from './lib/i18n';createRoot(document.getElementById('root')).render(<I18nProvider defaultLang="en"><PrivateAtlasReview manifestUrl="${prefix}manifest.json" authoredSupplement={${JSON.stringify(authoredSupplement) ?? "undefined"}} identity={${JSON.stringify({ codeSha, manifestSha256: createHash("sha256").update(manifestBytes).digest("hex"), release: manifest.release, authoredSha256: authoredSupplement?.chunk.sha256 ?? null })}}/></I18nProvider>);`,
     resolveDir: root,
     loader: "tsx",
   },
@@ -148,6 +169,13 @@ if (exportDirectory) {
     JSON.stringify(
       {
         codeSha,
+        authoredSupplement: authoredSupplement
+          ? {
+              sha256: authoredSupplement.chunk.sha256,
+              recipeSha256: authoredSupplement.recipeSha256,
+              author: authoredSupplement.author,
+            }
+          : null,
         release: manifest.release,
         manifestSha256: createHash("sha256")
           .update(manifestBytes)

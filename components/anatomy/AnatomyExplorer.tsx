@@ -1,4 +1,5 @@
 "use client";
+import { withAuthored, type AuthoredSupplement } from "@/lib/anatomy/authored";
 import { MusclePreview, MuscleColorsIcon } from "./MusclePreview";
 import { preferredView, partCameraGroup } from "@/lib/anatomy/camera";
 import type { RenderObservation } from "./AtlasCanvas";
@@ -95,8 +96,10 @@ export default function AnatomyExplorer({
   onRender,
   workout = false,
   initialGroup,
+  authoredSupplement,
 }: {
   manifestUrl: string;
+  authoredSupplement?: AuthoredSupplement;
   initialMuscle?: string;
   workout?: boolean;
   initialGroup?: string;
@@ -121,7 +124,12 @@ export default function AnatomyExplorer({
   const [subgroupColors, setSubgroupColors] = useState(true);
   const [groupsOpen, setGroupsOpen] = useState(false);
   const groupButton = useRef<HTMLButtonElement>(null);
-  const [manifest, setManifest] = useState<AtlasManifest | null>(null);
+  const [sourceManifest, setManifest] = useState<AtlasManifest | null>(null);
+  const manifest = useMemo(
+    () =>
+      sourceManifest ? withAuthored(sourceManifest, authoredSupplement) : null,
+    [sourceManifest, authoredSupplement],
+  );
   const [error, setError] = useState(false);
   const [retry, setRetry] = useState(0);
   const [query, setQuery] = useState("");
@@ -542,7 +550,11 @@ export default function AnatomyExplorer({
           )}
           {focusGroup === "core" && (
             <p className="anatomy-selection-help">
-              {t("anatomy.abdomen_coverage")}
+              {t(
+                manifest?.authored?.muscleElements["rectus-abdominis"]
+                  ? "anatomy.core_intro"
+                  : "anatomy.abdomen_coverage",
+              )}
             </p>
           )}
           {focusGroup && (
@@ -623,6 +635,9 @@ export default function AnatomyExplorer({
                 <summary>{t("anatomy.about_highlights")}</summary>
                 <p>{t("anatomy.focus_role_limit")}</p>
                 <p>{t("anatomy.preview_source")}</p>
+                {manifest?.authored && (
+                  <p>{t("anatomy.authored_explanation")}</p>
+                )}
                 {focused?.partial && <p>{t("anatomy.focus_partial")}</p>}
                 {subgroupColors &&
                   Object.values(colors).includes("#b9bdba") && (
@@ -795,7 +810,14 @@ export default function AnatomyExplorer({
           )}
           {workoutMode && part && (
             <div className="anatomy-focus-caption">
-              <strong>{t(part.labelKey)}</strong>
+              <strong>
+                {t(part.labelKey)}
+                {manifest?.authored?.muscleElements[part.id] && (
+                  <small className="anatomy-authored-label">
+                    {t("anatomy.authored_model")}
+                  </small>
+                )}
+              </strong>
               <button
                 aria-pressed={isolated}
                 aria-label={t("anatomy.isolate")}
@@ -809,15 +831,6 @@ export default function AnatomyExplorer({
                 {t("anatomy.show_group")}
               </button>
             </div>
-          )}
-          {workoutMode && context && (
-            <p className="anatomy-context-note">
-              {t("anatomy.workout_layers")} ·{" "}
-              {t("anatomy.vascular_context", {
-                n: context.vascularChunks,
-                total: context.totalVascularChunks,
-              })}
-            </p>
           )}
           {error && (
             <button
@@ -858,7 +871,10 @@ export default function AnatomyExplorer({
               <details className="anatomy-source-detail">
                 <summary>{t("anatomy.source_details")}</summary>
                 <p>
-                  {t("anatomy.source_english")} · {concept.id}
+                  {concept.id.startsWith("AUTHORED_")
+                    ? t("anatomy.authored_model")
+                    : t("anatomy.source_english")}{" "}
+                  · {concept.id}
                 </p>
                 <p>{t(`anatomy.${concept.availability}`)}</p>
                 {parents
@@ -1036,7 +1052,10 @@ export default function AnatomyExplorer({
               <>
                 <h3>{concept.source_names[0]}</h3>
                 <p>
-                  {t("anatomy.source_english")} · {concept.id}
+                  {concept.id.startsWith("AUTHORED_")
+                    ? t("anatomy.authored_model")
+                    : t("anatomy.source_english")}{" "}
+                  · {concept.id}
                 </p>
                 <p>
                   {t(`anatomy.${concept.laterality}`)} ·{" "}
@@ -1269,7 +1288,22 @@ export default function AnatomyExplorer({
               {manifest.license.attribution} ·{" "}
               <a href={manifest.license.url}>CC BY 4.0</a>
             </p>
+            {workoutMode && context && (
+              <p className="anatomy-context-note">
+                {t("anatomy.workout_layers")} ·{" "}
+                {t("anatomy.vascular_context", {
+                  n: context.vascularChunks,
+                  total: context.totalVascularChunks,
+                })}
+              </p>
+            )}
             <p>{t("anatomy.not_clinical")}</p>
+            {manifest.authored && (
+              <p>
+                {t("anatomy.authored_explanation")} · {manifest.authored.author}{" "}
+                · {manifest.authored.license}
+              </p>
+            )}
             <p>
               {t("anatomy.coverage")}: {manifest.coverage.converted}/
               {manifest.coverage.source_elements} · {t("anatomy.rejected")}:{" "}

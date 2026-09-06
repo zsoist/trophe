@@ -7,6 +7,7 @@ export function preferredView(id: string): CameraView {
     id.includes("trapezius") ||
     [
       "back",
+      "latissimus-dorsi",
       "glutes",
       "gastrocnemius",
       "soleus",

@@ -2,15 +2,23 @@
 /** Review-only wrapper. Never imported by product routes or the live logger. */
 import { useEffect, useRef, useState } from "react";
 import { useI18n, LANGUAGE_OPTIONS } from "../../lib/i18n";
+import type { AuthoredSupplement } from "../../lib/anatomy/authored";
 import type { Language } from "../../lib/types";
 import AnatomyExplorer from "../../components/anatomy/AnatomyExplorer";
 import type { RenderObservation } from "../../components/anatomy/AtlasCanvas";
 export function PrivateAtlasReview({
   manifestUrl,
   identity,
+  authoredSupplement,
 }: {
   manifestUrl: string;
-  identity: { codeSha: string; manifestSha256: string; release: string };
+  authoredSupplement?: AuthoredSupplement;
+  identity: {
+    codeSha: string;
+    manifestSha256: string;
+    release: string;
+    authoredSha256?: string | null;
+  };
 }) {
   const { t, lang, setLang } = useI18n();
   const [device, setDevice] = useState("desktop/emulation");
@@ -108,6 +116,7 @@ export function PrivateAtlasReview({
       </aside>
       <AnatomyExplorer
         workout
+        authoredSupplement={authoredSupplement}
         manifestUrl={manifestUrl}
         onRender={(value) => {
           if (sample.current && sample.current.frames.length < 10000)

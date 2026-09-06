@@ -164,7 +164,7 @@ export function workoutFocus(
     color: (group === "chest" ? chestColors : SUBGROUP_COLORS)[
       index % SUBGROUP_COLORS.length
     ],
-    elements: [
+    elements: manifest.authored?.muscleElements[mapping.id] ?? [
       ...new Set(
         mapping.concepts.flatMap((c) => manifest.concepts[c]?.elements ?? []),
       ),

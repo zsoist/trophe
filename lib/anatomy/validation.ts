@@ -76,6 +76,7 @@ export function validateAtlas(value: unknown): AtlasManifest {
   const m = value as AtlasManifest;
   if (
     !m ||
+    m.authored !== undefined ||
     m.version !== "trophe.static-atlas/1" ||
     !id(m.release, /^[a-f0-9]{64}$/) ||
     !m.concepts ||
