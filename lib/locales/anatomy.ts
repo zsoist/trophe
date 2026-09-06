@@ -1,5 +1,33 @@
 import type { CoreLanguage } from "../types";
 const rows: Record<string, [string, string, string]> = {
+  explore_muscles: ["Explore muscles", "Explorar músculos", "Εξερευνήστε μύες"],
+  part_selection_hint: [
+    "Choose one to focus on it. The rest stays in the background.",
+    "Elige uno para enfocarlo. El resto queda en segundo plano.",
+    "Επιλέξτε έναν για εστίαση. Οι υπόλοιποι μένουν στο φόντο.",
+  ],
+  inspect_muscle: ["Focus in 3D", "Enfocar en 3D", "Εστίαση σε 3D"],
+  show_group: ["Show full group", "Ver grupo completo", "Ολόκληρη η ομάδα"],
+  leg_regions: ["Leg regions", "Regiones de las piernas", "Περιοχές ποδιών"],
+  legs_all: ["Full legs", "Piernas completas", "Ολόκληρα πόδια"],
+  legs_upper: ["Upper legs", "Muslos", "Άνω πόδια"],
+  legs_lower: ["Lower legs", "Piernas inferiores", "Κάτω πόδια"],
+  free_view: ["Free view", "Vista libre", "Ελεύθερη προβολή"],
+  triceps_long: [
+    "Triceps · long head",
+    "Tríceps · cabeza larga",
+    "Τρικέφαλος · μακρά κεφαλή",
+  ],
+  triceps_lateral: [
+    "Triceps · lateral head",
+    "Tríceps · cabeza lateral",
+    "Τρικέφαλος · έξω κεφαλή",
+  ],
+  triceps_medial: [
+    "Triceps · medial head",
+    "Tríceps · cabeza medial",
+    "Τρικέφαλος · έσω κεφαλή",
+  ],
   show_neck_surface: [
     "Show surface layer",
     "Mostrar capa superficial",
@@ -43,9 +71,9 @@ const rows: Record<string, [string, string, string]> = {
   ],
   external_obliques: ["External obliques", "Oblicuos externos", "Έξω λοξοί"],
   abdomen_coverage: [
-    "The side abdominal muscles are shown here. The front abdominal muscle (rectus abdominis) is not represented in this model yet.",
-    "Aquí se muestran los músculos laterales del abdomen. El recto abdominal frontal aún no está representado en este modelo.",
-    "Εμφανίζονται οι πλάγιοι κοιλιακοί. Ο ορθός κοιλιακός δεν αναπαρίσταται ακόμα σε αυτό το μοντέλο.",
+    "Explore the obliques and lower back. The front abs (rectus abdominis) are not represented in this model yet. Upper and lower abs are regions of that muscle, not separate muscles.",
+    "Explora los oblicuos y la zona lumbar. El recto abdominal aún no está representado. El abdomen superior e inferior son regiones de ese músculo, no músculos independientes.",
+    "Εξερευνήστε τους λοξούς και τη μέση. Ο ορθός κοιλιακός δεν αναπαρίσταται ακόμα. Οι άνω και κάτω κοιλιακοί είναι περιοχές του ίδιου μυός, όχι ξεχωριστοί μύες.",
   ],
   choose_groups: ["Groups", "Grupos", "Ομάδες"],
   exercises: ["Exercises", "Ejercicios", "Ασκήσεις"],
@@ -181,8 +209,8 @@ const rows: Record<string, [string, string, string]> = {
   focus_triceps: ["Triceps", "Tríceps", "Τρικέφαλοι"],
   focus_legs: ["Legs", "Piernas", "Πόδια"],
   focus_glutes: ["Glutes", "Glúteos", "Γλουτοί"],
-  focus_core: ["Abdomen", "Abdomen", "Κοιλιά"],
-  focus_neck: ["Neck", "Cuello", "Αυχένας"],
+  focus_core: ["Abs & core", "Abdomen y core", "Κοιλιακοί και κορμός"],
+  focus_neck: ["Neck & shoulders", "Cuello y hombros", "Αυχένας και ώμοι"],
   structure_card: [
     "Selected structure in viewer",
     "Estructura seleccionada en el visor",

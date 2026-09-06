@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import React from "react";
 import {
+  act,
   cleanup,
   render,
   screen,
@@ -148,6 +149,15 @@ it("opens workout focus without organs and preserves deep exploration as a separ
     screen.getByRole("link", { name: "Exercises" }).getAttribute("href"),
   ).toBe("/dashboard/workout/exercises?atlas=chest");
   expect(canvasObservation.props!.interactive).toBe(true);
+  act(() => canvasObservation.props!.onManualView?.());
+  expect(
+    screen.getByRole("button", { name: "View direction" }).textContent,
+  ).toContain("Free view");
+  expect(
+    screen
+      .getByRole("button", { name: "Subgroup colors" })
+      .closest(".anatomy-stage"),
+  ).toBeTruthy();
   const loadedManifest = canvasObservation.props!.manifest;
   fireEvent.click(screen.getByRole("button", { name: "Groups" }));
   fireEvent.click(screen.getByRole("button", { name: "Glutes" }));
@@ -162,7 +172,7 @@ it("opens workout focus without organs and preserves deep exploration as a separ
   fireEvent.click(screen.getByRole("button", { name: "Side" }));
   expect(canvasObservation.props!.view).toBe("side");
   fireEvent.click(screen.getByRole("button", { name: "Groups" }));
-  fireEvent.click(screen.getByRole("button", { name: "Neck" }));
+  fireEvent.click(screen.getByRole("button", { name: "Neck & shoulders" }));
   expect(canvasObservation.props!.manifest).toBe(loadedManifest);
   expect(
     screen.getByRole("link", { name: "Exercises" }).getAttribute("href"),

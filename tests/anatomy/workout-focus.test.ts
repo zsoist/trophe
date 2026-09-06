@@ -2,6 +2,7 @@ import { expect, it } from "vitest";
 import type { AtlasManifest } from "../../lib/anatomy/types";
 import {
   workoutContext,
+  workoutOcularElements,
   workoutFocus,
   isWorkoutFocusGroup,
 } from "../../lib/anatomy/workout-focus";
@@ -157,4 +158,35 @@ it("uses source-only neck and pectoral subdivisions without fabricating abdomina
   expect(abdomen.subgroups.find((g) => g.id === "obliques")?.labelKey).toBe(
     "anatomy.external_obliques",
   );
+});
+
+it("partitions training leg regions and identifies ocular pieces without changing source", () => {
+  const source = {
+    ...manifest,
+    concepts: {
+      FMA12514: { elements: ["eye-right"] },
+      FMA12515: { elements: ["eye-left"] },
+    },
+  } as unknown as AtlasManifest;
+  const before = JSON.stringify(source);
+  const upper = workoutFocus(source, "legs", "upper").subgroups.map(
+    (g) => g.id,
+  );
+  const lower = workoutFocus(source, "legs", "lower").subgroups.map(
+    (g) => g.id,
+  );
+  expect(upper).toEqual(["quadriceps", "hamstrings", "adductors"]);
+  expect(lower).toEqual(["gastrocnemius", "soleus", "tibialis-anterior"]);
+  expect(workoutFocus(source, "legs").subgroups.map((g) => g.id)).toEqual([
+    ...upper,
+    ...lower,
+  ]);
+  expect(workoutOcularElements(source)).toEqual(["eye-right", "eye-left"]);
+  expect(
+    workoutFocus(source, "triceps").subgroups.map((g) => g.concepts),
+  ).toEqual([["FMA37692"], ["FMA37694"], ["FMA37693"]]);
+  expect(workoutFocus(source, "neck").subgroups.map((g) => g.id)).toContain(
+    "upper-trapezius",
+  );
+  expect(JSON.stringify(source)).toBe(before);
 });

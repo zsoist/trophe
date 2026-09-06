@@ -3,6 +3,7 @@ import type { RenderObservation } from "./AtlasCanvas";
 import Image from "next/image";
 import { workoutAtlasFilter } from "@/lib/anatomy/workout-navigation";
 import {
+  SwatchBook,
   Check,
   ChevronDown,
   PersonStanding,
@@ -47,6 +48,7 @@ import {
   WORKOUT_SYSTEMS,
   workoutFocus,
   workoutContext,
+  workoutOcularElements,
   isWorkoutFocusGroup,
   type WorkoutFocusGroup,
 } from "@/lib/anatomy/workout-focus";
@@ -110,6 +112,10 @@ export default function AnatomyExplorer({
           )?.[0] as WorkoutFocusGroup) ?? "")
         : "",
   );
+  const [legRegion, setLegRegion] = useState<"all" | "upper" | "lower">("all");
+  const [focusedPart, setFocusedPart] = useState<string | null>(null);
+  const [manualView, setManualView] = useState(false);
+  const onManualView = useCallback(() => setManualView(true), []);
   const [showSuperficial, setShowSuperficial] = useState(false);
   const [subgroupColors, setSubgroupColors] = useState(true);
   const [groupsOpen, setGroupsOpen] = useState(false);
@@ -161,7 +167,7 @@ export default function AnatomyExplorer({
   const onError = useCallback(() => {
     setError(true);
     setShow3d(false);
-  }, []);
+  }, [setError, setShow3d]);
   const onProgress = useCallback(
     (a: number, b: number) =>
       setProgress((p) => (p[0] === a && p[1] === b ? p : [a, b])),
@@ -172,15 +178,25 @@ export default function AnatomyExplorer({
     [manifest, selected],
   );
   const focused = useMemo(
-    () => (manifest ? workoutFocus(manifest, focusGroup) : null),
-    [manifest, focusGroup],
+    () => (manifest ? workoutFocus(manifest, focusGroup, legRegion) : null),
+    [manifest, focusGroup, legRegion],
+  );
+  const part = focused?.subgroups.find((g) => g.id === focusedPart);
+  const focusElements = part?.elements ?? focused?.elements;
+  const ocularElements = useMemo(
+    () => (manifest ? workoutOcularElements(manifest) : []),
+    [manifest],
   );
   const effectiveHidden = useMemo(
     () =>
-      workoutMode && !showSuperficial
-        ? [...hidden, ...(focused?.superficialElements ?? [])]
+      workoutMode
+        ? [
+            ...hidden,
+            ...ocularElements,
+            ...(!showSuperficial ? (focused?.superficialElements ?? []) : []),
+          ]
         : hidden,
-    [hidden, focused, workoutMode, showSuperficial],
+    [hidden, ocularElements, focused, workoutMode, showSuperficial],
   );
   const context = useMemo(
     () => (manifest && workoutMode ? workoutContext(manifest, []) : null),
@@ -189,14 +205,14 @@ export default function AnatomyExplorer({
   const colors = useMemo(() => {
     const values: Record<string, string> = {};
     if (subgroupColors)
-      for (const subgroup of focused?.subgroups ?? [])
+      for (const subgroup of part ? [part] : (focused?.subgroups ?? []))
         for (const id of subgroup.elements)
           values[id] =
             values[id] && values[id] !== subgroup.color
               ? "#b9bdba"
               : subgroup.color;
     return values;
-  }, [focused, subgroupColors]);
+  }, [focused, subgroupColors, part]);
   const selectionVisibility =
     manifest && selected
       ? visibleSelection(
@@ -247,7 +263,7 @@ export default function AnatomyExplorer({
       setCardEdge(position && position.y < 0.5 ? "bottom" : "top");
       if (manifest) setSelected(conceptForElement(manifest, id));
     },
-    [manifest],
+    [manifest, setCardEdge, setSelected],
   );
   const changeSystems = (next: string[]) => {
     if (manifest && !fitsAtlasMemory(manifest, next)) {
@@ -375,9 +391,12 @@ export default function AnatomyExplorer({
                 aria-pressed={!focusGroup}
                 onClick={() => {
                   setFocusGroup("");
+                  setFocusedPart(null);
+                  setManualView(false);
                   setSelected(null);
                   setIsolated(false);
                   setView("front");
+                  setManualView(false);
                   setReset((v) => v + 1);
                   setShow3d(true);
                   closeGroups();
@@ -395,6 +414,8 @@ export default function AnatomyExplorer({
                       aria-pressed={focusGroup === group}
                       onClick={() => {
                         setFocusGroup(group);
+                        setFocusedPart(null);
+                        setManualView(false);
                         setCameraRequest((v) => v + 1);
                         setSelected(null);
                         setIsolated(false);
@@ -434,6 +455,29 @@ export default function AnatomyExplorer({
                 : "anatomy.choose_group_hint",
             )}
           </p>
+          {focusGroup === "legs" && (
+            <div
+              className="anatomy-region-tabs"
+              role="group"
+              aria-label={t("anatomy.leg_regions")}
+            >
+              {(["all", "upper", "lower"] as const).map((region) => (
+                <button
+                  key={region}
+                  aria-pressed={legRegion === region}
+                  onClick={() => {
+                    setLegRegion(region);
+                    setFocusedPart(null);
+                    setSelected(null);
+                    setManualView(false);
+                    setCameraRequest((n) => n + 1);
+                  }}
+                >
+                  {t(`anatomy.legs_${region}`)}
+                </button>
+              ))}
+            </div>
+          )}
           {focusGroup === "neck" && (
             <div className="anatomy-neck-layer">
               <button
@@ -466,33 +510,91 @@ export default function AnatomyExplorer({
           {focusGroup && (
             <>
               <div className="anatomy-focus-summary">
-                <h3>{t("anatomy.muscles_in_view")}</h3>
-                <button
-                  aria-pressed={subgroupColors}
-                  disabled={!focused?.elements.length}
-                  onClick={() => setSubgroupColors((v) => !v)}
-                >
-                  <Shapes size={16} aria-hidden="true" />
-                  {t("anatomy.subgroup_colors")}
-                </button>
+                <h3>{t("anatomy.explore_muscles")}</h3>
+                {part && (
+                  <button
+                    onClick={() => {
+                      setFocusedPart(null);
+                      setSelected(null);
+                      setIsolated(false);
+                      setCameraRequest((n) => n + 1);
+                      setManualView(false);
+                    }}
+                  >
+                    {t("anatomy.show_group")}
+                  </button>
+                )}
               </div>
-              <ul className="anatomy-focus-legend">
+              <p className="anatomy-selection-help">
+                {t("anatomy.part_selection_hint")}
+              </p>
+              <ul className="anatomy-muscle-options">
                 {focused?.subgroups.map((group) => (
                   <li key={group.id}>
-                    <span
-                      style={{
-                        background: subgroupColors
-                          ? group.color
-                          : "var(--accent)",
+                    <button
+                      disabled={!group.elements.length}
+                      aria-pressed={focusedPart === group.id}
+                      onClick={() => {
+                        setFocusedPart(group.id);
+                        setSelected(null);
+                        setIsolated(false);
+                        setManualView(false);
+                        setCameraRequest((n) => n + 1);
+                        if (
+                          group.id.includes("triceps") ||
+                          group.id.includes("trapezius") ||
+                          [
+                            "gastrocnemius",
+                            "soleus",
+                            "hamstrings",
+                            "erector-spinae",
+                            "rhomboids",
+                            "posterior-deltoid",
+                            "posterior-rectus-capitis",
+                          ].includes(group.id)
+                        )
+                          setView("back");
+                        else setView("front");
+                        if (window.matchMedia?.("(max-width: 899px)").matches)
+                          requestAnimationFrame(() =>
+                            stage.current?.scrollIntoView({
+                              block: "start",
+                              behavior: window.matchMedia(
+                                "(prefers-reduced-motion: reduce)",
+                              ).matches
+                                ? "instant"
+                                : "smooth",
+                            }),
+                          );
                       }}
-                      aria-hidden="true"
-                    />
-                    <span>
-                      {t(group.labelKey)}
-                      {!group.elements.length && (
-                        <small>{t("anatomy.highlight_unavailable")}</small>
-                      )}
-                    </span>
+                    >
+                      <span
+                        className="anatomy-muscle-swatch"
+                        style={{
+                          background: group.elements.length
+                            ? subgroupColors
+                              ? group.color
+                              : "var(--accent)"
+                            : "var(--atlas-rail)",
+                        }}
+                        aria-hidden="true"
+                      />
+                      <span>
+                        <strong>{t(group.labelKey)}</strong>
+                        <small>
+                          {t(
+                            group.elements.length
+                              ? "anatomy.inspect_muscle"
+                              : "anatomy.highlight_unavailable",
+                          )}
+                        </small>
+                      </span>
+                      {focusedPart === group.id ? (
+                        <Check size={16} aria-hidden="true" />
+                      ) : group.elements.length ? (
+                        <Focus size={16} aria-hidden="true" />
+                      ) : null}
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -546,7 +648,7 @@ export default function AnatomyExplorer({
                 onClick={() => setViewOpen((v) => !v)}
               >
                 <Eye size={17} aria-hidden="true" />
-                {t(`anatomy.${view}`)}
+                {t(manualView ? "anatomy.free_view" : `anatomy.${view}`)}
                 <ChevronDown size={16} aria-hidden="true" />
               </button>
               {viewOpen && (
@@ -561,6 +663,7 @@ export default function AnatomyExplorer({
                       key={v}
                       aria-pressed={view === v}
                       onClick={() => {
+                        setManualView(false);
                         setView(v);
                         setCameraRequest((n) => n + 1);
                         setViewOpen(false);
@@ -580,6 +683,7 @@ export default function AnatomyExplorer({
               title={t("anatomy.reset")}
               onClick={() => {
                 setView("front");
+                setManualView(false);
                 setReset((v) => v + 1);
                 setHidden([]);
                 setIsolated(false);
@@ -587,6 +691,18 @@ export default function AnatomyExplorer({
             >
               <RotateCcw aria-hidden="true" size={18} />
             </button>
+            {workoutMode && focusGroup && (
+              <button
+                className="anatomy-icon-button anatomy-color-toggle"
+                aria-label={t("anatomy.subgroup_colors")}
+                title={t("anatomy.subgroup_colors")}
+                aria-pressed={subgroupColors}
+                disabled={!focused?.elements.length}
+                onClick={() => setSubgroupColors((v) => !v)}
+              >
+                <SwatchBook size={19} aria-hidden="true" />
+              </button>
+            )}
           </div>
           {show3d && (
             <div className="anatomy-zoom">
@@ -611,7 +727,7 @@ export default function AnatomyExplorer({
               key={retry}
               manifest={context?.manifest ?? manifest}
               focusElements={
-                workoutMode && focusGroup ? focused?.elements : undefined
+                workoutMode && focusGroup ? focusElements : undefined
               }
               elementColors={workoutMode ? colors : undefined}
               onRender={onRender}
@@ -623,7 +739,16 @@ export default function AnatomyExplorer({
               reset={reset}
               zoom={zoom}
               interactive
-              cameraGroup={workoutMode ? focusGroup : undefined}
+              onManualView={onManualView}
+              cameraGroup={
+                workoutMode
+                  ? part?.id === "biceps-brachii"
+                    ? "biceps"
+                    : part?.id === "triceps-brachii"
+                      ? "triceps"
+                      : focusGroup
+                  : undefined
+              }
               cameraRequest={cameraRequest}
               onPick={onPick}
               onError={onError}
@@ -655,6 +780,22 @@ export default function AnatomyExplorer({
                   {t("anatomy.open")}
                 </button>
               )}
+            </div>
+          )}
+          {workoutMode && part && (
+            <div className="anatomy-focus-caption">
+              <strong>{t(part.labelKey)}</strong>
+              <button
+                aria-label={t("anatomy.show_group")}
+                onClick={() => {
+                  setFocusedPart(null);
+                  setSelected(null);
+                  setIsolated(false);
+                  setCameraRequest((n) => n + 1);
+                }}
+              >
+                <X size={16} aria-hidden="true" />
+              </button>
             </div>
           )}
           {workoutMode && context && (

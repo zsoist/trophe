@@ -35,8 +35,13 @@ export const WORKOUT_FOCUS_GROUPS = {
     "tibialis-anterior",
   ],
   glutes: ["gluteus-maximus", "gluteus-medius"],
-  core: ["rectus-abdominis", "obliques"],
-  neck: [],
+  core: ["rectus-abdominis", "obliques", "erector-spinae"],
+  neck: [
+    "upper-trapezius",
+    "anterior-deltoid",
+    "middle-deltoid",
+    "posterior-deltoid",
+  ],
 } satisfies Record<string, AnatomyMuscleId[]>;
 export type WorkoutFocusGroup = keyof typeof WORKOUT_FOCUS_GROUPS;
 export const WORKOUT_SYSTEMS = ["muscles", "skeleton", "vascular", "nervous"];
@@ -55,8 +60,15 @@ export function isWorkoutFocusGroup(value: string): value is WorkoutFocusGroup {
 export function workoutFocus(
   manifest: AtlasManifest,
   group: WorkoutFocusGroup | "",
+  legRegion: "all" | "upper" | "lower" = "all",
 ) {
-  const muscles: AnatomyMuscleId[] = group ? WORKOUT_FOCUS_GROUPS[group] : [];
+  let muscles: AnatomyMuscleId[] = group ? WORKOUT_FOCUS_GROUPS[group] : [];
+  if (group === "legs" && legRegion !== "all")
+    muscles = muscles.filter((id) =>
+      legRegion === "upper"
+        ? ["quadriceps", "hamstrings", "adductors"].includes(id)
+        : ["gastrocnemius", "soleus", "tibialis-anterior"].includes(id),
+    );
   const definitions = muscles.map((id) => ({
     id: id as string,
     labelKey: `workout.atlas_muscle_${id.replaceAll("-", "_")}`,
@@ -111,6 +123,32 @@ export function workoutFocus(
         concepts: ["FMA32525", "FMA32526"],
         scope: "partial",
         note: "Posterior rectus capitis major/minor only; not complete suboccipital coverage",
+      },
+    );
+  if (group === "triceps")
+    definitions.splice(
+      0,
+      1,
+      {
+        id: "triceps-long",
+        labelKey: "anatomy.triceps_long",
+        concepts: ["FMA37692"],
+        scope: "named",
+        note: "Long source head",
+      },
+      {
+        id: "triceps-lateral",
+        labelKey: "anatomy.triceps_lateral",
+        concepts: ["FMA37694"],
+        scope: "named",
+        note: "Lateral source head",
+      },
+      {
+        id: "triceps-medial",
+        labelKey: "anatomy.triceps_medial",
+        concepts: ["FMA37693"],
+        scope: "named",
+        note: "Medial source head",
       },
     );
   if (group === "core") {
@@ -217,4 +255,15 @@ export function workoutContext(
     vascularChunks: selected.length - core.length,
     totalVascularChunks: vascular.length,
   };
+}
+
+/** Fitness presentation only: ocular structures were partitioned under skeleton in the source. */
+export function workoutOcularElements(manifest: AtlasManifest) {
+  return [
+    ...new Set(
+      ["FMA12514", "FMA12515"].flatMap(
+        (id) => manifest.concepts[id]?.elements ?? [],
+      ),
+    ),
+  ];
 }

@@ -29,6 +29,7 @@ export interface CanvasProps {
   selectedElements: string[];
   focusElements?: string[];
   cameraGroup?: string;
+  onManualView?: () => void;
   cameraRequest?: number;
   elementColors?: Record<string, string>;
   hiddenElements: string[];
@@ -196,6 +197,7 @@ export default function AtlasCanvas(props: CanvasProps) {
     };
     const cancelTransition = () => {
       transition = null;
+      latest.current.onManualView?.();
     };
     controls.addEventListener("start", cancelTransition);
     const reduceMotion = () => {

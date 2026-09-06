@@ -24,6 +24,7 @@ export function focusBounds(
 export function cameraAngle(view: CameraView, group?: string) {
   if (view === "side") return Math.PI / 2;
   if (view === "back") return group === "triceps" ? Math.PI * 0.7 : Math.PI;
+  if (group === "neck") return Math.PI / 5;
   if (group === "shoulders") return Math.PI / 3;
   if (["arms", "biceps"].includes(group ?? "")) return Math.PI / 5;
   return 0;

@@ -1041,3 +1041,101 @@
 .anatomy-viewbar:focus-within {
   z-index: 4;
 }
+
+.anatomy-muscle-options {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 20px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.anatomy-muscle-options button {
+  width: 100%;
+  min-height: 76px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: start;
+  gap: 10px;
+  text-align: left;
+  background: var(--bg-surface);
+  border: 1px solid transparent;
+  border-radius: 12px;
+}
+.anatomy-muscle-options button[aria-pressed="true"] {
+  border-color: var(--accent);
+}
+.anatomy-muscle-options strong {
+  display: block;
+  font-size: 13px;
+  line-height: 1.35;
+  font-weight: 600;
+}
+.anatomy-muscle-options small {
+  display: block;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--atlas-muted);
+  margin-top: 4px;
+}
+.anatomy-muscle-options button > svg {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--atlas-muted);
+}
+.anatomy-muscle-swatch {
+  display: block;
+  width: 8px;
+  height: 28px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.anatomy-region-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  margin: 16px 0;
+  background: var(--bg-surface);
+  border-radius: 12px;
+}
+.anatomy-region-tabs button {
+  flex: 1;
+  padding: 8px;
+  min-width: 0;
+  font-size: 12px;
+}
+.anatomy-viewbar .anatomy-color-toggle {
+  border-left: 0;
+  border-radius: 8px;
+  margin-left: 4px;
+}
+@media (min-width: 900px) {
+  .anatomy-muscle-options {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 380px) {
+  .anatomy-muscle-options {
+    grid-template-columns: 1fr;
+  }
+  .anatomy-view-picker > button {
+    min-width: 104px;
+    gap: 6px;
+  }
+}
+
+.anatomy-focus-caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  background: var(--bg-primary);
+  border-radius: 10px;
+  margin-block: 8px;
+  font-size: 13px;
+}
+.anatomy-focus-caption button {
+  min-width: 44px;
+}

@@ -69,3 +69,7 @@ it("uses the short orbit path without crossing through the model, and finishes e
   expect(cameraEase(1)).toBe(1);
   expect(cameraEase(0.5)).toBeGreaterThan(0.5);
 });
+
+it("opens the expanded neck and shoulder region at an oblique angle", () => {
+  expect(cameraAngle("front", "neck")).toBeCloseTo(Math.PI / 5);
+});
