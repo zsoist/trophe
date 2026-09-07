@@ -49,6 +49,40 @@ scope, available state, digest and expiry. The loader is bounded by five seconds
 and cancellation. No public URL or image bytes enter proposals, receipts or audit.
 The current attachment lifecycle remains responsible for actual object integrity.
 
+`createDatabasePhotoFoodObservationAdapter` closes the previously disconnected
+production seam without invoking it during this delivery. Its composed
+`analyzeAndRecord` flow reads the exact normalized JPEG bytes directly from the
+private Storage adapter, verifies their SHA-256 digest, reauthorizes before and
+after Storage access, then invokes the existing `photo_analyze` task once with
+those bytes and the repository's fixed `photo-analyze.v1.md` prompt. It does not
+accept a URL, base64 image, prompt, task name or normalized foods from a browser.
+The integrating server supplies only the existing provider invocation callback;
+that callback receives a defensive copy of the verified JPEG bytes.
+
+The exact task result is represented by a process-local WeakMap proof. Output must
+contain one bounded `submit_food_photo_analysis` call under Anthropic's existing
+`photo-analyze-v1` policy. Invalid candidates are not silently dropped and dish
+prior additions requiring confirmation are rejected. Recording accepts only that
+proof, locks the attachment again, checks current scope/digest/expiry and verifies
+the completed `agent_runs` row plus server-authored attachment metadata. A browser
+cannot serialize or fabricate `validated_photo_analysis` provenance.
+
+The proposed `private.coach_photo_food_observations` sidecar stores only normalized
+foods, scope, attachment/digest, generation and an immutable UUID revision. A new
+analysis deactivates the prior revision under one attachment advisory lock; old
+review proposals then fail CAS. `load` joins and locks the active observation,
+attachment and completed generation inside the caller's Food transaction. Missing,
+removed or expired attachments and changed/missing generation lineage fail closed.
+Authorization lineage triggers conservatively deactivate observations on profile,
+client-profile or membership changes, including revoke/restore ABA. SQL is a review
+artifact only; AG3 did not execute it or add it to the migration ledger.
+
+The current `/api/ai/photo-analyze` route still analyzes browser-supplied base64 and
+returns an ephemeral result. It is not connected to this durable adapter and must
+not label its response `validated_photo_analysis`. AG1 must explicitly replace
+that path with the private attachment + composed adapter flow after schema/RLS and
+provider-budget review; importing the recorder alone is insufficient.
+
 `createOfflinePhotoFoodObservationPort` preserves `offline_fixture` provenance.
 In the normal service, offline review proposals are ephemeral and cannot apply.
 The separate server-minted `createIsolatedPhotoFoodBoundary` permits the SAME
