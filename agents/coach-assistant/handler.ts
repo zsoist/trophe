@@ -83,6 +83,7 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
       const clientId='version' in parsed.data?parsed.data.context?.clientId:parsed.data.clientId;
       if(synthetic&&clientId)return fail('forbidden',403);
       const result=await (conversational?runConversation:run)(parsed.data,{
+        isolatedActionsEnabled:deps.env.COACH_ASSISTANT_ISOLATED_ACTIONS_ENABLED==='1',
         actorId:synthetic?'synthetic-client':guard.userId,
         repository:synthetic?fixtureRepository():await deps.createRepository(),
         now:synthetic?new Date('2026-09-07T03:30:00Z'):(deps.now?.()??new Date()),
