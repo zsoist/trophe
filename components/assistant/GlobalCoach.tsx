@@ -7,16 +7,21 @@ import { ConversationController, coachSurface, type ConversationTransport } from
 import { requestConversation } from './client';
 import { useGlobalCoachI18n } from './useGlobalCoachI18n';
 import styles from './GlobalCoach.module.css';
+import { ContextCards } from './ContextCards';
+import { PreferenceController, type PreferenceTransport } from './preference-state';
+import { requestPreference } from './preference-client';
 
-type Props = { identity: string; subjectId?: string; example?: ConversationTransport };
+type Props = { identity: string; subjectId?: string; example?: ConversationTransport; preferenceTransport?: PreferenceTransport };
 export default function GlobalCoach(props: Props) {
   return <CoachSurface key={`${props.identity}:${props.subjectId ?? props.identity}`} {...props} />;
 }
-function CoachSurface({ identity, subjectId, example }: Props) {
+function CoachSurface({ identity, subjectId, example, preferenceTransport }: Props) {
   const { t } = useGlobalCoachI18n();
   const path = usePathname();
   const surface = coachSurface(path);
   const [controller] = useState(() => new ConversationController());
+  const [preferences] = useState(() => new PreferenceController());
+  const preferenceState = useSyncExternalStore(preferences.subscribe, preferences.snapshot, preferences.snapshot);
   const state = useSyncExternalStore(controller.subscribe, controller.snapshot, controller.snapshot);
   const [open, setOpen] = useState(false);
   const [includeScreen, setIncludeScreen] = useState(true);
@@ -29,6 +34,7 @@ function CoachSurface({ identity, subjectId, example }: Props) {
   const [showLatest, setShowLatest] = useState(false);
   const scope = `${identity}:${subjectId ?? identity}`;
   useEffect(() => { controller.identify(scope); return () => controller.identify(null); }, [controller, scope]);
+  useEffect(() => () => preferences.reset(), [preferences]);
   useEffect(() => { setAnchor(document.getElementById('global-coach-anchor')); }, []);
   useEffect(() => {
     if (!open) return;
@@ -43,8 +49,9 @@ function CoachSurface({ identity, subjectId, example }: Props) {
     if (followLatest.current && !window.getSelection()?.toString()) log.current?.scrollTo({ top: log.current.scrollHeight });
     else setShowLatest(true);
   }, [open, state.turns, state.pending]);
-  const close = () => { controller.cancel(); setOpen(false); launcher.current?.focus(); };
+  const close = () => { controller.cancel(); preferences.cancel(); setOpen(false); launcher.current?.focus(); };
   const send = () => controller.send({ surface, includeScreen, ...(subjectId ? { clientId: subjectId } : {}) }, example ?? requestConversation);
+  const latestResponse = state.turns.findLast(turn => turn.response?.ok)?.response;
   const launch = <button ref={launcher} type="button" className={styles.launcher} aria-expanded={open} aria-controls="global-coach" onClick={() => open ? close() : setOpen(true)}>
       <MessageCircle size={19} aria-hidden="true" />{t('global_coach.open')}
     </button>;
@@ -52,6 +59,7 @@ function CoachSurface({ identity, subjectId, example }: Props) {
     {anchor ? createPortal(launch, anchor) : launch}
     {open && <section id="global-coach" className={styles.panel} style={{ top: panelTop }} aria-labelledby="global-coach-title" onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); close(); } }}>
       <header className={styles.header}><div><h2 id="global-coach-title">{t('global_coach.title')}</h2><p>{t(example ? 'global_coach.example' : 'global_coach.identity')}</p></div><button type="button" onClick={close} aria-label={t('global_coach.close')}><X size={22} /></button></header>
+      {latestResponse && <ContextCards response={latestResponse} conversationId={state.conversationId} subjectId={subjectId} controller={preferences} state={preferenceState} transport={preferenceTransport ?? requestPreference} />}
       <div ref={log} className={styles.log} role="log" aria-live="polite" aria-relevant="additions text" onScroll={() => {
         const node = log.current; if (!node) return;
         followLatest.current = node.scrollHeight - node.scrollTop - node.clientHeight < 64;

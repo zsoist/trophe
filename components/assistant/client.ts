@@ -14,7 +14,19 @@ export function readConversationResponse(value: unknown): CoachConversationRespo
     if (typeof snapshot.id !== 'string' || typeof snapshot.capturedAt !== 'string' || typeof snapshot.subjectId !== 'string'
       || typeof snapshot.organizationId !== 'string' || typeof snapshot.screenIncluded !== 'boolean'
       || !(snapshot.surface === null || typeof snapshot.surface === 'string') || !Array.isArray(snapshot.capabilities)) throw new Error('invalid_output');
+    if (snapshot.capabilities.length > 20 || snapshot.capabilities.some(item => !item || typeof item !== 'object'
+      || typeof item.key !== 'string' || !['available', 'unknown', 'unauthorized', 'not_connected'].includes(item.status))) throw new Error('invalid_output');
   }
+  if (row.profile !== undefined) {
+    const p = row.profile as Record<string, unknown>;
+    if (!p || typeof p !== 'object' || typeof p.language !== 'string' || typeof p.timezone !== 'string' || typeof p.version !== 'string'
+      || !['authorized_profile', 'isolated_fixture'].includes(String(p.source)) || !p.preferences || typeof p.preferences !== 'object'
+      || ![20, 30, 45, 60].includes((p.preferences as { durationMinutes: number }).durationMinutes)) throw new Error('invalid_output');
+  }
+  if (row.memories !== undefined && (!Array.isArray(row.memories) || row.memories.length > 10 || row.memories.some(item => !item || typeof item !== 'object'
+    || typeof item.id !== 'string' || typeof item.text !== 'string' || item.text.length > 2000 || typeof item.createdAt !== 'string'
+    || !['user_input', 'coach', 'agent_inference', 'wearable'].includes(item.source)
+    || !['user', 'session', 'agent'].includes(item.scope) || !['unconfirmed', 'confirmed'].includes(item.confirmation)))) throw new Error('invalid_output');
   return value as CoachConversationResponse;
 }
 

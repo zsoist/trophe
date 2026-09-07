@@ -6,6 +6,7 @@ import { useGlobalCoachI18n } from '../../../components/assistant/useGlobalCoach
 import { privateCoachTransport } from './coach';
 import { exampleFoodRows } from './food-store';
 import { REVIEW_USER, reviewData } from './store';
+import { privatePreferences, privatePreferenceTransport } from './preferences';
 import { useCoachI18n } from '../../../components/workout/coach/useCoachI18n';
 import { localToday, localDateStr } from '../../../lib/utils/dates';
 export function PrivateGlobalCoach() {
@@ -21,11 +22,13 @@ export function PrivateGlobalCoach() {
     const rows = exampleFoodRows().filter(row => row.logged_date >= window.start && row.logged_date <= window.end);
     const statement = t('global_coach.food_summary', { count: rows.length, protein: rows.reduce((sum, row) => sum + Number(row.protein_g ?? 0), 0) });
     const evidence = [...legacy.evidence, { id: 'example-food', source: 'nutrition' as const, sourceIds: rows.map(row => row.id), window, completeness: 'complete' as const, statement, value: rows.length, unit: 'entries' }].filter(item => evidenceMatchesScope(item.source, selection.domain));
+    const preferences = privatePreferences().read(REVIEW_USER, REVIEW_USER)!;
     return { ...legacy, version: 'coach-assistant.v2', conversationId: request.conversationId, turnId: request.turnId,
-      snapshot: { id: crypto.randomUUID(), capturedAt: new Date().toISOString(), subjectId: REVIEW_USER, organizationId: '00000000-0000-4000-8000-000000000002', surface: request.context?.includeScreen ? request.context.surface : null, screenIncluded: Boolean(request.context?.includeScreen), window, language: lang, units: { weight: 'kg', energy: 'kcal', protein: 'g' }, capabilities: [{ key: 'food_records', status: 'available', reason: 'private_tab_example' }, { key: 'workout_records', status: 'available', reason: 'private_tab_example' }, { key: 'model', status: 'not_connected', reason: 'offline' }] },
+      snapshot: { id: crypto.randomUUID(), capturedAt: new Date().toISOString(), subjectId: REVIEW_USER, organizationId: '00000000-0000-4000-8000-000000000002', surface: request.context?.includeScreen ? request.context.surface : null, screenIncluded: Boolean(request.context?.includeScreen), window, language: lang, units: { weight: 'kg', energy: 'kcal', protein: 'g' }, capabilities: [{ key: 'food_records', status: 'available', reason: 'private_tab_example' }, { key: 'workout_records', status: 'available', reason: 'private_tab_example' }, { key: 'model', status: 'not_connected', reason: 'offline' }, { key: 'profile', status: 'available', reason: 'isolated_fixture' }, { key: 'actions', status: 'available', reason: 'isolated_ephemeral' }] },
       output: { answer: evidence.map(item => item.statement).join('\n') || legacyT('coach_assistant.empty'), evidenceRefs: evidence.map(item => item.id), limitations: [t('global_coach.example')], suggestions: [], escalation: { required: false, reason: null, draft: null } }, evidence,
-      proposals: [], receipts: [], attachments: [],
+      profile: { language: lang, timezone: window.timezone, units: { weight: 'kg', energy: 'kcal', protein: 'g' }, preferences: { durationMinutes: preferences.preferences.durationMinutes }, version: preferences.version, source: 'isolated_fixture' },
+      memories: [], proposals: [], receipts: [], attachments: [],
     };
   };
-  return <GlobalCoach identity={REVIEW_USER} example={transport} />;
+  return <GlobalCoach identity={REVIEW_USER} example={transport} preferenceTransport={privatePreferenceTransport} />;
 }
