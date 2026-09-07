@@ -132,7 +132,7 @@ test('durable chat creates, reloads and resumes one real Auth/HTTP conversation 
     const resumed = await resumedResponse; expect(resumed.status()).toBe(200); const second = await resumed.json();
     expect(second).toMatchObject({ ok: true, conversationId: first.conversationId });
     expect(createCount).toBe(1); expect(generationCount).toBe(2);
-    await expect(reloaded.getByText(second.output.answer, { exact: true })).toBeVisible();
+    await expect(reloaded.locator('article > div').filter({ hasText: second.output.answer }).locator('p').filter({ hasText: second.output.answer }).first()).toBeVisible();
 
     // Exact thread text is unavailable without the current authenticated scope.
     const anonymousRead = await anonymous.post('/api/coach-assistant', { data: { version: 'coach-assistant.chat.v1', operation: 'read', threadId: first.conversationId, limit: 20, afterSequence: 0 } });
