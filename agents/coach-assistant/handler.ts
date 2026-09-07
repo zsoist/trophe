@@ -1,5 +1,6 @@
 import { run } from './index';
-import { requestSchema } from './schema';
+import { runConversation } from './conversation';
+import { requestSchema, conversationRequestSchema } from './schema';
 import { fixtureRepository } from './fixtures';
 import type { CoachErrorCode, CoachResponse } from './contracts';
 import type { CoachRepository } from './repository';
@@ -67,11 +68,14 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
       }
       const allowed=(deps.env.COACH_ASSISTANT_PREVIEW_USER_IDS??'').split(',').map(s=>s.trim()).filter(Boolean);
       if(!allowed.includes(guard.userId))return fail('forbidden',403);
-      const parsed=requestSchema.safeParse(await readBody(request,controller.signal));
+      const raw=await readBody(request,controller.signal);
+      const parsed=conversationRequestSchema.or(requestSchema).safeParse(raw);
       if(!parsed.success)return fail('invalid_input',400);
       const synthetic=deps.env.COACH_ASSISTANT_DATA_SOURCE==='synthetic';
-      if(synthetic&&parsed.data.clientId)return fail('forbidden',403);
-      const result=await run(parsed.data,{
+      const conversational='version' in parsed.data;
+      const clientId='version' in parsed.data?parsed.data.context?.clientId:parsed.data.clientId;
+      if(synthetic&&clientId)return fail('forbidden',403);
+      const result=await (conversational?runConversation:run)(parsed.data,{
         actorId:synthetic?'synthetic-client':guard.userId,
         repository:synthetic?fixtureRepository():await deps.createRepository(),
         now:synthetic?new Date('2026-09-07T03:30:00Z'):(deps.now?.()??new Date()),

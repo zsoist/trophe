@@ -6,6 +6,15 @@ const req = (body: unknown) => new Request('https://preview.invalid/api/coach-as
 const env = { COACH_ASSISTANT_ENABLED:'1',COACH_ASSISTANT_PREVIEW_USER_IDS:'verified-user',COACH_ASSISTANT_DATA_SOURCE:'synthetic',VERCEL_ENV:'preview' };
 const deps = { env,guard:async()=>({userId:'verified-user'}),createRepository:()=>fixtureRepository(),now:()=>new Date('2026-09-07T03:30:00Z') };
 describe('private route contract', () => {
+  it('serves the shared v2 conversation on the same guarded endpoint', async () => {
+    const response=await handleCoachRequest(req({version:'coach-assistant.v2',conversationId:'a2c5ec63-6f35-4671-b4f1-6644ca9d739c',turnId:'aac3a82e-898c-4907-b9b9-75133bb6d27f',message:'Food and training this week?',context:{surface:'food',includeScreen:true}}),deps);
+    expect(response.status).toBe(200);
+    const body=await response.json();
+    expect(body.version).toBe('coach-assistant.v2');
+    expect(body.snapshot.surface).toBe('food');
+    expect(body.dataSource).toBe('synthetic');
+    expect(body.telemetry.modelCalls).toBe(0);
+  });
   it('denies production and flag-off without touching auth or data', async () => {
     const guard = async()=>{throw new Error('must not run');};
     expect((await handleCoachRequest(req({}),{...deps,guard,env:{}})).status).toBe(404);

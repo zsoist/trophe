@@ -97,6 +97,9 @@ export interface CoachContextSnapshot {
   organizationId: string;
   surface: CoachSurface | null;
   screenIncluded: boolean;
+  language: string;
+  /** Current evidence uses these standard units, not an inferred preference. */
+  units: { weight: 'kg'; energy: 'kcal'; protein: 'g' };
   window: CoachWindow;
   capabilities: CoachCapability[];
 }
