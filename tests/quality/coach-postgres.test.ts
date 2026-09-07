@@ -44,8 +44,11 @@ describe.skipIf(!ci)('coach real SQL and authenticated RLS on local CI', () => {
       await db.query("INSERT INTO workout_templates (id,created_by,name,exercises) VALUES ($1,$2,'AG4 synthetic',$3::jsonb)", [id.template,id.coach,JSON.stringify([{target_sets:3,target_reps:'10'}])]);
       await db.query("INSERT INTO workout_programs (id,client_id,coach_id,name) VALUES ($1,$2,$3,'AG4 synthetic')", [id.program,id.client,id.coach]);
       await db.query('INSERT INTO workout_program_days (id,program_id,weekday,template_id) VALUES ($1,$2,0,$3)', [id.day,id.program,id.template]);
-      await db.query("INSERT INTO workout_sessions (id,user_id,name,session_date,completed_at,template_id) VALUES ($1,$2,'AG4 synthetic','2026-09-06','2026-09-06T20:00:00Z',$3)", [id.session,id.client,id.template]);
+      await db.query("INSERT INTO workout_sessions (id,user_id,name,session_date,template_id) VALUES ($1,$2,'AG4 synthetic','2026-09-06',$3)", [id.session,id.client,id.template]);
       await db.query('INSERT INTO workout_sets (id,session_id,set_number,reps,weight_kg) VALUES ($1,$2,1,5,20)', [id.set,id.session]);
+      // Follow the database-owned terminal transition; never supply completed_at.
+      const completed = await db.query('UPDATE workout_sessions SET duration_minutes = 20 WHERE id = $1 RETURNING completed_at', [id.session]);
+      expect(completed.rows[0]?.completed_at).toBeTruthy();
       await db.query('COMMIT'); seeded = true;
     } catch (error) { await db.query('ROLLBACK'); throw error; }
     finally { db.release(); }
@@ -59,7 +62,9 @@ describe.skipIf(!ci)('coach real SQL and authenticated RLS on local CI', () => {
         try {
           await db.query('BEGIN');
           for (const [table, ids] of [
-            ['workout_sets',[id.set]], ['workout_sessions',[id.session]],
+            // Delete the exact parent; its FK cascade removes the frozen set.
+            // Direct set deletion while the completed parent exists is forbidden.
+            ['workout_sessions',[id.session]],
             ['workout_program_days',[id.day]], ['workout_programs',[id.program]],
             ['workout_templates',[id.template]], ['food_log',[id.meal,id.foreignMeal]],
           ] as const) await db.query(`DELETE FROM ${table} WHERE id = ANY($1::uuid[])`, [ids]);
