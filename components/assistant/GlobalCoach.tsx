@@ -17,11 +17,12 @@ import { PreferenceController, type PreferenceTransport, type PreferenceState } 
 import { requestPreference } from './preference-client';
 
 export type CoachContextSlot = (props: { controller: PreferenceController; state: PreferenceState; conversationId: string; transport: PreferenceTransport }) => ReactNode;
-type Props = { identity: string; subjectId?: string; example?: ConversationTransport; preferenceTransport?: PreferenceTransport; contextSlot?: CoachContextSlot };
+export type CoachVoiceSlot = (props: { conversationId: string; onUse: (text: string) => boolean }) => ReactNode;
+type Props = { identity: string; subjectId?: string; example?: ConversationTransport; preferenceTransport?: PreferenceTransport; contextSlot?: CoachContextSlot; voiceSlot?: CoachVoiceSlot };
 export default function GlobalCoach(props: Props) {
   return <CoachSurface key={`${props.identity}:${props.subjectId ?? props.identity}`} {...props} />;
 }
-function CoachSurface({ identity, subjectId, example, preferenceTransport, contextSlot }: Props) {
+function CoachSurface({ identity, subjectId, example, preferenceTransport, contextSlot, voiceSlot }: Props) {
   const { t } = useGlobalCoachI18n();
   const path = usePathname();
   const surface = coachSurface(path);
@@ -97,6 +98,14 @@ function CoachSurface({ identity, subjectId, example, preferenceTransport, conte
       <form className={styles.composer} onSubmit={event => { event.preventDefault(); void send(); }}>
         <AttachmentPicker controller={attachments} state={attachmentState} conversationId={state.conversationId} transport={!example && latestResponse?.uploads?.images ? requestAttachment : undefined} disabled={state.pending} />
         <VoiceCapture controller={voice} state={voiceState} disabled={state.pending || attachmentState.pending} />
+        {voiceSlot?.({ conversationId: state.conversationId, onUse: text => {
+          if (voiceActive || state.pending) return false;
+          const current = controller.snapshot().draft;
+          const combined = current.trim() ? `${current}\n${text}` : text;
+          if (combined.length > 2000) return false;
+          controller.setDraft(combined);
+          return true;
+        } })}
         <label className={styles.contextToggle}><input type="checkbox" checked={includeScreen} onChange={event => setIncludeScreen(event.target.checked)} />{t('global_coach.include')}<span>{t(`global_coach.${surface}`)}</span></label>
         <label className="sr-only" htmlFor="global-coach-question">{t('global_coach.question')}</label>
         <textarea id="global-coach-question" ref={input} maxLength={2000} rows={3} value={state.draft} onChange={event => controller.setDraft(event.target.value)} placeholder={t('global_coach.placeholder')} />

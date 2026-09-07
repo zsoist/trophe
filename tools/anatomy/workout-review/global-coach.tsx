@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef } from 'react';
 import { PrivateDraftControls } from './draft-controls';
+import { PrivateVoiceReview } from './voice-review';
 import type { PreferenceTransport } from '../../../components/assistant/preference-state';
 import { useWorkoutWorkspace } from '../../../components/workout/workspace/WorkoutWorkspaceProvider';
 import GlobalCoach from '../../../components/assistant/GlobalCoach';
@@ -43,5 +44,5 @@ export function PrivateGlobalCoach() {
       memories: preferences.memories, proposals: [], receipts: [], attachments: [],
     };
   };
-  return <GlobalCoach identity={REVIEW_USER} example={transport} preferenceTransport={actionTransport} contextSlot={props => <PrivateDraftControls {...props} />} />;
+  return <GlobalCoach identity={REVIEW_USER} example={transport} preferenceTransport={actionTransport} contextSlot={props => <PrivateDraftControls {...props} />} voiceSlot={props => <PrivateVoiceReview {...props} />} />;
 }

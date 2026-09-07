@@ -1,4 +1,12 @@
 export const globalCoachTranslations: Record<string, { en: string; es: string; el: string }> = {
+  "global_coach.voice_review": {"en": "Review transcript", "es": "Revisar transcripción", "el": "Έλεγχος απομαγνητοφώνησης"},
+  "global_coach.voice_fixture": {"en": "Synthetic transcript example. This text does not come from your recording.", "es": "Transcripción de ejemplo. Este texto no proviene de tu grabación.", "el": "Συνθετικό παράδειγμα απομαγνητοφώνησης. Δεν προέρχεται από την εγγραφή σας."},
+  "global_coach.voice_edit": {"en": "Edit transcript", "es": "Editar transcripción", "el": "Επεξεργασία απομαγνητοφώνησης"},
+  "global_coach.voice_review_help": {"en": "Review the words, then add them to your question. Nothing is sent automatically.", "es": "Revisa el texto y añádelo a tu pregunta. No se envía automáticamente.", "el": "Ελέγξτε το κείμενο και προσθέστε το στην ερώτησή σας. Δεν αποστέλλεται αυτόματα."},
+  "global_coach.voice_use": {"en": "Add reviewed text to question", "es": "Añadir texto revisado a la pregunta", "el": "Προσθήκη ελεγμένου κειμένου στην ερώτηση"},
+  "global_coach.voice_composer_full": {"en": "Your question could not accept this text. Shorten it or finish the current recording or request first.", "es": "No se pudo añadir el texto. Acórtalo o termina primero la grabación o solicitud actual.", "el": "Δεν ήταν δυνατή η προσθήκη. Συντομεύστε το κείμενο ή ολοκληρώστε πρώτα την εγγραφή ή το αίτημα."},
+  "global_coach.voice_example": {"en": "Try a transcript example", "es": "Probar una transcripción de ejemplo", "el": "Δοκιμή παραδείγματος απομαγνητοφώνησης"},
+  "global_coach.voice_example_text": {"en": "Help me understand my workout today.", "es": "Ayúdame a entender mi entrenamiento de hoy.", "el": "Βοήθησέ με να καταλάβω τη σημερινή μου προπόνηση."},
   "global_coach.voice": {"en": "Voice", "es": "Voz", "el": "Φωνή"},
   "global_coach.voice_local": {"en": "Record up to 30 seconds for local playback. Transcription and audio upload are not connected.", "es": "Graba hasta 30 segundos para escuchar aquí. La transcripción y la carga de audio no están conectadas.", "el": "Καταγράψτε έως 30 δευτερόλεπτα για τοπική αναπαραγωγή. Η μεταγραφή και η μεταφόρτωση ήχου δεν είναι συνδεδεμένες."},
   "global_coach.voice_start": {"en": "Record audio", "es": "Grabar audio", "el": "Εγγραφή ήχου"},
