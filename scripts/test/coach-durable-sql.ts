@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
+import { isAbsolute, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
@@ -128,6 +129,27 @@ async function main() {
     await assert.rejects(connection.query('SELECT * FROM private.coach_action_receipts'), { code: '42501' });
   } finally { await connection.query('ROLLBACK'); connection.release(); }
   pass();
+
+  check = 'persistent_pilot_budget';
+  const pilot = spawnSync(process.execPath, ['--import', 'tsx', 'scripts/test/coach-pilot-budget-sql.ts'], { stdio: 'inherit', env: process.env });
+  assert.equal(pilot.status, 0);
+
+  check = 'durable_global_ui_real_auth_http';
+  const root = process.env.RUNNER_TEMP;
+  assert.ok(root && isAbsolute(root));
+  const manifest = resolve(root, `coach-durable-actions-${randomUUID()}.json`);
+  await writeFile(manifest, '[]', { mode: 0o600 });
+  const httpEnv = { ...process.env, E2E_COACH_DURABLE: '1', E2E_COACH_WEEK: '0', COACH_SQL_HTTP_ACTIONS: manifest,
+    E2E_CLIENT_ID: actorId, NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED: '1', NEXT_PUBLIC_COACH_ASSISTANT_ENABLED: '0',
+    COACH_ASSISTANT_ENABLED: '1', COACH_ASSISTANT_MODE: 'offline', COACH_ASSISTANT_DATA_SOURCE: 'authorized_records',
+    COACH_ASSISTANT_DURABLE_ACTIONS_ENABLED: '1', COACH_ASSISTANT_ISOLATED_ACTIONS_ENABLED: '0', COACH_ASSISTANT_PREVIEW_USER_IDS: actorId,
+  };
+  const http = spawnSync(process.execPath, ['node_modules/@playwright/test/cli.js', 'test', '--config', 'playwright.coach.config.ts', '--workers=1', 'e2e/coach-durable.spec.ts'], { stdio: 'inherit', env: httpEnv });
+  // The test writes observed IDs before forwarding an apply, including failed cases.
+  const httpActionIds = JSON.parse(await readFile(manifest, 'utf8'));
+  assert.ok(Array.isArray(httpActionIds) && httpActionIds.length <= 16 && httpActionIds.every(id => typeof id === 'string' && /^[a-f0-9-]{36}$/.test(id)));
+  fixtureActionIds.push(...httpActionIds);
+  assert.equal(http.status, 0); pass();
 }
 
 main().catch(error => {
