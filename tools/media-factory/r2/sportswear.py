@@ -80,6 +80,34 @@ def sleeveless_pattern(config,out):
     (out/'sleeveless-pattern.json').write_text(json.dumps(record,indent=2));return record
 
 
+def border_finish(config,out):
+    """Finish only the observed cut-edge stair steps with native mesh smoothing."""
+    from localize_contact import mesh_data
+    from bench_qa import crossings
+    from compare_baseline import studio,place
+    bpy.ops.wm.open_mainfile(filepath=config['animation_source']);s=bpy.context.scene;b=bpy.data.objects['Trophe_R2_Athlete'];c=bpy.data.objects['SportsTank']
+    counts={}
+    for p in c.data.polygons:
+        for e in p.edge_keys:counts[e]=counts.get(e,0)+1
+    boundary={i for e,n in counts.items() if n==1 for i in e}
+    chosen=[i for i in boundary if abs(c.data.vertices[i].co.x)>.095 and 1.22<c.data.vertices[i].co.z<1.54]
+    assert chosen;group=c.vertex_groups.new(name='Visible armhole border finish');group.add(chosen,1.,'REPLACE')
+    mod=c.modifiers.new('Native local armhole border finish','SMOOTH');mod.vertex_group=group.name;mod.factor=.5;mod.iterations=10
+    cam=studio(s);cam.data.sensor_fit='VERTICAL';place(cam,(1.5,-2,1.8),(0,0,1.4),.95);s.render.engine='BLENDER_EEVEE';s.render.resolution_x=960;s.render.resolution_y=720
+    rows=[];base={}
+    for enabled in [False,True]:
+        mod.show_viewport=mod.show_render=enabled
+        for f in [1,37,73,115,181]:
+            s.frame_set(f);bpy.context.view_layer.update();bd=mesh_data(b);cd=mesh_data(c)
+            if not enabled:base[f]=(bd[0].copy(),cd[0].copy())
+            delta=np.linalg.norm(cd[0]-base[f][1],axis=1);assert np.linalg.norm(bd[0]-base[f][0],axis=1).max()<1e-6
+            unchanged=[i for i in range(len(delta)) if i not in chosen];assert delta[unchanged].max()<1e-6
+            rows.append({'frame':f,'finish':enabled,'body_crossing_pairs':len(crossings(bd,cd)),'self_crossing_pairs':len(crossings(cd,cd,same=True)),'border_displacement_max_m':float(delta.max()),'outside_region_max_m':float(delta[unchanged].max())})
+            if f in [1,73]:s.render.filepath=str(out/f'finish-{int(enabled)}-{f:03d}.png');bpy.ops.render.render(write_still=True)
+    s.frame_set(1);bpy.ops.wm.save_as_mainfile(filepath=str(out/'athlete.blend'))
+    record={'scope':'Native SMOOTH applied after stable surface binding to actual116-ish armhole border vertices only; neck/waist/interior/body/rig/motion unchanged. No new projection or shell. Compares same camera/light and5criticalposes.','vertices':chosen,'factor':.5,'iterations':10,'rows':rows,'human_reviews':'pending','technical_passed':False};(out/'border-finish.json').write_text(json.dumps(record,indent=2));return record
+
+
 def run(config,out):
     from incline_refine import garment,garment_surface_bind
     bpy.ops.wm.open_mainfile(filepath=config['animation_source']);s=bpy.context.scene;body=bpy.data.objects['Trophe_R2_Athlete'];before={}

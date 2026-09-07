@@ -197,6 +197,7 @@ def main():
     dispatch['sportswear_cohort']=sportswear.run
     dispatch['sportswear_projection_comparison']=sportswear.projection_comparison
     dispatch['sportswear_sleeveless_pattern']=sportswear.sleeveless_pattern
+    dispatch['sportswear_border_finish']=sportswear.border_finish
     dispatch['incline_shell_gate']=incline_refine.shell_gate
     dispatch['incline_garment_surface_bind']=incline_refine.garment_surface_bind
     dispatch['incline_pose_fold']=incline_refine.pose_fold
