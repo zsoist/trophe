@@ -21,6 +21,7 @@ import { WorkoutAnatomySource } from '../../../components/anatomy/WorkoutAnatomy
 import type { AuthoredSupplement } from '../../../lib/anatomy/authored';
 import type { WorkoutDraft } from '../../../lib/workout/workspace-state';
 import { atlasWorkoutContext } from '../../../lib/anatomy/workout-navigation';
+import { workoutRouteForStage } from '../../../lib/workout/workspace-routes';
 import { localToday } from '../../../lib/utils/dates';
 import { useI18n } from '../../../lib/i18n';
 import { navigate, usePathname, useSearchParams } from './navigation';
@@ -33,6 +34,11 @@ function ReviewRoutes({ manifestUrl, authoredSupplement, onRender }: PreviewProp
   const { t } = useI18n();
   const data = useSyncExternalStore(subscribeReview, reviewData, reviewData);
   const workspace = useWorkoutWorkspace();
+  useEffect(() => {
+    if (!workspace.ready || path !== '/dashboard/workout/live') return;
+    const stage = workspace.state.stage;
+    if (stage !== 'live' && stage !== 'paused' && stage !== 'finishing' && stage !== 'completed') navigate(workoutRouteForStage(stage));
+  }, [path, workspace.ready, workspace.state.stage]);
   const [saveState, setSaveState] = useState<PlanSaveState>('idle');
   const savedDraft = useRef<WorkoutDraft | null>(null);
   useEffect(() => {
