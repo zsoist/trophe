@@ -3,8 +3,9 @@ export type PreferenceTransport = (operation: CoachPreferenceOperation, signal: 
 export interface PreferenceState {
   pending: boolean; proposal: CoachProposal | null; receipt: CoachReceipt | null;
   storage: CoachActionResult['storage'] | null; error: string | null; uncertain: boolean;
+  confirmed: { durationMinutes: number; version: string; storage: CoachActionResult['storage'] } | null;
 }
-const empty = (): PreferenceState => ({ pending: false, proposal: null, receipt: null, storage: null, error: null, uncertain: false });
+const empty = (): PreferenceState => ({ pending: false, proposal: null, receipt: null, storage: null, error: null, uncertain: false, confirmed: null });
 
 /** Keeps the exact apply envelope through cancellation or a lost response. Never blindly retries a write. */
 export class PreferenceController {
@@ -22,15 +23,16 @@ export class PreferenceController {
     this.generation++; this.active.abort(); this.active = null;
     this.publish({ ...this.state, pending: false, uncertain: Boolean(this.applyEnvelope), error: this.applyEnvelope ? 'uncertain' : null });
   }
-  dismiss() { if (!this.state.pending && !this.state.uncertain) { this.applyEnvelope = null; this.publish(empty()); } }
+  dismiss() { if (!this.state.pending && !this.state.uncertain) { this.applyEnvelope = null; this.publish({ ...empty(), confirmed: this.state.confirmed }); } }
   async propose(conversationId: string, version: string, durationMinutes: 20 | 30 | 45 | 60, transport: PreferenceTransport, clientId?: string) {
     if (this.state.pending || this.state.uncertain) return;
-    this.applyEnvelope = null; this.publish(empty());
+    this.applyEnvelope = null; this.publish({ ...empty(), confirmed: this.state.confirmed });
     await this.execute({ version: 'coach-assistant.v2', operation: 'propose', conversationId, turnId: crypto.randomUUID(), ...(clientId ? { clientId } : {}), action: 'preference.update', resourceVersion: version, after: { durationMinutes } }, transport);
   }
   async apply(conversationId: string, transport: PreferenceTransport, clientId?: string) {
     const proposal = this.state.proposal;
     if (!proposal || this.state.pending || this.state.uncertain || this.state.receipt) return;
+    if (Date.parse(proposal.expiresAt) <= Date.now()) { this.publish({ ...this.state, error: 'expired' }); return; }
     this.applyEnvelope = { version: 'coach-assistant.v2', operation: 'apply', conversationId, turnId: crypto.randomUUID(), ...(clientId ? { clientId } : {}), proposalId: proposal.id, hash: proposal.hash, actionId: crypto.randomUUID(), resourceVersion: proposal.resource.version };
     await this.execute(this.applyEnvelope, transport);
   }
@@ -51,9 +53,11 @@ export class PreferenceController {
       if (result.receipt && this.applyEnvelope && (result.receipt.actionId !== this.applyEnvelope.actionId || result.receipt.proposalId !== this.applyEnvelope.proposalId)) throw new Error('invalid_receipt');
       if (result.ok && operation.operation === 'propose' && !result.proposal) throw new Error('missing_proposal');
       if (result.ok && operation.operation !== 'propose' && !result.receipt) throw new Error('missing_receipt');
+      if (result.receipt?.status === 'applied' && !result.receipt.resourceVersion) throw new Error('missing_version');
       const uncertain = operation.operation === 'receipt' && !result.ok || result.receipt?.status === 'uncertain' || result.error === 'uncertain';
+      const confirmed = result.receipt?.status === 'applied' && this.state.proposal ? { durationMinutes: Number(this.state.proposal.after.durationMinutes), version: result.receipt.resourceVersion!, storage: result.storage } : this.state.confirmed;
       this.publish({ ...this.state, pending: false, storage: result.storage, error: result.ok ? null : result.error ?? 'failed', uncertain,
-        proposal: result.proposal ?? this.state.proposal, receipt: result.receipt ?? null });
+        proposal: result.proposal ?? this.state.proposal, receipt: result.receipt ?? null, confirmed });
     } catch { if (generation === this.generation) fail(); }
     finally { clearTimeout(timer); if (generation === this.generation) this.active = null; }
   }
