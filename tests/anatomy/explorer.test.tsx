@@ -11,6 +11,10 @@ import {
 import { afterEach, it, expect, vi } from "vitest";
 import fixture from "./catalogue.fixture.json";
 import type { CanvasProps } from "../../components/anatomy/AtlasCanvas";
+vi.mock("next/navigation", () => ({ usePathname: () => "/dashboard/workout/atlas" }));
+import GlobalCoach from "../../components/assistant/GlobalCoach";
+import { screenSelectionSnapshot } from "../../components/assistant/screen-selection";
+import { coachAnatomyHintSchema } from "../../agents/coach-assistant/selection-schema";
 const canvasObservation = vi.hoisted(() => ({
   props: null as CanvasProps | null,
 }));
@@ -37,7 +41,7 @@ Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
 });
 Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value() { this.setAttribute("open", ""); } });
 Object.defineProperty(HTMLDialogElement.prototype, "close", { configurable: true, value() { this.removeAttribute("open"); } });
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.unstubAllEnvs(); });
 const open = () =>
   render(
     <I18nProvider defaultLang="en">
@@ -291,4 +295,37 @@ it('keeps explanations in Info and colors every declared muscle in the main view
   fireEvent.click(screen.getByRole('button', { name: 'Close information' }));
   expect(screen.queryByRole('dialog')).toBeNull();
   expect(screen.getByTestId('canvas')).toBe(canvas);
+});
+
+
+it('publishes the actual muscle selection and clears or normalizes it when changing the visible group', async () => {
+  vi.stubEnv('NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED', '1');
+  HTMLElement.prototype.scrollTo = vi.fn();
+  const { fetchAtlasManifest } = await import('../../lib/anatomy/validation');
+  const source = structuredClone(fixture);
+  Object.assign(source.concepts, { FMA13397: { ...source.concepts.FMA24475, id: 'FMA13397', elements: ['FJ3259'] } });
+  vi.mocked(fetchAtlasManifest).mockResolvedValueOnce(source as unknown as CanvasProps['manifest']);
+  render(<I18nProvider defaultLang="en"><AnatomyExplorer workout initialGroup="chest" manifestUrl="/manifest.json" /><GlobalCoach identity="actor" example={async () => { throw new Error("navigation_must_not_send"); }} /></I18nProvider>);
+  const serratus = await screen.findByRole('button', { name: 'Serratus anterior' });
+  await waitFor(() => expect((serratus as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(serratus);
+  fireEvent.click(screen.getByRole("button", { name: "Ask coach" }));
+  expect(screen.getByRole("button", { name: "Remove screen selection: Serratus anterior" })).toBeTruthy();
+  expect(screenSelectionSnapshot()?.anatomy).toMatchObject({ group: 'chest', subgroup: 'serratus-anterior' });
+  expect(coachAnatomyHintSchema.safeParse(screenSelectionSnapshot()?.anatomy).success).toBe(true);
+  fireEvent.click(serratus);
+  expect(screenSelectionSnapshot()?.anatomy).not.toHaveProperty('subgroup');
+  fireEvent.click(screen.getByRole('button', { name: 'Groups' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Legs' }));
+  const regions = screen.getByRole('group', { name: /Leg regions/i });
+  fireEvent.click(regions.querySelectorAll('button')[1]);
+  expect(screenSelectionSnapshot()?.anatomy).toMatchObject({ group: 'legs', legRegion: 'upper' });
+  fireEvent.click(screen.getByRole('button', { name: 'Groups' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Chest' }));
+  expect(screenSelectionSnapshot()?.anatomy).toEqual({ group: 'chest', legRegion: 'all' });
+  expect(coachAnatomyHintSchema.safeParse(screenSelectionSnapshot()?.anatomy).success).toBe(true);
+  fireEvent.click(screen.getByRole('button', { name: 'Groups' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Whole body' }));
+  expect(screenSelectionSnapshot()).toBeNull();
+  expect(screen.queryByRole("button", { name: /Remove screen selection:/ })).toBeNull();
 });

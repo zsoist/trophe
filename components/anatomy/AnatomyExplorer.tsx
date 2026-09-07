@@ -1,4 +1,7 @@
 "use client";
+import { usePathname } from "next/navigation";
+import { useCoachScreenSelection } from "@/components/assistant/useCoachScreenSelection";
+import type { CoachScreenSelection } from "@/components/assistant/screen-selection";
 import { withAuthored, type AuthoredSupplement } from "@/lib/anatomy/authored";
 import type { WorkoutRouteContext } from "@/lib/workout/workspace-routes";
 import { atlasExerciseLibraryHref } from "@/lib/anatomy/workout-navigation";
@@ -114,6 +117,7 @@ export default function AnatomyExplorer({
   exerciseLibraryContext?: WorkoutRouteContext;
 }) {
   const { t, lang } = useI18n();
+  const coachPath = usePathname();
   const [workoutMode, setWorkoutMode] = useState(workout);
   const [focusGroup, setFocusGroup] = useState<WorkoutFocusGroup | "">(() =>
     initialGroup && isWorkoutFocusGroup(initialGroup)
@@ -333,6 +337,11 @@ export default function AnatomyExplorer({
     label: exerciseSelection ? t(exerciseSelection.labelKey) : t(workoutMode && focusGroup ? `anatomy.focus_${focusGroup}` : "anatomy.whole_body"),
     legRegion,
   };
+  const coachSelection = useMemo<CoachScreenSelection | null>(() => {
+    if (!coachPath || !['/dashboard/anatomy', '/dashboard/workout/atlas'].includes(coachPath) || !isWorkoutFocusGroup(exerciseContext.group) || selected && selectedMuscles.length !== 1) return null;
+    return { path: coachPath, label: exerciseContext.label, anatomy: { group: exerciseContext.group, ...(exerciseContext.selection ? { subgroup: exerciseContext.selection } : {}), legRegion: exerciseContext.group === "legs" && focusGroup === "legs" ? legRegion : "all" } };
+  }, [coachPath, exerciseContext.group, exerciseContext.selection, exerciseContext.label, focusGroup, legRegion, selected, selectedMuscles.length]);
+  useCoachScreenSelection(coachSelection);
   const exerciseLibraryHref = `${exerciseLibraryOrigin}${atlasExerciseLibraryHref(workoutMode ? focusGroup : null, exerciseLibraryContext)}`;
   const parents =
     manifest && selected

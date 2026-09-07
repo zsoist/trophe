@@ -1,4 +1,5 @@
 export const globalCoachTranslations: Record<string, { en: string; es: string; el: string }> = {
+  "global_coach.remove_selection": { en: "Remove screen selection", es: "Quitar selección de pantalla", el: "Αφαίρεση επιλογής οθόνης" },
   "global_coach.food_quantity": {"en":"Food quantity","es":"Cantidad de alimento","el":"Ποσότητα τροφίμου"},
   "global_coach.food_done": {"en":"Close saved change","es":"Cerrar cambio guardado","el":"Κλείσιμο αποθηκευμένης αλλαγής"},
   "global_coach.food_current": {"en":"Current entry · {grams} g · {calories} kcal","es":"Registro actual · {grams} g · {calories} kcal","el":"Τρέχουσα καταχώριση · {grams} g · {calories} kcal"},

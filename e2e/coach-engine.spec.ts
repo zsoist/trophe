@@ -33,6 +33,50 @@ test('authenticated HTTP engine uses current authorized profile with explicit fi
     expect((await pool.query('SELECT workout_preferences FROM public.client_profiles WHERE user_id=$1', [actor])).rows[0]).toEqual(before);
     expect((await page.context().request.post('/api/coach-assistant', { data: { ...body, context: { surface: 'workout', includeScreen: true, clientId: randomUUID() } } })).status()).toBe(403);
     expect((await page.context().request.post('/api/coach-assistant', { data: { ...body, isolatedFixtureBoundary: { kind: 'isolated_authorized_fixture' } } })).status()).toBe(400);
+    // Reuse a real seeded curated exercise; no fabricated route IDs or client labels as authority.
+    const exercise = (await pool.query(`SELECT id,name FROM public.exercises
+      WHERE is_template=true AND created_by IS NULL AND instructions IS NOT NULL AND length(instructions)<=2100
+      ORDER BY id LIMIT 1`)).rows[0];
+    expect(exercise?.id).toBeTruthy();
+    await page.goto(`/dashboard/workout/exercises/${exercise.id}`);
+    await page.getByRole('button', { name: 'Ask coach', exact: true }).click();
+    const panel = page.locator('#global-coach');
+    await expect(panel.getByRole('button', { name: `Remove screen selection: ${exercise.name}`, exact: true })).toBeVisible();
+    await panel.getByRole('textbox', { name: 'Your question', exact: true }).fill('Explain this exercise');
+    const sent = page.waitForResponse(response => new URL(response.url()).pathname === '/api/coach-assistant' && response.request().method() === 'POST');
+    await panel.getByRole('button', { name: 'Send question', exact: true }).click();
+    const exerciseResponse = await sent;
+    expect(exerciseResponse.request().postDataJSON().context).toMatchObject({ surface: 'exercise', includeScreen: true, entity: { kind: 'exercise', id: exercise.id } });
+    expect(exerciseResponse.status()).toBe(200);
+    const exerciseResult = await exerciseResponse.json();
+    expect(exerciseResult.snapshot.selection).toMatchObject({ kind: 'exercise', id: exercise.id, label: exercise.name, provenance: 'curated_database_exercise' });
+    expect(exerciseResult.proposals).toEqual([]);
+    expect(exerciseResult.receipts).toEqual([]);
+    await panel.getByRole('button', { name: `Remove screen selection: ${exercise.name}`, exact: true }).click();
+    await expect(panel.getByRole('checkbox', { name: /Include this screen/ })).not.toBeChecked();
+    const selectedContext = { surface: 'atlas', includeScreen: true, anatomy: { group: 'chest', subgroup: 'serratus-anterior', legRegion: 'all' } };
+    const selectedResponse = await page.context().request.post('/api/coach-assistant', { data: { ...body, turnId: randomUUID(), context: selectedContext } });
+    expect(selectedResponse.status()).toBe(200);
+    const selectedResult = await selectedResponse.json();
+    expect(selectedResult.snapshot.selection).toMatchObject({ kind: 'anatomy', id: 'serratus-anterior', provenance: 'curated_catalogue', contextOnly: true });
+    expect(selectedResult.snapshot.selection.version).toMatch(/^[a-f0-9]{64}$/);
+    expect(selectedResult.snapshot.selection.limitations).toContain('generic_anatomy_not_personal_physiology');
+    expect(selectedResult.proposals).toEqual([]);
+    expect(selectedResult.receipts).toEqual([]);
+    for (const anatomy of [
+      { ...selectedContext.anatomy, subgroup: 'not-a-muscle' },
+      { ...selectedContext.anatomy, version: '0'.repeat(64) },
+      { ...selectedContext.anatomy, legRegion: 'upper' },
+    ]) {
+      const rejected = await page.context().request.post('/api/coach-assistant', { data: { ...body, turnId: randomUUID(), context: { ...selectedContext, anatomy } } });
+      expect(rejected.status()).toBe(400);
+    }
+    const detachedResponse = await page.context().request.post('/api/coach-assistant', { data: { ...body, turnId: randomUUID(), context: { ...selectedContext, includeScreen: false } } });
+    expect(detachedResponse.status()).toBe(200);
+    const detachedResult = await detachedResponse.json();
+    expect(detachedResult.snapshot.selection).toBeUndefined();
+    expect(detachedResult.snapshot.screenIncluded).toBe(false);
+    expect((await pool.query('SELECT workout_preferences FROM public.client_profiles WHERE user_id=$1', [actor])).rows[0]).toEqual(before);
     expect(await ledger()).toEqual(ledgerBefore);
     noPaid();
   } finally { await anonymous.dispose(); await pool.end(); }

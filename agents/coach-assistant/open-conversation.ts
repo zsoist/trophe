@@ -35,6 +35,7 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
   const curated=availableGeneralExplanations(facts);
   const payload={...(candidateEvaluation?{generalExplanations:curated.map(id=>({id,...GENERAL_EXPLANATIONS[id]}))}:{}),message:input.message,history:input.history??[],
     snapshot:response.snapshot?{surface:response.snapshot.surface,language:response.snapshot.language,units:response.snapshot.units,window:response.snapshot.window}:null,
+    selection:response.snapshot?.selection??null,
     evidence:facts.map(({id,source,statement,value,unit,completeness})=>({id,source,statement,value,unit,completeness})),entities,
     profile:response.profile?{language:response.profile.language,timezone:response.profile.timezone,units:response.profile.units,preferences:response.profile.preferences}:null,
     memories:(response.memories??[]).map(({text,confirmation,source})=>({text,confirmation,source})),

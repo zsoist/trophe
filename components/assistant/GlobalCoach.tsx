@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { MessageCircle, Send, X } from 'lucide-react';
 import { ConversationController, coachSurface, type ConversationTransport } from './conversation-state';
 import { requestConversation } from './client';
+import { acceptedScreenSelection, subscribeScreenSelection, screenSelectionSnapshot, emptyScreenSelection } from './screen-selection';
 import { useGlobalCoachI18n } from './useGlobalCoachI18n';
 import styles from './GlobalCoach.module.css';
 import { requestAttachment } from './attachment-client';
@@ -30,6 +31,8 @@ function CoachSurface({ identity, subjectId, example, preferenceTransport, conte
   const { t } = useGlobalCoachI18n();
   const path = usePathname();
   const surface = coachSurface(path);
+  const publishedSelection = useSyncExternalStore(subscribeScreenSelection, screenSelectionSnapshot, emptyScreenSelection);
+  const selection = acceptedScreenSelection(publishedSelection, path, identity, subjectId);
   const [controller] = useState(() => new ConversationController());
   const [voice] = useState(() => new VoiceController());
   const [food] = useState(() => new FoodQuantityController());
@@ -85,7 +88,7 @@ function CoachSurface({ identity, subjectId, example, preferenceTransport, conte
     else setShowLatest(true);
   }, [open, state.turns, state.pending]);
   const close = () => { controller.cancel(); preferences.cancel(); attachments.cancel(); voice.reset(); food.cancel(); setOpen(false); launcher.current?.focus(); };
-  const send = () => !voiceActive && controller.send({ surface, includeScreen, ...(subjectId ? { clientId: subjectId } : {}) }, example ?? requestConversation, attachments.references());
+  const send = () => !voiceActive && controller.send({ surface, includeScreen, ...(includeScreen && selection ? selection.anatomy ? { anatomy: selection.anatomy } : { entity: selection.entity } : {}), ...(subjectId ? { clientId: subjectId } : {}) }, example ?? requestConversation, attachments.references());
   const latestResponse = state.turns.findLast(turn => turn.response?.ok)?.response;
   useEffect(() => { if (latestResponse) attachments.reconcile(latestResponse.attachments); }, [attachments, latestResponse]);
   const launch = <button ref={launcher} type="button" className={styles.launcher} aria-expanded={open} aria-controls="global-coach" onClick={() => open ? close() : setOpen(true)}>
@@ -128,6 +131,7 @@ function CoachSurface({ identity, subjectId, example, preferenceTransport, conte
           controller.setDraft(combined);
           return true;
         } })}
+        {includeScreen && selection && <button type="button" className={styles.contextToggle} onClick={() => setIncludeScreen(false)} aria-label={`${t('global_coach.remove_selection')}: ${selection.label}`}><span>{selection.label}</span><X size={16} aria-hidden="true" /></button>}
         <label className={styles.contextToggle}><input type="checkbox" checked={includeScreen} onChange={event => setIncludeScreen(event.target.checked)} />{t('global_coach.include')}<span>{t(`global_coach.${surface}`)}</span></label>
         <label className="sr-only" htmlFor="global-coach-question">{t('global_coach.question')}</label>
         <textarea id="global-coach-question" ref={input} maxLength={2000} rows={3} value={state.draft} onChange={event => controller.setDraft(event.target.value)} placeholder={t('global_coach.placeholder')} />

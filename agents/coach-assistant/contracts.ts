@@ -67,7 +67,8 @@ export interface CoachContextHint {
   surface: CoachSurface;
   includeScreen: boolean;
   clientId?: string;
-  entity?: { kind: 'meal' | 'recipe' | 'session' | 'plan' | 'exercise'; id: string };
+  entity?: { kind: 'meal' | 'recipe' | 'session' | 'plan' | 'exercise'; id: string; version?:string };
+  anatomy?: import('./selection-contracts').CoachAnatomyHint;
 }
 export interface CoachAttachmentRef {
   id: string;
@@ -98,6 +99,7 @@ export interface CoachContextSnapshot {
   organizationId: string;
   surface: CoachSurface | null;
   screenIncluded: boolean;
+  selection?: import('./selection-contracts').CoachSelectionSnapshot;
   language: string;
   /** Current evidence uses these standard units, not an inferred preference. */
   units: { weight: 'kg'; energy: 'kcal'; protein: 'g' };
