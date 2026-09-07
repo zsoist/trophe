@@ -28,9 +28,11 @@ describe('durable Photo Food observation adapter with injected SQL/runtime',()=>
   }
  });
  function fixture(){
-  let active:Record<string,unknown>|null=null,authorized=true,attachment=true,generation=true,expired=false,receiptFails=false;const statements:string[]=[];
+  let active:Record<string,unknown>|null=null,authorized=true,attachment=true,generation=true,expired=false,receiptFails=false,threadRevoked=false;const statements:string[]=[];
   const tx={execute:async(q:Parameters<PgDialect['sqlToQuery']>[0])=>{const {sql,params:p}=new PgDialect().sqlToQuery(q);statements.push(sql);
    if(sql.includes('FROM public.profiles actor'))return {rows:authorized?[{id:scope.actorId}]:[]};
+   if(sql.includes('coach_chat_contract_version'))return {rows:[{version:'coach-assistant.chat.v1'}]};
+   if(sql.includes('FROM private.coach_chat_threads'))return {rows:threadRevoked?[]:[{id:scope.conversationId}]};
    if(sql.includes('FROM private.coach_attachment_uploads')&&!sql.includes('JOIN private'))return {rows:attachment?[{normalized_digest:imageDigest,state:'available',expired}]:[]};
    if(sql.includes('FROM public.agent_runs'))return {rows:generation?[{generation_id:p[0]}]:[]};
    if(sql.includes('FROM private.coach_photo_food_observations WHERE generation_id'))return {rows:active&&active.generation_id===p[0]?[active]:[]};
@@ -40,12 +42,18 @@ describe('durable Photo Food observation adapter with injected SQL/runtime',()=>
    if(sql.includes('SET LOCAL')||sql.includes('pg_advisory_xact_lock'))return {rows:[]};throw Error(`unexpected ${sql}`);
   }};
   const database={$client:{},transaction:async(work:(value:typeof tx)=>Promise<unknown>)=>{const before=structuredClone(active);try{return await work(tx);}catch(error){active=before;throw error;}}} as unknown as Parameters<typeof createDatabasePhotoFoodObservationAdapter>[0];
-  return {adapter:createDatabasePhotoFoodObservationAdapter(database),tx,database,statements,state:()=>active,revoke:()=>{authorized=false;},remove:()=>{attachment=false;},expire:()=>{expired=true;},missingGeneration:()=>{generation=false;},failInsert:()=>{receiptFails=true;}};
+  return {adapter:createDatabasePhotoFoodObservationAdapter(database),tx,database,statements,state:()=>active,revokeRestore:()=>{authorized=true;threadRevoked=true;},revoke:()=>{authorized=false;},remove:()=>{attachment=false;},expire:()=>{expired=true;},missingGeneration:()=>{generation=false;},failInsert:()=>{receiptFails=true;}};
  }
  async function proof(generation=5){executeAiTask.mockResolvedValueOnce(taskResult(generation));return (await runVerifiedPhotoFoodAnalysis(scope,{digest:imageDigest,bytes:imageBytes},{invoke:vi.fn()})).proof;}
+ it('rejects revoke/restore during provider execution before an observation exists',async()=>{
+  const f=fixture();const adapter=createDatabasePhotoFoodObservationAdapter(f.database,{readNormalized:async()=>imageBytes.slice()});
+  executeAiTask.mockImplementationOnce(async()=>{expect(f.state()).toBeNull();f.revokeRestore();return taskResult();});
+  await expect(adapter.analyzeAndRecord(scope,{invoke:vi.fn()},new AbortController().signal)).rejects.toThrow('forbidden');expect(f.state()).toBeNull();
+ });
  it('records normalized output only after current auth, attachment and durable generation evidence',async()=>{
   const f=fixture(),p=await proof();const recorded=await f.adapter.record(scope,p,new AbortController().signal);expect(recorded).toMatchObject({...scope,source:'validated_photo_analysis',imageDigest,foods:[{name:'Rice'}]});expect(f.state()).toMatchObject({actor_id:scope.actorId,attachment_id:scope.attachmentId,generation_id:id(5),active:true});expect(f.statements.join('\n')).not.toContain('http');
   const loaded=await f.adapter.load(scope,new AbortController().signal,f.tx as never);expect(loaded).toMatchObject({id:(recorded as {id:string}).id,revision:(recorded as {revision:string}).revision,source:'validated_photo_analysis'});
+  expect(f.statements.find(statement=>statement.includes('FROM private.coach_photo_food_observations o'))).toContain('FOR UPDATE OF o,a FOR SHARE OF g');
  });
  it('loads exact private normalized bytes, reauthorizes and records through one composed call',async()=>{
   const f=fixture(),authorizeCalls:{count:number}={count:0};executeAiTask.mockResolvedValueOnce(taskResult());

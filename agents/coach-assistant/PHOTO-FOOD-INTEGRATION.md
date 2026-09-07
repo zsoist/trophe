@@ -49,6 +49,17 @@ scope, available state, digest and expiry. The loader is bounded by five seconds
 and cancellation. No public URL or image bytes enter proposals, receipts or audit.
 The current attachment lifecycle remains responsible for actual object integrity.
 
+The durable adapter now requires an existing exact saved client chat thread and
+the `coach-assistant.chat.v1` contract at every authorization boundary. Its
+permanent `access_revoked` bit blocks revoke/restore during provider execution,
+even before the first observation exists. Legacy arbitrary conversation IDs
+cannot use this adapter. `load` holds `FOR UPDATE OF o,a FOR SHARE OF g` through
+the caller's Food commit, including generation status and metadata stability.
+AG1/AG4 must validate with native concurrent SQL sessions that generation UPDATE
+blocks until that commit and that membership revoke/restore during a paused
+provider leaves the saved thread permanently revoked. Injected SQL tests verify
+rejection and lock clauses; they do not establish native concurrency behavior.
+
 `createDatabasePhotoFoodObservationAdapter` closes the previously disconnected
 production seam without invoking it during this delivery. Its composed
 `analyzeAndRecord` flow reads the exact normalized JPEG bytes directly from the
