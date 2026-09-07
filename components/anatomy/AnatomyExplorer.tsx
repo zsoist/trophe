@@ -326,7 +326,7 @@ export default function AnatomyExplorer({
     selectedMuscles.length === 1
       ? t(selectedMuscles[0].labelKey)
       : concept?.source_names[0];
-  const exerciseSelection = selectedMuscles.length === 1 ? selectedMuscles[0] : !selected ? part : null;
+  const exerciseSelection = selectedMuscles.length === 1 ? selectedMuscles[0] : !selected && workoutMode ? part : null;
   const exerciseContext: AtlasExerciseTarget = {
     group: selected && !currentSelectionMuscles.length && otherSelectionGroup ? otherSelectionGroup.group : workoutMode ? focusGroup : "",
     selection: exerciseSelection?.id,
@@ -860,7 +860,7 @@ export default function AnatomyExplorer({
               </button>
             </div>
           )}
-          {part && !concept && <AtlasExerciseSuggestions target={exerciseContext} onOpen={setExerciseTarget} />}
+          {workoutMode && part && !concept && <AtlasExerciseSuggestions target={exerciseContext} onOpen={setExerciseTarget} />}
           {error && (
             <button
               onClick={() => {

@@ -138,6 +138,7 @@ const result = await build({
     "process.env.NODE_ENV": '"production"',
     "process.env.__NEXT_IMAGE_OPTS": "undefined",
     "process.env.NEXT_PUBLIC_ANATOMY_ATLAS_ENABLED": '"false"',
+    "process.env.NEXT_PUBLIC_COACH_ASSISTANT_ENABLED": '"0"',
   },
 });
 if (Object.keys(result.metafile.inputs).some(path => path.includes('@supabase/') || path.includes('@trpc/'))) throw Error('Private export must not bundle account data clients');

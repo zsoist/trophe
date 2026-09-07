@@ -254,6 +254,23 @@ it("toggles a muscle off and restores group framing from both return buttons", a
   }
 });
 
+it('does not show a remembered muscle suggestion after switching to full atlas', async () => {
+  const { fetchAtlasManifest } = await import('../../lib/anatomy/validation');
+  const source = structuredClone(fixture);
+  Object.assign(source.concepts, { FMA13397: { ...source.concepts.FMA24475, id: 'FMA13397', elements: ['FJ3259'] } });
+  vi.mocked(fetchAtlasManifest).mockResolvedValueOnce(source as unknown as CanvasProps['manifest']);
+  render(<I18nProvider defaultLang="en"><AnatomyExplorer workout initialGroup="chest" manifestUrl="/manifest.json" /></I18nProvider>);
+  const serratus = await screen.findByRole('button', { name: 'Serratus anterior' });
+  await waitFor(() => expect((serratus as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(serratus);
+  expect(screen.getByText('Exercises for this muscle')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: /Explore full atlas/ }));
+  expect(screen.queryByText('Exercises for this muscle')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Pick left femur' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Whole body' }));
+  expect(screen.queryByText('Exercises for this muscle')).toBeNull();
+});
+
 it('keeps explanations in Info and colors every declared muscle in the main view', async () => {
   const { fetchAtlasManifest } = await import('../../lib/anatomy/validation');
   const source = structuredClone(fixture);

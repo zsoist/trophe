@@ -1,5 +1,6 @@
 'use client';
 import { WorkoutAtlasEntry } from '@/components/anatomy/WorkoutAtlasEntry';
+import { WorkoutCoachEntry } from '@/components/workout/coach/WorkoutCoachEntry';
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -226,6 +227,8 @@ export function WorkoutHome({
       </div>
 
       {!recoveryStage ? <WorkoutScheduleStrip program={program} todayName={displayedWorkoutName} todaySource={source} /> : null}
+
+      {!recoveryStage ? <WorkoutCoachEntry /> : null}
 
       {!recoveryStage ? <section aria-labelledby="workout-destinations-title"><h2 id="workout-destinations-title" className="mb-2 text-sm font-bold tracking-[-0.01em] text-[var(--content-primary)]">{t('workout.home_explore_plan')}</h2><div className="overflow-hidden rounded-[14px] border border-[var(--workout-rail)] bg-[var(--workout-surface)]">
         <Link href={WORKOUT_ROUTES.exercises} className="flex min-h-11 items-center gap-3 px-3 py-2 text-sm font-medium text-[var(--content-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--focus-ring)]"><Search aria-hidden="true" size={16} className="text-[var(--content-muted)]" /><span className="flex-1">{t('workout.home_find_exercise')}</span><ChevronRight aria-hidden="true" size={16} /></Link>

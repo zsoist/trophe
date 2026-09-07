@@ -1,0 +1,42 @@
+import type { CoreLanguage } from '../types';
+
+const rows: Record<string, [string, string, string]> = {
+  title: ['Your training, explained', 'Entiende tu entrenamiento', 'Κατανόησε την προπόνησή σου'],
+  ai: ['AI assistant', 'Asistente IA', 'Βοηθός AI'],
+  intro: ['Explore your records and plan with your coach in mind.', 'Consulta tus registros y tu plan como apoyo al trabajo con tu coach.', 'Δες τα αρχεία και το πλάνο σου με υποστήριξη για τον προπονητή σου.'],
+  today: ['My day', 'Mi día', 'Η μέρα μου'],
+  week: ['My week', 'Mi semana', 'Η εβδομάδα μου'],
+  plan: ['My plan', 'Mi plan', 'Το πλάνο μου'],
+  today_prompt: ['Explain my training today using my available records.', 'Explícame mi entrenamiento de hoy según mis registros disponibles.', 'Εξήγησε τη σημερινή μου προπόνηση με βάση τα διαθέσιμα αρχεία μου.'],
+  week_prompt: ['Summarize my last seven days of training using my available records.', 'Resume mis últimos siete días de entrenamiento según mis registros disponibles.', 'Σύνοψε τις τελευταίες επτά ημέρες προπόνησης με βάση τα διαθέσιμα αρχεία μου.'],
+  question: ['What would you like to understand about your plan?', '¿Qué quieres entender de tu plan?', 'Τι θέλεις να καταλάβεις για το πλάνο σου;'],
+  ask: ['Ask about my plan', 'Consultar mi plan', 'Ρώτησε για το πλάνο μου'],
+  loading: ['Reading your available records…', 'Consultando tus registros disponibles…', 'Ανάγνωση των διαθέσιμων αρχείων σου…'],
+  example_loading: ['Reading this tab’s example data…', 'Consultando los datos de ejemplo de esta pestaña…', 'Ανάγνωση των ενδεικτικών δεδομένων αυτής της καρτέλας…'],
+  example: ['Example data · Private prototype', 'Datos de ejemplo · Prototipo privado', 'Ενδεικτικά δεδομένα · Ιδιωτικό πρωτότυπο'],
+  offline: ['Record summary · No AI model used', 'Resumen de registros · Sin modelo IA', 'Σύνοψη αρχείων · Χωρίς μοντέλο AI'],
+  english: ['Content in English', 'Contenido en inglés', 'Περιεχόμενο στα αγγλικά'],
+  cancelled: ['Request cancelled.', 'Consulta cancelada.', 'Το αίτημα ακυρώθηκε.'],
+  error: ['This answer is unavailable. Your workout has not changed.', 'No se pudo obtener la respuesta. Tu entrenamiento no cambió.', 'Η απάντηση δεν είναι διαθέσιμη. Η προπόνησή σου δεν άλλαξε.'],
+  auth: ['Sign in again to read your records.', 'Vuelve a iniciar sesión para consultar tus registros.', 'Συνδέσου ξανά για να δεις τα αρχεία σου.'],
+  disabled: ['The assistant is not available for this account yet.', 'El asistente aún no está disponible para esta cuenta.', 'Ο βοηθός δεν είναι ακόμα διαθέσιμος για αυτόν τον λογαριασμό.'],
+  retry: ['Try again', 'Reintentar', 'Δοκίμασε ξανά'],
+  cancel: ['Cancel', 'Cancelar', 'Ακύρωση'],
+  close: ['Close answer', 'Cerrar respuesta', 'Κλείσιμο απάντησης'],
+  empty: ['There are no records to summarize for this period.', 'No hay registros para resumir en este periodo.', 'Δεν υπάρχουν αρχεία για σύνοψη σε αυτή την περίοδο.'],
+  sources: ['Records used', 'Registros consultados', 'Αρχεία που χρησιμοποιήθηκαν'],
+  partial: ['Partial records', 'Registros parciales', 'Μερικά αρχεία'],
+  ideas: ['Suggestions to discuss', 'Ideas para conversar', 'Προτάσεις για συζήτηση'],
+  limits: ['What this answer covers', 'Alcance de esta respuesta', 'Τι καλύπτει αυτή η απάντηση'],
+  coach: ['Discuss this with your coach', 'Consúltalo con tu coach', 'Συζήτησέ το με τον προπονητή σου'],
+  draft: ['Message draft · Not sent', 'Borrador de mensaje · No enviado', 'Πρόχειρο μηνύματος · Δεν στάλθηκε'],
+  readonly: ['Suggestions only. Your plan and records stay under your control.', 'Solo sugerencias. Tú controlas tu plan y tus registros.', 'Μόνο προτάσεις. Εσύ ελέγχεις το πλάνο και τα αρχεία σου.'],
+  sample_day: ['This example includes {sessions} completed sessions and {sets} working sets today.', 'Este ejemplo incluye {sessions} sesiones completadas y {sets} series de trabajo hoy.', 'Αυτό το παράδειγμα περιλαμβάνει {sessions} ολοκληρωμένες συνεδρίες και {sets} σετ εργασίας σήμερα.'],
+  sample_week: ['This example includes {sessions} completed sessions and {sets} working sets in the last seven days.', 'Este ejemplo incluye {sessions} sesiones completadas y {sets} series de trabajo en los últimos siete días.', 'Αυτό το παράδειγμα περιλαμβάνει {sessions} ολοκληρωμένες συνεδρίες και {sets} σετ εργασίας τις τελευταίες επτά ημέρες.'],
+  sample_plan: ['The example plan contains {count} exercises. Review their prescriptions before starting.', 'El plan de ejemplo contiene {count} ejercicios. Revisa su prescripción antes de empezar.', 'Το ενδεικτικό πλάνο περιλαμβάνει {count} ασκήσεις. Δες τις οδηγίες πριν ξεκινήσεις.'],
+  sample_limit: ['This is a deterministic example summary, not an AI response to your question or an account record.', 'Este es un resumen de ejemplo determinista, no una respuesta IA a tu pregunta ni un registro de tu cuenta.', 'Αυτή είναι μια ντετερμινιστική ενδεικτική σύνοψη, όχι απάντηση AI στην ερώτησή σου ή αρχείο λογαριασμού.'],
+};
+
+export const coachAssistantTranslations: Record<string, Record<CoreLanguage, string>> = Object.fromEntries(
+  Object.entries(rows).map(([key, [en, es, el]]) => [`coach_assistant.${key}`, { en, es, el }]),
+);
