@@ -182,7 +182,7 @@ def temporal_audit(config,out):
     from compare_baseline import studio,place
     cam=studio(s);s.render.engine='BLENDER_EEVEE';s.render.resolution_x=960;s.render.resolution_y=720;cam.data.sensor_fit='VERTICAL';place(cam,(2.6,-3.4,2.35),(0,.28,1.0),1.15)
     previous=None;rows=[]
-    for f in [12,13,171,172]:
+    for f in config.get('frames',[12,13,171,172]):
         s.frame_set(f);bpy.context.view_layer.update();p,t,ids=mesh_data(b)
         matrices={pb.name:pb.matrix.copy() for pb in r.pose.bones if any(x in pb.name for x in ['upper_arm','forearm','hand','shoulder'])}
         row={'frame':f,'shape_values':{k.name:k.value for k in b.data.shape_keys.key_blocks},'modifier_factors':{m.name:m.factor for m in b.modifiers if hasattr(m,'factor')}}
