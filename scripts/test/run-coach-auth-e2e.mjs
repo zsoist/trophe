@@ -8,6 +8,18 @@ import pg from 'pg';
 import { runLocalAuthenticatedE2E } from './run-local-auth-e2e.mjs';
 import { assertLoopbackDatabaseUrl, assertLoopbackSupabaseUrl, assertAuthUserAbsent } from './local-auth-e2e-core.mjs';
 
+function assertCi() {
+  if (process.env.CI !== 'true' || process.env.GITHUB_ACTIONS !== 'true') throw new Error('Coach Auth E2E requires GitHub CI');
+}
+function assertTargets(status) {
+  const db = assertLoopbackDatabaseUrl(status.DB_URL);
+  const api = assertLoopbackSupabaseUrl(status.API_URL);
+  if (db.hostname !== '127.0.0.1' || db.port !== '54322' || db.pathname !== '/postgres' || db.search || db.hash
+    || api.hostname !== '127.0.0.1' || api.port !== '54321' || api.pathname !== '/' || api.search || api.hash || api.username || api.password) {
+    throw new Error('Coach Auth E2E requires the exact disposable CI targets');
+  }
+}
+
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function requireId(value) {
   if (!uuid.test(value ?? '')) throw new Error('Coach E2E disposable identity is unavailable');
@@ -16,9 +28,8 @@ function requireId(value) {
 
 /** CI fixture only. App requests still authenticate against real local Supabase. */
 export async function executeCoachWeek({ status, env, actors, service }) {
-  if (process.env.CI !== 'true') throw new Error('Coach Auth E2E is CI-only');
-  assertLoopbackDatabaseUrl(status.DB_URL);
-  assertLoopbackSupabaseUrl(status.API_URL);
+  assertCi();
+  assertTargets(status);
   const clientId = requireId(actors?.clientId);
   const coachId = requireId(actors?.coachId);
   const orgId = requireId(env.E2E_TEST_ORG_ID);
@@ -70,7 +81,7 @@ export async function executeCoachWeek({ status, env, actors, service }) {
     finally { db.release(); }
 
     const childEnv = {
-      ...env, CI: 'true', COACH_ASSISTANT_ENABLED: '1', COACH_ASSISTANT_MODE: 'offline',
+      ...env, CI: 'true', NEXT_PUBLIC_COACH_ASSISTANT_ENABLED: '1', COACH_ASSISTANT_ENABLED: '1', COACH_ASSISTANT_MODE: 'offline',
       COACH_ASSISTANT_DATA_SOURCE: 'authorized_records', COACH_ASSISTANT_PREVIEW_USER_IDS: `${clientId},${coachId}`,
       E2E_COACH_WEEK: '1', E2E_CLIENT_ID: clientId, E2E_COACH_ID: coachId, E2E_FOREIGN_ID: foreignId,
       E2E_WEEK_SESSION_IDS: JSON.stringify([ids.sessionA, ids.sessionB]),
@@ -120,8 +131,8 @@ export async function executeCoachWeek({ status, env, actors, service }) {
 }
 
 export async function runCoachAuthE2E() {
-  if (process.env.CI !== 'true') throw new Error('Coach Auth E2E is CI-only');
-  return runLocalAuthenticatedE2E({ executeWithDisposableRoles: executeCoachWeek });
+  assertCi();
+  return runLocalAuthenticatedE2E({ validateStatus: assertTargets, executeWithDisposableRoles: executeCoachWeek });
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
