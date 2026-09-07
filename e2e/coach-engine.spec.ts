@@ -29,7 +29,7 @@ test('authenticated HTTP engine uses current authorized profile with explicit fi
       evaluation: { transport: 'injected_fixture', records: 'authorized_records', semanticQualityVerified: false },
       snapshot: { subjectId: actor }, profile: { source: 'authorized_profile' }, proposals: [], receipts: [] });
     expect(result.output.answer).toContain('Isolated transport fixture');
-    expect(result.profile.preferences).toEqual(before.workout_preferences);
+    expect(result.profile.preferences).toEqual({ durationMinutes: before.workout_preferences.durationMinutes });
     expect((await pool.query('SELECT workout_preferences FROM public.client_profiles WHERE user_id=$1', [actor])).rows[0]).toEqual(before);
     expect((await page.context().request.post('/api/coach-assistant', { data: { ...body, context: { surface: 'workout', includeScreen: true, clientId: randomUUID() } } })).status()).toBe(403);
     expect((await page.context().request.post('/api/coach-assistant', { data: { ...body, isolatedFixtureBoundary: { kind: 'isolated_authorized_fixture' } } })).status()).toBe(400);
