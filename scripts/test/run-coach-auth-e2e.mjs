@@ -83,7 +83,7 @@ export async function executeCoachWeek({ status, env, actors, service }) {
     const childEnv = {
       ...env, CI: 'true', NEXT_PUBLIC_COACH_ASSISTANT_ENABLED: '1', COACH_ASSISTANT_ENABLED: '1', COACH_ASSISTANT_MODE: 'offline',
       COACH_ASSISTANT_DATA_SOURCE: 'authorized_records', COACH_ASSISTANT_PREVIEW_USER_IDS: `${clientId},${coachId}`,
-      E2E_COACH_WEEK: '1', E2E_CLIENT_ID: clientId, E2E_COACH_ID: coachId, E2E_FOREIGN_ID: foreignId,
+      E2E_COACH_WEEK: '1', E2E_COACH_FLAG_OFF: '0', E2E_CLIENT_ID: clientId, E2E_COACH_ID: coachId, E2E_FOREIGN_ID: foreignId,
       E2E_WEEK_SESSION_IDS: JSON.stringify([ids.sessionA, ids.sessionB]),
       E2E_WEEK_SET_IDS: JSON.stringify([ids.setA, ids.setB, ids.setC]),
       E2E_COACH_DAY: day,
@@ -93,8 +93,16 @@ export async function executeCoachWeek({ status, env, actors, service }) {
     for (const key of Object.keys(childEnv)) {
       if (/(OPENAI|ANTHROPIC|GOOGLE|GEMINI|VOYAGE|DEEPSEEK|AI_GATEWAY|OPENROUTER).*(_KEY|_TOKEN)$/.test(key)) childEnv[key] = '';
     }
-    const result = spawnSync(process.execPath, [resolve('node_modules/@playwright/test/cli.js'), 'test', '--config', 'playwright.coach.config.ts', '--workers=1', 'e2e/coach-week.spec.ts'], { stdio: 'inherit', env: childEnv });
-    if (result.error || result.status !== 0) throw new Error(`Coach Auth E2E failed with status ${result.status ?? 1}`);
+    // Each Playwright process owns and closes its app server before the next
+    // starts. Both reuse the same disposable Auth/DB fixture and final cleanup.
+    const modes = [
+      childEnv,
+      { ...childEnv, NEXT_PUBLIC_COACH_ASSISTANT_ENABLED: '0', COACH_ASSISTANT_ENABLED: '0', E2E_COACH_FLAG_OFF: '1' },
+    ];
+    for (const modeEnv of modes) {
+      const result = spawnSync(process.execPath, [resolve('node_modules/@playwright/test/cli.js'), 'test', '--config', 'playwright.coach.config.ts', '--workers=1', 'e2e/coach-week.spec.ts'], { stdio: 'inherit', env: modeEnv });
+      if (result.error || result.status !== 0) throw new Error(`Coach Auth E2E flag-${modeEnv.E2E_COACH_FLAG_OFF === '1' ? 'off' : 'on'} failed with status ${result.status ?? 1}`);
+    }
   } catch (error) { primaryError = error; }
   finally {
     if (seeded) {
