@@ -39,7 +39,13 @@ export async function runVerifiedPhotoFoodAnalysis(scope:PhotoFoodScope,image:{d
 
 async function authorize(tx:PhotoFoodObservationTransaction,scope:PhotoFoodScope,signal:AbortSignal){
  signal.throwIfAborted();const found=await tx.execute(sql`SELECT actor.id FROM public.profiles actor JOIN public.client_profiles cp ON cp.user_id=actor.id JOIN public.organization_members member ON member.user_id=actor.id WHERE actor.id=${scope.actorId}::uuid AND actor.id=${scope.subjectId}::uuid AND actor.role::text='client' AND member.role::text='client' AND member.org_id=${scope.organizationId}::uuid FOR SHARE OF actor,cp,member`);
- if(found.rows.length!==1)throw new Error('forbidden');signal.throwIfAborted();
+ if(found.rows.length!==1)throw new Error('forbidden');
+ // A saved thread is mandatory. Its permanent revocation bit survives a full
+ // revoke/restore while the provider is running, before any observation exists.
+ const contract=await tx.execute<{version:string}>(sql`SELECT private.coach_chat_contract_version() AS version`);
+ if(contract.rows[0]?.version!=='coach-assistant.chat.v1')throw new Error('not_connected');
+ const thread=await tx.execute(sql`SELECT id FROM private.coach_chat_threads WHERE id=${scope.conversationId}::uuid AND actor_id=${scope.actorId}::uuid AND subject_id=${scope.subjectId}::uuid AND organization_id=${scope.organizationId}::uuid AND actor_role='client' AND state='active' AND access_revoked=false FOR SHARE`);
+ if(thread.rows.length!==1)throw new Error('forbidden');signal.throwIfAborted();
 }
 function parseRow(raw:unknown,scope:PhotoFoodScope){
  const row=rowSchema.parse(raw);for(const [key,value] of Object.entries(scope))if(row[key.replace(/[A-Z]/g,c=>`_${c.toLowerCase()}`) as keyof typeof row]!==value)throw new Error('forbidden');
@@ -82,7 +88,7 @@ export function createDatabasePhotoFoodObservationAdapter(database:Database,stor
   },
   async load(rawScope:PhotoFoodScope,signal:AbortSignal,tx:PhotoFoodObservationTransaction){
    const scope=photoFoodScopeSchema.parse(rawScope);await authorize(tx,scope,signal);
-   const found=await tx.execute(sql`SELECT o.id,o.actor_id,o.subject_id,o.organization_id,o.conversation_id,o.attachment_id,o.revision,o.image_digest,o.generation_id,o.foods,o.active,a.normalized_digest AS attachment_digest,a.state AS attachment_state,false AS attachment_expired FROM private.coach_photo_food_observations o JOIN private.coach_attachment_uploads a ON a.id=o.attachment_id JOIN public.agent_runs g ON g.generation_id=o.generation_id WHERE o.actor_id=${scope.actorId}::uuid AND o.subject_id=${scope.subjectId}::uuid AND o.organization_id=${scope.organizationId}::uuid AND o.conversation_id=${scope.conversationId}::uuid AND o.attachment_id=${scope.attachmentId}::uuid AND o.active=true AND a.state='available' AND a.expires_at>clock_timestamp() AND g.user_id=o.actor_id AND g.organization_id=o.organization_id AND g.task_name='photo_analyze' AND g.status='completed' AND g.prompt_version='photo-analyze-v1' AND g.metadata#>>'{coachPhotoFood,conversationId}'=o.conversation_id::text AND g.metadata#>>'{coachPhotoFood,attachmentId}'=o.attachment_id::text AND g.metadata#>>'{coachPhotoFood,imageDigest}'=o.image_digest FOR UPDATE OF o,a`);
+   const found=await tx.execute(sql`SELECT o.id,o.actor_id,o.subject_id,o.organization_id,o.conversation_id,o.attachment_id,o.revision,o.image_digest,o.generation_id,o.foods,o.active,a.normalized_digest AS attachment_digest,a.state AS attachment_state,false AS attachment_expired FROM private.coach_photo_food_observations o JOIN private.coach_attachment_uploads a ON a.id=o.attachment_id JOIN public.agent_runs g ON g.generation_id=o.generation_id WHERE o.actor_id=${scope.actorId}::uuid AND o.subject_id=${scope.subjectId}::uuid AND o.organization_id=${scope.organizationId}::uuid AND o.conversation_id=${scope.conversationId}::uuid AND o.attachment_id=${scope.attachmentId}::uuid AND o.active=true AND a.state='available' AND a.expires_at>clock_timestamp() AND g.user_id=o.actor_id AND g.organization_id=o.organization_id AND g.task_name='photo_analyze' AND g.status='completed' AND g.prompt_version='photo-analyze-v1' AND g.metadata#>>'{coachPhotoFood,conversationId}'=o.conversation_id::text AND g.metadata#>>'{coachPhotoFood,attachmentId}'=o.attachment_id::text AND g.metadata#>>'{coachPhotoFood,imageDigest}'=o.image_digest FOR UPDATE OF o,a FOR SHARE OF g`);
    if(found.rows.length!==1)return null;signal.throwIfAborted();return parseRow(found.rows[0],scope);
   },
  };return adapter;
