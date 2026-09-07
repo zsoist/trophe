@@ -207,6 +207,32 @@ GRANT SELECT ON TABLE public.food_database TO anon;
 SQL
 fi
 
+# The real Auth stack does not inherit the compatibility-mode fixture grants.
+# Limit service-role provisioning to operations used by run-local-auth-e2e.mjs.
+# This branch has already enforced GitHub CI and the exact disposable target.
+if [ "${CI_REAL_SUPABASE:-0}" = "1" ]; then
+  psql -X -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" <<'SQL'
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM (VALUES ('public.profiles'), ('public.client_profiles'),
+      ('public.food_log'), ('public.meal_plan_entries'), ('public.organizations'),
+      ('public.workout_templates')) AS required(name)
+    LEFT JOIN pg_class c ON c.oid = to_regclass(required.name)
+    WHERE c.oid IS NULL OR NOT c.relrowsecurity
+  ) THEN RAISE EXCEPTION 'Fixture ACL requires all named tables with RLS enabled'; END IF;
+  IF NOT has_table_privilege('authenticated', 'public.profiles', 'SELECT')
+     OR NOT has_table_privilege('authenticated', 'public.client_profiles', 'SELECT') THEN
+    RAISE EXCEPTION 'Canonical authenticated profile SELECT privilege is missing';
+  END IF;
+END $$;
+GRANT SELECT, INSERT, UPDATE ON TABLE public.profiles, public.client_profiles TO service_role;
+GRANT INSERT ON TABLE public.food_log, public.meal_plan_entries TO service_role;
+GRANT SELECT, INSERT, DELETE ON TABLE public.organizations TO service_role;
+GRANT SELECT, DELETE ON TABLE public.workout_templates TO service_role;
+SQL
+fi
+
 # Read-only diagnostics for the explicitly guarded disposable Auth CI target.
 # Fixed object names and booleans only: no credentials, user rows or free errors.
 if [ "${CI_REAL_SUPABASE:-0}" = "1" ]; then
