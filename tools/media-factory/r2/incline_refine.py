@@ -122,3 +122,43 @@ def garment(config,out):
     bpy.ops.wm.save_as_mainfile(filepath=str(out/'incline.blend'))
     p=Path(asset);record={'source':asset,'source_sha256':hashlib.sha256(p.read_bytes()).hexdigest(),'source_header':p.read_text(encoding='utf-8',errors='replace')[:2400],'upper_component_vertices':len(clothes.data.vertices),'reused':'Existing MakeHuman core male_casualsuit04 upper garment, collar and cap sleeves; generated trousers removed, existing shorts retained','treatment':'Brand-free burgundy performance jersey, narrow bound edges, native body weights/PV and4mm skin clearance,1.2mm textile shell','masks_preserved':sorted(before_masks),'human_reviews':'pending'}
     (out/'garment-refinement.json').write_text(json.dumps(record,indent=2));return {'vertices':len(clothes.data.vertices),'body_masks_preserved':True}
+
+
+def constraint_audit(config,out):
+    bpy.ops.wm.open_mainfile(filepath=config['animation_source']);r=bpy.data.objects['Trophe_R2_Authoring'];rows={}
+    for name in ['ORG-forearm.L','MCH-forearm_tweak.L.001','forearm_tweak.L.001','DEF-forearm.L','DEF-forearm.L.001']:
+        p=r.pose.bones[name];rows[name]={'parent':p.parent.name if p.parent else None,'constraints':[],'bbone':{n:getattr(p.bone,n) for n in ['bbone_segments','bbone_handle_type_start','bbone_handle_type_end']},'handles':[p.bone.bbone_custom_handle_start.name if p.bone.bbone_custom_handle_start else None,p.bone.bbone_custom_handle_end.name if p.bone.bbone_custom_handle_end else None]}
+        for c in p.constraints:
+            row={'name':c.name,'type':c.type}
+            for prop in ['subtarget','head_tail','keep_axis','volume','track_axis','up_axis','owner_space','target_space','mix_mode','rest_length','influence']:
+                if hasattr(c,prop):row[prop]=getattr(c,prop)
+            if hasattr(c,'target'):row['target']=c.target.name if c.target else None
+            rows[name]['constraints'].append(row)
+    rows['poses']=[]
+    for f in [1,36,46,91,153,154,158]:
+        bpy.context.scene.frame_set(f);bpy.context.view_layer.update();row={'frame':f}
+        for side in ['L','R']:
+            p=r.pose.bones['forearm_tweak.'+side+'.001'];target=r.pose.bones['ORG-hand.'+side].head-p.head
+            row[side]={'tweak_y_to_wrist_dot':(p.matrix.to_3x3()@Vector((0,1,0))).normalized().dot(target.normalized()),'org_forearm_y_dot':(r.pose.bones['ORG-forearm.'+side].matrix.to_3x3()@Vector((0,1,0))).normalized().dot(target.normalized()),'tweak_y':list(p.matrix.to_3x3()@Vector((0,1,0))),'to_wrist':list(target.normalized())}
+        rows['poses'].append(row)
+    (out/'constraints.json').write_text(json.dumps(rows,indent=2));return rows
+
+
+def scale_reference(config,out):
+    bpy.ops.wm.open_mainfile(filepath=config['animation_source']);s=bpy.context.scene;r=bpy.data.objects['Trophe_R2_Authoring'];b=bpy.data.objects['Trophe_R2_Athlete'];before={}
+    for f in [1,36,46,91,100,153,154,158,181]:
+        s.frame_set(f);bpy.context.view_layer.update();before[f]={side:np.array(r.pose.bones['ORG-hand.'+side].matrix) for side in ['L','R']}
+    for side in ['L','R']:
+        pb=r.pose.bones['forearm_tweak.'+side+'.001'];c=pb.constraints.new('COPY_SCALE');c.name='Native forearm scale independent of singular tweak blend';c.target=r;c.subtarget='ORG-forearm.'+side;c.owner_space='WORLD';c.target_space='WORLD';c.use_offset=False
+    rows=[];previous=None;first=None
+    for f in range(1,182):
+        s.frame_set(f);bpy.context.view_layer.update();p=points(b)
+        if first is None:first=p.copy()
+        row={'frame':f,'step_m':float(np.linalg.norm(p-previous,axis=1).max()) if previous is not None else 0,'scales':{side:list(r.pose.bones['forearm_tweak.'+side+'.001'].matrix.to_scale()) for side in ['L','R']}};previous=p.copy()
+        assert all(.98<v<1.02 for vs in row['scales'].values() for v in vs),row
+        if f in before:
+            row['hand_matrix_delta']=max(float(np.abs(np.array(r.pose.bones['ORG-hand.'+side].matrix)-before[f][side]).max()) for side in ['L','R']);assert row['hand_matrix_delta']<1e-5,row
+        rows.append(row)
+    maximum=max(x['step_m'] for x in rows);assert maximum<.025,maximum
+    s.frame_set(1);bpy.ops.wm.save_as_mainfile(filepath=str(out/'incline.blend'))
+    (out/'scale-reference.json').write_text(json.dumps({'cause':'Confirmed near-zero/inverting scale in left mid-forearm inherited from native50% COPY_TRANSFORMS blend when hand orientation opposes forearm. Existing COPY_ROTATION preserved orientation but did not prevent singular inherited scale, making Stretch To unstable.','intervention':'Native COPY_SCALE from ORG-forearm on both middle tweak controls. Keeps native midpoint position, calibrated rotation, IK, wrists, grasp, motion and existing body weights.','rows':rows,'max_surface_step_m':maximum,'closure_surface_m':float(np.linalg.norm(p-first,axis=1).max()),'human_reviews':'pending'},indent=2));return {'maximum_step_m':maximum,'closure_m':float(np.linalg.norm(p-first,axis=1).max())}
