@@ -119,7 +119,7 @@ def run(config,out):
             sh=head('ORG-upper_arm');e=head('ORG-forearm');w=head('ORG-hand');hand=r.matrix_world@r.pose.bones['ORG-hand.'+side].tail
             row['sides'][side]={'shoulder':list(sh),'elbow':list(e),'wrist':list(w),'elbow_flex_deg':math.degrees((e-sh).angle(w-e)),'wrist_axis_deg':math.degrees((w-e).angle(hand-w)),'wrist_error_m':(w-targets[side].matrix_world.translation).length,'skin_grip_drift_m':float(np.linalg.norm(local[ids]-ref,axis=1).max())}
         records.append(row)
-        if f in [1,46,76,100,136,161,181]:checks.append({'frame':f,'skin':check(body,regions)})
+        if f in config.get('critical_frames',[1,46,76,100,136,161,181]):checks.append({'frame':f,'skin':check(body,regions)})
         if f%30==0:print('INCLINE_FRAME',f,flush=True)
     for obj in [r,*anchors.values()]:
         for layer in obj.animation_data.action.layers:
@@ -158,7 +158,7 @@ def qa(config,out):
         for o in props:
             hits=crossings(data,mesh_data(o))
             if hits:row['equipment_crossings'][o.name]=hits
-        if f in [1,46,76,100,136,161,181]:
+        if f in config.get('critical_frames',[1,46,76,100,136,161,181]):
             row['skin']=check(body,{side:[v.index for v in body.data.vertices if v.index in bodyids and sign*v.co.x>.07 and 1.10<v.co.z<1.54] for side,sign in [('L',1),('R',-1)]})
             row['supports']={}
             for name,source in support_ids.items():
@@ -173,7 +173,7 @@ def qa(config,out):
     for f in [1.5,12.25,12.5,12.75,45.5,75.5,99.5,135.5,160.5,171.25,171.5,171.75,180.5]:
         s.frame_set(int(f),subframe=f%1);bpy.context.view_layer.update()
         sub.append({'frame':f,'wrist_error_m':max((r.matrix_world@r.pose.bones['ORG-hand.'+side].head-bpy.data.objects['Incline wrist target '+side].matrix_world.translation).length for side in ['L','R'])})
-    report={'rows':rows,'subframes':sub,'closure_surface_m':float(np.linalg.norm(p-first,axis=1).max()),'scope':'181 consecutive evaluated poses for grip and object/skin crossings; supports/garments at7 critical poses; not anatomical or human technique certification'}
+    report={'rows':rows,'subframes':sub,'closure_surface_m':float(np.linalg.norm(p-first,axis=1).max()),'scope':'181 consecutive evaluated poses for grip and object/skin crossings; supports/garments at recorded critical poses; not anatomical or human technique certification'}
     (out/'qa.json').write_text(json.dumps(report,indent=2));return {'max_grip_drift_m':max(v['drift_m'] for row in rows for v in row['sides'].values()),'max_wrist_axis_deg':max(v['wrist_axis_deg'] for row in rows for v in row['sides'].values()),'equipment_crossing_frames':sum(bool(row['equipment_crossings']) for row in rows),'closure_m':report['closure_surface_m']}
 
 
