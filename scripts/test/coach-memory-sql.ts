@@ -2,7 +2,8 @@
 // No productive database target is allowed.
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
+import { isAbsolute, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { Pool, type PoolClient } from 'pg';
 import { createDurablePreferenceService } from '../../lib/workout/durable-preference-actions';
@@ -20,6 +21,8 @@ const pool = new Pool({ connectionString: target.toString(), max: 4, connectionT
 const database = drizzle(pool), service = createPersistentMemoryService(database), preferenceService = createDurablePreferenceService(database);
 const scope = { actorId, subjectId: actorId, organizationId, signal: new AbortController().signal };
 const conversationId = process.env.COACH_MEMORY_CONVERSATION ?? randomUUID();
+const cleanupConversations = [conversationId];
+let uiManifest: string | undefined;
 const legacyId = randomUUID(), memoryIds: string[] = [], proposalIds: string[] = [], actionIds: string[] = [];
 const header = () => ({ version: 'coach-assistant.v2' as const, conversationId, turnId: randomUUID() });
 const execute = async (operation: PersistentMemoryOperation) => persistentMemoryResultSchema.parse(await service.execute({ ...scope, operation }));
@@ -188,20 +191,40 @@ async function main() {
   await pool.query("UPDATE public.organization_members SET role='coach' WHERE org_id=$1 AND user_id=$2", [organizationId, actorId]);
   try { const revoked = await execute({ ...header(), operation: 'memory.receipt', actionId: firstApply.actionId }); assert.ok(!revoked.ok && revoked.error === 'forbidden'); }
   finally { await pool.query("UPDATE public.organization_members SET role='client' WHERE org_id=$1 AND user_id=$2", [organizationId, actorId]); } pass();
+  check = 'memory_ui_real_auth_http';
+  const root = process.env.RUNNER_TEMP; assert.ok(root && isAbsolute(root));
+  uiManifest = resolve(root, `coach-memory-threads-${randomUUID()}.json`);
+  await writeFile(uiManifest, '[]', { mode: 0o600 });
+  const ui = spawnSync(process.execPath, ['node_modules/@playwright/test/cli.js', 'test', '--config', 'playwright.coach.config.ts', '--workers=1', 'e2e/coach-memory.spec.ts'], {
+    stdio: 'inherit', env: { ...process.env, E2E_COACH_MEMORY: '1', E2E_CLIENT_ID: actorId, COACH_MEMORY_HTTP_THREADS: uiManifest,
+      NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED: '1', NEXT_PUBLIC_COACH_ASSISTANT_ENABLED: '0', NEXT_PUBLIC_COACH_MEMORY_ACTIONS_ENABLED: '1',
+      COACH_ASSISTANT_ENABLED: '1', COACH_ASSISTANT_MODE: 'offline', COACH_ASSISTANT_DATA_SOURCE: 'authorized_records',
+      COACH_ASSISTANT_MEMORY_ACTIONS_ENABLED: '1', COACH_ASSISTANT_DIET_ACTIONS_ENABLED: '0', COACH_ASSISTANT_ISOLATED_ACTIONS_ENABLED: '0', COACH_ASSISTANT_PREVIEW_USER_IDS: actorId },
+  });
+  assert.equal(ui.status, 0); pass();
 }
 main().catch(error => {
   process.stderr.write(JSON.stringify({ event: 'coach_memory_sql', check, outcome: 'failed', ...(typeof error?.code === 'string' && /^[0-9A-Z]{5}$/.test(error.code) ? { sqlstate: error.code } : {}) }) + '\n'); process.exitCode = 1;
 }).finally(async () => {
   try {
     if (installed) {
+      if (uiManifest) {
+        const threads: unknown = JSON.parse(await readFile(uiManifest, 'utf8'));
+        assert.ok(Array.isArray(threads) && threads.length <= 4 && threads.every(id => typeof id === 'string' && /^[a-f0-9-]{36}$/.test(id)));
+        cleanupConversations.push(...threads);
+        const proposals = await pool.query("SELECT id,envelope->'resource'->>'id' AS memory_id FROM private.coach_action_proposals WHERE actor_id=$1 AND subject_id=$1 AND organization_id=$2 AND conversation_id=ANY($3::uuid[]) AND action IN ('memory.confirm','memory.correct','memory.delete')", [actorId, organizationId, threads]);
+        for (const row of proposals.rows) { proposalIds.push(row.id); memoryIds.push(row.memory_id); }
+        const receipts = await pool.query('SELECT action_id FROM private.coach_action_receipts WHERE actor_id=$1 AND subject_id=$1 AND organization_id=$2 AND conversation_id=ANY($3::uuid[]) AND proposal_id=ANY($4::uuid[])', [actorId, organizationId, threads, proposalIds]);
+        actionIds.push(...receipts.rows.map(row => row.action_id));
+      }
       await cleanupAudit();
-      await pool.query('DELETE FROM private.coach_action_receipts WHERE actor_id=$1 AND subject_id=$1 AND organization_id=$2 AND conversation_id=$3 AND action_id=ANY($4::uuid[]) AND proposal_id=ANY($5::uuid[])', [actorId, organizationId, conversationId, actionIds, proposalIds]);
-      await pool.query('DELETE FROM private.coach_action_proposals WHERE actor_id=$1 AND subject_id=$1 AND organization_id=$2 AND conversation_id=$3 AND id=ANY($4::uuid[])', [actorId, organizationId, conversationId, proposalIds]);
+      await pool.query('DELETE FROM private.coach_action_receipts WHERE actor_id=$1 AND subject_id=$1 AND organization_id=$2 AND conversation_id=ANY($3::uuid[]) AND action_id=ANY($4::uuid[]) AND proposal_id=ANY($5::uuid[])', [actorId, organizationId, cleanupConversations, actionIds, proposalIds]);
+      await pool.query('DELETE FROM private.coach_action_proposals WHERE actor_id=$1 AND subject_id=$1 AND organization_id=$2 AND conversation_id=ANY($3::uuid[]) AND id=ANY($4::uuid[])', [actorId, organizationId, cleanupConversations, proposalIds]);
       await pool.query('DELETE FROM public.memory_chunks WHERE user_id=$1 AND id=ANY($2::uuid[])', [actorId, [...memoryIds, legacyId]]);
-      await pool.query('DELETE FROM private.coach_memory_bindings WHERE actor_id=$1 AND subject_id=$1 AND organization_id=$2 AND conversation_id=$3 AND memory_id=ANY($4::uuid[])', [actorId, organizationId, conversationId, memoryIds]);
-      assert.equal((await pool.query('SELECT id FROM private.coach_action_receipts WHERE actor_id=$1 AND conversation_id=$2', [actorId, conversationId])).rowCount, 0);
-      assert.equal((await pool.query('SELECT id FROM private.coach_action_proposals WHERE actor_id=$1 AND conversation_id=$2', [actorId, conversationId])).rowCount, 0);
-      assert.equal((await pool.query('SELECT memory_id FROM private.coach_memory_bindings WHERE actor_id=$1 AND conversation_id=$2', [actorId, conversationId])).rowCount, 0);
+      await pool.query('DELETE FROM private.coach_memory_bindings WHERE actor_id=$1 AND subject_id=$1 AND organization_id=$2 AND conversation_id=ANY($3::uuid[]) AND memory_id=ANY($4::uuid[])', [actorId, organizationId, cleanupConversations, memoryIds]);
+      assert.equal((await pool.query('SELECT id FROM private.coach_action_receipts WHERE actor_id=$1 AND conversation_id=ANY($2::uuid[])', [actorId, cleanupConversations])).rowCount, 0);
+      assert.equal((await pool.query('SELECT id FROM private.coach_action_proposals WHERE actor_id=$1 AND conversation_id=ANY($2::uuid[])', [actorId, cleanupConversations])).rowCount, 0);
+      assert.equal((await pool.query('SELECT memory_id FROM private.coach_memory_bindings WHERE actor_id=$1 AND conversation_id=ANY($2::uuid[])', [actorId, cleanupConversations])).rowCount, 0);
       assert.equal((await pool.query('SELECT id FROM public.memory_chunks WHERE user_id=$1 AND id=ANY($2::uuid[])', [actorId, [...memoryIds, legacyId]])).rowCount, 0);
       await pool.query('DROP POLICY coach_confirmed_memory_private ON public.memory_chunks; DROP TRIGGER coach_memory_revision ON public.memory_chunks; DROP FUNCTION private.advance_coach_memory_version(); DROP TABLE private.coach_memory_bindings;');
       assert.equal((await pool.query("SELECT relrowsecurity FROM pg_class WHERE oid='public.memory_chunks'::regclass")).rows[0].relrowsecurity, true);

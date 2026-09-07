@@ -1,4 +1,10 @@
 export const globalCoachTranslations: Record<string, { en: string; es: string; el: string }> = {
+  'global_coach.memory_persistent_scope': { en: 'Saved for this conversation. You choose what to keep, edit or delete.', es: 'Guardado para esta conversación. Tú eliges qué conservar, editar o eliminar.', el: 'Αποθηκεύεται για αυτή τη συζήτηση. Επιλέγετε τι θα κρατήσετε, επεξεργαστείτε ή διαγράψετε.' },
+  'global_coach.memory_load': { en: 'Load saved memories', es: 'Cargar recuerdos guardados', el: 'Φόρτωση αποθηκευμένων μνημών' },
+  'global_coach.memory_new': { en: 'What would you like to remember?', es: '¿Qué quieres recordar?', el: 'Τι θέλετε να θυμάστε;' },
+  'global_coach.memory_saved': { en: 'Memory change saved.', es: 'Cambio de recuerdo guardado.', el: 'Η αλλαγή μνήμης αποθηκεύτηκε.' },
+  'global_coach.memory_refresh_pending': { en: 'Change saved. Reloading memories is still pending.', es: 'Cambio guardado. Falta actualizar los recuerdos.', el: 'Η αλλαγή αποθηκεύτηκε. Εκκρεμεί η ανανέωση των μνημών.' },
+  'global_coach.memory_failed': { en: 'Could not confirm this change. Reload memories before reviewing another change.', es: 'No se pudo confirmar el cambio. Recarga los recuerdos antes de revisar otro cambio.', el: 'Η αλλαγή δεν επιβεβαιώθηκε. Ανανεώστε τις μνήμες πριν ελέγξετε νέα αλλαγή.' },
   "global_coach.remove_selection": { en: "Remove screen selection", es: "Quitar selección de pantalla", el: "Αφαίρεση επιλογής οθόνης" },
   "global_coach.food_quantity": {"en":"Food quantity","es":"Cantidad de alimento","el":"Ποσότητα τροφίμου"},
   "global_coach.food_done": {"en":"Close saved change","es":"Cerrar cambio guardado","el":"Κλείσιμο αποθηκευμένης αλλαγής"},

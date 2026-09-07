@@ -20,14 +20,17 @@ import { AttachmentPicker } from './AttachmentPicker';
 import { ContextCards } from './ContextCards';
 import { PreferenceController, type PreferenceTransport, type PreferenceState } from './preference-state';
 import { requestPreference } from './preference-client';
+import { MemoryController, type MemoryTransport } from './memory-state';
+import { MemoryPanel } from './MemoryPanel';
+import { requestMemory } from './memory-client';
 
 export type CoachContextSlot = (props: { controller: PreferenceController; state: PreferenceState; conversationId: string; transport: PreferenceTransport }) => ReactNode;
 export type CoachVoiceSlot = (props: { conversationId: string; onUse: (text: string) => boolean }) => ReactNode;
-type Props = { identity: string; subjectId?: string; example?: ConversationTransport; preferenceTransport?: PreferenceTransport; contextSlot?: CoachContextSlot; voiceSlot?: CoachVoiceSlot };
+type Props = { identity: string; subjectId?: string; example?: ConversationTransport; preferenceTransport?: PreferenceTransport; memoryTransport?: MemoryTransport; contextSlot?: CoachContextSlot; voiceSlot?: CoachVoiceSlot };
 export default function GlobalCoach(props: Props) {
   return <CoachSurface key={`${props.identity}:${props.subjectId ?? props.identity}`} {...props} />;
 }
-function CoachSurface({ identity, subjectId, example, preferenceTransport, contextSlot, voiceSlot }: Props) {
+function CoachSurface({ identity, subjectId, example, preferenceTransport, memoryTransport, contextSlot, voiceSlot }: Props) {
   const { t } = useGlobalCoachI18n();
   const path = usePathname();
   const surface = coachSurface(path);
@@ -44,6 +47,9 @@ function CoachSurface({ identity, subjectId, example, preferenceTransport, conte
   const [preferences] = useState(() => new PreferenceController());
   const preferenceState = useSyncExternalStore(preferences.subscribe, preferences.snapshot, preferences.snapshot);
   const state = useSyncExternalStore(controller.subscribe, controller.snapshot, controller.snapshot);
+  const [memory] = useState(() => new MemoryController(state.conversationId));
+  const memoryState = useSyncExternalStore(memory.subscribe, memory.snapshot, memory.snapshot);
+  const memoryEnabled = process.env.NEXT_PUBLIC_COACH_MEMORY_ACTIONS_ENABLED === '1' && (!example || Boolean(memoryTransport)) && (!subjectId || subjectId === identity);
   const [open, setOpen] = useState(false);
   const [includeScreen, setIncludeScreen] = useState(true);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
@@ -59,6 +65,8 @@ function CoachSurface({ identity, subjectId, example, preferenceTransport, conte
   useEffect(() => () => attachments.reset(), [attachments]);
   useEffect(() => () => voice.reset(), [voice]);
   useEffect(() => () => food.reset(), [food]);
+  useEffect(() => () => memory.reset(), [memory]);
+  useEffect(() => { memory.identify(state.conversationId); }, [memory, state.conversationId]);
   useEffect(() => {
     if (process.env.NEXT_PUBLIC_COACH_FOOD_ACTIONS_ENABLED !== '1' || example || subjectId && subjectId !== identity) return;
     const select = (event: Event) => {
@@ -87,7 +95,7 @@ function CoachSurface({ identity, subjectId, example, preferenceTransport, conte
     if (followLatest.current && !window.getSelection()?.toString()) log.current?.scrollTo({ top: log.current.scrollHeight });
     else setShowLatest(true);
   }, [open, state.turns, state.pending]);
-  const close = () => { controller.cancel(); preferences.cancel(); attachments.cancel(); voice.reset(); food.cancel(); setOpen(false); launcher.current?.focus(); };
+  const close = () => { controller.cancel(); preferences.cancel(); attachments.cancel(); voice.reset(); food.cancel(); memory.cancel(); setOpen(false); launcher.current?.focus(); };
   const send = () => !voiceActive && controller.send({ surface, includeScreen, ...(includeScreen && selection ? selection.anatomy ? { anatomy: selection.anatomy } : { entity: selection.entity } : {}), ...(subjectId ? { clientId: subjectId } : {}) }, example ?? requestConversation, attachments.references());
   const latestResponse = state.turns.findLast(turn => turn.response?.ok)?.response;
   useEffect(() => { if (latestResponse) attachments.reconcile(latestResponse.attachments); }, [attachments, latestResponse]);
@@ -98,13 +106,17 @@ function CoachSurface({ identity, subjectId, example, preferenceTransport, conte
     {anchor ? createPortal(launch, anchor) : launch}
     {open && <section id="global-coach" className={styles.panel} style={{ top: panelTop }} aria-labelledby="global-coach-title" onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); close(); } }}>
       <header className={styles.header}><div><h2 id="global-coach-title">{t('global_coach.title')}</h2><p>{t(example ? 'global_coach.example' : 'global_coach.identity')}</p></div><button type="button" onClick={close} aria-label={t('global_coach.close')}><X size={22} /></button></header>
-      {latestResponse && <ContextCards response={latestResponse} conversationId={state.conversationId} subjectId={subjectId} onExpand={() => voice.reset()} controller={preferences} state={preferenceState} transport={preferenceTransport ?? requestPreference}>{contextSlot?.({ controller: preferences, state: preferenceState, conversationId: state.conversationId, transport: preferenceTransport ?? requestPreference })}</ContextCards>}
+      {latestResponse && <ContextCards response={latestResponse} conversationId={state.conversationId} subjectId={subjectId} hideMemories={memoryEnabled} onExpand={() => voice.reset()} controller={preferences} state={preferenceState} transport={preferenceTransport ?? requestPreference}>{contextSlot?.({ controller: preferences, state: preferenceState, conversationId: state.conversationId, transport: preferenceTransport ?? requestPreference })}</ContextCards>}
       <div ref={log} className={styles.log} role="log" aria-live="polite" aria-relevant="additions text" onScroll={() => {
         const node = log.current; if (!node) return;
         followLatest.current = node.scrollHeight - node.scrollTop - node.clientHeight < 64;
         if (followLatest.current) setShowLatest(false);
       }}>
         {foodState.entryId && <FoodQuantityPanel key={foodState.entryId} controller={food} state={foodState} transport={requestFoodQuantity} />}
+        {memoryEnabled && <details className={styles.profile} onToggle={event => { if (event.currentTarget.open) { voice.reset(); if (!memoryState.loaded) void memory.read(memoryTransport ?? requestMemory); } }}>
+          <summary>{t('global_coach.memory')}</summary>
+          <MemoryPanel controller={memory} state={memoryState} transport={memoryTransport ?? requestMemory} />
+        </details>}
         {!state.turns.length && <p className={styles.intro}>{t('global_coach.intro')}</p>}
         {state.turns.map(turn => <article className={styles.turn} key={turn.request.turnId}>
           <p className={styles.question}>{turn.request.message}</p>

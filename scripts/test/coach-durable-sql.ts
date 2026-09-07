@@ -142,6 +142,10 @@ async function main() {
   const memory = spawnSync(process.execPath, ['--import', 'tsx', 'scripts/test/coach-memory-sql.ts'], { stdio: 'inherit', env: process.env });
   assert.equal(memory.status, 0);
 
+  check = 'reviewed_diet_preference_transactions';
+  const diet = spawnSync(process.execPath, ['--import', 'tsx', 'scripts/test/coach-diet-fixture-sql.ts'], { stdio: 'inherit', env: process.env });
+  assert.equal(diet.status, 0);
+
   check = 'durable_global_ui_real_auth_http';
   const root = process.env.RUNNER_TEMP;
   assert.ok(root && isAbsolute(root));

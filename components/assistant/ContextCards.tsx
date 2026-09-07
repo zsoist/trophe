@@ -5,9 +5,9 @@ import { PreferenceController, type PreferenceState, type PreferenceTransport } 
 import { useGlobalCoachI18n } from './useGlobalCoachI18n';
 import styles from './GlobalCoach.module.css';
 
-export function ContextCards({ response, conversationId, subjectId, controller, state, transport, children, onExpand }: {
+export function ContextCards({ response, conversationId, subjectId, controller, state, transport, children, onExpand, hideMemories = false }: {
   response: CoachConversationResponse; conversationId: string; subjectId?: string;
-  controller: PreferenceController; state: PreferenceState; transport: PreferenceTransport; children?: ReactNode; onExpand?: () => void;
+  controller: PreferenceController; state: PreferenceState; transport: PreferenceTransport; children?: ReactNode; onExpand?: () => void; hideMemories?: boolean;
 }) {
   const { t } = useGlobalCoachI18n();
   const profile = response.profile;
@@ -18,7 +18,7 @@ export function ContextCards({ response, conversationId, subjectId, controller, 
   const reviewRef = useRef<HTMLElement>(null);
   const receiptRef = useRef<HTMLParagraphElement>(null);
   useEffect(() => { if (state.receipt?.status === 'applied') receiptRef.current?.focus(); else if (state.proposal) reviewRef.current?.focus(); }, [state.proposal, state.receipt]);
-  if (!profile && !response.memories?.length) return null;
+  if (!profile && (hideMemories || !response.memories?.length)) return null;
   const canChange = response.snapshot?.capabilities.some(item => item.key === 'actions' && item.status === 'available');
   const applied = state.receipt?.status === 'applied';
   const profileNewer = profile?.source === 'authorized_profile' && state.confirmed?.storage === 'database'
@@ -55,7 +55,7 @@ export function ContextCards({ response, conversationId, subjectId, controller, 
       {state.error && !state.uncertain && <p role="status">{t('global_coach.preference_failed')}</p>}
     </div>}
     {children}
-    {response.memories && response.memories.length > 0 && <div className={styles.profileBody}>
+    {!hideMemories && response.memories && response.memories.length > 0 && <div className={styles.profileBody}>
       <h3>{t('global_coach.memory')}</h3>
       {memories.length === 0 && <p>{t('global_coach.memory_empty')}</p>}
       {memories.map(memory => <article key={memory.id} className={styles.memory}>

@@ -3,7 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 // One explicitly dispatched, ephemeral Auth matrix. Never joins ordinary smoke.
 export default defineConfig({
   testDir: './e2e',
-  testMatch: ['coach-week.spec.ts', 'coach-durable.spec.ts', 'coach-food.spec.ts', 'coach-engine.spec.ts'],
+  testMatch: ['coach-week.spec.ts', 'coach-durable.spec.ts', 'coach-food.spec.ts', 'coach-engine.spec.ts', 'coach-memory.spec.ts'],
   timeout: 240_000,
   expect: { timeout: 15_000 },
   fullyParallel: false,
