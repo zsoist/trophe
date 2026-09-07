@@ -64,6 +64,7 @@ export const memoryRouter = router({
       const conditions = [
         eq(memoryChunks.userId, input.userId),
         eq(memoryChunks.active, true),
+        sql`${memoryChunks.agentName} IS DISTINCT FROM 'coach-assistant-confirmed'`,
         sql`(expires_at IS NULL OR expires_at > NOW())`,
       ];
 
@@ -122,6 +123,7 @@ export const memoryRouter = router({
         .where(
           and(
             eq(memoryChunks.id, input.chunkId),
+            sql`${memoryChunks.agentName} IS DISTINCT FROM 'coach-assistant-confirmed'`,
             eq(memoryChunks.userId, input.userId),
           ),
         )
@@ -153,6 +155,7 @@ export const memoryRouter = router({
           FROM memory_chunks
           WHERE user_id = ${input.userId}
             AND active = true
+            AND agent_name IS DISTINCT FROM 'coach-assistant-confirmed'
             AND (expires_at IS NULL OR expires_at > NOW())
           GROUP BY fact_type
           ORDER BY fact_type
