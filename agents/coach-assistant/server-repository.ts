@@ -53,15 +53,15 @@ export function createServerRepository(pool: ReadPool): CoachRepository {
     async authorize(actorId, subjectId, signal) {
       // Existing owner pool is used only for this bounded authorization metadata
       // query. All content reads below additionally use authenticated RLS.
-      const rows = await query<{ actor: Actor; subject: Subject }>(`
+      const rows = await query<{ actor: Actor; subject: Subject | null }>(`
         SELECT jsonb_build_object('id', a.id, 'role', a.role, 'organizationIds',
           ARRAY(SELECT org_id FROM organization_members WHERE user_id = a.id LIMIT 8)) AS actor,
-          jsonb_build_object('id', s.id, 'coachId', cp.coach_id, 'timezone', s.timezone,
+          CASE WHEN cp.user_id IS NOT NULL THEN jsonb_build_object('id', s.id, 'coachId', cp.coach_id, 'timezone', s.timezone,
             'language', s.language, 'organizationIds',
-            ARRAY(SELECT org_id FROM organization_members WHERE user_id = s.id LIMIT 8)) AS subject
-        FROM profiles a CROSS JOIN profiles s
-        JOIN client_profiles cp ON cp.user_id = s.id
-        WHERE a.id = $1::uuid AND s.id = $2::uuid LIMIT 1`, [actorId, subjectId], signal);
+            ARRAY(SELECT org_id FROM organization_members WHERE user_id = s.id LIMIT 8)) ELSE NULL END AS subject
+        FROM profiles a LEFT JOIN profiles s ON s.id = $2::uuid
+        LEFT JOIN client_profiles cp ON cp.user_id = s.id
+        WHERE a.id = $1::uuid LIMIT 1`, [actorId, subjectId], signal);
       return authorizeSubject(rows[0]?.actor ?? null, rows[0]?.subject ?? null);
     },
     personalContext: args => bounded<PersonalContextRow>(args, `
