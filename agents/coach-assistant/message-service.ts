@@ -59,6 +59,11 @@ export function createCoachMessageService(database:Database,consumeRateLimit:(ke
    WHERE id=${operation.proposalId}::uuid AND actor_id=${scope.actorId}::uuid AND subject_id=${scope.subjectId}::uuid AND organization_id=${scope.organizationId}::uuid AND conversation_id=${operation.conversationId}::uuid AND action='chat.message.send' FOR UPDATE`);
    if(saved.rows.length!==1)throw new Rejected('not_found');const proposal=coachMessageProposalSchema.parse(saved.rows[0].envelope);
    if(proposal.id!==operation.proposalId||proposal.hash!==operation.hash||proposal.recipient.coachId!==operation.coachId||hash({actor:scope.actorId,org:scope.organizationId,conversation:operation.conversationId,proposal:{...proposal,hash:''}})!==proposal.hash)throw new Rejected('invalid_input');
+   // The message can legitimately be deleted; durable consumption cannot depend on it.
+   // The proposal row lock above serializes all action IDs targeting this proposal.
+   const consumed=await tx.execute(sql`SELECT id FROM private.coach_action_receipts
+   WHERE actor_id=${scope.actorId}::uuid AND proposal_id=${proposal.id}::uuid LIMIT 1`);
+   if(consumed.rows.length)throw new Rejected('idempotency_conflict');
    const duplicate=await tx.execute(sql`SELECT id FROM public.messages WHERE id=${proposal.id}::uuid`);if(duplicate.rows.length)throw new Rejected('idempotency_conflict');
    if(saved.rows[0].expired)throw new Rejected('expired');
    if(proposal.recipient.version!==operation.resourceVersion||JSON.stringify(proposal.recipient)!==JSON.stringify(current))throw new Rejected('version_conflict');

@@ -15,6 +15,7 @@ function fixture(){
   if(sql.includes("interval '5 minutes'"))return {rows:[{expires:'2026-09-08T00:05:00Z'}]};
   if(sql.includes('INSERT INTO private.coach_action_proposals')){proposals[String(p[0])]=JSON.parse(String(p[7]));return {rows:[]};}
   if(sql.includes('SELECT envelope,'))return {rows:proposals[String(p[0])]?[{envelope:proposals[String(p[0])],expired:false}]:[]};
+  if(sql.includes('SELECT id FROM private.coach_action_receipts'))return {rows:Object.values(receipts).filter(row=>(row as {proposal_id:string}).proposal_id===p[1]).slice(0,1)};
   if(sql.includes('SELECT id FROM public.messages'))return {rows:messages[String(p[0])]?[{id:p[0]}]:[]};
   if(sql.includes('INSERT INTO public.messages')){messages[String(p[0])]={id:p[0],body:p[1],coachId:p[3]};return {rows:[{id:p[0]}]};}
   if(sql.includes('AS expired'))return {rows:[{expired:false}]};
@@ -25,11 +26,20 @@ function fixture(){
  const database={transaction:async(fn:(connection:typeof tx)=>Promise<unknown>)=>{const before=structuredClone({proposals,messages,receipts});let result;try{result=await fn(tx);}catch(error){({proposals,messages,receipts}=before);throw error;}if(lost){lost=false;throw new Error('response lost after fixture commit');}return result;}} as unknown as Parameters<typeof createCoachMessageService>[0];
  const service=createCoachMessageService(database,rate);
  const execute=(operation:CoachMessageOperation)=>service.execute({actorId:actor,subjectId:actor,organizationId:org,operation,signal:new AbortController().signal});
- return {execute,rate,state:()=>({messages,receipts}),lose:()=>{lost=true;},fail:()=>{receiptFails=true;},revoke:()=>{allowed=false;},aba:()=>{revision='3';coachId=coach;}};
+ return {execute,rate,deleteMessage:(messageId:string)=>{delete messages[messageId];},state:()=>({messages,receipts}),lose:()=>{lost=true;},fail:()=>{receiptFails=true;},revoke:()=>{allowed=false;},aba:()=>{revision='3';coachId=coach;}};
 }
 async function proposal(f:ReturnType<typeof fixture>){const recipient=await f.execute({...base,operation:'message.recipient'});if(!recipient.ok||!('recipient'in recipient))throw Error('recipient');const result=await f.execute({...base,operation:'message.propose',coachId:coach,resourceVersion:recipient.recipient.version,after:{message:'  Exact reviewed text  '}});if(!result.ok||!('proposal'in result))throw Error('proposal');return {...base,operation:'message.apply' as const,coachId:coach,proposalId:result.proposal.id,hash:result.proposal.hash,resourceVersion:recipient.recipient.version,actionId:id(6),reviewed:true as const};}
 describe('human message SQL transaction double (no real sends)',()=>{
  it('stores exact reviewed text once; recovers lost response without a second rate charge or insert',async()=>{const f=fixture();const apply=await proposal(f);expect(f.state().messages).toEqual({});f.lose();expect(await f.execute(apply)).toMatchObject({error:'uncertain'});const receipt=await f.execute({...base,operation:'message.receipt',coachId:coach,actionId:id(6)});expect(receipt).toMatchObject({ok:true,receipt:{status:'stored'}});expect(await f.execute(apply)).toEqual(receipt);expect(Object.values(f.state().messages)).toEqual([{id:apply.proposalId,body:'Exact reviewed text',coachId:coach}]);expect(f.rate).toHaveBeenCalledExactlyOnceWith(`client-message:${actor}`,30,900);expect(await f.execute({...apply,actionId:id(7)})).toMatchObject({error:'idempotency_conflict'});expect(f.rate).toHaveBeenCalledTimes(1);});
  it('rolls back message and receipt together on precommit failure, without claiming delivery',async()=>{const f=fixture();const apply=await proposal(f);f.fail();expect(await f.execute(apply)).toMatchObject({error:'uncertain'});expect(f.state()).toEqual({messages:{},receipts:{}});});
  it('rejects assignment ABA, revocation, unreviewed apply and rate denial before storing',async()=>{const f=fixture();const apply=await proposal(f);f.aba();expect(await f.execute(apply)).toMatchObject({error:'version_conflict'});expect(f.rate).not.toHaveBeenCalled();f.revoke();expect(await f.execute(apply)).toMatchObject({error:'forbidden'});const g=fixture();const second=await proposal(g);expect(await g.execute({...second,reviewed:false} as unknown as CoachMessageOperation)).toMatchObject({error:'invalid_input'});g.rate.mockResolvedValue({allowed:false,retryAfter:60});expect(await g.execute(second)).toMatchObject({error:'rate_limited'});expect(g.state().messages).toEqual({});});
+ it('retains durable proposal consumption after the canonical message is deleted',async()=>{
+  const f=fixture();const apply=await proposal(f);const first=await f.execute(apply);expect(first).toMatchObject({ok:true});
+  f.deleteMessage(apply.proposalId);
+  expect(await f.execute({...apply,actionId:id(88)})).toMatchObject({error:'idempotency_conflict'});
+  expect(await f.execute(apply)).toEqual(first);
+  expect(await f.execute({...base,operation:'message.receipt',coachId:coach,actionId:apply.actionId})).toEqual(first);
+  expect(f.state().messages).toEqual({});expect(f.rate).toHaveBeenCalledTimes(1);
+ });
+
 });
