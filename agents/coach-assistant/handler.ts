@@ -1,5 +1,6 @@
 import { run } from './index';
 import { runConversation } from './conversation';
+import { isolatedActionsBroker } from './isolated-actions';
 import { requestSchema, conversationRequestSchema } from './schema';
 import { fixtureRepository } from './fixtures';
 import type { CoachErrorCode, CoachResponse } from './contracts';
@@ -69,6 +70,12 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
       const allowed=(deps.env.COACH_ASSISTANT_PREVIEW_USER_IDS??'').split(',').map(s=>s.trim()).filter(Boolean);
       if(!allowed.includes(guard.userId))return fail('forbidden',403);
       const raw=await readBody(request,controller.signal);
+      if(raw && typeof raw==='object' && 'operation' in raw) {
+        if(deps.env.COACH_ASSISTANT_ISOLATED_ACTIONS_ENABLED!=='1')return fail('disabled',404);
+        const result=await isolatedActionsBroker.execute(guard.userId,raw,await deps.createRepository(),controller.signal);
+        const status=result.ok?200:result.error==='forbidden'?403:result.error==='invalid_input'?400:result.error==='expired'?410:result.error==='not_found'?404:result.error==='uncertain'?503:409;
+        return json(result,status);
+      }
       const parsed=conversationRequestSchema.or(requestSchema).safeParse(raw);
       if(!parsed.success)return fail('invalid_input',400);
       const synthetic=deps.env.COACH_ASSISTANT_DATA_SOURCE==='synthetic';
