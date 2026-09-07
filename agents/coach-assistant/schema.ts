@@ -41,3 +41,13 @@ export const conversationRequestSchema = z.object({
   history: z.array(z.object({ role: z.enum(['user', 'assistant']), text: z.string().min(1).max(500) }).strict()).max(6).optional(),
   attachments: z.array(z.object({ id: z.string().uuid(), kind: z.enum(['image', 'audio']), status: z.enum(['pending', 'available', 'unknown', 'unauthorized', 'not_connected']) }).strict()).max(3).optional(),
 }).strict();
+
+const preferenceOperationBase = {
+  version: z.literal('coach-assistant.v2'),
+  conversationId: z.string().uuid(), turnId: z.string().uuid(), clientId: z.string().uuid().optional(),
+};
+export const preferenceOperationSchema = z.discriminatedUnion('operation', [
+  z.object({...preferenceOperationBase,operation:z.literal('propose'),action:z.literal('preference.update'),resourceVersion:z.string().min(1).max(128),after:z.object({durationMinutes:z.union([z.literal(20),z.literal(30),z.literal(45),z.literal(60)])}).strict()}).strict(),
+  z.object({...preferenceOperationBase,operation:z.literal('apply'),proposalId:z.string().uuid(),hash:z.string().regex(/^[a-f0-9]{64}$/),actionId:z.string().uuid(),resourceVersion:z.string().min(1).max(128)}).strict(),
+  z.object({...preferenceOperationBase,operation:z.literal('receipt'),actionId:z.string().uuid()}).strict(),
+]);
