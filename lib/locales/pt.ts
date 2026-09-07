@@ -299,6 +299,7 @@ export const pt: Record<string, string> = {
   'food.pre_workout': 'Pré-treino',
   'food.post_workout': 'Pós-treino',
   'food.quantity': 'Quantidade',
+  'food.coach_review_quantity': 'Rever a quantidade de {name} com o coach',
   'food.add': 'Adicionar',
   'food.per_serving': 'por porção',
   'food.recent': 'Recentes',
