@@ -12,6 +12,9 @@ describe('real query adapter boundaries', () => {
     await repository.nutrition({ context: { actorId:'actor', subjectId:'subject', organizationId:'org', timezone:'UTC', language:'en' },
       window:{ start:'2026-09-01',end:'2026-09-07',days:7,timezone:'UTC' },limit:128,signal:new AbortController().signal });
     expect(calls.map(c => c.text).join('\n')).toContain('SET LOCAL ROLE authenticated');
+    const claims=calls.find(c=>c.text.includes('request.jwt.claim.sub'));
+    expect(claims?.values).toEqual([JSON.stringify({sub:'actor',role:'authenticated'}),'actor']);
+    expect(claims?.text).toContain('request.jwt.claim.role');
     expect(calls.find(c => c.text.includes('FROM food_log'))?.values).toEqual(['subject','2026-09-01','2026-09-07',129]);
     expect(calls.some(c => c.text === 'ROLLBACK')).toBe(true);
     expect(released).toBe(true);
