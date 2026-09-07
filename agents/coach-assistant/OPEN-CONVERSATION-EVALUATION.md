@@ -67,3 +67,15 @@ Do not enable unrestricted declarative output in product based on those tests.
 The independent quality gate, actual Luna evaluation and broader multilingual
 counterexamples remain pending. Speech-act lexical bounds also are not universal
 protection against every presupposition or paraphrase inside a question/suggestion.
+
+### Current gate supersedes the speech-act fallback above
+
+An additional independent question presupposed stronger muscles and a healthier
+heart. Questions/suggestions therefore receive no exemption: every answer and
+followUp now requires the separate offline oracle. Its input includes both prose
+fields, limitations, evidence references and copied canonical evidence. Without
+that gate, generated prose is withheld as invalid_output. The grammar heuristic
+was removed. Development happy paths use an explicit fixture-specific oracle;
+that is not an implementation of general semantic verification. Full conversation
+quality and live enablement remain incomplete; the generator/schema/evaluation
+entrypoint are retained for the required independent evaluation.

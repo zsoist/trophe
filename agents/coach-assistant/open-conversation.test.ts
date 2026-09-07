@@ -3,7 +3,7 @@ import { runConversation } from './conversation';
 import { fixtureRepository } from './fixtures';
 import type { OfflineConversationProvider } from './open-conversation';
 const request={version:'coach-assistant.v2',conversationId:'a2c5ec63-6f35-4671-b4f1-6644ca9d739c',turnId:'aac3a82e-898c-4907-b9b9-75133bb6d27f',message:'¿Y cómo podría organizarlo mejor?',history:[{role:'user',text:'Quiero entender mis comidas de esta semana.'},{role:'assistant',text:'Podemos revisar lo registrado.'}]};
-const options=()=>({mode:'model' as const,actorId:'synthetic-client',repository:fixtureRepository(),signal:new AbortController().signal,now:new Date('2026-09-07T03:30:00Z')});
+const options=()=>({mode:'model' as const,actorId:'synthetic-client',repository:fixtureRepository(),signal:new AbortController().signal,now:new Date('2026-09-07T03:30:00Z'),offlineInterpretationReview:async(candidate:{answer:string;followUp:string|null})=>({approved:candidate.answer===prose.answer&&candidate.followUp===prose.followUp})});
 const prose={answer:'Podrías revisar si las comidas registradas representan tu rutina antes de decidir qué organizar.',evidenceRefs:[] as string[],entityRefs:[] as string[],facts:[] as Array<{kind:string;evidenceId:string}>,followUp:'¿Qué parte te cuesta más al elegir qué comer o encontrar tiempo para prepararlo?',limitations:[],escalation:false};
 function provider(change?:(output:typeof prose,payload:Record<string,unknown>)=>unknown):OfflineConversationProvider {
   return vi.fn(async input=>{
@@ -72,6 +72,14 @@ describe('open v2 conversation with explicit synthetic provider',()=>{
     }});
     expect(approved.output?.answer).toContain(answer);
     expect(approved.output?.answer).toContain('Offline oracle-reviewed');
+  });
+  it('requires independent review for questions and follow-ups too',async()=>{
+    const answer='How would you maintain your stronger muscles and healthier heart shown by these records?';
+    const transport=provider(output=>({...output,answer}));
+    const result=await runConversation(request,{...options(),offlineConversationProvider:transport,offlineInterpretationReview:undefined});
+    expect(result.error?.code).toBe('invalid_output');expect(result.output).toBeUndefined();
+    const followUp=provider(output=>({...output,followUp:answer}));
+    expect((await runConversation(request,{...options(),offlineConversationProvider:followUp})).error?.code).toBe('invalid_output');
   });
   it('rechecks authorization after generation and clears text on revocation',async()=>{
     const config=options();let revoked=false;
