@@ -1,3 +1,4 @@
+import { parseFoodPreferences } from '@/lib/food/preferences';
 import { createSelectionContext } from './selection-context';
 import { isIsolatedEngineBoundary, type IsolatedEngineBoundary } from './isolated-engine-boundary';
 import { generateOpenConversation, type OfflineConversationProvider, type OfflineInterpretationReview } from './open-conversation';
@@ -79,6 +80,10 @@ export async function runConversation(raw: unknown, options: RunOptions & { isol
         const row=personal.rows[0];
         if(row) {
           if(row.userId!==subject || row.memories.some(memory=>memory.userId!==subject))throw new Error('forbidden');
+          if(row.foodPreference){
+            if(row.foodPreference.profileId!==subject)throw new Error('forbidden');
+            response.foodPreference={...row.foodPreference,preferences:parseFoodPreferences(row.foodPreference.preferences)};
+          }
           const preferences=workoutPreferencesSchema.safeParse(row.preferences);
           if(preferences.success) {
             response.profile={language:authorized.language,timezone:authorized.timezone,units:response.snapshot.units,preferences:{durationMinutes:preferences.data.durationMinutes},version:row.preferencesVersion??createHash('sha256').update(JSON.stringify(preferences.data)).digest('hex'),source:options.repository.dataSource==='synthetic'?'isolated_fixture':'authorized_profile'};
@@ -111,7 +116,7 @@ export async function runConversation(raw: unknown, options: RunOptions & { isol
     const allowed = ['invalid_input','forbidden','unauthenticated','invalid_timezone','budget_blocked','context_limit','invalid_output','provider_unavailable'];
     const code: CoachErrorCode = controller.signal.aborted ? options.signal.aborted?'cancelled':'deadline' : error instanceof Error && allowed.includes(error.message)?error.message as CoachErrorCode:'query_failed';
     response.error={code,retryable:code==='query_failed'||code==='deadline'||code==='provider_unavailable'};
-    response.ok=false;response.snapshot=null;response.evidence=[];delete response.output;delete response.profile;delete response.memories;delete response.explanations;
+    response.ok=false;response.snapshot=null;response.evidence=[];delete response.output;delete response.profile;delete response.foodPreference;delete response.memories;delete response.explanations;
   } finally {
     clearTimeout(timer);options.signal.removeEventListener('abort',abort);
     if(boundary)controller.signal.removeEventListener('abort',boundary);
