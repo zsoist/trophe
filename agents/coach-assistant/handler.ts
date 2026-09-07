@@ -1,3 +1,4 @@
+import { executeFoodQuantityAction, type FoodQuantityService } from './food-actions';
 import { executeDurablePreferenceAction, withDurablePreferenceRead, type DurableCoachProfileService } from './durable-actions';
 import { run } from './index';
 import { runConversation } from './conversation';
@@ -14,6 +15,7 @@ interface HandlerDependencies {
   guard(request: Request): Promise<{userId:string}|Response>;
   createRepository(): CoachRepository | Promise<CoachRepository>;
   createDurableService?:()=>DurableCoachProfileService|Promise<DurableCoachProfileService>;
+  createFoodService?:()=>FoodQuantityService|Promise<FoodQuantityService>;
   now?: () => Date;
 }
 const json = (body: unknown, status: number) => Response.json(body,{status,headers:{'Cache-Control':'no-store'}});
@@ -97,6 +99,12 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
         controller.signal.throwIfAborted();
         const result=isolatedAttachmentStore.operation(`${guard.userId}:${context.organizationId}`,raw);
         return json(result,result.ok?200:result.error==='forbidden'?403:400);
+      }
+      if(raw && typeof raw==='object' && 'operation' in raw && typeof raw.operation==='string' && raw.operation.startsWith('food.')) {
+        if(deps.env.COACH_ASSISTANT_FOOD_ACTIONS_ENABLED!=='1')return fail('disabled',404);
+        if(!deps.createFoodService)return fail('provider_unavailable',503);
+        const result=await executeFoodQuantityAction(guard.userId,raw,await deps.createRepository(),await deps.createFoodService(),controller.signal);
+        return json(result,result.ok?200:result.error==='forbidden'?403:result.error==='invalid_input'?400:result.error==='expired'?410:result.error==='not_found'?404:result.error==='uncertain'||result.error==='cancelled'?503:409);
       }
       const durable=deps.env.COACH_ASSISTANT_DURABLE_ACTIONS_ENABLED==='1';
       if(raw && typeof raw==='object' && 'operation' in raw) {
