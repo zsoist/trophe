@@ -33,7 +33,18 @@ LOCAL_PASS="${PG_PASS:-${PGPASSWORD:-postgres}}"
 LOCAL_DB="${PG_DB:-postgres}"
 COMPAT_MODE=1
 
-if [ "${SKIP_SUPABASE_START:-0}" != "1" ] && [ "${CI:-false}" != "true" ]; then
+if [ "${CI_REAL_SUPABASE:-0}" = "1" ]; then
+  # Explicit, ephemeral Auth integration job. Preserve Supabase's real auth
+  # helpers instead of installing the plain-Postgres compatibility functions.
+  if [ "${CI:-false}" != "true" ] || [ "${GITHUB_ACTIONS:-false}" != "true" ] \
+    || [ "$LOCAL_HOST" != "127.0.0.1" ] || [ "$LOCAL_PORT" != "54322" ] \
+    || [ "$LOCAL_USER" != "postgres" ] || [ "$LOCAL_DB" != "postgres" ]; then
+    echo "Real Supabase CI bootstrap requires the disposable GitHub loopback stack." >&2
+    exit 1
+  fi
+  "$SUPABASE_BIN" status -o env >/dev/null 2>&1
+  COMPAT_MODE=0
+elif [ "${SKIP_SUPABASE_START:-0}" != "1" ] && [ "${CI:-false}" != "true" ]; then
   echo "==> Checking OrbStack / Docker / Supabase readiness"
   if ! "$TSX_BIN" scripts/db/doctor.ts >/dev/null 2>&1; then
     echo "==> Starting OrbStack"

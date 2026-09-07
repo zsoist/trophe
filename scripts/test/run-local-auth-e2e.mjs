@@ -125,8 +125,11 @@ function adminAdapter(service) {
  * Runs a zero-paid local role fixture. The default remains the authenticated
  * Playwright suite; callers may provide a disposable-role callback instead.
  */
-export async function runLocalAuthenticatedE2E({ executeWithDisposableRoles, playwrightArgs = TEST_SPECS } = {}) {
+export async function runLocalAuthenticatedE2E({ executeWithDisposableRoles, validateStatus, playwrightArgs = TEST_SPECS } = {}) {
   const status = localStatus();
+  // Specialized CI matrices may impose a narrower destination before any user
+  // or fixture is provisioned. The normal local runner remains unchanged.
+  validateStatus?.(status);
   const service = createClient(status.API_URL, status.SERVICE_ROLE_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
@@ -224,6 +227,8 @@ export async function runLocalAuthenticatedE2E({ executeWithDisposableRoles, pla
             return executeWithDisposableRoles({
               status,
               env: buildLocalThemePerformanceEnv(childEnv, credentials),
+              service,
+              actors: { clientId, coachId, adminId: userIds.get('super_admin') },
             });
           }
           const playwrightBin = path.resolve('node_modules/@playwright/test/cli.js');
