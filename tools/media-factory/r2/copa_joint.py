@@ -221,3 +221,46 @@ def time_fix(config,out):
                         for fc in curves:fc.update()
     s.frame_set(1);bpy.ops.wm.save_as_mainfile(filepath=str(out/'triceps.blend'))
     (out/'quaternion-continuity.json').write_text(json.dumps({'hemisphere_flips':changes,'native_euler_compatibility':euler_changes,'method':'Native Euler.make_compatible removes equivalent-angle chart jumps; quaternion hemispheres are checked separately. Orientations at existing keys are preserved while component interpolation becomes continuous.','human_reviews':'pending'},indent=2));return {'flips':len(changes),'euler_keys_adjusted':len(euler_changes)}
+
+
+def contact_audit(config,out):
+    """Read-only discriminator: fixed skin IDs and independent native hand matrices."""
+    import numpy as np
+    from localize_contact import mesh_data
+    reports=[]
+    for source in config['sources']:
+        bpy.ops.wm.open_mainfile(filepath=source,load_ui=False,use_scripts=False)
+        scene=bpy.context.scene;body=bpy.data.objects['Trophe_R2_Athlete'];rig=bpy.data.objects['Trophe_R2_Authoring'];prop=bpy.data.objects['Copa single dumbbell authority']
+        scene.frame_set(1);bpy.context.view_layer.update()
+        p,tri,ids=mesh_data(body)
+        assert ids is not None and len(ids)==len(set(ids)), 'Source IDs must be unique'
+        lookup={v:i for i,v in enumerate(ids)}
+        local=(np.c_[p,np.ones(len(p))]@np.array(prop.matrix_world.inverted()).T)[:,:3]
+        selected={};reference={};hand_reference={};rows=[]
+        for side in ['L','R']:
+            hand=[v.index for v in body.data.vertices if v.index in lookup and any(body.vertex_groups[g.group].name=='body' and g.weight>.5 for g in v.groups) and any(g.weight>.15 and body.vertex_groups[g.group].name.startswith(('DEF-hand','DEF-palm','DEF-f_','DEF-thumb')) and body.vertex_groups[g.group].name.endswith('.'+side) for g in v.groups)]
+            selected[side]=sorted(i for i in hand if np.linalg.norm(local[lookup[i],:2])<.084 and abs(local[lookup[i],2])<.004)
+            assert len(selected[side])>2
+            reference[side]=local[[lookup[i] for i in selected[side]]].copy()
+            hand_reference[side]=prop.matrix_world.inverted()@rig.matrix_world@rig.pose.bones['ORG-hand.'+side].matrix
+        for order,frames in [('forward',range(1,182)),('reverse',reversed(config['critical_frames']))]:
+            for f in frames:
+                evaluated_frame=1+(f-1)*config.get('source_time_scales',{}).get(source,1.0)
+                scene.frame_set(math.floor(evaluated_frame),subframe=evaluated_frame-math.floor(evaluated_frame));bpy.context.view_layer.update()
+                if f not in config['critical_frames']:continue
+                p,tri,ids=mesh_data(body);assert len(ids)==len(set(ids));lookup={v:i for i,v in enumerate(ids)}
+                local=(np.c_[p,np.ones(len(p))]@np.array(prop.matrix_world.inverted()).T)[:,:3]
+                row={'frame':f,'evaluated_frame':evaluated_frame,'order':order,'hands':{}}
+                for side in ['L','R']:
+                    q=local[[lookup[i] for i in selected[side]]];delta=q-reference[side]
+                    hm=prop.matrix_world.inverted()@rig.matrix_world@rig.pose.bones['ORG-hand.'+side].matrix
+                    # Transport initial skin by the measured rigid hand delta.
+                    transport=np.array(hm@hand_reference[side].inverted())
+                    predicted=(np.c_[reference[side],np.ones(len(q))]@transport.T)[:,:3]
+                    wrist=rig.matrix_world@rig.pose.bones['ORG-hand.'+side].head
+                    target=bpy.data.objects['Copa wrist target '+side].matrix_world.translation
+                    row['hands'][side]={'source_ids':selected[side],'local_points_m':q.tolist(),'delta_m':delta.tolist(),'max_displacement_m':float(np.linalg.norm(delta,axis=1).max()),'max_normal_delta_m':float(abs(delta[:,2]).max()),'max_tangential_delta_m':float(np.linalg.norm(delta[:,:2],axis=1).max()),'residual_after_rigid_hand_transport_m':float(np.linalg.norm(q-predicted,axis=1).max()),'hand_prop_matrix':list(map(list,hm)),'wrist_target_error_m':(wrist-target).length}
+                rows.append(row)
+        reports.append({'source':source,'reference':'evaluated animated frame1, stable source IDs, prop local metres','rows':rows})
+    record={'sources':reports,'method':'No master edits. Forward evaluation visits181frames; reverse revisits critical frames. Fixed13-ish skin IDs, full ORG-hand transforms, normal/tangential displacement and residual after rigid transport. Not signed contact gap or friction simulation.','human_reviews':'pending'}
+    (out/'contact-audit.json').write_text(json.dumps(record,indent=2));return {'sources':len(reports),'rows':sum(len(x['rows']) for x in reports),'source_modified':False}
