@@ -32,3 +32,11 @@ and duration checks reuse the stack; they do not prove audio intelligibility. Te
 use the existing real silent WebM fixture and explicitly injected transcript text.
 TTS remains not_connected. Future playback must speak finalized user-visible text,
 exclude secrets and unconfirmed action outcomes, and stop on cancellation/scope change.
+
+## Governed extension
+
+See [VOICE-GOVERNANCE-INTEGRATION.md](./VOICE-GOVERNANCE-INTEGRATION.md) for the
+explicit authorized-record STT transport, optional TTS, shared budget adapter,
+current pricing sources and injected-versus-live limits. This supersedes the
+older synthetic-only gate description when a registered governed transcriber
+is supplied. Bare legacy callbacks still require a synthetic repository.
