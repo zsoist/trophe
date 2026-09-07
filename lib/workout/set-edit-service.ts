@@ -19,7 +19,7 @@ export async function applyWorkoutSetRepsEdit(tx:Transaction,existing:WorkoutSet
  if(!existing.sessionId)throw new TRPCError({code:'FORBIDDEN'});
  const [updated]=await tx.update(workoutSets).set(after).where(and(
   eq(workoutSets.id,existing.id),eq(workoutSets.sessionId,existing.sessionId),
-  sql`EXISTS (SELECT 1 FROM public.workout_sessions s WHERE s.id=${workoutSets.sessionId} AND s.user_id=${ownerUserId}::uuid)`,
+  sql`EXISTS (SELECT 1 FROM public.workout_sessions s WHERE s.id=${workoutSets.sessionId} AND s.user_id=${ownerUserId}::uuid AND s.completed_at IS NULL)`,
   sql`${workoutSets.reps} IS NOT DISTINCT FROM ${existing.reps}`,
  )).returning();
  if(!updated)throw new TRPCError({code:'CONFLICT'});

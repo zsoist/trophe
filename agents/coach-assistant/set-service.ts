@@ -71,10 +71,11 @@ export function createWorkoutSetService(database:Database):WorkoutSetService {
           if(operation.operation==='set.receipt')return fail('not_found');
         }
         // Lock the owner session before the set, matching existing Workout RPC ordering.
-        const session=await tx.execute<{id:string}>(operation.operation==='set.resolve'
-          ? sql`SELECT s.id FROM public.workout_sessions s WHERE s.id=${operation.sessionId}::uuid AND s.user_id=${scope.subjectId}::uuid FOR UPDATE`
-          : sql`SELECT s.id FROM public.workout_sessions s JOIN public.workout_sets ws ON ws.session_id=s.id WHERE ws.id=${operation.setId}::uuid AND s.user_id=${scope.subjectId}::uuid FOR UPDATE OF s`);
+        const session=await tx.execute<{id:string;completed_at:string|null}>(operation.operation==='set.resolve'
+          ? sql`SELECT s.id,s.completed_at FROM public.workout_sessions s WHERE s.id=${operation.sessionId}::uuid AND s.user_id=${scope.subjectId}::uuid FOR UPDATE`
+          : sql`SELECT s.id,s.completed_at FROM public.workout_sessions s JOIN public.workout_sets ws ON ws.session_id=s.id WHERE ws.id=${operation.setId}::uuid AND s.user_id=${scope.subjectId}::uuid FOR UPDATE OF s`);
         if(session.rows.length!==1)throw new Rejected('not_found');
+        if(session.rows[0].completed_at!==null)throw new Rejected('session_completed');
         let setId:string;
         if(operation.operation==='set.resolve'){
           const candidates=await tx.execute<{id:string;created_at:string|null}>(sql`SELECT id,created_at::text FROM public.workout_sets WHERE session_id=${session.rows[0].id}::uuid AND exercise_id=${operation.exerciseId}::uuid ORDER BY created_at DESC NULLS FIRST LIMIT 2 FOR UPDATE`);
