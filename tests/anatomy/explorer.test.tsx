@@ -135,12 +135,13 @@ it("keeps viewer mounted while browsing and shows source-backed identification o
   expect(screen.getByTestId("canvas")).toBe(canvas);
 });
 
-it("opens workout focus without organs and preserves deep exploration as a separate mode", async () => {
+it("keeps telemetry-enabled workout navigation internal and preserves separate deep exploration", async () => {
   render(
     <I18nProvider defaultLang="en">
       <AnatomyExplorer
         workout
         initialGroup="chest"
+        onRender={() => {}}
         manifestUrl="/manifest.json"
       />
     </I18nProvider>,

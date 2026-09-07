@@ -1,0 +1,41 @@
+{
+  "css_source": "https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400&display=swap",
+  "provider": "Google Fonts; families, styles and subsets declared by app/layout.tsx",
+  "fonts": [
+    {
+      "family": "Instrument Serif",
+      "style": "italic",
+      "subset": "latin",
+      "source": "https://fonts.gstatic.com/s/instrumentserif/v5/jizHRFtNs2ka5fXjeivQ4LroWlx-6zAjjH7Motmp5g.woff2",
+      "file": "instrument-serif-italic.woff2"
+    },
+    {
+      "family": "Instrument Serif",
+      "style": "normal",
+      "subset": "latin",
+      "source": "https://fonts.gstatic.com/s/instrumentserif/v5/jizBRFtNs2ka5fXjeivQ4LroWlx-6zUTjnTLgNs.woff2",
+      "file": "instrument-serif-normal.woff2"
+    },
+    {
+      "family": "Inter",
+      "style": "normal",
+      "subset": "greek",
+      "source": "https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1pL7W0Q5n-wU.woff2",
+      "file": "inter-normal-greek.woff2"
+    },
+    {
+      "family": "Inter",
+      "style": "normal",
+      "subset": "latin",
+      "source": "https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7W0Q5nw.woff2",
+      "file": "inter-normal.woff2"
+    },
+    {
+      "family": "JetBrains Mono",
+      "style": "normal",
+      "subset": "latin",
+      "source": "https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbY2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKxTOlOVk6OThhvA.woff2",
+      "file": "jetbrains-mono-normal.woff2"
+    }
+  ]
+}

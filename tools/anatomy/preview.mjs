@@ -7,6 +7,8 @@ import { createServer } from "node:http";
 import { build } from "esbuild";
 import { gzipSync } from "node:zlib";
 import { tsImport } from "tsx/esm/api";
+import postcss from "postcss";
+import tailwind from "@tailwindcss/postcss";
 const exportAt = process.argv.indexOf("--export-review");
 const exportDirectory =
   exportAt >= 0 ? resolve(process.argv[exportAt + 1]) : null;
@@ -60,7 +62,14 @@ for (const exercise of ATLAS_EXERCISES) {
     assets.set(url, { bytes: await readFile(join(root, 'public', url)), mime });
   }
 }
-assets.set('/_qa/workout.css', { bytes: Buffer.from((await readFile(join(root, 'app/globals.css'), 'utf8')).replace('@import "tailwindcss";', '')), mime: 'text/css' });
+const styles = await postcss([tailwind({ base: root })]).process(await readFile(join(root, 'app/globals.css'), 'utf8'), { from: join(root, 'app/globals.css') });
+assets.set('/_qa/workout.css', { bytes: Buffer.from(styles.css), mime: 'text/css' });
+assets.set('/sprite.svg', { bytes: await readFile(join(root, 'public/sprite.svg')), mime: 'image/svg+xml' });
+const fontDirectory = join(root, 'public/fonts/workout-review');
+const fontSources = JSON.parse(await readFile(join(fontDirectory, 'sources.json'), 'utf8'));
+for (const font of fontSources.fonts) assets.set('/fonts/workout-review/' + font.file, { bytes: await readFile(join(fontDirectory, font.file)), mime: 'font/woff2' });
+assets.set('/fonts/workout-review/fonts.css', { bytes: await readFile(join(fontDirectory, 'fonts.css')), mime: 'text/css' });
+for (const file of ['inter-OFL.txt', 'instrumentserif-OFL.txt', 'jetbrainsmono-OFL.txt']) assets.set('/fonts/workout-review/' + file, { bytes: await readFile(join(fontDirectory, file)), mime: 'text/plain' });
 const prefix = `/anatomy/${manifest.release}/`;
 if (authoredSupplement) {
   if (authoredSupplement.baseRelease !== manifest.release)
@@ -100,10 +109,20 @@ if (manifest.poster)
 const temp = await mkdtemp(join(directory, "preview-"));
 const result = await build({
   stdin: {
-    contents: `import React from 'react';import {createRoot} from 'react-dom/client';import {PrivateAtlasReview} from './tools/anatomy/private-review';import {I18nProvider} from './lib/i18n';createRoot(document.getElementById('root')).render(<I18nProvider defaultLang="en"><PrivateAtlasReview manifestUrl="${prefix}manifest.json" authoredSupplement={${JSON.stringify(authoredSupplement) ?? "undefined"}} identity={${JSON.stringify({ codeSha, manifestSha256: createHash("sha256").update(manifestBytes).digest("hex"), release: manifest.release, authoredSha256: authoredSupplement?.chunk.sha256 ?? null })}}/></I18nProvider>);`,
+    contents: `import React from 'react';import {createRoot} from 'react-dom/client';import {PrivateAtlasReview} from './tools/anatomy/private-review';import {I18nProvider} from './lib/i18n';import {ThemeModeProvider} from './components/shared/ThemeMode';createRoot(document.getElementById('root')).render(<I18nProvider defaultLang="en"><ThemeModeProvider><PrivateAtlasReview manifestUrl="${prefix}manifest.json" authoredSupplement={${JSON.stringify(authoredSupplement) ?? "undefined"}} identity={${JSON.stringify({ codeSha, manifestSha256: createHash("sha256").update(manifestBytes).digest("hex"), release: manifest.release, authoredSha256: authoredSupplement?.chunk.sha256 ?? null })}}/></ThemeModeProvider></I18nProvider>);`,
     resolveDir: root,
     loader: "tsx",
   },
+  plugins: [{ name: 'private-workout-boundaries', setup(build) {
+    const aliases = {
+      'next/navigation': 'navigation.tsx', 'next/link': 'navigation.tsx',
+      '@/lib/supabase': 'supabase.ts',
+      '@/components/workout/workout-persistence': 'persistence.ts',
+      '@/lib/workout/analytics-data': 'analytics.ts',
+    };
+    build.onResolve({ filter: /^(next\/(navigation|link)|@\/lib\/(supabase|workout\/analytics-data)|@\/components\/workout\/workout-persistence)$/ }, args => ({ path: join(root, 'tools/anatomy/workout-review', aliases[args.path]) }));
+  } }],
+  metafile: true,
   bundle: true,
   write: false,
   format: "esm",
@@ -120,6 +139,7 @@ const result = await build({
     "process.env.NEXT_PUBLIC_ANATOMY_ATLAS_ENABLED": '"false"',
   },
 });
+if (Object.keys(result.metafile.inputs).some(path => path.includes('@supabase/') || path.includes('@trpc/'))) throw Error('Private export must not bundle account data clients');
 for (const f of result.outputFiles)
   assets.set("/_qa/" + f.path.slice(temp.length + 1), {
     bytes: f.contents,
@@ -127,7 +147,7 @@ for (const f of result.outputFiles)
   });
 assets.set("/_qa/theme.css", {
   bytes: Buffer.from(
-    ":root{color-scheme:dark;--bg-primary:#181c1d;--bg-surface:#222828;--text-primary:#f3f1e9;--text-secondary:#b9c0b7;--border-default:#59605d;--accent:#d4a853}:root.light{color-scheme:light;--bg-primary:#faf9f6;--bg-surface:#eeeae1;--text-primary:#242a27;--text-secondary:#55615b;--border-default:#a7aea6;--accent:#71531c}*{box-sizing:border-box}.private-device-review{padding:12px;max-width:1120px;margin:auto}.private-review-language{display:flex;align-items:center;justify-content:flex-end;gap:12px;font-size:13px;color:var(--text-secondary)}.private-review-language select{font:inherit;color:var(--text-primary);background:var(--bg-surface);border:1px solid var(--border-default);border-radius:8px;padding:6px 10px}.private-device-review pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}.private-device-review button,.private-device-review select{min-height:44px}.private-device-review summary{min-height:44px}body{margin:0;font:16px system-ui;background:var(--bg-primary);color:var(--text-primary)}button,input{font:inherit}a{color:inherit}",
+    ":root{--font-inter:Inter,system-ui,sans-serif;--font-instrument-serif:'Instrument Serif',Georgia,serif;--font-jetbrains-mono:'JetBrains Mono',monospace}.private-device-review{padding:8px 16px;border-bottom:1px solid var(--border-default);color:var(--content-secondary);font-size:12px}.private-device-review>details>summary{min-height:28px;cursor:pointer}.private-device-review>details>p{margin:12px 0;max-width:65ch}.private-review-language{display:flex;align-items:center;gap:12px;margin:12px 0}.private-review-language select,.private-device-review select{color:var(--content-primary);background:var(--surface-raised);border:1px solid var(--border-default);border-radius:8px;padding:6px 10px}.private-device-review pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}.private-device-review button,.private-device-review select{min-height:44px}.private-review-switch{display:flex;flex-wrap:wrap;gap:8px}.private-review-switch button{border:1px solid var(--border-default);border-radius:8px;padding:8px 12px;color:var(--content-primary);background:var(--surface-raised)}body{margin:0;font-family:var(--font-inter);background:var(--bg-primary);color:var(--content-primary)}button,input{font:inherit}",
   ),
   mime: "text/css",
 });
@@ -135,7 +155,7 @@ assets.set("/", {
   bytes: Buffer.from(
     '<!doctype html><html lang="en" class="' +
       (light ? "light" : "") +
-      '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Trophē · Muscle Atlas</title><link rel="stylesheet" href="/_qa/workout.css"><link rel="stylesheet" href="/_qa/theme.css"><link rel="stylesheet" href="/_qa/stdin.css"></head><body><div id="root"></div><script type="module" src="/_qa/stdin.js"></script></body></html>',
+      '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Trophē · Workout design preview</title><link rel="stylesheet" href="/fonts/workout-review/fonts.css"><link rel="stylesheet" href="/_qa/workout.css"><link rel="stylesheet" href="/_qa/theme.css"><link rel="stylesheet" href="/_qa/stdin.css"></head><body><div id="root"></div><script type="module" src="/_qa/stdin.js"></script></body></html>',
   ),
   mime: "text/html",
 });
@@ -187,6 +207,7 @@ if (exportDirectory) {
     JSON.stringify(
       {
         codeSha,
+        workoutPreview: { components: 'Production WorkoutHome, builder, review, browser, detail, live, history and analytics', data: 'Isolated example records in browser session storage; no account writes', persistence: 'Private export alias; production backend unchanged', css: 'Compiled app/globals.css with project Tailwind' },
         authoredSupplement: authoredSupplement
           ? {
               sha256: authoredSupplement.chunk.sha256,

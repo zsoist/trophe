@@ -1,10 +1,10 @@
 'use client';
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { useContext, useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useI18n } from '@/lib/i18n';
 import { activeAtlasRelease } from '@/lib/anatomy/release';
 import { fetchAtlasManifest } from '@/lib/anatomy/validation';
-import { withAuthored, type AuthoredSupplement } from '@/lib/anatomy/authored';
+import { withAuthored } from '@/lib/anatomy/authored';
 import { workoutContext, workoutOcularElements } from '@/lib/anatomy/workout-focus';
 import { mappingForMuscle } from '@/lib/anatomy/mapping';
 import type { AtlasManifest } from '@/lib/anatomy/types';
@@ -12,8 +12,9 @@ import type { AnatomyMuscleId, AnatomyView, MuscleActivation } from '@/lib/worko
 import { AtlasInformation } from './AtlasInformation';
 import { MuscleAtlas } from '@/components/workout/MuscleAtlas';
 import './anatomy.css';
+import { WorkoutAnatomySource } from './WorkoutAnatomySource';
+export { WorkoutAnatomySource } from './WorkoutAnatomySource';
 const Canvas = dynamic(() => import('./AtlasCanvas'), { ssr: false });
-export const WorkoutAnatomySource = createContext<{ manifestUrl: string; authoredSupplement?: AuthoredSupplement } | null>(null);
 const systems = ['muscles', 'skeleton'];
 const empty: string[] = [];
 /** Same source meshes, curation and renderer as Muscle Atlas. Public availability follows the existing release gate. */

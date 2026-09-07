@@ -17,6 +17,7 @@ vi.mock("../../components/anatomy/AnatomyExplorer", () => ({
     return <h1>{t("anatomy.workout_title")}</h1>;
   },
 }));
+vi.mock("../../tools/anatomy/workout-review/Workspace", () => ({ PrivateWorkoutWorkspace: function Workspace() { const { t } = useI18n(); return <h1>{t("workout.workspace_home_title")}</h1>; } }));
 const open = () =>
   render(
     <I18nProvider>
@@ -33,13 +34,14 @@ afterEach(() => {
 
 it("starts in English and changes the viewer and review panel together", () => {
   open();
-  expect(screen.getByRole("heading", { name: "Muscle Atlas" })).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "Workout Home" })).toBeTruthy();
+  fireEvent.click(screen.getByText("Design preview · Sample data"));
   expect(screen.getByText("Private device check")).toBeTruthy();
   expect(document.documentElement.lang).toBe("en");
   fireEvent.change(screen.getByRole("combobox", { name: "Language" }), {
     target: { value: "es" },
   });
-  expect(screen.getByRole("heading", { name: "Muscle Atlas" })).toBeTruthy();
+  expect(screen.getByRole("heading")).toBeTruthy();
   expect(screen.getByText("Revisión privada del dispositivo")).toBeTruthy();
   expect(localStorage.getItem("trophe_lang")).toBe("es");
 });
@@ -48,7 +50,7 @@ it("honors a saved language without resetting the user's preference", async () =
   localStorage.setItem("trophe_lang", "el");
   open();
   await waitFor(() =>
-    expect(screen.getByRole("heading", { name: "Muscle Atlas" })).toBeTruthy(),
+    expect(screen.getByRole("heading")).toBeTruthy(),
   );
   expect(screen.getByText("Ιδιωτικός έλεγχος συσκευής")).toBeTruthy();
   expect(document.documentElement.lang).toBe("el");

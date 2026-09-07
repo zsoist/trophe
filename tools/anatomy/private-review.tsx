@@ -4,9 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { useI18n, LANGUAGE_OPTIONS } from "../../lib/i18n";
 import type { AuthoredSupplement } from "../../lib/anatomy/authored";
 import type { Language } from "../../lib/types";
-import { WorkoutAtlasHome } from '../../components/workout/workspace/WorkoutAtlasHome';
-import { WorkoutAnatomySource } from '../../components/anatomy/WorkoutAnatomyModel';
-import { resolveMuscleActivations } from '../../lib/workout/anatomy';
+import { PrivateWorkoutWorkspace } from './workout-review/Workspace';
+import { navigate, usePathname } from './workout-review/navigation';
+import { resetReview, reviewWorkspaceStorage, REVIEW_USER } from './workout-review/store';
+import { clearWorkspaceState } from '../../lib/workout/workspace-storage';
 import AnatomyExplorer from "../../components/anatomy/AnatomyExplorer";
 import type { RenderObservation } from "../../components/anatomy/AtlasCanvas";
 export function PrivateAtlasReview({
@@ -24,13 +25,26 @@ export function PrivateAtlasReview({
   };
 }) {
   const { t, lang, setLang } = useI18n();
-  const [homePreview, setHomePreview] = useState(false);
+  const path = usePathname();
+  const [revision, setRevision] = useState(0);
+  const reset = (scenario: 'plan' | 'empty') => { resetReview(scenario); clearWorkspaceState(reviewWorkspaceStorage, REVIEW_USER); setRevision(value => value + 1); navigate('/dashboard/workout'); };
   const [device, setDevice] = useState("desktop/emulation");
   const [report, setReport] = useState<object | null>(null);
   const [copied, setCopied] = useState(false);
   const sample = useRef<{ start: number; frames: RenderObservation[] } | null>(
     null,
   );
+  useEffect(() => {
+    const internalLink = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const anchor = (event.target as Element).closest<HTMLAnchorElement>('a[href]');
+      const href = anchor?.getAttribute('href');
+      if (href === '#main-content') { event.preventDefault(); document.getElementById('main-content')?.focus(); return; }
+      if (href?.startsWith('/dashboard/')) { event.preventDefault(); navigate(href); }
+    };
+    document.addEventListener('click', internalLink);
+    return () => document.removeEventListener('click', internalLink);
+  }, []);
   useEffect(() => {
     const down = (e: PointerEvent) => {
       if ((e.target as Element).closest(".anatomy-canvas"))
@@ -75,7 +89,8 @@ export function PrivateAtlasReview({
   }, [device, identity]);
   return (
     <>
-      <aside className="private-device-review">
+      <aside className="private-device-review"><details><summary>{t("anatomy.review_prototype")}</summary><p>{t("anatomy.review_sample_scope")}</p>
+        <nav className="private-review-switch" aria-label={t("anatomy.review_home")}><button onClick={() => navigate("/dashboard/workout")}>{t("workout.workspace_home_title")}</button><button onClick={() => navigate("/dashboard/workout/atlas")}>{t("anatomy.workout_title")}</button><button onClick={() => reset("plan")}>{t("anatomy.review_reset_plan")}</button><button onClick={() => reset("empty")}>{t("anatomy.review_reset_empty")}</button></nav>
         <label className="private-review-language">
           {t("anatomy.review_language")}
           <select
@@ -117,9 +132,8 @@ export function PrivateAtlasReview({
             </>
           )}
         </details>
-      </aside>
-      <nav className="private-review-switch" aria-label={t('anatomy.review_home')}><button aria-pressed={!homePreview} onClick={() => setHomePreview(false)}>{t('anatomy.review_atlas')}</button><button aria-pressed={homePreview} onClick={() => setHomePreview(true)}>{t('anatomy.review_home')}</button></nav>
-      {homePreview ? <div className="private-home-preview"><WorkoutAnatomySource.Provider value={{ manifestUrl, authoredSupplement }}><WorkoutAtlasHome activations={[...resolveMuscleActivations({ name: 'Bench Press', muscleGroup: 'chest' }), ...resolveMuscleActivations({ name: 'Squat', muscleGroup: 'quads' })].filter((a, i, list) => list.findIndex(b => b.id === a.id) === i)} workedActivations={resolveMuscleActivations({ name: 'Bench Press', muscleGroup: 'chest' })} targetLabel={t("anatomy.review_example")} /></WorkoutAnatomySource.Provider></div> :
+      </details></aside>
+      {path !== '/atlas' ? <PrivateWorkoutWorkspace key={revision} manifestUrl={manifestUrl} authoredSupplement={authoredSupplement} onRender={(value) => { if (sample.current && sample.current.frames.length < 10000) sample.current.frames.push(value); }} /> :
       <AnatomyExplorer
         workout
         authoredSupplement={authoredSupplement}

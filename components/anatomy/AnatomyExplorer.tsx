@@ -96,6 +96,7 @@ export default function AnatomyExplorer({
   manifestUrl,
   initialMuscle,
   onRender,
+  exerciseLibraryOrigin = "",
   workout = false,
   initialGroup,
   authoredSupplement,
@@ -106,6 +107,7 @@ export default function AnatomyExplorer({
   workout?: boolean;
   initialGroup?: string;
   onRender?: (value: RenderObservation) => void;
+  exerciseLibraryOrigin?: string;
 }) {
   const { t, lang } = useI18n();
   const [workoutMode, setWorkoutMode] = useState(workout);
@@ -327,7 +329,7 @@ export default function AnatomyExplorer({
     label: exerciseSelection ? t(exerciseSelection.labelKey) : t(workoutMode && focusGroup ? `anatomy.focus_${focusGroup}` : "anatomy.whole_body"),
     legRegion,
   };
-  const exerciseLibraryHref = `${onRender ? "https://trophe.app" : ""}/dashboard/workout/exercises${workoutMode && workoutAtlasFilter(focusGroup) ? `?atlas=${encodeURIComponent(focusGroup)}` : ""}`;
+  const exerciseLibraryHref = `${exerciseLibraryOrigin}/dashboard/workout/exercises${workoutMode && workoutAtlasFilter(focusGroup) ? `?atlas=${encodeURIComponent(focusGroup)}` : ""}`;
   const parents =
     manifest && selected
       ? manifest.relations.filter((r) => r.child === selected)

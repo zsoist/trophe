@@ -5,10 +5,13 @@ import { ArrowUpRight } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { activeAtlasRelease } from "@/lib/anatomy/release";
 import { mappingForMuscle } from "@/lib/anatomy/mapping";
+import { useContext } from 'react';
+import { WorkoutAnatomySource } from './WorkoutAnatomySource';
 /** Entry only: never eagerly imports Three or atlas geometry into workout/logging. */
 export function WorkoutAtlasEntry({ muscle }: { muscle?: string | null }) {
   const { t } = useI18n();
-  if (!activeAtlasRelease(process.env.NEXT_PUBLIC_ANATOMY_ATLAS_ENABLED))
+  const reviewSource = useContext(WorkoutAnatomySource);
+  if (!reviewSource && !activeAtlasRelease(process.env.NEXT_PUBLIC_ANATOMY_ATLAS_ENABLED))
     return null;
   const suffix =
     muscle && mappingForMuscle(muscle)
@@ -17,7 +20,7 @@ export function WorkoutAtlasEntry({ muscle }: { muscle?: string | null }) {
   return (
     <Link
       prefetch={false}
-      href={`/dashboard/anatomy${suffix}`}
+      href={`/dashboard/workout/atlas${suffix}`}
       className="my-3 flex min-h-14 items-center gap-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3 text-[var(--text-primary)]"
     >
       <Image
