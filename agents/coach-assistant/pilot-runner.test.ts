@@ -24,6 +24,7 @@ describe('measured pilot runner with an explicitly injected transport and store'
     const deps=fixture();const report=await runCoachPilotEvaluation(input,deps);
     expect(report.ok).toBe(true);if(!report.ok)throw new Error('report expected');
     expect(deps.events).toEqual(['reserve','claim_dispatch','transport','settle']);
+    expect(report.requestedModel).toBe('gpt-5.6-luna');expect(report.returnedModel).toBeNull();
     expect(report.actualProviderCalls).toBe(0);expect(report.injectedProviderCalls).toBe(1);
     expect(report.measuredUsageCostUsd).toBeNull();expect(report.simulatedUsageCostUsd).toBeCloseTo(0.00044);
     expect(report.allStructuralChecksPassed).toBe(true);expect(report.releaseApproved).toBe(false);

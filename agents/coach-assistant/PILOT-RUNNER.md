@@ -49,3 +49,9 @@ transport. They prove orchestration, labels and failure handling, not actual SQL
 exclusion/durability, provider access, measured Luna quality or authorization to
 spend. The persistent writer's isolated SQL acceptance and an explicit budget
 decision remain prerequisites to changing the live gate.
+
+Model provenance: requestedModel is the configured request target. returnedModel
+is explicitly null because the current ProviderResult does not expose response.model.
+Neither the literal request nor fixture tests verify an account's access or returned
+model snapshot. Before measured API evaluation, extract and retain the provider's
+actual returned model through a compatible shared transport change under its lease.
