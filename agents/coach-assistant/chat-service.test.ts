@@ -28,7 +28,7 @@ function backend(){
     let all=[...threads.values()];
     if(s.includes('WHERE actor_id=')&&s.includes('request_id='))all=all.filter(t=>t.actorId===p[0]&&t.request_id===p[1]);
     else if(s.includes('WHERE id='))all=all.filter(t=>t.id===p[0]&&samescope(t,p.slice(1)));
-    else {expect(s).toContain("state='active' AND access_revoked=false");all=all.filter(t=>samescope(t,p)&&t.state==='active'&&!t.access_revoked).sort((a,b)=>b.id.localeCompare(a.id));if(s.includes('(created_at,id)<'))all=all.filter(t=>t.id<String(p[5]));all=all.slice(0,Number(p.at(-1)));}
+    else {expect(s).toContain("state IN ('active','cleanup_pending') AND access_revoked=false");all=all.filter(t=>samescope(t,p)&&(t.state==='active'||t.state==='cleanup_pending')&&!t.access_revoked).sort((a,b)=>b.id.localeCompare(a.id));if(s.includes('(created_at,id)<'))all=all.filter(t=>t.id<String(p[5]));all=all.slice(0,Number(p.at(-1)));}
     return rows(all.map(t=>({...t})));
    }
    if(s.startsWith('UPDATE private.coach_chat_threads')){
@@ -96,7 +96,8 @@ describe('durable coach chat service using injected SQL',()=>{
   expect(await port.load(first.value.message.id,voiceScope,signal())).toMatchObject({kind:'final_answer',text:first.value.message.text,sessionEpoch:'session-1'});
   const second=await x.service.appendFinal(x.s,{threadId:a.thread.id,requestId:randomUUID(),expectedAssistantRevision:first.value.message.revision},await final(x.s,a.thread.id,u.op.turnId,u.op.text),signal());expect(second.ok).toBe(true);if(!second.ok||!('message'in second.value))throw new Error();
   expect(await port.load(first.value.message.id,voiceScope,signal())).toBeNull();expect(await port.load(second.value.message.id,voiceScope,signal())).not.toBeNull();epoch=null;expect(await port.load(second.value.message.id,voiceScope,signal())).toBeNull();
-  epoch='session-2';expect(await x.service.execute(x.s,{version:COACH_CHAT_VERSION,operation:'delete',threadId:a.thread.id,reviewed:true},signal())).toMatchObject({ok:true,value:{thread:{state:'cleanup_pending'},cleanup:'pending'}});expect(await port.load(second.value.message.id,voiceScope,signal())).toBeNull();expect(x.b.contents.size).toBe(0);
+ epoch='session-2';expect(await x.service.execute(x.s,{version:COACH_CHAT_VERSION,operation:'delete',threadId:a.thread.id,reviewed:true},signal())).toMatchObject({ok:true,value:{thread:{state:'cleanup_pending'},cleanup:'pending'}});expect(await port.load(second.value.message.id,voiceScope,signal())).toBeNull();expect(x.b.contents.size).toBe(0);
+  expect(await x.service.execute(x.s,{version:COACH_CHAT_VERSION,operation:'list',limit:20},signal())).toMatchObject({ok:true,value:{threads:[{id:a.thread.id,title:'',state:'cleanup_pending'}]}});
   expect(await x.service.execute(x.s,{version:COACH_CHAT_VERSION,operation:'create',requestId:a.requestId,title:'Mi conversación'},signal())).toMatchObject({error:'not_found'});
  });
  it('requires cleanup confirmation before deleted and paginates message sequences',async()=>{

@@ -107,7 +107,7 @@ export function createCoachChatService(database:typeof db,cleanup?:CoachChatClea
      return {thread:threadView(await thread(tx,scope,id))};
     }
     if(op.operation==='list'){
-     const r=await tx.execute(sql`SELECT access_revoked,id,title,created_at::text,revision::text,request_id,create_hash,state,next_sequence FROM private.coach_chat_threads WHERE ${scopeWhere(scope)} AND state='active' AND access_revoked=false
+     const r=await tx.execute(sql`SELECT access_revoked,id,title,created_at::text,revision::text,request_id,create_hash,state,next_sequence FROM private.coach_chat_threads WHERE ${scopeWhere(scope)} AND state IN ('active','cleanup_pending') AND access_revoked=false
  ${op.before?sql`AND (created_at,id)<(${op.before.createdAt}::timestamptz,${op.before.id}::uuid)`:sql``} ORDER BY created_at DESC,id DESC LIMIT ${op.limit+1}`);
      const rows=r.rows.map(row=>threadSchema.parse(row)),page=rows.slice(0,op.limit),last=page.at(-1);
      return {threads:page.map(threadView),nextCursor:rows.length>op.limit&&last?{createdAt:last.created_at,id:last.id}:null};
