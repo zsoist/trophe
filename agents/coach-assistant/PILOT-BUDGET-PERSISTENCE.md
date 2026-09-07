@@ -96,3 +96,12 @@ continuing other attempts against an unquantified overrun. Missing/invalid measu
 usage likewise raises an alert; ordinary response-loss mark_unknown still retains
 the bounded reservation without inventing usage. Resolution requires supported
 usage evidence; it is never a timer-based release.
+
+Observed-model pricing guard: accept new command `mark_pricing_unknown` with
+binding, usage, responseModel (string|null). Core writes unknown/full reservation,
+usage, accountingAlert:true and optional record field unpricedModel (string|null).
+Preserve this field in JSON persistence and validation; recompute accountingBlocked
+from accountingAlert as before. Ordinary settle is forbidden once unpricedModel
+exists; reconciliation is intentionally not exposed here. No new SQL table.
+Older writers rejecting the command remain fail-closed with a dispatched hold,
+but cannot prove the new persistent alert behavior until integrated/tested.

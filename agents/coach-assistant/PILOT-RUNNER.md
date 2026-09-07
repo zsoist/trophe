@@ -71,3 +71,13 @@ reconstruct the prior returned model. Cost estimates still use the requested
 Luna pricing version; an observed different identifier needs review before any
 claim that its actual tariff matches. This metadata addition does not authorize
 live calls, change prices or release a budget reservation.
+
+Pricing correction supersedes the preceding requested-tariff limitation: only
+exact observed `gpt-5.6-luna` is mapped to the current COACH_PRICING_VERSION.
+No dated snapshot aliases are mapped. Missing/different response metadata calls
+mark_pricing_unknown with the original usage and nullable responseModel, never
+settle. Both cost fields remain null. The persistent core retains the full
+reservation, records unpricedModel and accountingAlert, and blocks subsequent
+reserve/dispatch through the pilot aggregate. No ordinary settle can clear that
+record; explicit future reconciliation is required. A failed persistence call
+still leaves the dispatched reservation held; the runner stops without retry.

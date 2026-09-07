@@ -15,7 +15,7 @@ function fixture() {
   })};
   const transport=vi.fn<OfflineConversationProvider>(async request=>{
     events.push('transport');const data=JSON.parse(request.prompt);
-    return {output:{answer:'A log offers a starting point for review rather than a complete picture of daily life.',followUp:'What would make the review useful?',evidenceRefs:data.evidence.map((f:{id:string})=>f.id),entityRefs:[],facts:[],generalExplanationRefs:['records_are_partial_view'],limitations:[],escalation:false},usage:{inputTokens:1000,outputTokens:200,reasoningTokens:50},latencyMs:1,rawStatus:200};
+    return {responseModel:'gpt-5.6-luna',output:{answer:'A log offers a starting point for review rather than a complete picture of daily life.',followUp:'What would make the review useful?',evidenceRefs:data.evidence.map((f:{id:string})=>f.id),entityRefs:[],facts:[],generalExplanationRefs:['records_are_partial_view'],limitations:[],escalation:false},usage:{inputTokens:1000,outputTokens:200,reasoningTokens:50},latencyMs:1,rawStatus:200};
   });
   return {store,transport,events,records,signal:new AbortController().signal};
 }
@@ -24,7 +24,7 @@ describe('measured pilot runner with an explicitly injected transport and store'
     const deps=fixture();const report=await runCoachPilotEvaluation(input,deps);
     expect(report.ok).toBe(true);if(!report.ok)throw new Error('report expected');
     expect(deps.events).toEqual(['reserve','claim_dispatch','transport','settle']);
-    expect(report.requestedModel).toBe('gpt-5.6-luna');expect(report.returnedModel).toBeNull();
+    expect(report.requestedModel).toBe('gpt-5.6-luna');expect(report.returnedModel).toBe('gpt-5.6-luna');
     expect(report.actualProviderCalls).toBe(0);expect(report.injectedProviderCalls).toBe(1);
     expect(report.measuredUsageCostUsd).toBeNull();expect(report.simulatedUsageCostUsd).toBeCloseTo(0.00044);
     expect(report.allStructuralChecksPassed).toBe(true);expect(report.releaseApproved).toBe(false);
@@ -38,19 +38,16 @@ describe('measured pilot runner with an explicitly injected transport and store'
     expect(report.cases[0]).toMatchObject({requestedModel:'gpt-5.6-luna',returnedModel:responseModel||null});
     expect(report.returnedModel).toBe(responseModel||null);
     expect(report.cases[0].attemptId).toBeDefined();expect(report.actualProviderCalls).toBe(0);
-  });
-  it('retains distinct per-attempt models and leaves a mixed report aggregate null',async()=>{
-    const deps=fixture();const original=deps.transport.getMockImplementation()!;let call=0;
-    deps.transport.mockImplementation(async request=>({...await original(request),responseModel:++call===1?'model-a':'model-b'}));
-    const report=await runCoachPilotEvaluation({...input,caseIds:['explain_food','follow_up']},deps);
-    if(!report.ok)throw new Error('report expected');
-    expect(report.cases.map(item=>item.returnedModel)).toEqual(['model-a','model-b']);expect(report.returnedModel).toBeNull();
-    const replay=await runCoachPilotEvaluation(input,deps);
-    if(!replay.ok)throw new Error('report expected');
-    expect(replay.cases[0].returnedModel).toBeNull();expect(replay.returnedModel).toBeNull();expect(call).toBe(2);
+    expect(deps.events).not.toContain('settle');expect(report.cases[0].pricedUsageNanoUsd).toBeNull();expect(report.simulatedUsageCostUsd).toBeNull();
+    expect([...deps.records.values()][0]).toMatchObject({state:'unknown',chargedNanoUsd:4_400_000,accountingAlert:true,unpricedModel:responseModel||null,usage:{inputTokens:1000,outputTokens:200}});
+    const row=[...deps.records.values()][0];
+    expect(await deps.store.execute({operation:'settle',binding:row.binding,usage:row.usage!},deps.signal)).toMatchObject({ok:false,error:'invalid_transition'});
+    const replay=await runCoachPilotEvaluation(input,deps);expect(replay.ok).toBe(true);expect(deps.transport).toHaveBeenCalledTimes(1);
+    const next=await runCoachPilotEvaluation({...input,evaluationId:uuid(9)},deps);expect(next.ok).toBe(true);expect(deps.transport).toHaveBeenCalledTimes(1);
+
   });
   it('settles a consumed malformed answer before reporting failed validation',async()=>{
-    const deps=fixture();deps.transport.mockResolvedValue({output:{broken:true},usage:{inputTokens:1000,outputTokens:200},latencyMs:1,rawStatus:200});
+    const deps=fixture();deps.transport.mockResolvedValue({responseModel:'gpt-5.6-luna',output:{broken:true},usage:{inputTokens:1000,outputTokens:200},latencyMs:1,rawStatus:200});
     const report=await runCoachPilotEvaluation(input,deps);
     expect(report.ok).toBe(true);if(!report.ok)throw new Error('report expected');
     expect(report.cases[0]).toMatchObject({responseAccepted:false,accounting:'settled',error:'invalid_output'});

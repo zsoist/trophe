@@ -79,6 +79,12 @@ export async function runCoachPilotEvaluation(raw:unknown,deps:{store:PilotBudge
         measurement.transportLatencyMs=Math.round(performance.now()-transportStarted);
         measurement.returnedModel=typeof generated.responseModel==='string'&&generated.responseModel.trim().length>0?generated.responseModel:null;
         measurement.usage=normalizedUsage(generated.usage);
+        // Exact versioned tariff identity only; no alias/prefix or missing-model fallback.
+        if(measurement.returnedModel!=='gpt-5.6-luna') {
+          measurement.accounting='unknown';measurement.error='model_pricing_unverified';
+          await executePilotBudgetCommand({operation:'mark_pricing_unknown',binding,usage:measurement.usage,responseModel:measurement.returnedModel},deps.store,request.signal);
+          throw new Error('model_pricing_unverified');
+        }
         measurement.pricedUsageNanoUsd=pricePilotUsageNanoUsd(measurement.usage);
         const cost=measurement.pricedUsageNanoUsd===null?null:measurement.pricedUsageNanoUsd/USD_IN_NANODOLLARS;
         if(input.mode==='live')measurement.measuredUsageCostUsd=cost;else measurement.simulatedUsageCostUsd=cost;
