@@ -12,6 +12,6 @@ describe('single-set correction writer',()=>{
   let patch:unknown;let query:ReturnType<PgDialect['sqlToQuery']>|undefined;
   const tx={update:()=>({set:(next:unknown)=>{patch=next;return {where:(q:Parameters<PgDialect['sqlToQuery']>[0])=>{query=new PgDialect().sqlToQuery(q);return {returning:async()=>[{...row,...next as object}]};}};}})} as unknown as Parameters<typeof applyWorkoutSetRepsEdit>[0];
   expect(await applyWorkoutSetRepsEdit(tx,row,'owner',{reps:10})).toMatchObject({id:'set',sessionId:'session',reps:10,clientRequest:{reps:8},isPr:true});
-  expect(patch).toEqual({reps:10});expect(query!.params).toEqual(['set','session','owner',8]);expect(query!.sql).toContain('EXISTS');expect(query!.sql).toContain('IS NOT DISTINCT FROM');
+  expect(patch).toEqual({reps:10});expect(query!.params).toEqual(['set','session','owner',8]);expect(query!.sql).toContain('EXISTS');expect(query!.sql).toContain('s.completed_at IS NULL');expect(query!.sql).toContain('IS NOT DISTINCT FROM');
  });
 });

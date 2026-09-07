@@ -20,7 +20,7 @@ export type WorkoutSetOperation=Base&(
 );
 export interface WorkoutSetRefresh {setId:string;sessionId:string;exerciseId:string;previousVersion:string;version:string;strategy:'refetch'}
 export type WorkoutSetResult={version:'coach-assistant.v2';storage:'database'}&(
- {ok:false;error:'invalid_input'|'forbidden'|'not_found'|'ambiguous_selection'|'version_conflict'|'expired'|'idempotency_conflict'|'cancelled'|'uncertain'}|
+ {ok:false;error:'invalid_input'|'forbidden'|'not_found'|'session_completed'|'ambiguous_selection'|'version_conflict'|'expired'|'idempotency_conflict'|'cancelled'|'uncertain'}|
  {ok:true;snapshot:WorkoutSetSnapshot}|
  {ok:true;proposal:WorkoutSetProposal}|
  {ok:true;receipt:CoachReceipt;refresh?:WorkoutSetRefresh}

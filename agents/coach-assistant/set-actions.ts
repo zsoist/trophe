@@ -18,7 +18,7 @@ const receipt=z.object({id:z.string().uuid(),actionId:z.string().uuid(),proposal
 const refresh=z.object({setId:z.string().uuid(),sessionId:z.string().uuid(),exerciseId:z.string().uuid(),previousVersion:version,version,strategy:z.literal('refetch')}).strict();
 const resultBase={version:z.literal('coach-assistant.v2'),storage:z.literal('database')};
 export const workoutSetResultSchema=z.union([
-  z.object({...resultBase,ok:z.literal(false),error:z.enum(['invalid_input','forbidden','not_found','ambiguous_selection','version_conflict','expired','idempotency_conflict','cancelled','uncertain'])}).strict(),
+  z.object({...resultBase,ok:z.literal(false),error:z.enum(['invalid_input','forbidden','not_found','session_completed','ambiguous_selection','version_conflict','expired','idempotency_conflict','cancelled','uncertain'])}).strict(),
   z.object({...resultBase,ok:z.literal(true),snapshot:workoutSetValuesSchema.extend({setId:z.string().uuid(),version})}).strict(),
   z.object({...resultBase,ok:z.literal(true),proposal:workoutSetProposalSchema}).strict(),
   z.object({...resultBase,ok:z.literal(true),receipt,refresh:refresh.optional()}).strict(),
