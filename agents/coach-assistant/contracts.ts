@@ -126,6 +126,7 @@ export interface CoachReceipt {
   recordedAt: string;
 }
 export interface CoachConversationResponse {
+  capabilityResult?:import('./capability-registry').CapabilityResult;
   foodPreference?:import('./food-preference-contracts').FoodPreferenceSnapshot;
   version: typeof COACH_CONVERSATION_VERSION;
   conversationId: string;

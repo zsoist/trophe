@@ -1,3 +1,7 @@
+import { runConversation } from './conversation';
+import { createCoachCapabilityRegistry } from './capability-registry';
+import { fixtureRepository } from './fixtures';
+import type { OfflineConversationProvider } from './open-conversation';
 import { describe,it,expect } from 'vitest';
 import { PgDialect } from 'drizzle-orm/pg-core';
 import { createFoodPreferenceService } from './food-preference-service';
@@ -38,7 +42,7 @@ function fixture() {
   }} as unknown as Parameters<typeof createFoodPreferenceService>[0];
   const service=createFoodPreferenceService(database);
   const execute=(operation:FoodPreferenceOperation)=>service.execute({actorId:actor,subjectId:actor,organizationId:org,signal:new AbortController().signal,operation});
-  return {execute,missing:()=>{missing=true;},revoke:()=>{authorized=false;},loseCommit:()=>{lostCommit=true;},state:()=>({row,revision,receipts}),failReceipt:()=>{receiptFails=true;},manualEdit:()=>{row.dietPattern='vegan';revision++;}};
+  return {service,execute,missing:()=>{missing=true;},revoke:()=>{authorized=false;},loseCommit:()=>{lostCommit=true;},state:()=>({row,revision,receipts}),failReceipt:()=>{receiptFails=true;},manualEdit:()=>{row.dietPattern='vegan';revision++;}};
 }
 describe('concrete Food profile preference transaction service through an injected SQL transaction',()=>{
   it('prepares canonical undeclared→vegetarian review, applies the shared writer and recovers the same receipt',async()=>{
@@ -75,6 +79,13 @@ describe('concrete Food profile preference transaction service through an inject
  it('reports missing storage as not connected and rejects foreign profile IDs',async()=>{
   const f=fixture();f.missing();expect(await f.execute({...base,operation:'diet.read'})).toMatchObject({error:'not_connected'});
   expect(await f.execute({...base,profileId:id(22),operation:'diet.read'})).toMatchObject({error:'forbidden'});
+ });
+
+ it.each(['food','workout'])('runs natural preference request from %s through the open model and canonical proposal',async surface=>{
+  const f=fixture();const repo=fixtureRepository();repo.authorize=async()=>({actorId:actor,subjectId:actor,organizationId:org,timezone:'UTC',language:'en'});
+  let calls=0;const provider:OfflineConversationProvider=async input=>{calls++;if(calls===2)expect(JSON.parse(input.prompt).capabilityResult.status).toBe('review_required');return {output:calls===1?{tool:'food.preference.propose',args:{dietPattern:'vegetarian'}}:{answer:'Please review the proposal before deciding.',evidenceRefs:[],entityRefs:[],facts:[],generalExplanationRefs:[],followUp:null,limitations:[],escalation:false},usage:{inputTokens:100,outputTokens:50},rawStatus:200,latencyMs:1};};
+  const result=await runConversation({version:'coach-assistant.v2',conversationId:base.conversationId,turnId:base.turnId,message:'Please '+"change my dietary preference to vegetarian",context:{surface,includeScreen:true,entity:{kind:'meal',id:entry}}},{actorId:actor,repository:repo,mode:'model',offlineCandidateEvaluation:true,offlineConversationProvider:provider,capabilityRegistry:createCoachCapabilityRegistry({preference:f.service}),signal:new AbortController().signal,now:new Date('2026-09-07T12:00:00Z')});
+  expect(result.ok).toBe(true);expect(result.capabilityResult).toMatchObject({status:'review_required',applied:false});expect(result.telemetry).toMatchObject({modelCalls:2,dataReads:2,tokensIn:200});expect(result.receipts).toEqual([]);expect(calls).toBe(2);expect(f.state().revision).toBe(1);
  });
 
 });

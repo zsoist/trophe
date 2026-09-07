@@ -1,3 +1,7 @@
+import { runConversation } from './conversation';
+import { createCoachCapabilityRegistry } from './capability-registry';
+import { fixtureRepository } from './fixtures';
+import type { OfflineConversationProvider } from './open-conversation';
 import { describe,it,expect } from 'vitest';
 import { PgDialect } from 'drizzle-orm/pg-core';
 import { createFoodQuantityService } from './food-service';
@@ -36,7 +40,7 @@ function fixture() {
   }} as unknown as Parameters<typeof createFoodQuantityService>[0];
   const service=createFoodQuantityService(database);
   const execute=(operation:FoodQuantityOperation)=>service.execute({actorId:actor,subjectId:actor,organizationId:org,signal:new AbortController().signal,operation});
-  return {execute,state:()=>({row,revision,receipts}),failReceipt:()=>{receiptFails=true;},manualEdit:()=>{row.foodName='Manually changed';revision++;}};
+  return {service,execute,state:()=>({row,revision,receipts}),failReceipt:()=>{receiptFails=true;},manualEdit:()=>{row.foodName='Manually changed';revision++;}};
 }
 describe('concrete Food transaction service through an injected SQL transaction',()=>{
   it('prepares canonical 250→150 review, applies the shared writer and recovers the same receipt',async()=>{
@@ -60,4 +64,11 @@ describe('concrete Food transaction service through an injected SQL transaction'
     expect(await f.execute({...base,operation:'food.apply',proposalId:proposed.proposal.id,hash:proposed.proposal.hash,actionId:id(6),resourceVersion:'1',reviewed:true})).toMatchObject({error:'version_conflict'});
     expect(f.state().row.qtyG).toBe('250');
   });
+ it('runs natural request through the open model, canonical food proposal and continuation without applying',async()=>{
+  const f=fixture();const repo=fixtureRepository();repo.authorize=async()=>({actorId:actor,subjectId:actor,organizationId:org,timezone:'UTC',language:'en'});
+  let calls=0;const provider:OfflineConversationProvider=async input=>{calls++;if(calls===2)expect(JSON.parse(input.prompt).capabilityResult.status).toBe('review_required');return {output:calls===1?{tool:'food.quantity.propose',args:{entryId:entry,grams:150}}:{answer:'Please review the proposal before deciding.',evidenceRefs:[],entityRefs:[],facts:[],generalExplanationRefs:[],followUp:null,limitations:[],escalation:false},usage:{inputTokens:100,outputTokens:50},rawStatus:200,latencyMs:1};};
+  const result=await runConversation({version:'coach-assistant.v2',conversationId:base.conversationId,turnId:base.turnId,message:'Please '+"change this rice portion to 150 grams",context:{surface:'food',includeScreen:true,entity:{kind:'meal',id:entry}}},{actorId:actor,repository:repo,mode:'model',offlineCandidateEvaluation:true,offlineConversationProvider:provider,capabilityRegistry:createCoachCapabilityRegistry({food:f.service}),signal:new AbortController().signal,now:new Date('2026-09-07T12:00:00Z')});
+  expect(result.ok).toBe(true);expect(result.capabilityResult).toMatchObject({status:'review_required',applied:false});expect(result.telemetry).toMatchObject({modelCalls:2,dataReads:2,tokensIn:200});expect(result.receipts).toEqual([]);expect(calls).toBe(2);expect(f.state().revision).toBe(1);
+ });
+
 });

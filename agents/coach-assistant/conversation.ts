@@ -1,3 +1,6 @@
+import { medicalBoundary } from './medical-boundary';
+import { prepareConversationCapability } from './capability-conversation';
+import type { CoachCapabilityRegistry } from './capability-registry';
 import { parseFoodPreferences } from '@/lib/food/preferences';
 import { createSelectionContext } from './selection-context';
 import { isIsolatedEngineBoundary, type IsolatedEngineBoundary } from './isolated-engine-boundary';
@@ -15,7 +18,7 @@ import { COACH_PRICING_VERSION } from './economics';
 import { COACH_PROMPT_VERSION } from './prompt.v3';
 
 /** History is a hint for a window/domain, never a source of facts or authority. */
-export async function runConversation(raw: unknown, options: RunOptions & { isolatedActionsEnabled?:boolean; offlineConversationProvider?:OfflineConversationProvider; offlineInterpretationReview?:OfflineInterpretationReview; offlineCandidateEvaluation?:boolean; isolatedFixtureBoundary?:IsolatedEngineBoundary; filterMemoryHistory?:(input:import('./contracts').CoachConversationRequest)=>import('./contracts').CoachConversationRequest }): Promise<CoachConversationResponse> {
+export async function runConversation(raw: unknown, options: RunOptions & { capabilityRegistry?:CoachCapabilityRegistry; isolatedActionsEnabled?:boolean; offlineConversationProvider?:OfflineConversationProvider; offlineInterpretationReview?:OfflineInterpretationReview; offlineCandidateEvaluation?:boolean; isolatedFixtureBoundary?:IsolatedEngineBoundary; filterMemoryHistory?:(input:import('./contracts').CoachConversationRequest)=>import('./contracts').CoachConversationRequest }): Promise<CoachConversationResponse> {
   const start = performance.now();
   const parsed = conversationRequestSchema.safeParse(raw);
   const response: CoachConversationResponse = {
@@ -47,6 +50,26 @@ export async function runConversation(raw: unknown, options: RunOptions & { isol
         if(JSON.stringify(fresh)!==JSON.stringify(authorized)) throw new Error('forbidden');
         return fresh;
       }};
+      if(options.capabilityRegistry&&options.mode==='model'&&!Object.values(medicalBoundary(input.message)).some(Boolean)){
+        response.snapshot={id:randomUUID(),capturedAt:options.now.toISOString(),subjectId:subject,organizationId:authorized.organizationId,surface:input.context?.includeScreen?input.context.surface:null,screenIncluded:!!input.context?.includeScreen,language:authorized.language,units:{weight:'kg',energy:'kcal',protein:'g'},window:windowFor('today',authorized.timezone,options.now),capabilities:[]};
+        response.output={answer:'',evidenceRefs:[],limitations:['capability_turn_no_aggregate_reads'],suggestions:[],escalation:{required:false,reason:null,draft:null}};
+        if(authorizedRepository.personalContext){
+          response.telemetry.dataReads++;
+          const personal=await authorizedRepository.personalContext({context:authorized,window:response.snapshot.window,limit:1,signal:controller.signal});
+          await authorizedRepository.authorize(options.actorId,subject,controller.signal);
+          if(personal.truncated||personal.rows.length>1)throw new Error('query_failed');
+          const row=personal.rows[0];
+          if(row){
+            if(row.userId!==subject||row.memories.some(memory=>memory.userId!==subject))throw new Error('forbidden');
+            if(row.foodPreference){if(row.foodPreference.profileId!==subject)throw new Error('forbidden');response.foodPreference={...row.foodPreference,preferences:parseFoodPreferences(row.foodPreference.preferences)};}
+          }
+        }
+        // Existing outer broker validates continuity against fresh source revisions.
+        const selectorInput=options.filterMemoryHistory?.(input)??{...input,history:input.history?.filter(item=>item.role==='user'&&item.kind!=='memory_summary')};
+        await prepareConversationCapability(selectorInput,response,options.offlineConversationProvider!,options.capabilityRegistry,authorizedRepository,authorized,controller.signal);
+        await generateOpenConversation(selectorInput,response,options.offlineConversationProvider!,controller.signal,options.offlineInterpretationReview,options.offlineCandidateEvaluation,options.isolatedFixtureBoundary);
+        await authorizedRepository.authorize(options.actorId,subject,controller.signal);controller.signal.throwIfAborted();response.ok=true;return;
+      }
       const selection=createSelectionContext(authorizedRepository,input.context,authorized);
       const repository=selection.repository;
       const {intent,surface,exerciseId,domain}=selectConversationScope(options.filterMemoryHistory?.(input)??input);
@@ -116,7 +139,7 @@ export async function runConversation(raw: unknown, options: RunOptions & { isol
     const allowed = ['invalid_input','forbidden','unauthenticated','invalid_timezone','budget_blocked','context_limit','invalid_output','provider_unavailable'];
     const code: CoachErrorCode = controller.signal.aborted ? options.signal.aborted?'cancelled':'deadline' : error instanceof Error && allowed.includes(error.message)?error.message as CoachErrorCode:'query_failed';
     response.error={code,retryable:code==='query_failed'||code==='deadline'||code==='provider_unavailable'};
-    response.ok=false;response.snapshot=null;response.evidence=[];delete response.output;delete response.profile;delete response.foodPreference;delete response.memories;delete response.explanations;
+    response.ok=false;response.snapshot=null;response.evidence=[];delete response.capabilityResult;delete response.output;delete response.profile;delete response.foodPreference;delete response.memories;delete response.explanations;
   } finally {
     clearTimeout(timer);options.signal.removeEventListener('abort',abort);
     if(boundary)controller.signal.removeEventListener('abort',boundary);
