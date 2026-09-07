@@ -51,3 +51,15 @@ export const preferenceOperationSchema = z.discriminatedUnion('operation', [
   z.object({...preferenceOperationBase,operation:z.literal('apply'),proposalId:z.string().uuid(),hash:z.string().regex(/^[a-f0-9]{64}$/),actionId:z.string().uuid(),resourceVersion:z.string().min(1).max(128)}).strict(),
   z.object({...preferenceOperationBase,operation:z.literal('receipt'),actionId:z.string().uuid()}).strict(),
 ]);
+
+const memoryProposeBase = {...preferenceOperationBase,operation:z.literal('propose'),memoryId:z.string().uuid(),resourceVersion:z.string().min(1).max(128)};
+export const memoryOperationSchema = z.discriminatedUnion('action',[
+  z.object({...memoryProposeBase,action:z.literal('memory.confirm')}).strict(),
+  z.object({...memoryProposeBase,action:z.literal('memory.delete')}).strict(),
+  z.object({...memoryProposeBase,action:z.literal('memory.correct'),after:z.object({text:z.string().trim().min(1).max(500)}).strict()}).strict(),
+]);
+export const actionOperationSchema = z.union([preferenceOperationSchema,memoryOperationSchema]);
+export const memoryCardSchema = z.object({
+  id:z.string().uuid(),text:z.string().min(1).max(500),source:z.enum(['user_input','coach','agent_inference','wearable']),
+  createdAt:z.string().datetime({offset:true}),scope:z.enum(['user','session','agent']),confirmation:z.enum(['unconfirmed','confirmed']),version:z.string().min(1).max(128),
+}).strict();

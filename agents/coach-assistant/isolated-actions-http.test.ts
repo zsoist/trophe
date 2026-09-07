@@ -9,10 +9,10 @@ import { defaultWorkoutPreferences } from '@/lib/workout/preferences';
 /** Real loopback HTTP, injected auth/repository fixtures; not a Supabase Auth or RLS test. */
 describe('isolated action HTTP envelopes',()=>{
   it('proposes, applies once, queries receipt and denies revoked authorization over HTTP',async()=>{
-    const actor=randomUUID();const conversationId=randomUUID();let revoked=false;
+    const actor=randomUUID();const conversationId=randomUUID();const memoryId=randomUUID();let revoked=false;
     const repository=fixtureRepository();repository.dataSource='authorized_records';
     repository.authorize=async()=>{if(revoked)throw new Error('forbidden');return {actorId:actor,subjectId:actor,organizationId:'fixture-org',timezone:'UTC',language:'en'};};
-    repository.personalContext=async()=>({rows:[{userId:actor,preferences:defaultWorkoutPreferences,memories:[]}],truncated:false});
+    repository.personalContext=async()=>({rows:[{userId:actor,preferences:defaultWorkoutPreferences,memories:[{id:memoryId,userId:actor,text:'Morning preference',source:'user_input',createdAt:'2026-09-07T00:00:00Z',scope:'user',version:'memory-v1'}]}],truncated:false});
     const server=createServer(async(req,res)=>{
       try {
         const chunks:Buffer[]=[];for await(const chunk of req)chunks.push(Buffer.from(chunk));
@@ -41,6 +41,11 @@ describe('isolated action HTTP envelopes',()=>{
       expect((await (await post({...base,operation:'receipt',actionId:apply.actionId})).json()).receipt).toEqual(first.receipt);
       expect((await post({...apply,hash:'0'.repeat(64)})).status).toBe(409);
       expect(defaultWorkoutPreferences.durationMinutes).toBe(30);
+      const memoryProposal=await (await post({...base,operation:'propose',action:'memory.confirm',memoryId,resourceVersion:'memory-v1'})).json();
+      const memoryApply={...base,operation:'apply',proposalId:memoryProposal.proposal.id,hash:memoryProposal.proposal.hash,actionId:randomUUID(),resourceVersion:'memory-v1'};
+      const confirmed=await (await post(memoryApply)).json();
+      expect(confirmed).toMatchObject({ok:true,storage:'isolated_ephemeral',memory:{confirmation:'confirmed',version:expect.any(String)}});
+      expect(await (await post({...base,operation:'receipt',actionId:memoryApply.actionId})).json()).toEqual(confirmed);
       revoked=true;
       expect((await post({...base,operation:'receipt',actionId:apply.actionId})).status).toBe(403);
     } finally {server.closeAllConnections();await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));}

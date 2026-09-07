@@ -91,3 +91,17 @@ idempotent requests can retrieve the original receipt after reauthorization.
 The loopback HTTP test uses injected Auth and repository fixtures. It proves HTTP
 dispatch and envelopes, not Supabase authentication or RLS. No paid calls,
 production migration or persistent mutation is involved.
+
+### Explicit isolated memory control
+
+The same action schema/core/HTTP binding now accepts proposals for
+`memory.confirm`, `memory.correct` (text up to 500 characters), and `memory.delete`.
+Each names an authorized seeded memory ID and version, requires explicit proposal
+review/application, and returns the same idempotent receipt on replay. Responses
+include the resulting isolated memory card (or null on deletion) and the old
+`invalidatedMemoryVersions` for consumers to discard any local derived display.
+Old proposals also fail the version check after correction or confirmation.
+Source and original creation date remain intact; confirmation describes only the
+isolated copy. The persisted memory row is not confirmed, corrected or deleted.
+The frontend must label and keep this isolated preview distinct from later reads
+of persisted cards. No persistence or cross-device guarantee is implied.

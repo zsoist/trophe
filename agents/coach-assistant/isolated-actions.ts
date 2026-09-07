@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { workoutPreferencesSchema } from '@/lib/workout/preferences';
-import { preferenceOperationSchema } from './schema';
+import { actionOperationSchema, memoryCardSchema } from './schema';
 import { createIsolatedPreferenceService } from './isolated-preferences';
 import { windowFor } from './context';
 import type { CoachActionResult } from './contracts';
@@ -18,7 +18,7 @@ export function createIsolatedActionsBroker(clock:()=>Date = ()=>new Date()) {
   const bindings = new Map<string,Binding>();
   return {
     async execute(actorId:string,raw:unknown,repository:CoachRepository,signal:AbortSignal):Promise<CoachActionResult> {
-      const parsed=preferenceOperationSchema.safeParse(raw);
+      const parsed=actionOperationSchema.safeParse(raw);
       if(!parsed.success)return fail('invalid_input');
       const input=parsed.data;
       const subject=input.clientId??actorId;
@@ -54,11 +54,13 @@ export function createIsolatedActionsBroker(clock:()=>Date = ()=>new Date()) {
           if(!preferences.success)return fail('invalid_input');
           // Re-read the map after awaits: concurrent requests share one store.
           binding=bindings.get(key);
-          const baseline=digest(preferences.data);
+          if(data.rows[0].memories.some(memory=>memory.userId!==subject))return fail('forbidden');
+          const memories=data.rows[0].memories.slice(0,10).map(memory=>memoryCardSchema.parse({id:memory.id,text:memory.text,source:memory.source,createdAt:new Date(memory.createdAt).toISOString(),scope:memory.scope,version:memory.version,confirmation:'unconfirmed'}));
+          const baseline=digest({preferences:preferences.data,memories});
           if(binding&&(binding.scope!==scope||binding.baseline!==baseline))return fail('version_conflict');
           if(!binding) {
             if(bindings.size>=64)return fail('uncertain');
-            binding={scope,baseline,expires:currentTime.getTime()+1800000,service:createIsolatedPreferenceService([{actorId,subjectId:subject,organizationId:context.organizationId,preferences:preferences.data}],clock)};
+            binding={scope,baseline,expires:currentTime.getTime()+1800000,service:createIsolatedPreferenceService([{actorId,subjectId:subject,organizationId:context.organizationId,preferences:preferences.data,memories}],clock)};
             bindings.set(key,binding);
           }
         }
