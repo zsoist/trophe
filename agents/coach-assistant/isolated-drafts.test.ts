@@ -16,6 +16,21 @@ function fixture(pending=false) {
   return {service,propose,workspace};
 }
 describe('canonical isolated draft boundary',()=>{
+  it('binds drafts created after the store and invalidates proposals on manual edits without losing preferences or receipts',()=>{
+    const {workspace}=fixture();
+    const service=createIsolatedPreferenceService([{actorId:actor,subjectId:actor,organizationId:'org',preferences:defaultWorkoutPreferences}]);
+    expect(service.bindWorkspace(actor,actor,workspace).ok).toBe(true);
+    const version=service.read(actor,actor)!.draftVersion!;
+    const proposal=service.execute(actor,{...base,operation:'propose',action:'draft.update',resourceVersion:version,after:{...workspace.draft,name:'Proposed'}}).proposal!;
+    const edited=structuredClone(workspace);edited.draft!.name='Manual edit';
+    service.bindWorkspace(actor,actor,edited);edited.draft!.name='External mutation';
+    expect(service.execute(actor,{...base,operation:'apply',proposalId:proposal.id,hash:proposal.hash,resourceVersion:version,actionId:id}).error).toBe('version_conflict');
+    expect(service.read(actor,actor)?.workspace?.draft?.name).toBe('Manual edit');
+    expect(service.read(actor,actor)?.preferences).toEqual(defaultWorkoutPreferences);
+    expect(service.bindWorkspace(id,actor,workspace).error).toBe('forbidden');
+    service.bindWorkspace(actor,actor,createInitialWorkspaceState());
+    expect(service.read(actor,actor)?.workspace).toBeUndefined();
+  });
   it('requires review and refuses to overwrite a newer unsaved workspace',()=>{
     const {service,propose,workspace}=fixture();
     const proposal=service.execute(actor,propose).proposal!;

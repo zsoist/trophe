@@ -46,6 +46,16 @@ export function createPreferenceStore(fixtures:FixtureScope[], primitives:Prefer
   }
   const result = (value:Omit<CoachActionResult,'version'|'storage'>):CoachActionResult => ({version:'coach-assistant.v2',storage:'isolated_ephemeral',...value});
   return {
+    /** Fixture administration only: bind the latest owner-verified UI state.
+     * No HTTP operation exposes this. Historical receipts remain immutable.
+     */
+    bindWorkspace(actorId:string,subjectId:string,workspace:WorkoutWorkspaceState):CoachActionResult {
+      if(!grants.has(scopeKey(actorId,subjectId)))return result({ok:false,error:'forbidden'});
+      if(workspace.draft!==null&&!coachDraftSchema.safeParse(workspace.draft).success)return result({ok:false,error:'invalid_input'});
+      if(workspace.draft===null)workspaces.delete(subjectId);
+      else workspaces.set(subjectId,structuredClone(workspace));
+      return result({ok:true});
+    },
     /** Fixture administration only. Revocation invalidates even receipt access. */
     revoke(actorId:string,subjectId:string) { grants.delete(scopeKey(actorId,subjectId)); },
     read(actorId:string,subjectId:string) {
