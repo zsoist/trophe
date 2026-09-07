@@ -219,3 +219,15 @@ def stabilize(config,out):
         rows.append(row)
     s.frame_set(1);bpy.ops.wm.save_as_mainfile(filepath=str(out/'incline.blend'))
     (out/'stabilization.json').write_text(json.dumps({'reference':references,'frame1_surface_delta_m':frame1,'rows':rows,'head_support':'15mm upholstery insert follows backrest angle, closing measured15.46mm head support gap; no body trajectory edit','reviews':'pending'},indent=2));return {'frame1_surface_delta_m':frame1,'max_surface_step_m':max(x['step_max_m'] for x in rows)}
+
+
+def review(config,out):
+    import render_media
+    result=render_media.run(config,out);s=bpy.context.scene;b=bpy.data.objects['Trophe_R2_Athlete'];rows=[]
+    for f in [1,13,46,100,136,172,181]:
+        s.frame_set(f);bpy.context.view_layer.update();p=points(b);row={'frame':f,'handles':{}}
+        for side in ['L','R']:
+            a=bpy.data.objects['Incline dumbbell '+side];local=(np.c_[p,np.ones(len(p))]@np.array(a.matrix_world.inverted()).T)[:,:3];rad=np.linalg.norm(local[:,1:],axis=1);depth=.014-rad[(abs(local[:,0])<.09)&(rad<.014)]
+            row['handles'][side]={'inside_surface_vertices':len(depth),'maximum_radial_penetration_m':float(depth.max()) if len(depth) else 0,'reference':'Actual14mm radius,180mm length cylinder; evaluated skin vertices. Separate from triangle crossing count.'}
+        rows.append(row)
+    (out/'handle-contact.json').write_text(json.dumps(rows,indent=2));result['max_handle_penetration_m']=max(v['maximum_radial_penetration_m'] for row in rows for v in row['handles'].values());return result
