@@ -46,6 +46,13 @@ export interface AtlasChunk {
   triangles: number;
 }
 export interface AtlasManifest {
+  /** Consumer-only authored illustrations; never included in source coverage or FMA mapping. */
+  authored?: {
+    author: string;
+    license: string;
+    recipeSha256: string;
+    muscleElements: Record<string, string[]>;
+  };
   version: "trophe.static-atlas/1";
   poster?: {
     mime: "image/png" | "image/jpeg";
