@@ -6,6 +6,19 @@ const req = (body: unknown) => new Request('https://preview.invalid/api/coach-as
 const env = { COACH_ASSISTANT_ENABLED:'1',COACH_ASSISTANT_PREVIEW_USER_IDS:'verified-user',COACH_ASSISTANT_DATA_SOURCE:'synthetic',VERCEL_ENV:'preview' };
 const deps = { env,guard:async()=>({userId:'verified-user'}),createRepository:()=>fixtureRepository(),now:()=>new Date('2026-09-07T03:30:00Z') };
 describe('private route contract', () => {
+  it('advertises isolated uploads separately from image analysis only for enabled authorized self scope',async()=>{
+    const repository=fixtureRepository();repository.dataSource='authorized_records';
+    const body={version:'coach-assistant.v2',conversationId:'a2c5ec63-6f35-4671-b4f1-6644ca9d739c',turnId:'aac3a82e-898c-4907-b9b9-75133bb6d27f',message:'Today?'};
+    const config={...deps,guard:async()=>({userId:'synthetic-client'}),createRepository:()=>repository,env:{...env,COACH_ASSISTANT_PREVIEW_USER_IDS:'synthetic-client',COACH_ASSISTANT_DATA_SOURCE:'authorized_records',COACH_ASSISTANT_ISOLATED_ATTACHMENTS_ENABLED:'1'}};
+    const enabled=await (await handleCoachRequest(req(body),config)).json();
+    expect(enabled.ok).toBe(true);
+    expect(enabled.uploads).toMatchObject({images:true,storage:'isolated_ephemeral',analysis:'not_connected',limits:{fileBytes:5242880,totalBytes:15728640}});
+    expect(enabled.snapshot.capabilities.find((item:{key:string})=>item.key==='images').status).toBe('not_connected');
+    const disabled=await (await handleCoachRequest(req(body),{...config,env:{...config.env,COACH_ASSISTANT_ISOLATED_ATTACHMENTS_ENABLED:'0'}})).json();
+    expect(disabled.uploads).toBeUndefined();
+    const synthetic=await (await handleCoachRequest(req(body),{...config,env:{...config.env,COACH_ASSISTANT_DATA_SOURCE:'synthetic'}})).json();
+    expect(synthetic.uploads).toBeUndefined();
+  });
   it('cancels an interrupted binary request without fabricating a completed attachment',async()=>{
     const abort=new AbortController();
     const stream=new ReadableStream<Uint8Array>({start(controller){controller.enqueue(new Uint8Array([137,80]));}});

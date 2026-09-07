@@ -3,7 +3,7 @@ import { runConversation } from './conversation';
 import { isolatedActionsBroker } from './isolated-actions';
 import { requestSchema, conversationRequestSchema } from './schema';
 import { fixtureRepository } from './fixtures';
-import type { CoachErrorCode, CoachResponse } from './contracts';
+import { COACH_IMAGE_LIMITS, type CoachErrorCode, type CoachResponse } from './contracts';
 import type { CoachRepository } from './repository';
 import { COACH_PRICING_VERSION } from './economics';
 import { COACH_PROMPT_VERSION } from './prompt.v3';
@@ -81,7 +81,7 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
         if(initial.actorId!==guard.userId||initial.subjectId!==guard.userId)return fail('forbidden',403);
         const authorize=async()=>{const fresh=await repository.authorize(guard.userId,guard.userId,controller.signal);if(JSON.stringify(fresh)!==JSON.stringify(initial))throw new Error('forbidden');};
         controller.signal.throwIfAborted();
-        const bytes=await readBytes(request,controller.signal,5*1024*1024);
+        const bytes=await readBytes(request,controller.signal,COACH_IMAGE_LIMITS.fileBytes);
         const {isolatedAttachmentStore}=await import('./isolated-attachments');
         const result=await isolatedAttachmentStore.upload(`${guard.userId}:${initial.organizationId}`,request.headers.get('x-coach-conversation-id')??'',request.headers.get('x-coach-attachment-id')??'',request.headers.get('x-coach-upload-token')??'',bytes,controller.signal,authorize);
         return json(result,result.ok?200:result.error==='forbidden'?403:result.error==='busy'?409:400);
@@ -122,8 +122,7 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
           const resolved=isolatedAttachmentStore.operation(`${guard.userId}:${result.snapshot!.organizationId}`,{version:'coach-assistant.v2',operation:'attachment.status',conversationId:result.conversationId,attachmentId:attachment.id});
           return {...attachment,status:resolved.ok?(resolved.attachment?.status??'unknown'):'unauthorized'};
         });
-        const images=result.snapshot.capabilities.find(capability=>capability.key==='images');
-        if(images){images.status='available';images.reason='isolated_uploads_without_image_analysis';}
+        result.uploads={images:true,storage:'isolated_ephemeral',analysis:'not_connected',limits:{...COACH_IMAGE_LIMITS}};
       }
       const code=result.error?.code;
       return json(result,result.ok?200:code==='unauthenticated'?401:code==='forbidden'?403:code==='invalid_input'?400:503);
