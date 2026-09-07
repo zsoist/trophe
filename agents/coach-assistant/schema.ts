@@ -1,3 +1,5 @@
+import { isDraft } from '@/lib/workout/workspace-storage';
+import type { WorkoutDraft } from '@/lib/workout/workspace-state';
 import { z } from 'zod';
 
 export const requestSchema = z.object({
@@ -58,7 +60,11 @@ export const memoryOperationSchema = z.discriminatedUnion('action',[
   z.object({...memoryProposeBase,action:z.literal('memory.delete')}).strict(),
   z.object({...memoryProposeBase,action:z.literal('memory.correct'),after:z.object({text:z.string().trim().min(1).max(500)}).strict()}).strict(),
 ]);
-export const actionOperationSchema = z.union([preferenceOperationSchema,memoryOperationSchema]);
+export const coachDraftSchema = z.custom<WorkoutDraft>(value => {
+  try { return JSON.stringify(value).length <= 6000 && isDraft(value); } catch { return false; }
+});
+export const draftOperationSchema = z.object({...preferenceOperationBase,operation:z.literal('propose'),action:z.literal('draft.update'),resourceVersion:z.string().min(1).max(128),after:coachDraftSchema}).strict();
+export const actionOperationSchema = z.union([preferenceOperationSchema,memoryOperationSchema,draftOperationSchema]);
 export const memoryCardSchema = z.object({
   id:z.string().uuid(),text:z.string().min(1).max(500),source:z.enum(['user_input','coach','agent_inference','wearable']),
   createdAt:z.string().datetime({offset:true}),scope:z.enum(['user','session','agent']),confirmation:z.enum(['unconfirmed','confirmed']),version:z.string().min(1).max(128),
