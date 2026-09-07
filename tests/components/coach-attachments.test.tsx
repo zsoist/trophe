@@ -12,7 +12,7 @@ const id = '00000000-0000-4000-8000-000000000002';
 const base = { version: 'coach-assistant.v2', ok: true, storage: 'isolated_ephemeral', analysis: 'not_connected' } as const;
 const ready: CoachAttachmentResult = { ...base, state: 'available', attachment: { id, kind: 'image', status: 'available' } };
 function transport(): AttachmentTransport {
-  return { operation: vi.fn(async input => input.operation === 'attachment.prepare' ? { ...base, state: 'prepared', attachment: { id, kind: 'image', status: 'pending' }, uploadToken: 'a'.repeat(64) } : input.operation === 'attachment.remove' ? { ...base, state: 'removed' } : ready), upload: vi.fn(async () => ready) };
+  return { operation: vi.fn(async (input): Promise<CoachAttachmentResult> => input.operation === 'attachment.prepare' ? { ...base, state: 'prepared', attachment: { id, kind: 'image', status: 'pending' }, uploadToken: 'a'.repeat(64) } : input.operation === 'attachment.remove' ? { ...base, state: 'removed' } : ready), upload: vi.fn(async () => ready) };
 }
 const png = () => Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a7n8AAAAASUVORK5CYII='), character => character.charCodeAt(0));
 const file = () => new File([png()], 'food.png', { type: 'image/png' });
@@ -57,7 +57,7 @@ it('queries an uncertain upload using its original reservation without preparing
 
 it('drops late uploads and object URLs on identity reset', async () => {
   const controller = new AttachmentController(), port = transport(); let resolve!: (result: CoachAttachmentResult) => void;
-  port.upload = vi.fn(() => new Promise(done => { resolve = done; }));
+  port.upload = vi.fn(() => new Promise<CoachAttachmentResult>(done => { resolve = done; }));
   await controller.select([file()]); const key = controller.snapshot().items[0].key;
   const pending = controller.upload(key, conversation, port);
   await vi.waitFor(() => expect(port.upload).toHaveBeenCalledTimes(1));

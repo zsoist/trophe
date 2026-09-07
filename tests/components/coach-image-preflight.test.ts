@@ -8,7 +8,7 @@ it.each(['png', 'jpeg', 'webp'] as const)('accepts a real %s header and rejects 
   expect(() => inspectImageHeaders(bytes.buffer, format === 'png' ? 'image/jpeg' : 'image/png')).toThrow('type');
 });
 
-it('checks WebP extended canvas and compressed frame sizes separately', async () => {
+it('checks the compressed WebP frame dimensions before decoding', async () => {
   const bytes = Uint8Array.from(await sharp({ create: { width: 12, height: 8, channels: 3, background: '#647b86' } }).webp().toBuffer());
   const view = new DataView(bytes.buffer);
   expect(String.fromCharCode(...bytes.slice(12, 16))).toBe('VP8 ');
