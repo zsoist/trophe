@@ -19,7 +19,10 @@ describe('explicit isolated memory control',()=>{
       const result=service.execute(actor,apply);
       expect(result.ok).toBe(true);expect(result.storage).toBe('isolated_ephemeral');
       expect(result.invalidatedMemoryVersions).toEqual([{id:memory.id,version}]);
-      expect(service.execute(actor,apply)).toEqual(result);
+      const canonical=structuredClone(result);
+      result.invalidatedMemoryVersions![0].version='tampered';
+      expect(service.execute(actor,apply)).toEqual(canonical);
+      result.invalidatedMemoryVersions=canonical.invalidatedMemoryVersions;
       expect(service.execute(actor,{...base,operation:'receipt',actionId:apply.actionId})).toEqual(result);
       if(action!=='memory.delete') {
         expect(result.memory).toMatchObject({confirmation:'confirmed',createdAt:memory.createdAt,source:memory.source});
