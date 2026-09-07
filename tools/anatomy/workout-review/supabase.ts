@@ -2,6 +2,7 @@
 import type { supabase as RuntimeClient } from '../../../lib/supabase';
 import type { Exercise } from '../../../lib/types';
 import { REVIEW_USER, reviewData, reviewExercises, updateReview } from './store';
+import { addExampleFoods } from './food-store';
 type Row = Record<string, unknown>;
 class ReviewQuery {
   private filters: Array<(row: Row) => boolean> = [];
@@ -9,7 +10,7 @@ class ReviewQuery {
   private start = 0;
   private end = Infinity;
   private one = false;
-  private inserted: Row | null = null;
+  private inserted: Row | Row[] | null = null;
   constructor(private table: string) {}
   select(_columns?: string) { void _columns; return this; }
   eq(key: string, value: unknown) { this.filters.push(row => (key === 'workout_sessions.user_id' ? REVIEW_USER : row[key]) === value); return this; }
@@ -20,9 +21,13 @@ class ReviewQuery {
   range(from: number, to: number) { this.start = from; this.end = to + 1; return this; }
   abortSignal(_signal: AbortSignal) { void _signal; return this; }
   maybeSingle() { this.one = true; return this; }
-  insert(row: Row) { if (this.table === 'exercises') this.inserted = row; else throw Error('Private preview write not supported'); return this; }
+  insert(row: Row | Row[]) { if (this.table === 'exercises' || this.table === 'food_log') this.inserted = row; else throw Error('Private preview write not supported'); return this; }
   private run() {
     if (this.inserted) {
+      if (this.table === 'food_log') {
+        const inserted = addExampleFoods(Array.isArray(this.inserted) ? this.inserted : [this.inserted]);
+        this.inserted = null; return { data: this.one ? inserted[0] : inserted, error: null };
+      }
       const exercise = { name_es: null, name_el: null, secondary_muscles: [], equipment: null, is_compound: false, is_template: false, ...this.inserted, id: crypto.randomUUID(), created_at: new Date().toISOString() } as unknown as Exercise;
       updateReview(data => ({ ...data, customExercises: [...data.customExercises, exercise] }));
       this.inserted = null; return { data: this.one ? exercise : [exercise], error: null };

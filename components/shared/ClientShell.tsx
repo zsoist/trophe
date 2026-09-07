@@ -6,8 +6,9 @@ import { BotNav } from '@/components/ui/BotNav';
 import { useClientNav } from '@/lib/useClientNav';
 import { ClientRouteTransition } from './ClientRouteTransition';
 import { ClientShellNavigationProvider } from './ClientShellContext';
+import { GlobalCoachEntry } from '@/components/assistant/GlobalCoachEntry';
 
-export function ClientShell({ children }: { children: ReactNode }) {
+export function ClientShell({ children, coach }: { children: ReactNode; coach?: ReactNode }) {
   const routes = useClientNav();
   const router = useRouter();
 
@@ -16,6 +17,7 @@ export function ClientShell({ children }: { children: ReactNode }) {
       <ClientShellNavigationProvider value>
         <ClientRouteTransition>{children}</ClientRouteTransition>
       </ClientShellNavigationProvider>
+      {coach ?? (process.env.NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED === '1' ? <GlobalCoachEntry /> : null)}
       <BotNav
         routes={routes}
         className="client-shell__nav"

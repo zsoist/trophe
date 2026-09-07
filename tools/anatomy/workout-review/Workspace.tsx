@@ -7,8 +7,8 @@ import { WorkoutWorkspaceHeader } from '../../../components/workout/workspace/Wo
 import { WorkoutRouteTransition } from '../../../components/workout/workspace/WorkoutRouteTransition';
 import { ConfirmSheet } from '../../../components/ui/ConfirmSheet';
 import { WorkoutHome } from '../../../components/workout/workspace/WorkoutHome';
-import { WorkoutCoachEntry } from '../../../components/workout/coach/WorkoutCoachEntry';
-import { privateCoachTransport } from './coach';
+import { PrivateGlobalCoach } from './global-coach';
+import { PrivateFood } from './food';
 import { WorkoutBuilder, type PlanSaveState } from '../../../components/workout/workspace/WorkoutBuilder';
 import { WorkoutReview } from '../../../components/workout/workspace/WorkoutReview';
 import { ExerciseBrowser } from '../../../components/workout/workspace/ExerciseBrowser';
@@ -102,11 +102,12 @@ function ReviewRoutes({ manifestUrl, authoredSupplement, onRender }: PreviewProp
   } else if (path === '/dashboard/workout/live') content = <LiveWorkout exercises={exercises} userId={REVIEW_USER} />;
   else if (path === '/dashboard/workout/history') content = <WorkoutHistoryPage />;
   else if (path === '/dashboard/workout/stats') content = <WorkoutAnalyticsSurface />;
+  else if (path === '/dashboard/log') content = <PrivateFood />;
   else if (path !== '/dashboard/workout') content = <main className="mx-auto max-w-2xl space-y-4 p-4"><p>{t('anatomy.review_scope')}</p><button type="button" className="btn-gold min-h-11 rounded-xl px-4" onClick={() => navigate('/dashboard/workout')}>{t('workout.back_home')}</button></main>;
-  else content = <WorkoutHome coachPreview={<WorkoutCoachEntry example={privateCoachTransport(reviewData, () => workspace.state.draft, t, template.exercises.length)} />} exercises={exercises} program={data.scenario === 'empty' ? null : { programName: t('workout.strength'), todayTemplate: template, alsoToday: [], nextWeekday: (new Date().getDay() + 2) % 7, nextTemplateName: t('workout.strength') }} recents={data.sessions.filter(session => session.completed_at).slice(0, 3)} workedExerciseIds={workedExerciseIds} routines={data.routines} />;
+  else content = <WorkoutHome coachPreview={false} exercises={exercises} program={data.scenario === 'empty' ? null : { programName: t('workout.strength'), todayTemplate: template, alsoToday: [], nextWeekday: (new Date().getDay() + 2) % 7, nextTemplateName: t('workout.strength') }} recents={data.sessions.filter(session => session.completed_at).slice(0, 3)} workedExerciseIds={workedExerciseIds} routines={data.routines} />;
   return <div className="workout-workspace"><WorkoutWorkspaceHeader /><WorkoutRouteTransition>{content}</WorkoutRouteTransition><ConfirmSheet open={Boolean(repeatChoice)} title={t('workout.repeat_replace_title')} message={t('workout.repeat_replace_message')} confirmLabel={t('workout.repeat_replace_confirm')} cancelLabel={t('workout.repeat_replace_cancel')} onCancel={() => { setRepeatChoice(null); navigate('/dashboard/workout'); }} onConfirm={() => { repeatChoice?.replace(); setRepeatChoice(null); navigate('/dashboard/workout/build'); }} /></div>;
 }
 export function PrivateWorkoutWorkspace({ manifestUrl, authoredSupplement, onRender }: PreviewProps) {
   const source = useMemo(() => ({ manifestUrl, authoredSupplement }), [manifestUrl, authoredSupplement]);
-  return <WorkoutAnatomySource.Provider value={source}><WorkoutWorkspaceProvider userId={REVIEW_USER} storage={reviewWorkspaceStorage}><AppHeader title="Trophē" eyebrow="Client" /><ClientShell><div id="main-content" tabIndex={-1} className="outline-none"><ReviewRoutes manifestUrl={manifestUrl} authoredSupplement={authoredSupplement} onRender={onRender} /></div></ClientShell></WorkoutWorkspaceProvider></WorkoutAnatomySource.Provider>;
+  return <WorkoutAnatomySource.Provider value={source}><WorkoutWorkspaceProvider userId={REVIEW_USER} storage={reviewWorkspaceStorage}><AppHeader title="Trophē" eyebrow="Client" /><ClientShell coach={<PrivateGlobalCoach />}><div id="main-content" tabIndex={-1} className="outline-none"><ReviewRoutes manifestUrl={manifestUrl} authoredSupplement={authoredSupplement} onRender={onRender} /></div></ClientShell></WorkoutWorkspaceProvider></WorkoutAnatomySource.Provider>;
 }

@@ -45,6 +45,7 @@ export function AppHeader(_props: AppHeaderProps) {
               {actions}
             </div>
           ) : null}
+          <span id="global-coach-anchor" className="contents" />
           <ThemeModeToggle />
         </div>
       </header>

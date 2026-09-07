@@ -118,10 +118,11 @@ const result = await build({
     const aliases = {
       'next/navigation': 'navigation.tsx', 'next/link': 'navigation.tsx',
       '@/lib/supabase': 'supabase.ts',
+      '@/lib/trpc/client': 'trpc.ts',
       '@/components/workout/workout-persistence': 'persistence.ts',
       '@/lib/workout/analytics-data': 'analytics.ts',
     };
-    build.onResolve({ filter: /^(next\/(navigation|link)|@\/lib\/(supabase|workout\/analytics-data)|@\/components\/workout\/workout-persistence)$/ }, args => ({ path: join(root, 'tools/anatomy/workout-review', aliases[args.path]) }));
+    build.onResolve({ filter: /^(next\/(navigation|link)|@\/lib\/(supabase|trpc\/client|workout\/analytics-data)|@\/components\/workout\/workout-persistence)$/ }, args => ({ path: join(root, 'tools/anatomy/workout-review', aliases[args.path]) }));
   } }],
   metafile: true,
   bundle: true,
@@ -138,6 +139,7 @@ const result = await build({
     "process.env.NODE_ENV": '"production"',
     "process.env.__NEXT_IMAGE_OPTS": "undefined",
     "process.env.NEXT_PUBLIC_ANATOMY_ATLAS_ENABLED": '"false"',
+    "process.env.NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED": '"0"',
     "process.env.NEXT_PUBLIC_COACH_ASSISTANT_ENABLED": '"0"',
   },
 });
