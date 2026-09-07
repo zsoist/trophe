@@ -66,7 +66,7 @@ export const taskPolicies: Record<TaskName, RoutingPolicy> = {
     provider: 'openai', model: LUNA_MODEL, reasoningEffort: 'low',
     costClass: 'cheap', latencyClass: 'fast', maxTokens: 2000,
     timeoutMs: 45000, maxInputChars: 6500, maxCostUsd: 0,
-    promptVersion: 'coach-assistant.v2',
+    promptVersion: 'coach-assistant.v3',
   },
   food_parse: {
     // Phase 2 decision: Luna won the canonical frozen-May instrument, produced

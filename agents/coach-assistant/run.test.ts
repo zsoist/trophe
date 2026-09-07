@@ -64,4 +64,13 @@ describe('coach run boundary', () => {
     const result=await run(input,options);
     expect(result.telemetry.dataReads).toBe(3);
   });
+  it.each([
+    'I had a knee injury last year. Which sessions were recorded this week?',
+    'Estoy embarazada. ¿Qué entrenamientos tengo registrados esta semana?',
+    'My pregnancy was years ago. What is on my schedule today?',
+  ])('answers an innocuous records question without blanket medical refusal: %s',async message=>{
+    const result=await run({message,intent:'week'},opts());
+    expect(result.output?.escalation.required).toBe(false);
+    expect(result.evidence.length).toBeGreaterThan(0);
+  });
 });
