@@ -19,7 +19,7 @@ it('uses only the outer signed history binding through the actual handler and ke
  const createFoodPreferenceService=vi.fn(()=>({parsePreference:parseFoodPreferences,execute:async()=>({version:'coach-assistant.v2',storage:'database',ok:true,snapshot:{profileId:actor,version:dietRevision,preferences:{version:1,dietPattern:null}}})}));
  const histories:unknown[]=[];
  // Isolated engine port is injected; actual handler, collector and brokers run. No provider/SQL claim.
- const isolatedEngine:ReturnType<typeof createIsolatedCoachEngineBinding>={run:async(raw,options)=>{
+ const isolatedEngine:ReturnType<typeof createIsolatedCoachEngineBinding>={kind:'isolated_coach_engine_binding',run:async(raw,options)=>{
   const response=await runConversation(raw,{...options,mode:'offline'});
   histories.push(options.filterMemoryHistory?.(raw as CoachConversationRequest).history);
   return {...response,evaluation:{transport:'injected_fixture' as const,records:'authorized_records' as const,release:'unapproved_candidate' as const,semanticQualityVerified:false as const}};

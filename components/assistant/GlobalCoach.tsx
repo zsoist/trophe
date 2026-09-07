@@ -25,15 +25,17 @@ import { MemoryPanel } from './MemoryPanel';
 import { requestMemory } from './memory-client';
 import { DietController, type DietTransport } from './diet-state';
 import { DietPanel } from './DietPanel';
+import { HistoryPanel } from './HistoryPanel';
+import { requestHistory, type HistoryTransport } from './history-client';
 import { requestDiet } from './diet-client';
 
 export type CoachContextSlot = (props: { controller: PreferenceController; state: PreferenceState; conversationId: string; transport: PreferenceTransport }) => ReactNode;
 export type CoachVoiceSlot = (props: { conversationId: string; onUse: (text: string) => boolean }) => ReactNode;
-type Props = { identity: string; subjectId?: string; example?: ConversationTransport; preferenceTransport?: PreferenceTransport; memoryTransport?: MemoryTransport; dietTransport?: DietTransport; contextSlot?: CoachContextSlot; voiceSlot?: CoachVoiceSlot };
+type Props = { identity: string; subjectId?: string; example?: ConversationTransport; preferenceTransport?: PreferenceTransport; memoryTransport?: MemoryTransport; dietTransport?: DietTransport; historyTransport?: HistoryTransport; contextSlot?: CoachContextSlot; voiceSlot?: CoachVoiceSlot };
 export default function GlobalCoach(props: Props) {
   return <CoachSurface key={`${props.identity}:${props.subjectId ?? props.identity}`} {...props} />;
 }
-function CoachSurface({ identity, subjectId, example, preferenceTransport, memoryTransport, dietTransport, contextSlot, voiceSlot }: Props) {
+function CoachSurface({ identity, subjectId, example, preferenceTransport, memoryTransport, dietTransport, historyTransport, contextSlot, voiceSlot }: Props) {
   const { t } = useGlobalCoachI18n();
   const path = usePathname();
   const surface = coachSurface(path);
@@ -52,11 +54,13 @@ function CoachSurface({ identity, subjectId, example, preferenceTransport, memor
   const state = useSyncExternalStore(controller.subscribe, controller.snapshot, controller.snapshot);
   const [memory] = useState(() => new MemoryController(state.conversationId));
   const memoryState = useSyncExternalStore(memory.subscribe, memory.snapshot, memory.snapshot);
-  const memoryEnabled = process.env.NEXT_PUBLIC_COACH_MEMORY_ACTIONS_ENABLED === '1' && (!example || Boolean(memoryTransport)) && (!subjectId || subjectId === identity);
+  const historyEnabled = process.env.NEXT_PUBLIC_COACH_CHAT_HISTORY_ENABLED === '1' && (!example || Boolean(historyTransport)) && (!subjectId || subjectId === identity);
+  const memoryEnabled = process.env.NEXT_PUBLIC_COACH_MEMORY_ACTIONS_ENABLED === '1' && (!historyEnabled || state.durable) && (!example || Boolean(memoryTransport)) && (!subjectId || subjectId === identity);
   const [diet] = useState(() => new DietController());
   const dietState = useSyncExternalStore(diet.subscribe, diet.snapshot, diet.snapshot);
-  const dietEnabled = process.env.NEXT_PUBLIC_COACH_DIET_ACTIONS_ENABLED === '1' && (!example || Boolean(dietTransport)) && (!subjectId || subjectId === identity);
+  const dietEnabled = process.env.NEXT_PUBLIC_COACH_DIET_ACTIONS_ENABLED === '1' && (!historyEnabled || state.durable) && (!example || Boolean(dietTransport)) && (!subjectId || subjectId === identity);
   const [open, setOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [includeScreen, setIncludeScreen] = useState(true);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [panelTop, setPanelTop] = useState(64);
@@ -103,7 +107,11 @@ function CoachSurface({ identity, subjectId, example, preferenceTransport, memor
     else setShowLatest(true);
   }, [open, state.turns, state.pending]);
   const close = () => { controller.cancel(); preferences.cancel(); attachments.cancel(); voice.reset(); food.cancel(); memory.cancel(); diet.cancel(); setOpen(false); launcher.current?.focus(); };
-  const send = () => !voiceActive && controller.send({ surface, includeScreen, ...(includeScreen && selection ? selection.anatomy ? { anatomy: selection.anatomy } : { entity: selection.entity } : {}), ...(subjectId ? { clientId: subjectId } : {}) }, example ?? requestConversation, attachments.references());
+  const send = () => !voiceActive && controller.send({ surface, includeScreen, ...(includeScreen && selection ? selection.anatomy ? { anatomy: selection.anatomy } : { entity: selection.entity } : {}), ...(subjectId ? { clientId: subjectId } : {}) }, example ?? requestConversation, attachments.references(), historyEnabled ? (requestId, title, signal) => {
+    const create = (historyTransport ?? requestHistory).create;
+    if (!create) return Promise.reject(new Error('history_unavailable'));
+    return create(requestId, title, signal);
+  } : undefined);
   const latestResponse = state.turns.findLast(turn => turn.response?.ok)?.response;
   useEffect(() => { if (latestResponse) attachments.reconcile(latestResponse.attachments); }, [attachments, latestResponse]);
   const launch = <button ref={launcher} type="button" className={styles.launcher} aria-expanded={open} aria-controls="global-coach" onClick={() => open ? close() : setOpen(true)}>
@@ -120,6 +128,17 @@ function CoachSurface({ identity, subjectId, example, preferenceTransport, memor
         if (followLatest.current) setShowLatest(false);
       }}>
         {foodState.entryId && <FoodQuantityPanel key={foodState.entryId} controller={food} state={foodState} transport={requestFoodQuantity} />}
+        {historyEnabled && <button type="button" onClick={() => {
+          voice.reset(); attachments.reset(); preferences.reset(); food.reset(); diet.reset(); memory.reset();
+          controller.startNew(); setHistoryOpen(false); input.current?.focus();
+        }}>{t('global_coach.new_chat')}</button>}
+        {historyEnabled && <details open={historyOpen} className={styles.profile} onToggle={event => setHistoryOpen(event.currentTarget.open)}><summary>{t('global_coach.saved_chats')}</summary>{historyOpen && <HistoryPanel transport={historyTransport ?? requestHistory} onInvalidate={threadId => {
+          if (controller.snapshot().conversationId !== threadId) return;
+          voice.reset(); attachments.reset(); preferences.reset(); food.reset(); diet.reset(); memory.reset(); controller.startNew();
+        }} onResume={page => {
+          voice.reset(); attachments.reset(); preferences.reset(); food.reset(); diet.reset(); memory.reset();
+          controller.restore(page.thread.id, page.messages); setHistoryOpen(false); input.current?.focus();
+        }} />}</details>}
         {dietEnabled && <details className={styles.profile} onToggle={event => { if (event.currentTarget.open) { voice.reset(); if (!dietState.profileId) diet.select(identity, state.conversationId, dietTransport ?? requestDiet); else if (!dietState.profile) void diet.read(dietTransport ?? requestDiet); } }}>
           <summary>{t('global_coach.diet_title')}</summary>
           <DietPanel controller={diet} state={dietState} transport={dietTransport ?? requestDiet} />
@@ -128,7 +147,8 @@ function CoachSurface({ identity, subjectId, example, preferenceTransport, memor
           <summary>{t('global_coach.memory')}</summary>
           <MemoryPanel controller={memory} state={memoryState} transport={memoryTransport ?? requestMemory} />
         </details>}
-        {!state.turns.length && <p className={styles.intro}>{t('global_coach.intro')}</p>}
+        {!state.turns.length && !state.restored.length && <p className={styles.intro}>{t('global_coach.intro')}</p>}
+        {state.restored.map(item => <article className={styles.turn} key={item.id}><p className={styles.context}>{t('global_coach.saved_message')} · {t(item.role === 'user' ? 'global_coach.you' : 'global_coach.title')}</p><p style={{ whiteSpace: 'pre-wrap' }}>{item.text}</p></article>)}
         {state.turns.map(turn => <article className={styles.turn} key={turn.request.turnId}>
           <p className={styles.question}>{turn.request.message}</p>
           <p className={styles.context}>{t(turn.request.context?.includeScreen ? `global_coach.${turn.request.context.surface}` : 'global_coach.detached')}</p>
@@ -140,7 +160,7 @@ function CoachSurface({ identity, subjectId, example, preferenceTransport, memor
           </div>}
         </article>)}
         {state.pending && <p role="status">{t('global_coach.pending')}</p>}
-        {state.error && <p role="status">{t(`global_coach.${state.error}`)}</p>}
+        {state.error && <p role="status">{t(state.recoveryRequired ? 'global_coach.history_recover' : `global_coach.${state.error}`)}</p>}
       </div>
       {showLatest && <button type="button" className="min-h-11 px-4 text-sm" onClick={() => { followLatest.current = true; setShowLatest(false); log.current?.scrollTo({ top: log.current.scrollHeight }); }}>{t('global_coach.latest')}</button>}
       <form className={styles.composer} onSubmit={event => { event.preventDefault(); void send(); }}>
@@ -158,7 +178,7 @@ function CoachSurface({ identity, subjectId, example, preferenceTransport, memor
         <label className={styles.contextToggle}><input type="checkbox" checked={includeScreen} onChange={event => setIncludeScreen(event.target.checked)} />{t('global_coach.include')}<span>{t(`global_coach.${surface}`)}</span></label>
         <label className="sr-only" htmlFor="global-coach-question">{t('global_coach.question')}</label>
         <textarea id="global-coach-question" ref={input} maxLength={2000} rows={3} value={state.draft} onChange={event => controller.setDraft(event.target.value)} placeholder={t('global_coach.placeholder')} />
-        <div className={styles.actions}><span>{state.draft.length}/2000</span>{state.pending ? <button type="button" onClick={() => controller.cancel()}>{t('global_coach.cancel')}</button> : <button type="submit" disabled={!state.draft.trim() || attachmentState.pending || voiceActive}><Send size={17} aria-hidden="true" />{t('global_coach.send')}</button>}</div>
+        <div className={styles.actions}><span>{state.draft.length}/2000</span>{state.pending ? <button type="button" onClick={() => controller.cancel()}>{t('global_coach.cancel')}</button> : <button type="submit" disabled={state.recoveryRequired || !state.draft.trim() || attachmentState.pending || voiceActive}><Send size={17} aria-hidden="true" />{t('global_coach.send')}</button>}</div>
       </form>
     </section>}
   </div>;

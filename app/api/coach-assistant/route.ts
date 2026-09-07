@@ -26,6 +26,12 @@ export async function POST(request: NextRequest) {
       const { createPersistentMemoryService } = await import('@/agents/coach-assistant/memory-service');
       return createPersistentMemoryService(db);
     },
+    createChatService: async () => {
+      const { db } = await import('@/db/client');
+      const { createCoachChatService } = await import('@/agents/coach-assistant/chat-service');
+      const { createCoachChatCleanup } = await import('@/agents/coach-assistant/chat-cleanup');
+      return createCoachChatService(db, createCoachChatCleanup(db));
+    },
     createFoodPreferenceService: async () => {
       const { db } = await import('@/db/client');
       const { createFoodPreferenceService } = await import('@/agents/coach-assistant/food-preference-service');

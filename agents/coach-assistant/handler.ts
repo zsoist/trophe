@@ -1,4 +1,7 @@
 import { createFoodPreferenceTurn } from './food-preference-turn';
+import { runDurableChatTurn } from './chat-turn';
+import { executeCoachChatAction } from './chat-actions';
+import type { createCoachChatService } from './chat-service';
 import { executeFoodPreferenceAction, type FoodPreferenceService } from './food-preference-actions';
 import { createPersistentMemoryTurn } from './memory-turn';
 import { executePersistentMemoryAction } from './memory-actions';
@@ -25,6 +28,7 @@ interface HandlerDependencies {
   createDurableService?:()=>DurableCoachProfileService|Promise<DurableCoachProfileService>;
   createFoodPreferenceService?:()=>FoodPreferenceService|Promise<FoodPreferenceService>;
   createMemoryService?:()=>PersistentMemoryService|Promise<PersistentMemoryService>;
+  createChatService?:()=>ReturnType<typeof createCoachChatService>|Promise<ReturnType<typeof createCoachChatService>>;
   createFoodService?:()=>FoodQuantityService|Promise<FoodQuantityService>;
   isolatedEngine?:ReturnType<typeof createIsolatedCoachEngineBinding>;
   createIsolatedEngine?:()=>ReturnType<typeof createIsolatedCoachEngineBinding>|Promise<ReturnType<typeof createIsolatedCoachEngineBinding>>;
@@ -104,6 +108,12 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
         return json(result,result.ok?200:result.error==='forbidden'?403:result.error==='busy'?409:400);
       }
       const raw=await readBody(request,controller.signal);
+      if(raw && typeof raw==='object' && 'version' in raw && raw.version==='coach-assistant.chat.v1') {
+        if(deps.env.COACH_ASSISTANT_CHAT_HISTORY_ENABLED!=='1')return fail('disabled',404);
+        if(!deps.createChatService)return fail('provider_unavailable',503);
+        const result=await executeCoachChatAction(guard.userId,raw,await deps.createRepository(),await deps.createChatService(),controller.signal);
+        return json(result,result.ok?200:result.error==='forbidden'?403:result.error==='invalid_input'?400:result.error==='not_found'?404:result.error==='not_connected'||result.error==='uncertain'||result.error==='cancelled'?503:409);
+      }
       if(raw && typeof raw==='object' && 'operation' in raw && typeof raw.operation==='string' && raw.operation.startsWith('attachment.')) {
         if(deps.env.COACH_ASSISTANT_ISOLATED_ATTACHMENTS_ENABLED!=='1')return fail('disabled',404);
         const context=await (await deps.createRepository()).authorize(guard.userId,guard.userId,controller.signal);
@@ -176,16 +186,21 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
       if(isolated&&!isolatedEngine)return fail('budget_blocked',503);
       const candidate=!isolated&&conversational&&deps.env.COACH_ASSISTANT_CANDIDATE_EVALUATION_ENABLED==='1';
       if(candidate&&(!synthetic||deps.candidateEvaluation?.kind!=='injected_fixture'))return fail('budget_blocked',503);
-      const result=await (isolated?isolatedEngine!.run:candidate?runConversationCandidate:conversational?runConversation:run)(parsed.data,{
+      const durableChat=conversational&&deps.env.COACH_ASSISTANT_CHAT_HISTORY_ENABLED==='1';
+      if(durableChat&&(synthetic||candidate||!deps.createChatService))return fail('provider_unavailable',503);
+      const runOptions={
         filterMemoryHistory:historyTurn?.filterHistory,
         offlineConversationProvider:candidate?deps.candidateEvaluation!.transport:undefined!,
         isolatedActionsEnabled:!durable&&deps.env.COACH_ASSISTANT_ISOLATED_ACTIONS_ENABLED==='1',
         actorId:synthetic?'synthetic-client':guard.userId,
         repository,
         now:synthetic?new Date('2026-09-07T03:30:00Z'):(deps.now?.()??new Date()),
-        signal:controller.signal,mode:isolated||candidate||deps.env.COACH_ASSISTANT_MODE==='model'?'model':'offline',
+        signal:controller.signal,mode:(isolated||candidate||deps.env.COACH_ASSISTANT_MODE==='model'?'model':'offline') as 'model'|'offline',
         deadlineMs:Math.max(1,45000-(performance.now()-start)),
-      });
+      };
+      const persisted=durableChat?await runDurableChatTurn(parsed.data as import('./contracts').CoachConversationRequest,runOptions,await deps.createChatService!(),isolatedEngine):undefined;
+      if(persisted&&!persisted.saved)return fail('provider_unavailable',503);
+      const result=persisted?.saved?persisted.response:await (isolated?isolatedEngine!.run:candidate?runConversationCandidate:conversational?runConversation:run)(parsed.data,runOptions);
       if(durable&&result.version==='coach-assistant.v2'&&result.ok&&result.profile&&result.snapshot?.subjectId===guard.userId&&result.dataSource==='authorized_records') {
         const actions=result.snapshot.capabilities.find(capability=>capability.key==='actions');
         if(actions){actions.status='available';actions.reason='durable_preferences_only';}

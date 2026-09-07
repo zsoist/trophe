@@ -1,5 +1,6 @@
 import { afterEach,describe,it,expect,vi } from 'vitest';
-import { createIsolatedCoachEngineBinding } from './isolated-engine';
+import { createIsolatedCoachEngineBinding,verifyIsolatedCoachEngineExecution } from './isolated-engine';
+import { readVerifiedChatFinal,runVerifiedChatFinalWithIsolatedEngine,type VerifiedChatFinal } from './chat-final';
 import { createIsolatedEngineBoundary } from './isolated-engine-boundary';
 import { runConversationCandidate } from './conversation-candidate';
 import { handleCoachRequest } from './handler';
@@ -12,6 +13,28 @@ function repository(){const repo=fixtureRepository();repo.dataSource='authorized
 const options=()=>({mode:'model' as const,actorId:id(1),repository:repository(),now:new Date('2026-09-07T03:30:00Z'),signal:new AbortController().signal});
 afterEach(()=>vi.unstubAllGlobals());
 describe('disposable CI authorized-records engine composition',()=>{
+ it('mints a chat-final proof from the exact isolated-engine run',async()=>{
+  const env=config(),engine=createIsolatedCoachEngineBinding(env);
+  const scope={actorId:id(1),subjectId:id(1),organizationId:id(4),actorRole:'client' as const};
+  const result=await runVerifiedChatFinalWithIsolatedEngine(input,options(),scope,engine);
+  expect(result.response.ok).toBe(true);expect(result.final).not.toBeNull();
+  expect(readVerifiedChatFinal(result.final!)).toMatchObject({scope,threadId:id(2),turnId:id(3),pipelineVersion:'coach-assistant.v2'});
+ });
+ it('does not invoke a forged engine and cannot attest copied or mismatched output',async()=>{
+  const forged={kind:'isolated_coach_engine_binding' as const,run:vi.fn()};
+  const scope={actorId:id(1),subjectId:id(1),organizationId:id(4),actorRole:'client' as const};
+  await expect(runVerifiedChatFinalWithIsolatedEngine(input,options(),scope,forged as unknown as ReturnType<typeof createIsolatedCoachEngineBinding>)).rejects.toThrow('forbidden');expect(forged.run).not.toHaveBeenCalled();
+  const engine=createIsolatedCoachEngineBinding(config()),response=await engine.run(input,options());
+  const copied=structuredClone(response),substitute=Object.freeze({kind:'isolated_coach_engine_binding',run:vi.fn(async()=>copied)});
+  expect(verifyIsolatedCoachEngineExecution(engine,input,id(1),response)).toBe(true);
+  expect(verifyIsolatedCoachEngineExecution(engine,input,id(1),copied)).toBe(false);
+  expect(verifyIsolatedCoachEngineExecution(engine,{...input,message:'substitute'},id(1),response)).toBe(false);
+  expect(verifyIsolatedCoachEngineExecution(engine,input,id(99),response)).toBe(false);
+  const otherEngine=createIsolatedCoachEngineBinding(config());
+  expect(verifyIsolatedCoachEngineExecution(otherEngine,input,id(1),response)).toBe(false);
+  await expect(runVerifiedChatFinalWithIsolatedEngine(input,options(),scope,substitute as unknown as ReturnType<typeof createIsolatedCoachEngineBinding>)).rejects.toThrow('forbidden');expect(substitute.run).not.toHaveBeenCalled();
+  expect(readVerifiedChatFinal({kind:'verified_coach_chat_final'} as VerifiedChatFinal)).toBeNull();
+ });
  it('creates the isolated binding lazily only after request authentication and flag checks',async()=>{
   const env=config();
   const factory=vi.fn(()=>createIsolatedCoachEngineBinding(env));

@@ -1,8 +1,9 @@
+import type { CoachChatMessage } from '@/agents/coach-assistant/chat-contract';
 import type { CoachAttachmentRef, CoachContextHint, CoachConversationRequest, CoachConversationResponse, CoachSurface } from '@/agents/coach-assistant/contracts';
 
 export type ConversationTransport = (request: CoachConversationRequest, signal: AbortSignal) => Promise<CoachConversationResponse>;
 export interface ConversationTurn { request: CoachConversationRequest; response?: CoachConversationResponse }
-export interface ConversationState { conversationId: string; draft: string; turns: ConversationTurn[]; pending: boolean; error: 'failed' | 'cancelled' | null }
+export interface ConversationState { conversationId: string; draft: string; turns: ConversationTurn[]; restored: CoachChatMessage[]; durable: boolean; recoveryRequired: boolean; pending: boolean; error: 'failed' | 'cancelled' | null }
 
 /** One in-memory conversation per authenticated subject. Navigation never calls send. */
 export class ConversationController {
@@ -10,33 +11,46 @@ export class ConversationController {
   private active: AbortController | null = null;
   private generation = 0;
   private identity: string | null = null;
+  private creationTitle: string | null = null;
   private state: ConversationState = this.empty();
-  private empty(): ConversationState { return { conversationId: crypto.randomUUID(), draft: '', turns: [], pending: false, error: null }; }
+  private empty(): ConversationState { return { conversationId: crypto.randomUUID(), draft: '', turns: [], restored: [], durable: false, recoveryRequired: false, pending: false, error: null }; }
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   snapshot = () => this.state;
   private publish(next: ConversationState) { this.state = next; this.listeners.forEach(listener => listener()); }
   identify(identity: string | null) {
     if (identity === this.identity) return;
-    this.generation++; this.active?.abort(); this.active = null; this.identity = identity;
+    this.generation++; this.active?.abort(); this.active = null; this.identity = identity; this.creationTitle = null;
     this.publish(this.empty());
+  }
+  startNew() {
+    if (!this.identity) return false;
+    this.generation++; this.active?.abort(); this.active = null; this.creationTitle = null;
+    this.publish(this.empty());
+    return true;
+  }
+  restore(conversationId: string, messages: CoachChatMessage[]) {
+    if (!this.identity || messages.length > 1000) return false;
+    this.generation++; this.active?.abort(); this.active = null; this.creationTitle = null;
+    this.publish({ ...this.empty(), conversationId, durable: true, restored: structuredClone(messages) });
+    return true;
   }
   setDraft(draft: string) { this.publish({ ...this.state, draft: draft.slice(0, 2000) }); }
   cancel() {
     if (!this.active) return;
     this.generation++; this.active.abort(); this.active = null;
-    this.publish({ ...this.state, pending: false, error: 'cancelled', draft: this.state.draft || this.state.turns.at(-1)?.request.message || '' });
+    this.publish({ ...this.state, pending: false, recoveryRequired: this.state.durable, error: 'cancelled', draft: this.state.draft || this.state.turns.at(-1)?.request.message || '' });
   }
-  async send(context: CoachContextHint | undefined, transport: ConversationTransport, attachments: CoachAttachmentRef[] = []) {
+  async send(context: CoachContextHint | undefined, transport: ConversationTransport, attachments: CoachAttachmentRef[] = [], createThread?: (requestId: string, title: string, signal: AbortSignal) => Promise<{ id: string }>) {
     const message = this.state.draft.trim();
-    if (!this.identity || this.active || !message) return;
+    if (!this.identity || this.active || this.state.recoveryRequired || !message) return;
     const request: CoachConversationRequest = {
       version: 'coach-assistant.v2', conversationId: this.state.conversationId, turnId: crypto.randomUUID(), message,
       ...(context ? { context: structuredClone(context) } : {}),
       ...(attachments.length ? { attachments: structuredClone(attachments.slice(0, 3)) } : {}),
-      history: this.state.turns.filter(turn => turn.response?.ok).flatMap(turn => [
+      history: [...this.state.restored.map(item => ({ role: item.role, text: item.text.slice(0, 500) })), ...this.state.turns.filter(turn => turn.response?.ok).flatMap(turn => [
         { role: 'user' as const, text: turn.request.message.slice(0, 500) },
         { role: 'assistant' as const, text: (turn.response?.output?.answer ?? '').slice(0, 500), ...(turn.response?.memoryContext?.derivedHistoryToken ? { derivedToken: turn.response.memoryContext.derivedHistoryToken } : {}) },
-      ]).slice(-6),
+      ])].slice(-6),
     };
     const controller = new AbortController(); this.active = controller;
     const generation = ++this.generation;
@@ -44,19 +58,26 @@ export class ConversationController {
     const timeout = setTimeout(() => {
       if (generation !== this.generation) return;
       this.generation++; controller.abort(); this.active = null;
-      this.publish({ ...this.state, pending: false, error: 'failed', draft: this.state.draft || message });
+      this.publish({ ...this.state, pending: false, recoveryRequired: this.state.durable, error: 'failed', draft: this.state.draft || message });
     }, 45_000);
     try {
+      if (createThread && !this.state.durable) {
+        if (attachments.length) throw new Error('thread_required_before_upload');
+        const thread = await createThread(request.conversationId, (this.creationTitle ??= message.slice(0, 80)), controller.signal);
+        if (generation !== this.generation || controller.signal.aborted) return;
+        request.conversationId = thread.id;
+        this.publish({ ...this.state, conversationId: thread.id, durable: true, turns: this.state.turns.map(turn => turn.request.turnId === request.turnId ? { request } : turn) });
+      }
       const response = await transport(request, controller.signal);
       if (generation !== this.generation || controller.signal.aborted) return;
       if (response.conversationId !== request.conversationId || response.turnId !== request.turnId) throw new Error('invalid_output');
-      this.publish({ ...this.state, pending: false, error: response.ok ? null : 'failed', draft: response.ok ? this.state.draft : this.state.draft || message,
+      this.publish({ ...this.state, pending: false, recoveryRequired: this.state.durable && !response.ok, error: response.ok ? null : 'failed', draft: response.ok ? this.state.draft : this.state.draft || message,
         turns: this.state.turns.map(turn => turn.request.turnId === request.turnId ? { ...turn, response } : turn) });
     } catch {
-      if (generation === this.generation) this.publish({ ...this.state, pending: false, error: 'failed', draft: this.state.draft || message });
+      if (generation === this.generation) this.publish({ ...this.state, pending: false, recoveryRequired: this.state.durable, error: 'failed', draft: this.state.draft || message });
     } finally {
       clearTimeout(timeout);
-      if (generation === this.generation) { this.active = null; if (this.state.pending) this.publish({ ...this.state, pending: false, error: 'failed', draft: this.state.draft || message }); }
+      if (generation === this.generation) { this.active = null; if (this.state.pending) this.publish({ ...this.state, pending: false, recoveryRequired: this.state.durable, error: 'failed', draft: this.state.draft || message }); }
     }
   }
 }
