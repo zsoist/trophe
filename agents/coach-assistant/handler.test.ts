@@ -1,3 +1,4 @@
+import { defaultWorkoutPreferences } from '@/lib/workout/preferences';
 import { describe, expect, it, vi } from 'vitest';
 import { handleCoachRequest } from './handler';
 import { fixtureRepository } from './fixtures';
@@ -6,6 +7,28 @@ const req = (body: unknown) => new Request('https://preview.invalid/api/coach-as
 const env = { COACH_ASSISTANT_ENABLED:'1',COACH_ASSISTANT_PREVIEW_USER_IDS:'verified-user',COACH_ASSISTANT_DATA_SOURCE:'synthetic',VERCEL_ENV:'preview' };
 const deps = { env,guard:async()=>({userId:'verified-user'}),createRepository:()=>fixtureRepository(),now:()=>new Date('2026-09-07T03:30:00Z') };
 describe('private route contract', () => {
+  it('uses the durable revision in the existing read budget and leaves memory explicitly disconnected',async()=>{
+    const repository=fixtureRepository();repository.dataSource='authorized_records';
+    const read=vi.fn().mockResolvedValue({preferences:defaultWorkoutPreferences,version:'7'});
+    const createDurableService=vi.fn(()=>({read,execute:vi.fn()}));
+    const config={...deps,guard:async()=>({userId:'synthetic-client'}),createRepository:()=>repository,createDurableService,env:{...env,COACH_ASSISTANT_PREVIEW_USER_IDS:'synthetic-client',COACH_ASSISTANT_DATA_SOURCE:'authorized_records',COACH_ASSISTANT_DURABLE_ACTIONS_ENABLED:'1'}};
+    const request={version:'coach-assistant.v2',conversationId:'a2c5ec63-6f35-4671-b4f1-6644ca9d739c',turnId:'aac3a82e-898c-4907-b9b9-75133bb6d27f',message:'Today?'};
+    const body=await (await handleCoachRequest(req(request),config)).json();
+    expect(body.ok).toBe(true);expect(body.profile.version).toBe('7');expect(body.telemetry.dataReads).toBeLessThanOrEqual(4);
+    expect(body.snapshot.capabilities.find((c:{key:string})=>c.key==='actions').reason).toBe('durable_preferences_only');
+    expect(body.snapshot.capabilities.find((c:{key:string})=>c.key==='memory').status).toBe('not_connected');
+    expect(read).toHaveBeenCalledTimes(1);
+    createDurableService.mockClear();
+    await handleCoachRequest(req(request),{...config,env:{...config.env,COACH_ASSISTANT_DURABLE_ACTIONS_ENABLED:'0'}});
+    expect(createDurableService).not.toHaveBeenCalled();
+  });
+  it('never falls back to ephemeral receipts when durable mode is selected',async()=>{
+    const actor='a2c5ec63-6f35-4671-b4f1-6644ca9d739c';
+    const repository=fixtureRepository();repository.dataSource='authorized_records';repository.authorize=async()=>({actorId:actor,subjectId:actor,organizationId:'org',timezone:'UTC',language:'en'});
+    const execute=vi.fn().mockResolvedValue({version:'coach-assistant.v2',storage:'database',ok:false,error:'not_found'});
+    const response=await handleCoachRequest(req({version:'coach-assistant.v2',operation:'receipt',conversationId:actor,turnId:actor,actionId:actor}),{...deps,guard:async()=>({userId:actor}),createRepository:()=>repository,createDurableService:()=>({execute,read:vi.fn()}),env:{...env,COACH_ASSISTANT_PREVIEW_USER_IDS:actor,COACH_ASSISTANT_DURABLE_ACTIONS_ENABLED:'1',COACH_ASSISTANT_ISOLATED_ACTIONS_ENABLED:'1'}});
+    expect(response.status).toBe(404);expect((await response.json()).storage).toBe('database');expect(execute).toHaveBeenCalledTimes(1);
+  });
   it('advertises isolated uploads separately from image analysis only for enabled authorized self scope',async()=>{
     const repository=fixtureRepository();repository.dataSource='authorized_records';
     const body={version:'coach-assistant.v2',conversationId:'a2c5ec63-6f35-4671-b4f1-6644ca9d739c',turnId:'aac3a82e-898c-4907-b9b9-75133bb6d27f',message:'Today?'};

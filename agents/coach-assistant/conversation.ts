@@ -75,16 +75,18 @@ export async function runConversation(raw: unknown, options: RunOptions & { isol
           if(row.userId!==subject || row.memories.some(memory=>memory.userId!==subject))throw new Error('forbidden');
           const preferences=workoutPreferencesSchema.safeParse(row.preferences);
           if(preferences.success) {
-            response.profile={language:authorized.language,timezone:authorized.timezone,units:response.snapshot.units,preferences:{durationMinutes:preferences.data.durationMinutes},version:createHash('sha256').update(JSON.stringify(preferences.data)).digest('hex'),source:options.repository.dataSource==='synthetic'?'isolated_fixture':'authorized_profile'};
+            response.profile={language:authorized.language,timezone:authorized.timezone,units:response.snapshot.units,preferences:{durationMinutes:preferences.data.durationMinutes},version:row.preferencesVersion??createHash('sha256').update(JSON.stringify(preferences.data)).digest('hex'),source:options.repository.dataSource==='synthetic'?'isolated_fixture':'authorized_profile'};
             const capability=capabilities.find(c=>c.key==='profile')!;capability.status='available';capability.reason='authorized_stored_preferences';
             if(options.isolatedActionsEnabled && subject===options.actorId && options.repository.dataSource==='authorized_records') {
               const actions=capabilities.find(c=>c.key==='actions')!;actions.status='available';actions.reason='isolated_ephemeral_self_preferences';
             }
           } else {const capability=capabilities.find(c=>c.key==='profile')!;capability.status='unknown';capability.reason='preferences_not_recorded';}
+          if(row.memoriesRead!==false) {
           response.memories=row.memories.slice(0,10).map(memory=>({id:memory.id,text:memory.text.slice(0,500),source:memory.source,createdAt:memory.createdAt,scope:memory.scope,version:memory.version,confirmation:'unconfirmed'}));
           const memoryCapability=capabilities.find(c=>c.key==='memory')!;memoryCapability.status=response.memories.length?'available':'unknown';memoryCapability.reason=response.memories.length?'authorized_unconfirmed_memories':'no_active_memories';
           response.output.limitations.push('memory_requires_explicit_confirmation','memory_window_365_days');
           if(row.memories.length>10)response.output.limitations.push('memory_records_partial');
+          }
         }
       }
       if(options.mode==='model'&&!medical) {

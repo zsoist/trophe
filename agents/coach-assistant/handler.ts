@@ -1,3 +1,4 @@
+import { executeDurablePreferenceAction, withDurablePreferenceRead, type DurableCoachProfileService } from './durable-actions';
 import { run } from './index';
 import { runConversation } from './conversation';
 import { isolatedActionsBroker } from './isolated-actions';
@@ -12,6 +13,7 @@ interface HandlerDependencies {
   env: Record<string,string|undefined>;
   guard(request: Request): Promise<{userId:string}|Response>;
   createRepository(): CoachRepository | Promise<CoachRepository>;
+  createDurableService?:()=>DurableCoachProfileService|Promise<DurableCoachProfileService>;
   now?: () => Date;
 }
 const json = (body: unknown, status: number) => Response.json(body,{status,headers:{'Cache-Control':'no-store'}});
@@ -96,7 +98,13 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
         const result=isolatedAttachmentStore.operation(`${guard.userId}:${context.organizationId}`,raw);
         return json(result,result.ok?200:result.error==='forbidden'?403:400);
       }
+      const durable=deps.env.COACH_ASSISTANT_DURABLE_ACTIONS_ENABLED==='1';
       if(raw && typeof raw==='object' && 'operation' in raw) {
+        if(durable) {
+          if(!deps.createDurableService)return fail('provider_unavailable',503);
+          const result=await executeDurablePreferenceAction(guard.userId,raw,await deps.createRepository(),await deps.createDurableService(),controller.signal);
+          return json(result,result.ok?200:result.error==='forbidden'?403:result.error==='invalid_input'?400:result.error==='expired'?410:result.error==='not_found'?404:result.error==='uncertain'||result.error==='cancelled'?503:409);
+        }
         if(deps.env.COACH_ASSISTANT_ISOLATED_ACTIONS_ENABLED!=='1')return fail('disabled',404);
         const result=await isolatedActionsBroker.execute(guard.userId,raw,await deps.createRepository(),controller.signal);
         const status=result.ok?200:result.error==='forbidden'?403:result.error==='invalid_input'?400:result.error==='expired'?410:result.error==='not_found'?404:result.error==='uncertain'?503:409;
@@ -108,14 +116,23 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
       const conversational='version' in parsed.data;
       const clientId='version' in parsed.data?parsed.data.context?.clientId:parsed.data.clientId;
       if(synthetic&&clientId)return fail('forbidden',403);
+      let repository=synthetic?fixtureRepository():await deps.createRepository();
+      if(durable&&conversational&&!synthetic&&(!clientId||clientId===guard.userId)) {
+        if(!deps.createDurableService)return fail('provider_unavailable',503);
+        repository=withDurablePreferenceRead(repository,await deps.createDurableService());
+      }
       const result=await (conversational?runConversation:run)(parsed.data,{
-        isolatedActionsEnabled:deps.env.COACH_ASSISTANT_ISOLATED_ACTIONS_ENABLED==='1',
+        isolatedActionsEnabled:!durable&&deps.env.COACH_ASSISTANT_ISOLATED_ACTIONS_ENABLED==='1',
         actorId:synthetic?'synthetic-client':guard.userId,
-        repository:synthetic?fixtureRepository():await deps.createRepository(),
+        repository,
         now:synthetic?new Date('2026-09-07T03:30:00Z'):(deps.now?.()??new Date()),
         signal:controller.signal,mode:deps.env.COACH_ASSISTANT_MODE==='model'?'model':'offline',
         deadlineMs:Math.max(1,45000-(performance.now()-start)),
       });
+      if(durable&&result.version==='coach-assistant.v2'&&result.ok&&result.profile&&result.snapshot?.subjectId===guard.userId&&result.dataSource==='authorized_records') {
+        const actions=result.snapshot.capabilities.find(capability=>capability.key==='actions');
+        if(actions){actions.status='available';actions.reason='durable_preferences_only';}
+      }
       if(result.version==='coach-assistant.v2'&&result.ok&&result.snapshot&&deps.env.COACH_ASSISTANT_ISOLATED_ATTACHMENTS_ENABLED==='1'&&result.snapshot.subjectId===guard.userId&&result.dataSource==='authorized_records') {
         const {isolatedAttachmentStore}=await import('./isolated-attachments');
         result.attachments=result.attachments.map(attachment=>{

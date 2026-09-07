@@ -12,6 +12,11 @@ export async function POST(request: NextRequest) {
       const guard = await guardAiRoute(request);
       return guard.ok ? { userId: guard.userId } : guard.response;
     },
+    createDurableService: async () => {
+      const { db } = await import('@/db/client');
+      const { createDurablePreferenceService } = await import('@/lib/workout/durable-preference-actions');
+      return createDurablePreferenceService(db);
+    },
     createRepository: async () => {
       const { pool } = await import('@/db/client');
       return createServerRepository(pool);
