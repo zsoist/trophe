@@ -13,11 +13,12 @@ function fixture(){
   if(sql.includes('FROM public.profiles actor'))return {rows:revoked?[]:[{id:actor}]};
   if(sql.includes('FROM public.memory_chunks m JOIN'))return {rows:Object.values(memories).filter(m=>{const b=bindings[String(m.id)];return b&&b.actor===p[0]&&b.subject===p[1]&&b.org===p[2]&&b.conversation===p[3]&&(p.length>4?m.id===p[4]:m.active);}).map(m=>({...m,revision:String(bindings[String(m.id)].revision),confirmed_text_hash:bindings[String(m.id)].hash}))};
   if(sql.includes('FROM private.coach_action_receipts r'))return {rows:receipts[String(p[1])]?[receipts[String(p[1])]]:[]};
+  if(sql.includes('coalesce(sum(revision+1),0)'))return {rows:[{revision:String(Object.values(bindings).filter(b=>b.actor===p[0]&&b.subject===p[1]&&b.org===p[2]&&b.conversation===p[3]).reduce((n,b)=>n+Number(b.revision)+1,0))}]};
   if(sql.includes('SELECT count(*)::text'))return {rows:[{count:String(Object.keys(proposals).length)}]};
   if(sql.includes("interval '5 minutes'"))return {rows:[{expires:'2026-09-07T12:05:00Z'}]};
   if(sql.includes('INSERT INTO private.coach_action_proposals')){proposals[String(p[0])]={envelope:JSON.parse(String(p[8])),expired:false,request_hash:p[6],resource_version:p[7],actor:p[1],subject:p[2],org:p[3],conversation:p[4]};return {rows:[]};}
   if(sql.includes('SELECT envelope,expires_at')){const r=proposals[String(p[0])];return {rows:r&&r.actor===p[1]&&r.subject===p[2]&&r.org===p[3]&&r.conversation===p[4]?[r]:[]};}
-  if(sql.includes('INSERT INTO public.memory_chunks'))memories[String(p[0])]={id:p[0],fact_text:p[3],active:true,source:'user_input',fact_type:'preference',scope:'agent',agent_name:'coach-assistant-confirmed',session_id:p[2],superseded_by:null,expired:false};
+  if(sql.includes('INSERT INTO public.memory_chunks'))memories[String(p[0])]={id:p[0],created_at:'2026-09-07T12:01:00Z',fact_text:p[3],active:true,source:'user_input',fact_type:'preference',scope:'agent',agent_name:'coach-assistant-confirmed',session_id:p[2],superseded_by:null,expired:false};
   if(sql.includes('INSERT INTO private.coach_memory_bindings'))bindings[String(p[0])]={actor:p[1],subject:p[2],org:p[3],conversation:p[4],revision:0,hash:p[5]};
   if(sql.includes('UPDATE public.memory_chunks SET fact_text')){memories[String(p[1])].fact_text=p[0];bindings[String(p[1])].revision=Number(bindings[String(p[1])].revision)+1;}
   if(sql.includes('UPDATE public.memory_chunks SET active=false')){memories[String(p[0])].active=false;bindings[String(p[0])].revision=Number(bindings[String(p[0])].revision)+1;}
@@ -35,15 +36,15 @@ function fixture(){
 }
 describe('persistent reviewed memory service',()=>{
  it('confirms only after review, corrects and deletes canonical memory with stable receipts',async()=>{
-  const f=fixture();const p=await f.propose();expect(Object.keys(f.state().memories)).toHaveLength(0);
+  const f=fixture();const p=await f.propose();expect(Object.keys(f.state().memories)).toHaveLength(0);expect(await f.execute({...base,operation:'memory.read'})).toMatchObject({scopeRevision:'0'});
   const apply={...base,operation:'memory.apply' as const,proposalId:p.id,hash:p.hash,resourceVersion:'0',actionId:id(5),reviewed:true as const};
   const first=await f.execute(apply);expect(first).toMatchObject({ok:true,receipt:{status:'applied'}});expect(await f.execute(apply)).toEqual(first);
-  expect(await f.execute({...base,operation:'memory.read'})).toMatchObject({memories:[{text:p.after!.text,confirmation:'confirmed'}],derivedContext:'excluded'});
+  expect(await f.execute({...base,operation:'memory.read'})).toMatchObject({memories:[{text:p.after!.text,confirmation:'confirmed'}],scopeRevision:'1',derivedContext:'excluded'});
   const correction=await f.execute({...base,operation:'memory.correct',memoryId:p.resource.id,resourceVersion:'0',after:{text:'Prefiero comidas veganas',source:'user_input',retention:'persistent'}});if(!correction.ok||!('proposal' in correction))throw new Error('proposal');
   expect(await f.execute({...apply,proposalId:correction.proposal.id,hash:correction.proposal.hash,actionId:id(6)})).toMatchObject({refresh:{discardDerivedContext:true,invalidatedMemoryVersions:[{id:p.resource.id,version:'0'}]}});
   const deletion=await f.execute({...base,operation:'memory.delete',memoryId:p.resource.id,resourceVersion:'1'});if(!deletion.ok||!('proposal' in deletion))throw new Error('proposal');
   expect(await f.execute({...apply,proposalId:deletion.proposal.id,hash:deletion.proposal.hash,resourceVersion:'1',actionId:id(7)})).toMatchObject({ok:true});
-  expect(await f.execute({...base,operation:'memory.read'})).toMatchObject({memories:[]});expect(JSON.stringify(Object.values(f.state().receipts).map(row=>row.result))).not.toContain('Prefiero');
+  expect(await f.execute({...base,operation:'memory.read'})).toMatchObject({memories:[],scopeRevision:'3'});expect(JSON.stringify(Object.values(f.state().receipts).map(row=>row.result))).not.toContain('Prefiero');
  });
  it('isolates same-user org/thread reads and proposal use, and reauthorizes receipt recovery',async()=>{
   const f=fixture();const p=await f.propose();const apply={...base,operation:'memory.apply' as const,proposalId:p.id,hash:p.hash,resourceVersion:'0',actionId:id(5),reviewed:true as const};

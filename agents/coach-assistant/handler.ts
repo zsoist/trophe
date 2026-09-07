@@ -1,3 +1,6 @@
+import { createPersistentMemoryTurn } from './memory-turn';
+import { executePersistentMemoryAction } from './memory-actions';
+import type { PersistentMemoryService } from './memory-contracts';
 import { executeFoodQuantityAction, type FoodQuantityService } from './food-actions';
 import { executeDurablePreferenceAction, withDurablePreferenceRead, type DurableCoachProfileService } from './durable-actions';
 import { run } from './index';
@@ -15,6 +18,7 @@ interface HandlerDependencies {
   guard(request: Request): Promise<{userId:string}|Response>;
   createRepository(): CoachRepository | Promise<CoachRepository>;
   createDurableService?:()=>DurableCoachProfileService|Promise<DurableCoachProfileService>;
+  createMemoryService?:()=>PersistentMemoryService|Promise<PersistentMemoryService>;
   createFoodService?:()=>FoodQuantityService|Promise<FoodQuantityService>;
   now?: () => Date;
 }
@@ -106,6 +110,12 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
         const result=await executeFoodQuantityAction(guard.userId,raw,await deps.createRepository(),await deps.createFoodService(),controller.signal);
         return json(result,result.ok?200:result.error==='forbidden'?403:result.error==='invalid_input'?400:result.error==='expired'?410:result.error==='not_found'?404:result.error==='uncertain'||result.error==='cancelled'?503:409);
       }
+      if(raw && typeof raw==='object' && 'operation' in raw && typeof raw.operation==='string' && raw.operation.startsWith('memory.')) {
+        if(deps.env.COACH_ASSISTANT_MEMORY_ACTIONS_ENABLED!=='1')return fail('disabled',404);
+        if(!deps.createMemoryService)return fail('provider_unavailable',503);
+        const result=await executePersistentMemoryAction(guard.userId,raw,await deps.createRepository(),await deps.createMemoryService(),controller.signal);
+        return json(result,result.ok?200:result.error==='forbidden'?403:result.error==='invalid_input'?400:result.error==='expired'?410:result.error==='not_found'?404:result.error==='uncertain'||result.error==='cancelled'?503:409);
+      }
       const durable=deps.env.COACH_ASSISTANT_DURABLE_ACTIONS_ENABLED==='1';
       if(raw && typeof raw==='object' && 'operation' in raw) {
         if(durable) {
@@ -129,7 +139,15 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
         if(!deps.createDurableService)return fail('provider_unavailable',503);
         repository=withDurablePreferenceRead(repository,await deps.createDurableService());
       }
+      let memoryTurn:ReturnType<typeof createPersistentMemoryTurn>|undefined;
+      if(conversational&&!synthetic&&deps.env.COACH_ASSISTANT_MEMORY_ACTIONS_ENABLED==='1') {
+        if(!deps.createMemoryService)return fail('provider_unavailable',503);
+        if(clientId&&clientId!==guard.userId)return fail('forbidden',403);
+        memoryTurn=createPersistentMemoryTurn(repository,await deps.createMemoryService(),parsed.data as import('./contracts').CoachConversationRequest);
+        repository=memoryTurn.repository;
+      }
       const result=await (conversational?runConversation:run)(parsed.data,{
+        filterMemoryHistory:memoryTurn?.filterHistory,
         isolatedActionsEnabled:!durable&&deps.env.COACH_ASSISTANT_ISOLATED_ACTIONS_ENABLED==='1',
         actorId:synthetic?'synthetic-client':guard.userId,
         repository,
@@ -149,6 +167,7 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
         });
         result.uploads={images:true,storage:'isolated_ephemeral',analysis:'not_connected',limits:{...COACH_IMAGE_LIMITS}};
       }
+      if(result.version==='coach-assistant.v2')memoryTurn?.finish(result);
       const code=result.error?.code;
       return json(result,result.ok?200:code==='unauthenticated'?401:code==='forbidden'?403:code==='invalid_input'?400:503);
     };

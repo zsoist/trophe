@@ -18,13 +18,13 @@ async function authorize(tx:Tx,scope:Scope){
  WHERE actor.id=${scope.actorId}::uuid AND actor.id=${scope.subjectId}::uuid AND actor.role::text='client' AND member.role::text='client' AND member.org_id=${scope.organizationId}::uuid FOR SHARE OF actor,cp,member`);
  if(result.rows.length!==1)throw new Rejected('forbidden');
 }
-type MemoryRow={id:string;fact_text:string;revision:string;confirmed_text_hash:string;active:boolean;source:string;fact_type:string;scope:string;agent_name:string|null;session_id:string|null;superseded_by:string|null;expired:boolean};
+type MemoryRow={created_at:string;id:string;fact_text:string;revision:string;confirmed_text_hash:string;active:boolean;source:string;fact_type:string;scope:string;agent_name:string|null;session_id:string|null;superseded_by:string|null;expired:boolean};
 function card(row:MemoryRow,conversationId:string):PersistentMemoryCard|null {
  if(!row.active||row.expired||row.superseded_by!==null||row.source!=='user_input'||row.fact_type!=='preference'||row.scope!=='agent'||row.agent_name!=='coach-assistant-confirmed'||row.session_id!==conversationId||row.confirmed_text_hash!==contentHash(row.fact_text))return null;
- return {id:row.id,text:row.fact_text,version:row.revision,confirmation:'confirmed',source:'user_input',retention:'persistent',conversationId};
+ return {id:row.id,text:row.fact_text,createdAt:new Date(row.created_at).toISOString(),version:row.revision,confirmation:'confirmed',source:'user_input',retention:'persistent',conversationId};
 }
 async function load(tx:Tx,scope:Scope,memoryId?:string){
- return tx.execute<MemoryRow>(sql`SELECT m.id,m.fact_text,m.active,m.source::text,m.fact_type::text,m.scope::text,m.agent_name,m.session_id,m.superseded_by,(m.expires_at IS NOT NULL AND m.expires_at<=clock_timestamp()) AS expired,b.revision::text,b.confirmed_text_hash
+ return tx.execute<MemoryRow>(sql`SELECT m.id,m.created_at::text,m.fact_text,m.active,m.source::text,m.fact_type::text,m.scope::text,m.agent_name,m.session_id,m.superseded_by,(m.expires_at IS NOT NULL AND m.expires_at<=clock_timestamp()) AS expired,b.revision::text,b.confirmed_text_hash
  FROM public.memory_chunks m JOIN private.coach_memory_bindings b ON b.memory_id=m.id AND b.subject_id=m.user_id
  WHERE b.actor_id=${scope.actorId}::uuid AND b.subject_id=${scope.subjectId}::uuid AND b.organization_id=${scope.organizationId}::uuid AND b.conversation_id=${scope.operation.conversationId}::uuid
  ${memoryId?sql`AND m.id=${memoryId}::uuid`:sql`AND m.active=true`} ORDER BY m.id LIMIT 21 FOR UPDATE OF m,b`);
@@ -59,7 +59,8 @@ export function createPersistentMemoryService(database:Database):PersistentMemor
    if(op.operation==='memory.read'){
     const rows=await load(tx,scope);if(rows.rows.length>20)throw new Rejected('uncertain');
     const memories=rows.rows.map(row=>card(row,op.conversationId)).filter((row):row is PersistentMemoryCard=>row!==null);
-    scope.signal.throwIfAborted();return persistentMemoryResultSchema.parse({version:'coach-assistant.v2',storage:'database',ok:true,memories,derivedContext:'excluded'});
+    const revision=await tx.execute<{revision:string}>(sql`SELECT coalesce(sum(revision+1),0)::text AS revision FROM private.coach_memory_bindings WHERE actor_id=${scope.actorId}::uuid AND subject_id=${scope.subjectId}::uuid AND organization_id=${scope.organizationId}::uuid AND conversation_id=${op.conversationId}::uuid`);
+    scope.signal.throwIfAborted();return persistentMemoryResultSchema.parse({version:'coach-assistant.v2',storage:'database',ok:true,memories,scopeRevision:revision.rows[0]?.revision,derivedContext:'excluded'});
    }
    if(op.operation==='memory.propose'||op.operation==='memory.correct'||op.operation==='memory.delete'){
     let before:PersistentMemoryCard|null=null;let memoryId:string=randomUUID();

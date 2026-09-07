@@ -17,7 +17,7 @@ export interface Rows<T> { rows: T[]; truncated: boolean }
 export interface ReadArgs { context: AuthorizedContext; window: CoachWindow; limit: number; signal: AbortSignal }
 export interface PersonalContextRow {
   userId: string; preferences: unknown; preferencesVersion?:string; memoriesRead?:boolean;
-  memories: Array<{id:string;userId:string;text:string;source:'user_input'|'coach'|'agent_inference'|'wearable';createdAt:string;scope:'user';version:string}>;
+  memories: Array<{id:string;userId:string;text:string;source:'user_input'|'coach'|'agent_inference'|'wearable';createdAt:string;scope:'user'|'agent';version:string;confirmation?:'confirmed'|'unconfirmed'}>;
 }
 export interface CoachRepository {
   dataSource: 'synthetic' | 'authorized_records';

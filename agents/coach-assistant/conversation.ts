@@ -12,7 +12,7 @@ import { COACH_PRICING_VERSION } from './economics';
 import { COACH_PROMPT_VERSION } from './prompt.v3';
 
 /** History is a hint for a window/domain, never a source of facts or authority. */
-export async function runConversation(raw: unknown, options: RunOptions & { isolatedActionsEnabled?:boolean; offlineConversationProvider?:OfflineConversationProvider; offlineInterpretationReview?:OfflineInterpretationReview; offlineCandidateEvaluation?:boolean }): Promise<CoachConversationResponse> {
+export async function runConversation(raw: unknown, options: RunOptions & { isolatedActionsEnabled?:boolean; offlineConversationProvider?:OfflineConversationProvider; offlineInterpretationReview?:OfflineInterpretationReview; offlineCandidateEvaluation?:boolean; filterMemoryHistory?:(input:import('./contracts').CoachConversationRequest)=>import('./contracts').CoachConversationRequest }): Promise<CoachConversationResponse> {
   const start = performance.now();
   const parsed = conversationRequestSchema.safeParse(raw);
   const response: CoachConversationResponse = {
@@ -44,7 +44,7 @@ export async function runConversation(raw: unknown, options: RunOptions & { isol
         if(JSON.stringify(fresh)!==JSON.stringify(authorized)) throw new Error('forbidden');
         return fresh;
       }};
-      const {intent,surface,exerciseId,domain}=selectConversationScope(input);
+      const {intent,surface,exerciseId,domain}=selectConversationScope(options.filterMemoryHistory?.(input)??input);
       const result = await run({message:input.message,intent,clientId:input.context?.clientId,exerciseId}, {
         ...options, mode:'offline', repository, signal:controller.signal, deadlineMs:Math.max(1,budget-(performance.now()-start)),
       });
@@ -82,15 +82,15 @@ export async function runConversation(raw: unknown, options: RunOptions & { isol
             }
           } else {const capability=capabilities.find(c=>c.key==='profile')!;capability.status='unknown';capability.reason='preferences_not_recorded';}
           if(row.memoriesRead!==false) {
-          response.memories=row.memories.slice(0,10).map(memory=>({id:memory.id,text:memory.text.slice(0,500),source:memory.source,createdAt:memory.createdAt,scope:memory.scope,version:memory.version,confirmation:'unconfirmed'}));
-          const memoryCapability=capabilities.find(c=>c.key==='memory')!;memoryCapability.status=response.memories.length?'available':'unknown';memoryCapability.reason=response.memories.length?'authorized_unconfirmed_memories':'no_active_memories';
-          response.output.limitations.push('memory_requires_explicit_confirmation','memory_window_365_days');
+          response.memories=row.memories.slice(0,10).map(memory=>({id:memory.id,text:memory.text.slice(0,500),source:memory.source,createdAt:memory.createdAt,scope:memory.scope,version:memory.version,confirmation:memory.confirmation??'unconfirmed'}));
+          const memoryCapability=capabilities.find(c=>c.key==='memory')!;memoryCapability.status=response.memories.length?'available':'unknown';memoryCapability.reason=response.memories.length?(response.memories.every(m=>m.confirmation==='confirmed')?'authorized_confirmed_thread_memories':'authorized_unconfirmed_memories'):'no_active_memories';
+          response.output.limitations.push(...(options.filterMemoryHistory?['memory_scope_current_thread','user_history_is_historical_not_current_preference','stale_derived_history_excluded']:['memory_requires_explicit_confirmation','memory_window_365_days']));
           if(row.memories.length>10)response.output.limitations.push('memory_records_partial');
           }
         }
       }
       if(options.mode==='model'&&!medical) {
-        await generateOpenConversation(input,response,options.offlineConversationProvider!,controller.signal,options.offlineInterpretationReview,options.offlineCandidateEvaluation);
+        await generateOpenConversation(options.filterMemoryHistory?.(input)??input,response,options.offlineConversationProvider!,controller.signal,options.offlineInterpretationReview,options.offlineCandidateEvaluation);
         await repository.authorize(options.actorId,subject,controller.signal);
         controller.signal.throwIfAborted();
       }
