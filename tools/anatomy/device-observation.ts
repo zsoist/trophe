@@ -1,13 +1,14 @@
 import type { RenderObservation } from '../../components/anatomy/AtlasCanvas';
 /** Diagnostic quantities only; renderer submissions are not presented GPU frames. */
 export function gestureMetrics(frames: RenderObservation[], durationSeconds: number) {
+  const validDuration = Number.isFinite(durationSeconds) && durationSeconds > 0;
   const cpu = frames.map(frame => frame.durationMs).sort((a, b) => a - b);
   return {
     durationSeconds,
     renderedSubmissions: frames.length,
-    submissionsPerSecond: durationSeconds > 0 ? frames.length / durationSeconds : null,
+    submissionsPerSecond: validDuration ? frames.length / durationSeconds : null,
     cpuSubmissionP95Ms: cpu[Math.max(0, Math.ceil(cpu.length * 0.95) - 1)] ?? null,
-    validSample: durationSeconds >= 10 && frames.length >= 30,
+    validSample: validDuration && durationSeconds >= 10 && frames.length >= 30,
     lastRenderer: frames.at(-1) ?? null,
     gpuFrameTime: 'not measured',
     browserOrGpuMemoryBytes: 'not measured',

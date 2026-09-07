@@ -11,3 +11,7 @@ it('limits resource totals to anatomy and does not label zero transfer as a prov
   const resources = [{ name: 'https://local.test/anatomy/a.glb', encodedBodySize: 100, transferSize: 0 }, { name: 'https://local.test/workout.js', encodedBodySize: 900, transferSize: 900 }] as PerformanceResourceTiming[];
   expect(atlasResourceMetrics(resources)).toMatchObject({ resourceCount: 1, encodedBodyBytes: 100, transferredBytes: 0, zeroTransferResources: 1 });
 });
+
+it.each([Infinity, -Infinity, NaN, -1, 0])('rejects invalid measurement duration %s without returning a cadence', duration => {
+  expect(gestureMetrics(frames, duration)).toMatchObject({ validSample: false, submissionsPerSecond: null });
+});
