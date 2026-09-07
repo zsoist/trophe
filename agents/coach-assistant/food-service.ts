@@ -60,7 +60,7 @@ export function createFoodQuantityService(database:Database):FoodQuantityService
         if(operation.operation==='food.apply'||operation.operation==='food.receipt') {
           const prior=await tx.execute<{subject_id:string;organization_id:string;conversation_id:string;proposal_id:string;request_hash:string;resource_version:string;action:string;envelope:unknown;result:unknown}>(sql`
             SELECT r.subject_id,r.organization_id,r.conversation_id,r.proposal_id,r.request_hash,r.resource_version,r.result,p.action,p.envelope
-            FROM private.coach_action_receipts r JOIN private.coach_action_proposals p ON p.id=r.proposal_id
+            FROM private.coach_action_receipts r JOIN private.coach_action_proposals p ON p.id=r.proposal_id AND p.actor_id=r.actor_id AND p.subject_id=r.subject_id AND p.organization_id=r.organization_id AND p.conversation_id=r.conversation_id
             WHERE r.actor_id=${scope.actorId}::uuid AND r.action_id=${operation.actionId}::uuid`);
           if(prior.rows.length) {
             const stored=prior.rows[0];const envelope=envelopeSchema.safeParse(stored.envelope);

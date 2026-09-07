@@ -35,7 +35,7 @@ export interface FoodQuantityService {
 }
 const fail=(error:Extract<FoodQuantityResult,{ok:false}>['error']):FoodQuantityResult=>({version:'coach-assistant.v2',storage:'database',ok:false,error});
 
-/** Not connected to HTTP until the shared writer and isolated SQL tests are ready. */
+/** Handler transport is gated; concrete route activation requires isolated SQL acceptance. */
 export async function executeFoodQuantityAction(actorId:string,raw:unknown,repository:CoachRepository,service:FoodQuantityService,signal:AbortSignal):Promise<FoodQuantityResult> {
   const parsed=foodQuantityOperationSchema.safeParse(raw);
   if(!parsed.success)return fail('invalid_input');

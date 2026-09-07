@@ -58,3 +58,31 @@ and Food in BOTH directions, and check an ordinary manual ABA edit that returns 
 the same values with a newer revision. Inject failures at both receipt insertion
 and audit insertion: entry mutation, revision and receipt must roll back together.
 These are required SQL oracles, not claims covered by the injected transaction tests.
+
+### Gated handler transport (AG3)
+The existing `handleCoachRequest` accepts all four typed `food.*` operations via
+optional `createFoodService(): FoodQuantityService | Promise<FoodQuantityService>`.
+`COACH_ASSISTANT_FOOD_ACTIONS_ENABLED=1` is required independently of preference
+and isolated action flags. Default/off returns 404 before repository/service
+creation; enabled without a bound service returns 503. No fallback to another
+action family. Existing preview allowlist, guard, production exclusion, body
+limit, cancellation/deadline and no-store response apply. AG1 owns concrete route
+binding and UI; activate only after isolated SQL acceptance. No route binding or
+flag activation is included in this change.
+
+UI contract: POST the `FoodQuantityOperation` union to the existing endpoint.
+Read returns snapshot and its version. Propose sends that resourceVersion and
+`after: {grams}`; render the full before/after for review. Apply must carry the
+proposal id/hash, unchanged resourceVersion, stable actionId and `reviewed:true`.
+Recover uncertain delivery with food.receipt and the same actionId. An applied
+receipt includes `refresh` with entryId/loggedDate, previousVersion/version and
+`strategy:'refetch'`; refetch actual Food data, never optimistically substitute
+model text. Errors map invalid_input 400, forbidden 403, not_found 404, expired
+410, version/idempotency conflicts 409, uncertain/cancelled 503. Transport gating
+and generic guard failures retain the existing v1 error envelope. A receipt
+lookup requires the entryId/conversationId used by the original operation.
+
+Verification: 22 handler/transaction-double tests pass, scoped TypeScript and
+lint pass. This proves injected transport behavior, not deployed HTTP/Auth/SQL.
+Receipt/proposal JOIN now additionally binds actor, subject, organization and
+conversation for defense against mismatched ledger rows.
