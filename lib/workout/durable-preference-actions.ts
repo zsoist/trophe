@@ -11,7 +11,7 @@ type Database = typeof db;
 type Transaction = Parameters<Parameters<Database['transaction']>[0]>[0];
 interface Scope { actorId: string; subjectId: string; organizationId: string; signal: AbortSignal }
 type Authorized = { workout_preferences: unknown; actor_role: string }
-type StoredReceipt = { subject_id: string; organization_id: string; conversation_id: string; proposal_id: string; request_hash: string; resource_version: string; result: CoachReceipt }
+type StoredReceipt = { subject_id: string; organization_id: string; conversation_id: string; proposal_id: string; request_hash: string; resource_version: string; result: CoachReceipt; action: string | null; resource_kind: string | null; resource_id: string | null }
 const failure = (error: CoachActionResult['error']): CoachActionResult => ({ version: 'coach-assistant.v2', storage: 'database', ok: false, error });
 const success = (value: { proposal: CoachProposal } | { receipt: CoachReceipt }): CoachActionResult => ({ version: 'coach-assistant.v2', storage: 'database', ok: true, ...value });
 class Rejected extends Error { constructor(readonly reason: CoachActionResult['error']) { super(reason); } }
@@ -67,11 +67,16 @@ export function createDurablePreferenceService(database: Database) {
           }
           const authorized = await authorize(transaction, scope);
           if (operation.operation !== 'propose') {
-            const existing = await transaction.execute<StoredReceipt>(sql`SELECT subject_id, organization_id, conversation_id, proposal_id, request_hash, resource_version, result
-              FROM private.coach_action_receipts WHERE actor_id = ${scope.actorId}::uuid AND action_id = ${operation.actionId}::uuid`);
+            const existing = await transaction.execute<StoredReceipt>(sql`SELECT r.subject_id, r.organization_id, r.conversation_id, r.proposal_id, r.request_hash, r.resource_version, r.result,
+                p.action, p.envelope->'resource'->>'kind' AS resource_kind, p.envelope->'resource'->>'id' AS resource_id
+              FROM private.coach_action_receipts r LEFT JOIN private.coach_action_proposals p
+                ON p.id = r.proposal_id AND p.actor_id = r.actor_id AND p.subject_id = r.subject_id
+                AND p.organization_id = r.organization_id AND p.conversation_id = r.conversation_id
+              WHERE r.actor_id = ${scope.actorId}::uuid AND r.action_id = ${operation.actionId}::uuid`);
             const receipt = existing.rows[0];
             if (receipt) {
-              if (receipt.subject_id !== scope.subjectId || receipt.organization_id !== scope.organizationId || receipt.conversation_id !== operation.conversationId
+              if (receipt.action !== 'preference.update' || receipt.resource_kind !== 'preference' || receipt.resource_id !== scope.subjectId
+                || receipt.subject_id !== scope.subjectId || receipt.organization_id !== scope.organizationId || receipt.conversation_id !== operation.conversationId
                 || (operation.operation === 'apply' && (receipt.proposal_id !== operation.proposalId || receipt.request_hash !== operation.hash || receipt.resource_version !== operation.resourceVersion))) throw new Rejected('idempotency_conflict');
               scope.signal.throwIfAborted();
               return success({ receipt: receipt.result });
@@ -97,7 +102,9 @@ export function createDurablePreferenceService(database: Database) {
           const stored = await transaction.execute<{ envelope: CoachProposal; expired: boolean; request_hash: string; resource_version: string }>(sql`
             SELECT envelope, expires_at <= clock_timestamp() AS expired, request_hash, resource_version FROM private.coach_action_proposals
             WHERE id = ${operation.proposalId}::uuid AND actor_id = ${scope.actorId}::uuid AND subject_id = ${scope.subjectId}::uuid
-              AND organization_id = ${scope.organizationId}::uuid AND conversation_id = ${operation.conversationId}::uuid`);
+              AND organization_id = ${scope.organizationId}::uuid AND conversation_id = ${operation.conversationId}::uuid
+              AND action = 'preference.update' AND envelope->'resource'->>'kind' = 'preference'
+              AND envelope->'resource'->>'id' = ${scope.subjectId}`);
           const proposal = stored.rows[0];
           if (!proposal) throw new Rejected('not_found');
           if (proposal.request_hash !== operation.hash) throw new Rejected('invalid_input');
