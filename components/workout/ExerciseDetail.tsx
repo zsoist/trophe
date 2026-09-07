@@ -1,5 +1,6 @@
 'use client';
 
+import type { WorkoutRouteContext } from '@/lib/workout/workspace-routes';
 import { WorkoutAtlasEntry } from '@/components/anatomy/WorkoutAtlasEntry';
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Check, Dumbbell, Plus, RefreshCw, Trophy } from 'lucide-react';
@@ -32,6 +33,7 @@ export interface ExerciseDetailProps {
   playbackDisabled?: boolean;
   actionLabel?: string;
   actionAriaLabel?: string;
+  atlasContext?: WorkoutRouteContext;
 }
 
 const breathingPattern = /\b(?:breath\w*|inhale\w*|exhale\w*|respir\w*|inhala\w*|exhala\w*)\b|αναπν|εισπν|εκπν/i;
@@ -99,6 +101,7 @@ export function ExerciseDetail({
   playbackDisabled = false,
   actionLabel,
   actionAriaLabel,
+  atlasContext,
 }: ExerciseDetailProps) {
   const { t, lang } = useI18n();
   const [unit] = useWeightUnit();
@@ -214,7 +217,7 @@ export function ExerciseDetail({
 
       <div className="exercise-detail__body">
         <div className="exercise-detail__anatomy">
-          {presentation === 'route' && <WorkoutAtlasEntry muscle={selectedMuscle} />}
+          {presentation === 'route' && <WorkoutAtlasEntry muscle={selectedMuscle} context={atlasContext} />}
           {media.activations.length > 0 ? (
             <MuscleAtlas
               activations={media.activations}

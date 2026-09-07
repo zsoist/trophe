@@ -64,6 +64,7 @@ export function ExerciseBrowser({ initialExercises = [], initialRecentIds = [], 
 
   return (
     <ExercisePicker
+      atlasContext={{ replaceExerciseId, returnRoute }}
       initialAtlasFilter={workoutAtlasFilter(atlasGroup)}
       presentation="page"
       exercises={exercises}

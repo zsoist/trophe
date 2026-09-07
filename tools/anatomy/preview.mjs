@@ -64,6 +64,7 @@ for (const exercise of ATLAS_EXERCISES) {
 }
 const styles = await postcss([tailwind({ base: root })]).process(await readFile(join(root, 'app/globals.css'), 'utf8'), { from: join(root, 'app/globals.css') });
 assets.set('/_qa/workout.css', { bytes: Buffer.from(styles.css), mime: 'text/css' });
+assets.set('/device-check.txt', { bytes: await readFile(join(root, 'tools/anatomy/workout-review/DEVICE_CHECK.md')), mime: 'text/plain; charset=utf-8' });
 assets.set('/sprite.svg', { bytes: await readFile(join(root, 'public/sprite.svg')), mime: 'image/svg+xml' });
 const fontDirectory = join(root, 'public/fonts/workout-review');
 const fontSources = JSON.parse(await readFile(join(fontDirectory, 'sources.json'), 'utf8'));

@@ -1,12 +1,14 @@
 "use client";
 import { withAuthored, type AuthoredSupplement } from "@/lib/anatomy/authored";
+import type { WorkoutRouteContext } from "@/lib/workout/workspace-routes";
+import { atlasExerciseLibraryHref } from "@/lib/anatomy/workout-navigation";
+import { StructureProvenance } from "./StructureProvenance";
 import { AtlasInformation } from "./AtlasInformation";
 import { MusclePreview, MuscleColorsIcon } from "./MusclePreview";
 import { preferredView, partCameraGroup } from "@/lib/anatomy/camera";
 import type { RenderObservation } from "./AtlasCanvas";
 import Image from "next/image";
 import AtlasExercises, { AtlasExerciseSuggestions, type AtlasExerciseTarget } from "./AtlasExercises";
-import { workoutAtlasFilter } from "@/lib/anatomy/workout-navigation";
 import {
   Check,
   ChevronDown,
@@ -97,6 +99,7 @@ export default function AnatomyExplorer({
   initialMuscle,
   onRender,
   exerciseLibraryOrigin = "",
+  exerciseLibraryContext,
   workout = false,
   initialGroup,
   authoredSupplement,
@@ -108,6 +111,7 @@ export default function AnatomyExplorer({
   initialGroup?: string;
   onRender?: (value: RenderObservation) => void;
   exerciseLibraryOrigin?: string;
+  exerciseLibraryContext?: WorkoutRouteContext;
 }) {
   const { t, lang } = useI18n();
   const [workoutMode, setWorkoutMode] = useState(workout);
@@ -329,7 +333,7 @@ export default function AnatomyExplorer({
     label: exerciseSelection ? t(exerciseSelection.labelKey) : t(workoutMode && focusGroup ? `anatomy.focus_${focusGroup}` : "anatomy.whole_body"),
     legRegion,
   };
-  const exerciseLibraryHref = `${exerciseLibraryOrigin}/dashboard/workout/exercises${workoutMode && workoutAtlasFilter(focusGroup) ? `?atlas=${encodeURIComponent(focusGroup)}` : ""}`;
+  const exerciseLibraryHref = `${exerciseLibraryOrigin}${atlasExerciseLibraryHref(workoutMode ? focusGroup : null, exerciseLibraryContext)}`;
   const parents =
     manifest && selected
       ? manifest.relations.filter((r) => r.child === selected)
@@ -918,12 +922,7 @@ export default function AnatomyExplorer({
               </div>
               <details className="anatomy-source-detail">
                 <summary>{t("anatomy.source_details")}</summary>
-                <p>
-                  {concept.id.startsWith("AUTHORED_")
-                    ? t("anatomy.authored_model")
-                    : t("anatomy.source_english")}{" "}
-                  · {concept.id}
-                </p>
+                <StructureProvenance manifest={manifest!} conceptId={concept.id} />
                 <p>{t(`anatomy.${concept.availability}`)}</p>
                 {parents
                   .filter((p) => p.type === "partof")
@@ -1091,6 +1090,7 @@ export default function AnatomyExplorer({
                 {selectionVisibility?.hidden.length !== 0 && (
                   <p role="status">{t("anatomy.hidden_target")}</p>
                 )}
+                <details className="anatomy-source-detail"><summary>{t("anatomy.source_details")}</summary><StructureProvenance manifest={manifest!} conceptId={concept.id} /></details>
                 <div className="anatomy-actions">
                   <button
                     onClick={() => {

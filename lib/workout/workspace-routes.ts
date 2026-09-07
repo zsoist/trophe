@@ -85,11 +85,18 @@ export function workoutRouteForStage(stage: WorkoutStage): string {
 }
 
 export interface WorkoutRouteContext {
+  returnToExercises?: boolean;
   replaceExerciseId?: string;
   returnRoute?: 'build' | 'review';
 }
 
 export function workoutBackRoute(pathname: string, stage?: WorkoutStage, context: WorkoutRouteContext = {}): string {
+  if (pathname === '/dashboard/workout/atlas' && context.returnToExercises) {
+    const params = new URLSearchParams();
+    if (context.replaceExerciseId) params.set('replace', context.replaceExerciseId);
+    if (context.returnRoute || context.replaceExerciseId) params.set('return', context.returnRoute === 'review' ? 'review' : 'build');
+    return `${WORKOUT_ROUTES.exercises}${params.size ? `?${params}` : ''}`;
+  }
   const returnPath = context.returnRoute === 'review' ? WORKOUT_ROUTES.review : WORKOUT_ROUTES.build;
   if (pathname.startsWith(`${WORKOUT_ROUTES.exercises}/`)) {
     if (context.replaceExerciseId) return `${WORKOUT_ROUTES.exercises}?replace=${encodeURIComponent(context.replaceExerciseId)}&return=${context.returnRoute === 'review' ? 'review' : 'build'}`;

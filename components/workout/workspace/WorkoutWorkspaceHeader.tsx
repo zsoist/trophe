@@ -42,6 +42,7 @@ function WorkoutWorkspaceHeaderContent({ stage, onBack, backDisabled = false }: 
   const title = t(titleKey);
   const isHome = pathname === WORKOUT_ROUTES.home;
   const backHref = workoutBackRoute(pathname, stage, {
+    returnToExercises: searchParams.get('from') === 'exercises',
     replaceExerciseId: searchParams.get('replace')?.trim() || undefined,
     returnRoute: searchParams.get('return') === 'review' ? 'review' : searchParams.get('return') === 'build' ? 'build' : undefined,
   });

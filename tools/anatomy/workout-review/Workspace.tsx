@@ -20,6 +20,7 @@ import AnatomyExplorer from '../../../components/anatomy/AnatomyExplorer';
 import { WorkoutAnatomySource } from '../../../components/anatomy/WorkoutAnatomySource';
 import type { AuthoredSupplement } from '../../../lib/anatomy/authored';
 import type { WorkoutDraft } from '../../../lib/workout/workspace-state';
+import { atlasWorkoutContext } from '../../../lib/anatomy/workout-navigation';
 import { localToday } from '../../../lib/utils/dates';
 import { useI18n } from '../../../lib/i18n';
 import { navigate, usePathname, useSearchParams } from './navigation';
@@ -83,7 +84,7 @@ function ReviewRoutes({ manifestUrl, authoredSupplement, onRender }: PreviewProp
   const workedExerciseIds = [...new Set(data.sets.filter(set => todayIds.has(set.session_id) && !set.is_warmup && (set.reps ?? 0) > 0).map(set => set.exercise_id))];
   const returnRoute = params.get('return') === 'review' ? 'review' : params.get('return') === 'build' ? 'build' : undefined;
   let content;
-  if ((path === '/dashboard/anatomy' || path === '/dashboard/workout/atlas')) content = <AnatomyExplorer workout manifestUrl={manifestUrl} authoredSupplement={authoredSupplement} initialMuscle={params.get('muscle') ?? undefined} initialGroup={params.get('group') ?? undefined} onRender={onRender} />;
+  if ((path === '/dashboard/anatomy' || path === '/dashboard/workout/atlas')) content = <AnatomyExplorer workout exerciseLibraryContext={atlasWorkoutContext(params)} manifestUrl={manifestUrl} authoredSupplement={authoredSupplement} initialMuscle={params.get('muscle') ?? undefined} initialGroup={params.get('group') ?? undefined} onRender={onRender} />;
   else if (path === '/dashboard/workout/build') content = <WorkoutBuilder exercises={exercises} onSavePlan={savePlan} saveState={saveState} />;
   else if (path === '/dashboard/workout/review') content = retrospective ? <RetrospectiveWorkoutLogger userId={REVIEW_USER} draft={retrospective} exercises={exercises} onCancel={() => setRetrospective(null)} onSaveRequest={async input => { const ok = await workspace.saveRetrospective(input); if (ok) { setRetrospective(null); navigate('/dashboard/workout/live'); } return ok; }} /> : <WorkoutReview exercises={exercises} onSavePlan={savePlan} saveState={saveState} onLogCompleted={setRetrospective} />;
   else if (path === '/dashboard/workout/exercises') content = <ExerciseBrowser initialExercises={exercises} initialRecentIds={workedExerciseIds} atlasGroup={params.get('atlas')} replaceExerciseId={params.get('replace') ?? undefined} returnRoute={returnRoute} />;
