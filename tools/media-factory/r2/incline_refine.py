@@ -272,3 +272,23 @@ def elbow_hinge(config,out):
     s.frame_set(1);bpy.ops.wm.save_as_mainfile(filepath=str(out/'incline.blend'))
     report={'method':'Reuse established Copa native elbow hinge compensation at the main forearm_tweak control, calibrated to THIS incline frame1. Source exercise reset cleared Copa tweak actions. Rotate local deform control with the actual humerus/forearm bisector; do not rotate global arm or move wrist/pole/prop. Native skinning unchanged.','rows':rows,'human_reviews':'pending','adopted':False}
     (out/'elbow-hinge.json').write_text(json.dumps(report,indent=2));return {'diagnostic_variant':True,'before_max_pairs':max(v['intersection_pairs'] for x in rows for v in x['before_skin'].values()),'after_max_pairs':max(v['intersection_pairs'] for x in rows for v in x['after_skin'].values())}
+
+
+def pose_fold(config,out):
+    from cohort import local_pose_fold
+    from surface_qa import check
+    from compare_baseline import studio,place
+    bpy.ops.wm.open_mainfile(filepath=config['animation_source']);s=bpy.context.scene;b=bpy.data.objects['Trophe_R2_Athlete'];r=bpy.data.objects['Trophe_R2_Authoring']
+    regions={side:[v.index for v in b.data.vertices if sign*v.co.x>.07 and 1.10<v.co.z<1.54 and any(b.vertex_groups[g.group].name=='body' and g.weight>.5 for g in v.groups)] for side,sign in [('L',1),('R',-1)]};before={}
+    for f in [1,46,76,91,110,136,181]:s.frame_set(f);bpy.context.view_layer.update();before[f]={'p':points(b),'skin':check(b,regions)}
+    core={side:sorted({i for h in before[91]['skin'][side]['hits'] for t in h['triangles'] for i in t}) for side in ['L','R']};assert all(core.values())
+    changed=local_pose_fold(b,r,core)
+    proxy=bpy.data.objects.get('Incline upper garment collision surface')
+    if proxy:local_pose_fold(proxy,r,core)
+    rows=[];cam=studio(s);cam.data.sensor_fit='VERTICAL';s.render.engine='BLENDER_EEVEE';s.render.resolution_x=960;s.render.resolution_y=720
+    for f,base in before.items():
+        s.frame_set(f);bpy.context.view_layer.update();rows.append({'frame':f,'before_skin':base['skin'],'after_skin':check(b,regions),'surface_delta_max_m':float(np.linalg.norm(points(b)-base['p'],axis=1).max())})
+        if f==91:
+            e=r.matrix_world@r.pose.bones['ORG-forearm.L'].head;place(cam,e+Vector((-1,-1,.45)),e,.40);s.render.filepath=str(out/'inner-elbow.png');bpy.ops.render.render(write_still=True)
+    assert rows[0]['surface_delta_max_m']<1e-6
+    s.frame_set(1);bpy.ops.wm.save_as_mainfile(filepath=str(out/'incline.blend'));(out/'pose-fold.json').write_text(json.dumps({'method':'Native local pose-dependent fold correction in actual crossing region, two feather rings. No displacement cap; report actual surface displacement. Existing control isolation did not resolve crossings, so no hinge variant adopted. Original body, pose, grip, native rig and motion retained outside local region.','region':changed,'rows':rows,'adopted':False,'human_reviews':'pending'},indent=2));return {'max_pairs':max(v['intersection_pairs'] for row in rows for v in row['after_skin'].values())}

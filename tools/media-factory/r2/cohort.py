@@ -231,3 +231,31 @@ def run(config,output):
     record={'exercise':exercise,'source_mesh_parents':source_parents,'whole_character_placement':'common root for rig and all top-level meshes; armature modifier alone does not carry an unparented garment through an object-space placement','duration_s':6,'fps':30,'render_frames':180,'closure_frame':181,'authority':'independent shared bar -> two rigid grip anchors -> wrist targets -> native Rigify IK; no competing hand parents or feedback','curve':'quintic eased descent3s/ascent3s; fixed camera; no added sway/noise','stage':'draft requiring support/contact/deformation and human review','human_reviews':'pending','cloth':'fitted garment skinning; no simulation claimed','samples':samples}
     record['bench_setup']=setup;record['bench_setup_result']=setup_record
     (output/'cohort.json').write_text(json.dumps(record,indent=2));return {'exercise':exercise,'frames':181,'max_grip_drift_m':max(c['max_grip_drift_m'] for f in samples for c in f['contacts'].values()),'minimum_shoe_z_m':min(f['shoe_min_z_m'] for f in samples),'bench_setup_result':setup_record}
+
+
+def local_pose_fold(body,rig,core_by_side,*,start_deg=60.,full_deg=110.,factor=.8,iterations=5):
+    """Native Smooth limited to evidenced inner-fold vertices and two rings.
+
+    A local pose shape treatment, not activation, a pressure model or a new rig.
+    Core source IDs must come from the caller's actual evaluated contact map.
+    """
+    adjacency={v.index:set() for v in body.data.vertices}
+    for e in body.data.edges:
+        a,b=e.vertices;adjacency[a].add(b);adjacency[b].add(a)
+    record={}
+    for side,core in core_by_side.items():
+        rings=[set(core)]
+        for n in range(2):rings.append(set().union(*(adjacency[i] for i in rings[-1]))-set().union(*rings))
+        group=body.vertex_groups.new(name='Localized inner fold '+side)
+        for ids,weight in zip(rings,[1.,2/3,1/3]):
+            if ids:group.add(sorted(ids),weight,'REPLACE')
+        m=body.modifiers.new('Localized pose fold '+side,'SMOOTH');m.vertex_group=group.name;m.factor=0.;m.iterations=iterations
+        body.modifiers.move(len(body.modifiers)-1,next(i for i,x in enumerate(body.modifiers) if x.type=='MASK'))
+        driver=m.driver_add('factor').driver;driver.type='SCRIPTED'
+        for name,ends in [('a',('ORG-upper_arm.','ORG-forearm.')),('c',('ORG-upper_arm.','ORG-hand.')),('b',('ORG-forearm.','ORG-hand.'))]:
+            var=driver.variables.new();var.name=name;var.type='LOC_DIFF'
+            for target,bone in zip(var.targets,ends):target.id=rig;target.bone_target=bone+side;target.transform_space='WORLD_SPACE'
+        t=f'min(1,max(0,(acos(min(1,max(-1,(c*c-a*a-b*b)/(2*a*b))))-{math.radians(start_deg)})/{math.radians(full_deg-start_deg)}))'
+        driver.expression=f'{factor}*({t})*({t})*(3-2*({t}))'
+        record[side]={'core':sorted(rings[0]),'feather_rings':[sorted(x) for x in rings[1:]],'iterations':iterations,'factor_max':factor,'onset_flex_deg':start_deg,'full_flex_deg':full_deg,'native_modifier':'SMOOTH'}
+    return record
