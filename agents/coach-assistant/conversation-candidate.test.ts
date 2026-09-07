@@ -30,6 +30,8 @@ describe('unapproved full conversation release candidate (injected transport, no
     'How would you maintain your stronger muscles and healthier heart shown by these records?',
     '6 sessions and 2 sets',
     'Your entries show that you skipped meals.',
+    'Every planned repetition was completed exactly as prescribed.',
+    'The entire prescription was fulfilled.',
   ])('rejects a known unsupported account/action/health claim: %s',async answer=>{
     const result=await runConversationCandidate(base,{...options(),offlineConversationProvider:provider(answer)});
     expect(result.ok).toBe(false);expect(result.output).toBeUndefined();expect(result.error?.code).toBe('invalid_output');

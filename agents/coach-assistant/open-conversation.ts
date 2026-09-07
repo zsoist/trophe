@@ -82,6 +82,10 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
   }
   if(candidateEvaluation) {
     const normalized=prose.normalize('NFKD').replace(/\p{M}/gu,'');
+    // Universal quantifiers and execution/completion predicates are account facts,
+    // not contextual interpretation. Only canonical evidence may state them.
+    // Curated general explanations are a separate renderer and are not scanned here.
+    if(/\b(?:every|all|always|never|entire|fully|exactly|each|cada|todos|todas|siempre|nunca|ningun|ninguna|totalmente|completed|performed|fulfilled|finished|prescribed|completion|completad\w*|realizad\w*|cumplid\w*|finalizad\w*|prescrit\w*)\b/i.test(normalized))throw new Error('invalid_output');
     // Conservative release-candidate guards; independent tests, not a truth proof.
     // Apply to follow-ups too: interrogative syntax can hide the same assertion.
     if(/\b(?:saved|updated|sent|approved|deleted|booked|confirmed|guardad\w*|actualizad\w*|enviad\w*|aprobad\w*|eliminad\w*|confirmad\w*|heart|muscles?|stronger|healthier|blood|insulin|corazon|muscul\w*|salud\w*|hormon\w*|skipped|skipping|omitid\w*)\b/i.test(normalized))throw new Error('invalid_output');

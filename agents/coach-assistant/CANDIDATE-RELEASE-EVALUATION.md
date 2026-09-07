@@ -50,3 +50,12 @@ atomic pilot reservations covering AG3+AG4, uncertain attempts retained, known p
 account/provider access and an explicit AGG budget decision. Existing org-budget is
 a soft historical cap and reconciliation skips failed runs. These are pending
 prerequisites, not approvals inferred from pricing documentation or mock tests.
+
+AG4 subsequently accepted a positive explanation but found a false universal
+completion claim despite planned versus logged repetitions differing. The candidate
+now treats universal quantifiers and execution/completion predicates as account-fact
+content reserved for canonical rendering, including in follow-ups. General discussion
+of plan versus completion can use the separately curated explanation. The exact
+independent case and a related quantified completion case are development regressions;
+positive explanations remain required. This conservative language boundary still
+has paraphrase/language limitations and does not close independent quality acceptance.
