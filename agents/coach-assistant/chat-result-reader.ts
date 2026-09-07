@@ -28,11 +28,11 @@ function object(value:unknown):Record<string,unknown>{return isRecord(value)?val
 function array(value:unknown):unknown[]{return Array.isArray(value)?value:invalid();}
 
 export function readHistoryThread(value:unknown):HistoryThread{
- const item=object(value);if(!isUuid(item.id)||typeof item.title!=='string'||item.title.length>80||!isDateTime(item.createdAt)||!isRevision(item.revision)||!['active','cleanup_pending','deleted'].includes(String(item.state)))return invalid();
+ const item=object(value);if(!isUuid(item.id)||typeof item.title!=='string'||item.title.length>80||!isDateTime(item.createdAt)||!isRevision(item.revision)||typeof item.state!=='string'||!['active','cleanup_pending','deleted'].includes(item.state))return invalid();
  return pick(item,['id','title','createdAt','revision','state']) as unknown as HistoryThread;
 }
 export function readHistoryMessage(value:unknown):HistoryMessage{
- const item=object(value);if(!isUuid(item.id)||!isUuid(item.turnId)||!['user','assistant'].includes(String(item.role))||typeof item.text!=='string'||!isInt(item.sequence)||item.sequence<=0||!isUuid(item.revision)||!isDateTime(item.createdAt))return invalid();
+ const item=object(value);if(!isUuid(item.id)||!isUuid(item.turnId)||typeof item.role!=='string'||!['user','assistant'].includes(item.role)||typeof item.text!=='string'||!isInt(item.sequence)||item.sequence<=0||!isUuid(item.revision)||!isDateTime(item.createdAt))return invalid();
  return pick(item,['id','turnId','role','text','sequence','revision','createdAt']) as unknown as HistoryMessage;
 }
 export function readHistoryCursor(value:unknown):HistoryCursor{
@@ -50,7 +50,7 @@ export function readHistoryPage(value:unknown):HistoryPage{
  if(item.nextSequence===undefined)return invalid();return {thread:readHistoryThread(item.thread),messages:messages.map(readHistoryMessage),nextSequence:item.nextSequence};
 }
 export function readHistoryDelete(value:unknown):HistoryDelete{
- const item=object(value);if(!isRecord(item.thread)||!['complete','pending'].includes(String(item.cleanup)))return invalid();return {thread:readHistoryThread(item.thread),cleanup:item.cleanup as HistoryDelete['cleanup']};
+ const item=object(value);if(!isRecord(item.thread)||typeof item.cleanup!=='string'||!['complete','pending'].includes(item.cleanup))return invalid();return {thread:readHistoryThread(item.thread),cleanup:item.cleanup as HistoryDelete['cleanup']};
 }
 export function readHistoryThreadResult(value:unknown):HistoryThreadResult{
  const item=object(value);if(!isRecord(item.thread))return invalid();return {thread:readHistoryThread(item.thread)};

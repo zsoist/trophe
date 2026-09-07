@@ -24,14 +24,15 @@ describe('browser-safe coach result reader',()=>{
    {...thread,revision:'01'},
    {...thread,state:'unknown'},
    {...thread,id:'00000000-0000-0000-0000-000000000002'},
+   {...thread,state:['active']},
   ])expect(()=>readHistoryList({threads:[value],nextCursor:null})).toThrow('history_unavailable');
-  expect(()=>readHistoryPage({thread,messages:[],nextSequence:0})).toThrow('history_unavailable');expect(()=>readHistoryList({threads:new Array(51).fill(thread),nextCursor:null})).toThrow('history_unavailable');
+  expect(()=>readHistoryPage({thread,messages:[{...message,role:['user']}],nextSequence:null})).toThrow('history_unavailable');expect(()=>readHistoryPage({thread,messages:[],nextSequence:0})).toThrow('history_unavailable');expect(()=>readHistoryList({threads:new Array(51).fill(thread),nextCursor:null})).toThrow('history_unavailable');
  });
  it('validates and projects the database envelope',()=>{const raw={version:'coach-assistant.chat.v1',storage:'database',ok:true,value:{threads:[thread],nextCursor:null},debug:'drop'};expect(readHistoryEnvelope(raw,readHistoryList)).toEqual({threads:[thread],nextCursor:null});expect(()=>readHistoryEnvelope({...raw,ok:false},readHistoryList)).toThrow('history_unavailable');});
  it('covers the create, rename and delete value shapes',()=>{
   const created={thread:{...thread,debug:'drop'}};const deleted={thread:{...thread,state:'cleanup_pending'},cleanup:'pending',debug:'drop'};
   expect(readHistoryThreadResult(created)).toEqual({thread});expect(readHistoryDelete(deleted)).toEqual({thread:{...thread,state:'cleanup_pending'},cleanup:'pending'});
   expect(accepts(readHistoryThreadResult,threadResultSchema)(created)).toBe(true);expect(accepts(readHistoryDelete,deleteSchema)(deleted)).toBe(true);
-  expect(()=>readHistoryDelete({...deleted,cleanup:'done'})).toThrow('history_unavailable');
+  expect(()=>readHistoryDelete({...deleted,cleanup:'done'})).toThrow('history_unavailable');expect(()=>readHistoryDelete({...deleted,cleanup:['pending']})).toThrow('history_unavailable');
  });
 });
