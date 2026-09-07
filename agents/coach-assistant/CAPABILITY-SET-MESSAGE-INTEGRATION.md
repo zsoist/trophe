@@ -1,0 +1,13 @@
+# Active-set and human-message registry extension
+
+Delta on e1ff56a + 4d36ba8; no new SQL/writer/DDL/route/UI. Reuses reviewed set service f4b9b0b and message service 8644663. Selector prompt version coach-assistant.capability.v2.
+
+Server registry accepts optional set, selectedSetId and message service. selectedSetId must be a valid UUID supplied by the server composition after explicit selection (or the existing canonical set.resolve result with unambiguous session/exercise selection). It is not accepted from model arguments. No selected ID means set tools unavailable and no inferred last set. Request/parser/UI plumbing for a set selection remains AG1's responsibility; this module does not pretend session ID or exercise ID equals set ID.
+
+New model choices: workout.set.read {} and workout.set.propose {reps}; coach.message.recipient {} and coach.message.propose {message}. Unknown arguments (setId/coachId/subjectId overrides) are rejected. Capabilities are global across surfaces: service availability and server selection determine eligibility, not route exclusion.
+
+Set registry invokes existing set.read, then set.propose using the canonical version. Existing ownership and completed_at guard remain; session_completed is returned as rejected with no proposal/write. Message registry invokes message.recipient, then message.propose using the exact current recipient/version and normalized reviewed text. No apply, send or receipt tool exists. The recipient name, UUID, exact text, hash and expiry remain in canonical proposal output for explicit UI review. No message INSERT/rate consumption occurs at proposal time; no actual recipient was contacted in development.
+
+Both paths consume at most two counted service reads plus optional personalContext, continue through the same open generator as invocation two, and inherit max4reads/deadline45s/cancel/no-retry. None still follows the grounded weekly/day/exercise path from 4d36ba8. All results are data, applied:false, never execution receipts.
+
+Validation:54 tests across registry boundaries, concrete set/message/Food/profile SQL-double services and existing continuation/context-budget tests. Natural request→injected structured provider→real canonical service proposal→review-only continuation tested for set and message; session_completed, missing set selection, arbitrary set/recipient argument and apply tool rejection covered. None weekly/profile/exercise regressions remain passing. Scoped TypeScript/lint pass. No SQL/RLS/HTTP/UI/real provider calls; US$0. Independent AG4 review pending. AG1 integrates after prior engine/registry/service prerequisites, keeping existing self-only authorization.

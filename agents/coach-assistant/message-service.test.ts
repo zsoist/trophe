@@ -1,3 +1,7 @@
+import { runConversation } from './conversation';
+import { createCoachCapabilityRegistry } from './capability-registry';
+import { fixtureRepository } from './fixtures';
+import type { OfflineConversationProvider } from './open-conversation';
 import { describe,it,expect,vi } from 'vitest';
 import { PgDialect } from 'drizzle-orm/pg-core';
 import { createCoachMessageService } from './message-service';
@@ -26,7 +30,7 @@ function fixture(){
  const database={transaction:async(fn:(connection:typeof tx)=>Promise<unknown>)=>{const before=structuredClone({proposals,messages,receipts});let result;try{result=await fn(tx);}catch(error){({proposals,messages,receipts}=before);throw error;}if(lost){lost=false;throw new Error('response lost after fixture commit');}return result;}} as unknown as Parameters<typeof createCoachMessageService>[0];
  const service=createCoachMessageService(database,rate);
  const execute=(operation:CoachMessageOperation)=>service.execute({actorId:actor,subjectId:actor,organizationId:org,operation,signal:new AbortController().signal});
- return {execute,rate,deleteMessage:(messageId:string)=>{delete messages[messageId];},state:()=>({messages,receipts}),lose:()=>{lost=true;},fail:()=>{receiptFails=true;},revoke:()=>{allowed=false;},aba:()=>{revision='3';coachId=coach;}};
+ return {service,execute,rate,deleteMessage:(messageId:string)=>{delete messages[messageId];},state:()=>({messages,receipts}),lose:()=>{lost=true;},fail:()=>{receiptFails=true;},revoke:()=>{allowed=false;},aba:()=>{revision='3';coachId=coach;}};
 }
 async function proposal(f:ReturnType<typeof fixture>){const recipient=await f.execute({...base,operation:'message.recipient'});if(!recipient.ok||!('recipient'in recipient))throw Error('recipient');const result=await f.execute({...base,operation:'message.propose',coachId:coach,resourceVersion:recipient.recipient.version,after:{message:'  Exact reviewed text  '}});if(!result.ok||!('proposal'in result))throw Error('proposal');return {...base,operation:'message.apply' as const,coachId:coach,proposalId:result.proposal.id,hash:result.proposal.hash,resourceVersion:recipient.recipient.version,actionId:id(6),reviewed:true as const};}
 describe('human message SQL transaction double (no real sends)',()=>{
@@ -40,6 +44,13 @@ describe('human message SQL transaction double (no real sends)',()=>{
   expect(await f.execute(apply)).toEqual(first);
   expect(await f.execute({...base,operation:'message.receipt',coachId:coach,actionId:apply.actionId})).toEqual(first);
   expect(f.state().messages).toEqual({});expect(f.rate).toHaveBeenCalledTimes(1);
+ });
+
+ it('uses injected open-model intent and the concrete message service to prepare review only',async()=>{
+  const f=fixture();const repo=fixtureRepository();repo.authorize=async()=>({actorId:actor,subjectId:actor,organizationId:org,timezone:'UTC',language:'en'});
+  let calls=0;const provider:OfflineConversationProvider=async input=>{calls++;if(calls===2)expect(JSON.parse(input.prompt).capabilityResult.status).toBe('review_required');return {output:calls===1?{tool:'coach.message.propose',args:{message:'Please help review my plan.'}}:{answer:'Please review the proposal before deciding.',evidenceRefs:[],entityRefs:[],facts:[],generalExplanationRefs:[],followUp:null,limitations:[],escalation:false},usage:{inputTokens:100,outputTokens:50},rawStatus:200,latencyMs:1};};
+  const result=await runConversation({...base,message:'Draft a message asking my coach to review my plan',context:{surface:'progress',includeScreen:true}},{actorId:actor,repository:repo,mode:'model',offlineCandidateEvaluation:true,offlineConversationProvider:provider,capabilityRegistry:createCoachCapabilityRegistry({message:f.service}),signal:new AbortController().signal,now:new Date('2026-09-07T12:00:00Z')});
+  expect(result.ok,JSON.stringify(result.error)).toBe(true);expect(result.capabilityResult).toMatchObject({status:'review_required',applied:false});expect(result.telemetry).toMatchObject({modelCalls:2,dataReads:2});expect(result.receipts).toEqual([]);expect(f.state().receipts).toEqual({});expect(f.state().messages).toEqual({});expect(f.rate).not.toHaveBeenCalled();
  });
 
 });

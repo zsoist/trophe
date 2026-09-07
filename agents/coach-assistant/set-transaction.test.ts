@@ -1,3 +1,7 @@
+import { runConversation } from './conversation';
+import { createCoachCapabilityRegistry } from './capability-registry';
+import { fixtureRepository } from './fixtures';
+import type { OfflineConversationProvider } from './open-conversation';
 import { describe,it,expect } from 'vitest';
 import { PgDialect } from 'drizzle-orm/pg-core';
 import { createWorkoutSetService } from './set-service';
@@ -39,7 +43,7 @@ function fixture() {
   }} as unknown as Parameters<typeof createWorkoutSetService>[0];
   const service=createWorkoutSetService(database);
   const execute=(operation:WorkoutSetOperation)=>service.execute({actorId:actor,subjectId:actor,organizationId:org,signal:new AbortController().signal,operation});
-  return {execute,finish:()=>{completedAt="2026-09-07T12:02:00Z";},revoke:()=>{authorized=false;},foreign:()=>{owned=false;},loseCommit:()=>{lostCommit=true;},candidates:(rows:typeof candidates)=>{candidates=rows;},state:()=>({row,revision,receipts}),failReceipt:()=>{receiptFails=true;},manualEdit:()=>{row.reps=12;revision++;}};
+  return {service,execute,finish:()=>{completedAt="2026-09-07T12:02:00Z";},revoke:()=>{authorized=false;},foreign:()=>{owned=false;},loseCommit:()=>{lostCommit=true;},candidates:(rows:typeof candidates)=>{candidates=rows;},state:()=>({row,revision,receipts}),failReceipt:()=>{receiptFails=true;},manualEdit:()=>{row.reps=12;revision++;}};
 }
 describe('concrete Workout transaction service through an injected SQL transaction',()=>{
   it('prepares canonical 8→10 review, applies the shared writer and recovers the same receipt',async()=>{
@@ -93,5 +97,18 @@ describe('concrete Workout transaction service through an injected SQL transacti
     const applied=await g.execute({...apply,proposalId:q.proposal.id,hash:q.proposal.hash});g.finish();
     expect(await g.execute({...base,operation:'set.receipt',actionId:id(6)})).toEqual(applied);
   });
+
+ it('uses injected open-model intent and the concrete set service to prepare review only',async()=>{
+  const f=fixture();const repo=fixtureRepository();repo.authorize=async()=>({actorId:actor,subjectId:actor,organizationId:org,timezone:'UTC',language:'en'});
+  let calls=0;const provider:OfflineConversationProvider=async input=>{calls++;if(calls===2)expect(JSON.parse(input.prompt).capabilityResult.status).toBe('review_required');return {output:calls===1?{tool:'workout.set.propose',args:{reps:10}}:{answer:'Please review the proposal before deciding.',evidenceRefs:[],entityRefs:[],facts:[],generalExplanationRefs:[],followUp:null,limitations:[],escalation:false},usage:{inputTokens:100,outputTokens:50},rawStatus:200,latencyMs:1};};
+  const result=await runConversation({version:base.version,conversationId:base.conversationId,turnId:base.turnId,message:'Correct my selected set to ten reps',context:{surface:'progress',includeScreen:true}},{actorId:actor,repository:repo,mode:'model',offlineCandidateEvaluation:true,offlineConversationProvider:provider,capabilityRegistry:createCoachCapabilityRegistry({set:f.service,selectedSetId:entry}),signal:new AbortController().signal,now:new Date('2026-09-07T12:00:00Z')});
+  expect(result.ok,JSON.stringify(result.error)).toBe(true);expect(result.capabilityResult).toMatchObject({status:'review_required',applied:false});expect(result.telemetry).toMatchObject({modelCalls:2,dataReads:2});expect(result.receipts).toEqual([]);expect(f.state().receipts).toEqual({});expect(f.state().row.reps).toBe(8);
+ });
+
+ it('keeps session_completed terminal through the registry',async()=>{
+  const f=fixture();f.finish();const context={actorId:actor,subjectId:actor,organizationId:org,timezone:'UTC',language:'en'};const repo=fixtureRepository();repo.authorize=async()=>context;
+  let reads=0;const result=await createCoachCapabilityRegistry({set:f.service,selectedSetId:entry}).execute({tool:'workout.set.propose',args:{reps:10}},{version:base.version,conversationId:base.conversationId,turnId:base.turnId,message:'Correct selected set'},repo,context,new AbortController().signal,()=>{reads++;});
+  expect(result).toMatchObject({status:'rejected',result:{error:'session_completed'},applied:false});expect(reads).toBe(1);expect(f.state().row.reps).toBe(8);
+ });
 
 });
