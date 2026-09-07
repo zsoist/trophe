@@ -1,3 +1,4 @@
+import { isIsolatedEngineBoundary, type IsolatedEngineBoundary } from './isolated-engine-boundary';
 import { GENERAL_EXPLANATIONS, GENERAL_EXPLANATION_VERSION, availableGeneralExplanations } from './curated-explanations';
 import { COACH_CANDIDATE_PROMPT_VERSION, COACH_CANDIDATE_SYSTEM_PROMPT } from './prompt.v5';
 import { z } from 'zod';
@@ -27,8 +28,8 @@ export const candidateConversationSchema=openConversationSchema.extend({generalE
 /** Deterministic bounds and source binding do not establish semantic truth of prose.
  * Independent adversarial review and a paid quality evaluation remain necessary.
  */
-export async function generateOpenConversation(input:CoachConversationRequest,response:CoachConversationResponse,provider:OfflineConversationProvider,signal:AbortSignal,reviewInterpretation?:OfflineInterpretationReview,candidateEvaluation=false):Promise<void> {
-  if(response.dataSource!=='synthetic')throw new Error('budget_blocked');
+export async function generateOpenConversation(input:CoachConversationRequest,response:CoachConversationResponse,provider:OfflineConversationProvider,signal:AbortSignal,reviewInterpretation?:OfflineInterpretationReview,candidateEvaluation=false,isolatedBoundary?:IsolatedEngineBoundary):Promise<void> {
+  if(response.dataSource!=='synthetic'&&!isIsolatedEngineBoundary(isolatedBoundary,provider))throw new Error('budget_blocked');
   const facts=response.evidence;
   const entities=[...new Set(facts.flatMap(f=>f.sourceIds))].map((id,index)=>({alias:`entity:${index+1}`,evidenceRefs:facts.filter(f=>f.sourceIds.includes(id)).map(f=>f.id)}));
   const curated=availableGeneralExplanations(facts);
@@ -105,9 +106,9 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
     response.explanations=[...new Set(candidate.generalExplanationRefs)].map(id=>({kind:'curated_general',id,text:GENERAL_EXPLANATIONS[id][language],source:GENERAL_EXPLANATION_VERSION}));
   }
   const canonicalFacts=[...new Set(output.facts.map(fragment=>fragment.evidenceId))].map(id=>facts.find(f=>f.id===id)!.statement);
-  response.output={answer:`Synthetic provider fixture evaluation. ${candidateEvaluation?'Unapproved conversational candidate':'Offline oracle-reviewed interpretation'}: ${output.answer}${canonicalFacts.length?'\nRecorded facts:\n'+canonicalFacts.join('\n'):''}`,evidenceRefs:output.evidenceRefs,
+  response.output={answer:`${response.dataSource==='synthetic'?'Synthetic provider fixture evaluation.':'Isolated transport fixture evaluation using authorized records.'} ${candidateEvaluation?'Unapproved conversational candidate':'Offline oracle-reviewed interpretation'}: ${output.answer}${canonicalFacts.length?'\nRecorded facts:\n'+canonicalFacts.join('\n'):''}`,evidenceRefs:output.evidenceRefs,
     limitations:[...(response.output?.limitations??[]).filter(value=>value!=='open_ended_interpretation_not_connected'),'offline_transport_not_live_model_quality','prose_semantics_require_independent_evaluation',...output.limitations],
     suggestions:output.followUp?[output.followUp]:[],escalation:{required:output.escalation,reason:output.escalation?'coach_review':null,draft:null}};
   const model=response.snapshot?.capabilities.find(c=>c.key==='model');
-  if(model){model.status='not_connected';model.reason='synthetic_injected_provider_only';}
+  if(model){model.status='not_connected';model.reason=response.dataSource==='synthetic'?'synthetic_injected_provider_only':'isolated_authorized_records_fixture_transport';}
 }

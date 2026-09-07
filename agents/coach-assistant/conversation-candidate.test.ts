@@ -19,7 +19,7 @@ describe('unapproved full conversation release candidate (injected transport, no
     const transport=provider(answer,followUp);
     const result=await runConversationCandidate({...base,message,history:[{role:'user',text:'I want to understand this week’s food log.'}]},{...options(),offlineConversationProvider:transport});
     expect(result.error).toBeUndefined();expect(result.ok).toBe(true);expect(result.output?.answer).toContain(answer);expect(result.output?.suggestions).toEqual([followUp]);
-    expect(result.evaluation).toEqual({release:'unapproved_candidate',semanticQualityVerified:false});
+    expect(result.evaluation).toMatchObject({release:'unapproved_candidate',semanticQualityVerified:false});
     expect(result.explanations?.[0]).toMatchObject({kind:'curated_general',id:'records_are_partial_view',source:'coach-general.v1'});
     expect(result.evidence.length).toBeGreaterThan(0);expect(result.receipts).toEqual([]);expect(result.proposals).toEqual([]);
     expect(transport).toHaveBeenCalledTimes(1);

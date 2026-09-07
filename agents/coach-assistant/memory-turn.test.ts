@@ -1,3 +1,4 @@
+import { createIsolatedCoachEngineBinding } from './isolated-engine';
 import { describe,it,expect,vi } from 'vitest';
 import { createPersistentMemoryTurn } from './memory-turn';
 import { handleCoachRequest } from './handler';
@@ -41,6 +42,14 @@ describe('fresh confirmed memory turn and derived context boundary',()=>{
   f.context.organizationId=id(9);const changed=f.turn();await changed.repository.personalContext!(f.args);expect(changed.filterHistory({...request,history:[{role:'assistant',text:'Original',derivedToken:response.memoryContext!.derivedHistoryToken}]}).history).toEqual([]);
   f.repository.authorize=vi.fn().mockResolvedValueOnce({...f.context}).mockRejectedValue(new Error('forbidden'));
   await expect(f.turn().repository.personalContext!(f.args)).rejects.toThrow('forbidden');
+ });
+ it('filters obsolete signed history at the actual authorized engine generation boundary',async()=>{
+  const f=fixture();const engine=createIsolatedCoachEngineBinding({CI:'true',GITHUB_ACTIONS:'true',CI_REAL_SUPABASE:'1',COACH_ASSISTANT_ISOLATED_ENGINE_ENABLED:'1',COACH_ASSISTANT_DATA_SOURCE:'authorized_records',DATABASE_URL:'postgresql://fixture@127.0.0.1:54322/postgres',NEXT_PUBLIC_SUPABASE_URL:'http://127.0.0.1:54321'});
+  const first=f.turn();const options={mode:'model' as const,actorId:id(1),now:new Date('2026-09-07T00:00:00Z'),signal:f.args.signal};
+  const result=await engine.run(request,{...options,repository:first.repository,filterMemoryHistory:first.filterHistory});expect(result.ok).toBe(true);first.finish(result);
+  f.setCards([]);const next=f.turn();const filter=vi.fn(next.filterHistory);
+  const nextResult=await engine.run({...request,turnId:id(8),history:[{role:'assistant',text:result.output!.answer.slice(0,500),derivedToken:result.memoryContext!.derivedHistoryToken},{role:'user',text:'Could we continue the discussion?'}]},{...options,repository:next.repository,filterMemoryHistory:filter});
+  expect(nextResult.ok).toBe(true);expect(nextResult.memories).toEqual([]);expect(filter).toHaveBeenCalledTimes(2);expect(filter.mock.results[1].value.history).toEqual([{role:'user',text:'Could we continue the discussion?'}]);
  });
  it('gates HTTP operations and serves confirmed cards in the existing turn response without extra model calls',async()=>{
   const f=fixture();const createMemoryService=vi.fn(()=>f.service);

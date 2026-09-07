@@ -1,3 +1,4 @@
+import { isIsolatedEngineBoundary, type IsolatedEngineBoundary } from './isolated-engine-boundary';
 import { generateOpenConversation, type OfflineConversationProvider, type OfflineInterpretationReview } from './open-conversation';
 import { selectConversationScope, evidenceMatchesScope } from './conversation-scope';
 import { createHash, randomUUID } from 'node:crypto';
@@ -12,7 +13,7 @@ import { COACH_PRICING_VERSION } from './economics';
 import { COACH_PROMPT_VERSION } from './prompt.v3';
 
 /** History is a hint for a window/domain, never a source of facts or authority. */
-export async function runConversation(raw: unknown, options: RunOptions & { isolatedActionsEnabled?:boolean; offlineConversationProvider?:OfflineConversationProvider; offlineInterpretationReview?:OfflineInterpretationReview; offlineCandidateEvaluation?:boolean; filterMemoryHistory?:(input:import('./contracts').CoachConversationRequest)=>import('./contracts').CoachConversationRequest }): Promise<CoachConversationResponse> {
+export async function runConversation(raw: unknown, options: RunOptions & { isolatedActionsEnabled?:boolean; offlineConversationProvider?:OfflineConversationProvider; offlineInterpretationReview?:OfflineInterpretationReview; offlineCandidateEvaluation?:boolean; isolatedFixtureBoundary?:IsolatedEngineBoundary; filterMemoryHistory?:(input:import('./contracts').CoachConversationRequest)=>import('./contracts').CoachConversationRequest }): Promise<CoachConversationResponse> {
   const start = performance.now();
   const parsed = conversationRequestSchema.safeParse(raw);
   const response: CoachConversationResponse = {
@@ -32,7 +33,7 @@ export async function runConversation(raw: unknown, options: RunOptions & { isol
     const input = parsed.data;
     const work = async () => {
       controller.signal.throwIfAborted();
-      if(options.mode==='model'&&(!options.offlineConversationProvider||options.repository.dataSource!=='synthetic'))throw new Error('budget_blocked');
+      if(options.mode==='model'&&(!options.offlineConversationProvider||options.repository.dataSource!=='synthetic'&&!isIsolatedEngineBoundary(options.isolatedFixtureBoundary,options.offlineConversationProvider)))throw new Error('budget_blocked');
       const subject = input.context?.clientId ?? options.actorId;
       const authorized = await options.repository.authorize(options.actorId,subject,controller.signal);
       controller.signal.throwIfAborted();
@@ -90,7 +91,7 @@ export async function runConversation(raw: unknown, options: RunOptions & { isol
         }
       }
       if(options.mode==='model'&&!medical) {
-        await generateOpenConversation(options.filterMemoryHistory?.(input)??input,response,options.offlineConversationProvider!,controller.signal,options.offlineInterpretationReview,options.offlineCandidateEvaluation);
+        await generateOpenConversation(options.filterMemoryHistory?.(input)??input,response,options.offlineConversationProvider!,controller.signal,options.offlineInterpretationReview,options.offlineCandidateEvaluation,options.isolatedFixtureBoundary);
         await repository.authorize(options.actorId,subject,controller.signal);
         controller.signal.throwIfAborted();
       }
