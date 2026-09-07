@@ -181,3 +181,17 @@ def scale_reference(config,out):
     if not config.get('diagnostic_only'):assert maximum<.025,maximum
     s.frame_set(1);bpy.ops.wm.save_as_mainfile(filepath=str(out/'incline.blend'))
     (out/'scale-reference.json').write_text(json.dumps({'cause':'Confirmed near-zero/inverting scale in left mid-forearm inherited from native50% COPY_TRANSFORMS blend when hand orientation opposes forearm. Existing COPY_ROTATION preserved orientation but did not prevent singular inherited scale, making Stretch To unstable.','intervention':'Native COPY_TRANSFORMS from the existing positively oriented calibrated forearm reference on both middle tweaks. COPY_SCALE alone retained the negative determinant and failed; full transform replacement removes the inherited singular matrix. Reference retains midpoint offset, rotation and scale calibrated fromV1 frame1. IK, wrists, grasp, motion and body weights remain unchanged.','rows':rows,'determinants':determinant,'diagnostic_only':config.get('diagnostic_only',False),'max_surface_step_m':maximum,'closure_surface_m':float(np.linalg.norm(p-first,axis=1).max()),'human_reviews':'pending'},indent=2));return {'maximum_step_m':maximum,'closure_m':float(np.linalg.norm(p-first,axis=1).max())}
+
+
+def garment_rest_clearance(config,out):
+    # Nearest-point projection during flexion can switch from upper arm to
+    # forearm. Fit once in the original skeleton rest pose, then use skinning.
+    bpy.ops.wm.open_mainfile(filepath=config['animation_source']);s=bpy.context.scene;r=bpy.data.objects['Trophe_R2_Authoring'];c=bpy.data.objects['SportsTank'];s.frame_set(1)
+    r.data.pose_position='REST';bpy.context.view_layer.update()
+    wrap=c.modifiers['Native garment skin clearance'];bpy.ops.object.select_all(action='DESELECT');c.select_set(True);bpy.context.view_layer.objects.active=c
+    bpy.ops.object.modifier_move_to_index(modifier=wrap.name,index=0)
+    bpy.ops.object.modifier_apply(modifier=wrap.name)
+    r.data.pose_position='POSE';s.frame_set(1);bpy.context.view_layer.update()
+    bpy.ops.wm.save_as_mainfile(filepath=str(out/'incline.blend'))
+    record={'cause':'Visible sleeve spikes and strips when live whole-body nearest-surface projection selects the opposing forearm during elbow flexion.','change':'Apply native Shrinkwrap4mm clearance once on garment in original skeleton REST before armature deformation; retain fitted garment geometry, native transferred weights, PV, subdivision and shell. No live closest-surface reassignment. Body, rig, grasp and motion unchanged.','human_reviews':'pending'}
+    (out/'garment-clearance.json').write_text(json.dumps(record,indent=2));return record
