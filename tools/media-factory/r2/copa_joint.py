@@ -297,3 +297,28 @@ def contact_constraint(config,out):
         delta=np.linalg.norm(p-old,axis=1);rows.append({'frame':f,'max_surface_change_m':float(delta.max()),'changed_over_10um_source_ids':[ids[i] for i in np.where(delta>1e-5)[0]],'prop_matrix_delta':float(abs(m-oldm).max()),'wrist_target_error_m':{side:((r.matrix_world@r.pose.bones['ORG-hand.'+side].head)-bpy.data.objects['Copa wrist target '+side].matrix_world.translation).length for side in ['L','R']}})
     images('after');s.frame_set(1);bpy.ops.wm.save_as_mainfile(filepath=str(out/'triceps.blend'))
     record={'source':config['animation_source'],'intervention':constraints,'rows':rows,'scope':'Only two native COPY_TRANSFORMS constraints added. Existing prop animation, body geometry/weights, fingers and arm animation untouched. Images use identical camera/light before/after.','human_reviews':'pending','adopted':False};(out/'contact-constraint.json').write_text(json.dumps(record,indent=2));return {'frames':len(rows),'adopted':False}
+
+
+def contact_chain_inspect(config,out):
+    """Read-only native constraint and connection authority snapshot."""
+    rows=[]
+    for entry in config['sources']:
+        bpy.ops.wm.open_mainfile(filepath=entry['path'],load_ui=False,use_scripts=False)
+        s=bpy.context.scene;r=bpy.data.objects['Trophe_R2_Authoring'];f=entry['frame'];s.frame_set(math.floor(f),subframe=f-math.floor(f));bpy.context.view_layer.update()
+        row={'source':entry['path'],'frame':f,'bones':{}}
+        names=['hand_fk','MCH-hand_fk','ORG-hand','DEF-hand','ORG-forearm','forearm_fk','DEF-forearm','DEF-forearm.L.001']
+        for side in ['L','R']:
+            target=bpy.data.objects['Copa wrist target '+side];row['target_'+side]=list(map(list,target.matrix_world))
+            for stem in names:
+                name=stem+'.'+side if '.L.' not in stem else stem.replace('.L.','.'+side+'.')
+                b=r.pose.bones.get(name)
+                if not b:continue
+                cs=[]
+                for c in b.constraints:
+                    rec={k:getattr(c,k) for k in ['name','type','influence','mute','owner_space','target_space'] if hasattr(c,k)}
+                    for k in ['subtarget','mix_mode','use_offset','head_tail','use_x','use_y','use_z']:
+                        if hasattr(c,k):rec[k]=getattr(c,k)
+                    rec['target']=c.target.name if hasattr(c,'target') and c.target else None;cs.append(rec)
+                row['bones'][name]={'parent':b.parent.name if b.parent else None,'connected':b.bone.use_connect,'inherit_scale':b.bone.inherit_scale,'matrix_world':list(map(list,r.matrix_world@b.matrix)),'head_world':list(r.matrix_world@b.head),'tail_world':list(r.matrix_world@b.tail),'constraints':cs,'custom':{k:v for k,v in b.items() if isinstance(v,(str,int,float))}}
+        rows.append(row)
+    (out/'chain.json').write_text(json.dumps({'rows':rows,'source_modified':False},indent=2));return {'sources':len(rows),'source_modified':False}
