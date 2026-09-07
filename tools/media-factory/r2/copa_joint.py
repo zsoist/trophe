@@ -143,7 +143,7 @@ def verify_render(config,out):
     import numpy as np
     from playback_qa import points
     from bpy_extras.object_utils import world_to_camera_view
-    frames=[1,17,33,49,64,76,95,112,121]
+    frames=config.get('source_check_frames',[1,17,33,49,64,76,95,112,121])
     bpy.ops.wm.open_mainfile(filepath=config['comparison_source'],load_ui=False,use_scripts=False)
     original={}
     for f in frames:
@@ -160,7 +160,7 @@ def verify_render(config,out):
     assert abs(orbit[-1]['angle_deg']-360)<.001
     assert max(abs(np.diff([q['angle_deg'] for q in orbit])-90))<.001
     assert np.linalg.norm(np.array(orbit[0]['camera_world'])-orbit[-1]['camera_world'])<1e-5
-    report={'passed':True,'retiming':rows,'orbit':orbit,'method':'Evaluated source surface compared at corresponding retimed subframes; world camera quarter-turns, closure, actual skin/equipment projected margins. Not human anatomy/technique approval.'}
+    report={'passed':True,'source_check_frames':frames,'cycle_frames':config.get('cycle_frames'),'retiming':rows,'orbit':orbit,'method':'Evaluated source surface compared at corresponding retimed subframes; world camera quarter-turns, closure, actual skin/equipment projected margins. Not human anatomy/technique approval.'}
     (out/'render-regression.json').write_text(json.dumps(report,indent=2));return report
 
 def time_fix(config,out):
