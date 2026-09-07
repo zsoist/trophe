@@ -104,7 +104,7 @@ export function createPreferenceStore(fixtures:FixtureScope[], primitives:Prefer
         const invalidatedMemoryVersions=[{id:memory.id,version:memory.version}];
         if(next)memories.set(memoryKey,next);else memories.delete(memoryKey);
         receipts.set(key,{receipt,proposalId:proposal.id,hash:proposal.hash,version:input.resourceVersion,conversation:input.conversationId,memory:next,invalidatedMemoryVersions});
-        return result({ok:true,receipt:structuredClone(receipt),memory:structuredClone(next),invalidatedMemoryVersions});
+        return result({ok:true,receipt:structuredClone(receipt),memory:structuredClone(next),invalidatedMemoryVersions:structuredClone(invalidatedMemoryVersions)});
       }
       if(input.resourceVersion!==version||proposal.resource.version!==version)return result({ok:false,error:'version_conflict'});
       if(receipts.size>=256)return result({ok:false,error:'uncertain'});
