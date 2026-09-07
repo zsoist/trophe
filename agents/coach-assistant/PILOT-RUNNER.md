@@ -81,3 +81,11 @@ reservation, records unpricedModel and accountingAlert, and blocks subsequent
 reserve/dispatch through the pilot aggregate. No ordinary settle can clear that
 record; explicit future reconciliation is required. A failed persistence call
 still leaves the dispatched reservation held; the runner stops without retry.
+
+Integration boundary: runner now requires an explicit typed `candidate` dependency
+with `promptVersion` and `run`. It imports no candidate engine, open-conversation
+module or candidate prompt. The supplied promptVersion must equal the governed
+request policy version before any reserve/dispatch. There is no default engine
+or endpoint binding. Runner tests use a small transport/shape fixture only;
+their passes make no claim about candidate conversation quality. A future
+composition root must explicitly supply a reviewed candidate implementation.
