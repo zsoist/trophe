@@ -31,7 +31,7 @@ export interface PilotCaseMeasurement {
   reviewText?:{answer:string;suggestions:string[]};
 }
 export type PilotEvaluationReport={ok:false;error:'invalid_input'|'budget_blocked';releaseApproved:false}|{
-  ok:true;releaseApproved:false;pilotId:string;evaluationId:string;mode:'injected'|'live';datasetVersion:string;promptVersion:string;pricingVersion:string;model:'gpt-5.6-luna';
+  ok:true;releaseApproved:false;pilotId:string;evaluationId:string;mode:'injected'|'live';datasetVersion:string;promptVersion:string;pricingVersion:string;requestedModel:'gpt-5.6-luna';returnedModel:null;
   actualProviderCalls:number;injectedProviderCalls:number;allStructuralChecksPassed:boolean;cases:PilotCaseMeasurement[];
   measuredUsageCostUsd:number|null;simulatedUsageCostUsd:number|null;
 };
@@ -120,5 +120,5 @@ export async function runCoachPilotEvaluation(raw:unknown,deps:{store:PilotBudge
   }
   const sum=(key:'measuredUsageCostUsd'|'simulatedUsageCostUsd')=>measurements.some(item=>item.modelCalls>0&&item[key]===null||['unknown','recovered'].includes(item.accounting))?null:measurements.reduce((total,item)=>total+(item[key]??0),0);
   const calls=measurements.reduce((total,item)=>total+item.modelCalls,0);
-  return {ok:true,releaseApproved:false,pilotId:input.pilotId,evaluationId:input.evaluationId,mode:input.mode,datasetVersion:COACH_PILOT_DATASET_VERSION,promptVersion:COACH_CANDIDATE_PROMPT_VERSION,pricingVersion:COACH_PRICING_VERSION,model:'gpt-5.6-luna',actualProviderCalls:input.mode==='live'?calls:0,injectedProviderCalls:input.mode==='injected'?calls:0,allStructuralChecksPassed:measurements.length===selected.length&&measurements.every(item=>item.structuralCheckPassed),cases:measurements,measuredUsageCostUsd:input.mode==='live'?sum('measuredUsageCostUsd'):null,simulatedUsageCostUsd:input.mode==='injected'?sum('simulatedUsageCostUsd'):null};
+  return {ok:true,releaseApproved:false,pilotId:input.pilotId,evaluationId:input.evaluationId,mode:input.mode,datasetVersion:COACH_PILOT_DATASET_VERSION,promptVersion:COACH_CANDIDATE_PROMPT_VERSION,pricingVersion:COACH_PRICING_VERSION,requestedModel:'gpt-5.6-luna',returnedModel:null,actualProviderCalls:input.mode==='live'?calls:0,injectedProviderCalls:input.mode==='injected'?calls:0,allStructuralChecksPassed:measurements.length===selected.length&&measurements.every(item=>item.structuralCheckPassed),cases:measurements,measuredUsageCostUsd:input.mode==='live'?sum('measuredUsageCostUsd'):null,simulatedUsageCostUsd:input.mode==='injected'?sum('simulatedUsageCostUsd'):null};
 }
