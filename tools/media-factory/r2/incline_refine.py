@@ -292,3 +292,21 @@ def pose_fold(config,out):
             e=r.matrix_world@r.pose.bones['ORG-forearm.L'].head;place(cam,e+Vector((-1,-1,.45)),e,.40);s.render.filepath=str(out/'inner-elbow.png');bpy.ops.render.render(write_still=True)
     assert rows[0]['surface_delta_max_m']<1e-6
     s.frame_set(1);bpy.ops.wm.save_as_mainfile(filepath=str(out/'incline.blend'));(out/'pose-fold.json').write_text(json.dumps({'method':'Native local pose-dependent fold correction in actual crossing region, two feather rings. No displacement cap; report actual surface displacement. Existing control isolation did not resolve crossings, so no hinge variant adopted. Original body, pose, grip, native rig and motion retained outside local region.','region':changed,'rows':rows,'adopted':False,'human_reviews':'pending'},indent=2));return {'max_pairs':max(v['intersection_pairs'] for row in rows for v in row['after_skin'].values())}
+
+
+def garment_surface_bind(config,out):
+    # Replace frame-by-frame nearest projection with Blender's native persistent
+    # surface binding. The binding is computed once in original skeleton REST.
+    bpy.ops.wm.open_mainfile(filepath=config['animation_source']);s=bpy.context.scene;b=bpy.data.objects['Trophe_R2_Athlete'];r=bpy.data.objects['Trophe_R2_Authoring'];old=bpy.data.objects['SportsTank']
+    s.frame_set(1);r.data.pose_position='REST'
+    for m in old.modifiers:
+        if m.type=='SOLIDIFY':m.show_viewport=m.show_render=False
+    bpy.context.view_layer.update();dg=bpy.context.evaluated_depsgraph_get();ev=old.evaluated_get(dg);mesh=bpy.data.meshes.new_from_object(ev,preserve_all_data_layers=True,depsgraph=dg)
+    cloth=bpy.data.objects.new('Persistent surface-bound jersey',mesh);s.collection.objects.link(cloth);cloth.matrix_world=old.matrix_world.copy()
+    proxy=b.copy();proxy.data=b.data.copy();s.collection.objects.link(proxy);proxy.name='Incline native cloth binding surface';proxy.hide_render=True;proxy.display_type='WIRE';proxy.modifiers.new('Triangulated native cloth binding target','TRIANGULATE')
+    bpy.data.objects.remove(old,do_unlink=True);cloth.name='SportsTank';bpy.ops.object.select_all(action='DESELECT');cloth.select_set(True);bpy.context.view_layer.objects.active=cloth
+    bind=cloth.modifiers.new('Persistent native garment surface binding','SURFACE_DEFORM');bind.target=proxy;bind.falloff=4.;bpy.context.view_layer.update();bpy.ops.object.surfacedeform_bind(modifier=bind.name);assert bind.is_bound
+    shell=cloth.modifiers.new('Textile thickness','SOLIDIFY');shell.thickness=.0012;shell.offset=1.;shell.use_even_offset=True;shell.thickness_clamp=1.
+    r.data.pose_position='POSE';s.frame_set(1);bpy.context.view_layer.update();bpy.ops.wm.save_as_mainfile(filepath=str(out/'incline.blend'))
+    record={'cause':'Nearest-surface projection switches triangle attachments around sleeve/axilla. Restricting collider did not eliminate switching; those variants are not adopted.','change':'Native Blender Surface Deform bound once to triangulated deformed body in original skeleton REST. Garment native fitted/subdivided surface with4mm rest clearance preserved; stable binding replaces nearest projection and duplicate garment skinning. Native1.2mm shell after deformation. Body masks and body skin unchanged.','vertices':len(mesh.vertices),'native_bound':bind.is_bound,'human_reviews':'pending'}
+    (out/'garment-surface-bind.json').write_text(json.dumps(record,indent=2));return record
