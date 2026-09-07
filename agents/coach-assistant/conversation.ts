@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { selectConversationScope, evidenceMatchesScope } from './conversation-scope';
 import { COACH_CONVERSATION_VERSION } from './contracts';
 import type { CoachCapability, CoachConversationResponse, CoachErrorCode } from './contracts';
 import { conversationRequestSchema } from './schema';
@@ -40,24 +41,14 @@ export async function runConversation(raw: unknown, options: RunOptions): Promis
         if(JSON.stringify(fresh)!==JSON.stringify(authorized)) throw new Error('forbidden');
         return fresh;
       }};
-      const text = input.message.normalize('NFKD').replace(/\p{M}/gu,'').toLowerCase();
-      const previous = [...(input.history ?? [])].reverse().find(item=>item.role==='user')?.text.toLowerCase() ?? '';
-      const followUp = /^(and|what about|how about|y |¿?y |et |also|tambien)\b/.test(text);
-      const hint = followUp ? `${previous}\n${text}` : text;
-      const intent = /today|hoy|aujourd|σημερα/.test(hint) ? 'today' : 'week';
-      const surface = input.context?.includeScreen ? input.context.surface : null;
-      const exerciseId = input.context?.includeScreen && input.context.entity?.kind === 'exercise' ? input.context.entity.id : undefined;
+      const {intent,surface,exerciseId,domain}=selectConversationScope(input);
       const result = await run({message:input.message,intent,clientId:input.context?.clientId,exerciseId}, {
         ...options, repository, signal:controller.signal, deadlineMs:Math.max(1,budget-(performance.now()-start)),
       });
       controller.signal.throwIfAborted();
       response.telemetry = result.telemetry;
       if(!result.ok) { response.error=result.error; return; }
-      const mentionsFood = /food|meal|nutri|calori|protein|comid|aliment|recip|recet/.test(hint);
-      const mentionsWorkout = /workout|train|exercise|sets|reps|entren|ejerc|series|plan/.test(hint);
-      const foodOnly = mentionsFood && !mentionsWorkout || !mentionsFood && !mentionsWorkout && ['food','recipe'].includes(surface ?? '');
-      const workoutOnly = mentionsWorkout && !mentionsFood || !mentionsFood && !mentionsWorkout && ['workout','plan','live','library','exercise','atlas'].includes(surface ?? '');
-      response.evidence = result.evidence.filter(f=>foodOnly ? f.source==='nutrition' : workoutOnly ? f.source!=='nutrition' : true);
+      response.evidence = result.evidence.filter(f=>evidenceMatchesScope(f.source,domain));
       const medical = result.output?.escalation.required && ['urgent_symptoms','medical_question','medical_context'].includes(result.output.escalation.reason ?? '');
       const capabilities: CoachCapability[] = [
         ...(['food_records','workout_records','active_plan'] as const).map(key=>({key,status:result.evidence.some(f=>key==='food_records'?f.source==='nutrition':key==='active_plan'?f.source==='plan':f.source==='workout')?'available' as const:'unknown' as const,reason:result.evidence.some(f=>key==='food_records'?f.source==='nutrition':key==='active_plan'?f.source==='plan':f.source==='workout')?'authorized_records':'no_supported_records'})),
