@@ -147,6 +147,9 @@ export async function invokeOpenAiStructured<T>(input: {
   strict?: boolean;
   /** Defaults to SDK-compatible three total attempts. Set to 1 for measured probes. */
   maxAttempts?: number;
+  /** Opt-in per task; omission preserves existing structured consumer behavior. */
+  reasoningEffort?: 'none' | 'low' | 'medium';
+  store?: false;
   fetchImpl?: typeof fetch;
   beforeTransportAttempt?: (endpoint: string) => unknown;
 }): Promise<ProviderResult<T>> {
@@ -193,7 +196,7 @@ export async function invokeOpenAiStructured<T>(input: {
       ? { max_tokens: input.maxTokens }
       : {
           max_completion_tokens: input.maxTokens,
-          reasoning_effort: 'none',
+          reasoning_effort: input.reasoningEffort ?? 'none',
         }),
     ...(supportsExplicitPromptCache ? {
       prompt_cache_key: promptCacheKey(input),
@@ -209,6 +212,7 @@ export async function invokeOpenAiStructured<T>(input: {
       },
     }],
     tool_choice: { type: 'function', function: { name: input.toolName } },
+    ...(input.store === false ? { store: false } : {}),
   });
   type OpenAiResponse = {
     id?: string;

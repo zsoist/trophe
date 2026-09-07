@@ -46,11 +46,16 @@ describe('AI runtime governance', () => {
   });
 
   it('defines governance limits and a prompt version for every task', () => {
-    for (const policy of Object.values(taskPolicies)) {
+    for (const [task, policy] of Object.entries(taskPolicies)) {
       expect(policy.timeoutMs).toBeGreaterThan(0);
       expect(policy.maxInputChars).toBeGreaterThan(0);
-      expect(policy.maxCostUsd).toBeGreaterThan(0);
+      if (task === 'coach_assistant') expect(policy.maxCostUsd).toBe(0);
+      else expect(policy.maxCostUsd).toBeGreaterThan(0);
       expect(policy.promptVersion.length).toBeGreaterThan(0);
     }
+  });
+  it('blocks the private coach live task under the zero-dollar pilot policy', () => {
+    expect(() => assertWithinRequestBudget(taskPolicies.coach_assistant, 'normal prompt'))
+      .toThrow('AI task is disabled by its cost policy');
   });
 });

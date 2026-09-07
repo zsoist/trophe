@@ -29,6 +29,7 @@ export type TaskName =
   | 'food_parse'
   | 'recipe_analyze'
   | 'coach_insight'
+  | 'coach_assistant' // Private grounded assistant; live budget disabled in initial wave
   | 'meal_suggest'
   | 'photo_analyze'
   | 'embed'
@@ -41,6 +42,8 @@ export type TaskName =
 export interface RoutingPolicy {
   provider: Provider;
   model: string;
+  /** Task-specific OpenAI effort; existing tasks retain their adapter default. */
+  reasoningEffort?: 'none' | 'low' | 'medium';
   costClass: CostClass;
   latencyClass: LatencyClass;
   maxTokens: number;
@@ -59,6 +62,12 @@ const HAIKU_MODEL = 'claude-haiku-4-5-20251001';
 const DEEPSEEK_FACTORY_MODEL = 'deepseek-v4-flash';
 
 export const taskPolicies: Record<TaskName, RoutingPolicy> = {
+  coach_assistant: {
+    provider: 'openai', model: LUNA_MODEL, reasoningEffort: 'low',
+    costClass: 'cheap', latencyClass: 'fast', maxTokens: 2000,
+    timeoutMs: 45000, maxInputChars: 6500, maxCostUsd: 0,
+    promptVersion: 'coach-assistant.v2',
+  },
   food_parse: {
     // Phase 2 decision: Luna won the canonical frozen-May instrument, produced
     // zero malformed outputs, and keeps consumer data in the compliance lane.

@@ -84,6 +84,8 @@ export async function invokeStructuredProvider<T>(input: {
   maxTokens?: number;
   /** OpenAI-only retry bound. Use 1 for strict measurement probes. */
   maxAttempts?: number;
+  /** Optional stateless OpenAI request, selected by the owning task. */
+  store?: false;
   userId?: string;
   /** Test/offline-only Anthropic transport injection. */
   fetchImpl?: typeof fetch;
@@ -130,6 +132,8 @@ export async function invokeStructuredProvider<T>(input: {
       validator: input.validator,
       strict,
       maxAttempts: input.maxAttempts,
+      reasoningEffort: input.policy.reasoningEffort,
+      store: input.store,
       fetchImpl: input.fetchImpl,
       beforeTransportAttempt: input.beforeTransportAttempt,
     });
