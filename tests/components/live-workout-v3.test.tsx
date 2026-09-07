@@ -85,6 +85,14 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe('LiveWorkout focused stage', () => {
+  it.each([90, 0])('starts rest from the explicit %s-second draft prescription', async (restSeconds) => {
+    if (state.draft?.kind !== 'strength') throw new Error('Strength fixture required');
+    workspace = { ...workspace, state: { ...state, draft: { ...state.draft, exercises: state.draft.exercises.map(exercise => ({ ...exercise, restSeconds })) } } };
+    render(<LiveWorkout exercises={[bench, row]} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Complete set' }));
+    expect(await screen.findByText(new RegExp(`/ ${restSeconds}s`))).toBeTruthy();
+  });
+
   it('keeps one current exercise in view with progress, target, set completion, rest, and the next exercise', async () => {
     render(<LiveWorkout exercises={[bench, row]} />);
 

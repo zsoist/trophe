@@ -69,7 +69,7 @@ function ReviewRoutes({ manifestUrl, authoredSupplement, onRender }: PreviewProp
       choice = { create: () => workspace.createDraftFromTemplate(template), replace: () => workspace.replaceDraftFromTemplate(template) };
     }
     if ((workspace.state.stage === 'draft' || workspace.state.stage === 'review') && !workspace.state.startRequest && !workspace.state.retrospectiveRequest) setRepeatChoice(choice);
-    else if (workspace.state.stage === 'home') { choice.create(); navigate('/dashboard/workout/build'); }
+    else if ((workspace.state.stage === 'home' || workspace.state.stage === 'completed') && !workspace.state.startRequest && !workspace.state.retrospectiveRequest) { choice.create(); navigate('/dashboard/workout/build'); }
   }, [repeat, workspace, data, exercises, t]);
   const savePlan = (draft: WorkoutDraft) => {
     if (draft.kind !== 'strength') return;
