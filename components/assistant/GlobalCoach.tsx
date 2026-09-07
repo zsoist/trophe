@@ -25,9 +25,12 @@ import { MemoryPanel } from './MemoryPanel';
 import { requestMemory } from './memory-client';
 import { DietController, type DietTransport } from './diet-state';
 import { DietPanel } from './DietPanel';
-import { HistoryPanel } from './HistoryPanel';
-import { requestHistory, type HistoryTransport } from './history-client';
+import dynamic from 'next/dynamic';
+import type { HistoryTransport } from './history-client';
+import { requestHistory } from './history-lazy-client';
 import { requestDiet } from './diet-client';
+
+const HistoryPanel = dynamic(() => import('./HistoryPanel').then(module => module.HistoryPanel));
 
 export type CoachContextSlot = (props: { controller: PreferenceController; state: PreferenceState; conversationId: string; transport: PreferenceTransport }) => ReactNode;
 export type CoachVoiceSlot = (props: { conversationId: string; onUse: (text: string) => boolean }) => ReactNode;
