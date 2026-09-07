@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { MessageCircle, Send, X } from 'lucide-react';
@@ -11,14 +11,15 @@ import { requestAttachment } from './attachment-client';
 import { AttachmentController } from './attachment-state';
 import { AttachmentPicker } from './AttachmentPicker';
 import { ContextCards } from './ContextCards';
-import { PreferenceController, type PreferenceTransport } from './preference-state';
+import { PreferenceController, type PreferenceTransport, type PreferenceState } from './preference-state';
 import { requestPreference } from './preference-client';
 
-type Props = { identity: string; subjectId?: string; example?: ConversationTransport; preferenceTransport?: PreferenceTransport };
+export type CoachContextSlot = (props: { controller: PreferenceController; state: PreferenceState; conversationId: string; transport: PreferenceTransport }) => ReactNode;
+type Props = { identity: string; subjectId?: string; example?: ConversationTransport; preferenceTransport?: PreferenceTransport; contextSlot?: CoachContextSlot };
 export default function GlobalCoach(props: Props) {
   return <CoachSurface key={`${props.identity}:${props.subjectId ?? props.identity}`} {...props} />;
 }
-function CoachSurface({ identity, subjectId, example, preferenceTransport }: Props) {
+function CoachSurface({ identity, subjectId, example, preferenceTransport, contextSlot }: Props) {
   const { t } = useGlobalCoachI18n();
   const path = usePathname();
   const surface = coachSurface(path);
@@ -66,7 +67,7 @@ function CoachSurface({ identity, subjectId, example, preferenceTransport }: Pro
     {anchor ? createPortal(launch, anchor) : launch}
     {open && <section id="global-coach" className={styles.panel} style={{ top: panelTop }} aria-labelledby="global-coach-title" onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); close(); } }}>
       <header className={styles.header}><div><h2 id="global-coach-title">{t('global_coach.title')}</h2><p>{t(example ? 'global_coach.example' : 'global_coach.identity')}</p></div><button type="button" onClick={close} aria-label={t('global_coach.close')}><X size={22} /></button></header>
-      {latestResponse && <ContextCards response={latestResponse} conversationId={state.conversationId} subjectId={subjectId} controller={preferences} state={preferenceState} transport={preferenceTransport ?? requestPreference} />}
+      {latestResponse && <ContextCards response={latestResponse} conversationId={state.conversationId} subjectId={subjectId} controller={preferences} state={preferenceState} transport={preferenceTransport ?? requestPreference}>{contextSlot?.({ controller: preferences, state: preferenceState, conversationId: state.conversationId, transport: preferenceTransport ?? requestPreference })}</ContextCards>}
       <div ref={log} className={styles.log} role="log" aria-live="polite" aria-relevant="additions text" onScroll={() => {
         const node = log.current; if (!node) return;
         followLatest.current = node.scrollHeight - node.scrollTop - node.clientHeight < 64;

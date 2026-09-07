@@ -6,7 +6,7 @@
 .profileBody { padding: .25rem 0 1rem; line-height: 1.65; }
 .profileBody p + p { margin-top: .4rem; }
 .profileBody label { display: block; margin-top: .75rem; }
-.profileBody select, .profileBody button, .profileBody textarea { min-height: 44px; border: 1px solid var(--border-default); border-radius: 12px; padding: .5rem .7rem; margin-top: .4rem; background: var(--bg-input); color: var(--text-primary); }
+.profileBody input, .profileBody select, .profileBody button, .profileBody textarea { min-height: 44px; border: 1px solid var(--border-default); border-radius: 12px; padding: .5rem .7rem; margin-top: .4rem; background: var(--bg-input); color: var(--text-primary); }
 .profileBody select { margin-right: .5rem; }
 .profileBody button:disabled { opacity: .5; }
 .proposal { margin-top: 1rem; padding-top: .75rem; border-top: 1px solid var(--border-default); }
@@ -53,3 +53,11 @@
 .attachments img { object-fit: cover; border-radius: 8px; width: 48px; height: 48px; }
 .fileName { overflow-wrap: anywhere; }
 .composer { overflow-y: auto; min-height: 0; }
+
+.profileBody input { width: 100%; font-size: 16px; }
+
+/* Keep the working surface beside the coach at desktop widths. */
+@media (min-width: 1100px) {
+  :global(.client-shell:has(#global-coach)) :global(.client-shell__content) { width: calc(100% - 500px); }
+  .panel { width: 460px; }
+}

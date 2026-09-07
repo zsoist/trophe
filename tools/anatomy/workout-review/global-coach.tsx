@@ -1,3 +1,6 @@
+import { useLayoutEffect, useRef } from 'react';
+import { PrivateDraftControls } from './draft-controls';
+import type { PreferenceTransport } from '../../../components/assistant/preference-state';
 import { useWorkoutWorkspace } from '../../../components/workout/workspace/WorkoutWorkspaceProvider';
 import GlobalCoach from '../../../components/assistant/GlobalCoach';
 import type { ConversationTransport } from '../../../components/assistant/conversation-state';
@@ -11,6 +14,16 @@ import { useCoachI18n } from '../../../components/workout/coach/useCoachI18n';
 import { localToday, localDateStr } from '../../../lib/utils/dates';
 export function PrivateGlobalCoach() {
   const workspace = useWorkoutWorkspace();
+  const currentWorkspace = useRef(workspace);
+  useLayoutEffect(() => { currentWorkspace.current = workspace; }, [workspace]);
+  const actionTransport: PreferenceTransport = async (operation, signal) => {
+    signal.throwIfAborted();
+    const current = currentWorkspace.current;
+    if (!current.ready) return { version: 'coach-assistant.v2', ok: false, storage: 'isolated_ephemeral', error: 'forbidden' };
+    const bound = privatePreferences().bindWorkspace(REVIEW_USER, REVIEW_USER, current.state);
+    if (!bound.ok) return bound;
+    return privatePreferenceTransport(operation, signal);
+  };
   const { t, lang } = useGlobalCoachI18n();
   const { t: legacyT } = useCoachI18n();
   const transport: ConversationTransport = async (request, signal) => {
@@ -30,5 +43,5 @@ export function PrivateGlobalCoach() {
       memories: preferences.memories, proposals: [], receipts: [], attachments: [],
     };
   };
-  return <GlobalCoach identity={REVIEW_USER} example={transport} preferenceTransport={privatePreferenceTransport} />;
+  return <GlobalCoach identity={REVIEW_USER} example={transport} preferenceTransport={actionTransport} contextSlot={props => <PrivateDraftControls {...props} />} />;
 }

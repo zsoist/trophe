@@ -1,13 +1,13 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { CoachConversationResponse } from '@/agents/coach-assistant/contracts';
 import { PreferenceController, type PreferenceState, type PreferenceTransport } from './preference-state';
 import { useGlobalCoachI18n } from './useGlobalCoachI18n';
 import styles from './GlobalCoach.module.css';
 
-export function ContextCards({ response, conversationId, subjectId, controller, state, transport }: {
+export function ContextCards({ response, conversationId, subjectId, controller, state, transport, children }: {
   response: CoachConversationResponse; conversationId: string; subjectId?: string;
-  controller: PreferenceController; state: PreferenceState; transport: PreferenceTransport;
+  controller: PreferenceController; state: PreferenceState; transport: PreferenceTransport; children?: ReactNode;
 }) {
   const { t } = useGlobalCoachI18n();
   const profile = response.profile;
@@ -38,7 +38,7 @@ export function ContextCards({ response, conversationId, subjectId, controller, 
         <button type="button" disabled={state.pending || state.uncertain || !version || duration === currentDuration} onClick={() => { if (version) void controller.propose(conversationId, version, duration, transport, subjectId); }}>{t('global_coach.review_change')}</button>
       </div>}
     </div>}
-    <div className={styles.profileBody}>
+    {state.proposal?.action !== 'draft.update' && <div className={styles.profileBody}>
       {state.proposal && !applied && !state.uncertain && <section ref={reviewRef} tabIndex={-1} aria-label={t('global_coach.review_change')} className={styles.proposal}>
         {state.proposal.action === 'preference.update' ? <p>{t('global_coach.duration_change', { before: Number(state.proposal.before.durationMinutes), after: Number(state.proposal.after.durationMinutes) })}</p> : <>
           <h3>{t(`global_coach.${state.proposal.action.replace('.', '_')}`)}</h3>
@@ -53,7 +53,8 @@ export function ContextCards({ response, conversationId, subjectId, controller, 
       {state.receipt?.status === 'rejected' && <p role="status">{t('global_coach.preference_failed')}</p>}
       {state.uncertain && <div role="status"><p>{t('global_coach.uncertain')}</p><button type="button" disabled={state.pending} onClick={() => void controller.check(transport)}>{t('global_coach.check_status')}</button></div>}
       {state.error && !state.uncertain && <p role="status">{t('global_coach.preference_failed')}</p>}
-    </div>
+    </div>}
+    {children}
     {response.memories && response.memories.length > 0 && <div className={styles.profileBody}>
       <h3>{t('global_coach.memory')}</h3>
       {memories.length === 0 && <p>{t('global_coach.memory_empty')}</p>}

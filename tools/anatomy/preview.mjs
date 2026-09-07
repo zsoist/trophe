@@ -198,7 +198,7 @@ if (exportDirectory) {
         "X-Content-Type-Options": "nosniff",
         "X-Robots-Tag": "noindex, nofollow",
         "Content-Security-Policy":
-          "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
+          "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
       },
     });
   }
@@ -257,7 +257,7 @@ const server = createServer(async (req, res) => {
   res.setHeader("X-Robots-Tag", "noindex, nofollow");
   res.setHeader(
     "Content-Security-Policy",
-    "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
+    "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
   );
   const asset = assets.get(req.url);
   if (!asset) {

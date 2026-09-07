@@ -1,12 +1,14 @@
 import type { CoachActionResult, CoachOperation, CoachMemoryCard, CoachMemoryOperation, CoachProposal, CoachReceipt } from '@/agents/coach-assistant/contracts';
+import type { WorkoutDraft } from '@/lib/workout/workspace-state';
 export type PreferenceTransport = (operation: CoachOperation, signal: AbortSignal) => Promise<CoachActionResult>;
 export interface PreferenceState {
   pending: boolean; proposal: CoachProposal | null; receipt: CoachReceipt | null;
   storage: CoachActionResult['storage'] | null; error: string | null; uncertain: boolean;
   memories: Record<string, CoachMemoryCard | null>;
+  draftRefresh: CoachActionResult['draftRefresh'] | null;
   confirmed: { durationMinutes: number; version: string; storage: CoachActionResult['storage'] } | null;
 }
-const empty = (): PreferenceState => ({ pending: false, proposal: null, receipt: null, storage: null, error: null, uncertain: false, confirmed: null, memories: {} });
+const empty = (): PreferenceState => ({ pending: false, proposal: null, receipt: null, storage: null, error: null, uncertain: false, confirmed: null, memories: {}, draftRefresh: null });
 
 /** Keeps the exact apply envelope through cancellation or a lost response. Never blindly retries a write. */
 export class PreferenceController {
@@ -35,6 +37,11 @@ export class PreferenceController {
     this.applyEnvelope = null; this.publish({ ...empty(), confirmed: this.state.confirmed, memories: this.state.memories });
     const operation: CoachMemoryOperation = { version: 'coach-assistant.v2', operation: 'propose', conversationId, turnId: crypto.randomUUID(), ...(clientId ? { clientId } : {}), memoryId: memory.id, resourceVersion: memory.version, ...change };
     await this.execute(operation, transport);
+  }
+  async proposeDraft(conversationId: string, version: string, after: WorkoutDraft, transport: PreferenceTransport, clientId?: string) {
+    if (this.state.pending || this.state.uncertain) return;
+    this.applyEnvelope = null; this.publish({ ...empty(), confirmed: this.state.confirmed, memories: this.state.memories });
+    await this.execute({ version: 'coach-assistant.v2', operation: 'propose', conversationId, turnId: crypto.randomUUID(), ...(clientId ? { clientId } : {}), action: 'draft.update', resourceVersion: version, after: structuredClone(after) }, transport);
   }
   async apply(conversationId: string, transport: PreferenceTransport, clientId?: string) {
     const proposal = this.state.proposal;
@@ -70,8 +77,11 @@ export class PreferenceController {
           || (proposal.action === 'memory.delete' ? result.memory !== null : !result.memory || result.memory.id !== proposal.resource.id || result.memory.version !== result.receipt.resourceVersion)) throw new Error('invalid_memory_receipt');
         memories = { ...memories, [proposal.resource.id]: structuredClone(result.memory ?? null) };
       }
+      if (result.receipt?.status === 'applied' && proposal?.action === 'draft.update'
+        && (!result.draftRefresh || result.draftRefresh.reviewRequired !== true || result.draftRefresh.previousVersion !== proposal.resource.version
+          || result.draftRefresh.version !== result.receipt.resourceVersion)) throw new Error('invalid_draft_receipt');
       this.publish({ ...this.state, pending: false, storage: result.storage, error: result.ok ? null : result.error ?? 'failed', uncertain,
-        proposal: result.proposal ?? this.state.proposal, receipt: result.receipt ?? null, confirmed, memories });
+        proposal: result.proposal ?? this.state.proposal, receipt: result.receipt ?? null, confirmed, memories, draftRefresh: result.draftRefresh ? structuredClone(result.draftRefresh) : this.state.draftRefresh });
     } catch { if (generation === this.generation) fail(); }
     finally { clearTimeout(timer); if (generation === this.generation) this.active = null; }
   }
