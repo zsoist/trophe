@@ -1,3 +1,8 @@
+import { createFoodPreferenceTurn } from './food-preference-turn';
+import { executeFoodPreferenceAction, type FoodPreferenceService } from './food-preference-actions';
+import { createPersistentMemoryTurn } from './memory-turn';
+import { executePersistentMemoryAction } from './memory-actions';
+import type { PersistentMemoryService } from './memory-contracts';
 import type { createIsolatedCoachEngineBinding } from './isolated-engine';
 import { runConversationCandidate } from './conversation-candidate';
 import type { PilotTransport } from './pilot-runner';
@@ -18,6 +23,8 @@ interface HandlerDependencies {
   guard(request: Request): Promise<{userId:string}|Response>;
   createRepository(): CoachRepository | Promise<CoachRepository>;
   createDurableService?:()=>DurableCoachProfileService|Promise<DurableCoachProfileService>;
+  createFoodPreferenceService?:()=>FoodPreferenceService|Promise<FoodPreferenceService>;
+  createMemoryService?:()=>PersistentMemoryService|Promise<PersistentMemoryService>;
   createFoodService?:()=>FoodQuantityService|Promise<FoodQuantityService>;
   isolatedEngine?:ReturnType<typeof createIsolatedCoachEngineBinding>;
   createIsolatedEngine?:()=>ReturnType<typeof createIsolatedCoachEngineBinding>|Promise<ReturnType<typeof createIsolatedCoachEngineBinding>>;
@@ -112,6 +119,18 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
         const result=await executeFoodQuantityAction(guard.userId,raw,await deps.createRepository(),await deps.createFoodService(),controller.signal);
         return json(result,result.ok?200:result.error==='forbidden'?403:result.error==='invalid_input'?400:result.error==='expired'?410:result.error==='not_found'?404:result.error==='uncertain'||result.error==='cancelled'?503:409);
       }
+      if(raw && typeof raw==='object' && 'operation' in raw && typeof raw.operation==='string' && raw.operation.startsWith('diet.')) {
+        if(deps.env.COACH_ASSISTANT_DIET_ACTIONS_ENABLED!=='1')return fail('disabled',404);
+        if(!deps.createFoodPreferenceService)return fail('provider_unavailable',503);
+        const result=await executeFoodPreferenceAction(guard.userId,raw,await deps.createRepository(),await deps.createFoodPreferenceService(),controller.signal);
+        return json(result,result.ok?200:result.error==='forbidden'?403:result.error==='invalid_input'?400:result.error==='expired'?410:result.error==='not_found'?404:result.error==='not_connected'||result.error==='uncertain'||result.error==='cancelled'?503:409);
+      }
+      if(raw && typeof raw==='object' && 'operation' in raw && typeof raw.operation==='string' && raw.operation.startsWith('memory.')) {
+        if(deps.env.COACH_ASSISTANT_MEMORY_ACTIONS_ENABLED!=='1')return fail('disabled',404);
+        if(!deps.createMemoryService)return fail('provider_unavailable',503);
+        const result=await executePersistentMemoryAction(guard.userId,raw,await deps.createRepository(),await deps.createMemoryService(),controller.signal);
+        return json(result,result.ok?200:result.error==='forbidden'?403:result.error==='invalid_input'?400:result.error==='expired'?410:result.error==='not_found'?404:result.error==='uncertain'||result.error==='cancelled'?503:409);
+      }
       const durable=deps.env.COACH_ASSISTANT_DURABLE_ACTIONS_ENABLED==='1';
       if(raw && typeof raw==='object' && 'operation' in raw) {
         if(durable) {
@@ -135,6 +154,22 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
         if(!deps.createDurableService)return fail('provider_unavailable',503);
         repository=withDurablePreferenceRead(repository,await deps.createDurableService());
       }
+      let memoryTurn:ReturnType<typeof createPersistentMemoryTurn>|undefined;
+      if(conversational&&!synthetic&&deps.env.COACH_ASSISTANT_MEMORY_ACTIONS_ENABLED==='1') {
+        if(!deps.createMemoryService)return fail('provider_unavailable',503);
+        if(clientId&&clientId!==guard.userId)return fail('forbidden',403);
+        memoryTurn=createPersistentMemoryTurn(repository,await deps.createMemoryService(),parsed.data as import('./contracts').CoachConversationRequest);
+        repository=memoryTurn.repository;
+      }
+      let foodPreferenceTurn:ReturnType<typeof createFoodPreferenceTurn>|undefined;
+      if(conversational&&!synthetic&&deps.env.COACH_ASSISTANT_DIET_ACTIONS_ENABLED==='1') {
+        if(!deps.createFoodPreferenceService)return fail('provider_unavailable',503);
+        if(clientId&&clientId!==guard.userId)return fail('forbidden',403);
+        foodPreferenceTurn=createFoodPreferenceTurn(repository,await deps.createFoodPreferenceService(),parsed.data as import('./contracts').CoachConversationRequest);
+        repository=foodPreferenceTurn.repository;
+      }
+      // Only the outer broker signs/filters; double filtering discards valid continuity.
+      const historyTurn=foodPreferenceTurn??memoryTurn;
       const isolated=conversational&&deps.env.COACH_ASSISTANT_ISOLATED_ENGINE_ENABLED==='1';
       if(isolated&&synthetic)return fail('budget_blocked',503);
       const isolatedEngine=isolated?(deps.isolatedEngine??await deps.createIsolatedEngine?.()):undefined;
@@ -142,6 +177,7 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
       const candidate=!isolated&&conversational&&deps.env.COACH_ASSISTANT_CANDIDATE_EVALUATION_ENABLED==='1';
       if(candidate&&(!synthetic||deps.candidateEvaluation?.kind!=='injected_fixture'))return fail('budget_blocked',503);
       const result=await (isolated?isolatedEngine!.run:candidate?runConversationCandidate:conversational?runConversation:run)(parsed.data,{
+        filterMemoryHistory:historyTurn?.filterHistory,
         offlineConversationProvider:candidate?deps.candidateEvaluation!.transport:undefined!,
         isolatedActionsEnabled:!durable&&deps.env.COACH_ASSISTANT_ISOLATED_ACTIONS_ENABLED==='1',
         actorId:synthetic?'synthetic-client':guard.userId,
@@ -162,6 +198,7 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
         });
         result.uploads={images:true,storage:'isolated_ephemeral',analysis:'not_connected',limits:{...COACH_IMAGE_LIMITS}};
       }
+      if(result.version==='coach-assistant.v2')historyTurn?.finish(result);
       const code=result.error?.code;
       return json(result,result.ok?200:code==='unauthenticated'?401:code==='forbidden'?403:code==='invalid_input'?400:503);
     };

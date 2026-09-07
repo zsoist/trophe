@@ -1,3 +1,4 @@
+import { parseFoodPreferences } from '@/lib/food/preferences';
 import { createSelectionContext } from './selection-context';
 import { isIsolatedEngineBoundary, type IsolatedEngineBoundary } from './isolated-engine-boundary';
 import { generateOpenConversation, type OfflineConversationProvider, type OfflineInterpretationReview } from './open-conversation';
@@ -14,7 +15,7 @@ import { COACH_PRICING_VERSION } from './economics';
 import { COACH_PROMPT_VERSION } from './prompt.v3';
 
 /** History is a hint for a window/domain, never a source of facts or authority. */
-export async function runConversation(raw: unknown, options: RunOptions & { isolatedActionsEnabled?:boolean; offlineConversationProvider?:OfflineConversationProvider; offlineInterpretationReview?:OfflineInterpretationReview; offlineCandidateEvaluation?:boolean; isolatedFixtureBoundary?:IsolatedEngineBoundary }): Promise<CoachConversationResponse> {
+export async function runConversation(raw: unknown, options: RunOptions & { isolatedActionsEnabled?:boolean; offlineConversationProvider?:OfflineConversationProvider; offlineInterpretationReview?:OfflineInterpretationReview; offlineCandidateEvaluation?:boolean; isolatedFixtureBoundary?:IsolatedEngineBoundary; filterMemoryHistory?:(input:import('./contracts').CoachConversationRequest)=>import('./contracts').CoachConversationRequest }): Promise<CoachConversationResponse> {
   const start = performance.now();
   const parsed = conversationRequestSchema.safeParse(raw);
   const response: CoachConversationResponse = {
@@ -48,7 +49,7 @@ export async function runConversation(raw: unknown, options: RunOptions & { isol
       }};
       const selection=createSelectionContext(authorizedRepository,input.context,authorized);
       const repository=selection.repository;
-      const {intent,surface,exerciseId,domain}=selectConversationScope(input);
+      const {intent,surface,exerciseId,domain}=selectConversationScope(options.filterMemoryHistory?.(input)??input);
       const result = await run({message:input.message,intent,clientId:input.context?.clientId,exerciseId}, {
         ...options, mode:'offline', repository, signal:controller.signal, deadlineMs:Math.max(1,budget-(performance.now()-start)),
       });
@@ -79,6 +80,10 @@ export async function runConversation(raw: unknown, options: RunOptions & { isol
         const row=personal.rows[0];
         if(row) {
           if(row.userId!==subject || row.memories.some(memory=>memory.userId!==subject))throw new Error('forbidden');
+          if(row.foodPreference){
+            if(row.foodPreference.profileId!==subject)throw new Error('forbidden');
+            response.foodPreference={...row.foodPreference,preferences:parseFoodPreferences(row.foodPreference.preferences)};
+          }
           const preferences=workoutPreferencesSchema.safeParse(row.preferences);
           if(preferences.success) {
             response.profile={language:authorized.language,timezone:authorized.timezone,units:response.snapshot.units,preferences:{durationMinutes:preferences.data.durationMinutes},version:row.preferencesVersion??createHash('sha256').update(JSON.stringify(preferences.data)).digest('hex'),source:options.repository.dataSource==='synthetic'?'isolated_fixture':'authorized_profile'};
@@ -88,15 +93,15 @@ export async function runConversation(raw: unknown, options: RunOptions & { isol
             }
           } else {const capability=capabilities.find(c=>c.key==='profile')!;capability.status='unknown';capability.reason='preferences_not_recorded';}
           if(row.memoriesRead!==false) {
-          response.memories=row.memories.slice(0,10).map(memory=>({id:memory.id,text:memory.text.slice(0,500),source:memory.source,createdAt:memory.createdAt,scope:memory.scope,version:memory.version,confirmation:'unconfirmed'}));
-          const memoryCapability=capabilities.find(c=>c.key==='memory')!;memoryCapability.status=response.memories.length?'available':'unknown';memoryCapability.reason=response.memories.length?'authorized_unconfirmed_memories':'no_active_memories';
-          response.output.limitations.push('memory_requires_explicit_confirmation','memory_window_365_days');
+          response.memories=row.memories.slice(0,10).map(memory=>({id:memory.id,text:memory.text.slice(0,500),source:memory.source,createdAt:memory.createdAt,scope:memory.scope,version:memory.version,confirmation:memory.confirmation??'unconfirmed'}));
+          const memoryCapability=capabilities.find(c=>c.key==='memory')!;memoryCapability.status=response.memories.length?'available':'unknown';memoryCapability.reason=response.memories.length?(response.memories.every(m=>m.confirmation==='confirmed')?'authorized_confirmed_thread_memories':'authorized_unconfirmed_memories'):'no_active_memories';
+          response.output.limitations.push(...(options.filterMemoryHistory?['memory_scope_current_thread','user_history_is_historical_not_current_preference','stale_derived_history_excluded']:['memory_requires_explicit_confirmation','memory_window_365_days']));
           if(row.memories.length>10)response.output.limitations.push('memory_records_partial');
           }
         }
       }
       if(options.mode==='model'&&!medical) {
-        await generateOpenConversation(input,response,options.offlineConversationProvider!,controller.signal,options.offlineInterpretationReview,options.offlineCandidateEvaluation,options.isolatedFixtureBoundary);
+        await generateOpenConversation(options.filterMemoryHistory?.(input)??input,response,options.offlineConversationProvider!,controller.signal,options.offlineInterpretationReview,options.offlineCandidateEvaluation,options.isolatedFixtureBoundary);
         await repository.authorize(options.actorId,subject,controller.signal);
         controller.signal.throwIfAborted();
       }
@@ -111,7 +116,7 @@ export async function runConversation(raw: unknown, options: RunOptions & { isol
     const allowed = ['invalid_input','forbidden','unauthenticated','invalid_timezone','budget_blocked','context_limit','invalid_output','provider_unavailable'];
     const code: CoachErrorCode = controller.signal.aborted ? options.signal.aborted?'cancelled':'deadline' : error instanceof Error && allowed.includes(error.message)?error.message as CoachErrorCode:'query_failed';
     response.error={code,retryable:code==='query_failed'||code==='deadline'||code==='provider_unavailable'};
-    response.ok=false;response.snapshot=null;response.evidence=[];delete response.output;delete response.profile;delete response.memories;delete response.explanations;
+    response.ok=false;response.snapshot=null;response.evidence=[];delete response.output;delete response.profile;delete response.foodPreference;delete response.memories;delete response.explanations;
   } finally {
     clearTimeout(timer);options.signal.removeEventListener('abort',abort);
     if(boundary)controller.signal.removeEventListener('abort',boundary);

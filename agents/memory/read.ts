@@ -190,6 +190,7 @@ export async function readMemory(input: ReadMemoryInput): Promise<ReadMemoryResu
         FROM memory_chunks
         WHERE user_id = ${userId}
           AND active = true
+          AND agent_name IS DISTINCT FROM 'coach-assistant-confirmed'
           AND ${scopePredicate}
           AND (expires_at IS NULL OR expires_at > NOW())
           AND embedding IS NOT NULL
@@ -206,6 +207,7 @@ export async function readMemory(input: ReadMemoryInput): Promise<ReadMemoryResu
         FROM memory_chunks
         WHERE user_id = ${userId}
           AND active = true
+          AND agent_name IS DISTINCT FROM 'coach-assistant-confirmed'
           AND ${scopePredicate}
           AND (expires_at IS NULL OR expires_at > NOW())
           AND embedding IS NULL
@@ -223,6 +225,7 @@ export async function readMemory(input: ReadMemoryInput): Promise<ReadMemoryResu
         and(
           eq(memoryChunks.userId, userId),
           eq(memoryChunks.active, true),
+          sql`${memoryChunks.agentName} IS DISTINCT FROM 'coach-assistant-confirmed'`,
           scopePredicate,
           sql`(expires_at IS NULL OR expires_at > NOW())`,
         ),

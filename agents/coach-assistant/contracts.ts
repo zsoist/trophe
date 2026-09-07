@@ -83,7 +83,7 @@ export interface CoachConversationRequest {
   message: string;
   context?: CoachContextHint;
   /** Bounded, untrusted conversational hints, never authorization or evidence. */
-  history?: Array<{ role: 'user' | 'assistant'; text: string }>;
+  history?: Array<{ role: 'user' | 'assistant'; text: string; kind?:'conversation'|'memory_summary'; derivedToken?:string }>;
   attachments?: CoachAttachmentRef[];
 }
 export interface CoachCapability {
@@ -126,6 +126,7 @@ export interface CoachReceipt {
   recordedAt: string;
 }
 export interface CoachConversationResponse {
+  foodPreference?:import('./food-preference-contracts').FoodPreferenceSnapshot;
   version: typeof COACH_CONVERSATION_VERSION;
   conversationId: string;
   turnId: string;
@@ -165,6 +166,7 @@ export interface CoachMemoryCard {
 export interface CoachConversationResponse {
   profile?: CoachProfileCard;
   memories?: CoachMemoryCard[];
+  memoryContext?: {version:string;derivedHistoryToken?:string;historyPolicy:'user_historical_derived_verified'};
 }
 export type CoachPreferenceOperation = {
   version: typeof COACH_CONVERSATION_VERSION;

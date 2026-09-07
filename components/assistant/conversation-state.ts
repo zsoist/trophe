@@ -35,7 +35,7 @@ export class ConversationController {
       ...(attachments.length ? { attachments: structuredClone(attachments.slice(0, 3)) } : {}),
       history: this.state.turns.filter(turn => turn.response?.ok).flatMap(turn => [
         { role: 'user' as const, text: turn.request.message.slice(0, 500) },
-        { role: 'assistant' as const, text: (turn.response?.output?.answer ?? '').slice(0, 500) },
+        { role: 'assistant' as const, text: (turn.response?.output?.answer ?? '').slice(0, 500), ...(turn.response?.memoryContext?.derivedHistoryToken ? { derivedToken: turn.response.memoryContext.derivedHistoryToken } : {}) },
       ]).slice(-6),
     };
     const controller = new AbortController(); this.active = controller;

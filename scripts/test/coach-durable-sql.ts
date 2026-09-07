@@ -138,6 +138,10 @@ async function main() {
   const food = spawnSync(process.execPath, ['--import', 'tsx', 'scripts/test/coach-food-sql.ts'], { stdio: 'inherit', env: process.env });
   assert.equal(food.status, 0);
 
+  check = 'persistent_memory_transactions';
+  const memory = spawnSync(process.execPath, ['--import', 'tsx', 'scripts/test/coach-memory-sql.ts'], { stdio: 'inherit', env: process.env });
+  assert.equal(memory.status, 0);
+
   check = 'durable_global_ui_real_auth_http';
   const root = process.env.RUNNER_TEMP;
   assert.ok(root && isAbsolute(root));
