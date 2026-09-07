@@ -2,10 +2,11 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { extname, join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { translations } from '@/lib/i18n';
+import { coachAssistantTranslations } from '@/lib/locales/coach-assistant';
 
 /**
  * Every literal translation key passed to t('...') inside the Workout module must
- * exist in the core dictionary. A missing key leaks the raw key string to users in
+ * exist in the core dictionary or its explicitly consumed lazy feature dictionary. A missing key leaks the raw key string to users in
  * all eight locales (the runtime falls back to the key itself).
  */
 const SOURCE_ROOTS = ['components/workout', 'app/dashboard/workout'];
@@ -51,7 +52,7 @@ function literalTranslationKeys(source: string): Set<string> {
   for (const match of source.matchAll(opener)) {
     const args = callArguments(source, match.index + match[0].length - 1);
     const firstArgument = args.split(/,(?![^{]*})/)[0] ?? '';
-    for (const literal of firstArgument.matchAll(/['"]([a-z][a-z0-9]*\.[a-z0-9_.]+)['"]/g)) keys.add(literal[1]);
+    for (const literal of firstArgument.matchAll(/['"]([a-z][a-z0-9_]*\.[a-z0-9_.]+)['"]/g)) keys.add(literal[1]);
   }
   return keys;
 }
@@ -64,15 +65,24 @@ describe('workout module translation keys', () => {
     expect(files.length).toBeGreaterThan(10);
   });
 
-  it('only calls t() with keys that exist in the core dictionary', () => {
+  it('only calls t() with keys that exist in its consumed dictionary', () => {
     const missing: string[] = [];
     for (const file of files) {
-      for (const key of literalTranslationKeys(readFileSync(file, 'utf8'))) {
+      const source = readFileSync(file, 'utf8');
+      const usesCoachCopy = relative(root, file).startsWith('components/workout/coach/') && source.includes('useCoachI18n');
+      for (const key of literalTranslationKeys(source)) {
         if (translations[key] || KNOWN_MISSING.has(key)) continue;
+        if (usesCoachCopy && coachAssistantTranslations[key]) continue;
         missing.push(`${relative(root, file)} → ${key}`);
       }
     }
     expect(missing).toEqual([]);
+  });
+
+  it('keeps the lazy coach dictionary complete in all three core languages', () => {
+    for (const [key, row] of Object.entries(coachAssistantTranslations)) {
+      for (const lang of ['en', 'es', 'el'] as const) expect(row[lang]?.trim(), `${key}:${lang}`).toBeTruthy();
+    }
   });
 
   it('covers the equipment enum labels used by the picker, results, detail and plan cards', () => {

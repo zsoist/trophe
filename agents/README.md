@@ -67,6 +67,8 @@ agents/
 
 > Phase 3 routing: consumer text stays GPT-5.6 Luna → Claude Haiku 4.5, health-context stays Haiku, and DeepSeek is confined to synthetic factory generation.
 
+The contextual Workout assistant is independent of the existing wearable `coach-insight` and memory agents. Its `coach_assistant` task has an intentional zero-dollar budget; it remains blocked by the request-budget guard. The current private slice reads/proposes only and keeps synthetic test adapters separate from authorized records. Production activation is denied in this wave. See [`coach-assistant/README.md`](./coach-assistant/README.md) for the versioned contract, data sources and verification limits. Offline passes do not establish model quality or deployed database authorization.
+
 ---
 
 ## LLM router
