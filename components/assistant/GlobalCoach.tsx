@@ -21,6 +21,7 @@ function CoachSurface({ identity, subjectId, example }: Props) {
   const [open, setOpen] = useState(false);
   const [includeScreen, setIncludeScreen] = useState(true);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const [panelTop, setPanelTop] = useState(64);
   const launcher = useRef<HTMLButtonElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   const log = useRef<HTMLDivElement>(null);
@@ -29,6 +30,13 @@ function CoachSurface({ identity, subjectId, example }: Props) {
   const scope = `${identity}:${subjectId ?? identity}`;
   useEffect(() => { controller.identify(scope); return () => controller.identify(null); }, [controller, scope]);
   useEffect(() => { setAnchor(document.getElementById('global-coach-anchor')); }, []);
+  useEffect(() => {
+    if (!open) return;
+    const header = anchor?.closest('header');
+    const measure = () => setPanelTop(Math.max(64, header?.getBoundingClientRect().bottom ?? 64));
+    measure(); window.addEventListener('resize', measure); window.addEventListener('scroll', measure, { passive: true });
+    return () => { window.removeEventListener('resize', measure); window.removeEventListener('scroll', measure); };
+  }, [anchor, open]);
   useEffect(() => { if (open) input.current?.focus(); }, [open]);
   useEffect(() => {
     if (!open) return;
@@ -42,7 +50,7 @@ function CoachSurface({ identity, subjectId, example }: Props) {
     </button>;
   return <div className={styles.root}>
     {anchor ? createPortal(launch, anchor) : launch}
-    {open && <section id="global-coach" className={styles.panel} aria-labelledby="global-coach-title" onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); close(); } }}>
+    {open && <section id="global-coach" className={styles.panel} style={{ top: panelTop }} aria-labelledby="global-coach-title" onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); close(); } }}>
       <header className={styles.header}><div><h2 id="global-coach-title">{t('global_coach.title')}</h2><p>{t(example ? 'global_coach.example' : 'global_coach.identity')}</p></div><button type="button" onClick={close} aria-label={t('global_coach.close')}><X size={22} /></button></header>
       <div ref={log} className={styles.log} role="log" aria-live="polite" aria-relevant="additions text" onScroll={() => {
         const node = log.current; if (!node) return;
@@ -55,9 +63,8 @@ function CoachSurface({ identity, subjectId, example }: Props) {
           <p className={styles.context}>{t(turn.request.context?.includeScreen ? `global_coach.${turn.request.context.surface}` : 'global_coach.detached')}</p>
           {turn.response?.output && <div className={styles.answer}>
             <p>{turn.response.output.answer}</p>
-            {turn.response.mode === 'offline' && <p className={styles.context}>{t('global_coach.offline')}</p>}
-            {turn.response.evidence.length > 0 && <details><summary>{t('global_coach.sources')}</summary>{turn.response.evidence.map(item => <p key={item.id}>{item.statement}</p>)}</details>}
-            {turn.response.output.limitations.length > 0 && <p className={styles.context}>{t('global_coach.limits')}</p>}
+            {!example && turn.response.mode === 'offline' && <p className={styles.context}>{t('global_coach.offline')}</p>}
+            {turn.response.evidence.length > 0 && <details><summary>{t('global_coach.sources')}</summary>{turn.response.evidence.map(item => <p key={item.id}>{item.statement}</p>)}{turn.response.output.limitations.length > 0 && <p className={styles.context}>{t('global_coach.limits')}</p>}</details>}
           </div>}
         </article>)}
         {state.pending && <p role="status">{t('global_coach.pending')}</p>}

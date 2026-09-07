@@ -105,6 +105,7 @@ function ReviewRoutes({ manifestUrl, authoredSupplement, onRender }: PreviewProp
   else if (path === '/dashboard/log') content = <PrivateFood />;
   else if (path !== '/dashboard/workout') content = <main className="mx-auto max-w-2xl space-y-4 p-4"><p>{t('anatomy.review_scope')}</p><button type="button" className="btn-gold min-h-11 rounded-xl px-4" onClick={() => navigate('/dashboard/workout')}>{t('workout.back_home')}</button></main>;
   else content = <WorkoutHome coachPreview={false} exercises={exercises} program={data.scenario === 'empty' ? null : { programName: t('workout.strength'), todayTemplate: template, alsoToday: [], nextWeekday: (new Date().getDay() + 2) % 7, nextTemplateName: t('workout.strength') }} recents={data.sessions.filter(session => session.completed_at).slice(0, 3)} workedExerciseIds={workedExerciseIds} routines={data.routines} />;
+  if (path === '/dashboard/log') return content;
   return <div className="workout-workspace"><WorkoutWorkspaceHeader /><WorkoutRouteTransition>{content}</WorkoutRouteTransition><ConfirmSheet open={Boolean(repeatChoice)} title={t('workout.repeat_replace_title')} message={t('workout.repeat_replace_message')} confirmLabel={t('workout.repeat_replace_confirm')} cancelLabel={t('workout.repeat_replace_cancel')} onCancel={() => { setRepeatChoice(null); navigate('/dashboard/workout'); }} onConfirm={() => { repeatChoice?.replace(); setRepeatChoice(null); navigate('/dashboard/workout/build'); }} /></div>;
 }
 export function PrivateWorkoutWorkspace({ manifestUrl, authoredSupplement, onRender }: PreviewProps) {

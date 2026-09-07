@@ -49,7 +49,7 @@ export class ConversationController {
       const response = await transport(request, controller.signal);
       if (generation !== this.generation || controller.signal.aborted) return;
       if (response.conversationId !== request.conversationId || response.turnId !== request.turnId) throw new Error('invalid_output');
-      this.publish({ ...this.state, pending: false, error: response.ok ? null : 'failed',
+      this.publish({ ...this.state, pending: false, error: response.ok ? null : 'failed', draft: response.ok ? this.state.draft : this.state.draft || message,
         turns: this.state.turns.map(turn => turn.request.turnId === request.turnId ? { ...turn, response } : turn) });
     } catch {
       if (generation === this.generation) this.publish({ ...this.state, pending: false, error: 'failed', draft: this.state.draft || message });
