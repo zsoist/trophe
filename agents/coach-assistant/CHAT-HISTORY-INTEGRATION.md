@@ -87,6 +87,14 @@ After successful user append, call `runVerifiedChatFinal(request, existingOption
 serverScope)` instead of calling the same pipeline twice. It invokes existing
 `runConversation` once unchanged, snapshots the validated request and scope, and
 mints an opaque process-local proof only for its successful output/snapshot.
+When the route has already selected `createIsolatedCoachEngineBinding`, call
+`runVerifiedChatFinalWithIsolatedEngine(request, existingOptions, serverScope,
+isolatedEngine)` instead. That function invokes `isolatedEngine.run` once and
+accepts only its process-minted binding plus the exact response object attested
+to the same request and actor. It never calls `runConversation` again. A forged
+engine is rejected before invocation; copied/serialized output, changed input,
+or a different actor cannot mint a proof. The route should choose exactly one
+of these two entry points for a turn.
 There is no arbitrary-text constructor. Existing provider gates still apply.
 `appendFinal(scope,{threadId,requestId,expectedAssistantRevision?},proof,signal)`
 requires that exact proof object, same scope/thread/turn and persisted user text
