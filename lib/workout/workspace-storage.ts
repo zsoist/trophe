@@ -49,7 +49,7 @@ function isDraftExercise(value: unknown): value is DraftExercise {
     && (value.linkedBelow === undefined || typeof value.linkedBelow === 'boolean');
 }
 
-function isDraft(value: unknown): value is WorkoutDraft {
+export function isDraft(value: unknown): value is WorkoutDraft {
   if (!isRecord(value) || value.version !== WORKOUT_DRAFT_VERSION
     || typeof value.name !== 'string' || typeof value.updatedAt !== 'number' || !Number.isFinite(value.updatedAt)
     || !hasOnlyKeys(value, value.kind === 'strength'
