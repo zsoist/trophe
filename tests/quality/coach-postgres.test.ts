@@ -75,8 +75,9 @@ describe.skipIf(!ci)('coach real SQL and authenticated RLS on local CI', () => {
     } finally { await pool.end(); }
   });
 
-  it.each(['client','coach'])('computes only the assigned client facts for %s through actual content SQL', async actor => {
-    const result = await collectEvidence({message:'Summarize today',intent:'today',clientId:id.client}, {actorId:id[actor],repository:createServerRepository(pool),now,signal:signal()});
+  it.each(['client','coach'])('computes only the assigned client week for %s through actual content SQL', async actor => {
+    const result = await collectEvidence({message:'Summarize this week',intent:'week',clientId:id.client}, {actorId:id[actor],repository:createServerRepository(pool),now,signal:signal()});
+    expect(result.window).toMatchObject({start:'2026-08-31',end:'2026-09-06',days:7,timezone:'America/Bogota'});
     const fact = (key:string) => result.facts.find(item=>item.id===key);
     expect(fact('nutrition.calories')?.value).toBe(123);
     expect(fact('nutrition.protein')?.value).toBe(12);
