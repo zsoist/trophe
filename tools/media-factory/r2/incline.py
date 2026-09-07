@@ -166,6 +166,8 @@ def qa(config,out):
             row['cloth']={}
             for name in ['SportsTank','SportsShorts']:
                 cloth=mesh_data(bpy.data.objects[name]);hits=crossings(data,cloth);row['cloth'][name]={'body_crossing_count':len(hits),'examples':hits[:12]}
+                if config.get('cloth_self_check'):
+                    own=crossings(cloth,cloth,same=True);row['cloth'][name]['self_crossing_pairs']=len(own);row['cloth'][name]['self_examples']=own[:12]
         rows.append(row)
         if f%30==0:print('INCLINE_QA_FRAME',f,flush=True)
     # Evaluate between keys as well: geometry must not jump through a rotation chart.
@@ -173,7 +175,7 @@ def qa(config,out):
     for f in [1.5,12.25,12.5,12.75,45.5,75.5,99.5,135.5,160.5,171.25,171.5,171.75,180.5]:
         s.frame_set(int(f),subframe=f%1);bpy.context.view_layer.update()
         sub.append({'frame':f,'wrist_error_m':max((r.matrix_world@r.pose.bones['ORG-hand.'+side].head-bpy.data.objects['Incline wrist target '+side].matrix_world.translation).length for side in ['L','R'])})
-    report={'rows':rows,'subframes':sub,'closure_surface_m':float(np.linalg.norm(p-first,axis=1).max()),'scope':'181 consecutive evaluated poses for grip and object/skin crossings; supports/garments at recorded critical poses; not anatomical or human technique certification'}
+    report={'body_masks':[{'name':m.name,'group':m.vertex_group,'render':m.show_render} for m in body.modifiers if m.type=='MASK'],'rows':rows,'subframes':sub,'closure_surface_m':float(np.linalg.norm(p-first,axis=1).max()),'scope':'181 consecutive evaluated poses for grip and object/skin crossings; supports/garments at recorded critical poses; not anatomical or human technique certification'}
     (out/'qa.json').write_text(json.dumps(report,indent=2));return {'max_grip_drift_m':max(v['drift_m'] for row in rows for v in row['sides'].values()),'max_wrist_axis_deg':max(v['wrist_axis_deg'] for row in rows for v in row['sides'].values()),'equipment_crossing_frames':sum(bool(row['equipment_crossings']) for row in rows),'closure_m':report['closure_surface_m']}
 
 
