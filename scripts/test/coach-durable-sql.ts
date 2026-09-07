@@ -20,6 +20,7 @@ const database = drizzle(pool), service = createDurablePreferenceService(databas
 const scope = { actorId, subjectId: actorId, organizationId, signal: new AbortController().signal };
 const conversationId = process.env.COACH_SQL_CONVERSATION ?? randomUUID();
 const header = () => ({ version: 'coach-assistant.v2' as const, conversationId, turnId: randomUUID() });
+const fixtureActionIds: string[] = [];
 const execute = (operation: CoachPreferenceOperation) => service.execute({ ...scope, operation });
 async function propose(durationMinutes: 20 | 30 | 45 | 60) {
   const current = await service.read(scope);
@@ -28,10 +29,44 @@ async function propose(durationMinutes: 20 | 30 | 45 | 60) {
   return result.proposal;
 }
 function apply(proposal: NonNullable<CoachActionResult['proposal']>): CoachPreferenceOperation & { operation: 'apply' } {
-  return { ...header(), operation: 'apply', actionId: randomUUID(), proposalId: proposal.id, hash: proposal.hash, resourceVersion: proposal.resource.version };
+  const actionId = randomUUID(); fixtureActionIds.push(actionId);
+  return { ...header(), operation: 'apply', actionId, proposalId: proposal.id, hash: proposal.hash, resourceVersion: proposal.resource.version };
 }
 let check = 'setup', installed = false;
 function pass() { process.stdout.write(JSON.stringify({ event: 'coach_durable_sql', check, outcome: 'passed' }) + '\n'); }
+
+// Only this guarded, disposable CI process may remove its own test audit rows.
+// The append-only trigger remains enabled for every service assertion above.
+async function cleanupFixtureAudit() {
+  const connection = await pool.connect();
+  try {
+    await connection.query('BEGIN');
+    await connection.query('LOCK TABLE public.audit_log IN ACCESS EXCLUSIVE MODE');
+    const enabled = async () => (await connection.query("SELECT tgenabled FROM pg_trigger WHERE tgrelid='public.audit_log'::regclass AND tgname='audit_log_immutable'")).rows[0]?.tgenabled;
+    assert.equal(await enabled(), 'O');
+    const rows = await connection.query(`SELECT id FROM public.audit_log WHERE actor_id=$1 AND record_id=$1
+      AND action='workout_preferences_updated' AND table_name='client_profiles' AND new_value->>'actionId'=ANY($2::text[])`, [actorId, fixtureActionIds]);
+    const ids = rows.rows.map(row => row.id as string);
+    if (ids.length) {
+      // Demonstrate the exact cleanup conflict without committing a mutation.
+      await connection.query('SAVEPOINT immutable_probe');
+      await assert.rejects(connection.query('DELETE FROM public.audit_log WHERE id=$1', [ids[0]]), { code: 'P0001' });
+      await connection.query('ROLLBACK TO SAVEPOINT immutable_probe');
+      process.stdout.write(JSON.stringify({ event: 'coach_durable_sql', check: 'fixture_audit_immutable_probe', outcome: 'passed', sqlstate: 'P0001' }) + '\n');
+      await connection.query('ALTER TABLE public.audit_log DISABLE TRIGGER audit_log_immutable');
+      const removed = await connection.query(`DELETE FROM public.audit_log WHERE id=ANY($1::bigint[]) AND actor_id=$2 AND record_id=$2
+        AND action='workout_preferences_updated' AND table_name='client_profiles' AND new_value->>'actionId'=ANY($3::text[]) RETURNING id`, [ids, actorId, fixtureActionIds]);
+      assert.equal(removed.rowCount, ids.length);
+      await connection.query('ALTER TABLE public.audit_log ENABLE TRIGGER audit_log_immutable');
+    }
+    assert.equal(await enabled(), 'O');
+    await connection.query('COMMIT');
+    process.stdout.write(JSON.stringify({ event: 'coach_durable_sql', check: 'fixture_audit_removed_trigger_restored', outcome: 'passed' }) + '\n');
+  } catch (error) {
+    await connection.query('ROLLBACK'); // DDL is transactional: a failed cleanup restores the trigger too.
+    throw error;
+  } finally { connection.release(); }
+}
 
 async function main() {
   if (process.argv[2] === 'recover') {
@@ -100,9 +135,13 @@ main().catch(error => {
 }).finally(async () => {
   try {
     if (installed) {
+      await cleanupFixtureAudit();
       await pool.query('DROP TRIGGER coach_preference_revision ON public.client_profiles; DROP FUNCTION private.advance_coach_preference_version(); DROP TABLE private.coach_action_receipts; DROP TABLE private.coach_action_proposals; DROP TABLE private.coach_preference_versions;');
       process.stdout.write(JSON.stringify({ event: 'coach_durable_sql', check: 'isolated_delta_removed', outcome: 'passed' }) + '\n');
     }
-  } catch { process.stderr.write('Isolated delta cleanup failed.\n'); process.exitCode = 1; }
+  } catch (error) {
+    const code = (error as { code?: unknown })?.code;
+    process.stderr.write(JSON.stringify({ event: 'coach_durable_sql', check: 'isolated_cleanup', outcome: 'failed', ...(typeof code === 'string' && /^[0-9A-Z]{5}$/.test(code) ? { sqlstate: code } : {}) }) + '\n'); process.exitCode = 1;
+  }
   await pool.end();
 });
