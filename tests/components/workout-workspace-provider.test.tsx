@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import React from 'react';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const { startLiveSession, discardEmptyLiveSession, savePreparedRetrospectiveWorkout } = vi.hoisted(() => ({
@@ -459,4 +459,45 @@ describe('WorkoutWorkspaceProvider', () => {
     expect(screen.getByText('Draft · Not started')).toBeTruthy();
     expect(screen.queryByText('Live')).toBeNull();
   });
+});
+
+
+it('applies a reviewed draft only to the unchanged workspace and never starts a session', async () => {
+  let current!: ReturnType<typeof useWorkoutWorkspace>;
+  function Capture() { const value = useWorkoutWorkspace(); React.useLayoutEffect(() => { current = value; }, [value]); return null; }
+  const storage = new MemoryStorage();
+  const view = render(<WorkoutWorkspaceProvider userId="nik" storage={storage}><Capture /></WorkoutWorkspaceProvider>);
+  await waitFor(() => expect(current).toBeTruthy());
+  act(() => current.createDraft({ name: 'Before', kind: 'strength' }));
+  const captured = current.state;
+  const reviewed = { ...captured.draft!, name: 'Reviewed' };
+  act(() => current.updateDraftName('Manual edit'));
+  act(() => current.applyReviewedDraft('nik', captured, reviewed));
+  expect(current.state.draft?.name).toBe('Manual edit');
+  const unchanged = current.state;
+  act(() => current.applyReviewedDraft('other', unchanged, reviewed));
+  expect(current.state).toBe(unchanged);
+  act(() => current.applyReviewedDraft('nik', unchanged, reviewed));
+  expect(current.state.draft?.name).toBe('Reviewed');
+  expect(startLiveSession).not.toHaveBeenCalled();
+  const oldApply = current.applyReviewedDraft, oldState = current.state;
+  view.rerender(<WorkoutWorkspaceProvider userId="other" storage={storage}><Capture /></WorkoutWorkspaceProvider>);
+  await waitFor(() => expect(current.state.draft).toBeNull());
+  act(() => oldApply('nik', oldState, reviewed));
+  expect(current.state.draft).toBeNull();
+});
+
+it('rejects a reviewed draft while a live start is pending', async () => {
+  let current!: ReturnType<typeof useWorkoutWorkspace>;
+  function Capture() { const value = useWorkoutWorkspace(); React.useLayoutEffect(() => { current = value; }, [value]); return null; }
+  startLiveSession.mockReturnValue(new Promise(() => {}));
+  render(<WorkoutWorkspaceProvider userId="nik" storage={new MemoryStorage()}><Capture /></WorkoutWorkspaceProvider>);
+  await waitFor(() => expect(current).toBeTruthy());
+  act(() => current.createDraft({ name: 'Before', kind: 'strength' }));
+  act(() => current.addDraftExercise('bench-press'));
+  act(() => { void current.startLive(); });
+  await waitFor(() => expect(current.state.startRequest).toBeTruthy());
+  const pending = current.state;
+  act(() => current.applyReviewedDraft('nik', pending, { ...pending.draft!, name: 'Late change' }));
+  expect(current.state).toBe(pending);
 });

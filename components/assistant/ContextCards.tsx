@@ -21,8 +21,10 @@ export function ContextCards({ response, conversationId, subjectId, controller, 
   if (!profile && !response.memories?.length) return null;
   const canChange = response.snapshot?.capabilities.some(item => item.key === 'actions' && item.status === 'available');
   const applied = state.receipt?.status === 'applied';
-  const currentDuration = state.confirmed?.durationMinutes ?? profile?.preferences.durationMinutes;
-  const version = state.confirmed?.version ?? profile?.version;
+  const profileNewer = profile?.source === 'authorized_profile' && state.confirmed?.storage === 'database'
+    && /^\d+$/.test(profile.version) && /^\d+$/.test(state.confirmed.version) && BigInt(profile.version) > BigInt(state.confirmed.version);
+  const currentDuration = profileNewer ? profile.preferences.durationMinutes : state.confirmed?.durationMinutes ?? profile?.preferences.durationMinutes;
+  const version = profileNewer ? profile.version : state.confirmed?.version ?? profile?.version;
   return <details className={styles.profile}>
     <summary>{t('global_coach.your_context')}</summary>
     {profile && <div className={styles.profileBody}>

@@ -3,6 +3,7 @@ import React from 'react';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { I18nProvider } from '@/lib/i18n';
+import { ContextCards } from '@/components/assistant/ContextCards';
 import GlobalCoach from '@/components/assistant/GlobalCoach';
 import { PreferenceController } from '@/components/assistant/preference-state';
 import type { CoachActionResult, CoachConversationResponse } from '@/agents/coach-assistant/contracts';
@@ -108,4 +109,25 @@ it('recovers a lost deletion receipt with its null version and keeps deleted con
   expect(lost).toHaveBeenCalledTimes(1);
   controller.reset();
   expect(controller.snapshot().memories).toEqual({});
+});
+
+
+it('uses a newer authorized database profile after an older applied receipt', async () => {
+  const controller = new PreferenceController();
+  const propose = vi.spyOn(controller, 'propose').mockResolvedValue();
+  const transport = vi.fn();
+  const response = {
+    profile: { language: 'en', timezone: 'UTC', units: { weight: 'kg', energy: 'kcal', protein: 'g' }, preferences: { durationMinutes: 20 }, version: '5', source: 'authorized_profile' },
+    snapshot: { capabilities: [{ key: 'actions', status: 'available' }] }, memories: [],
+  } as unknown as CoachConversationResponse;
+  const state = { ...controller.snapshot(), confirmed: { durationMinutes: 45, version: '4', storage: 'database' as const } };
+  const view = render(<I18nProvider defaultLang="en"><ContextCards response={response} conversationId={conversation} controller={controller} state={state} transport={transport} /></I18nProvider>);
+  fireEvent.click(screen.getByText('Your profile & memory'));
+  expect(screen.getByText('Typical workout: 20 minutes')).toBeTruthy();
+  fireEvent.change(screen.getByRole('combobox'), { target: { value: '60' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Review change' }));
+  expect(propose).toHaveBeenLastCalledWith(conversation, '5', 60, transport, undefined);
+  const older = { ...response, profile: { ...response.profile!, version: '3' } };
+  view.rerender(<I18nProvider defaultLang="en"><ContextCards response={older} conversationId={conversation} controller={controller} state={state} transport={transport} /></I18nProvider>);
+  expect(screen.getByText('Typical workout: 45 minutes')).toBeTruthy();
 });
