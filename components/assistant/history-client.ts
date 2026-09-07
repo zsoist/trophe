@@ -1,5 +1,5 @@
 import { COACH_CHAT_VERSION } from '@/agents/coach-assistant/chat-contract';
-import { readHistoryDelete, readHistoryList, readHistoryPage, readHistoryThread, readHistoryThreadResult, type HistoryList, type HistoryPage } from '@/agents/coach-assistant/chat-result-reader';
+import { readHistoryDelete, readHistoryEnvelope, readHistoryList, readHistoryPage, readHistoryThread, readHistoryThreadResult, type HistoryList, type HistoryPage } from '@/agents/coach-assistant/chat-result-reader';
 export type { HistoryList, HistoryPage } from '@/agents/coach-assistant/chat-result-reader';
 const thread = readHistoryThread;
 export interface HistoryTransport {
@@ -14,10 +14,7 @@ async function request<T>(operation: object, readValue: (value: unknown) => T, s
   const response = await fetch('/api/coach-assistant', { method: 'POST', credentials: 'same-origin', redirect: 'error', signal,
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ version: COACH_CHAT_VERSION, ...operation }) });
   if (!response.ok) throw new Error('history_unavailable');
-  const envelope = await response.json();
-  const row = envelope as Record<string, unknown>;
-  if (row.version !== COACH_CHAT_VERSION || row.storage !== 'database' || row.ok !== true || !('value' in row)) throw new Error('history_unavailable');
-  return readValue(row.value);
+  return readHistoryEnvelope(await response.json(), readValue);
 }
 
 /** Historical text remains historical text; it never creates a live response or a finality proof. */

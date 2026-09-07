@@ -17,6 +17,10 @@ describe('durable history HTTP boundary', () => {
     expect(page.messages[0]).not.toHaveProperty('snapshot');
     expect(fetch).toHaveBeenCalledWith('/api/coach-assistant', expect.objectContaining({ credentials: 'same-origin', redirect: 'error', body: expect.stringContaining('"operation":"read"') }));
   });
+  it('fails closed when the database envelope is null', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('null')));
+    await expect(requestHistory.read(id, new AbortController().signal)).rejects.toThrow('history_unavailable');
+  });
   it.each([
     { thread: { ...thread, id: other }, messages: [message], nextSequence: null },
     { thread, messages: [message, message], nextSequence: null },
