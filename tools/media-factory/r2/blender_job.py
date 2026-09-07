@@ -192,7 +192,9 @@ def main():
     import export_unreal
     dispatch = {'build_character': build_character, 'compare_baseline': compare_baseline.run, 'playback_qa': playback_qa.run, 'render_media': render_media.run, 'localize_contact': localize_contact.run, 'contact_fit': contact_fit.run, 'shirt_clearance': shirt_clearance.run, 'garment_binding': garment_binding.run, 'garment_pattern': garment_pattern.run}
     dispatch['incline']=incline.run
+    dispatch['incline_stabilize']=incline.stabilize
     dispatch['incline_qa']=incline.qa
+    dispatch['incline_temporal_audit']=incline.temporal_audit
     dispatch['cohort']=cohort.run
     dispatch['bench_qa']=bench_qa.run
     dispatch['arnold']=arnold.run

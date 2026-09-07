@@ -139,7 +139,7 @@ def qa(config,out):
     bpy.ops.wm.open_mainfile(filepath=config['animation_source']);s=bpy.context.scene;r=bpy.data.objects['Trophe_R2_Authoring'];body=bpy.data.objects['Trophe_R2_Athlete'];shoe=bpy.data.objects['Trophe_R2_Trainers']
     bodyids={v.index for v in body.data.vertices if any(body.vertex_groups[g.group].name=='body' and g.weight>.5 for g in v.groups)}
     support_ids={n:[v.index for v in body.data.vertices if v.index in bodyids and lo<v.co.z<hi and abs(v.co.x)<wide] for n,lo,hi,wide in [('head',1.58,1.85,.12),('upper_back',1.2,1.47,.19),('pelvis',.77,1.02,.18)]}
-    pads=[bpy.data.objects['Incline bench backrest'],bpy.data.objects['Incline bench seat']];padtrees=[tree(mesh_data(p)) for p in pads]
+    pads=[o for o in s.objects if o.name.startswith(('Incline bench backrest','Incline bench seat','Incline bench head support'))];padtrees=[tree(mesh_data(p)) for p in pads]
     props=[o for o in s.objects if o.type=='MESH' and o.name.startswith('Incline weight')]
     rows=[];tracked={};first=None;previous=None
     for f in range(1,182):
@@ -174,3 +174,47 @@ def qa(config,out):
         sub.append({'frame':f,'wrist_error_m':max((r.matrix_world@r.pose.bones['ORG-hand.'+side].head-bpy.data.objects['Incline wrist target '+side].matrix_world.translation).length for side in ['L','R'])})
     report={'rows':rows,'subframes':sub,'closure_surface_m':float(np.linalg.norm(p-first,axis=1).max()),'scope':'181 consecutive evaluated poses for grip and object/skin crossings; supports/garments at7 critical poses; not anatomical or human technique certification'}
     (out/'qa.json').write_text(json.dumps(report,indent=2));return {'max_grip_drift_m':max(v['drift_m'] for row in rows for v in row['sides'].values()),'max_wrist_axis_deg':max(v['wrist_axis_deg'] for row in rows for v in row['sides'].values()),'equipment_crossing_frames':sum(bool(row['equipment_crossings']) for row in rows),'closure_m':report['closure_surface_m']}
+
+
+def temporal_audit(config,out):
+    bpy.ops.wm.open_mainfile(filepath=config['animation_source']);s=bpy.context.scene;r=bpy.data.objects['Trophe_R2_Authoring'];b=bpy.data.objects['Trophe_R2_Athlete']
+    from compare_baseline import studio,place
+    cam=studio(s);s.render.engine='BLENDER_EEVEE';s.render.resolution_x=960;s.render.resolution_y=720;cam.data.sensor_fit='VERTICAL';place(cam,(2.6,-3.4,2.35),(0,.28,1.0),1.15)
+    previous=None;rows=[]
+    for f in [12,13,171,172]:
+        s.frame_set(f);bpy.context.view_layer.update();p,t,ids=mesh_data(b)
+        matrices={pb.name:pb.matrix.copy() for pb in r.pose.bones if any(x in pb.name for x in ['upper_arm','forearm','hand','shoulder'])}
+        row={'frame':f,'shape_values':{k.name:k.value for k in b.data.shape_keys.key_blocks},'modifier_factors':{m.name:m.factor for m in b.modifiers if hasattr(m,'factor')}}
+        if previous and f-previous[0]==1:
+            old,mat=previous[1:];delta=np.linalg.norm(p-old,axis=1);use=np.argsort(delta)[-12:];row['surface']=[{'source_id':ids[i],'distance_m':float(delta[i]),'rest':list(b.data.vertices[ids[i]].co),'groups':[(b.vertex_groups[g.group].name,g.weight) for g in b.data.vertices[ids[i]].groups]} for i in use];row['bone_rotation_changes']={n:math.degrees(m.to_quaternion().rotation_difference(mat[n].to_quaternion()).angle) for n,m in matrices.items() if math.degrees(m.to_quaternion().rotation_difference(mat[n].to_quaternion()).angle)>3}
+        rows.append(row);previous=(f,p,matrices)
+        s.render.filepath=str(out/('temporal-%03d.png'%f));bpy.ops.render.render(write_still=True)
+    (out/'temporal.json').write_text(json.dumps(rows,indent=2));return {'frames':[12,13,171,172]}
+
+
+def stabilize(config,out):
+    """Resolve native mid-forearm roll branch using an acyclic calibrated reference."""
+    bpy.ops.wm.open_mainfile(filepath=config['animation_source']);s=bpy.context.scene;r=bpy.data.objects['Trophe_R2_Authoring'];body=bpy.data.objects['Trophe_R2_Athlete']
+    s.frame_set(1);bpy.context.view_layer.update();initial=points(body);references={};before={}
+    for f in [1,12,13,100,171,172,181]:
+        s.frame_set(f);bpy.context.view_layer.update();before[f]={side:np.array(r.matrix_world@r.pose.bones['ORG-hand.'+side].matrix) for side in ['L','R']}
+    s.frame_set(1);bpy.context.view_layer.update()
+    for side in ['L','R']:
+        pb=r.pose.bones['forearm_tweak.'+side+'.001'];org=r.matrix_world@r.pose.bones['ORG-forearm.'+side].matrix;ref=r.matrix_world@pb.matrix
+        follower=empty('Incline forearm reference '+side);c=follower.constraints.new('COPY_TRANSFORMS');c.target=r;c.subtarget='ORG-forearm.'+side;c.owner_space='WORLD';c.target_space='WORLD'
+        bpy.context.view_layer.update()
+        anchor=empty('Incline calibrated mid-forearm '+side);anchor.parent=follower;anchor.matrix_basis=follower.matrix_world.inverted()@ref
+        c=pb.constraints.new('COPY_ROTATION');c.name='Continuous calibrated forearm roll';c.target=anchor;c.owner_space='WORLD';c.target_space='WORLD';c.mix_mode='REPLACE'
+        references[side]={'control':pb.name,'reference':'ORG-forearm world orientation with full animated-frame1 relative offset','offset':[list(row) for row in anchor.matrix_basis],'reason':'Native MCH middle-forearm orientation flips179.67deg at12→13 and171→172 while ORG/hand path stays continuous','authority':'ORG-forearm -> object follower -> calibrated child -> mid-forearm COPY_ROTATION; no feedback into IK/ORG'}
+    bpy.context.view_layer.update();frame1=float(np.linalg.norm(points(body)-initial,axis=1).max());assert frame1<1e-5,frame1
+    pad=bpy.data.objects['Incline bench backrest'];mat=pad.data.materials[0]
+    headpad=cube('Incline bench head support',(0,0,0),(.29,.20,.015),mat);headpad.parent=pad.parent;headpad.location=(0,.43,.04)
+    rows=[];prev=None
+    for f in range(1,182):
+        s.frame_set(f);bpy.context.view_layer.update();p=points(body)
+        row={'frame':f,'step_max_m':float(np.linalg.norm(p-prev,axis=1).max()) if prev is not None else 0};prev=p.copy()
+        if f in before:
+            row['hand_matrix_delta']=max(float(np.abs(np.array(r.matrix_world@r.pose.bones['ORG-hand.'+side].matrix)-before[f][side]).max()) for side in ['L','R']);assert row['hand_matrix_delta']<1e-5,row
+        rows.append(row)
+    s.frame_set(1);bpy.ops.wm.save_as_mainfile(filepath=str(out/'incline.blend'))
+    (out/'stabilization.json').write_text(json.dumps({'reference':references,'frame1_surface_delta_m':frame1,'rows':rows,'head_support':'15mm upholstery insert follows backrest angle, closing measured15.46mm head support gap; no body trajectory edit','reviews':'pending'},indent=2));return {'frame1_surface_delta_m':frame1,'max_surface_step_m':max(x['step_max_m'] for x in rows)}
