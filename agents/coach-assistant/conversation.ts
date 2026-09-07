@@ -50,25 +50,31 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
         if(JSON.stringify(fresh)!==JSON.stringify(authorized)) throw new Error('forbidden');
         return fresh;
       }};
+      let capabilityPersonal:Awaited<ReturnType<NonNullable<typeof authorizedRepository.personalContext>>>|undefined;
       if(options.capabilityRegistry&&options.mode==='model'&&!Object.values(medicalBoundary(input.message)).some(Boolean)){
-        response.snapshot={id:randomUUID(),capturedAt:options.now.toISOString(),subjectId:subject,organizationId:authorized.organizationId,surface:input.context?.includeScreen?input.context.surface:null,screenIncluded:!!input.context?.includeScreen,language:authorized.language,units:{weight:'kg',energy:'kcal',protein:'g'},window:windowFor('today',authorized.timezone,options.now),capabilities:[]};
+        response.snapshot={id:randomUUID(),capturedAt:options.now.toISOString(),subjectId:subject,organizationId:authorized.organizationId,surface:input.context?.includeScreen?input.context.surface:null,screenIncluded:!!input.context?.includeScreen,language:authorized.language,units:{weight:'kg',energy:'kcal',protein:'g'},window:windowFor(selectConversationScope(input).intent,authorized.timezone,options.now),capabilities:[]};
         response.output={answer:'',evidenceRefs:[],limitations:['capability_turn_no_aggregate_reads'],suggestions:[],escalation:{required:false,reason:null,draft:null}};
-        if(authorizedRepository.personalContext){
+        if(authorizedRepository.personalContext&&!(input.context?.includeScreen&&input.context.entity?.kind==='exercise')){
           response.telemetry.dataReads++;
-          const personal=await authorizedRepository.personalContext({context:authorized,window:response.snapshot.window,limit:1,signal:controller.signal});
+          const personal=capabilityPersonal=await authorizedRepository.personalContext({context:authorized,window:response.snapshot.window,limit:1,signal:controller.signal});
           await authorizedRepository.authorize(options.actorId,subject,controller.signal);
           if(personal.truncated||personal.rows.length>1)throw new Error('query_failed');
           const row=personal.rows[0];
           if(row){
             if(row.userId!==subject||row.memories.some(memory=>memory.userId!==subject))throw new Error('forbidden');
             if(row.foodPreference){if(row.foodPreference.profileId!==subject)throw new Error('forbidden');response.foodPreference={...row.foodPreference,preferences:parseFoodPreferences(row.foodPreference.preferences)};}
+            const preferences=workoutPreferencesSchema.safeParse(row.preferences);
+            if(preferences.success)response.profile={language:authorized.language,timezone:authorized.timezone,units:response.snapshot.units,preferences:{durationMinutes:preferences.data.durationMinutes},version:row.preferencesVersion??createHash('sha256').update(JSON.stringify(preferences.data)).digest('hex'),source:options.repository.dataSource==='synthetic'?'isolated_fixture':'authorized_profile'};
+            if(row.memoriesRead!==false)response.memories=row.memories.slice(0,10).map(memory=>({id:memory.id,text:memory.text.slice(0,500),source:memory.source,createdAt:memory.createdAt,scope:memory.scope,version:memory.version,confirmation:memory.confirmation??'unconfirmed'}));
           }
         }
         // Existing outer broker validates continuity against fresh source revisions.
         const selectorInput=options.filterMemoryHistory?.(input)??{...input,history:input.history?.filter(item=>item.role==='user'&&item.kind!=='memory_summary')};
         await prepareConversationCapability(selectorInput,response,options.offlineConversationProvider!,options.capabilityRegistry,authorizedRepository,authorized,controller.signal);
-        await generateOpenConversation(selectorInput,response,options.offlineConversationProvider!,controller.signal,options.offlineInterpretationReview,options.offlineCandidateEvaluation,options.isolatedFixtureBoundary);
-        await authorizedRepository.authorize(options.actorId,subject,controller.signal);controller.signal.throwIfAborted();response.ok=true;return;
+        if(response.capabilityResult?.tool!=='none'){
+          await generateOpenConversation(selectorInput,response,options.offlineConversationProvider!,controller.signal,options.offlineInterpretationReview,options.offlineCandidateEvaluation,options.isolatedFixtureBoundary);
+          await authorizedRepository.authorize(options.actorId,subject,controller.signal);controller.signal.throwIfAborted();response.ok=true;return;
+        }
       }
       const selection=createSelectionContext(authorizedRepository,input.context,authorized);
       const repository=selection.repository;
@@ -77,7 +83,10 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
         ...options, mode:'offline', repository, signal:controller.signal, deadlineMs:Math.max(1,budget-(performance.now()-start)),
       });
       controller.signal.throwIfAborted();
-      response.telemetry = result.telemetry;
+      const priorTelemetry=response.telemetry;
+      response.telemetry={...result.telemetry};
+      for(const key of ['modelCalls','dataReads','tokensIn','tokensOut','reasoningTokens','cacheReadTokens','cacheWriteTokens'] as const)response.telemetry[key]+=priorTelemetry[key];
+      if(response.telemetry.dataReads>4)throw new Error('context_limit');
       if(!result.ok) { response.error=result.error; return; }
       response.evidence = result.evidence.filter(f=>evidenceMatchesScope(f.source,domain));
       const medical = result.output?.escalation.required && ['urgent_symptoms','medical_question','medical_context'].includes(result.output.escalation.reason ?? '');
@@ -92,11 +101,11 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
       response.attachments = (input.attachments ?? []).map(item=>({...item,status:'not_connected'}));
       const facts = response.evidence.map(f=>f.statement).join('\n');
       response.output = {...result.output!,evidenceRefs:response.evidence.map(f=>f.id),answer:medical ? result.output!.answer : `${options.repository.dataSource==='synthetic'?'Synthetic example records. ':''}Offline record summary; no AI model interpreted your message.\n${facts || 'There are no supported records for this scope.'}\nI can show recorded facts, but open-ended interpretation is not connected. No record was changed.`,limitations:[...result.output!.limitations,'conversation_history_not_evidence','open_ended_interpretation_not_connected',...(input.attachments?.length?['attachments_not_processed']:[])]};
-      if(repository.personalContext && response.telemetry.dataReads < 4 && !medical) {
+      if(repository.personalContext && (capabilityPersonal||response.telemetry.dataReads < 4) && !medical) {
         const window=response.snapshot.window;
         const context=await repository.authorize(options.actorId,subject,controller.signal);
-        response.telemetry.dataReads++;
-        const personal=await repository.personalContext({context,window,limit:1,signal:controller.signal});
+        if(!capabilityPersonal)response.telemetry.dataReads++;
+        const personal=capabilityPersonal??await repository.personalContext({context,window,limit:1,signal:controller.signal});
         await repository.authorize(options.actorId,subject,controller.signal);
         controller.signal.throwIfAborted();
         if(personal.rows.length>1||personal.truncated)throw new Error('query_failed');
