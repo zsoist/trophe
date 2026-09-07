@@ -192,6 +192,7 @@ def main():
     import bench_qa
     import export_unreal
     dispatch = {'build_character': build_character, 'compare_baseline': compare_baseline.run, 'playback_qa': playback_qa.run, 'render_media': render_media.run, 'localize_contact': localize_contact.run, 'contact_fit': contact_fit.run, 'shirt_clearance': shirt_clearance.run, 'garment_binding': garment_binding.run, 'garment_pattern': garment_pattern.run}
+    dispatch['incline_garment_collider']=incline_refine.garment_collider
     dispatch['incline_local_gate']=incline_refine.local_gate
     dispatch['incline_garment_clearance']=incline_refine.garment_rest_clearance
     dispatch['incline_scale_reference']=incline_refine.scale_reference

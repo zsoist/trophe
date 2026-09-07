@@ -218,3 +218,21 @@ def local_gate(config,out):
                 place(camera,e+Vector((1,-1,.45)),e,.40);s.render.filepath=str(out/(variant+'-elbow.png'));bpy.ops.render.render(write_still=True)
         record['variants'][variant]=rows
     (out/'local-gate.json').write_text(json.dumps(record,indent=2));return {'diagnostic_only':True}
+
+
+def garment_collider(config,out):
+    # Existing native Shrinkwrap, with a deformation-compatible collider that
+    # cannot select the forearm/hand across the bent sleeve opening.
+    bpy.ops.wm.open_mainfile(filepath=config['animation_source']);s=bpy.context.scene;b=bpy.data.objects['Trophe_R2_Athlete'];c=bpy.data.objects['SportsTank']
+    proxy=b.copy();proxy.data=b.data.copy();s.collection.objects.link(proxy);proxy.name='Incline upper garment collision surface';proxy.hide_render=True;proxy.display_type='WIRE'
+    group=proxy.vertex_groups.new(name='Torso and proximal arm clothing collision');kept=[]
+    for v in b.data.vertices:
+        w={b.vertex_groups[g.group].name:g.weight for g in v.groups}
+        distal=sum(weight for name,weight in w.items() if name.startswith(('DEF-forearm','DEF-hand','DEF-palm','DEF-f_','DEF-thumb')))
+        if w.get('body',0)>.5 and distal<.02 and v.co.z>.85:kept.append(v.index)
+    group.add(kept,1.,'REPLACE');mask=proxy.modifiers.new('Exclude distal arm from textile collider','MASK');mask.vertex_group=group.name
+    wrap=c.modifiers.new('Upper garment clearance without distal projection','SHRINKWRAP');wrap.target=proxy;wrap.wrap_method='NEAREST_SURFACEPOINT';wrap.wrap_mode='ABOVE_SURFACE';wrap.offset=.004
+    c.modifiers.move(len(c.modifiers)-1,next(i for i,m in enumerate(c.modifiers) if m.type=='SOLIDIFY'))
+    s.frame_set(1);bpy.context.view_layer.update();bpy.ops.wm.save_as_mainfile(filepath=str(out/'incline.blend'))
+    record={'cause':'Rest-only fit removed projection strips but subdivision/pose response left visible chest intersections. Whole-body live projection previously selected forearm across sleeve.','change':'Native live Shrinkwrap after subdivision and before1.2mm solidify, on a hidden copy of the SAME deformed body with only torso/proximal arm collision region.4mm offset unchanged; forearm/hand excluded by native weights. Rendered body and its skin masks unchanged.','collider_vertices':kept,'not_simulation':True,'human_reviews':'pending'}
+    (out/'garment-collider.json').write_text(json.dumps(record,indent=2));return {'native_filtered_collider':True,'collider_vertices':len(kept)}
