@@ -1,3 +1,4 @@
+'use client';
 import { useState } from 'react';
 import { prepareReviewedVoiceMessage, type CoachVoiceResult, type CoachVoiceScope } from '@/agents/coach-assistant/voice-contract';
 import { useGlobalCoachI18n } from './useGlobalCoachI18n';

@@ -1,3 +1,4 @@
+'use client';
 import { Mic, Square } from 'lucide-react';
 import { useGlobalCoachI18n } from './useGlobalCoachI18n';
 import { VoiceController, type VoiceState } from './voice-state';

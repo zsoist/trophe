@@ -1,3 +1,4 @@
+'use client';
 import { useState } from 'react';
 import { FoodQuantityController, type FoodState, type FoodTransport } from './food-state';
 import { useGlobalCoachI18n } from './useGlobalCoachI18n';
