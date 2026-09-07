@@ -137,6 +137,7 @@ export interface CoachConversationResponse {
   proposals: CoachProposal[];
   receipts: CoachReceipt[];
   attachments: CoachAttachmentRef[];
+  explanations?: Array<{kind:'curated_general';id:string;text:string;source:'coach-general.v1'}>;
   uploads?: { images: true; storage: 'isolated_ephemeral'; analysis: 'not_connected'; limits: typeof COACH_IMAGE_LIMITS };
   telemetry: CoachTelemetry;
 }

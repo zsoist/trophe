@@ -7,7 +7,7 @@ import type { invokeStructuredProvider } from '@/agents/runtime/providers/struct
 export type PilotTransport=(input:Parameters<typeof invokeStructuredProvider>[0])=>Promise<import('@/agents/runtime/types').ProviderResult<unknown>>;
 export interface PilotCandidate {
  promptVersion:string;
- run(raw:unknown,options:{mode:'model';actorId:string;repository:ReturnType<typeof fixtureRepository>;signal:AbortSignal;now:Date;offlineConversationProvider:PilotTransport}):Promise<{ok:boolean;error?:{code:string};output?:{answer:string;suggestions:string[];escalation:{reason:string}};proposals:unknown[];receipts:unknown[]}>;
+ run(raw:unknown,options:{mode:'model';actorId:string;repository:ReturnType<typeof fixtureRepository>;signal:AbortSignal;now:Date;offlineConversationProvider:PilotTransport}):Promise<{ok:boolean;error?:{code:string};output?:{answer:string;suggestions:string[];escalation:{reason:string|null}};proposals:unknown[];receipts:unknown[]}>;
 }
 import type { AiUsage } from '@/agents/runtime/types';
 

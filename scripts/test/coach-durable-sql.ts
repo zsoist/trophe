@@ -154,6 +154,11 @@ async function main() {
   assert.ok(Array.isArray(httpActionIds) && httpActionIds.length <= 16 && httpActionIds.every(id => typeof id === 'string' && /^[a-f0-9-]{36}$/.test(id)));
   fixtureActionIds.push(...httpActionIds);
   assert.equal(http.status, 0); pass();
+  check = 'isolated_engine_real_auth_http';
+  const engine = spawnSync(process.execPath, ['node_modules/@playwright/test/cli.js', 'test', '--config', 'playwright.coach.config.ts', '--workers=1', 'e2e/coach-engine.spec.ts'], {
+    stdio: 'inherit', env: { ...httpEnv, E2E_COACH_DURABLE: '0', E2E_COACH_ENGINE: '1', COACH_ASSISTANT_ISOLATED_ENGINE_ENABLED: '1' },
+  });
+  assert.equal(engine.status, 0); pass();
 }
 
 main().catch(error => {

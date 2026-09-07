@@ -7,6 +7,10 @@ export const runtime = 'nodejs';
 export async function POST(request: NextRequest) {
   return handleCoachRequest(request, {
     env: process.env,
+    createIsolatedEngine: async () => {
+      const { createIsolatedCoachEngineBinding } = await import('@/agents/coach-assistant/isolated-engine');
+      return createIsolatedCoachEngineBinding(process.env);
+    },
     guard: async () => {
       const { guardAiRoute } = await import('@/lib/security/api-guard');
       const guard = await guardAiRoute(request);

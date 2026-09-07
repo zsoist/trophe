@@ -1,3 +1,6 @@
+import type { createIsolatedCoachEngineBinding } from './isolated-engine';
+import { runConversationCandidate } from './conversation-candidate';
+import type { PilotTransport } from './pilot-runner';
 import { executeFoodQuantityAction, type FoodQuantityService } from './food-actions';
 import { executeDurablePreferenceAction, withDurablePreferenceRead, type DurableCoachProfileService } from './durable-actions';
 import { run } from './index';
@@ -16,6 +19,9 @@ interface HandlerDependencies {
   createRepository(): CoachRepository | Promise<CoachRepository>;
   createDurableService?:()=>DurableCoachProfileService|Promise<DurableCoachProfileService>;
   createFoodService?:()=>FoodQuantityService|Promise<FoodQuantityService>;
+  isolatedEngine?:ReturnType<typeof createIsolatedCoachEngineBinding>;
+  createIsolatedEngine?:()=>ReturnType<typeof createIsolatedCoachEngineBinding>|Promise<ReturnType<typeof createIsolatedCoachEngineBinding>>;
+  candidateEvaluation?:{kind:'injected_fixture';transport:PilotTransport};
   now?: () => Date;
 }
 const json = (body: unknown, status: number) => Response.json(body,{status,headers:{'Cache-Control':'no-store'}});
@@ -129,12 +135,19 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
         if(!deps.createDurableService)return fail('provider_unavailable',503);
         repository=withDurablePreferenceRead(repository,await deps.createDurableService());
       }
-      const result=await (conversational?runConversation:run)(parsed.data,{
+      const isolated=conversational&&deps.env.COACH_ASSISTANT_ISOLATED_ENGINE_ENABLED==='1';
+      if(isolated&&synthetic)return fail('budget_blocked',503);
+      const isolatedEngine=isolated?(deps.isolatedEngine??await deps.createIsolatedEngine?.()):undefined;
+      if(isolated&&!isolatedEngine)return fail('budget_blocked',503);
+      const candidate=!isolated&&conversational&&deps.env.COACH_ASSISTANT_CANDIDATE_EVALUATION_ENABLED==='1';
+      if(candidate&&(!synthetic||deps.candidateEvaluation?.kind!=='injected_fixture'))return fail('budget_blocked',503);
+      const result=await (isolated?isolatedEngine!.run:candidate?runConversationCandidate:conversational?runConversation:run)(parsed.data,{
+        offlineConversationProvider:candidate?deps.candidateEvaluation!.transport:undefined!,
         isolatedActionsEnabled:!durable&&deps.env.COACH_ASSISTANT_ISOLATED_ACTIONS_ENABLED==='1',
         actorId:synthetic?'synthetic-client':guard.userId,
         repository,
         now:synthetic?new Date('2026-09-07T03:30:00Z'):(deps.now?.()??new Date()),
-        signal:controller.signal,mode:deps.env.COACH_ASSISTANT_MODE==='model'?'model':'offline',
+        signal:controller.signal,mode:isolated||candidate||deps.env.COACH_ASSISTANT_MODE==='model'?'model':'offline',
         deadlineMs:Math.max(1,45000-(performance.now()-start)),
       });
       if(durable&&result.version==='coach-assistant.v2'&&result.ok&&result.profile&&result.snapshot?.subjectId===guard.userId&&result.dataSource==='authorized_records') {
