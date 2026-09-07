@@ -1,3 +1,4 @@
+import { generateOpenConversation, type OfflineConversationProvider } from './open-conversation';
 import { selectConversationScope, evidenceMatchesScope } from './conversation-scope';
 import { createHash, randomUUID } from 'node:crypto';
 import { COACH_CONVERSATION_VERSION } from './contracts';
@@ -11,7 +12,7 @@ import { COACH_PRICING_VERSION } from './economics';
 import { COACH_PROMPT_VERSION } from './prompt.v3';
 
 /** History is a hint for a window/domain, never a source of facts or authority. */
-export async function runConversation(raw: unknown, options: RunOptions & { isolatedActionsEnabled?:boolean }): Promise<CoachConversationResponse> {
+export async function runConversation(raw: unknown, options: RunOptions & { isolatedActionsEnabled?:boolean; offlineConversationProvider?:OfflineConversationProvider }): Promise<CoachConversationResponse> {
   const start = performance.now();
   const parsed = conversationRequestSchema.safeParse(raw);
   const response: CoachConversationResponse = {
@@ -31,6 +32,7 @@ export async function runConversation(raw: unknown, options: RunOptions & { isol
     const input = parsed.data;
     const work = async () => {
       controller.signal.throwIfAborted();
+      if(options.mode==='model'&&(!options.offlineConversationProvider||options.repository.dataSource!=='synthetic'))throw new Error('budget_blocked');
       const subject = input.context?.clientId ?? options.actorId;
       const authorized = await options.repository.authorize(options.actorId,subject,controller.signal);
       controller.signal.throwIfAborted();
@@ -44,7 +46,7 @@ export async function runConversation(raw: unknown, options: RunOptions & { isol
       }};
       const {intent,surface,exerciseId,domain}=selectConversationScope(input);
       const result = await run({message:input.message,intent,clientId:input.context?.clientId,exerciseId}, {
-        ...options, repository, signal:controller.signal, deadlineMs:Math.max(1,budget-(performance.now()-start)),
+        ...options, mode:'offline', repository, signal:controller.signal, deadlineMs:Math.max(1,budget-(performance.now()-start)),
       });
       controller.signal.throwIfAborted();
       response.telemetry = result.telemetry;
@@ -85,6 +87,11 @@ export async function runConversation(raw: unknown, options: RunOptions & { isol
           if(row.memories.length>10)response.output.limitations.push('memory_records_partial');
         }
       }
+      if(options.mode==='model'&&!medical) {
+        await generateOpenConversation(input,response,options.offlineConversationProvider!,controller.signal);
+        await repository.authorize(options.actorId,subject,controller.signal);
+        controller.signal.throwIfAborted();
+      }
       response.ok = true;
     };
     await Promise.race([work(),new Promise<never>((_,reject)=>{
@@ -93,9 +100,9 @@ export async function runConversation(raw: unknown, options: RunOptions & { isol
       if(controller.signal.aborted)boundary();
     })]);
   } catch(error) {
-    const allowed = ['invalid_input','forbidden','unauthenticated','invalid_timezone','budget_blocked'];
+    const allowed = ['invalid_input','forbidden','unauthenticated','invalid_timezone','budget_blocked','context_limit','invalid_output','provider_unavailable'];
     const code: CoachErrorCode = controller.signal.aborted ? options.signal.aborted?'cancelled':'deadline' : error instanceof Error && allowed.includes(error.message)?error.message as CoachErrorCode:'query_failed';
-    response.error={code,retryable:code==='query_failed'||code==='deadline'};
+    response.error={code,retryable:code==='query_failed'||code==='deadline'||code==='provider_unavailable'};
     response.ok=false;response.snapshot=null;response.evidence=[];delete response.output;delete response.profile;delete response.memories;
   } finally {
     clearTimeout(timer);options.signal.removeEventListener('abort',abort);
