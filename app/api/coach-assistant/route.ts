@@ -18,3 +18,6 @@ export async function POST(request: NextRequest) {
     },
   });
 }
+
+/** Binary uploads share the exact private authentication/allowlist boundary. */
+export const PUT = POST;

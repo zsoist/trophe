@@ -63,3 +63,9 @@ export const memoryCardSchema = z.object({
   id:z.string().uuid(),text:z.string().min(1).max(500),source:z.enum(['user_input','coach','agent_inference','wearable']),
   createdAt:z.string().datetime({offset:true}),scope:z.enum(['user','session','agent']),confirmation:z.enum(['unconfirmed','confirmed']),version:z.string().min(1).max(128),
 }).strict();
+
+export const attachmentOperationSchema = z.discriminatedUnion('operation',[
+  z.object({version:z.literal('coach-assistant.v2'),conversationId:z.string().uuid(),operation:z.literal('attachment.prepare'),mime:z.enum(['image/jpeg','image/png','image/webp']),bytes:z.number().int().min(1).max(5*1024*1024)}).strict(),
+  z.object({version:z.literal('coach-assistant.v2'),conversationId:z.string().uuid(),operation:z.literal('attachment.status'),attachmentId:z.string().uuid()}).strict(),
+  z.object({version:z.literal('coach-assistant.v2'),conversationId:z.string().uuid(),operation:z.literal('attachment.remove'),attachmentId:z.string().uuid(),reviewed:z.literal(true)}).strict(),
+]);

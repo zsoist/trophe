@@ -105,3 +105,27 @@ Source and original creation date remain intact; confirmation describes only the
 isolated copy. The persisted memory row is not confirmed, corrected or deleted.
 The frontend must label and keep this isolated preview distinct from later reads
 of persisted cards. No persistence or cross-device guarantee is implied.
+
+## Isolated image attachments
+
+`COACH_ASSISTANT_ISOLATED_ATTACHMENTS_ENABLED=1` enables metadata operations
+`attachment.prepare`, `attachment.status`, `attachment.remove` on POST and raw
+binary PUT on the same guarded route. Prepare takes version, conversationId, mime
+and exact bytes; it returns an opaque attachment ID and HMAC upload token bound to
+owner/organization/thread/MIME/size/expiry. PUT uses `x-coach-conversation-id`,
+`x-coach-attachment-id`, `x-coach-upload-token`. Removal requires `reviewed:true`.
+
+Limits reuse Food's lower 5 MiB input cap: three files, 15 MiB per thread, 16 MP,
+JPEG/PNG/WebP only. Signature and full Sharp decode must agree. Orientation is
+applied, metadata stripped and bytes normalized to JPEG. Animated files and
+arbitrary URLs are not supported. Original bytes are not retained. Normalized
+bytes are private process-local data, with a 32 MiB global budget, one decoder,
+128-entry cap and 15-minute expiry. No bucket is created or reused: existing
+chat-attachments policies address message relationships, not coach threads.
+
+Identical upload retries return the existing descriptor. Removal prevents reuse;
+interrupted uploads can retry within their reservation. Authorization is repeated
+before commit. HTTP tests inject Auth/repository fixtures; actual Supabase Auth
+integration remains separate. Conversation attachment availability only confirms
+upload validation, never vision: every attachment result says analysis
+`not_connected`, storage `isolated_ephemeral`. No Food photo inference is called.

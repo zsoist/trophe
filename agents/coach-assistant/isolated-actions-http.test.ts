@@ -1,3 +1,4 @@
+import sharp from 'sharp';
 import { createServer } from 'node:http';
 import { createHash, randomUUID } from 'node:crypto';
 import { once } from 'node:events';
@@ -16,8 +17,8 @@ describe('isolated action HTTP envelopes',()=>{
     const server=createServer(async(req,res)=>{
       try {
         const chunks:Buffer[]=[];for await(const chunk of req)chunks.push(Buffer.from(chunk));
-        const result=await handleCoachRequest(new Request('http://127.0.0.1/api/coach-assistant',{method:'POST',body:Buffer.concat(chunks)}),{
-          env:{COACH_ASSISTANT_ENABLED:'1',COACH_ASSISTANT_ISOLATED_ACTIONS_ENABLED:'1',COACH_ASSISTANT_PREVIEW_USER_IDS:actor,VERCEL_ENV:'preview'},
+        const result=await handleCoachRequest(new Request('http://127.0.0.1/api/coach-assistant',{method:req.method,headers:Object.fromEntries(Object.entries(req.headers).filter(([,value])=>typeof value==='string')) as Record<string,string>,body:Buffer.concat(chunks)}),{
+          env:{COACH_ASSISTANT_ENABLED:'1',COACH_ASSISTANT_ISOLATED_ATTACHMENTS_ENABLED:'1',COACH_ASSISTANT_ISOLATED_ACTIONS_ENABLED:'1',COACH_ASSISTANT_PREVIEW_USER_IDS:actor,VERCEL_ENV:'preview'},
           guard:async()=>req.headers.authorization==='fixture-session'?{userId:actor}:new Response('',{status:401}),createRepository:()=>repository,
         });
         res.writeHead(result.status,Object.fromEntries(result.headers));res.end(await result.text());
@@ -46,6 +47,15 @@ describe('isolated action HTTP envelopes',()=>{
       const confirmed=await (await post(memoryApply)).json();
       expect(confirmed).toMatchObject({ok:true,storage:'isolated_ephemeral',memory:{confirmation:'confirmed',version:expect.any(String)}});
       expect(await (await post({...base,operation:'receipt',actionId:memoryApply.actionId})).json()).toEqual(confirmed);
+      const image=await sharp({create:{width:2,height:2,channels:3,background:'#ffffff'}}).png().toBuffer();
+      const reservation=await (await post({...base,operation:'attachment.prepare',mime:'image/png',bytes:image.length})).json();
+      // Attachment operations do not carry a conversational turnId.
+      expect(reservation.error).toBe('invalid_input');
+      const ready=await (await post({version:base.version,conversationId,operation:'attachment.prepare',mime:'image/png',bytes:image.length})).json();
+      const uploaded=await fetch(url,{method:'PUT',headers:{Authorization:'fixture-session','x-coach-conversation-id':conversationId,'x-coach-attachment-id':ready.attachment.id,'x-coach-upload-token':ready.uploadToken},body:new Uint8Array(image).buffer});
+      expect(uploaded.status).toBe(200);expect(await uploaded.json()).toMatchObject({ok:true,storage:'isolated_ephemeral',analysis:'not_connected',state:'available'});
+      const wrongThread=await fetch(url,{method:'PUT',headers:{Authorization:'fixture-session','x-coach-conversation-id':randomUUID(),'x-coach-attachment-id':ready.attachment.id,'x-coach-upload-token':ready.uploadToken},body:new Uint8Array(image).buffer});
+      expect(wrongThread.status).toBe(403);
       revoked=true;
       expect((await post({...base,operation:'receipt',actionId:apply.actionId})).status).toBe(403);
     } finally {server.closeAllConnections();await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));}
