@@ -1,4 +1,3 @@
-'use client';
 import { useI18n } from '@/lib/i18n';
 import { globalCoachTranslations } from '@/lib/locales/global-coach';
 import { interpolateTranslation } from '@/lib/i18n-interpolate';

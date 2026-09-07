@@ -1,4 +1,3 @@
-'use client';
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { createPortal } from 'react-dom';

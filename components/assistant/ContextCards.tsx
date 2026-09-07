@@ -1,4 +1,3 @@
-'use client';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { CoachConversationResponse } from '@/agents/coach-assistant/contracts';
 import { PreferenceController, type PreferenceState, type PreferenceTransport } from './preference-state';

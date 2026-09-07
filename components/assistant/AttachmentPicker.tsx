@@ -1,4 +1,3 @@
-'use client';
 import { useRef, useState } from 'react';
 import { ImagePlus } from 'lucide-react';
 import { AttachmentController, type AttachmentState, type AttachmentTransport } from './attachment-state';
