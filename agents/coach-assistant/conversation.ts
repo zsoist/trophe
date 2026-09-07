@@ -6,7 +6,7 @@ import { run } from './index';
 import type { RunOptions } from './index';
 import { windowFor } from './context';
 import { COACH_PRICING_VERSION } from './economics';
-import { COACH_PROMPT_VERSION } from './prompt.v2';
+import { COACH_PROMPT_VERSION } from './prompt.v3';
 
 /** History is a hint for a window/domain, never a source of facts or authority. */
 export async function runConversation(raw: unknown, options: RunOptions): Promise<CoachConversationResponse> {

@@ -5,7 +5,7 @@ import { fixtureRepository } from './fixtures';
 import type { CoachErrorCode, CoachResponse } from './contracts';
 import type { CoachRepository } from './repository';
 import { COACH_PRICING_VERSION } from './economics';
-import { COACH_PROMPT_VERSION } from './prompt.v2';
+import { COACH_PROMPT_VERSION } from './prompt.v3';
 
 interface HandlerDependencies {
   env: Record<string,string|undefined>;

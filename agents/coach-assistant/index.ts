@@ -5,7 +5,7 @@ import { collectEvidence } from './tools';
 import type { EvidenceOptions } from './tools';
 import type { ProviderResult } from '@/agents/runtime/types';
 import { COACH_PRICING_VERSION } from './economics';
-import { COACH_PROMPT_VERSION, COACH_SYSTEM_PROMPT } from './prompt.v2';
+import { COACH_PROMPT_VERSION, COACH_SYSTEM_PROMPT } from './prompt.v3';
 
 export interface RunOptions extends EvidenceOptions {
   mode: 'offline' | 'model';
@@ -77,7 +77,13 @@ export async function run(raw: unknown, options: RunOptions): Promise<CoachRespo
       // classifier or a substitute for independent multilingual safety review.
       const medicalContext = /pregnan|embaraz|lactan|breastfeed|postpartum|posparto|enceinte|grossesse|εγκυ|θηλασ|vomit|purge|purgar|bulimi|anorexi|eating disorder|trastorno.*aliment|dehydrat|deshidrat|\binjur|lesion|surgery|cirugia/.test(message);
       const riskyRestriction = /(?:strict|extreme|prolonged|estrict|extrem|prolongad).*(?:fast|ayun|diet|restrict)|(?:ayun|fast|restrict).*(?:strict|extreme|estrict|extrem|prolongad)/.test(message);
-      const medical = medication||medicalContext||riskyRestriction;
+      const recordsQuestion = /recorded|records|schedule|registrad|registro|horario/.test(message);
+      const adviceRequest = /safe|clearance|should i|can i|recommend|design|restrict|diet|fast|ayun|segur|puedo|deberia|recomiend|disen/.test(message);
+      const activeConcern = /vomit|purge|purgar|dehydrat|deshidrat/.test(message);
+      // A health-history mention does not invalidate an ordinary records lookup.
+      // Risky advice and acute concerns still require the existing referral.
+      const benignLookup = recordsQuestion && !adviceRequest && !activeConcern;
+      const medical = medication || riskyRestriction || medicalContext && !benignLookup;
       const reason = urgent ? 'urgent_symptoms' : medication ? 'medical_question' : medical ? 'medical_context' : escalate ? 'coach_review' : null;
       const disclaimer = 'No plan or record was changed. No message was sent.';
       const lead = urgent ? 'Stop exercising and seek urgent medical help. I cannot diagnose or clear you to continue.'
