@@ -159,6 +159,7 @@ def qa(config,out):
             hits=crossings(data,mesh_data(o))
             if hits:row['equipment_crossings'][o.name]=hits
         if f in [1,46,76,100,136,161,181]:
+            row['skin']=check(body,{side:[v.index for v in body.data.vertices if v.index in bodyids and sign*v.co.x>.07 and 1.10<v.co.z<1.54] for side,sign in [('L',1),('R',-1)]})
             row['supports']={}
             for name,source in support_ids.items():
                 q=p[[lookup[i] for i in source if i in lookup]];dist=[min(tr.find_nearest(Vector(v))[3] for tr in padtrees) for v in q];k=int(np.argmin(dist));row['supports'][name]={'min_pad_distance_m':float(dist[k]),'nearest_skin_point':q[k].tolist()}
@@ -169,7 +170,7 @@ def qa(config,out):
         if f%30==0:print('INCLINE_QA_FRAME',f,flush=True)
     # Evaluate between keys as well: geometry must not jump through a rotation chart.
     sub=[]
-    for f in [1.5,45.5,75.5,99.5,135.5,160.5,180.5]:
+    for f in [1.5,12.25,12.5,12.75,45.5,75.5,99.5,135.5,160.5,171.25,171.5,171.75,180.5]:
         s.frame_set(int(f),subframe=f%1);bpy.context.view_layer.update()
         sub.append({'frame':f,'wrist_error_m':max((r.matrix_world@r.pose.bones['ORG-hand.'+side].head-bpy.data.objects['Incline wrist target '+side].matrix_world.translation).length for side in ['L','R'])})
     report={'rows':rows,'subframes':sub,'closure_surface_m':float(np.linalg.norm(p-first,axis=1).max()),'scope':'181 consecutive evaluated poses for grip and object/skin crossings; supports/garments at7 critical poses; not anatomical or human technique certification'}
