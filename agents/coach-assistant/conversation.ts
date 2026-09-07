@@ -1,3 +1,4 @@
+import { projectWorkoutProfile } from './profile-context';
 import { medicalBoundary } from './medical-boundary';
 import { prepareConversationCapability } from './capability-conversation';
 import type { CoachCapabilityRegistry } from './capability-registry';
@@ -54,7 +55,7 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
       if(options.capabilityRegistry&&options.mode==='model'&&!Object.values(medicalBoundary(input.message)).some(Boolean)){
         response.snapshot={id:randomUUID(),capturedAt:options.now.toISOString(),subjectId:subject,organizationId:authorized.organizationId,surface:input.context?.includeScreen?input.context.surface:null,screenIncluded:!!input.context?.includeScreen,language:authorized.language,units:{weight:'kg',energy:'kcal',protein:'g'},window:windowFor(selectConversationScope(input).intent,authorized.timezone,options.now),capabilities:[]};
         response.output={answer:'',evidenceRefs:[],limitations:['capability_turn_no_aggregate_reads'],suggestions:[],escalation:{required:false,reason:null,draft:null}};
-        if(authorizedRepository.personalContext&&!(input.context?.includeScreen&&input.context.entity?.kind==='exercise')){
+        if(authorizedRepository.personalContext&&!(input.context?.includeScreen&&input.context.entity?.kind==='exercise'&&selectConversationScope(input).domain!=='workout')){
           response.telemetry.dataReads++;
           const personal=capabilityPersonal=await authorizedRepository.personalContext({context:authorized,window:response.snapshot.window,limit:1,signal:controller.signal});
           await authorizedRepository.authorize(options.actorId,subject,controller.signal);
@@ -62,6 +63,7 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
           const row=personal.rows[0];
           if(row){
             if(row.userId!==subject||row.memories.some(memory=>memory.userId!==subject))throw new Error('forbidden');
+            response.profileContext=projectWorkoutProfile(row,input);
             if(row.foodPreference){if(row.foodPreference.profileId!==subject)throw new Error('forbidden');response.foodPreference={...row.foodPreference,preferences:parseFoodPreferences(row.foodPreference.preferences)};}
             const preferences=workoutPreferencesSchema.safeParse(row.preferences);
             if(preferences.success)response.profile={language:authorized.language,timezone:authorized.timezone,units:response.snapshot.units,preferences:{durationMinutes:preferences.data.durationMinutes},version:row.preferencesVersion??createHash('sha256').update(JSON.stringify(preferences.data)).digest('hex'),source:options.repository.dataSource==='synthetic'?'isolated_fixture':'authorized_profile'};
@@ -80,7 +82,7 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
       const repository=selection.repository;
       const {intent,surface,exerciseId,domain}=selectConversationScope(options.filterMemoryHistory?.(input)??input);
       const result = await run({message:input.message,intent,clientId:input.context?.clientId,exerciseId}, {
-        ...options, mode:'offline', repository, signal:controller.signal, deadlineMs:Math.max(1,budget-(performance.now()-start)),
+        ...options, includeNutrition:domain!=='workout', mode:'offline', repository, signal:controller.signal, deadlineMs:Math.max(1,budget-(performance.now()-start)),
       });
       controller.signal.throwIfAborted();
       const priorTelemetry=response.telemetry;
@@ -95,6 +97,7 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
         {key:'screen_entity',status:exerciseId && result.evidence.some(f=>f.source==='exercise')?'available':'not_connected',reason:exerciseId?'curated_exercise_lookup':'entity_detail_not_connected'},
         ...(['model','profile','memory','images','voice','actions'] as const).map(key=>({key,status:'not_connected' as const,reason:key==='model'?'paid_provider_disabled':'service_not_connected'})),
       ];
+      if(repository.personalContext&&response.telemetry.dataReads>=4&&!capabilityPersonal){const profile=capabilities.find(c=>c.key==='profile')!;profile.status='unknown';profile.reason='profile_omitted_read_budget';}
       response.snapshot = {id:randomUUID(),capturedAt:options.now.toISOString(),subjectId:authorized.subjectId,organizationId:authorized.organizationId,surface,screenIncluded:surface!==null,language:authorized.language,units:{weight:'kg',energy:'kcal',protein:'g'},window:windowFor(intent,authorized.timezone,options.now),capabilities};
       response.snapshot.selection=selection.snapshot();
       if(response.snapshot.selection){const screen=capabilities.find(c=>c.key==='screen_entity')!;screen.status='available';screen.reason='server_resolved_selection';}
@@ -112,6 +115,7 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
         const row=personal.rows[0];
         if(row) {
           if(row.userId!==subject || row.memories.some(memory=>memory.userId!==subject))throw new Error('forbidden');
+          response.profileContext=projectWorkoutProfile(row,input);
           if(row.foodPreference){
             if(row.foodPreference.profileId!==subject)throw new Error('forbidden');
             response.foodPreference={...row.foodPreference,preferences:parseFoodPreferences(row.foodPreference.preferences)};
@@ -148,7 +152,7 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
     const allowed = ['invalid_input','forbidden','unauthenticated','invalid_timezone','budget_blocked','context_limit','invalid_output','provider_unavailable'];
     const code: CoachErrorCode = controller.signal.aborted ? options.signal.aborted?'cancelled':'deadline' : error instanceof Error && allowed.includes(error.message)?error.message as CoachErrorCode:'query_failed';
     response.error={code,retryable:code==='query_failed'||code==='deadline'||code==='provider_unavailable'};
-    response.ok=false;response.snapshot=null;response.evidence=[];delete response.capabilityResult;delete response.output;delete response.profile;delete response.foodPreference;delete response.memories;delete response.explanations;
+    response.ok=false;response.snapshot=null;response.evidence=[];delete response.capabilityResult;delete response.output;delete response.profile;delete response.profileContext;delete response.foodPreference;delete response.memories;delete response.explanations;
   } finally {
     clearTimeout(timer);options.signal.removeEventListener('abort',abort);
     if(boundary)controller.signal.removeEventListener('abort',boundary);

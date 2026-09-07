@@ -39,6 +39,7 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
     foodPreference:response.foodPreference?{preferences:response.foodPreference.preferences,version:response.foodPreference.version,source:'current_profile',meaning:'self_declared_preference_not_allergy_or_medical_instruction'}:null,
     selection:response.snapshot?.selection??null,
     evidence:facts.map(({id,source,statement,value,unit,completeness})=>({id,source,statement,value,unit,completeness})),entities,
+    ...(response.profileContext?{profileContext:response.profileContext}:{}),
     profile:response.profile?{language:response.profile.language,timezone:response.profile.timezone,units:response.profile.units,preferences:response.profile.preferences}:null,
     memories:(response.memories??[]).map(({text,confirmation,source})=>({text,confirmation,source})),
     limitations:response.output?.limitations.filter(value=>value!=='open_ended_interpretation_not_connected'),actionsAvailable:false};

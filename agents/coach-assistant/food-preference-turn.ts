@@ -1,3 +1,4 @@
+import { workoutProfileVersion } from './profile-context';
 import { createHash } from 'node:crypto';
 import { createDerivedHistoryBinding } from './derived-history';
 import type { CoachRepository } from './repository';
@@ -21,7 +22,7 @@ export function createFoodPreferenceTurn(repository:CoachRepository,service:Food
   // A memory revision is required when memory records exist; otherwise fail closed.
   const profile=previous.rows[0];
   if(profile.memories.length&&!profile.memoryContextVersion)throw new Error('query_failed');
-  history.capture(initial,createHash('sha256').update(JSON.stringify({kind:'food_and_memory.v1',memory:profile.memoryContextVersion??null,food:snapshot??'not_connected'})).digest('hex'));
+  history.capture(initial,createHash('sha256').update(JSON.stringify({kind:'food_memory_profile.v2',workout:workoutProfileVersion(profile),memory:profile.memoryContextVersion??null,food:snapshot??'not_connected'})).digest('hex'));
   if(!result.ok)return {rows:previous.rows.map(row=>({...row,foodPreference:undefined})),truncated:false};
   if(!('snapshot' in result))throw new Error('query_failed');
   return {rows:[{...previous.rows[0],foodPreference:result.snapshot}],truncated:false};

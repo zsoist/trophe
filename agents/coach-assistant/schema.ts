@@ -35,6 +35,7 @@ export const conversationRequestSchema = z.object({
   turnId: z.string().uuid(),
   message: requestSchema.shape.message,
   context: z.object({
+    displayWeightUnit:z.enum(['kg','lb']).optional(),
     surface: z.enum(['home', 'food', 'recipe', 'workout', 'plan', 'live', 'library', 'exercise', 'atlas', 'history', 'progress', 'profile', 'habits', 'coach']),
     includeScreen: z.boolean(),
     clientId: z.string().uuid().optional(),

@@ -1,3 +1,4 @@
+import { workoutProfileVersion } from './profile-context';
 import { createHash } from 'node:crypto';
 import { createDerivedHistoryBinding } from './derived-history';
 const hash=(value:unknown)=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -18,7 +19,7 @@ export function createPersistentMemoryTurn(repository:CoachRepository,service:Pe
   const fresh=await repository.authorize(initial.actorId,initial.subjectId,args.signal);
   if(JSON.stringify(fresh)!==JSON.stringify(initial))throw new Error('forbidden');
   if(!result.ok||!('memories' in result)||result.memories.some(m=>m.conversationId!==request.conversationId)||profile.truncated||profile.rows.length!==1||profile.rows[0].userId!==initial.subjectId)throw new Error('query_failed');
-  const contextVersion=hash([result.scopeRevision,result.memories.map(m=>({id:m.id,version:m.version,text:m.text})).sort((a,b)=>a.id.localeCompare(b.id))]);
+  const contextVersion=hash([workoutProfileVersion(profile.rows[0]),result.scopeRevision,result.memories.map(m=>({id:m.id,version:m.version,text:m.text})).sort((a,b)=>a.id.localeCompare(b.id))]);
   history.capture(initial,contextVersion);
   return {rows:[{...profile.rows[0],memoryContextVersion:contextVersion,memoriesRead:true,memories:result.memories.map(m=>({...m,userId:initial.subjectId,scope:'agent' as const}))}],truncated:false};
  }};

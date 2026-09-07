@@ -61,4 +61,12 @@ describe('fresh confirmed memory turn and derived context boundary',()=>{
   expect(body.ok).toBe(true);expect(body.memories).toMatchObject([{text:'Prefer vegetables',confirmation:'confirmed'}]);expect(body.memoryContext.derivedHistoryToken).toMatch(/^[a-f0-9]{64}$/);expect(body.telemetry.dataReads).toBeLessThanOrEqual(4);expect(body.telemetry.modelCalls).toBe(0);
   expect((await handleCoachRequest(req(request),{...deps,createMemoryService:undefined})).status).toBe(503);
  });
+ it('invalidates signed derived history after the persisted workout profile changes',async()=>{
+  const f=fixture();const first=f.turn();await first.repository.personalContext!(f.args);const response={ok:true,output:{answer:'Continue with the stored equipment'}} as CoachConversationResponse;first.finish(response);
+  const input={...request,history:[{role:'assistant' as const,text:response.output!.answer,derivedToken:response.memoryContext!.derivedHistoryToken}]};
+  const unchanged=f.turn();await unchanged.repository.personalContext!(f.args);expect(unchanged.filterHistory(input).history).toHaveLength(1);
+  f.repository.personalContext=async()=>({rows:[{userId:f.context.subjectId,preferences:{...defaultWorkoutPreferences,equipment:['barbell']},preferencesVersion:'new-revision',memories:[]}],truncated:false});
+  const changed=f.turn();await changed.repository.personalContext!(f.args);expect(changed.filterHistory(input).history).toHaveLength(0);
+ });
+
 });

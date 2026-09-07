@@ -64,6 +64,8 @@ export const COACH_CONVERSATION_VERSION = 'coach-assistant.v2' as const;
 export type CoachCapabilityStatus = 'available' | 'unknown' | 'unauthorized' | 'not_connected';
 export type CoachSurface = 'home' | 'food' | 'recipe' | 'workout' | 'plan' | 'live' | 'library' | 'exercise' | 'atlas' | 'history' | 'progress' | 'profile' | 'habits' | 'coach';
 export interface CoachContextHint {
+  /** Presentation hint only, never an authenticated stored preference. */
+  displayWeightUnit?:'kg'|'lb';
   surface: CoachSurface;
   includeScreen: boolean;
   clientId?: string;
@@ -126,6 +128,7 @@ export interface CoachReceipt {
   recordedAt: string;
 }
 export interface CoachConversationResponse {
+  profileContext?:ReturnType<typeof import('./profile-context').projectWorkoutProfile>;
   capabilityResult?:import('./capability-registry').CapabilityResult;
   foodPreference?:import('./food-preference-contracts').FoodPreferenceSnapshot;
   version: typeof COACH_CONVERSATION_VERSION;

@@ -2,7 +2,7 @@ import type { CoachEvidence, CoachRequest } from './contracts';
 import { weekdayFor, windowFor } from './context';
 import type { CoachRepository, ReadArgs, Rows } from './repository';
 
-export interface EvidenceOptions { actorId: string; repository: CoachRepository; now: Date; signal: AbortSignal; onDataRead?: (count:number)=>void }
+export interface EvidenceOptions { actorId: string; repository: CoachRepository; now: Date; signal: AbortSignal; includeNutrition?:boolean; onDataRead?: (count:number)=>void }
 
 export async function collectEvidence(input: CoachRequest, options: EvidenceOptions) {
   const { repository, actorId, signal } = options;
@@ -112,6 +112,7 @@ export async function collectEvidence(input: CoachRequest, options: EvidenceOpti
     }
   }
 
+  if(options.includeNutrition!==false){
   const nutrition = await read(args => repository.nutrition(args), 128);
   const meals = unique(nutrition.rows).filter(inScope);
   if (nutrition.truncated) limitations.push('nutrition_truncated');
@@ -131,6 +132,7 @@ export async function collectEvidence(input: CoachRequest, options: EvidenceOpti
     }
   }
 
+  }
   if (input.exerciseId) {
     const guides = await read(args => repository.exercise({ ...args, exerciseId: input.exerciseId! }), 1);
     const guide = guides.rows.find(row => row.id === input.exerciseId && row.curated);
