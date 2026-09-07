@@ -311,3 +311,19 @@ def garment_surface_bind(config,out):
     r.data.pose_position='POSE';s.frame_set(1);bpy.context.view_layer.update();bpy.ops.wm.save_as_mainfile(filepath=str(out/'incline.blend'))
     record={'cause':'Nearest-surface projection switches triangle attachments around sleeve/axilla. Restricting collider did not eliminate switching; those variants are not adopted.','change':'Native Blender Surface Deform bound once to triangulated deformed body in original skeleton REST. Garment native fitted/subdivided surface with4mm rest clearance preserved; stable binding replaces nearest projection and duplicate garment skinning. Native1.2mm shell after deformation. Body masks and body skin unchanged.','vertices':len(mesh.vertices),'native_bound':bind.is_bound,'human_reviews':'pending'}
     (out/'garment-surface-bind.json').write_text(json.dumps(record,indent=2));return record
+
+
+def shell_gate(config,out):
+    from compare_baseline import studio,place
+    from localize_contact import mesh_data
+    from bench_qa import crossings
+    bpy.ops.wm.open_mainfile(filepath=config['animation_source']);s=bpy.context.scene;b=bpy.data.objects['Trophe_R2_Athlete'];c=bpy.data.objects['SportsTank'];cam=studio(s);cam.data.sensor_fit='VERTICAL';s.render.engine='BLENDER_EEVEE';s.render.resolution_x=960;s.render.resolution_y=720;rows=[]
+    place(cam,(1.5,-2,1.9),(0,.36,1.05),1.05)
+    for enabled in [True,False]:
+        for m in c.modifiers:
+            if m.type=='SOLIDIFY':m.show_render=m.show_viewport=enabled
+        for f in [1,91]:
+            s.frame_set(f);bpy.context.view_layer.update();row={'shell':enabled,'frame':f,'body_crossing_pairs':len(crossings(mesh_data(b),mesh_data(c)))};rows.append(row);s.render.filepath=str(out/(('shell' if enabled else 'surface')+'-%03d.png'%f));bpy.ops.render.render(write_still=True)
+    for m in list(c.modifiers):
+        if m.type=='SOLIDIFY':c.modifiers.remove(m)
+    s.frame_set(1);bpy.ops.wm.save_as_mainfile(filepath=str(out/'incline.blend'));(out/'shell-gate.json').write_text(json.dumps({'rows':rows,'representation':'Two-sided fitted textile surface, no volumetric thickness or cloth simulation. Native persistent surface binding remains. Comparison isolates Solidify only; no body/rig/motion change.','human_reviews':'pending'},indent=2));return {'rows':rows}
