@@ -15,6 +15,10 @@ export interface NutritionRow { id: string; userId: string; date: string; calori
 export interface ExerciseRow { id: string; name: string; instructions: string[]; curated: boolean }
 export interface Rows<T> { rows: T[]; truncated: boolean }
 export interface ReadArgs { context: AuthorizedContext; window: CoachWindow; limit: number; signal: AbortSignal }
+export interface PersonalContextRow {
+  userId: string; preferences: unknown;
+  memories: Array<{id:string;userId:string;text:string;source:'user_input'|'coach'|'agent_inference'|'wearable';createdAt:string;scope:'user';version:string}>;
+}
 export interface CoachRepository {
   dataSource: 'synthetic' | 'authorized_records';
   authorize(actorId: string, subjectId: string, signal: AbortSignal): Promise<AuthorizedContext>;
@@ -22,4 +26,5 @@ export interface CoachRepository {
   workouts(args: ReadArgs): Promise<Rows<WorkoutRow>>;
   nutrition(args: ReadArgs): Promise<Rows<NutritionRow>>;
   exercise(args: ReadArgs & { exerciseId: string }): Promise<Rows<ExerciseRow>>;
+  personalContext?(args:ReadArgs):Promise<Rows<PersonalContextRow>>;
 }

@@ -1,10 +1,26 @@
 import { describe, expect, it } from 'vitest';
 import { runConversation } from './conversation';
 import { fixtureRepository } from './fixtures';
+import { defaultWorkoutPreferences } from '@/lib/workout/preferences';
 
 const request = { version:'coach-assistant.v2',conversationId:'a2c5ec63-6f35-4671-b4f1-6644ca9d739c',turnId:'aac3a82e-898c-4907-b9b9-75133bb6d27f',message:'Tell me about my food and training this week' };
 const options = () => ({actorId:'synthetic-client',repository:fixtureRepository(),now:new Date('2026-09-07T03:30:00Z'),signal:new AbortController().signal,mode:'offline' as const});
 describe('authorized shared conversation broker',()=>{
+  it('loads profile and unconfirmed memory through a fourth authorized read, never as computed facts',async()=>{
+    const opts=options();
+    opts.repository.personalContext=async()=>({truncated:false,rows:[{userId:opts.actorId,preferences:defaultWorkoutPreferences,memories:[{id:request.turnId,userId:opts.actorId,text:'I prefer afternoons.',source:'user_input',createdAt:opts.now.toISOString(),scope:'user',version:'v1'}]}]});
+    const result=await runConversation(request,opts);
+    expect(result.ok).toBe(true);expect(result.telemetry.dataReads).toBe(4);
+    expect(result.profile?.preferences.durationMinutes).toBe(30);
+    expect(result.memories?.[0].confirmation).toBe('unconfirmed');
+    expect(result.output?.answer).not.toContain('afternoons');
+  });
+  it('clears all cards and facts when the personal context contains a foreign owner',async()=>{
+    const opts=options();
+    opts.repository.personalContext=async()=>({truncated:false,rows:[{userId:'foreign',preferences:defaultWorkoutPreferences,memories:[]}]});
+    const result=await runConversation(request,opts);
+    expect(result.error?.code).toBe('forbidden');expect(result.snapshot).toBeNull();expect(result.profile).toBeUndefined();expect(result.evidence).toEqual([]);
+  });
   it('grounds both domains in records and reports disconnected capabilities honestly',async()=>{
     const result=await runConversation(request,options());
     expect(result.ok).toBe(true);
