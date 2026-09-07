@@ -27,7 +27,10 @@ export function createServerRepository(pool: ReadPool): CoachRepository {
       await execute("SET LOCAL statement_timeout = '5000ms'");
       if (actorId) {
         await execute('SET LOCAL ROLE authenticated');
-        await execute("SELECT set_config('request.jwt.claims', $1, true)", [JSON.stringify({ sub: actorId, role: 'authenticated' })]);
+        // Supabase reads the JSON claims; the repository's isolated bootstrap
+        // also supports scalar claim GUCs. Both use the same verified actor.
+        await execute("SELECT set_config('request.jwt.claims', $1, true), set_config('request.jwt.claim.sub', $2, true), set_config('request.jwt.claim.role', 'authenticated', true)",
+          [JSON.stringify({ sub: actorId, role: 'authenticated' }), actorId]);
       }
       const result = await execute(text, values);
       await execute('ROLLBACK');
