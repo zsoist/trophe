@@ -4,18 +4,18 @@ import { fixtureRepository } from './fixtures';
 import type { CoachErrorCode, CoachResponse } from './contracts';
 import type { CoachRepository } from './repository';
 import { COACH_PRICING_VERSION } from './economics';
-import { COACH_PROMPT_VERSION } from './prompt.v1';
+import { COACH_PROMPT_VERSION } from './prompt.v2';
 
 interface HandlerDependencies {
   env: Record<string,string|undefined>;
   guard(request: Request): Promise<{userId:string}|Response>;
-  createRepository(): CoachRepository;
+  createRepository(): CoachRepository | Promise<CoachRepository>;
   now?: () => Date;
 }
 const json = (body: unknown, status: number) => Response.json(body,{status,headers:{'Cache-Control':'no-store'}});
 function fail(code: CoachErrorCode,status: number): Response {
   const body: CoachResponse = { version:'coach-assistant.v1',ok:false,mode:'offline',dataSource:'authorized_records',evidence:[],
-    error:{code,retryable:code==='rate_limited'},telemetry:{model:null,provider:null,promptVersion:COACH_PROMPT_VERSION,modelCalls:0,dataReads:0,
+    error:{code,retryable:['rate_limited','query_failed','provider_unavailable','deadline'].includes(code)},telemetry:{model:null,provider:null,promptVersion:COACH_PROMPT_VERSION,modelCalls:0,dataReads:0,
       tokensIn:0,tokensOut:0,reasoningTokens:0,cacheReadTokens:0,cacheWriteTokens:0,latencyMs:0,costUsd:0,pricingVersion:COACH_PRICING_VERSION} };
   return json(body,status);
 }
@@ -36,7 +36,8 @@ async function readBody(request: Request,signal:AbortSignal): Promise<unknown> {
     }
     const bytes=new Uint8Array(size); let offset=0;
     for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}
-    return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));
+    try { return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes)); }
+    catch { throw new Error('invalid_input'); }
   } finally {signal.removeEventListener('abort',cancel);reader.releaseLock();}
 }
 
@@ -72,7 +73,7 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
       if(synthetic&&parsed.data.clientId)return fail('forbidden',403);
       const result=await run(parsed.data,{
         actorId:synthetic?'synthetic-client':guard.userId,
-        repository:synthetic?fixtureRepository():deps.createRepository(),
+        repository:synthetic?fixtureRepository():await deps.createRepository(),
         now:synthetic?new Date('2026-09-07T03:30:00Z'):(deps.now?.()??new Date()),
         signal:controller.signal,mode:deps.env.COACH_ASSISTANT_MODE==='model'?'model':'offline',
         deadlineMs:Math.max(1,45000-(performance.now()-start)),

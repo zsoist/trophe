@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { handleCoachRequest } from './handler';
 import { fixtureRepository } from './fixtures';
 
@@ -32,5 +32,22 @@ describe('private route contract', () => {
     expect(response.status).toBe(429);
     expect(response.headers.get('Retry-After')).toBe('30');
     expect((await response.json()).error).toEqual({code:'rate_limited',retryable:true});
+  });
+  it.each(['{broken',new Uint8Array([0xff,0xfe])])('normalizes malformed JSON or UTF8 to invalid_input',async body=>{
+    const request=new Request('https://preview.invalid/api/coach-assistant',{method:'POST',body});
+    const response=await handleCoachRequest(request,deps);
+    expect(response.status).toBe(400);
+    expect((await response.json()).error.code).toBe('invalid_input');
+  });
+  it('loads the disabled production route without database configuration',async()=>{
+    vi.stubEnv('NODE_ENV','production');vi.stubEnv('VERCEL_ENV','production');vi.stubEnv('DATABASE_URL',undefined);
+    try {
+      const {POST}=await import('@/app/api/coach-assistant/route');
+      expect((await POST(req({}) as Parameters<typeof POST>[0])).status).toBe(404);
+    } finally {vi.unstubAllEnvs();}
+  });
+  it('marks transient guard failures retryable without leaking their response',async()=>{
+    const response=await handleCoachRequest(req({}),{...deps,guard:async()=>new Response('raw provider message',{status:503})});
+    expect((await response.json()).error).toEqual({code:'provider_unavailable',retryable:true});
   });
 });

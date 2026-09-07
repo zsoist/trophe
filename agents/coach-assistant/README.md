@@ -20,6 +20,10 @@ At most four data tools read two active plans, 32 sessions with at most 200 sets
 
 The daily plan/record comparison requires linked template IDs and same-calendar-day completed sessions. Repetition targets must be exact, not ranges. Ratios describe recorded versus planned sets, never adherence, muscle activation, fatigue or physiological measurements. Seven-day summaries do not compare a single day's plan against a week's work. External weight uses kg and deterministic pounds conversion. Source IDs remain in the authorized response; model input receives only fact IDs/statements/completeness, never profile identity, notes or the full history.
 
+Template targets are validated and summed in TypeScript; one missing repetition target makes the repetition total unknown. Invalid set targets suppress the complete plan. Evidence with more than256 source IDs is explicitly partial, includes an `evidence_refs_truncated:<factId>` limitation and labels the partial references in its statement.
+
+Promptv2 accompanies a conservative referral guard for symptoms, medications, pregnancy/lactation, eating-disorder language and risky restriction. This guard does not diagnose or prove complete multilingual medical triage. AG4's initially sealed H10 exposed a missing referral; that disclosed case is now a development regression, never a fresh blind-test success. Medical referrals render no ordinary nutrition/training statistics. Clinical treatment or dosing remains outside this feature. For the pregnancy-vomiting referral principle, see [NHS guidance](https://www.nhs.uk/pregnancy/complications/severe-vomiting/).
+
 ## Model, economics and privacy
 
 The isolated `coach_assistant` router task selects Luna low, 2000 generated tokens including reasoning, no fallback, and **maxCostUsd:0**. Existing health-context and consumer tasks retain their routing. Optional effort/store forwarding in the shared OpenAI transport preserves default `none` for existing callers.

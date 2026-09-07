@@ -5,7 +5,7 @@ import { collectEvidence } from './tools';
 import type { EvidenceOptions } from './tools';
 import type { ProviderResult } from '@/agents/runtime/types';
 import { COACH_PRICING_VERSION } from './economics';
-import { COACH_PROMPT_VERSION, COACH_SYSTEM_PROMPT } from './prompt.v1';
+import { COACH_PROMPT_VERSION, COACH_SYSTEM_PROMPT } from './prompt.v2';
 
 export interface RunOptions extends EvidenceOptions {
   mode: 'offline' | 'model';
@@ -41,7 +41,8 @@ export async function run(raw: unknown, options: RunOptions): Promise<CoachRespo
     const work = async () => {
       controller.signal.throwIfAborted();
       if (options.mode === 'model' && (!options.offlineModel || options.repository.dataSource !== 'synthetic')) throw new Error('budget_blocked');
-      const data = await collectEvidence(input, { ...options, signal:controller.signal });
+      const data = await collectEvidence(input, { ...options, signal:controller.signal,
+        onDataRead:count=>{response.telemetry.dataReads=count;} });
       response.telemetry.dataReads = data.reads;
       let selected = data.facts;
       let suggestions: Array<keyof typeof suggestionText> = input.intent === 'plan' ? ['clarify_plan'] : ['review_records'];
@@ -72,12 +73,18 @@ export async function run(raw: unknown, options: RunOptions): Promise<CoachRespo
       const message = input.message.normalize('NFKD').replace(/\p{M}/gu,'').toLowerCase();
       const urgent = /chest pain|dolor.*pecho|falta.*aire|can.t breathe|desmay|faint|passed out/.test(message);
       const medication = /insulin|medic|dosis|inject|inyect|dose/.test(message);
-      const reason = urgent ? 'urgent_symptoms' : medication ? 'medical_question' : escalate ? 'coach_review' : null;
+      // Broad referral categories; this is a conservative guard, not a clinical
+      // classifier or a substitute for independent multilingual safety review.
+      const medicalContext = /pregnan|embaraz|lactan|breastfeed|postpartum|posparto|enceinte|grossesse|εγκυ|θηλασ|vomit|purge|purgar|bulimi|anorexi|eating disorder|trastorno.*aliment|dehydrat|deshidrat|\binjur|lesion|surgery|cirugia/.test(message);
+      const riskyRestriction = /(?:strict|extreme|prolonged|estrict|extrem|prolongad).*(?:fast|ayun|diet|restrict)|(?:ayun|fast|restrict).*(?:strict|extreme|estrict|extrem|prolongad)/.test(message);
+      const medical = medication||medicalContext||riskyRestriction;
+      const reason = urgent ? 'urgent_symptoms' : medication ? 'medical_question' : medical ? 'medical_context' : escalate ? 'coach_review' : null;
       const disclaimer = 'No plan or record was changed. No message was sent.';
       const lead = urgent ? 'Stop exercising and seek urgent medical help. I cannot diagnose or clear you to continue.'
         : medication ? 'Medication dosing and medical clearance require a qualified healthcare professional.'
+        : medical ? 'Please contact a qualified healthcare professional about this health context before changing your diet or training. I cannot design a restrictive diet or fasting plan for this situation.'
         : selected.length ? selected.map(f=>f.statement).join('\n') : 'There is not enough supported evidence to answer this question.';
-      response.evidence = urgent || medication ? [] : selected;
+      response.evidence = urgent || medical ? [] : selected;
       response.output = {
         answer: `${options.repository.dataSource === 'synthetic' ? 'Synthetic example records. ' : ''}${options.mode === 'offline' ? 'Offline deterministic summary. ' : 'Offline model transport evaluation. '}${lead}\n${disclaimer}`,
         evidenceRefs: response.evidence.map(f=>f.id),

@@ -45,4 +45,13 @@ describe('bounded evidence tools', () => {
     const repo=fixtureRepository({nutrition:[row,{...row,calories:999}]});
     await expect(collectEvidence(request,{...options,repository:repo})).rejects.toThrow('query_failed');
   });
+  it('labels reference truncation when all computed source IDs cannot be returned',async()=>{
+    const workouts=Array.from({length:2},(_,s)=>({id:`s${s}`,userId:'synthetic-client',date:'2026-09-06',completedAt:'2026-09-06T20:00:00Z',idempotencyKey:null,durationMinutes:20,
+      sets:Array.from({length:150},(_,i)=>({id:`s${s}-set${i}`,reps:10,weightKg:20,isWarmup:false}))}));
+    const result=await collectEvidence(request,{...options,repository:fixtureRepository({workouts})});
+    const fact=result.facts.find(f=>f.id==='workout.sets');
+    expect(fact?.value).toBe(300);
+    expect(fact?.completeness).toBe('partial');
+    expect(result.limitations).toContain('evidence_refs_truncated:workout.sets');
+  });
 });
