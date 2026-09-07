@@ -202,6 +202,14 @@ async function main() {
       COACH_ASSISTANT_MEMORY_ACTIONS_ENABLED: '1', COACH_ASSISTANT_DIET_ACTIONS_ENABLED: '0', COACH_ASSISTANT_ISOLATED_ACTIONS_ENABLED: '0', COACH_ASSISTANT_PREVIEW_USER_IDS: actorId },
   });
   assert.equal(ui.status, 0); pass();
+  check = 'memory_committed_response_loss_real_auth_http';
+  const uncertain = spawnSync(process.execPath, ['node_modules/@playwright/test/cli.js', 'test', '--config', 'playwright.coach.config.ts', '--workers=1', 'e2e/coach-memory-uncertain.spec.ts'], {
+    stdio: 'inherit', env: { ...process.env, E2E_COACH_MEMORY_UNCERTAIN: '1', E2E_CLIENT_ID: actorId, COACH_MEMORY_HTTP_THREADS: uiManifest,
+      NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED: '1', NEXT_PUBLIC_COACH_ASSISTANT_ENABLED: '0', NEXT_PUBLIC_COACH_MEMORY_ACTIONS_ENABLED: '1',
+      COACH_ASSISTANT_ENABLED: '1', COACH_ASSISTANT_MODE: 'offline', COACH_ASSISTANT_DATA_SOURCE: 'authorized_records',
+      COACH_ASSISTANT_MEMORY_ACTIONS_ENABLED: '1', COACH_ASSISTANT_DIET_ACTIONS_ENABLED: '0', COACH_ASSISTANT_ISOLATED_ACTIONS_ENABLED: '0', COACH_ASSISTANT_PREVIEW_USER_IDS: actorId },
+  });
+  assert.equal(uncertain.status, 0); pass();
 }
 main().catch(error => {
   process.stderr.write(JSON.stringify({ event: 'coach_memory_sql', check, outcome: 'failed', ...(typeof error?.code === 'string' && /^[0-9A-Z]{5}$/.test(error.code) ? { sqlstate: error.code } : {}) }) + '\n'); process.exitCode = 1;

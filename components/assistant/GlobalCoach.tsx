@@ -23,14 +23,17 @@ import { requestPreference } from './preference-client';
 import { MemoryController, type MemoryTransport } from './memory-state';
 import { MemoryPanel } from './MemoryPanel';
 import { requestMemory } from './memory-client';
+import { DietController, type DietTransport } from './diet-state';
+import { DietPanel } from './DietPanel';
+import { requestDiet } from './diet-client';
 
 export type CoachContextSlot = (props: { controller: PreferenceController; state: PreferenceState; conversationId: string; transport: PreferenceTransport }) => ReactNode;
 export type CoachVoiceSlot = (props: { conversationId: string; onUse: (text: string) => boolean }) => ReactNode;
-type Props = { identity: string; subjectId?: string; example?: ConversationTransport; preferenceTransport?: PreferenceTransport; memoryTransport?: MemoryTransport; contextSlot?: CoachContextSlot; voiceSlot?: CoachVoiceSlot };
+type Props = { identity: string; subjectId?: string; example?: ConversationTransport; preferenceTransport?: PreferenceTransport; memoryTransport?: MemoryTransport; dietTransport?: DietTransport; contextSlot?: CoachContextSlot; voiceSlot?: CoachVoiceSlot };
 export default function GlobalCoach(props: Props) {
   return <CoachSurface key={`${props.identity}:${props.subjectId ?? props.identity}`} {...props} />;
 }
-function CoachSurface({ identity, subjectId, example, preferenceTransport, memoryTransport, contextSlot, voiceSlot }: Props) {
+function CoachSurface({ identity, subjectId, example, preferenceTransport, memoryTransport, dietTransport, contextSlot, voiceSlot }: Props) {
   const { t } = useGlobalCoachI18n();
   const path = usePathname();
   const surface = coachSurface(path);
@@ -50,6 +53,9 @@ function CoachSurface({ identity, subjectId, example, preferenceTransport, memor
   const [memory] = useState(() => new MemoryController(state.conversationId));
   const memoryState = useSyncExternalStore(memory.subscribe, memory.snapshot, memory.snapshot);
   const memoryEnabled = process.env.NEXT_PUBLIC_COACH_MEMORY_ACTIONS_ENABLED === '1' && (!example || Boolean(memoryTransport)) && (!subjectId || subjectId === identity);
+  const [diet] = useState(() => new DietController());
+  const dietState = useSyncExternalStore(diet.subscribe, diet.snapshot, diet.snapshot);
+  const dietEnabled = process.env.NEXT_PUBLIC_COACH_DIET_ACTIONS_ENABLED === '1' && (!example || Boolean(dietTransport)) && (!subjectId || subjectId === identity);
   const [open, setOpen] = useState(false);
   const [includeScreen, setIncludeScreen] = useState(true);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
@@ -66,6 +72,7 @@ function CoachSurface({ identity, subjectId, example, preferenceTransport, memor
   useEffect(() => () => voice.reset(), [voice]);
   useEffect(() => () => food.reset(), [food]);
   useEffect(() => () => memory.reset(), [memory]);
+  useEffect(() => () => diet.reset(), [diet]);
   useEffect(() => { memory.identify(state.conversationId); }, [memory, state.conversationId]);
   useEffect(() => {
     if (process.env.NEXT_PUBLIC_COACH_FOOD_ACTIONS_ENABLED !== '1' || example || subjectId && subjectId !== identity) return;
@@ -95,7 +102,7 @@ function CoachSurface({ identity, subjectId, example, preferenceTransport, memor
     if (followLatest.current && !window.getSelection()?.toString()) log.current?.scrollTo({ top: log.current.scrollHeight });
     else setShowLatest(true);
   }, [open, state.turns, state.pending]);
-  const close = () => { controller.cancel(); preferences.cancel(); attachments.cancel(); voice.reset(); food.cancel(); memory.cancel(); setOpen(false); launcher.current?.focus(); };
+  const close = () => { controller.cancel(); preferences.cancel(); attachments.cancel(); voice.reset(); food.cancel(); memory.cancel(); diet.cancel(); setOpen(false); launcher.current?.focus(); };
   const send = () => !voiceActive && controller.send({ surface, includeScreen, ...(includeScreen && selection ? selection.anatomy ? { anatomy: selection.anatomy } : { entity: selection.entity } : {}), ...(subjectId ? { clientId: subjectId } : {}) }, example ?? requestConversation, attachments.references());
   const latestResponse = state.turns.findLast(turn => turn.response?.ok)?.response;
   useEffect(() => { if (latestResponse) attachments.reconcile(latestResponse.attachments); }, [attachments, latestResponse]);
@@ -113,6 +120,10 @@ function CoachSurface({ identity, subjectId, example, preferenceTransport, memor
         if (followLatest.current) setShowLatest(false);
       }}>
         {foodState.entryId && <FoodQuantityPanel key={foodState.entryId} controller={food} state={foodState} transport={requestFoodQuantity} />}
+        {dietEnabled && <details className={styles.profile} onToggle={event => { if (event.currentTarget.open) { voice.reset(); if (!dietState.profileId) diet.select(identity, state.conversationId, dietTransport ?? requestDiet); else if (!dietState.profile) void diet.read(dietTransport ?? requestDiet); } }}>
+          <summary>{t('global_coach.diet_title')}</summary>
+          <DietPanel controller={diet} state={dietState} transport={dietTransport ?? requestDiet} />
+        </details>}
         {memoryEnabled && <details className={styles.profile} onToggle={event => { if (event.currentTarget.open) { voice.reset(); if (!memoryState.loaded) void memory.read(memoryTransport ?? requestMemory); } }}>
           <summary>{t('global_coach.memory')}</summary>
           <MemoryPanel controller={memory} state={memoryState} transport={memoryTransport ?? requestMemory} />
