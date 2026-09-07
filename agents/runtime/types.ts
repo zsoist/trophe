@@ -22,6 +22,8 @@ export interface AiUsage {
 }
 
 export interface ProviderResult<T> {
+  /** Model identifier observed in the provider response; never the requested default. */
+  responseModel?: string;
   output: T;
   usage: AiUsage;
   latencyMs: number;
