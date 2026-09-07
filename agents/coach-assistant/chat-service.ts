@@ -5,7 +5,7 @@ import type {db} from '@/db/client';
 import {coachMessageInputSchema} from './message-input';
 import {COACH_CHAT_VERSION,type CoachChatScope,type CoachChatResult,type CoachChatThread,type CoachChatMessage,type CoachChatError} from './chat-contract';
 import {chatTextHash,readVerifiedChatFinal,bindVerifiedChatFinal,type VerifiedChatFinal} from './chat-final';
-import type {CoachSpeechTextPort} from './speech';
+import type {CoachSpeechTextPort} from './chat-ports';
 export const COACH_CHAT_NAMESPACE='coach-assistant-global-v1';
 type Tx=Parameters<Parameters<typeof db.transaction>[0]>[0];
 const uuid=z.string().uuid(),revision=z.string().regex(/^(0|[1-9]\d*)$/),iso=z.string().datetime({offset:true});

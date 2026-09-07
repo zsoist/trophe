@@ -5,11 +5,8 @@ import type { AudioIdentity } from './governed-voice';
 import type { CoachRepository } from './repository';
 import type { CoachVoiceScope } from './voice-contract';
 import { COACH_SPEECH_POLICY,validateCoachSpeechPcm,type CoachSpeechProvider } from './speech-provider';
-/** Server-owned final response lookup. Must use the current authenticated session epoch,
- * return null after logout/revocation, and replace revision even on identical regeneration.
- * Do not construct this record from a client body or unvalidated model output.
- */
-export interface CoachSpeechTextPort {load(responseId:string,scope:CoachVoiceScope,signal:AbortSignal):Promise<{kind:'final_answer';speechAllowed:boolean;text:string;revision:string;sessionEpoch:string}|null>}
+import type {CoachSpeechTextPort} from './chat-ports';
+export type {CoachSpeechTextPort} from './chat-ports';
 const requestSchema=z.object({responseId:z.string().uuid(),conversationId:z.string().uuid()}).strict();
 export interface CoachSpeechAudio {version:'coach-assistant.speech.v1';scope:CoachVoiceScope;responseId:string;textHash:string;audioHash:string;revision:string;sessionEpoch:string;expiresAt:number;syntheticVoice:true;disclosure:'Voz generada por IA';mediaType:'audio/pcm';sampleRate:24000;channels:1;bitsPerSample:16;audio:Uint8Array;source:'injected_provider'}
 export type CoachSpeechResult={ok:true;status:'ready';value:CoachSpeechAudio;accounting:'settled'|'held_unknown'}|{ok:false;status:'not_connected'|'error';error:string};

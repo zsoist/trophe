@@ -3,7 +3,7 @@ import {randomUUID} from 'node:crypto';
 import {PgDialect} from 'drizzle-orm/pg-core';
 import type {SQL} from 'drizzle-orm';
 import type {db} from '@/db/client';
-import type {createPrivateAttachmentService} from './attachments-service';
+import type {CoachChatAttachmentRemovalPort} from './chat-ports';
 import {createCoachChatCleanup} from './chat-cleanup';
 import type {CoachChatScope} from './chat-contract';
 const scope:CoachChatScope={actorId:randomUUID(),subjectId:'',organizationId:randomUUID(),actorRole:'client'};scope.subjectId=scope.actorId;const thread=randomUUID();
@@ -25,7 +25,7 @@ function fixture(advanceRevision=true){
   return {rows:[]};
  }})};
  const operation=vi.fn(async()=>{removed=true;return {ok:true,state:'removed'};});
- return {database:database as unknown as typeof db,memory,queries,operation,attachments:{operation} as unknown as ReturnType<typeof createPrivateAttachmentService>,pending:()=>{attachmentPending=true;},revoke:()=>{authorized=false;}};
+ return {database:database as unknown as typeof db,memory,queries,operation,attachments:{operation} as unknown as CoachChatAttachmentRemovalPort,pending:()=>{attachmentPending=true;},revoke:()=>{authorized=false;}};
 }
 describe('thread deletion erases exclusively bound text without independent profile writes',()=>{
  it('uses existing memory lock/tombstones, purges thread memory and envelopes, preserves independent preferences',async()=>{

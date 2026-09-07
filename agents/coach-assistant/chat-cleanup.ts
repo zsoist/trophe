@@ -1,13 +1,13 @@
 import {sql} from 'drizzle-orm';
 import type {db} from '@/db/client';
-import type {createPrivateAttachmentService} from './attachments-service';
+import type {CoachChatAttachmentRemovalPort} from './chat-ports';
 import {authorizeCoachChat,COACH_CHAT_NAMESPACE,type CoachChatCleanup} from './chat-service';
 /** Concrete scoped cleanup. Existing memory bindings/revision tombstones remain.
  * Soft memory.delete alone retains fact_text; this explicit thread erasure deletes
  * exclusively bound canonical chunks under the SAME memory advisory lock/trigger.
  * Independent profile preferences and applied non-memory actions are retained.
  */
-export function createCoachChatCleanup(database:typeof db,attachments?:ReturnType<typeof createPrivateAttachmentService>):CoachChatCleanup{
+export function createCoachChatCleanup(database:typeof db,attachments?:CoachChatAttachmentRemovalPort):CoachChatCleanup{
  return {async cleanup(scope,threadId,signal){
   try{
    const ids=await database.transaction(async tx=>{
