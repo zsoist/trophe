@@ -49,7 +49,7 @@ def run(config,output):
             scene.frame_set(frame);bpy.context.view_layer.update();dg=bpy.context.evaluated_depsgraph_get();uv=[]
             for obj in scene.objects:
                 if obj.type!='MESH' or obj.hide_render:continue
-                if obj.name not in ['Trophe_R2_Athlete','Trophe_R2_Trainers','SportsTank','SportsShorts'] and not obj.name.startswith(('Copa weight','Copa bench')):continue
+                if obj.name not in ['Trophe_R2_Athlete','Trophe_R2_Trainers','SportsTank','SportsShorts'] and not obj.name.startswith(('Copa weight','Copa bench','Incline weight','Incline bench')):continue
                 ev=obj.evaluated_get(dg)
                 uv.extend(world_to_camera_view(scene,camera,ev.matrix_world@Vector(p)) for p in ev.bound_box)
             margins=[min(p.x for p in uv),min(p.y for p in uv),max(p.x for p in uv),max(p.y for p in uv)]
