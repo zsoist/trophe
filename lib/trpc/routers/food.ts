@@ -15,6 +15,8 @@
  */
 
 import { z } from 'zod';
+import { applyFoodLogEdit, editFieldsSchema } from '@/lib/food/log-edit-service';
+export { isAiSourced, macrosMateriallyChanged } from '@/lib/food/log-edit-service';
 import { router, protectedProcedure, coachProcedure } from '../init';
 import { foodLog, foodParseCorrections } from '@/db/schema/food';
 import { foods } from '@/db/schema/foods';
@@ -41,12 +43,6 @@ async function resolveFoodLogTargetUser(
 
 // ── Edit + correction-capture helpers (flywheel, migration 0035) ──────────
 
-type FoodLogRow = typeof foodLog.$inferSelect;
-
-const num = (v: number | string | null | undefined): number =>
-  v == null ? 0 : Number(v);
-const round1 = (v: number): number => Math.round(v * 10) / 10;
-
 export const foodSearchInputSchema = z.object({
   query: z.string().trim().min(2).max(200),
   limit: z.number().int().min(1).max(20).default(10),
@@ -55,53 +51,6 @@ export const foodSearchInputSchema = z.object({
 export function escapeFoodSearchPattern(query: string): string {
   return `%${query.replace(/[\\%_]/g, '\\$&')}%`;
 }
-
-/**
- * Is this entry AI-sourced (i.e. a correction to it is a training label)?
- * Modern rows carry parse_confidence; LEGACY AI rows lack confidence but
- * carry source = 'natural_language' | 'photo_ai'. Both must capture.
- */
-export function isAiSourced(
-  row: Pick<FoodLogRow, 'parseConfidence' | 'source'>,
-): boolean {
-  return (
-    row.parseConfidence != null ||
-    row.source === 'natural_language' ||
-    row.source === 'photo_ai'
-  );
-}
-
-/**
- * Material change gate: >5% (or >1 absolute) on any of the four core macros.
- * Tiny rounding jitter is not a label.
- */
-export function macrosMateriallyChanged(
-  before: { calories: number; proteinG: number; carbsG: number; fatG: number },
-  after: { calories: number; proteinG: number; carbsG: number; fatG: number },
-): boolean {
-  const changed = (x: number, y: number) =>
-    Math.abs(x - y) > Math.max(1, 0.05 * Math.max(Math.abs(x), Math.abs(y)));
-  return (
-    changed(before.calories, after.calories) ||
-    changed(before.proteinG, after.proteinG) ||
-    changed(before.carbsG, after.carbsG) ||
-    changed(before.fatG, after.fatG)
-  );
-}
-
-/** Shared optional edit fields for log.edit and log.coachEdit. */
-const editFieldsSchema = z.object({
-  quantity: z.number().gt(0).max(1000).optional(),
-  grams: z.number().gt(0).max(10000).optional(),
-  foodName: z.string().min(1).max(200).optional(),
-  calories: z.number().min(0).max(10000).optional(),
-  proteinG: z.number().min(0).max(1000).optional(),
-  carbsG: z.number().min(0).max(1000).optional(),
-  fatG: z.number().min(0).max(1000).optional(),
-  fiberG: z.number().min(0).max(1000).optional(),
-  sugarG: z.number().min(0).max(1000).optional(),
-});
-type EditFields = z.infer<typeof editFieldsSchema>;
 
 const foodLogMealTypeSchema = z.enum([
   'breakfast',
@@ -133,138 +82,6 @@ export const foodLogAddSchema = z.object({
   { path: ['qtyInput'], message: 'qtyInput and qtyInputUnit must be provided together' },
 );
 
-/**
- * Apply an edit to a food_log row, recomputing what's derivable:
- *   1. explicit macro values win, per-field;
- *   2. else if `grams` given and the row links a canonical food →
- *      deterministic recompute from foods per-100g (Phase 4 pattern);
- *   3. else if `grams` given and the row has qty_g → scale by grams ratio;
- *   4. else if `quantity` given → scale by quantity ratio (legacy path,
- *      matches the old MealSlotCard client-side factor math);
- *   5. else keep existing.
- * Then, when the entry is AI-sourced and macros materially changed, INSERT a
- * correction row (gold label) — non-blocking, telemetry must never fail edits.
- */
-async function applyFoodLogEdit(opts: {
-  ctx: Context;
-  existing: FoodLogRow;
-  input: EditFields;
-  /** Whose log the entry belongs to (corrections.user_id). */
-  ownerUserId: string;
-  /** Who made the correction (corrections.corrected_by) — client or coach. */
-  correctedBy: string;
-}): Promise<{ updated: FoodLogRow; captured: boolean }> {
-  const { ctx, existing, input, ownerUserId, correctedBy } = opts;
-
-  // ── Derive macros ──
-  let derived: {
-    calories: number; proteinG: number; carbsG: number; fatG: number;
-    fiberG: number | null; sugarG: number | null;
-  } | null = null;
-
-  if (input.grams != null && existing.foodId) {
-    const [food] = await ctx.db
-      .select({
-        kcalPer100g: foods.kcalPer100g,
-        proteinPer100g: foods.proteinPer100g,
-        carbPer100g: foods.carbPer100g,
-        fatPer100g: foods.fatPer100g,
-        fiberPer100g: foods.fiberPer100g,
-        sugarPer100g: foods.sugarPer100g,
-      })
-      .from(foods)
-      .where(eq(foods.id, existing.foodId))
-      .limit(1);
-    if (food) {
-      const g = input.grams;
-      derived = {
-        calories: Math.round((g * food.kcalPer100g) / 100),
-        proteinG: round1((g * food.proteinPer100g) / 100),
-        carbsG: round1((g * food.carbPer100g) / 100),
-        fatG: round1((g * food.fatPer100g) / 100),
-        fiberG: food.fiberPer100g != null ? round1((g * food.fiberPer100g) / 100) : existing.fiberG,
-        sugarG: food.sugarPer100g != null ? round1((g * food.sugarPer100g) / 100) : existing.sugarG,
-      };
-    }
-  }
-
-  let factor: number | null = null;
-  if (!derived) {
-    const existingQtyG = existing.qtyG != null ? Number(existing.qtyG) : null;
-    if (input.grams != null && existingQtyG != null && existingQtyG > 0) {
-      factor = input.grams / existingQtyG;
-    } else if (input.grams == null && input.quantity != null && existing.quantity > 0) {
-      factor = input.quantity / existing.quantity;
-    }
-  }
-
-  const scaled = (v: number | null, kcal = false): number | null => {
-    if (factor == null || v == null) return v;
-    return kcal ? Math.round(v * factor) : round1(v * factor);
-  };
-
-  const next = {
-    foodName: input.foodName ?? existing.foodName,
-    quantity: input.quantity ?? existing.quantity,
-    qtyG: input.grams != null ? String(input.grams) : existing.qtyG,
-    calories: input.calories ?? derived?.calories ?? scaled(existing.calories, true),
-    proteinG: input.proteinG ?? derived?.proteinG ?? scaled(existing.proteinG),
-    carbsG: input.carbsG ?? derived?.carbsG ?? scaled(existing.carbsG),
-    fatG: input.fatG ?? derived?.fatG ?? scaled(existing.fatG),
-    fiberG: input.fiberG ?? derived?.fiberG ?? scaled(existing.fiberG),
-    sugarG: input.sugarG ?? derived?.sugarG ?? scaled(existing.sugarG),
-  };
-
-  const [updated] = await ctx.db
-    .update(foodLog)
-    .set(next)
-    .where(and(eq(foodLog.id, existing.id), eq(foodLog.userId, ownerUserId)))
-    .returning();
-  if (!updated) throw new TRPCError({ code: 'NOT_FOUND', message: 'Entry not found' });
-
-  // ── Flywheel capture (migration 0035) — non-blocking telemetry ──
-  // Gate: AI-sourced (parse_confidence set OR legacy source natural_language/
-  // photo_ai) AND a material macro change. ai_source falls back to the row's
-  // source value so legacy rows without confidence still capture.
-  let captured = false;
-  const before = {
-    calories: num(existing.calories), proteinG: num(existing.proteinG),
-    carbsG: num(existing.carbsG), fatG: num(existing.fatG),
-  };
-  const after = {
-    calories: num(next.calories), proteinG: num(next.proteinG),
-    carbsG: num(next.carbsG), fatG: num(next.fatG),
-  };
-  if (isAiSourced(existing) && macrosMateriallyChanged(before, after)) {
-    try {
-      await ctx.db.insert(foodParseCorrections).values({
-        userId: ownerUserId,
-        correctedBy,
-        foodLogId: existing.id,
-        inputText: existing.foodName,
-        qtyInput: existing.qtyInput,
-        qtyInputUnit: existing.qtyInputUnit,
-        aiSource: existing.source,
-        aiConfidence: existing.parseConfidence,
-        aiCalories: before.calories,
-        aiProteinG: before.proteinG,
-        aiCarbsG: before.carbsG,
-        aiFatG: before.fatG,
-        correctedCalories: after.calories,
-        correctedProteinG: after.proteinG,
-        correctedCarbsG: after.carbsG,
-        correctedFatG: after.fatG,
-      });
-      captured = true;
-    } catch (e) {
-      console.error('[flywheel] correction capture failed (non-blocking):', e);
-    }
-  }
-
-  return { updated, captured };
-}
-
-// ── Router ────────────────────────────────────────────────────────────────
 
 export const foodRouter = router({
   log: router({
