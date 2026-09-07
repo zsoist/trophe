@@ -15,12 +15,13 @@ const usageSchema=z.object({inputTokens:nano,outputTokens:nano,cacheReadTokens:n
 export type PilotUsage=z.infer<typeof usageSchema>;
 export const pilotBudgetCommandSchema=z.discriminatedUnion('operation',[
   z.object({operation:z.enum(['reserve','lookup','claim_dispatch','mark_unknown','release_unstarted']),binding:pilotAttemptBindingSchema}).strict(),
+  z.object({operation:z.literal('mark_pricing_unknown'),binding:pilotAttemptBindingSchema,usage:usageSchema,responseModel:z.string().min(1).nullable()}).strict(),
   z.object({operation:z.literal('settle'),binding:pilotAttemptBindingSchema,usage:usageSchema}).strict(),
 ]);
 export type PilotBudgetCommand=z.infer<typeof pilotBudgetCommandSchema>;
 export const pilotAttemptRecordSchema=z.object({
-  binding:pilotAttemptBindingSchema,state:z.enum(['reserved','dispatched','unknown','settled','released']),chargedNanoUsd:nano,usage:usageSchema.nullable(),accountingAlert:z.boolean(),
-}).strict().refine(record=>record.state==='settled'?record.usage!==null&&pricePilotUsageNanoUsd(record.usage)===record.chargedNanoUsd&&record.accountingAlert===(record.chargedNanoUsd>record.binding.reservedNanoUsd):record.state==='unknown'?record.chargedNanoUsd===record.binding.reservedNanoUsd&&(record.usage===null||record.accountingAlert&&pricePilotUsageNanoUsd(record.usage)===null):record.usage===null&&!record.accountingAlert&&record.chargedNanoUsd===(record.state==='released'?0:record.binding.reservedNanoUsd));
+  binding:pilotAttemptBindingSchema,state:z.enum(['reserved','dispatched','unknown','settled','released']),chargedNanoUsd:nano,usage:usageSchema.nullable(),accountingAlert:z.boolean(),unpricedModel:z.string().min(1).nullable().optional(),
+}).strict().refine(record=>record.unpricedModel===undefined||(record.state==='unknown'&&record.accountingAlert&&record.usage!==null)).refine(record=>record.state==='settled'?record.unpricedModel===undefined&&record.usage!==null&&pricePilotUsageNanoUsd(record.usage)===record.chargedNanoUsd&&record.accountingAlert===(record.chargedNanoUsd>record.binding.reservedNanoUsd):record.state==='unknown'?record.chargedNanoUsd===record.binding.reservedNanoUsd&&(record.usage===null||record.accountingAlert&&(record.unpricedModel!==undefined||pricePilotUsageNanoUsd(record.usage)===null)):record.usage===null&&!record.accountingAlert&&record.chargedNanoUsd===(record.state==='released'?0:record.binding.reservedNanoUsd));
 export type PilotAttemptRecord=z.infer<typeof pilotAttemptRecordSchema>;
 export type PilotBudgetError='budget_blocked'|'invalid_input'|'not_found'|'idempotency_conflict'|'invalid_transition'|'uncertain'|'cancelled';
 export type PilotBudgetDecision={ok:false;error:PilotBudgetError}|{ok:true;record:PilotAttemptRecord;write:'none'|'insert'|'update';chargeDeltaNanoUsd:number;dispatchGranted:boolean};
@@ -83,7 +84,16 @@ export function decidePilotBudgetCommand(snapshot:{pilotId:string;capNanoUsd:num
     if(previous.state!=='dispatched')return failure('invalid_transition');
     return update('unknown',previous.chargedNanoUsd,null);
   }
+  if(command.operation==='mark_pricing_unknown') {
+    if(previous.state!=='dispatched'&&previous.state!=='unknown')return failure('invalid_transition');
+    if(previous.unpricedModel!==undefined)return previous.unpricedModel===command.responseModel&&JSON.stringify(previous.usage)===JSON.stringify(command.usage)?unchanged():failure('idempotency_conflict');
+    const decision=update('unknown',previous.binding.reservedNanoUsd,command.usage,false,true);
+    if(decision.ok)decision.record.unpricedModel=command.responseModel;
+    return decision;
+  }
   if(command.operation==='settle') {
+    if(previous.unpricedModel!==undefined)return failure('invalid_transition');
+
     if(previous.state==='settled')return JSON.stringify(previous.usage)===JSON.stringify(command.usage)?unchanged():failure('idempotency_conflict');
     if(previous.state!=='dispatched'&&previous.state!=='unknown')return failure('invalid_transition');
     const amount=pricePilotUsageNanoUsd(command.usage);
