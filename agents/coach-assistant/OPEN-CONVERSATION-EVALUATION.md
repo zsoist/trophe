@@ -46,3 +46,24 @@ revocation and real-record budget denial. These are development tests, not held-
 quality results. No paid API evaluation, real-user disclosure or clinical quality
 claim has been made. Next API step requires AGG's budget/access decision plus the
 previously specified durable budget reservation and measured usage reconciliation.
+
+## Correction after independent QUALITY-01 failures
+
+AG4 found that passive save claims and unsupported physiological improvements were
+published as interpretations. The default evaluation now fails closed on free
+declarative sentences. It accepts bounded question/suggestion speech acts while
+record assertions continue through canonical fact fragments. Model limitations are
+restricted to conservative limitation codes rather than another free assertion field.
+This is a temporary fallback, not completion of the declarative-conversation mandate.
+
+Full declarative generation remains an explicit offline evaluation path through
+`offlineInterpretationReview`. This separately supplied fixture oracle receives a
+copy of the candidate, cited IDs and authorized evidence and must approve before
+publication. Request JSON and the generator cannot configure it; HTTP never supplies
+it. Numeric, entity, medical and action restrictions still run before the oracle.
+The review hook is infrastructure for independent evaluation, not a completed
+semantic checker: an always-approve fixture proves only the callback mechanics.
+Do not enable unrestricted declarative output in product based on those tests.
+The independent quality gate, actual Luna evaluation and broader multilingual
+counterexamples remain pending. Speech-act lexical bounds also are not universal
+protection against every presupposition or paraphrase inside a question/suggestion.

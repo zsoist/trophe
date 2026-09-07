@@ -1,4 +1,4 @@
-import { generateOpenConversation, type OfflineConversationProvider } from './open-conversation';
+import { generateOpenConversation, type OfflineConversationProvider, type OfflineInterpretationReview } from './open-conversation';
 import { selectConversationScope, evidenceMatchesScope } from './conversation-scope';
 import { createHash, randomUUID } from 'node:crypto';
 import { COACH_CONVERSATION_VERSION } from './contracts';
@@ -12,7 +12,7 @@ import { COACH_PRICING_VERSION } from './economics';
 import { COACH_PROMPT_VERSION } from './prompt.v3';
 
 /** History is a hint for a window/domain, never a source of facts or authority. */
-export async function runConversation(raw: unknown, options: RunOptions & { isolatedActionsEnabled?:boolean; offlineConversationProvider?:OfflineConversationProvider }): Promise<CoachConversationResponse> {
+export async function runConversation(raw: unknown, options: RunOptions & { isolatedActionsEnabled?:boolean; offlineConversationProvider?:OfflineConversationProvider; offlineInterpretationReview?:OfflineInterpretationReview }): Promise<CoachConversationResponse> {
   const start = performance.now();
   const parsed = conversationRequestSchema.safeParse(raw);
   const response: CoachConversationResponse = {
@@ -88,7 +88,7 @@ export async function runConversation(raw: unknown, options: RunOptions & { isol
         }
       }
       if(options.mode==='model'&&!medical) {
-        await generateOpenConversation(input,response,options.offlineConversationProvider!,controller.signal);
+        await generateOpenConversation(input,response,options.offlineConversationProvider!,controller.signal,options.offlineInterpretationReview);
         await repository.authorize(options.actorId,subject,controller.signal);
         controller.signal.throwIfAborted();
       }

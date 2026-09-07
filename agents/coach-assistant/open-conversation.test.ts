@@ -4,7 +4,7 @@ import { fixtureRepository } from './fixtures';
 import type { OfflineConversationProvider } from './open-conversation';
 const request={version:'coach-assistant.v2',conversationId:'a2c5ec63-6f35-4671-b4f1-6644ca9d739c',turnId:'aac3a82e-898c-4907-b9b9-75133bb6d27f',message:'¿Y cómo podría organizarlo mejor?',history:[{role:'user',text:'Quiero entender mis comidas de esta semana.'},{role:'assistant',text:'Podemos revisar lo registrado.'}]};
 const options=()=>({mode:'model' as const,actorId:'synthetic-client',repository:fixtureRepository(),signal:new AbortController().signal,now:new Date('2026-09-07T03:30:00Z')});
-const prose={answer:'Podrías revisar si las comidas registradas representan tu rutina antes de decidir qué organizar. Los registros por sí solos no explican qué te resultó difícil.',evidenceRefs:[] as string[],entityRefs:[] as string[],facts:[] as Array<{kind:string;evidenceId:string}>,followUp:'¿Qué parte te cuesta más: elegir qué comer o encontrar tiempo para prepararlo?',limitations:[],escalation:false};
+const prose={answer:'Podrías revisar si las comidas registradas representan tu rutina antes de decidir qué organizar.',evidenceRefs:[] as string[],entityRefs:[] as string[],facts:[] as Array<{kind:string;evidenceId:string}>,followUp:'¿Qué parte te cuesta más al elegir qué comer o encontrar tiempo para prepararlo?',limitations:[],escalation:false};
 function provider(change?:(output:typeof prose,payload:Record<string,unknown>)=>unknown):OfflineConversationProvider {
   return vi.fn(async input=>{
     const payload=JSON.parse(input.prompt);
@@ -55,6 +55,23 @@ describe('open v2 conversation with explicit synthetic provider',()=>{
     expect((await runConversation(request,{...options(),offlineConversationProvider:swapped})).error?.code).toBe('invalid_output');
     const physiology=provider(output=>({...output,answer:'Tus registros demuestran que tu metabolismo ha mejorado.'}));
     expect((await runConversation(request,{...options(),offlineConversationProvider:physiology})).error?.code).toBe('invalid_output');
+  });
+  it.each(['Your workout plan is now saved to your account.','Your heart is healthier and your muscles are stronger according to these records.','Your records show that you skipped meals.'])('rejects free declarative claims even when references exist',async answer=>{
+    const transport=provider(output=>({...output,answer}));
+    const result=await runConversation(request,{...options(),offlineConversationProvider:transport});
+    expect(result.error?.code).toBe('invalid_output');expect(result.output).toBeUndefined();
+  });
+  it('keeps declarative explanations gated behind a separate explicit offline oracle',async()=>{
+    const answer='The available entries leave open whether the log represents your usual routine.';
+    const transport=provider(output=>({...output,answer}));
+    const rejected=await runConversation(request,{...options(),offlineConversationProvider:transport,offlineInterpretationReview:async()=>({approved:false})});
+    expect(rejected.error?.code).toBe('invalid_output');
+    const approved=await runConversation(request,{...options(),offlineConversationProvider:transport,offlineInterpretationReview:async candidate=>{
+      expect(candidate.answer).toBe(answer);expect(candidate.evidence.length).toBeGreaterThan(0);
+      return {approved:true};
+    }});
+    expect(approved.output?.answer).toContain(answer);
+    expect(approved.output?.answer).toContain('Offline oracle-reviewed');
   });
   it('rechecks authorization after generation and clears text on revocation',async()=>{
     const config=options();let revoked=false;
