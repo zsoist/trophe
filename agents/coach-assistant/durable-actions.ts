@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { workoutPreferencesSchema } from '@/lib/workout/preferences';
 import { preferenceOperationSchema } from './schema';
 import type { CoachActionResult, CoachPreferenceOperation } from './contracts';
 import type { CoachRepository } from './repository';
@@ -11,6 +12,21 @@ import type { CoachRepository } from './repository';
  */
 export interface DurableCoachActionService {
   execute(input:{actorId:string;subjectId:string;organizationId:string;operation:CoachPreferenceOperation;signal:AbortSignal}):Promise<unknown>;
+}
+export interface DurableCoachProfileService extends DurableCoachActionService {
+  read(input:{actorId:string;subjectId:string;organizationId:string;signal:AbortSignal}):Promise<unknown>;
+}
+/** Replaces, rather than adds to, the bounded personal-context read. */
+export function withDurablePreferenceRead(repository:CoachRepository,service:DurableCoachProfileService):CoachRepository {
+  return {...repository,personalContext:async args=>{
+    const {context,signal}=args;
+    if(repository.dataSource!=='authorized_records'||context.actorId!==context.subjectId)throw new Error('forbidden');
+    signal.throwIfAborted();
+    const parsed=z.object({preferences:workoutPreferencesSchema,version:z.string().min(1).max(128)}).strict().safeParse(await service.read({actorId:context.actorId,subjectId:context.subjectId,organizationId:context.organizationId,signal}));
+    signal.throwIfAborted();
+    if(!parsed.success)throw new Error('query_failed');
+    return {rows:[{userId:context.subjectId,preferences:parsed.data.preferences,preferencesVersion:parsed.data.version,memories:[],memoriesRead:false}],truncated:false};
+  }};
 }
 const failure=(error:CoachActionResult['error']):CoachActionResult=>({version:'coach-assistant.v2',ok:false,storage:'database',error});
 const duration=z.union([z.literal(20),z.literal(30),z.literal(45),z.literal(60)]);
