@@ -37,3 +37,23 @@ The animated `compare_baseline` mode keeps native Rigify controls and a repeated
 The standing variant is curated from the Macros Inc Arnold press exercise instructions: palms initially inward, elbows forward, continuous outward rotation while pressing, then the reverse path. Existing body, cloth and equipment surface checks remain diagnostics rather than human technique approval. The source records 181 evaluated states, nine shoulder/arm intersection samples and full grip/target/foot traces; the saved master subsequently runs the existing full-cycle playback check. The 720p deliverable includes one continuous cycle and frontal, lateral and posterior phase stills. Bench approval is recorded separately and never inherited by this new movement.
 
 `arnold_inspect` diagnoses the forearm-to-middle-knuckle line independently of the hand bone axis and renders both hands plus the rest/mid upper body. `arnold_refine` snapshots the entire original trajectory before baking a minimal swing of each complete hand/grip assembly about its wrist. Native IK remains the evaluator and there is no live hand/prop feedback. A separate named rest-form key reduces inherited uniform arm inflation inside a feathered local patch and shapes anterior/posterior/lateral deltoid, biceps, triceps and their transitions. Finger controls, weights, lower body and central neck are retained. Pose checks and visible before/after comparisons, not axis alignment alone, decide whether the new appearance is suitable.
+
+### Incline dumbbell press study
+
+`incline` builds a separate 30-degree incline press from two explicit private
+sources: the approved copa's native arm surface and the established cylindrical
+curl grasp. It resets exercise pose/actions, retains native MPFB/Rigify drivers,
+and does not transfer the overhead cup hand posture or baked twist controls.
+Each dumbbell owns a complete wrist target; native IK follows it. The cylinder
+and grasp rotate together around the prescribed wrist so the metacarpal axis
+follows the evaluated forearm. Quaternion hemispheres stay compatible.
+
+The six-second cycle is authored directly at30fps, including closure at181;
+there is no video interpolation or retiming. `incline_qa` evaluates all181
+states for contact, real equipment/skin triangle crossings, and surface steps,
+plus intermediate subframes and seven support/garment poses. These checks do
+not certify technique, anatomy, or muscle forces. The ACE incline chest-press
+reference informs grip, wrist alignment, simultaneous descent/press and stable
+supports; this study chooses30degrees, whereas that ACE page specifies45–60.
+All outputs remain private review artifacts with new hashes and human reviews
+pending. No schema/consumer/publication changes are made by these stages.
