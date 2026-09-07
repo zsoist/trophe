@@ -138,3 +138,61 @@ export interface CoachConversationResponse {
   attachments: CoachAttachmentRef[];
   telemetry: CoachTelemetry;
 }
+
+export interface CoachProfileCard {
+  language: string;
+  timezone: string;
+  units: { weight: 'kg'; energy: 'kcal'; protein: 'g' };
+  preferences: { durationMinutes: 20 | 30 | 45 | 60 };
+  version: string;
+  source: 'authorized_profile' | 'isolated_fixture';
+}
+export interface CoachMemoryCard {
+  id: string;
+  text: string;
+  source: 'user_input' | 'coach' | 'agent_inference' | 'wearable';
+  createdAt: string;
+  scope: 'user' | 'session' | 'agent';
+  confirmation: 'unconfirmed' | 'confirmed';
+  version: string;
+}
+/** Optional until an authorized backing service is connected. */
+export interface CoachConversationResponse {
+  profile?: CoachProfileCard;
+  memories?: CoachMemoryCard[];
+}
+export type CoachPreferenceOperation = {
+  version: typeof COACH_CONVERSATION_VERSION;
+  operation: 'propose';
+  conversationId: string;
+  turnId: string;
+  clientId?: string;
+  action: 'preference.update';
+  resourceVersion: string;
+  after: { durationMinutes: 20 | 30 | 45 | 60 };
+} | {
+  version: typeof COACH_CONVERSATION_VERSION;
+  operation: 'apply';
+  conversationId: string;
+  turnId: string;
+  clientId?: string;
+  proposalId: string;
+  hash: string;
+  actionId: string;
+  resourceVersion: string;
+} | {
+  version: typeof COACH_CONVERSATION_VERSION;
+  operation: 'receipt';
+  conversationId: string;
+  turnId: string;
+  clientId?: string;
+  actionId: string;
+};
+export interface CoachActionResult {
+  version: typeof COACH_CONVERSATION_VERSION;
+  ok: boolean;
+  storage: 'isolated_ephemeral' | 'database';
+  proposal?: CoachProposal;
+  receipt?: CoachReceipt;
+  error?: 'forbidden' | 'invalid_input' | 'version_conflict' | 'expired' | 'not_found' | 'idempotency_conflict' | 'uncertain';
+}
