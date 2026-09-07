@@ -20,12 +20,17 @@ export function createPrivateCoachImageStorage(config:{url:string;serviceKey:str
   signal.throwIfAborted();const result=await clientFor(signal).storage.getBucket(config.bucket);signal.throwIfAborted();
   if(result.error||!result.data||result.data.public!==false||result.data.id!==config.bucket)throw new Error('storage_unavailable');
  }
- async function storedDigest(path:string,signal:AbortSignal){
+ async function storedBytes(path:string,signal:AbortSignal){
   const result=await clientFor(signal).storage.from(config.bucket).download(path);signal.throwIfAborted();
   if(result.error||!result.data||result.data.size>COACH_IMAGE_LIMITS.fileBytes)throw new Error('storage_unavailable');
-  return hash(new Uint8Array(await result.data.arrayBuffer()));
+  return new Uint8Array(await result.data.arrayBuffer());
  }
+ async function storedDigest(path:string,signal:AbortSignal){return hash(await storedBytes(path,signal));}
  return {bucket:config.bucket,
+  async readNormalized(scope:AttachmentStorageScope,expectedDigest:string,signal:AbortSignal,authorize:()=>Promise<void>){
+   const path=attachmentObjectPath(scope);if(!/^[a-f0-9]{64}$/.test(expectedDigest))throw new Error('invalid_input');await authorize();await privateBucket(signal);
+   const bytes=await storedBytes(path,signal);if(hash(bytes)!==expectedDigest)throw new Error('storage_unavailable');await authorize();signal.throwIfAborted();return bytes.slice();
+  },
   async assertStored(scope:AttachmentStorageScope,expectedDigest:string,signal:AbortSignal,authorize:()=>Promise<void>){
    const path=attachmentObjectPath(scope);await authorize();await privateBucket(signal);
    if(await storedDigest(path,signal)!==expectedDigest)throw new Error('storage_unavailable');await authorize();signal.throwIfAborted();

@@ -26,6 +26,8 @@ describe('concrete Supabase private image SDK adapter',()=>{
   const f=fixture();const bytes=await sharp({create:{width:3,height:2,channels:3,background:'red'}}).png().withMetadata({orientation:6}).toBuffer();const signal=new AbortController().signal;const authorize=vi.fn(async()=>{});
   const first=await f.storage.put(scope,bytes,'image/png',signal,authorize);expect(first.path).toBe(attachmentObjectPath(scope));expect(first.metadata.mime).toBe('image/jpeg');
   const stored=f.objects.get(first.path)!;const metadata=await sharp(stored).metadata();expect(metadata.format).toBe('jpeg');expect(metadata.exif).toBeUndefined();expect(metadata.orientation).toBeUndefined();
+  expect(await f.storage.readNormalized(scope,first.normalizedDigest,signal,authorize)).toEqual(stored);
+  await expect(f.storage.readNormalized(scope,'0'.repeat(64),signal,authorize)).rejects.toThrow('storage_unavailable');
   expect(await f.storage.put(scope,bytes,'image/png',signal,authorize)).toEqual(first);expect(f.objects.size).toBe(1);
   const read=await f.storage.signedRead(scope,60,signal,authorize);expect(read.url).toContain('/object/sign/');expect(read.expiresIn).toBe(60);
   await f.storage.remove(scope,signal);expect(f.objects.size).toBe(0);expect(authorize).toHaveBeenCalled();
