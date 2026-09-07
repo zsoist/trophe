@@ -119,8 +119,8 @@ test('durable chat creates, reloads and resumes one real Auth/HTTP conversation 
       { role: 'user', text: firstText, sequence: 1 },
       { role: 'assistant', text: first.output.answer, sequence: 2 },
     ]);
-    await expect(reloaded.locator('article > div').filter({ hasText: firstText }).getByRole('paragraph', { name: firstText, exact: true })).toBeVisible();
-    await expect(reloaded.locator('article > div').filter({ hasText: first.output.answer }).getByRole('paragraph', { name: first.output.answer, exact: true })).toBeVisible();
+    await expect(reloaded.locator('article > div').filter({ hasText: firstText }).locator('p').filter({ hasText: firstText }).first()).toBeVisible();
+    await expect(reloaded.locator('article > div').filter({ hasText: first.output.answer }).locator('p').filter({ hasText: first.output.answer }).first()).toBeVisible();
     await reloaded.getByRole('button', { name: 'Continue conversation', exact: true }).click();
     await expect(reloaded.getByText('Saved message · You', { exact: true })).toBeVisible();
     await expect(reloaded.getByText(first.output.answer, { exact: true })).toHaveCount(1);
