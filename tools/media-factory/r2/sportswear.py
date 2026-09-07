@@ -108,6 +108,23 @@ def border_finish(config,out):
     record={'scope':'Native SMOOTH applied after stable surface binding to actual116-ish armhole border vertices only; neck/waist/interior/body/rig/motion unchanged. No new projection or shell. Compares same camera/light and5criticalposes.','vertices':chosen,'factor':.5,'iterations':10,'rows':rows,'human_reviews':'pending','technical_passed':False};(out/'border-finish.json').write_text(json.dumps(record,indent=2));return record
 
 
+def movement_contrast(config,out):
+    """Economic same-piece contrast; preexisting skin defects are not garment deltas."""
+    from localize_contact import mesh_data
+    from bench_qa import crossings
+    from compare_baseline import studio,place
+    rows=[];before={};preset=config['camera']
+    for label,source in [('before',config['comparison_source']),('after',config['animation_source'])]:
+        bpy.ops.wm.open_mainfile(filepath=source);s=bpy.context.scene;b=bpy.data.objects['Trophe_R2_Athlete'];c=bpy.data.objects['SportsTank'];cam=studio(s);cam.data.sensor_fit='VERTICAL';place(cam,preset['position'],preset['target'],preset['ortho_scale']);s.render.engine='BLENDER_EEVEE';s.render.resolution_x=960;s.render.resolution_y=720
+        for f in config['frames']:
+            s.frame_set(f);bpy.context.view_layer.update();bd=mesh_data(b);cd=mesh_data(c);grips={n:np.array(bpy.data.objects[n].matrix_world) for n in config['grasp_objects']}
+            if label=='before':before[f]=(bd[0].copy(),grips)
+            delta=float(np.linalg.norm(bd[0]-before[f][0],axis=1).max());grip_delta=max(float(abs(m-before[f][1][n]).max()) for n,m in grips.items());assert delta<1e-6 and grip_delta<1e-6
+            rows.append({'version':label,'frame':f,'cloth_body_crossings':crossings(bd,cd),'cloth_self_crossings':crossings(cd,cd,same=True),'body_delta_from_common_base_m':delta,'grasp_matrix_delta_from_common_base':grip_delta,'body_masks':[(m.name,m.vertex_group,m.show_render) for m in b.modifiers if m.type=='MASK']})
+            s.render.filepath=str(out/f'{label}-{f:03d}.png');bpy.ops.render.render(write_still=True)
+    record={'scope':'Same core garment and localized native armhole hypothesis, before/after identical camera/light/poses. Only3poses on second movement; not full-cycle certification. Source body evaluated surface and full dumbbell transforms compared to common base, preserving preexisting skin defects. No approval or production adoption.','rows':rows,'human_reviews':'pending','adopted':False};(out/'movement-contrast.json').write_text(json.dumps(record,indent=2));return {'rows':[{k:len(v) if isinstance(v,list) else v for k,v in r.items()} for r in rows],'adopted':False}
+
+
 def run(config,out):
     from incline_refine import garment,garment_surface_bind
     bpy.ops.wm.open_mainfile(filepath=config['animation_source']);s=bpy.context.scene;body=bpy.data.objects['Trophe_R2_Athlete'];before={}
