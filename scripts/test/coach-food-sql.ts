@@ -78,7 +78,7 @@ async function main() {
   // Parent installs/removes the shared ledger. This child owns only its extension.
   await pool.query(await readFile('db/isolated/coach-food-actions.sql', 'utf8')); installed = true;
   originalPreferences = (await pool.query('SELECT workout_preferences FROM public.client_profiles WHERE user_id=$1', [actorId])).rows[0].workout_preferences;
-  await pool.query("INSERT INTO public.foods(id,source,source_id,name_en,kcal_per_100g,protein_per_100g,carb_per_100g,fat_per_100g,fiber_per_100g,sugar_per_100g) VALUES($1,'custom',$1::text,'Isolated coach rice',200,4,40,2,0.8,0.4)", [foodId]);
+  await pool.query("INSERT INTO public.foods(id,source,source_id,name_en,kcal_per_100g,protein_per_100g,carb_per_100g,fat_per_100g,fiber_per_100g,sugar_per_100g) VALUES($1::uuid,'custom',$1::uuid::text,'Isolated coach rice',200,4,40,2,0.8,0.4)", [foodId]);
   for (const [id, owner] of [[entryId, actorId], [foreignEntryId, coachId]]) {
     await pool.query("INSERT INTO public.food_log(id,user_id,logged_date,food_name,food_id,qty_g,quantity,calories,protein_g,carbs_g,fat_g,fiber_g,sugar_g,source) VALUES($1,$2,'2026-09-07','Isolated coach rice',$3,250,1,500,10,100,5,2,1,'custom')", [id, owner, foodId]);
   }
@@ -185,7 +185,7 @@ main().catch(error => {
       assert.equal((await pool.query('SELECT id FROM private.coach_action_proposals WHERE id=ANY($1::uuid[])', [proposalIds])).rowCount, 0);
       await pool.query('DELETE FROM public.food_parse_corrections WHERE user_id=$1 AND corrected_by=$1 AND food_log_id=$2', [actorId, entryId]);
       await pool.query('DELETE FROM public.food_log WHERE (id=$1 AND user_id=$2) OR (id=$3 AND user_id=$4)', [entryId, actorId, foreignEntryId, coachId]);
-      await pool.query("DELETE FROM public.foods WHERE id=$1 AND source='custom' AND source_id=$1::text", [foodId]);
+      await pool.query("DELETE FROM public.foods WHERE id=$1::uuid AND source='custom' AND source_id=$1::uuid::text", [foodId]);
       if (originalPreferences !== undefined) await pool.query('UPDATE public.client_profiles SET workout_preferences=$2::jsonb WHERE user_id=$1', [actorId, JSON.stringify(originalPreferences)]);
       await pool.query('DROP TRIGGER coach_food_entry_revision ON public.food_log; DROP FUNCTION private.advance_coach_food_entry_version(); DROP TABLE private.coach_food_entry_versions;');
       check = 'exact_food_fixture_removed_trigger_restored'; pass();
