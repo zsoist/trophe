@@ -14,6 +14,12 @@ const withSerwist = withSerwistInit({
 });
 
 export const nextConfig: NextConfig = {
+  // An absent public flag must still become a compile-time literal, so the
+  // disabled Home entry and its imports can be removed from route bundles.
+  // Only this public boolean is exposed; server flags and credentials stay out.
+  env: {
+    NEXT_PUBLIC_COACH_ASSISTANT_ENABLED: process.env.NEXT_PUBLIC_COACH_ASSISTANT_ENABLED === '1' ? '1' : '0',
+  },
   // Browser E2E keeps generated state in a local no-sync cache so macOS does
   // not offload Turbopack files while the role matrix is running.
   distDir: process.env.NEXT_DIST_DIR ? '.next-e2e.nosync' : '.next',
