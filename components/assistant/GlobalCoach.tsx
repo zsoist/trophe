@@ -9,6 +9,8 @@ import { useGlobalCoachI18n } from './useGlobalCoachI18n';
 import styles from './GlobalCoach.module.css';
 import { requestAttachment } from './attachment-client';
 import { AttachmentController } from './attachment-state';
+import { VoiceCapture } from './VoiceCapture';
+import { VoiceController } from './voice-state';
 import { AttachmentPicker } from './AttachmentPicker';
 import { ContextCards } from './ContextCards';
 import { PreferenceController, type PreferenceTransport, type PreferenceState } from './preference-state';
@@ -24,6 +26,9 @@ function CoachSurface({ identity, subjectId, example, preferenceTransport, conte
   const path = usePathname();
   const surface = coachSurface(path);
   const [controller] = useState(() => new ConversationController());
+  const [voice] = useState(() => new VoiceController());
+  const voiceState = useSyncExternalStore(voice.subscribe, voice.snapshot, voice.snapshot);
+  const voiceActive = ['requesting', 'recording', 'stopping'].includes(voiceState.phase);
   const [attachments] = useState(() => new AttachmentController());
   const attachmentState = useSyncExternalStore(attachments.subscribe, attachments.snapshot, attachments.snapshot);
   const [preferences] = useState(() => new PreferenceController());
@@ -42,6 +47,7 @@ function CoachSurface({ identity, subjectId, example, preferenceTransport, conte
   useEffect(() => { controller.identify(scope); return () => controller.identify(null); }, [controller, scope]);
   useEffect(() => () => preferences.reset(), [preferences]);
   useEffect(() => () => attachments.reset(), [attachments]);
+  useEffect(() => () => voice.reset(), [voice]);
   useEffect(() => { setAnchor(document.getElementById('global-coach-anchor')); }, []);
   useEffect(() => {
     if (!open) return;
@@ -56,8 +62,8 @@ function CoachSurface({ identity, subjectId, example, preferenceTransport, conte
     if (followLatest.current && !window.getSelection()?.toString()) log.current?.scrollTo({ top: log.current.scrollHeight });
     else setShowLatest(true);
   }, [open, state.turns, state.pending]);
-  const close = () => { controller.cancel(); preferences.cancel(); attachments.cancel(); setOpen(false); launcher.current?.focus(); };
-  const send = () => controller.send({ surface, includeScreen, ...(subjectId ? { clientId: subjectId } : {}) }, example ?? requestConversation, attachments.references());
+  const close = () => { controller.cancel(); preferences.cancel(); attachments.cancel(); voice.reset(); setOpen(false); launcher.current?.focus(); };
+  const send = () => !voiceActive && controller.send({ surface, includeScreen, ...(subjectId ? { clientId: subjectId } : {}) }, example ?? requestConversation, attachments.references());
   const latestResponse = state.turns.findLast(turn => turn.response?.ok)?.response;
   useEffect(() => { if (latestResponse) attachments.reconcile(latestResponse.attachments); }, [attachments, latestResponse]);
   const launch = <button ref={launcher} type="button" className={styles.launcher} aria-expanded={open} aria-controls="global-coach" onClick={() => open ? close() : setOpen(true)}>
@@ -67,7 +73,7 @@ function CoachSurface({ identity, subjectId, example, preferenceTransport, conte
     {anchor ? createPortal(launch, anchor) : launch}
     {open && <section id="global-coach" className={styles.panel} style={{ top: panelTop }} aria-labelledby="global-coach-title" onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); close(); } }}>
       <header className={styles.header}><div><h2 id="global-coach-title">{t('global_coach.title')}</h2><p>{t(example ? 'global_coach.example' : 'global_coach.identity')}</p></div><button type="button" onClick={close} aria-label={t('global_coach.close')}><X size={22} /></button></header>
-      {latestResponse && <ContextCards response={latestResponse} conversationId={state.conversationId} subjectId={subjectId} controller={preferences} state={preferenceState} transport={preferenceTransport ?? requestPreference}>{contextSlot?.({ controller: preferences, state: preferenceState, conversationId: state.conversationId, transport: preferenceTransport ?? requestPreference })}</ContextCards>}
+      {latestResponse && <ContextCards response={latestResponse} conversationId={state.conversationId} subjectId={subjectId} onExpand={() => voice.reset()} controller={preferences} state={preferenceState} transport={preferenceTransport ?? requestPreference}>{contextSlot?.({ controller: preferences, state: preferenceState, conversationId: state.conversationId, transport: preferenceTransport ?? requestPreference })}</ContextCards>}
       <div ref={log} className={styles.log} role="log" aria-live="polite" aria-relevant="additions text" onScroll={() => {
         const node = log.current; if (!node) return;
         followLatest.current = node.scrollHeight - node.scrollTop - node.clientHeight < 64;
@@ -90,10 +96,11 @@ function CoachSurface({ identity, subjectId, example, preferenceTransport, conte
       {showLatest && <button type="button" className="min-h-11 px-4 text-sm" onClick={() => { followLatest.current = true; setShowLatest(false); log.current?.scrollTo({ top: log.current.scrollHeight }); }}>{t('global_coach.latest')}</button>}
       <form className={styles.composer} onSubmit={event => { event.preventDefault(); void send(); }}>
         <AttachmentPicker controller={attachments} state={attachmentState} conversationId={state.conversationId} transport={!example && latestResponse?.uploads?.images ? requestAttachment : undefined} disabled={state.pending} />
+        <VoiceCapture controller={voice} state={voiceState} disabled={state.pending || attachmentState.pending} />
         <label className={styles.contextToggle}><input type="checkbox" checked={includeScreen} onChange={event => setIncludeScreen(event.target.checked)} />{t('global_coach.include')}<span>{t(`global_coach.${surface}`)}</span></label>
         <label className="sr-only" htmlFor="global-coach-question">{t('global_coach.question')}</label>
         <textarea id="global-coach-question" ref={input} maxLength={2000} rows={3} value={state.draft} onChange={event => controller.setDraft(event.target.value)} placeholder={t('global_coach.placeholder')} />
-        <div className={styles.actions}><span>{state.draft.length}/2000</span>{state.pending ? <button type="button" onClick={() => controller.cancel()}>{t('global_coach.cancel')}</button> : <button type="submit" disabled={!state.draft.trim() || attachmentState.pending}><Send size={17} aria-hidden="true" />{t('global_coach.send')}</button>}</div>
+        <div className={styles.actions}><span>{state.draft.length}/2000</span>{state.pending ? <button type="button" onClick={() => controller.cancel()}>{t('global_coach.cancel')}</button> : <button type="submit" disabled={!state.draft.trim() || attachmentState.pending || voiceActive}><Send size={17} aria-hidden="true" />{t('global_coach.send')}</button>}</div>
       </form>
     </section>}
   </div>;

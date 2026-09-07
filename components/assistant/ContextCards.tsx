@@ -5,9 +5,9 @@ import { PreferenceController, type PreferenceState, type PreferenceTransport } 
 import { useGlobalCoachI18n } from './useGlobalCoachI18n';
 import styles from './GlobalCoach.module.css';
 
-export function ContextCards({ response, conversationId, subjectId, controller, state, transport, children }: {
+export function ContextCards({ response, conversationId, subjectId, controller, state, transport, children, onExpand }: {
   response: CoachConversationResponse; conversationId: string; subjectId?: string;
-  controller: PreferenceController; state: PreferenceState; transport: PreferenceTransport; children?: ReactNode;
+  controller: PreferenceController; state: PreferenceState; transport: PreferenceTransport; children?: ReactNode; onExpand?: () => void;
 }) {
   const { t } = useGlobalCoachI18n();
   const profile = response.profile;
@@ -25,7 +25,7 @@ export function ContextCards({ response, conversationId, subjectId, controller, 
     && /^\d+$/.test(profile.version) && /^\d+$/.test(state.confirmed.version) && BigInt(profile.version) > BigInt(state.confirmed.version);
   const currentDuration = profileNewer ? profile.preferences.durationMinutes : state.confirmed?.durationMinutes ?? profile?.preferences.durationMinutes;
   const version = profileNewer ? profile.version : state.confirmed?.version ?? profile?.version;
-  return <details className={styles.profile}>
+  return <details className={styles.profile} onToggle={event => { if (event.currentTarget.open) onExpand?.(); }}>
     <summary>{t('global_coach.your_context')}</summary>
     {profile && <div className={styles.profileBody}>
       <p>{t('global_coach.profile_source')} · {profile.timezone} · {profile.language.toUpperCase()}</p>
