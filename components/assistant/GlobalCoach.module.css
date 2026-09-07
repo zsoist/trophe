@@ -1,10 +1,12 @@
 .root { color: var(--text-primary); }
 .profile { max-height: 45%; flex-shrink: 0; overflow: auto; padding: 0 1rem; border-bottom: 1px solid var(--border-default); font-size: .8125rem; scrollbar-color: var(--border-default) transparent; }
+.profile[open] { flex: 1; max-height: none; }
+.profile[open] ~ .log, .profile[open] ~ .composer, .profile[open] ~ button { display: none; }
 .profile summary { min-height: 44px; padding: .65rem 0; cursor: pointer; font-weight: 600; }
 .profileBody { padding: .25rem 0 1rem; line-height: 1.65; }
 .profileBody p + p { margin-top: .4rem; }
 .profileBody label { display: block; margin-top: .75rem; }
-.profileBody select, .profileBody button { min-height: 44px; border: 1px solid var(--border-default); border-radius: 12px; padding: .5rem .7rem; margin-top: .4rem; background: var(--bg-input); color: var(--text-primary); }
+.profileBody select, .profileBody button, .profileBody textarea { min-height: 44px; border: 1px solid var(--border-default); border-radius: 12px; padding: .5rem .7rem; margin-top: .4rem; background: var(--bg-input); color: var(--text-primary); }
 .profileBody select { margin-right: .5rem; }
 .profileBody button:disabled { opacity: .5; }
 .proposal { margin-top: 1rem; padding-top: .75rem; border-top: 1px solid var(--border-default); }
@@ -36,3 +38,6 @@
 .launcher:focus-visible, .root button:focus-visible, .root textarea:focus-visible, .root input:focus-visible, .root summary:focus-visible { outline: 2px solid var(--gold-300); outline-offset: 3px; }
 .root button:hover:not(:disabled) { filter: brightness(.94); }
 @media (min-width: 768px) { .panel { right: 1.25rem; bottom: 7rem; top: 5rem; } }
+
+.memoryActions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.profileBody textarea { display: block; width: 100%; resize: vertical; font-size: 16px; }

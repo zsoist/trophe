@@ -14,7 +14,7 @@ vi.mock('next/navigation', () => ({ usePathname: () => '/dashboard/workout' }));
 const actor = '00000000-0000-4000-8000-000000000001';
 const conversation = '00000000-0000-4000-8000-000000000002';
 function fixture() {
-  const store = createPreferenceStore([{ actorId: actor, subjectId: actor, organizationId: 'example', preferences: { ...defaultWorkoutPreferences } }], { hash: value => bytesToHex(sha256(utf8ToBytes(JSON.stringify(value)))), id: () => crypto.randomUUID() });
+  const store = createPreferenceStore([{ actorId: actor, subjectId: actor, organizationId: 'example', preferences: { ...defaultWorkoutPreferences }, memories: [{ id: '00000000-0000-4000-8000-000000000010', text: 'I prefer mornings.', source: 'agent_inference', createdAt: '2026-09-06T12:00:00Z', scope: 'user', confirmation: 'unconfirmed', version: 'memory-v1' }] }], { hash: value => bytesToHex(sha256(utf8ToBytes(JSON.stringify(value)))), id: () => crypto.randomUUID() });
   const transport = vi.fn(async (operation: unknown, _signal: AbortSignal) => { void _signal; return store.execute(actor, operation); });
   return { store, transport };
 }
@@ -29,7 +29,7 @@ it('reviews before applying and displays an actual isolated receipt without chan
     snapshot: { id: 'snapshot', capturedAt: '2026-09-07T04:00:00Z', subjectId: actor, organizationId: 'example', surface: 'workout', screenIncluded: true, window: { start: '2026-09-07', end: '2026-09-07', days: 1, timezone: 'UTC' }, language: 'en', units: { weight: 'kg', energy: 'kcal', protein: 'g' }, capabilities: [{ key: 'actions', status: 'available', reason: 'isolated_ephemeral' }] },
     profile: { language: 'en', timezone: 'UTC', units: { weight: 'kg', energy: 'kcal', protein: 'g' }, preferences: { durationMinutes: 30 }, version: profile.version, source: 'isolated_fixture' },
     output: { answer: 'Your current records.', evidenceRefs: [], limitations: [], suggestions: [], escalation: { required: false, reason: null, draft: null } },
-    evidence: [], proposals: [], receipts: [], attachments: [], telemetry: { model: null, provider: null, promptVersion: 'test', modelCalls: 0, dataReads: 0, tokensIn: 0, tokensOut: 0, reasoningTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, latencyMs: 0, costUsd: 0, pricingVersion: 'test' },
+    memories: profile.memories, evidence: [], proposals: [], receipts: [], attachments: [], telemetry: { model: null, provider: null, promptVersion: 'test', modelCalls: 0, dataReads: 0, tokensIn: 0, tokensOut: 0, reasoningTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, latencyMs: 0, costUsd: 0, pricingVersion: 'test' },
   };
   render(<I18nProvider defaultLang="en"><GlobalCoach identity={actor} example={async request => ({ ...body, conversationId: request.conversationId, turnId: request.turnId })} preferenceTransport={transport} /></I18nProvider>);
   fireEvent.click(screen.getByRole('button', { name: 'Ask coach' }));
@@ -45,6 +45,28 @@ it('reviews before applying and displays an actual isolated receipt without chan
   await screen.findByText('Updated in this isolated preview. Account settings were not changed.');
   expect(store.read(actor, actor)?.preferences.durationMinutes).toBe(20);
   expect(transport.mock.calls.map(call => (call[0] as { operation: string }).operation)).toEqual(['propose', 'apply']);
+  fireEvent.click(screen.getByRole('button', { name: 'Confirm memory' }));
+  await screen.findByRole('button', { name: 'Confirm change' });
+  expect(store.read(actor, actor)!.memories[0].confirmation).toBe('unconfirmed');
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  expect(screen.getByText('Not confirmed by you')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Edit memory' }));
+  fireEvent.change(screen.getByRole('textbox', { name: 'Corrected memory' }), { target: { value: 'I prefer evenings.' } });
+  fireEvent.click(screen.getAllByRole('button', { name: 'Review change' }).at(-1)!);
+  await screen.findByText('After: I prefer evenings.');
+  expect(store.read(actor, actor)!.memories[0].text).toBe('I prefer mornings.');
+  fireEvent.click(screen.getByRole('button', { name: 'Confirm change' }));
+  await screen.findByText('Confirmed by you');
+  expect(store.read(actor, actor)!.memories[0]).toMatchObject({ text: 'I prefer evenings.', source: 'agent_inference', createdAt: '2026-09-06T12:00:00Z' });
+  expect(screen.getByText('Typical workout: 20 minutes')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Delete memory' }));
+  await screen.findByRole('button', { name: 'Confirm change' });
+  expect(store.read(actor, actor)!.memories).toHaveLength(1);
+  fireEvent.click(screen.getByRole('button', { name: 'Confirm change' }));
+  await screen.findByText('No memories in this context.');
+  expect(store.read(actor, actor)!.memories).toHaveLength(0);
+  expect(screen.getByText('Typical workout: 20 minutes')).toBeTruthy();
+
 });
 
 it('queries the same action receipt after a lost apply response and never resubmits the write', async () => {
@@ -70,4 +92,20 @@ it('keeps cancelled apply uncertain and discards a late receipt after identity r
   expect(controller.snapshot().uncertain).toBe(true); expect(apply.mock.calls[0][1].aborted).toBe(true);
   controller.reset(); await act(async () => settle({} as CoachActionResult));
   expect(controller.snapshot()).toMatchObject({ receipt: null, proposal: null, pending: false, uncertain: false });
+});
+
+it('recovers a lost deletion receipt with its null version and keeps deleted context invalidated after dismissal', async () => {
+  const { store, transport } = fixture(); const controller = new PreferenceController();
+  const memory = store.read(actor, actor)!.memories[0];
+  await controller.proposeMemory(conversation, memory, { action: 'memory.delete' }, transport);
+  const lost = vi.fn(async (operation: unknown) => { store.execute(actor, operation); throw new Error('Lost after apply'); });
+  await controller.apply(conversation, lost);
+  expect(controller.snapshot().uncertain).toBe(true);
+  await controller.check(transport);
+  expect(controller.snapshot()).toMatchObject({ uncertain: false, receipt: { status: 'applied', resourceVersion: null }, memories: { [memory.id]: null }, confirmed: null });
+  controller.dismiss();
+  expect(controller.snapshot().memories[memory.id]).toBeNull();
+  expect(lost).toHaveBeenCalledTimes(1);
+  controller.reset();
+  expect(controller.snapshot().memories).toEqual({});
 });

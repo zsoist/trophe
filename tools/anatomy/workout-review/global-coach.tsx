@@ -27,7 +27,7 @@ export function PrivateGlobalCoach() {
       snapshot: { id: crypto.randomUUID(), capturedAt: new Date().toISOString(), subjectId: REVIEW_USER, organizationId: '00000000-0000-4000-8000-000000000002', surface: request.context?.includeScreen ? request.context.surface : null, screenIncluded: Boolean(request.context?.includeScreen), window, language: lang, units: { weight: 'kg', energy: 'kcal', protein: 'g' }, capabilities: [{ key: 'food_records', status: 'available', reason: 'private_tab_example' }, { key: 'workout_records', status: 'available', reason: 'private_tab_example' }, { key: 'model', status: 'not_connected', reason: 'offline' }, { key: 'profile', status: 'available', reason: 'isolated_fixture' }, { key: 'actions', status: 'available', reason: 'isolated_ephemeral' }] },
       output: { answer: evidence.map(item => item.statement).join('\n') || legacyT('coach_assistant.empty'), evidenceRefs: evidence.map(item => item.id), limitations: [t('global_coach.example')], suggestions: [], escalation: { required: false, reason: null, draft: null } }, evidence,
       profile: { language: lang, timezone: window.timezone, units: { weight: 'kg', energy: 'kcal', protein: 'g' }, preferences: { durationMinutes: preferences.preferences.durationMinutes }, version: preferences.version, source: 'isolated_fixture' },
-      memories: [], proposals: [], receipts: [], attachments: [],
+      memories: preferences.memories, proposals: [], receipts: [], attachments: [],
     };
   };
   return <GlobalCoach identity={REVIEW_USER} example={transport} preferenceTransport={privatePreferenceTransport} />;
