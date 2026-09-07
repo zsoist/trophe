@@ -236,3 +236,39 @@ def garment_collider(config,out):
     s.frame_set(1);bpy.context.view_layer.update();bpy.ops.wm.save_as_mainfile(filepath=str(out/'incline.blend'))
     record={'cause':'Rest-only fit removed projection strips but subdivision/pose response left visible chest intersections. Whole-body live projection previously selected forearm across sleeve.','change':'Native live Shrinkwrap after subdivision and before1.2mm solidify, on a hidden copy of the SAME deformed body with only torso/proximal arm collision region.4mm offset unchanged; forearm/hand excluded by native weights. Rendered body and its skin masks unchanged.','collider_vertices':kept,'not_simulation':True,'human_reviews':'pending'}
     (out/'garment-collider.json').write_text(json.dumps(record,indent=2));return {'native_filtered_collider':True,'collider_vertices':len(kept)}
+
+
+def elbow_hinge(config,out):
+    from surface_qa import check
+    from localize_contact import mesh_data
+    from compare_baseline import studio,place
+    bpy.ops.wm.open_mainfile(filepath=config['animation_source']);s=bpy.context.scene;b=bpy.data.objects['Trophe_R2_Athlete'];r=bpy.data.objects['Trophe_R2_Authoring']
+    def hinge(side):
+        a=r.pose.bones['ORG-upper_arm.'+side].head;e=r.pose.bones['ORG-forearm.'+side].head;w=r.pose.bones['ORG-hand.'+side].head
+        u=(e-a).normalized();v=(w-e).normalized();y=(u+v).normalized();x=u.cross(v).normalized();z=x.cross(y).normalized();return Matrix((x,y,z)).transposed().to_quaternion()
+    regions={side:[v.index for v in b.data.vertices if sign*v.co.x>.07 and 1.10<v.co.z<1.54 and any(b.vertex_groups[g.group].name=='body' and g.weight>.5 for g in v.groups)] for side,sign in [('L',1),('R',-1)]}
+    before={};samples={};s.frame_set(1);bpy.context.view_layer.update();reference={side:(hinge(side),r.pose.bones['forearm_tweak.'+side].matrix.to_quaternion()) for side in ['L','R']}
+    for f in range(1,182):
+        s.frame_set(f);bpy.context.view_layer.update();samples[f]={side:r.pose.bones['forearm_tweak.'+side].matrix.copy() for side in ['L','R']}
+        if f in [1,76,91,110,181]:before[f]={'p':points(b),'hands':{side:np.array(r.pose.bones['ORG-hand.'+side].matrix) for side in ['L','R']},'skin':check(b,regions)}
+    for f in range(1,182):
+        s.frame_set(f);bpy.context.view_layer.update()
+        for side in ['L','R']:
+            pb=r.pose.bones['forearm_tweak.'+side];loc,rot,scale=samples[f][side].decompose();initial,offset=reference[side];target=hinge(side)@initial.inverted()@offset;pb.matrix=Matrix.LocRotScale(loc,target,scale);key(pb,f)
+    for layer in r.animation_data.action.layers:
+        for strip in layer.strips:
+            for bag in strip.channelbags:
+                for fc in bag.fcurves:
+                    if not any(('forearm_tweak.'+side+'"') in fc.data_path for side in ['L','R']):continue
+                    for k in fc.keyframe_points:k.interpolation='BEZIER';k.handle_left_type='AUTO_CLAMPED';k.handle_right_type='AUTO_CLAMPED'
+                    if not any(m.type=='CYCLES' for m in fc.modifiers):fc.modifiers.new('CYCLES')
+    rows=[];cam=studio(s);cam.data.sensor_fit='VERTICAL';s.render.engine='BLENDER_EEVEE';s.render.resolution_x=960;s.render.resolution_y=720
+    for f,base in before.items():
+        s.frame_set(f);bpy.context.view_layer.update();rows.append({'frame':f,'before_skin':base['skin'],'after_skin':check(b,regions),'surface_delta_m':float(np.linalg.norm(points(b)-base['p'],axis=1).max()),'hand_matrix_delta':max(float(np.abs(np.array(r.pose.bones['ORG-hand.'+side].matrix)-base['hands'][side]).max()) for side in ['L','R'])})
+        if f==91:
+            e=r.matrix_world@r.pose.bones['ORG-forearm.L'].head
+            for name,offset in [('outside',(1,-1,.45)),('inside',(-1,-1,.45))]:place(cam,e+Vector(offset),e,.40);s.render.filepath=str(out/(name+'-elbow.png'));bpy.ops.render.render(write_still=True)
+    assert rows[0]['surface_delta_m']<1e-5;assert all(x['hand_matrix_delta']<1e-5 for x in rows)
+    s.frame_set(1);bpy.ops.wm.save_as_mainfile(filepath=str(out/'incline.blend'))
+    report={'method':'Reuse established Copa native elbow hinge compensation at the main forearm_tweak control, calibrated to THIS incline frame1. Source exercise reset cleared Copa tweak actions. Rotate local deform control with the actual humerus/forearm bisector; do not rotate global arm or move wrist/pole/prop. Native skinning unchanged.','rows':rows,'human_reviews':'pending','adopted':False}
+    (out/'elbow-hinge.json').write_text(json.dumps(report,indent=2));return {'diagnostic_variant':True,'before_max_pairs':max(v['intersection_pairs'] for x in rows for v in x['before_skin'].values()),'after_max_pairs':max(v['intersection_pairs'] for x in rows for v in x['after_skin'].values())}
