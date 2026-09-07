@@ -24,6 +24,7 @@ function stableId(parts:string[]):string {
 function normalizedUsage(usage:AiUsage):PilotUsage {return {inputTokens:usage.inputTokens,outputTokens:usage.outputTokens,cacheReadTokens:usage.cacheReadTokens??0,cacheWriteTokens:usage.cacheWriteTokens??0,reasoningTokens:usage.reasoningTokens??0};}
 export interface PilotCaseMeasurement {
   caseId:string;attemptId?:string;agentRunId?:string;expected:string;responseAccepted:boolean;structuralCheckPassed:boolean;needsHumanReview:true;qualityReview:'pending';
+  requestedModel:'gpt-5.6-luna';returnedModel:string|null;
   modelCalls:number;latencyMs:number;transportLatencyMs:number|null;
   accounting:'not_attempted'|'reserved'|'dispatched'|'unknown'|'settled'|'blocked'|'recovered';
   usage:PilotUsage|null;pricedUsageNanoUsd:number|null;measuredUsageCostUsd:number|null;simulatedUsageCostUsd:number|null;
@@ -31,7 +32,7 @@ export interface PilotCaseMeasurement {
   reviewText?:{answer:string;suggestions:string[]};
 }
 export type PilotEvaluationReport={ok:false;error:'invalid_input'|'budget_blocked';releaseApproved:false}|{
-  ok:true;releaseApproved:false;pilotId:string;evaluationId:string;mode:'injected'|'live';datasetVersion:string;promptVersion:string;pricingVersion:string;requestedModel:'gpt-5.6-luna';returnedModel:null;
+  ok:true;releaseApproved:false;pilotId:string;evaluationId:string;mode:'injected'|'live';datasetVersion:string;promptVersion:string;pricingVersion:string;requestedModel:'gpt-5.6-luna';returnedModel:string|null;
   actualProviderCalls:number;injectedProviderCalls:number;allStructuralChecksPassed:boolean;cases:PilotCaseMeasurement[];
   measuredUsageCostUsd:number|null;simulatedUsageCostUsd:number|null;
 };
@@ -57,7 +58,7 @@ export async function runCoachPilotEvaluation(raw:unknown,deps:{store:PilotBudge
     const start=performance.now();
     const ids=[input.pilotId,input.evaluationId,test.id];
     const turnId=stableId([...ids,'turn']);
-    const measurement:PilotCaseMeasurement={caseId:test.id,expected:test.expected,responseAccepted:false,structuralCheckPassed:false,needsHumanReview:true,qualityReview:'pending',modelCalls:0,latencyMs:0,transportLatencyMs:null,accounting:'not_attempted',usage:null,pricedUsageNanoUsd:null,measuredUsageCostUsd:null,simulatedUsageCostUsd:null,error:null,outputHash:null};
+    const measurement:PilotCaseMeasurement={caseId:test.id,expected:test.expected,responseAccepted:false,structuralCheckPassed:false,needsHumanReview:true,qualityReview:'pending',requestedModel:'gpt-5.6-luna',returnedModel:null,modelCalls:0,latencyMs:0,transportLatencyMs:null,accounting:'not_attempted',usage:null,pricedUsageNanoUsd:null,measuredUsageCostUsd:null,simulatedUsageCostUsd:null,error:null,outputHash:null};
     const measuredTransport:OfflineConversationProvider=async request=>{
       if(request.policy.model!=='gpt-5.6-luna'||request.policy.provider!=='openai'||request.policy.reasoningEffort!=='low'||request.maxTokens!==2000||request.maxAttempts!==1) {measurement.error='unsupported_policy';throw new Error('budget_blocked');}
       const binding:PilotAttemptBinding={pilotId:input.pilotId,actorId:input.actorId,attemptId:stableId([...ids,'attempt']),agentRunId:stableId([...ids,'agent-run']),turnId,model:'gpt-5.6-luna',pricingVersion:COACH_PRICING_VERSION,requestHash:hash({policy:request.policy,system:request.system,prompt:request.prompt,schema:request.schema,maxTokens:request.maxTokens}),reservedNanoUsd:COACH_ATTEMPT_RESERVATION_NANO_USD};
@@ -76,6 +77,7 @@ export async function runCoachPilotEvaluation(raw:unknown,deps:{store:PilotBudge
       try {
         const generated=await transport(request);
         measurement.transportLatencyMs=Math.round(performance.now()-transportStarted);
+        measurement.returnedModel=typeof generated.responseModel==='string'&&generated.responseModel.trim().length>0?generated.responseModel:null;
         measurement.usage=normalizedUsage(generated.usage);
         measurement.pricedUsageNanoUsd=pricePilotUsageNanoUsd(measurement.usage);
         const cost=measurement.pricedUsageNanoUsd===null?null:measurement.pricedUsageNanoUsd/USD_IN_NANODOLLARS;
@@ -120,5 +122,7 @@ export async function runCoachPilotEvaluation(raw:unknown,deps:{store:PilotBudge
   }
   const sum=(key:'measuredUsageCostUsd'|'simulatedUsageCostUsd')=>measurements.some(item=>item.modelCalls>0&&item[key]===null||['unknown','recovered'].includes(item.accounting))?null:measurements.reduce((total,item)=>total+(item[key]??0),0);
   const calls=measurements.reduce((total,item)=>total+item.modelCalls,0);
-  return {ok:true,releaseApproved:false,pilotId:input.pilotId,evaluationId:input.evaluationId,mode:input.mode,datasetVersion:COACH_PILOT_DATASET_VERSION,promptVersion:COACH_CANDIDATE_PROMPT_VERSION,pricingVersion:COACH_PRICING_VERSION,requestedModel:'gpt-5.6-luna',returnedModel:null,actualProviderCalls:input.mode==='live'?calls:0,injectedProviderCalls:input.mode==='injected'?calls:0,allStructuralChecksPassed:measurements.length===selected.length&&measurements.every(item=>item.structuralCheckPassed),cases:measurements,measuredUsageCostUsd:input.mode==='live'?sum('measuredUsageCostUsd'):null,simulatedUsageCostUsd:input.mode==='injected'?sum('simulatedUsageCostUsd'):null};
+  const observed=measurements.filter(item=>item.modelCalls>0);
+  const returnedModel=observed.length>0&&observed.every(item=>item.returnedModel!==null&&item.returnedModel===observed[0].returnedModel)?observed[0].returnedModel:null;
+  return {ok:true,releaseApproved:false,pilotId:input.pilotId,evaluationId:input.evaluationId,mode:input.mode,datasetVersion:COACH_PILOT_DATASET_VERSION,promptVersion:COACH_CANDIDATE_PROMPT_VERSION,pricingVersion:COACH_PRICING_VERSION,requestedModel:'gpt-5.6-luna',returnedModel,actualProviderCalls:input.mode==='live'?calls:0,injectedProviderCalls:input.mode==='injected'?calls:0,allStructuralChecksPassed:measurements.length===selected.length&&measurements.every(item=>item.structuralCheckPassed),cases:measurements,measuredUsageCostUsd:input.mode==='live'?sum('measuredUsageCostUsd'):null,simulatedUsageCostUsd:input.mode==='injected'?sum('simulatedUsageCostUsd'):null};
 }

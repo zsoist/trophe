@@ -215,6 +215,7 @@ export async function invokeOpenAiStructured<T>(input: {
     ...(input.store === false ? { store: false } : {}),
   });
   type OpenAiResponse = {
+    model?: unknown;
     id?: string;
     choices?: Array<{
       finish_reason?: string;
@@ -312,6 +313,7 @@ export async function invokeOpenAiStructured<T>(input: {
   }
 
   return {
+    responseModel: typeof data.model === 'string' && data.model.trim().length > 0 ? data.model : undefined,
     output,
     providerGenerationId: data.id,
     usage,

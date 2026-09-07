@@ -30,6 +30,25 @@ describe('measured pilot runner with an explicitly injected transport and store'
     expect(report.allStructuralChecksPassed).toBe(true);expect(report.releaseApproved).toBe(false);
     expect(report.cases[0].reviewText).toBeUndefined();expect(report.cases[0].outputHash).toMatch(/^[a-f0-9]{64}$/);
   });
+  it.each([undefined,'gpt-5.6-luna-snapshot','another-model',''])('preserves observed metadata %s without substituting the request',async(responseModel)=>{
+    const deps=fixture();const original=deps.transport.getMockImplementation()!;
+    deps.transport.mockImplementation(async request=>({...await original(request),responseModel}));
+    const report=await runCoachPilotEvaluation(input,deps);
+    if(!report.ok)throw new Error('report expected');
+    expect(report.cases[0]).toMatchObject({requestedModel:'gpt-5.6-luna',returnedModel:responseModel||null});
+    expect(report.returnedModel).toBe(responseModel||null);
+    expect(report.cases[0].attemptId).toBeDefined();expect(report.actualProviderCalls).toBe(0);
+  });
+  it('retains distinct per-attempt models and leaves a mixed report aggregate null',async()=>{
+    const deps=fixture();const original=deps.transport.getMockImplementation()!;let call=0;
+    deps.transport.mockImplementation(async request=>({...await original(request),responseModel:++call===1?'model-a':'model-b'}));
+    const report=await runCoachPilotEvaluation({...input,caseIds:['explain_food','follow_up']},deps);
+    if(!report.ok)throw new Error('report expected');
+    expect(report.cases.map(item=>item.returnedModel)).toEqual(['model-a','model-b']);expect(report.returnedModel).toBeNull();
+    const replay=await runCoachPilotEvaluation(input,deps);
+    if(!replay.ok)throw new Error('report expected');
+    expect(replay.cases[0].returnedModel).toBeNull();expect(replay.returnedModel).toBeNull();expect(call).toBe(2);
+  });
   it('settles a consumed malformed answer before reporting failed validation',async()=>{
     const deps=fixture();deps.transport.mockResolvedValue({output:{broken:true},usage:{inputTokens:1000,outputTokens:200},latencyMs:1,rawStatus:200});
     const report=await runCoachPilotEvaluation(input,deps);

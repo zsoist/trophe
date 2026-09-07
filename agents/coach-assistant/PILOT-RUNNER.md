@@ -55,3 +55,19 @@ is explicitly null because the current ProviderResult does not expose response.m
 Neither the literal request nor fixture tests verify an account's access or returned
 model snapshot. Before measured API evaluation, extract and retain the provider's
 actual returned model through a compatible shared transport change under its lease.
+
+Observed-model transport update: `ProviderResult.responseModel?: string` now
+carries the actual OpenAI response.model when it is a nonblank string, through
+the unchanged structured dispatcher. Missing/invalid metadata stays absent;
+there is no request-model fallback. Each case/attempt reports requestedModel
+and nullable returnedModel separately, including responses whose output later
+fails candidate validation. The report aggregate returnedModel is nonnull only
+when every dispatched case has the same known returned model. Mixed, unknown,
+not-attempted and recovered-without-new-response cases do not invent provenance.
+Injected response metadata is fixture evidence, not account/model availability.
+Provider exceptions currently leave returnedModel null; the budget ledger stores
+usage/charges but does not persist response metadata, so a recovered run cannot
+reconstruct the prior returned model. Cost estimates still use the requested
+Luna pricing version; an observed different identifier needs review before any
+claim that its actual tariff matches. This metadata addition does not authorize
+live calls, change prices or release a budget reservation.
