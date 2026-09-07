@@ -24,6 +24,15 @@ it('does not mount the coach or call the API while its separate flag is off', ()
   expect(view.container.textContent).toBe(''); expect(fetch).not.toHaveBeenCalled();
 });
 
+it('allows only the explicit private example entry while the account flag stays off', async () => {
+  vi.stubEnv('NEXT_PUBLIC_COACH_ASSISTANT_ENABLED', '0');
+  const fetch = vi.fn(); vi.stubGlobal('fetch', fetch);
+  render(<I18nProvider defaultLang="en"><WorkoutCoachEntry example={async () => answer()} /></I18nProvider>);
+  fireEvent.click(await screen.findByRole('button', { name: 'My day' }));
+  await screen.findByText('One completed workout.');
+  expect(fetch).not.toHaveBeenCalled();
+});
+
 it('shows synthetic provenance, collapsed records and plain text without running any action', async () => {
   const request = vi.fn<CoachTransport>(async () => answer('<img src=x onerror=alert(1)>'));
   const view = mount(request);

@@ -1,6 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { privateCoachTransport } from '../../tools/anatomy/workout-review/coach';
 import { makeReviewData } from '../../tools/anatomy/workout-review/store';
+import { createEmptyDraft, type CardioDraft } from '../../lib/workout/workspace-state';
 
 afterEach(() => vi.useRealTimers());
 const translate = (key: string) => key;
@@ -27,4 +28,12 @@ it('does not fabricate a plan in the empty scenario and uses the offered plan co
   expect((await transport(request, new AbortController().signal)).evidence).toEqual([]);
   const abort = new AbortController(); abort.abort();
   await expect(transport(request, abort.signal)).rejects.toThrow('Aborted');
+});
+
+it('describes a cardio draft in minutes instead of claiming there is no plan', async () => {
+  const draft = { ...createEmptyDraft('cardio'), durationMinutes: 20 } as CardioDraft;
+  const transport = privateCoachTransport(makeReviewData, () => draft, translate, 3);
+  const response = await transport({ intent: 'plan', message: 'My plan' }, new AbortController().signal);
+  expect(response.evidence[0]).toMatchObject({ source: 'plan', value: 20, unit: 'minutes' });
+  expect(response.output?.answer).toBe('coach_assistant.sample_cardio');
 });

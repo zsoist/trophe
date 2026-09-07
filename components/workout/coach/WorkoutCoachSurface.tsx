@@ -3,14 +3,14 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { ArrowUpRight, BookOpen, ChevronDown, Sparkles, X } from 'lucide-react';
 import type { CoachIntent, CoachRequest, CoachResponse } from '@/agents/coach-assistant/contracts';
-import { useI18n } from '@/lib/i18n';
+import { useCoachI18n } from './useCoachI18n';
 import type { CoachTransport } from './WorkoutCoachEntry';
 import { readCoachResponse, requestWorkoutCoach } from './client';
 
-const button = 'min-h-11 rounded-xl px-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-50';
+const button = 'min-h-11 min-w-11 rounded-xl px-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-50';
 
 export default function WorkoutCoachSurface({ example }: { example: CoachTransport | null }) {
-  const { t, lang } = useI18n();
+  const { t, lang } = useCoachI18n();
   const id = useId();
   const [intent, setIntent] = useState<CoachIntent | null>(null);
   const [question, setQuestion] = useState('');
@@ -68,7 +68,7 @@ export default function WorkoutCoachSurface({ example }: { example: CoachTranspo
     if (intent) triggers.current[intent]?.focus();
   };
   const evidence = result?.evidence.filter(item => result.output?.evidenceRefs.includes(item.id)) ?? [];
-  const errorKey = result?.error?.code === 'unauthenticated' ? 'auth' : result?.error?.code === 'disabled' ? 'disabled' : 'error';
+  const errorKey = result?.error?.code === 'unauthenticated' ? 'auth' : result?.error?.code === 'disabled' ? 'disabled' : result?.error?.code === 'rate_limited' ? 'rate_limited' : 'error';
 
   return <section aria-labelledby={`${id}-title`} className="overflow-hidden rounded-2xl border border-[var(--workout-rail)] bg-[var(--workout-surface)]">
     <div className="p-4">
@@ -82,6 +82,7 @@ export default function WorkoutCoachSurface({ example }: { example: CoachTranspo
       <div className="mb-3 flex items-center justify-between"><h3 className="font-semibold text-[var(--content-primary)]">{t(`coach_assistant.${intent}`)}</h3><button type="button" className={`${button} -mr-2`} aria-label={t('coach_assistant.close')} onClick={close}><X size={18} /></button></div>
       {intent === 'plan' ? <form className="mb-4 space-y-2" onSubmit={event => { event.preventDefault(); if (question.trim() && status !== 'loading') void ask({ intent: 'plan', message: question.trim() }); }}>
         <label htmlFor={`${id}-question`} className="block text-sm text-[var(--content-secondary)]">{t('coach_assistant.question')}</label>
+        {!example ? <p className="text-xs leading-5 text-[var(--content-secondary)]">{t('coach_assistant.saved_plan')}</p> : null}
         <textarea id={`${id}-question`} ref={questionInput} value={question} onChange={event => setQuestion(event.target.value)} maxLength={2000} rows={3} disabled={status === 'loading'} className="w-full resize-y rounded-xl border border-[var(--workout-rail)] bg-[var(--bg-primary)] p-3 text-base text-[var(--content-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" />
         <button type="submit" disabled={!question.trim() || status === 'loading'} className={`${button} btn-gold flex items-center gap-2`}>{t('coach_assistant.ask')}<ArrowUpRight size={16} aria-hidden="true" /></button>
       </form> : null}

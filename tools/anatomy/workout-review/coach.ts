@@ -22,14 +22,15 @@ export function privateCoachTransport(getData: () => ReviewData, getDraft: () =>
     const draft = getDraft();
     const exerciseCount = draft ? (draft.kind === 'strength' ? draft.exercises.length : 0) : data.scenario === 'plan' ? offeredExerciseCount : 0;
     const plan = request.intent === 'plan';
-    const available = plan ? exerciseCount > 0 : sessions.length > 0;
+    const cardioMinutes = plan && draft?.kind === 'cardio' ? draft.durationMinutes : null;
+    const available = plan ? exerciseCount > 0 || (cardioMinutes ?? 0) > 0 : sessions.length > 0;
     const statement = available
-      ? t(plan ? 'coach_assistant.sample_plan' : request.intent === 'week' ? 'coach_assistant.sample_week' : 'coach_assistant.sample_day', { count: exerciseCount, sessions: sessions.length, sets: sets.length })
+      ? t(cardioMinutes ? 'coach_assistant.sample_cardio' : plan ? 'coach_assistant.sample_plan' : request.intent === 'week' ? 'coach_assistant.sample_week' : 'coach_assistant.sample_day', { count: exerciseCount, sessions: sessions.length, sets: sets.length, minutes: cardioMinutes ?? 0 })
       : t('coach_assistant.empty');
     return {
       version: 'coach-assistant.v1', ok: true, mode: 'offline', dataSource: 'synthetic',
       output: { answer: statement, evidenceRefs: available ? ['private-tab-summary'] : [], limitations: [t('coach_assistant.sample_limit')], suggestions: [], escalation: { required: false, reason: null, draft: null } },
-      evidence: available ? [{ id: 'private-tab-summary', source: plan ? 'plan' : 'workout', sourceIds: plan ? [] : sessions.map(item => item.id), window, completeness: 'complete', statement, value: plan ? exerciseCount : sets.length, unit: plan ? 'exercises' : 'sets' }] : [],
+      evidence: available ? [{ id: 'private-tab-summary', source: plan ? 'plan' : 'workout', sourceIds: plan ? [] : sessions.map(item => item.id), window, completeness: 'complete', statement, value: cardioMinutes ?? (plan ? exerciseCount : sets.length), unit: cardioMinutes ? 'minutes' : plan ? 'exercises' : 'sets' }] : [],
       telemetry: { model: null, provider: null, promptVersion: 'private-tab-summary.v1', modelCalls: 0, dataReads: 0, tokensIn: 0, tokensOut: 0, reasoningTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, latencyMs: 0, costUsd: 0, pricingVersion: 'no-provider' },
     };
   };

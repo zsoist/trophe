@@ -7,7 +7,7 @@ import { WorkoutWorkspaceHeader } from '../../../components/workout/workspace/Wo
 import { WorkoutRouteTransition } from '../../../components/workout/workspace/WorkoutRouteTransition';
 import { ConfirmSheet } from '../../../components/ui/ConfirmSheet';
 import { WorkoutHome } from '../../../components/workout/workspace/WorkoutHome';
-import { WorkoutCoachExample } from '../../../components/workout/coach/WorkoutCoachEntry';
+import { WorkoutCoachEntry } from '../../../components/workout/coach/WorkoutCoachEntry';
 import { privateCoachTransport } from './coach';
 import { WorkoutBuilder, type PlanSaveState } from '../../../components/workout/workspace/WorkoutBuilder';
 import { WorkoutReview } from '../../../components/workout/workspace/WorkoutReview';
@@ -25,7 +25,7 @@ import type { WorkoutDraft } from '../../../lib/workout/workspace-state';
 import { atlasWorkoutContext } from '../../../lib/anatomy/workout-navigation';
 import { workoutRouteForStage } from '../../../lib/workout/workspace-routes';
 import { localToday } from '../../../lib/utils/dates';
-import { useI18n } from '../../../lib/i18n';
+import { useCoachI18n as useI18n } from '../../../components/workout/coach/useCoachI18n';
 import { navigate, usePathname, useSearchParams } from './navigation';
 import { REVIEW_USER, reviewData, reviewExercises, reviewTemplate, reviewWorkspaceStorage, subscribeReview, updateReview } from './store';
 
@@ -103,8 +103,8 @@ function ReviewRoutes({ manifestUrl, authoredSupplement, onRender }: PreviewProp
   else if (path === '/dashboard/workout/history') content = <WorkoutHistoryPage />;
   else if (path === '/dashboard/workout/stats') content = <WorkoutAnalyticsSurface />;
   else if (path !== '/dashboard/workout') content = <main className="mx-auto max-w-2xl space-y-4 p-4"><p>{t('anatomy.review_scope')}</p><button type="button" className="btn-gold min-h-11 rounded-xl px-4" onClick={() => navigate('/dashboard/workout')}>{t('workout.back_home')}</button></main>;
-  else content = <WorkoutHome exercises={exercises} program={data.scenario === 'empty' ? null : { programName: t('workout.strength'), todayTemplate: template, alsoToday: [], nextWeekday: (new Date().getDay() + 2) % 7, nextTemplateName: t('workout.strength') }} recents={data.sessions.filter(session => session.completed_at).slice(0, 3)} workedExerciseIds={workedExerciseIds} routines={data.routines} />;
-  return <WorkoutCoachExample.Provider value={privateCoachTransport(reviewData, () => workspace.state.draft, t, template.exercises.length)}><div className="workout-workspace"><WorkoutWorkspaceHeader /><WorkoutRouteTransition>{content}</WorkoutRouteTransition><ConfirmSheet open={Boolean(repeatChoice)} title={t('workout.repeat_replace_title')} message={t('workout.repeat_replace_message')} confirmLabel={t('workout.repeat_replace_confirm')} cancelLabel={t('workout.repeat_replace_cancel')} onCancel={() => { setRepeatChoice(null); navigate('/dashboard/workout'); }} onConfirm={() => { repeatChoice?.replace(); setRepeatChoice(null); navigate('/dashboard/workout/build'); }} /></div></WorkoutCoachExample.Provider>;
+  else content = <WorkoutHome coachPreview={<WorkoutCoachEntry example={privateCoachTransport(reviewData, () => workspace.state.draft, t, template.exercises.length)} />} exercises={exercises} program={data.scenario === 'empty' ? null : { programName: t('workout.strength'), todayTemplate: template, alsoToday: [], nextWeekday: (new Date().getDay() + 2) % 7, nextTemplateName: t('workout.strength') }} recents={data.sessions.filter(session => session.completed_at).slice(0, 3)} workedExerciseIds={workedExerciseIds} routines={data.routines} />;
+  return <div className="workout-workspace"><WorkoutWorkspaceHeader /><WorkoutRouteTransition>{content}</WorkoutRouteTransition><ConfirmSheet open={Boolean(repeatChoice)} title={t('workout.repeat_replace_title')} message={t('workout.repeat_replace_message')} confirmLabel={t('workout.repeat_replace_confirm')} cancelLabel={t('workout.repeat_replace_cancel')} onCancel={() => { setRepeatChoice(null); navigate('/dashboard/workout'); }} onConfirm={() => { repeatChoice?.replace(); setRepeatChoice(null); navigate('/dashboard/workout/build'); }} /></div>;
 }
 export function PrivateWorkoutWorkspace({ manifestUrl, authoredSupplement, onRender }: PreviewProps) {
   const source = useMemo(() => ({ manifestUrl, authoredSupplement }), [manifestUrl, authoredSupplement]);
