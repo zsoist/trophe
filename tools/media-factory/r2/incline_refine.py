@@ -9,12 +9,20 @@ from playback_qa import points
 
 def motion(config,out):
     bpy.ops.wm.open_mainfile(filepath=config['animation_source']);s=bpy.context.scene;r=bpy.data.objects['Trophe_R2_Authoring'];b=bpy.data.objects['Trophe_R2_Athlete']
-    s.frame_set(100);bpy.context.view_layer.update();anchors={};targets={};orientations={};lengths={};shoulders={}
+    s.frame_set(100);bpy.context.view_layer.update();anchors={};targets={};orientations={};lengths={};shoulders={};orientation_checks={}
     for side,sign in [('L',1),('R',-1)]:
         a=bpy.data.objects['Incline dumbbell '+side];target=bpy.data.objects['Incline wrist target '+side];anchors[side]=a;targets[side]=target
         head=lambda n:r.matrix_world@r.pose.bones[n+'.'+side].head
         sh=head('ORG-upper_arm');e=head('ORG-forearm');w=head('ORG-hand');shoulders[side]=sh.copy();lengths[side]=((e-sh).length,(w-e).length)
-        old=a.matrix_world.to_quaternion();shaft=old@Vector((1,0,0));orientations[side]=(shaft.rotation_difference(Vector((1,0,0)))@old).to_matrix().to_4x4()
+        # Preserve full signed anchor basis: the left calibrated grasp uses a
+        # reflected object frame. Quaternion-only reconstruction loses that sign
+        # and reflects the wrist target, singularizing Rigify's midpoint blend.
+        old=a.matrix_world.to_3x3().to_4x4();shaft=(old.to_3x3()@Vector((1,0,0))).normalized()
+        horizontal=Vector((1 if shaft.x>=0 else -1,0,0))
+        orientations[side]=shaft.rotation_difference(horizontal).to_matrix().to_4x4()@old
+        orientation_checks[side]={'source_anchor_determinant':old.to_3x3().determinant(),'new_anchor_determinant':orientations[side].to_3x3().determinant(),'wrist_local_determinant':target.matrix_basis.to_3x3().determinant()}
+        assert abs(orientation_checks[side]['source_anchor_determinant']-orientation_checks[side]['new_anchor_determinant'])<1e-5
+        assert (orientations[side]@target.matrix_basis).to_3x3().determinant()>0
         a.animation_data.action=None
     r.animation_data.action=None
     # Preserve calibrated native forearm constraints, grip/hand relation and skin.
@@ -43,7 +51,8 @@ def motion(config,out):
             mid=(sh+wrist)/2;pb=r.pose.bones['upper_arm_ik_target.'+side];pb.matrix.translation=r.matrix_world.inverted()@(mid+4*(elbow-mid));key(pb,f)
         bpy.context.view_layer.update();p=points(b)
         if initial is None:initial=p.copy()
-        row={'frame':f,'descent':q,'surface_step_m':float(np.linalg.norm(p-previous,axis=1).max()) if previous is not None else 0,'sides':{}};previous=p.copy()
+        row={'frame':f,'descent':q,'surface_step_m':float(np.linalg.norm(p-previous,axis=1).max()) if previous is not None else 0,'sides':{},'hand_determinants':{side:r.pose.bones['ORG-hand.'+side].matrix.to_3x3().determinant() for side in ['L','R']}};previous=p.copy()
+        assert all(x>0 for x in row['hand_determinants'].values()),row
         for side in ['L','R']:
             head=lambda n:r.matrix_world@r.pose.bones[n+'.'+side].head
             sh=head('ORG-upper_arm');e=head('ORG-forearm');w=head('ORG-hand');h=r.matrix_world@r.pose.bones['ORG-hand.'+side].tail
@@ -57,7 +66,7 @@ def motion(config,out):
                         for k in fc.keyframe_points:k.interpolation='BEZIER';k.handle_left_type='AUTO_CLAMPED';k.handle_right_type='AUTO_CLAMPED'
                         fc.modifiers.new('CYCLES')
     s.frame_set(1);s.frame_end=180;s.render.fps=30;bpy.ops.wm.save_as_mainfile(filepath=str(out/'incline.blend'))
-    report={'reference':'User-supplied StrengthLog screen recording09-06-2026 19:26:39; NASM incline chest press posture/controlled descent. No inferred joint angles measured from2D footage.','change':'Upper arm arc about fixed shoulder, lower towards upper chest; forearms nearly vertical, shafts horizontal instead of forced bone-axis alignment that tilted the weights. Existing calibrated grasp and wrist relation kept.','wrist_note':'Metacarpal bone axis has a fixed anatomical/model offset in the existing grasp; zero bone-axis angle is not imposed as an anatomical wrist criterion.','frames':180,'closure_frame':181,'duration_s':6,'disc_radius_m':config.get('disc_radius_m',.085),'bottom_extension':config.get('bottom_extension',.12),'rows':rows,'closure_surface_m':float(np.linalg.norm(p-initial,axis=1).max()),'human_reviews':'pending'}
+    report={'reference':'User-supplied StrengthLog screen recording09-06-2026 19:26:39; NASM incline chest press posture/controlled descent. No inferred joint angles measured from2D footage.','change':'Upper arm arc about fixed shoulder, lower towards upper chest; forearms nearly vertical, shafts horizontal instead of forced bone-axis alignment that tilted the weights. Existing calibrated grasp and wrist relation kept.','wrist_note':'Metacarpal bone axis has a fixed anatomical/model offset in the existing grasp; zero bone-axis angle is not imposed as an anatomical wrist criterion.','orientation_checks':orientation_checks,'frames':180,'closure_frame':181,'duration_s':6,'disc_radius_m':config.get('disc_radius_m',.085),'bottom_extension':config.get('bottom_extension',.12),'rows':rows,'closure_surface_m':float(np.linalg.norm(p-initial,axis=1).max()),'human_reviews':'pending'}
     (out/'motion-refinement.json').write_text(json.dumps(report,indent=2));return {'max_surface_step_m':max(x['surface_step_m'] for x in rows),'wrist_target_error_m':max(v['wrist_target_error_m'] for x in rows for v in x['sides'].values())}
 
 
@@ -149,16 +158,26 @@ def scale_reference(config,out):
     for f in [1,36,46,91,100,153,154,158,181]:
         s.frame_set(f);bpy.context.view_layer.update();before[f]={side:np.array(r.pose.bones['ORG-hand.'+side].matrix) for side in ['L','R']}
     for side in ['L','R']:
-        pb=r.pose.bones['forearm_tweak.'+side+'.001'];c=pb.constraints.new('COPY_SCALE');c.name='Native forearm scale independent of singular tweak blend';c.target=r;c.subtarget='ORG-forearm.'+side;c.owner_space='WORLD';c.target_space='WORLD';c.use_offset=False
-    rows=[];previous=None;first=None
+        pb=r.pose.bones['forearm_tweak.'+side+'.001']
+        for c in list(pb.constraints):
+            if c.name=='Continuous calibrated forearm roll':pb.constraints.remove(c)
+        c=pb.constraints.new('COPY_TRANSFORMS');c.name='Complete calibrated forearm reference';c.target=bpy.data.objects['Incline calibrated mid-forearm '+side];c.owner_space='WORLD';c.target_space='WORLD';c.mix_mode='REPLACE'
+    rows=[];previous=None;first=None;old_matrices=None
+    source_ids=__import__('localize_contact').mesh_data(b)[2]
+    determinant={side:{'wrist_target':bpy.data.objects['Incline wrist target '+side].matrix_world.to_3x3().determinant(),'ORG_hand':r.pose.bones['ORG-hand.'+side].matrix.to_3x3().determinant(),'ORG_forearm':r.pose.bones['ORG-forearm.'+side].matrix.to_3x3().determinant()} for side in ['L','R']}
     for f in range(1,182):
         s.frame_set(f);bpy.context.view_layer.update();p=points(b)
         if first is None:first=p.copy()
-        row={'frame':f,'step_m':float(np.linalg.norm(p-previous,axis=1).max()) if previous is not None else 0,'scales':{side:list(r.pose.bones['forearm_tweak.'+side+'.001'].matrix.to_scale()) for side in ['L','R']}};previous=p.copy()
+        row={'frame':f,'step_m':float(np.linalg.norm(p-previous,axis=1).max()) if previous is not None else 0,'scales':{side:list(r.pose.bones['forearm_tweak.'+side+'.001'].matrix.to_scale()) for side in ['L','R']}}
+        matrices={pb.name:pb.matrix.copy() for pb in r.pose.bones if any(n in pb.name for n in ['upper_arm','forearm','hand'])}
+        if previous is not None and row['step_m']>.025:
+            i=int(np.argmax(np.linalg.norm(p-previous,axis=1)));v=b.data.vertices[source_ids[i]];row['worst_vertex']={'source_id':source_ids[i],'rest':list(v.co),'weights':[(b.vertex_groups[g.group].name,g.weight) for g in v.groups]};row['bone_jumps']={n:math.degrees(m.to_quaternion().rotation_difference(old_matrices[n].to_quaternion()).angle) for n,m in matrices.items() if math.degrees(m.to_quaternion().rotation_difference(old_matrices[n].to_quaternion()).angle)>15}
+        previous=p.copy();old_matrices=matrices
         assert all(.98<v<1.02 for vs in row['scales'].values() for v in vs),row
         if f in before:
             row['hand_matrix_delta']=max(float(np.abs(np.array(r.pose.bones['ORG-hand.'+side].matrix)-before[f][side]).max()) for side in ['L','R']);assert row['hand_matrix_delta']<1e-5,row
         rows.append(row)
-    maximum=max(x['step_m'] for x in rows);assert maximum<.025,maximum
+    maximum=max(x['step_m'] for x in rows)
+    if not config.get('diagnostic_only'):assert maximum<.025,maximum
     s.frame_set(1);bpy.ops.wm.save_as_mainfile(filepath=str(out/'incline.blend'))
-    (out/'scale-reference.json').write_text(json.dumps({'cause':'Confirmed near-zero/inverting scale in left mid-forearm inherited from native50% COPY_TRANSFORMS blend when hand orientation opposes forearm. Existing COPY_ROTATION preserved orientation but did not prevent singular inherited scale, making Stretch To unstable.','intervention':'Native COPY_SCALE from ORG-forearm on both middle tweak controls. Keeps native midpoint position, calibrated rotation, IK, wrists, grasp, motion and existing body weights.','rows':rows,'max_surface_step_m':maximum,'closure_surface_m':float(np.linalg.norm(p-first,axis=1).max()),'human_reviews':'pending'},indent=2));return {'maximum_step_m':maximum,'closure_m':float(np.linalg.norm(p-first,axis=1).max())}
+    (out/'scale-reference.json').write_text(json.dumps({'cause':'Confirmed near-zero/inverting scale in left mid-forearm inherited from native50% COPY_TRANSFORMS blend when hand orientation opposes forearm. Existing COPY_ROTATION preserved orientation but did not prevent singular inherited scale, making Stretch To unstable.','intervention':'Native COPY_TRANSFORMS from the existing positively oriented calibrated forearm reference on both middle tweaks. COPY_SCALE alone retained the negative determinant and failed; full transform replacement removes the inherited singular matrix. Reference retains midpoint offset, rotation and scale calibrated fromV1 frame1. IK, wrists, grasp, motion and body weights remain unchanged.','rows':rows,'determinants':determinant,'diagnostic_only':config.get('diagnostic_only',False),'max_surface_step_m':maximum,'closure_surface_m':float(np.linalg.norm(p-first,axis=1).max()),'human_reviews':'pending'},indent=2));return {'maximum_step_m':maximum,'closure_m':float(np.linalg.norm(p-first,axis=1).max())}
