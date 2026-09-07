@@ -195,3 +195,26 @@ def garment_rest_clearance(config,out):
     bpy.ops.wm.save_as_mainfile(filepath=str(out/'incline.blend'))
     record={'cause':'Visible sleeve spikes and strips when live whole-body nearest-surface projection selects the opposing forearm during elbow flexion.','change':'Apply native Shrinkwrap4mm clearance once on garment in original skeleton REST before armature deformation; retain fitted garment geometry, native transferred weights, PV, subdivision and shell. No live closest-surface reassignment. Body, rig, grasp and motion unchanged.','human_reviews':'pending'}
     (out/'garment-clearance.json').write_text(json.dumps(record,indent=2));return record
+
+
+def local_gate(config,out):
+    from surface_qa import check
+    from localize_contact import mesh_data
+    from bench_qa import crossings
+    from compare_baseline import studio,place
+    bpy.ops.wm.open_mainfile(filepath=config['animation_source']);s=bpy.context.scene;b=bpy.data.objects['Trophe_R2_Athlete'];r=bpy.data.objects['Trophe_R2_Authoring'];c=bpy.data.objects['SportsTank']
+    regions={side:[v.index for v in b.data.vertices if sign*v.co.x>.07 and 1.10<v.co.z<1.54 and any(b.vertex_groups[g.group].name=='body' and g.weight>.5 for g in v.groups)] for side,sign in [('L',1),('R',-1)]}
+    modifiers=[m for m in b.modifiers if m.name.startswith('Native elbow deformation finish')]
+    record={'body_modifiers':[{'name':m.name,'type':m.type,**({'volume':m.use_deform_preserve_volume,'vertex_group':m.vertex_group} if m.type=='ARMATURE' else {})} for m in b.modifiers],'native_elbow_modifiers':[m.name for m in modifiers],'variants':{}}
+    camera=studio(s);s.render.engine='BLENDER_EEVEE';s.render.resolution_x=960;s.render.resolution_y=720;camera.data.sensor_fit='VERTICAL'
+    for variant in ['inherited','without_inherited_smooth']:
+        if variant!='inherited':
+            for m in modifiers:m.show_viewport=m.show_render=False
+        rows=[]
+        for f in [1,76,91,110,181]:
+            s.frame_set(f);bpy.context.view_layer.update();data=mesh_data(b);row={'frame':f,'skin':check(b,regions),'garment_crossing_pairs':len(crossings(data,mesh_data(c)))};rows.append(row)
+            if f==91:
+                e=r.matrix_world@r.pose.bones['ORG-forearm.L'].head
+                place(camera,e+Vector((1,-1,.45)),e,.40);s.render.filepath=str(out/(variant+'-elbow.png'));bpy.ops.render.render(write_still=True)
+        record['variants'][variant]=rows
+    (out/'local-gate.json').write_text(json.dumps(record,indent=2));return {'diagnostic_only':True}
