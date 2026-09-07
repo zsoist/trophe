@@ -69,3 +69,25 @@ process attachments or emit a fabricated action receipt. Future connection of
 those services requires their own authorization and validation; request-side
 `available` attachment hints do not bypass that boundary. UI/HTTP integration and
 independent review are separate gates from the broker's offline tests.
+
+## Isolated preference HTTP operations
+
+With `COACH_ASSISTANT_ISOLATED_ACTIONS_ENABLED=1` in addition to the existing
+private route flags, the same endpoint dispatches strict `propose`, `apply` and
+`receipt` operations. The existing authenticated route guard and preview allowlist
+remain mandatory, and production is still rejected. This first binding supports
+client-self duration preferences only. It reads an authorized stored preference
+and mutates a separate process-local copy; it never updates client_profiles.
+
+Every result declares `storage: isolated_ephemeral`. Stores expire after 30
+minutes, are bounded to 64 conversation bindings and disappear on restart.
+A missing binding for apply/receipt returns `uncertain`, not a claim of failed
+execution. Clients must query receipts before considering a retry. Authorization
+is repeated for receipt retrieval as well as application. Proposed versions must
+match both the local resource and the original persisted-profile baseline; a
+changed persisted baseline invalidates unapplied proposals. Already-applied
+idempotent requests can retrieve the original receipt after reauthorization.
+
+The loopback HTTP test uses injected Auth and repository fixtures. It proves HTTP
+dispatch and envelopes, not Supabase authentication or RLS. No paid calls,
+production migration or persistent mutation is involved.
