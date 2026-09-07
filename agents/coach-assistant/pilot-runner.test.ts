@@ -1,7 +1,8 @@
 import { describe,it,expect,vi } from 'vitest';
 import { runCoachPilotEvaluation } from './pilot-runner';
 import { decidePilotBudgetCommand, type PilotAttemptRecord, type PilotBudgetCommand, type PilotBudgetStore } from './pilot-budget';
-import type { OfflineConversationProvider } from './open-conversation';
+import { z } from 'zod';
+import type { PilotTransport,PilotCandidate } from './pilot-runner';
 const uuid=(n:number)=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const input={pilotId:uuid(1),actorId:uuid(2),evaluationId:uuid(3),mode:'injected',caseIds:['explain_food']};
 /** Serialized injected port only. Not a real persistent SQL transaction. */
@@ -13,11 +14,22 @@ function fixture() {
     if(decision.ok&&decision.write!=='none')records.set(command.binding.attemptId,structuredClone(decision.record));
     return {storage:'database',...decision};
   })};
-  const transport=vi.fn<OfflineConversationProvider>(async request=>{
+  const transport=vi.fn<PilotTransport>(async request=>{
     events.push('transport');const data=JSON.parse(request.prompt);
     return {responseModel:'gpt-5.6-luna',output:{answer:'A log offers a starting point for review rather than a complete picture of daily life.',followUp:'What would make the review useful?',evidenceRefs:data.evidence.map((f:{id:string})=>f.id),entityRefs:[],facts:[],generalExplanationRefs:['records_are_partial_view'],limitations:[],escalation:false},usage:{inputTokens:1000,outputTokens:200,reasoningTokens:50},latencyMs:1,rawStatus:200};
   });
-  return {store,transport,events,records,signal:new AbortController().signal};
+  // Budget/transport fixture only; does not import or approve a conversation engine.
+  const candidate:PilotCandidate={promptVersion:'pilot-test-fixture.v1',run:async(raw,options)=>{
+    const message=(raw as {message:string}).message;
+    if(message.includes('chest pain'))return {ok:true,output:{answer:'Seek help',suggestions:[],escalation:{reason:'urgent_symptoms'}},proposals:[],receipts:[]};
+    try {
+      const generated=await options.offlineConversationProvider({policy:{provider:'openai',model:'gpt-5.6-luna',reasoningEffort:'low',costClass:'cheap',latencyClass:'fast',maxTokens:2000,timeoutMs:45000,maxInputChars:8000,maxCostUsd:0,promptVersion:'pilot-test-fixture.v1'},system:'fixture',prompt:JSON.stringify({message,evidence:[]}),schema:{type:'object'},validator:z.unknown(),signal:options.signal,maxTokens:2000,maxAttempts:1});
+      const output=z.object({answer:z.string(),followUp:z.string()}).safeParse(generated.output);
+      if(!output.success)return {ok:false,error:{code:'invalid_output'},proposals:[],receipts:[]};
+      return {ok:true,output:{answer:output.data.answer,suggestions:[output.data.followUp],escalation:{reason:'none'}},proposals:[],receipts:[]};
+    } catch {return {ok:false,error:{code:'provider_unavailable'},proposals:[],receipts:[]};}
+  }};
+  return {store,transport,events,records,candidate,signal:new AbortController().signal};
 }
 describe('measured pilot runner with an explicitly injected transport and store',()=>{
   it('reserves and claims before transport, settles usage and never labels injected costs measured spend',async()=>{

@@ -1,11 +1,14 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
-import { runConversationCandidate } from './conversation-candidate';
 import { fixtureRepository } from './fixtures';
 import { COACH_PILOT_BUDGET_USD, COACH_PRICING_VERSION } from './economics';
-import { COACH_CANDIDATE_PROMPT_VERSION } from './prompt.v5';
 import { COACH_ATTEMPT_RESERVATION_NANO_USD, USD_IN_NANODOLLARS, executePilotBudgetCommand, reserveCoachPilotAttempt, pricePilotUsageNanoUsd, type PilotBudgetStore, type PilotUsage, type PilotAttemptBinding } from './pilot-budget';
-import type { OfflineConversationProvider } from './open-conversation';
+import type { invokeStructuredProvider } from '@/agents/runtime/providers/structured';
+export type PilotTransport=(input:Parameters<typeof invokeStructuredProvider>[0])=>Promise<import('@/agents/runtime/types').ProviderResult<unknown>>;
+export interface PilotCandidate {
+ promptVersion:string;
+ run(raw:unknown,options:{mode:'model';actorId:string;repository:ReturnType<typeof fixtureRepository>;signal:AbortSignal;now:Date;offlineConversationProvider:PilotTransport}):Promise<{ok:boolean;error?:{code:string};output?:{answer:string;suggestions:string[];escalation:{reason:string}};proposals:unknown[];receipts:unknown[]}>;
+}
 import type { AiUsage } from '@/agents/runtime/types';
 
 export const COACH_PILOT_DATASET_VERSION='coach-pilot-development.v1';
@@ -41,13 +44,13 @@ export type PilotEvaluationReport={ok:false;error:'invalid_input'|'budget_blocke
  * Live stays disabled at cap zero. Injected transport costs are NEVER labeled
  * measured spend. Durable store success/dispatch permission must precede a call.
  */
-export async function runCoachPilotEvaluation(raw:unknown,deps:{store:PilotBudgetStore;signal:AbortSignal;transport?:OfflineConversationProvider}):Promise<PilotEvaluationReport> {
+export async function runCoachPilotEvaluation(raw:unknown,deps:{store:PilotBudgetStore;signal:AbortSignal;transport?:PilotTransport;candidate:PilotCandidate}):Promise<PilotEvaluationReport> {
   const parsed=inputSchema.safeParse(raw);
-  if(!parsed.success)return {ok:false,error:'invalid_input',releaseApproved:false};
+  if(!parsed.success||!deps.candidate||typeof deps.candidate.run!=='function'||!deps.candidate.promptVersion?.trim())return {ok:false,error:'invalid_input',releaseApproved:false};
   const input=parsed.data;
   if(input.mode==='live'&&(COACH_PILOT_BUDGET_USD<=0||deps.transport))return {ok:false,error:'budget_blocked',releaseApproved:false};
   if(input.mode==='injected'&&!deps.transport)return {ok:false,error:'invalid_input',releaseApproved:false};
-  const transport:OfflineConversationProvider=deps.transport??(async request=>{
+  const transport:PilotTransport=deps.transport??(async request=>{
     const {invokeStructuredProvider}=await import('@/agents/runtime/providers/structured');
     return invokeStructuredProvider(request);
   });
@@ -59,8 +62,8 @@ export async function runCoachPilotEvaluation(raw:unknown,deps:{store:PilotBudge
     const ids=[input.pilotId,input.evaluationId,test.id];
     const turnId=stableId([...ids,'turn']);
     const measurement:PilotCaseMeasurement={caseId:test.id,expected:test.expected,responseAccepted:false,structuralCheckPassed:false,needsHumanReview:true,qualityReview:'pending',requestedModel:'gpt-5.6-luna',returnedModel:null,modelCalls:0,latencyMs:0,transportLatencyMs:null,accounting:'not_attempted',usage:null,pricedUsageNanoUsd:null,measuredUsageCostUsd:null,simulatedUsageCostUsd:null,error:null,outputHash:null};
-    const measuredTransport:OfflineConversationProvider=async request=>{
-      if(request.policy.model!=='gpt-5.6-luna'||request.policy.provider!=='openai'||request.policy.reasoningEffort!=='low'||request.maxTokens!==2000||request.maxAttempts!==1) {measurement.error='unsupported_policy';throw new Error('budget_blocked');}
+    const measuredTransport:PilotTransport=async request=>{
+      if(request.policy.model!=='gpt-5.6-luna'||request.policy.provider!=='openai'||request.policy.reasoningEffort!=='low'||request.maxTokens!==2000||request.maxAttempts!==1||request.policy.promptVersion!==deps.candidate.promptVersion) {measurement.error='unsupported_policy';throw new Error('budget_blocked');}
       const binding:PilotAttemptBinding={pilotId:input.pilotId,actorId:input.actorId,attemptId:stableId([...ids,'attempt']),agentRunId:stableId([...ids,'agent-run']),turnId,model:'gpt-5.6-luna',pricingVersion:COACH_PRICING_VERSION,requestHash:hash({policy:request.policy,system:request.system,prompt:request.prompt,schema:request.schema,maxTokens:request.maxTokens}),reservedNanoUsd:COACH_ATTEMPT_RESERVATION_NANO_USD};
       measurement.attemptId=binding.attemptId;measurement.agentRunId=binding.agentRunId;
       const reserve=input.mode==='live'?await reserveCoachPilotAttempt(binding,deps.store,request.signal):await executePilotBudgetCommand({operation:'reserve',binding},deps.store,request.signal);
@@ -107,7 +110,7 @@ export async function runCoachPilotEvaluation(raw:unknown,deps:{store:PilotBudge
         throw new Error('provider_unavailable');
       }
     };
-    const response=await runConversationCandidate({version:'coach-assistant.v2',conversationId:stableId([...ids,'conversation']),turnId,message:test.message,history:[...test.history]},
+    const response=await deps.candidate.run({version:'coach-assistant.v2',conversationId:stableId([...ids,'conversation']),turnId,message:test.message,history:[...test.history]},
       {mode:'model',actorId:'synthetic-client',repository:fixtureRepository(),signal:deps.signal,now:new Date('2026-09-07T03:30:00Z'),offlineConversationProvider:measuredTransport});
     measurement.latencyMs=Math.round(performance.now()-start);
     measurement.responseAccepted=response.ok;
@@ -130,5 +133,5 @@ export async function runCoachPilotEvaluation(raw:unknown,deps:{store:PilotBudge
   const calls=measurements.reduce((total,item)=>total+item.modelCalls,0);
   const observed=measurements.filter(item=>item.modelCalls>0);
   const returnedModel=observed.length>0&&observed.every(item=>item.returnedModel!==null&&item.returnedModel===observed[0].returnedModel)?observed[0].returnedModel:null;
-  return {ok:true,releaseApproved:false,pilotId:input.pilotId,evaluationId:input.evaluationId,mode:input.mode,datasetVersion:COACH_PILOT_DATASET_VERSION,promptVersion:COACH_CANDIDATE_PROMPT_VERSION,pricingVersion:COACH_PRICING_VERSION,requestedModel:'gpt-5.6-luna',returnedModel,actualProviderCalls:input.mode==='live'?calls:0,injectedProviderCalls:input.mode==='injected'?calls:0,allStructuralChecksPassed:measurements.length===selected.length&&measurements.every(item=>item.structuralCheckPassed),cases:measurements,measuredUsageCostUsd:input.mode==='live'?sum('measuredUsageCostUsd'):null,simulatedUsageCostUsd:input.mode==='injected'?sum('simulatedUsageCostUsd'):null};
+  return {ok:true,releaseApproved:false,pilotId:input.pilotId,evaluationId:input.evaluationId,mode:input.mode,datasetVersion:COACH_PILOT_DATASET_VERSION,promptVersion:deps.candidate.promptVersion,pricingVersion:COACH_PRICING_VERSION,requestedModel:'gpt-5.6-luna',returnedModel,actualProviderCalls:input.mode==='live'?calls:0,injectedProviderCalls:input.mode==='injected'?calls:0,allStructuralChecksPassed:measurements.length===selected.length&&measurements.every(item=>item.structuralCheckPassed),cases:measurements,measuredUsageCostUsd:input.mode==='live'?sum('measuredUsageCostUsd'):null,simulatedUsageCostUsd:input.mode==='injected'?sum('simulatedUsageCostUsd'):null};
 }
