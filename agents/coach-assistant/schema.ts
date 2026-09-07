@@ -25,3 +25,19 @@ export const selectionJsonSchema = {
     escalate: { type: 'boolean' },
   },
 };
+
+/** V2 keeps history and navigation hints bounded and non-authoritative. */
+export const conversationRequestSchema = z.object({
+  version: z.literal('coach-assistant.v2'),
+  conversationId: z.string().uuid(),
+  turnId: z.string().uuid(),
+  message: requestSchema.shape.message,
+  context: z.object({
+    surface: z.enum(['home', 'food', 'recipe', 'workout', 'plan', 'live', 'library', 'exercise', 'atlas', 'history', 'progress', 'profile', 'habits', 'coach']),
+    includeScreen: z.boolean(),
+    clientId: z.string().uuid().optional(),
+    entity: z.object({ kind: z.enum(['meal', 'recipe', 'session', 'plan', 'exercise']), id: z.string().uuid() }).strict().optional(),
+  }).strict().optional(),
+  history: z.array(z.object({ role: z.enum(['user', 'assistant']), text: z.string().min(1).max(500) }).strict()).max(6).optional(),
+  attachments: z.array(z.object({ id: z.string().uuid(), kind: z.enum(['image', 'audio']), status: z.enum(['pending', 'available', 'unknown', 'unauthorized', 'not_connected']) }).strict()).max(3).optional(),
+}).strict();

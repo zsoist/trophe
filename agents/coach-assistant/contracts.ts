@@ -56,3 +56,82 @@ export interface CoachResponse {
   evidence: CoachEvidence[];
   telemetry: CoachTelemetry;
 }
+
+
+/** Single browser-safe contract for the shared Food/Workout conversation. */
+export const COACH_CONVERSATION_VERSION = 'coach-assistant.v2' as const;
+export type CoachCapabilityStatus = 'available' | 'unknown' | 'unauthorized' | 'not_connected';
+export type CoachSurface = 'home' | 'food' | 'recipe' | 'workout' | 'plan' | 'live' | 'library' | 'exercise' | 'atlas' | 'history' | 'progress' | 'profile' | 'habits' | 'coach';
+export interface CoachContextHint {
+  surface: CoachSurface;
+  includeScreen: boolean;
+  clientId?: string;
+  entity?: { kind: 'meal' | 'recipe' | 'session' | 'plan' | 'exercise'; id: string };
+}
+export interface CoachAttachmentRef {
+  id: string;
+  kind: 'image' | 'audio';
+  /** Opaque reference only. Never a client-selected remote URL or storage path. */
+  status: 'pending' | 'available' | 'unknown' | 'unauthorized' | 'not_connected';
+}
+export interface CoachConversationRequest {
+  version: typeof COACH_CONVERSATION_VERSION;
+  conversationId: string;
+  turnId: string;
+  message: string;
+  context?: CoachContextHint;
+  /** Bounded, untrusted conversational hints, never authorization or evidence. */
+  history?: Array<{ role: 'user' | 'assistant'; text: string }>;
+  attachments?: CoachAttachmentRef[];
+}
+export interface CoachCapability {
+  key: 'food_records' | 'workout_records' | 'active_plan' | 'screen_entity' | 'model' | 'profile' | 'memory' | 'images' | 'voice' | 'actions';
+  status: CoachCapabilityStatus;
+  reason: string;
+}
+export interface CoachContextSnapshot {
+  id: string;
+  capturedAt: string;
+  /** Server-authorized scope; supplied hints cannot populate these fields. */
+  subjectId: string;
+  organizationId: string;
+  surface: CoachSurface | null;
+  screenIncluded: boolean;
+  window: CoachWindow;
+  capabilities: CoachCapability[];
+}
+export interface CoachProposal {
+  id: string;
+  hash: string;
+  action: 'preference.update' | 'draft.update' | 'memory.confirm' | 'memory.correct' | 'memory.delete';
+  resource: { kind: 'preference' | 'draft' | 'memory'; id: string; version: string };
+  before: Record<string, string | number | boolean | null>;
+  after: Record<string, string | number | boolean | null>;
+  precondition: string;
+  expiresAt: string;
+  reviewRequired: boolean;
+}
+export interface CoachReceipt {
+  id: string;
+  actionId: string;
+  proposalId: string;
+  status: 'applied' | 'rejected' | 'uncertain';
+  resourceVersion: string | null;
+  recordedAt: string;
+}
+export interface CoachConversationResponse {
+  version: typeof COACH_CONVERSATION_VERSION;
+  conversationId: string;
+  turnId: string;
+  ok: boolean;
+  mode: 'offline' | 'model';
+  dataSource: CoachResponse['dataSource'];
+  snapshot: CoachContextSnapshot | null;
+  output?: CoachOutput;
+  error?: CoachResponse['error'];
+  evidence: CoachEvidence[];
+  proposals: CoachProposal[];
+  receipts: CoachReceipt[];
+  attachments: CoachAttachmentRef[];
+  telemetry: CoachTelemetry;
+}
