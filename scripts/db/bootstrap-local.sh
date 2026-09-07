@@ -207,6 +207,25 @@ GRANT SELECT ON TABLE public.food_database TO anon;
 SQL
 fi
 
+# Read-only diagnostics for the explicitly guarded disposable Auth CI target.
+# Fixed object names and booleans only: no credentials, user rows or free errors.
+if [ "${CI_REAL_SUPABASE:-0}" = "1" ]; then
+  psql -X -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -At <<'SQL'
+SELECT json_build_object(
+  'event', 'coach_fixture_acl', 'object', target,
+  'schema_usage', has_schema_privilege('service_role', 'public', 'USAGE'),
+  'select', has_table_privilege('service_role', target, 'SELECT'),
+  'insert', has_table_privilege('service_role', target, 'INSERT'),
+  'update', has_table_privilege('service_role', target, 'UPDATE'),
+  'delete', has_table_privilege('service_role', target, 'DELETE'),
+  'rls', c.relrowsecurity,
+  'bypass_rls', (SELECT rolbypassrls FROM pg_roles WHERE rolname = 'service_role')
+)::text
+FROM (VALUES ('public.profiles'), ('public.client_profiles')) AS objects(target)
+JOIN pg_class c ON c.oid = to_regclass(target);
+SQL
+fi
+
 # Canonical lookup foods required by the local/CI food-lookup regression tests.
 # Seeded HERE (bootstrap path) and deliberately NOT as a journaled migration, so these
 # deterministic fixtures never enter production: prod already holds the real USDA/HHF rows

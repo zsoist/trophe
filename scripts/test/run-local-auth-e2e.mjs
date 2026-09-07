@@ -114,7 +114,8 @@ function adminAdapter(service, onPhase = () => {}) {
           target_fat_g: 70,
           coaching_phase: 'active',
         }, { onConflict: 'user_id' });
-        if (clientError) throw fixtureFailure(phase, 'local E2E client profile provisioning failed', clientError);
+        // Existing diagnostic label distinguishes client_profiles from profiles.
+        if (clientError) throw fixtureFailure('common_client', 'local E2E client profile provisioning failed', clientError);
       }
     },
 
