@@ -17,6 +17,11 @@ export async function POST(request: NextRequest) {
       const { createDurablePreferenceService } = await import('@/lib/workout/durable-preference-actions');
       return createDurablePreferenceService(db);
     },
+    createFoodService: async () => {
+      const { db } = await import('@/db/client');
+      const { createFoodQuantityService } = await import('@/agents/coach-assistant/food-service');
+      return createFoodQuantityService(db);
+    },
     createRepository: async () => {
       const { pool } = await import('@/db/client');
       return createServerRepository(pool);

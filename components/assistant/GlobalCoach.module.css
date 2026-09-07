@@ -55,6 +55,15 @@
 .composer { overflow-y: auto; min-height: 0; }
 
 .profileBody input { width: 100%; font-size: 16px; }
+.foodReview { border: 1px solid var(--border-default); border-radius: 12px; padding: .8rem; margin-bottom: .75rem; }
+.foodReview h3 { font-size: 1rem; font-weight: 600; }
+.foodReview p, .foodReview table { font-size: .8125rem; line-height: 1.5; }
+.foodReview table { width: 100%; border-collapse: collapse; margin: .75rem 0; }
+.foodReview caption { text-align: left; font-weight: 600; margin-bottom: .5rem; }
+.foodReview th, .foodReview td { text-align: left; padding: .35rem .2rem; border-bottom: 1px solid var(--border-default); }
+.foodReview input { display: block; width: 100%; font-size: 16px; padding: .5rem; background: var(--bg-input); border: 1px solid var(--border-default); border-radius: 8px; }
+.foodReview button { min-height: 44px; padding: .5rem .65rem; margin: .5rem .4rem 0 0; border: 1px solid var(--border-default); border-radius: 10px; font-size: .875rem; }
+.foodReview button:disabled { opacity: .45; }
 
 /* Keep the working surface beside the coach at desktop widths. */
 @media (min-width: 1100px) {

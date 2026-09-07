@@ -11,6 +11,7 @@ import { calculateMealScore, getScoreBgColor } from '@/lib/food/meal-score';
 import { validateFoodLogEdit } from '@/lib/food/log-edit-validation';
 import { MACRO_COLORS } from '@/lib/macro-colors';
 import QuickFoodInput from '@/components/food/QuickFoodInput';
+import { COACH_FOOD_SELECT, COACH_FOOD_REFRESH, readFoodSelection } from '@/components/assistant/food-events';
 
 /** Phase 4 columns present on `select('*')` rows but not yet on FoodLogEntry. */
 type EntryExtras = { qty_g?: number | string | null; parse_confidence?: number | null };
@@ -131,6 +132,15 @@ export default function MealSlotCard({
   }, [isNext]);
 
   const editMutation = trpc.food.log.edit.useMutation();
+  useEffect(() => {
+    if (process.env.NEXT_PUBLIC_COACH_FOOD_ACTIONS_ENABLED !== '1') return;
+    const refresh = (event: Event) => {
+      const selection = readFoodSelection(event);
+      if (selection?.actorId === userId && entries.some(entry => entry.id === selection.entryId)) onLogged();
+    };
+    window.addEventListener(COACH_FOOD_REFRESH, refresh);
+    return () => window.removeEventListener(COACH_FOOD_REFRESH, refresh);
+  }, [entries, onLogged, userId]);
 
   const markDirty = (key: keyof DetailsForm) =>
     setDirty((d) => (d.has(key) ? d : new Set(d).add(key)));
@@ -630,6 +640,10 @@ export default function MealSlotCard({
                   </div>
                   {!isEditing && (
                     <div className="flex items-center gap-0.5 flex-shrink-0">
+                      {process.env.NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED === '1' && process.env.NEXT_PUBLIC_COACH_FOOD_ACTIONS_ENABLED === '1' && <button type="button"
+                        onClick={event => { event.stopPropagation(); window.dispatchEvent(new CustomEvent(COACH_FOOD_SELECT, { detail: { actorId: userId, entryId: entry.id } })); }}
+                        className="min-h-11 min-w-11 p-1.5 text-[var(--content-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                        aria-label={t('food.coach_review_quantity', { name: entry.food_name })}><MessageSquare size={13} aria-hidden="true" /></button>}
                       <button
                         onClick={(e) => { e.stopPropagation(); onToggleFavorite(entry); }}
                         className={`min-h-11 min-w-11 p-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] ${favorites.some(f => f.food_name === entry.food_name) ? 'text-[#D4A853]' : 'text-[var(--content-muted)] hover:text-[#D4A853]'}`}

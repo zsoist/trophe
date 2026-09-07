@@ -11,6 +11,10 @@ import { requestAttachment } from './attachment-client';
 import { AttachmentController } from './attachment-state';
 import { VoiceCapture } from './VoiceCapture';
 import { VoiceController } from './voice-state';
+import { FoodQuantityController } from './food-state';
+import { FoodQuantityPanel } from './FoodQuantityPanel';
+import { requestFoodQuantity } from './food-client';
+import { COACH_FOOD_SELECT, COACH_FOOD_REFRESH, readFoodSelection } from './food-events';
 import { AttachmentPicker } from './AttachmentPicker';
 import { ContextCards } from './ContextCards';
 import { PreferenceController, type PreferenceTransport, type PreferenceState } from './preference-state';
@@ -28,6 +32,8 @@ function CoachSurface({ identity, subjectId, example, preferenceTransport, conte
   const surface = coachSurface(path);
   const [controller] = useState(() => new ConversationController());
   const [voice] = useState(() => new VoiceController());
+  const [food] = useState(() => new FoodQuantityController());
+  const foodState = useSyncExternalStore(food.subscribe, food.snapshot, food.snapshot);
   const voiceState = useSyncExternalStore(voice.subscribe, voice.snapshot, voice.snapshot);
   const voiceActive = ['requesting', 'recording', 'stopping'].includes(voiceState.phase);
   const [attachments] = useState(() => new AttachmentController());
@@ -49,6 +55,21 @@ function CoachSurface({ identity, subjectId, example, preferenceTransport, conte
   useEffect(() => () => preferences.reset(), [preferences]);
   useEffect(() => () => attachments.reset(), [attachments]);
   useEffect(() => () => voice.reset(), [voice]);
+  useEffect(() => () => food.reset(), [food]);
+  useEffect(() => {
+    if (process.env.NEXT_PUBLIC_COACH_FOOD_ACTIONS_ENABLED !== '1' || example || subjectId && subjectId !== identity) return;
+    const select = (event: Event) => {
+      const selection = readFoodSelection(event);
+      if (!selection || selection.actorId !== identity) return;
+      voice.reset(); food.select(selection.entryId, state.conversationId, requestFoodQuantity); setOpen(true);
+    };
+    window.addEventListener(COACH_FOOD_SELECT, select);
+    return () => window.removeEventListener(COACH_FOOD_SELECT, select);
+  }, [example, food, identity, state.conversationId, subjectId, voice]);
+  useEffect(() => {
+    if (!foodState.receipt || foodState.pending || foodState.error || !foodState.entry) return;
+    window.dispatchEvent(new CustomEvent(COACH_FOOD_REFRESH, { detail: { actorId: identity, entryId: foodState.entry.entryId } }));
+  }, [foodState.receipt, foodState.pending, foodState.error, foodState.entry, identity]);
   useEffect(() => { setAnchor(document.getElementById('global-coach-anchor')); }, []);
   useEffect(() => {
     if (!open) return;
@@ -63,7 +84,7 @@ function CoachSurface({ identity, subjectId, example, preferenceTransport, conte
     if (followLatest.current && !window.getSelection()?.toString()) log.current?.scrollTo({ top: log.current.scrollHeight });
     else setShowLatest(true);
   }, [open, state.turns, state.pending]);
-  const close = () => { controller.cancel(); preferences.cancel(); attachments.cancel(); voice.reset(); setOpen(false); launcher.current?.focus(); };
+  const close = () => { controller.cancel(); preferences.cancel(); attachments.cancel(); voice.reset(); food.cancel(); setOpen(false); launcher.current?.focus(); };
   const send = () => !voiceActive && controller.send({ surface, includeScreen, ...(subjectId ? { clientId: subjectId } : {}) }, example ?? requestConversation, attachments.references());
   const latestResponse = state.turns.findLast(turn => turn.response?.ok)?.response;
   useEffect(() => { if (latestResponse) attachments.reconcile(latestResponse.attachments); }, [attachments, latestResponse]);
@@ -80,6 +101,7 @@ function CoachSurface({ identity, subjectId, example, preferenceTransport, conte
         followLatest.current = node.scrollHeight - node.scrollTop - node.clientHeight < 64;
         if (followLatest.current) setShowLatest(false);
       }}>
+        {foodState.entryId && <FoodQuantityPanel key={foodState.entryId} controller={food} state={foodState} transport={requestFoodQuantity} />}
         {!state.turns.length && <p className={styles.intro}>{t('global_coach.intro')}</p>}
         {state.turns.map(turn => <article className={styles.turn} key={turn.request.turnId}>
           <p className={styles.question}>{turn.request.message}</p>
