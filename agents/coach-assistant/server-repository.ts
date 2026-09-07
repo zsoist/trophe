@@ -66,29 +66,40 @@ export function createServerRepository(pool: ReadPool): CoachRepository {
       FROM food_log WHERE user_id = $1::uuid AND logged_date BETWEEN $2::date AND $3::date
       ORDER BY logged_date, id LIMIT $4`),
     async plan(args) {
-      const data = await bounded<PlanRow & { daysTruncated: boolean }>(args, `
+      type RawPlan = Omit<PlanRow,'days'> & { daysTruncated:boolean;days:Array<{id:string;weekday:number;templateId:string;targets:unknown[]}> };
+      const data = await bounded<RawPlan>(args, `
         SELECT p.id, p.client_id AS "userId", p.starts_on::text AS "startsOn", p.status,
           (EXISTS(SELECT 1 FROM workout_program_days d WHERE d.program_id = p.id OFFSET 21 LIMIT 1)
             OR EXISTS(SELECT 1 FROM workout_program_days d LEFT JOIN workout_templates t ON t.id=d.template_id
               WHERE d.program_id=p.id AND (t.id IS NULL OR jsonb_array_length(t.exercises)>20) LIMIT 1)) AS "daysTruncated",
           coalesce((SELECT jsonb_agg(day) FROM (
-            SELECT d.id, d.weekday, d.template_id AS "templateId", coalesce((SELECT sum((item->>'target_sets')::int)
-              FROM jsonb_array_elements(t.exercises) item
-              WHERE jsonb_typeof(item->'target_sets') = 'number'
-                AND (item->>'target_sets')::numeric BETWEEN 1 AND 12), 0) AS "targetSets",
-              (SELECT CASE WHEN bool_and((item->>'target_reps') ~ '^[0-9]{1,3}$'
-                AND (item->>'target_sets') ~ '^[0-9]{1,2}$')
-                THEN sum(CASE WHEN (item->>'target_reps') ~ '^[0-9]{1,3}$'
-                  AND (item->>'target_sets') ~ '^[0-9]{1,2}$'
-                  THEN (item->>'target_reps')::int*(item->>'target_sets')::int ELSE 0 END)
-                ELSE NULL END FROM jsonb_array_elements(t.exercises) item) AS "targetReps"
+            SELECT d.id, d.weekday, d.template_id AS "templateId", t.exercises AS targets
             FROM workout_program_days d JOIN workout_templates t ON t.id = d.template_id
             WHERE d.program_id = p.id AND jsonb_array_length(t.exercises) <= 20 ORDER BY d.weekday, d.id LIMIT 21
           ) day), '[]'::jsonb) AS days
         FROM workout_programs p WHERE p.client_id = $1::uuid AND p.status = 'active'
           AND (p.starts_on IS NULL OR p.starts_on <= $3::date) AND $2::date <= $3::date
         ORDER BY p.id LIMIT $4`);
-      return { rows: data.rows, truncated: data.truncated || data.rows.some(p => p.daysTruncated) };
+      let incomplete=data.truncated||data.rows.some(p=>p.daysTruncated);
+      const rows:PlanRow[]=data.rows.map(plan=>({
+        id:plan.id,userId:plan.userId,startsOn:plan.startsOn,status:plan.status,
+        days:plan.days.map(day=>{
+          let targetSets=0;let targetReps=0;let repsKnown=true;
+          if(!Array.isArray(day.targets)||day.targets.length>20){incomplete=true;return {id:day.id,weekday:day.weekday,templateId:day.templateId,targetSets:0,targetReps:null};}
+          for(const raw of day.targets){
+            if(!raw||typeof raw!=='object'||Array.isArray(raw)){incomplete=true;repsKnown=false;continue;}
+            const target=raw as {target_sets?:unknown;target_reps?:unknown};
+            const sets=target.target_sets;
+            if(typeof sets!=='number'||!Number.isInteger(sets)||sets<1||sets>12){incomplete=true;repsKnown=false;continue;}
+            targetSets+=sets;
+            const reps=typeof target.target_reps==='string'?target.target_reps:'';
+            if(!/^[0-9]{1,3}$/.test(reps)||Number(reps)<1)repsKnown=false;
+            else targetReps+=sets*Number(reps);
+          }
+          return {id:day.id,weekday:day.weekday,templateId:day.templateId,targetSets,targetReps:repsKnown?targetReps:null};
+        }),
+      }));
+      return { rows, truncated:incomplete };
     },
     async workouts(args) {
       const data = await bounded<WorkoutRow & { setsTruncated: boolean }>(args, `

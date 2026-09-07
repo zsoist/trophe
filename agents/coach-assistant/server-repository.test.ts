@@ -27,4 +27,18 @@ describe('real query adapter boundaries', () => {
       window:{ start:'2026-09-01',end:'2026-09-07',days:7,timezone:'UTC' },limit:128,signal:controller.signal })).rejects.toThrow();
     expect(destroyed).toBe(true);
   });
+  it.each([
+    [[{target_sets:3,target_reps:'10'}],3,30,false],
+    [[{target_sets:3,target_reps:'8-12'}],3,null,false],
+    [[{target_sets:3,target_reps:'10'},{target_sets:2,target_reps:null}],5,null,false],
+    [[{target_sets:null,target_reps:'10'}],0,null,true],
+  ])('validates every bounded raw template target in code',async(targets,sets,reps,partial)=>{
+    const repository=createServerRepository({connect:async()=>({query:async q=>({rows:q.text.includes('FROM workout_programs')?[{
+      id:'p',userId:'subject',startsOn:null,status:'active',daysTruncated:false,days:[{id:'d',weekday:0,templateId:'t',targets}],
+    }]:[]}),release:()=>{}})});
+    const result=await repository.plan({context:{actorId:'actor',subjectId:'subject',organizationId:'org',timezone:'UTC',language:'en'},window:{start:'2026-09-06',end:'2026-09-06',days:1,timezone:'UTC'},limit:2,signal:new AbortController().signal});
+    expect(result.rows[0].days[0].targetSets).toBe(sets);
+    expect(result.rows[0].days[0].targetReps).toBe(reps);
+    expect(result.truncated).toBe(partial);
+  });
 });

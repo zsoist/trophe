@@ -2,7 +2,7 @@ import type { CoachEvidence, CoachRequest } from './contracts';
 import { weekdayFor, windowFor } from './context';
 import type { CoachRepository, ReadArgs, Rows } from './repository';
 
-export interface EvidenceOptions { actorId: string; repository: CoachRepository; now: Date; signal: AbortSignal }
+export interface EvidenceOptions { actorId: string; repository: CoachRepository; now: Date; signal: AbortSignal; onDataRead?: (count:number)=>void }
 
 export async function collectEvidence(input: CoachRequest, options: EvidenceOptions) {
   const { repository, actorId, signal } = options;
@@ -19,6 +19,7 @@ export async function collectEvidence(input: CoachRequest, options: EvidenceOpti
     const fresh = await repository.authorize(actorId, subjectId, signal);
     if (JSON.stringify(fresh) !== JSON.stringify(context)) throw new Error('forbidden');
     if (++reads > 4) throw new Error('context_limit');
+    options.onDataRead?.(reads);
     const result = await method({ context: fresh, window, limit, signal });
     signal.throwIfAborted();
     const after = await repository.authorize(actorId, subjectId, signal);
@@ -30,8 +31,12 @@ export async function collectEvidence(input: CoachRequest, options: EvidenceOpti
     return row.date >= window.start && row.date <= window.end;
   };
   const add = (id: string, source: CoachEvidence['source'], sourceIds: string[], value: number | string, unit: string | null, statement: string, partial = false) => {
-    facts.push({ id, source, sourceIds: [...new Set(sourceIds)].slice(0, 256), value, unit, statement, window,
-      completeness: partial ? 'partial' : 'complete' });
+    const ids=[...new Set(sourceIds)];
+    const referencesPartial=ids.length>256;
+    if(referencesPartial)limitations.push(`evidence_refs_truncated:${id}`);
+    facts.push({ id, source, sourceIds: ids.slice(0, 256), value, unit,
+      statement:referencesPartial?`${statement} Evidence references are partial.`:statement, window,
+      completeness: partial||referencesPartial ? 'partial' : 'complete' });
   };
   const unique = <T extends { id: string }>(rows: T[]) => {
     const result = new Map<string,T>();
