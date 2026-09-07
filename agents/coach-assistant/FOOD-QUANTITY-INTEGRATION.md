@@ -1,0 +1,60 @@
+# Food quantity correction — concrete shared writer and transaction service
+
+AG3 owns the extracted lib/food/log-edit-service.ts, its manual food.ts call sites,
+and agents/coach-assistant/food-service.ts. AG1 owns isolated schema/CI/integration.
+This is not a second food mutation: manual edit/coachEdit and reviewed quantities
+call the same applyFoodLogEdit and deriveFoodLogEdit with editFieldsSchema.
+
+createFoodQuantityService(db) implements FoodQuantityService.execute plus the real
+parseFoodQuantityChange validator. Operations are food.read/propose/apply/receipt,
+all bound to entryId, actor/self subject, organization, conversation and turn.
+Propose accepts grams only, showing the entry's full before/after values including
+recomputed macros. Apply requires proposal/hash/version/actionId and reviewed:true.
+The adapter verifies returned resource/quantity/receipt/refresh binding; no optimistic
+success is returned without an applied receipt and versioned refetch boundary.
+
+The transaction reauthorizes current client self and organization membership,
+locks the food_log row and canonical foods nutrient source, and checks the private
+entry revision. A saved proposal stores the shared calculation and a stable sorted
+JSON hash, independent of JSONB key ordering. Apply checks the original values and
+recomputes through the same shared function; changed reference nutrients conflict
+before writing. The post-write values must match the reviewed values exactly and
+the revision must advance. Record update, receipt and audit commit together.
+Flywheel capture retains the existing non-blocking behavior using a savepoint when
+inside this transaction; sanitized error metadata replaces raw exception logging.
+
+It reuses private.coach_action_proposals and private.coach_action_receipts, not a
+new ledger. Food envelopes are {proposal,expectedEdit,foodId}; receipt result is the
+complete FoodQuantityResult with receipt+refresh. The existing unique actor/actionId
+and advisory lock namespace are shared. Replay joins proposal.action and entry ID;
+other action families conflict. AG1 is adding the corresponding preference-side
+namespace checks. Current actor authorization is rechecked even for receipt reads.
+A deleted entry can retain its original authorized receipt; it cannot be re-applied.
+
+Exact isolated prerequisites owned by AG1: apply coach-durable-actions.sql, then
+coach-food-actions.sql, adding action food.quantity.update, 4096-byte proposal
+limit and private.coach_food_entry_versions(entry_id,revision) with a trigger for
+actual ordinary row changes. Food receipt envelopes fit the existing 1024-byte
+limit. No productive migration, table creation, SQL execution or HTTP enablement
+has been performed by AG3. The factory remains unconnected pending that acceptance.
+
+Refresh strategy is refetch for the matching entry/day (food.log.list), not a blind
+replacement of UI state. Another manual edit after commit can legitimately make
+its current revision newer than the historical receipt; re-fetch authoritative
+records and do not relabel a replay as another mutation. The UI must keep identity
+and conversation checks when displaying results.
+
+Validation to date: the existing manual Food tests, actual extracted calculation
+and savepoint sequencing with injected DB operations, adapter binding tests and
+concrete transaction-service tests with a rollback-capable SQL double. These are
+not PostgreSQL auth/row-lock/trigger/atomicity evidence. Required isolated checks:
+250g->150g canonical preview/apply, manual edit and nutrient-source change conflicts,
+foreign entry/org rejection, revoked receipt read, same action replay, duplicate
+concurrent apply, receipt failure rolling back entry/revision, flywheel failure
+savepoint recovery and deleted-entry receipt behavior.
+
+The isolated SQL suite must also collide the same actor/actionId between preference
+and Food in BOTH directions, and check an ordinary manual ABA edit that returns to
+the same values with a newer revision. Inject failures at both receipt insertion
+and audit insertion: entry mutation, revision and receipt must roll back together.
+These are required SQL oracles, not claims covered by the injected transaction tests.
