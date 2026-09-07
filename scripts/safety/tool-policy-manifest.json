@@ -327,6 +327,19 @@
         "serviceRole": false,
         "localDb": false
       }
+    },
+    {
+      "id": "scripts-test-coach-chat-sql",
+      "entrypoint": "scripts/test/coach-chat-sql.ts",
+      "runtime": "node",
+      "policies": [],
+      "owners": {},
+      "operations": {},
+      "classifications": {
+        "serviceRole": true,
+        "localDb": true
+      },
+      "reason": "Disposable CI-only PostgreSQL assertions. Calls the verified conversation pipeline with literal mode offline and no injected model transport. Transitive provider imports do not make this runner a paid invocation."
     }
   ]
 }
