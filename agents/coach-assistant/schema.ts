@@ -1,11 +1,10 @@
+import { coachMessageInputSchema } from './message-input';
 import { isDraft } from '@/lib/workout/workspace-storage';
 import type { WorkoutDraft } from '@/lib/workout/workspace-state';
 import { z } from 'zod';
 
 export const requestSchema = z.object({
-  message: z.string().min(1).max(2000).transform(value =>
-    value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '').trim())
-    .pipe(z.string().min(1)),
+  message: coachMessageInputSchema,
   intent: z.enum(['today', 'week', 'plan']),
   clientId: z.string().uuid().optional(),
   exerciseId: z.string().uuid().optional(),

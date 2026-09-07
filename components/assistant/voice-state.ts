@@ -1,4 +1,4 @@
-import { COACH_AUDIO_LIMITS, startCoachAudioRecording } from '@/agents/coach-assistant/voice-contract';
+import { COACH_AUDIO_LIMITS, startCoachAudioRecording } from '@/agents/coach-assistant/voice-capture';
 import type { AudioRecordingSession } from '@/lib/microphone/recording-session';
 export interface VoiceState {
   phase: 'idle' | 'requesting' | 'recording' | 'stopping' | 'ready';
