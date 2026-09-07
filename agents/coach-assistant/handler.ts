@@ -21,7 +21,7 @@ function fail(code: CoachErrorCode,status: number): Response {
       tokensIn:0,tokensOut:0,reasoningTokens:0,cacheReadTokens:0,cacheWriteTokens:0,latencyMs:0,costUsd:0,pricingVersion:COACH_PRICING_VERSION} };
   return json(body,status);
 }
-async function readBody(request: Request,signal:AbortSignal): Promise<unknown> {
+async function readBytes(request: Request,signal:AbortSignal,limit=8192): Promise<Uint8Array> {
   const reader=request.body?.getReader();
   if (!reader) throw new Error('invalid_input');
   const chunks: Uint8Array[]=[]; let size=0;
@@ -33,14 +33,19 @@ async function readBody(request: Request,signal:AbortSignal): Promise<unknown> {
       const {done,value}=await reader.read();
       if(done) break;
       size+=value.length;
-      if(size>8192){cancel();throw new Error('invalid_input');}
+      if(size>limit){cancel();throw new Error('invalid_input');}
       chunks.push(value);
     }
     const bytes=new Uint8Array(size); let offset=0;
     for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}
-    try { return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes)); }
-    catch { throw new Error('invalid_input'); }
+    return bytes;
   } finally {signal.removeEventListener('abort',cancel);reader.releaseLock();}
+}
+
+async function readBody(request:Request,signal:AbortSignal):Promise<unknown> {
+  const bytes=await readBytes(request,signal);
+  try{return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));}
+  catch{throw new Error('invalid_input');}
 }
 
 export async function handleCoachRequest(request: Request,deps: HandlerDependencies): Promise<Response> {
@@ -69,7 +74,28 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
       }
       const allowed=(deps.env.COACH_ASSISTANT_PREVIEW_USER_IDS??'').split(',').map(s=>s.trim()).filter(Boolean);
       if(!allowed.includes(guard.userId))return fail('forbidden',403);
+      if(request.method==='PUT') {
+        if(deps.env.COACH_ASSISTANT_ISOLATED_ATTACHMENTS_ENABLED!=='1')return fail('disabled',404);
+        const repository=await deps.createRepository();
+        const initial=await repository.authorize(guard.userId,guard.userId,controller.signal);
+        if(initial.actorId!==guard.userId||initial.subjectId!==guard.userId)return fail('forbidden',403);
+        const authorize=async()=>{const fresh=await repository.authorize(guard.userId,guard.userId,controller.signal);if(JSON.stringify(fresh)!==JSON.stringify(initial))throw new Error('forbidden');};
+        controller.signal.throwIfAborted();
+        const bytes=await readBytes(request,controller.signal,5*1024*1024);
+        const {isolatedAttachmentStore}=await import('./isolated-attachments');
+        const result=await isolatedAttachmentStore.upload(`${guard.userId}:${initial.organizationId}`,request.headers.get('x-coach-conversation-id')??'',request.headers.get('x-coach-attachment-id')??'',request.headers.get('x-coach-upload-token')??'',bytes,controller.signal,authorize);
+        return json(result,result.ok?200:result.error==='forbidden'?403:result.error==='busy'?409:400);
+      }
       const raw=await readBody(request,controller.signal);
+      if(raw && typeof raw==='object' && 'operation' in raw && typeof raw.operation==='string' && raw.operation.startsWith('attachment.')) {
+        if(deps.env.COACH_ASSISTANT_ISOLATED_ATTACHMENTS_ENABLED!=='1')return fail('disabled',404);
+        const context=await (await deps.createRepository()).authorize(guard.userId,guard.userId,controller.signal);
+        if(context.actorId!==guard.userId||context.subjectId!==guard.userId)return fail('forbidden',403);
+        const {isolatedAttachmentStore}=await import('./isolated-attachments');
+        controller.signal.throwIfAborted();
+        const result=isolatedAttachmentStore.operation(`${guard.userId}:${context.organizationId}`,raw);
+        return json(result,result.ok?200:result.error==='forbidden'?403:400);
+      }
       if(raw && typeof raw==='object' && 'operation' in raw) {
         if(deps.env.COACH_ASSISTANT_ISOLATED_ACTIONS_ENABLED!=='1')return fail('disabled',404);
         const result=await isolatedActionsBroker.execute(guard.userId,raw,await deps.createRepository(),controller.signal);
@@ -90,6 +116,15 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
         signal:controller.signal,mode:deps.env.COACH_ASSISTANT_MODE==='model'?'model':'offline',
         deadlineMs:Math.max(1,45000-(performance.now()-start)),
       });
+      if(result.version==='coach-assistant.v2'&&result.ok&&result.snapshot&&deps.env.COACH_ASSISTANT_ISOLATED_ATTACHMENTS_ENABLED==='1'&&result.snapshot.subjectId===guard.userId&&result.dataSource==='authorized_records') {
+        const {isolatedAttachmentStore}=await import('./isolated-attachments');
+        result.attachments=result.attachments.map(attachment=>{
+          const resolved=isolatedAttachmentStore.operation(`${guard.userId}:${result.snapshot!.organizationId}`,{version:'coach-assistant.v2',operation:'attachment.status',conversationId:result.conversationId,attachmentId:attachment.id});
+          return {...attachment,status:resolved.ok?(resolved.attachment?.status??'unknown'):'unauthorized'};
+        });
+        const images=result.snapshot.capabilities.find(capability=>capability.key==='images');
+        if(images){images.status='available';images.reason='isolated_uploads_without_image_analysis';}
+      }
       const code=result.error?.code;
       return json(result,result.ok?200:code==='unauthenticated'?401:code==='forbidden'?403:code==='invalid_input'?400:503);
     };
@@ -99,6 +134,7 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
       if(controller.signal.aborted)abortBoundary();
     })]);
   } catch(error) {
+    if(error instanceof Error&&error.message==='forbidden')return fail('forbidden',403);
     return fail(error instanceof Error&&error.message==='invalid_input'?'invalid_input':'query_failed',error instanceof SyntaxError||error instanceof Error&&error.message==='invalid_input'?400:503);
   } finally {
     clearTimeout(timer);request.signal.removeEventListener('abort',cancel);

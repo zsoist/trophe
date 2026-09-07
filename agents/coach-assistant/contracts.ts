@@ -212,3 +212,23 @@ export interface CoachActionResult {
   memory?: CoachMemoryCard | null;
   invalidatedMemoryVersions?: Array<{id:string;version:string}>;
 }
+
+export const COACH_IMAGE_LIMITS = { count:3, fileBytes:5*1024*1024, totalBytes:15*1024*1024, pixels:16000000 } as const;
+export type CoachImageMime = 'image/jpeg' | 'image/png' | 'image/webp';
+export type CoachAttachmentOperation = {version:typeof COACH_CONVERSATION_VERSION;conversationId:string} & (
+  {operation:'attachment.prepare';mime:CoachImageMime;bytes:number} |
+  {operation:'attachment.status';attachmentId:string} |
+  {operation:'attachment.remove';attachmentId:string;reviewed:true}
+);
+export interface CoachAttachmentResult {
+  version:typeof COACH_CONVERSATION_VERSION;
+  ok:boolean;
+  storage:'isolated_ephemeral';
+  analysis:'not_connected';
+  attachment?:CoachAttachmentRef;
+  state?:'prepared'|'uploading'|'available'|'removed';
+  uploadToken?:string;
+  expiresAt?:string;
+  metadata?:{mime:CoachImageMime;bytes:number;width:number;height:number};
+  error?:'invalid_input'|'forbidden'|'limit_exceeded'|'expired'|'not_found'|'cancelled'|'busy'|'invalid_image';
+}
