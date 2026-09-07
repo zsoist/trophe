@@ -10,7 +10,7 @@ export interface CoachRequest {
 export type CoachMode = 'offline' | 'model';
 export type CoachErrorCode = 'disabled' | 'unauthenticated' | 'forbidden' | 'invalid_input'
   | 'invalid_timezone' | 'query_failed' | 'cancelled' | 'deadline' | 'provider_unavailable'
-  | 'invalid_output' | 'budget_blocked' | 'context_limit';
+  | 'invalid_output' | 'budget_blocked' | 'context_limit' | 'rate_limited';
 export interface CoachWindow { start: string; end: string; days: number; timezone: string }
 export interface CoachEvidence {
   id: string;
