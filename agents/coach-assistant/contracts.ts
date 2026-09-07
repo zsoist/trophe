@@ -1,3 +1,4 @@
+import type { WorkoutDraft } from '@/lib/workout/workspace-state';
 /** Browser-safe contract. No auth, database, provider or environment imports. */
 export const COACH_CONTRACT_VERSION = 'coach-assistant.v1' as const;
 export type CoachIntent = 'today' | 'week' | 'plan';
@@ -195,7 +196,7 @@ export interface CoachActionResult {
   storage: 'isolated_ephemeral' | 'database';
   proposal?: CoachProposal;
   receipt?: CoachReceipt;
-  error?: 'forbidden' | 'invalid_input' | 'version_conflict' | 'expired' | 'not_found' | 'idempotency_conflict' | 'uncertain';
+  error?: 'cancelled' | 'forbidden' | 'invalid_input' | 'version_conflict' | 'expired' | 'not_found' | 'idempotency_conflict' | 'uncertain';
 }
 
 export type CoachMemoryOperation = {
@@ -207,7 +208,16 @@ export type CoachMemoryOperation = {
   memoryId: string;
   resourceVersion: string;
 } & ({action:'memory.confirm'|'memory.delete'} | {action:'memory.correct';after:{text:string}});
-export type CoachOperation = CoachPreferenceOperation | CoachMemoryOperation;
+export type CoachDraftOperation = {
+  version: typeof COACH_CONVERSATION_VERSION; operation: 'propose'; action: 'draft.update';
+  conversationId: string; turnId: string; clientId?: string; resourceVersion: string; after: WorkoutDraft;
+};
+export type CoachOperation = CoachPreferenceOperation | CoachMemoryOperation | CoachDraftOperation;
+export interface CoachProposal { draftReview?: { before: WorkoutDraft; after: WorkoutDraft } }
+export interface CoachActionResult {
+  /** Isolated result for explicit WorkspaceProvider review; never auto-refresh persistent state. */
+  draftRefresh?: { draft: WorkoutDraft; previousVersion: string; version: string; reviewRequired: true };
+}
 export interface CoachActionResult {
   /** Updated isolated copy only; null means deleted. Never a persistent-memory claim. */
   memory?: CoachMemoryCard | null;
