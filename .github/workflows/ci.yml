@@ -298,6 +298,8 @@ jobs:
           psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -c "NOTIFY pgrst, 'reload schema'"
       - name: Exercise UI to real Auth, HTTP and bounded SQL at zero model cost
         run: node scripts/test/run-coach-auth-e2e.mjs
+      - name: Verify isolated durable preference transactions
+        run: node scripts/test/run-coach-durable-sql.mjs
       - name: Record exact scope
         if: always()
         run: |
