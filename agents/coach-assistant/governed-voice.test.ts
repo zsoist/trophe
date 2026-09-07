@@ -22,6 +22,9 @@ describe('authenticated coach STT with explicit injected OpenAI transport',()=>{
   expect(result).toMatchObject({ok:true,status:'review_required',transcript:{source:'synthetic_fixture'}});expect(s.fetchImpl).toHaveBeenCalledTimes(1);
   expect(s.l.records.get(s.b.attemptId)).toMatchObject({state:'settled',chargedNanoUsd:32500});
  });
+ it('does not price a changed STT model with the pinned tariff',async()=>{
+  const s=setup();await expect(s.options.offlineTranscriber({model:'unknown-transcribe',file:silentCoachWebm(),locale:'es',durationMs:108,signal:s.options.signal})).rejects.toThrow('budget_blocked');expect(s.fetchImpl).not.toHaveBeenCalled();expect(s.l.calls).toEqual([]);
+ });
  it('forbids mismatched org/conversation/turn binding before provider and reservation',async()=>{
   for(const field of ['organizationId','conversationId','turnId'] as const){const s=setup();const identity={...s.b,[field]:randomUUID()};s.options.offlineTranscriber=createGovernedCoachTranscriber({mode:'injected',identity,budget:s.l.store,transport:createInjectedOpenAiCoachTranscriber(s.fetchImpl)});
    expect(await transcribeCoachAudio(silentCoachWebm(),s.input,s.options)).toMatchObject({error:'forbidden'});expect(s.fetchImpl).not.toHaveBeenCalled();expect(s.l.calls).toEqual([]);
