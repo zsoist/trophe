@@ -102,4 +102,17 @@ describe('measured pilot runner with an explicitly injected transport and store'
     expect(report.ok).toBe(true);if(!report.ok)throw new Error('report expected');
     expect(report.allStructuralChecksPassed).toBe(true);expect(report.injectedProviderCalls).toBe(0);expect(deps.store.execute).not.toHaveBeenCalled();
   });
+  it('blocks a second dispatch even when a candidate catches unknown outcome and tries again',async()=>{
+    const deps=fixture();const original=deps.candidate.run;deps.transport.mockRejectedValue(new Error('unknown network outcome'));
+    deps.candidate.run=async(raw,options)=>{await original(raw,options);return original(raw,options);};
+    const report=await runCoachPilotEvaluation(input,deps);expect(report.ok).toBe(true);expect(deps.transport).toHaveBeenCalledTimes(1);expect(deps.records.size).toBe(1);if(report.ok)expect(report.cases[0].accounting).toBe('unknown');
+  });
+
+  it('enforces two invocations total and the exact ordered prompt allowlist',async()=>{
+    const deps=fixture();const original=deps.candidate.run;
+    deps.candidate.run=async(raw,options)=>{await original(raw,options);await original(raw,options);return original(raw,options);};
+    await runCoachPilotEvaluation(input,deps);expect(deps.transport).toHaveBeenCalledTimes(2);expect(deps.records.size).toBe(2);
+    const mismatch=fixture();mismatch.candidate.invocationPromptVersions=['different-version'];await runCoachPilotEvaluation(input,mismatch);expect(mismatch.transport).not.toHaveBeenCalled();expect(mismatch.store.execute).not.toHaveBeenCalled();
+  });
+
 });

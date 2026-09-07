@@ -1,3 +1,6 @@
+import { createCapabilityPilotCandidate } from './pilot-capability-candidate';
+import { runCoachPilotEvaluation,type PilotTransport } from './pilot-runner';
+import { decidePilotBudgetCommand,type PilotAttemptRecord,type PilotBudgetStore } from './pilot-budget';
 import { runConversation } from './conversation';
 import { createCoachCapabilityRegistry } from './capability-registry';
 import { fixtureRepository } from './fixtures';
@@ -42,7 +45,7 @@ function fixture() {
   }} as unknown as Parameters<typeof createFoodPreferenceService>[0];
   const service=createFoodPreferenceService(database);
   const execute=(operation:FoodPreferenceOperation)=>service.execute({actorId:actor,subjectId:actor,organizationId:org,signal:new AbortController().signal,operation});
-  return {service,execute,missing:()=>{missing=true;},revoke:()=>{authorized=false;},loseCommit:()=>{lostCommit=true;},state:()=>({row,revision,receipts}),failReceipt:()=>{receiptFails=true;},manualEdit:()=>{row.dietPattern='vegan';revision++;}};
+  return {service,execute,missing:()=>{missing=true;},revoke:()=>{authorized=false;},loseCommit:()=>{lostCommit=true;},state:()=>({row,revision,receipts,proposals}),failReceipt:()=>{receiptFails=true;},manualEdit:()=>{row.dietPattern='vegan';revision++;}};
 }
 describe('concrete Food profile preference transaction service through an injected SQL transaction',()=>{
   it('prepares canonical undeclared→vegetarian review, applies the shared writer and recovers the same receipt',async()=>{
@@ -86,6 +89,21 @@ describe('concrete Food profile preference transaction service through an inject
   let calls=0;const provider:OfflineConversationProvider=async input=>{calls++;if(calls===2)expect(JSON.parse(input.prompt).capabilityResult.status).toBe('review_required');return {output:calls===1?{tool:'food.preference.propose',args:{dietPattern:'vegetarian'}}:{answer:'Please review the proposal before deciding.',evidenceRefs:[],entityRefs:[],facts:[],generalExplanationRefs:[],followUp:null,limitations:[],escalation:false},usage:{inputTokens:100,outputTokens:50},rawStatus:200,latencyMs:1};};
   const result=await runConversation({version:'coach-assistant.v2',conversationId:base.conversationId,turnId:base.turnId,message:'Please '+"change my dietary preference to vegetarian",context:{surface,includeScreen:true,entity:{kind:'meal',id:entry}}},{actorId:actor,repository:repo,mode:'model',offlineCandidateEvaluation:true,offlineConversationProvider:provider,capabilityRegistry:createCoachCapabilityRegistry({preference:f.service}),signal:new AbortController().signal,now:new Date('2026-09-07T12:00:00Z')});
   expect(result.ok).toBe(true);expect(result.capabilityResult).toMatchObject({status:'review_required',applied:false});expect(result.telemetry).toMatchObject({modelCalls:2,dataReads:2,tokensIn:200});expect(result.receipts).toEqual([]);expect(calls).toBe(2);expect(f.state().revision).toBe(1);
+ });
+
+ it.each(['success','second_failure','first_unknown'])('governs real-engine attempts and proposal replay: %s',async scenario=>{
+  const f=fixture();const records=new Map<string,PilotAttemptRecord>();const events:string[]=[];
+  const store:PilotBudgetStore={execute:async command=>{events.push(command.operation);const decision=decidePilotBudgetCommand({pilotId:id(30),capNanoUsd:44000000,chargedNanoUsd:[...records.values()].reduce((n,r)=>n+r.chargedNanoUsd,0),turnAttemptCount:[...records.values()].filter(r=>r.binding.turnId===command.binding.turnId).length,accountingBlocked:[...records.values()].some(r=>r.accountingAlert),existing:records.get(command.binding.attemptId)},command);if(decision.ok&&decision.write!=='none')records.set(command.binding.attemptId,structuredClone(decision.record));return {storage:'database',...decision};}};
+  const repo=fixtureRepository();repo.authorize=async()=>({actorId:actor,subjectId:actor,organizationId:org,timezone:'UTC',language:'en'});
+  const candidate=createCapabilityPilotCandidate({actorId:actor,repository:()=>repo,registry:createCoachCapabilityRegistry({preference:f.service})});
+  let calls=0;const transport:PilotTransport=async()=>{calls++;events.push('transport');if(scenario==='second_failure'&&calls===2)throw new Error('lost provider response');return {responseModel:scenario==='first_unknown'?undefined:'gpt-5.6-luna',output:calls===1?{tool:'food.preference.propose',args:{dietPattern:'vegetarian'}}:{answer:'Please review the proposal before deciding.',evidenceRefs:[],entityRefs:[],facts:[],generalExplanationRefs:[],followUp:null,limitations:[],escalation:false},usage:{inputTokens:100,outputTokens:50},rawStatus:200,latencyMs:1};};
+  const input={pilotId:id(30),actorId:actor,evaluationId:id(31),mode:'injected',caseIds:['food_preference_proposal']};const deps={store,candidate,transport,signal:new AbortController().signal};
+  const report=await runCoachPilotEvaluation(input,deps);expect(report).toMatchObject({ok:true,actualProviderCalls:0,injectedProviderCalls:scenario==='first_unknown'?1:2,allStructuralChecksPassed:scenario==='success',measuredUsageCostUsd:null});if(!report.ok)throw Error('report');
+  if(scenario==='success'){
+  expect(report.cases[0].invocations?.map(i=>[i.ordinal,i.accounting,i.usage?.inputTokens])).toEqual([[1,'settled',100],[2,'settled',100]]);expect(new Set(report.cases[0].invocations?.map(i=>i.attemptId)).size).toBe(2);expect(report.cases[0].usage?.inputTokens).toBe(200);expect(events).toEqual(['reserve','claim_dispatch','transport','settle','reserve','claim_dispatch','transport','settle']);
+  }else{expect(report.cases[0].accounting).toBe('unknown');expect(report.simulatedUsageCostUsd).toBeNull();expect([...records.values()].some(r=>r.state==='unknown')).toBe(true);}
+  const proposalCount=Object.keys(f.state().proposals).length;await runCoachPilotEvaluation(input,deps);expect(calls).toBe(scenario==='first_unknown'?1:2);expect(Object.keys(f.state().proposals)).toHaveLength(proposalCount);expect(records.size).toBe(scenario==='first_unknown'?1:2);
+  const before=events.length;expect(await runCoachPilotEvaluation({...input,mode:'live'},{...deps,transport:undefined})).toMatchObject({error:'budget_blocked'});expect(events.length).toBe(before);
  });
 
 });
