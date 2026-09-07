@@ -1,6 +1,6 @@
 import { authorizeSubject } from './context';
 import type { Actor, Subject } from './context';
-import type { CoachRepository, ExerciseRow, NutritionRow, PlanRow, ReadArgs, WorkoutRow } from './repository';
+import type { CoachRepository, PersonalContextRow, ExerciseRow, NutritionRow, PlanRow, ReadArgs, WorkoutRow } from './repository';
 
 /** Narrow port over the existing pg pool. No model sees this interface. */
 interface Connection {
@@ -64,6 +64,17 @@ export function createServerRepository(pool: ReadPool): CoachRepository {
         WHERE a.id = $1::uuid AND s.id = $2::uuid LIMIT 1`, [actorId, subjectId], signal);
       return authorizeSubject(rows[0]?.actor ?? null, rows[0]?.subject ?? null);
     },
+    personalContext: args => bounded<PersonalContextRow>(args, `
+      SELECT cp.user_id AS "userId", to_jsonb(cp)->'workout_preferences' AS preferences,
+        coalesce((SELECT jsonb_agg(memory) FROM (
+          SELECT m.id,m.user_id AS "userId",left(m.fact_text,500) AS text,m.source,m.created_at::text AS "createdAt",m.scope,
+            md5(m.id::text || m.fact_text || m.active::text || coalesce(m.superseded_by::text,'')) AS version
+          FROM memory_chunks m WHERE m.user_id=cp.user_id AND m.scope='user' AND m.active=true
+            AND m.superseded_by IS NULL AND (m.expires_at IS NULL OR m.expires_at>now())
+            AND m.created_at >= $3::date - interval '365 days' AND m.created_at < $3::date + interval '1 day'
+          ORDER BY m.created_at DESC,m.id LIMIT 11
+        ) memory),'[]'::jsonb) AS memories
+      FROM client_profiles cp WHERE cp.user_id=$1::uuid AND $2::date <= $3::date LIMIT $4`),
     nutrition: args => bounded<NutritionRow>(args, `
       SELECT id, user_id AS "userId", logged_date::text AS date, calories, protein_g AS "proteinG"
       FROM food_log WHERE user_id = $1::uuid AND logged_date BETWEEN $2::date AND $3::date

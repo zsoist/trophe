@@ -1,10 +1,11 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { COACH_CONVERSATION_VERSION } from './contracts';
 import type { CoachCapability, CoachConversationResponse, CoachErrorCode } from './contracts';
 import { conversationRequestSchema } from './schema';
 import { run } from './index';
 import type { RunOptions } from './index';
 import { windowFor } from './context';
+import { workoutPreferencesSchema } from '@/lib/workout/preferences';
 import { COACH_PRICING_VERSION } from './economics';
 import { COACH_PROMPT_VERSION } from './prompt.v3';
 
@@ -68,6 +69,28 @@ export async function runConversation(raw: unknown, options: RunOptions): Promis
       response.attachments = (input.attachments ?? []).map(item=>({...item,status:'not_connected'}));
       const facts = response.evidence.map(f=>f.statement).join('\n');
       response.output = {...result.output!,evidenceRefs:response.evidence.map(f=>f.id),answer:medical ? result.output!.answer : `${options.repository.dataSource==='synthetic'?'Synthetic example records. ':''}Offline record summary; no AI model interpreted your message.\n${facts || 'There are no supported records for this scope.'}\nI can show recorded facts, but open-ended interpretation is not connected. No record was changed.`,limitations:[...result.output!.limitations,'conversation_history_not_evidence','open_ended_interpretation_not_connected',...(input.attachments?.length?['attachments_not_processed']:[])]};
+      if(repository.personalContext && response.telemetry.dataReads < 4 && !medical) {
+        const window=response.snapshot.window;
+        const context=await repository.authorize(options.actorId,subject,controller.signal);
+        response.telemetry.dataReads++;
+        const personal=await repository.personalContext({context,window,limit:1,signal:controller.signal});
+        await repository.authorize(options.actorId,subject,controller.signal);
+        controller.signal.throwIfAborted();
+        if(personal.rows.length>1||personal.truncated)throw new Error('query_failed');
+        const row=personal.rows[0];
+        if(row) {
+          if(row.userId!==subject || row.memories.some(memory=>memory.userId!==subject))throw new Error('forbidden');
+          const preferences=workoutPreferencesSchema.safeParse(row.preferences);
+          if(preferences.success) {
+            response.profile={language:authorized.language,timezone:authorized.timezone,units:response.snapshot.units,preferences:{durationMinutes:preferences.data.durationMinutes},version:createHash('sha256').update(JSON.stringify(preferences.data)).digest('hex'),source:options.repository.dataSource==='synthetic'?'isolated_fixture':'authorized_profile'};
+            const capability=capabilities.find(c=>c.key==='profile')!;capability.status='available';capability.reason='authorized_stored_preferences';
+          } else {const capability=capabilities.find(c=>c.key==='profile')!;capability.status='unknown';capability.reason='preferences_not_recorded';}
+          response.memories=row.memories.slice(0,10).map(memory=>({id:memory.id,text:memory.text.slice(0,500),source:memory.source,createdAt:memory.createdAt,scope:memory.scope,version:memory.version,confirmation:'unconfirmed'}));
+          const memoryCapability=capabilities.find(c=>c.key==='memory')!;memoryCapability.status=response.memories.length?'available':'unknown';memoryCapability.reason=response.memories.length?'authorized_unconfirmed_memories':'no_active_memories';
+          response.output.limitations.push('memory_requires_explicit_confirmation','memory_window_365_days');
+          if(row.memories.length>10)response.output.limitations.push('memory_records_partial');
+        }
+      }
       response.ok = true;
     };
     await Promise.race([work(),new Promise<never>((_,reject)=>{
@@ -79,7 +102,7 @@ export async function runConversation(raw: unknown, options: RunOptions): Promis
     const allowed = ['invalid_input','forbidden','unauthenticated','invalid_timezone','budget_blocked'];
     const code: CoachErrorCode = controller.signal.aborted ? options.signal.aborted?'cancelled':'deadline' : error instanceof Error && allowed.includes(error.message)?error.message as CoachErrorCode:'query_failed';
     response.error={code,retryable:code==='query_failed'||code==='deadline'};
-    response.ok=false;response.snapshot=null;response.evidence=[];delete response.output;
+    response.ok=false;response.snapshot=null;response.evidence=[];delete response.output;delete response.profile;delete response.memories;
   } finally {
     clearTimeout(timer);options.signal.removeEventListener('abort',abort);
     if(boundary)controller.signal.removeEventListener('abort',boundary);
