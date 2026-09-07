@@ -12,15 +12,20 @@ test('meal row opens shared coach, reviews 250 to 150 grams and refreshes after 
   const actor = process.env.COACH_SQL_ACTOR!, entryId = process.env.COACH_FOOD_ENTRY!;
   const manifest = process.env.COACH_FOOD_HTTP_ACTIONS!, root = process.env.RUNNER_TEMP!;
   if (!manifest || !root || !isAbsolute(manifest) || !isAbsolute(root) || relative(resolve(root), resolve(manifest)).startsWith('..') || resolve(root) === resolve(manifest)) throw new Error('invalid_manifest');
-  const actions = new Set<string>();
+  const actions = new Set<string>(), conversations = new Set<string>();
   const pool = new pg.Pool({ connectionString: target.toString(), max: 1, statement_timeout: 5000 });
   const noPaid = await blockPaidRequests(page);
   await page.route('**/api/coach-assistant', async route => {
     const body = route.request().postDataJSON() as Record<string, unknown>;
+    if (typeof body.operation === 'string' && body.operation.startsWith('food.')) {
+      expect(body.entryId).toBe(entryId); expect(body.conversationId).toMatch(/^[a-f0-9-]{36}$/);
+      conversations.add(body.conversationId as string);
+    }
     if (body.operation === 'food.apply') {
       expect(body.entryId).toBe(entryId); expect(body.actionId).toMatch(/^[a-f0-9-]{36}$/);
-      actions.add(body.actionId as string); writeFileSync(manifest, JSON.stringify([...actions]), { mode: 0o600 });
+      actions.add(body.actionId as string);
     }
+    writeFileSync(manifest, JSON.stringify({ actionIds: [...actions], conversationIds: [...conversations] }), { mode: 0o600 });
     await route.continue();
   });
   const responseFor = (operation: string) => page.waitForResponse(response => new URL(response.url()).pathname === '/api/coach-assistant'

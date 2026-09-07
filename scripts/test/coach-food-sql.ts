@@ -24,6 +24,7 @@ const database = drizzle(pool), service = createFoodQuantityService(database), p
 const scope = { actorId, subjectId: actorId, organizationId, signal: new AbortController().signal };
 const entryId = process.env.COACH_FOOD_ENTRY ?? randomUUID(), foreignEntryId = randomUUID(), foodId = randomUUID();
 const conversationId = process.env.COACH_FOOD_CONVERSATION ?? randomUUID(), actionIds: string[] = [], proposalIds: string[] = [];
+const httpConversationIds: string[] = [];
 const header = () => ({ version: 'coach-assistant.v2' as const, conversationId, turnId: randomUUID(), entryId });
 const execute = async (operation: FoodQuantityOperation) => foodQuantityResultSchema.parse(await service.execute({ ...scope, operation }));
 let check = 'setup', installed = false, originalPreferences: unknown;
@@ -159,16 +160,17 @@ async function main() {
   await pool.query("UPDATE public.food_log SET food_name='Isolated coach rice',logged_date=CURRENT_DATE,meal_type='breakfast',source='custom',qty_g=250,quantity=1,calories=500,protein_g=10,carbs_g=100,fat_g=5,fiber_g=2,sugar_g=1 WHERE id=$1 AND user_id=$2", [entryId, actorId]);
   const root = process.env.RUNNER_TEMP; assert.ok(root && isAbsolute(root));
   const manifest = resolve(root, `coach-food-actions-${randomUUID()}.json`);
-  await writeFile(manifest, '[]', { mode: 0o600 });
+  await writeFile(manifest, JSON.stringify({ actionIds: [], conversationIds: [] }), { mode: 0o600 });
   const http = spawnSync(process.execPath, ['node_modules/@playwright/test/cli.js', 'test', '--config', 'playwright.coach.config.ts', '--workers=1', 'e2e/coach-food.spec.ts'], { stdio: 'inherit', env: {
     ...process.env, E2E_COACH_FOOD: '1', E2E_COACH_DURABLE: '0', E2E_COACH_WEEK: '0', COACH_FOOD_HTTP_ACTIONS: manifest, COACH_FOOD_ENTRY: entryId,
     E2E_CLIENT_ID: actorId, NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED: '1', NEXT_PUBLIC_COACH_ASSISTANT_ENABLED: '0', NEXT_PUBLIC_COACH_FOOD_ACTIONS_ENABLED: '1',
     COACH_ASSISTANT_ENABLED: '1', COACH_ASSISTANT_MODE: 'offline', COACH_ASSISTANT_DATA_SOURCE: 'authorized_records', COACH_ASSISTANT_FOOD_ACTIONS_ENABLED: '1',
     COACH_ASSISTANT_DURABLE_ACTIONS_ENABLED: '1', COACH_ASSISTANT_ISOLATED_ACTIONS_ENABLED: '0', COACH_ASSISTANT_PREVIEW_USER_IDS: actorId,
   } });
-  const httpActions = JSON.parse(await readFile(manifest, 'utf8'));
-  assert.ok(Array.isArray(httpActions) && httpActions.length <= 16 && httpActions.every(id => typeof id === 'string' && /^[a-f0-9-]{36}$/.test(id)));
-  actionIds.push(...httpActions); assert.equal(http.status, 0); pass();
+  const observed = JSON.parse(await readFile(manifest, 'utf8'));
+  const ids = (value: unknown, limit: number): value is string[] => Array.isArray(value) && value.length <= limit && value.every(id => typeof id === 'string' && /^[a-f0-9-]{36}$/.test(id));
+  assert.ok(ids(observed.actionIds, 16) && ids(observed.conversationIds, 4));
+  actionIds.push(...observed.actionIds); httpConversationIds.push(...observed.conversationIds); assert.equal(http.status, 0); pass();
 }
 main().catch(error => {
   process.stderr.write(JSON.stringify({ event: 'coach_food_sql', check, outcome: 'failed', ...(typeof error?.code === 'string' && /^[0-9A-Z]{5}$/.test(error.code) ? { sqlstate: error.code } : {}) }) + '\n'); process.exitCode = 1;
@@ -176,8 +178,11 @@ main().catch(error => {
   try {
     if (installed) {
       await cleanupAudit();
-      await pool.query('DELETE FROM private.coach_action_receipts WHERE actor_id=$1 AND organization_id=$2 AND conversation_id=$3 AND action_id=ANY($4::uuid[])', [actorId, organizationId, conversationId, actionIds]);
-      await pool.query('DELETE FROM private.coach_action_proposals WHERE actor_id=$1 AND organization_id=$2 AND conversation_id=$3 AND id=ANY($4::uuid[])', [actorId, organizationId, conversationId, proposalIds]);
+      const uiProposals = await pool.query("SELECT id FROM private.coach_action_proposals WHERE actor_id=$1 AND subject_id=$1 AND organization_id=$2 AND conversation_id=ANY($3::uuid[]) AND action='food.quantity.update' AND envelope->'proposal'->'resource'->>'id'=$4", [actorId, organizationId, httpConversationIds, entryId]);
+      proposalIds.push(...uiProposals.rows.map(row => row.id as string));
+      await pool.query('DELETE FROM private.coach_action_receipts WHERE actor_id=$1 AND subject_id=$1 AND organization_id=$2 AND action_id=ANY($3::uuid[]) AND proposal_id=ANY($4::uuid[])', [actorId, organizationId, actionIds, proposalIds]);
+      await pool.query('DELETE FROM private.coach_action_proposals WHERE actor_id=$1 AND subject_id=$1 AND organization_id=$2 AND id=ANY($3::uuid[])', [actorId, organizationId, proposalIds]);
+      assert.equal((await pool.query('SELECT id FROM private.coach_action_proposals WHERE id=ANY($1::uuid[])', [proposalIds])).rowCount, 0);
       await pool.query('DELETE FROM public.food_parse_corrections WHERE user_id=$1 AND corrected_by=$1 AND food_log_id=$2', [actorId, entryId]);
       await pool.query('DELETE FROM public.food_log WHERE (id=$1 AND user_id=$2) OR (id=$3 AND user_id=$4)', [entryId, actorId, foreignEntryId, coachId]);
       await pool.query("DELETE FROM public.foods WHERE id=$1 AND source='custom' AND source_id=$1::text", [foodId]);

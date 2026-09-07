@@ -34,7 +34,7 @@ async function main() {
     assert.equal(found.record.unpricedModel, expected.responseModel); assert.equal(found.record.accountingAlert, true);
     assert.equal(found.record.state, 'unknown'); assert.equal(found.record.chargedNanoUsd, reserve);
     const settlement = await execute(binding, 'settle', expected.usage); assert.ok(!settlement.ok && settlement.error === 'invalid_transition');
-    const claim = await execute(binding, 'claim_dispatch'); assert.ok(!claim.ok && claim.error === 'budget_blocked');
+    const claim = await execute(binding, 'claim_dispatch'); assert.ok(claim.ok && !claim.dispatchGranted);
     const row = (await pool.query('SELECT actual_cost_usd,status FROM public.agent_runs WHERE id=$1', [binding.agentRunId])).rows[0];
     assert.equal(row.actual_cost_usd, null); assert.equal(row.status, 'pending');
     check = 'restart_preserves_unpriced_usage_reservation_and_blocks_settle_dispatch'; pass(); return;
