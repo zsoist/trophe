@@ -196,3 +196,19 @@ export interface CoachActionResult {
   receipt?: CoachReceipt;
   error?: 'forbidden' | 'invalid_input' | 'version_conflict' | 'expired' | 'not_found' | 'idempotency_conflict' | 'uncertain';
 }
+
+export type CoachMemoryOperation = {
+  version: typeof COACH_CONVERSATION_VERSION;
+  operation: 'propose';
+  conversationId: string;
+  turnId: string;
+  clientId?: string;
+  memoryId: string;
+  resourceVersion: string;
+} & ({action:'memory.confirm'|'memory.delete'} | {action:'memory.correct';after:{text:string}});
+export type CoachOperation = CoachPreferenceOperation | CoachMemoryOperation;
+export interface CoachActionResult {
+  /** Updated isolated copy only; null means deleted. Never a persistent-memory claim. */
+  memory?: CoachMemoryCard | null;
+  invalidatedMemoryVersions?: Array<{id:string;version:string}>;
+}
