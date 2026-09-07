@@ -287,10 +287,11 @@ def pose_fold(config,out):
     if proxy:local_pose_fold(proxy,r,core)
     rows=[];cam=studio(s);cam.data.sensor_fit='VERTICAL';s.render.engine='BLENDER_EEVEE';s.render.resolution_x=960;s.render.resolution_y=720
     for f,base in before.items():
-        s.frame_set(f);bpy.context.view_layer.update();rows.append({'frame':f,'before_skin':base['skin'],'after_skin':check(b,regions),'surface_delta_max_m':float(np.linalg.norm(points(b)-base['p'],axis=1).max())})
+        s.frame_set(f);bpy.context.view_layer.update();rows.append({'frame':f,'before_skin':base['skin'],'after_skin':check(b,regions),'surface_delta_max_m':float(np.linalg.norm(points(b)-base['p'],axis=1).max()),'native_factors':{m.name:m.factor for m in b.modifiers if m.name.startswith('Localized pose fold')}})
         if f==91:
             e=r.matrix_world@r.pose.bones['ORG-forearm.L'].head;place(cam,e+Vector((-1,-1,.45)),e,.40);s.render.filepath=str(out/'inner-elbow.png');bpy.ops.render.render(write_still=True)
     assert rows[0]['surface_delta_max_m']<1e-6
+    assert all(v>.79 for v in next(x for x in rows if x['frame']==91)['native_factors'].values())
     s.frame_set(1);bpy.ops.wm.save_as_mainfile(filepath=str(out/'incline.blend'));(out/'pose-fold.json').write_text(json.dumps({'method':'Native local pose-dependent fold correction in actual crossing region, two feather rings. No displacement cap; report actual surface displacement. Existing control isolation did not resolve crossings, so no hinge variant adopted. Original body, pose, grip, native rig and motion retained outside local region.','region':changed,'rows':rows,'adopted':False,'human_reviews':'pending'},indent=2));return {'max_pairs':max(v['intersection_pairs'] for row in rows for v in row['after_skin'].values())}
 
 

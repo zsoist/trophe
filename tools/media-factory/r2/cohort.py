@@ -256,6 +256,8 @@ def local_pose_fold(body,rig,core_by_side,*,start_deg=60.,full_deg=110.,factor=.
             var=driver.variables.new();var.name=name;var.type='LOC_DIFF'
             for target,bone in zip(var.targets,ends):target.id=rig;target.bone_target=bone+side;target.transform_space='WORLD_SPACE'
         t=f'min(1,max(0,(acos(min(1,max(-1,(c*c-a*a-b*b)/(2*a*b))))-{math.radians(start_deg)})/{math.radians(full_deg-start_deg)}))'
-        driver.expression=f'{factor}*({t})*({t})*(3-2*({t}))'
+        expr=f'{factor}*sin(min(pi/2,max(0,(acos(min(1,max(-1,(c*c-a*a-b*b)/(2*a*b))))-{math.radians(start_deg):.8g})*{math.pi/(2*math.radians(full_deg-start_deg)):.8g})))**2'
+        assert len(expr)<240
+        driver.expression=expr;assert driver.expression==expr
         record[side]={'core':sorted(rings[0]),'feather_rings':[sorted(x) for x in rings[1:]],'iterations':iterations,'factor_max':factor,'onset_flex_deg':start_deg,'full_flex_deg':full_deg,'native_modifier':'SMOOTH'}
     return record
