@@ -41,3 +41,31 @@ Official sources: [Luna](https://developers.openai.com/api/docs/models/gpt-5.6-l
 ## Verification status
 
 The unit and injected-query fixtures exercise production module/handler/provider code without credentials or network. They prove contract behavior, deterministic arithmetic and adapter configuration, not real Luna quality/latency or deployed database RLS. AG4 owns separate adversarial tests/holdouts. Full repository typecheck/lint/test/build and isolated database integration remain AG1/CI gates: local dependency installation/build is blocked by the program's boot-disk admission threshold. The focused read-only toolchain runs Node20.20.2 and Vitest4.1.10 with a private cache and one worker.
+
+## Shared conversation v2 — first broker slice
+
+The same private endpoint accepts `CoachConversationRequest` from `contracts.ts`.
+The existing v1 weekly request/response remains compatible. V2 accepts open text,
+up to six short history hints and removable screen context. It does not claim
+that a model interpreted the question: the currently connected service reports
+computed record facts and marks open-ended interpretation as not connected.
+History, attachment status and navigation entities are never evidence or access
+credentials. Every turn captures and rechecks server-authorized subject/tenant,
+timezone and language; snapshot units describe the returned standard facts.
+
+| Context/capability | Current implementation |
+|---|---|
+| Food records | Authorized food_log facts; missing records are unknown, not zero intake |
+| Workout and active plan | Existing authorized bounded reads and deterministic calculations |
+| Curated exercise | Existing catalog lookup when explicitly referenced |
+| Recipe/meal/session entity detail | Not connected; a navigation hint cannot grant resource access |
+| Profile/memory/images/voice/actions | Typed extension points, explicitly not connected |
+| Proposals/receipts | Empty; no action service has executed |
+| Model | Not connected under the effective US$0 allowance |
+
+The frontend owns its local conversation and cancels/reset it on identity or
+subject changes. This broker does not persist conversation history, infer memory,
+process attachments or emit a fabricated action receipt. Future connection of
+those services requires their own authorization and validation; request-side
+`available` attachment hints do not bypass that boundary. UI/HTTP integration and
+independent review are separate gates from the broker's offline tests.
