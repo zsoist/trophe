@@ -305,6 +305,14 @@ jobs:
         run: |
           echo "Coach HTTP/Auth candidate: $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
           echo 'See assertion results in job logs. Disposable local identities and records only. No model evaluation or physical-device performance claim.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload isolated coach UI evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: coach-ui-evidence
+          path: ${{ runner.temp }}/coach-ui-evidence/*.png
+          if-no-files-found: ignore
+          retention-days: 3
       - name: Stop disposable stack
         if: always()
         run: |

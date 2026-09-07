@@ -5,14 +5,14 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { I18nProvider } from '@/lib/i18n';
 import { FoodQuantityController, type FoodTransport } from '@/components/assistant/food-state';
 import { FoodQuantityPanel } from '@/components/assistant/FoodQuantityPanel';
-import type { FoodQuantityOperation, FoodQuantityProposal, FoodQuantityResult } from '@/agents/coach-assistant/food-contracts';
+import type { FoodEntrySnapshot, FoodQuantityOperation, FoodQuantityProposal, FoodQuantityResult } from '@/agents/coach-assistant/food-contracts';
 const id = () => crypto.randomUUID();
 const entryId = id(), conversationId = id();
 const values = { loggedDate: '2026-09-07', foodName: 'Fixture rice', grams: 250, quantity: 1, calories: 500, proteinG: 10, carbsG: 100, fatG: 5, fiberG: 2, sugarG: 1 };
 const base = { version: 'coach-assistant.v2' as const, storage: 'database' as const, ok: true as const };
 function fixture() {
   const controller = new FoodQuantityController();
-  let current = { ...values, entryId, version: '1' };
+  let current: FoodEntrySnapshot = { ...values, entryId, version: '1' };
   let proposal: FoodQuantityProposal;
   let saved: FoodQuantityResult;
   const transport = vi.fn<FoodTransport>(async operation => {

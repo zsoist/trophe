@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { createPilotBudgetStore } from '../../lib/workout/pilot-budget-service';
-import { COACH_ATTEMPT_RESERVATION_NANO_USD as reserve, type PilotAttemptBinding, type PilotBudgetCommand, type PilotBudgetResult } from '../../agents/coach-assistant/pilot-budget';
+import { COACH_ATTEMPT_RESERVATION_NANO_USD as reserve, executePilotBudgetCommand, type PilotAttemptBinding, type PilotBudgetCommand, type PilotBudgetResult } from '../../agents/coach-assistant/pilot-budget';
 import { COACH_PRICING_VERSION } from '../../agents/coach-assistant/economics';
 
 const target = new URL(process.env.DATABASE_URL ?? 'about:blank');
@@ -26,6 +26,19 @@ function attempt(turnId = randomUUID()): PilotAttemptBinding {
 }
 const cap = (value: number) => pool.query('UPDATE private.coach_pilot_budgets SET cap_nano_usd=$2 WHERE id=$1', [pilotId, value]);
 async function main() {
+  if (process.argv[2] === 'recover-pricing') {
+    const binding = JSON.parse(process.env.COACH_PILOT_RECOVERY!);
+    const expected = JSON.parse(process.env.COACH_PILOT_PRICING!);
+    const found = await execute(binding, 'lookup'); assert.ok(found.ok);
+    assert.deepEqual(found.record.usage, expected.usage);
+    assert.equal(found.record.unpricedModel, expected.responseModel); assert.equal(found.record.accountingAlert, true);
+    assert.equal(found.record.state, 'unknown'); assert.equal(found.record.chargedNanoUsd, reserve);
+    const settlement = await execute(binding, 'settle', expected.usage); assert.ok(!settlement.ok && settlement.error === 'invalid_transition');
+    const claim = await execute(binding, 'claim_dispatch'); assert.ok(!claim.ok && claim.error === 'budget_blocked');
+    const row = (await pool.query('SELECT actual_cost_usd,status FROM public.agent_runs WHERE id=$1', [binding.agentRunId])).rows[0];
+    assert.equal(row.actual_cost_usd, null); assert.equal(row.status, 'pending');
+    check = 'restart_preserves_unpriced_usage_reservation_and_blocks_settle_dispatch'; pass(); return;
+  }
   if (process.argv[2] === 'recover') {
     const binding = JSON.parse(process.env.COACH_PILOT_RECOVERY!);
     const found = await execute(binding, 'lookup'); assert.equal(found.ok, true); assert.ok(found.ok && found.record.state === 'unknown');
@@ -108,6 +121,22 @@ async function main() {
   check = 'deleted_attempt_is_detected_without_resetting_accounting';
   await pool.query('DELETE FROM public.agent_runs WHERE id=$1', [selected.agentRunId]);
   const missing = await execute(held, 'lookup'); assert.ok(!missing.ok && missing.error === 'uncertain'); pass();
+  for (const responseModel of [null, 'different-model', 'gpt-5.6-luna-snapshot']) {
+    check = 'unverified_model_pricing_stays_reserved_with_durable_alert';
+    const pricingPilot = randomUUID(); pilotIds.push(pricingPilot);
+    await pool.query('INSERT INTO private.coach_pilot_budgets(id,organization_id,allowed_actor_ids,cap_nano_usd) VALUES($1,$2,$3::uuid[],$4)', [pricingPilot, organizationId, [actorId], reserve * 3]);
+    const unpriced = { ...attempt(), pilotId: pricingPilot };
+    assert.equal((await execute(unpriced, 'reserve')).ok, true);
+    assert.equal((await execute(unpriced, 'claim_dispatch')).ok, true);
+    const usage = { inputTokens: 100, outputTokens: 10, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 5 };
+    const result = await executePilotBudgetCommand({ operation: 'mark_pricing_unknown', binding: unpriced, usage, responseModel }, service, signal);
+    assert.ok(result.ok && result.record.state === 'unknown' && result.record.chargedNanoUsd === reserve && result.record.accountingAlert);
+    const next = await execute({ ...attempt(), pilotId: pricingPilot }, 'reserve'); assert.ok(!next.ok && next.error === 'budget_blocked');
+    const recovery = spawnSync(process.execPath, ['--import', 'tsx', 'scripts/test/coach-pilot-budget-sql.ts', 'recover-pricing'], { stdio: 'inherit', env: {
+      ...process.env, COACH_PILOT_RECOVERY: JSON.stringify(unpriced), COACH_PILOT_PRICING: JSON.stringify({ responseModel, usage }),
+    } });
+    assert.equal(recovery.status, 0); pass();
+  }
 }
 main().catch(error => {
   process.stderr.write(JSON.stringify({ event: 'coach_pilot_sql', check, outcome: 'failed', ...(typeof error?.code === 'string' && /^[0-9A-Z]{5}$/.test(error.code) ? { sqlstate: error.code } : {}) }) + '\n'); process.exitCode = 1;

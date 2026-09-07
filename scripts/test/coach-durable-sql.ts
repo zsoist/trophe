@@ -134,6 +134,10 @@ async function main() {
   const pilot = spawnSync(process.execPath, ['--import', 'tsx', 'scripts/test/coach-pilot-budget-sql.ts'], { stdio: 'inherit', env: process.env });
   assert.equal(pilot.status, 0);
 
+  check = 'reviewed_food_quantity_transactions';
+  const food = spawnSync(process.execPath, ['--import', 'tsx', 'scripts/test/coach-food-sql.ts'], { stdio: 'inherit', env: process.env });
+  assert.equal(food.status, 0);
+
   check = 'durable_global_ui_real_auth_http';
   const root = process.env.RUNNER_TEMP;
   assert.ok(root && isAbsolute(root));
