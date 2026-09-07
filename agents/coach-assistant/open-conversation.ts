@@ -39,12 +39,21 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
     memories:(response.memories??[]).map(({text,confirmation,source})=>({text,confirmation,source})),
     limitations:response.output?.limitations.filter(value=>value!=='open_ended_interpretation_not_connected'),actionsAvailable:false};
   const system=candidateEvaluation?COACH_CANDIDATE_SYSTEM_PROMPT:COACH_CONVERSATIONAL_SYSTEM_PROMPT+(reviewInterpretation?'\nAn independent offline interpretation oracle is configured for this fixture. Declarative explanations may be proposed in answer, grounded in cited evidence. They will be withheld unless that separate oracle approves. All numeric, receipt, entity, medical and action restrictions still apply.':'');
-  const prompt=JSON.stringify(payload);
+  let prompt=JSON.stringify(payload);
   const validator=candidateEvaluation?candidateConversationSchema:openConversationSchema;
   const promptVersion=candidateEvaluation?COACH_CANDIDATE_PROMPT_VERSION:COACH_CONVERSATIONAL_PROMPT_VERSION;
   const schema=z.toJSONSchema(validator);
   // UTF-8 bytes bound tokens conservatively, including schema/system overhead.
+  let historyTrimmed=false;
+  while(new TextEncoder().encode(system+prompt+JSON.stringify(schema)).length>7500&&payload.history.length) {
+    // Current message, canonical facts and current context take priority. Drop
+    // older assistant snippets before literal user history; never trim facts.
+    const assistant=payload.history.findIndex(item=>item.role==='assistant');
+    payload.history=payload.history.filter((_,index)=>index!==(assistant<0?0:assistant));
+    historyTrimmed=true;prompt=JSON.stringify(payload);
+  }
   if(new TextEncoder().encode(system+prompt+JSON.stringify(schema)).length>7500)throw new Error('context_limit');
+  if(historyTrimmed)response.output?.limitations.push('history_trimmed_for_context_budget');
   signal.throwIfAborted();
   response.telemetry.modelCalls++;
   response.telemetry.promptVersion=promptVersion;
