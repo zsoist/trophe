@@ -283,7 +283,7 @@ def pose_fold(config,out):
     for f in [1,46,76,91,110,136,181]:s.frame_set(f);bpy.context.view_layer.update();before[f]={'p':points(b),'skin':check(b,regions)}
     core={side:sorted({i for h in before[91]['skin'][side]['hits'] for t in h['triangles'] for i in t}) for side in ['L','R']};assert all(core.values())
     changed=local_pose_fold(b,r,core)
-    proxy=bpy.data.objects.get('Incline upper garment collision surface')
+    proxy=bpy.data.objects.get('Incline upper garment collision surface') or bpy.data.objects.get('Incline native cloth binding surface')
     if proxy:local_pose_fold(proxy,r,core)
     rows=[];cam=studio(s);cam.data.sensor_fit='VERTICAL';s.render.engine='BLENDER_EEVEE';s.render.resolution_x=960;s.render.resolution_y=720
     for f,base in before.items():
