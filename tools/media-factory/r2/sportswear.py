@@ -32,6 +32,54 @@ def projection_comparison(config,out):
     return {'rows':[{k:(len(v) if isinstance(v,list) else v) for k,v in row.items()} for row in rows],'adopted':False}
 
 
+def sleeveless_pattern(config,out):
+    """Reuse the demonstrated armhole recut on the fitted core neckline pattern."""
+    import bmesh,math
+    from incline_refine import garment_surface_bind
+    bpy.ops.wm.open_mainfile(filepath=config['animation_source'])
+    s=bpy.context.scene;b=bpy.data.objects['Trophe_R2_Athlete'];r=bpy.data.objects['Trophe_R2_Authoring'];old=bpy.data.objects['SportsTank']
+    before={}
+    for f in [1,37,73,115,181]:s.frame_set(f);bpy.context.view_layer.update();before[f]=points(b)
+    s.frame_set(1);r.data.pose_position='REST'
+    for m in old.modifiers:
+        if m.type=='SOLIDIFY':m.show_viewport=m.show_render=False
+    bpy.context.view_layer.update();dg=bpy.context.evaluated_depsgraph_get();mesh=bpy.data.meshes.new_from_object(old.evaluated_get(dg),preserve_all_data_layers=True,depsgraph=dg)
+    cloth=bpy.data.objects.new('Recut native jersey',mesh);s.collection.objects.link(cloth);cloth.matrix_world=old.matrix_world.copy();bpy.data.objects.remove(old,do_unlink=True);cloth.name='SportsTank'
+    settings=config['armhole'];bm=bmesh.new();bm.from_mesh(mesh)
+    def outside(co):
+        z=(co.z-settings['center_z'])/settings['vertical_radius']
+        limit=settings['outer_x']-settings['inset']*math.sqrt(max(0,1-z*z)) if abs(z)<1 else settings['outer_x']
+        return co.z>settings['lower_z'] and abs(co.x)>limit
+    removed=[f for f in bm.faces if any(outside(v.co) for v in f.verts)]
+    count=len(removed);assert count
+    bmesh.ops.delete(bm,geom=removed,context='FACES');bmesh.ops.delete(bm,geom=[v for v in bm.verts if not v.link_faces],context='VERTS')
+    edge=[v for v in bm.verts if v.is_boundary and abs(v.co.x)>.095 and settings['lower_z']<v.co.z<1.54]
+    original={v:v.co.copy() for v in edge}
+    for _ in range(3):bmesh.ops.smooth_vert(bm,verts=edge,factor=.5,use_axis_x=True,use_axis_y=True,use_axis_z=True)
+    delta=max(((v.co-p).length for v,p in original.items()),default=0)
+    for v in bm.verts:v.select=v in original
+    bm.to_mesh(mesh);bm.free();mesh.update()
+    group=cloth.vertex_groups.new(name='Recut armhole edge fit');group.add([v.index for v in mesh.vertices if v.select],1.,'REPLACE')
+    wrap=cloth.modifiers.new('Rest armhole finish only','SHRINKWRAP');wrap.target=b;wrap.vertex_group=group.name;wrap.wrap_method='NEAREST_SURFACEPOINT';wrap.wrap_mode='ABOVE_SURFACE';wrap.offset=.004
+    bpy.ops.object.select_all(action='DESELECT');cloth.select_set(True);bpy.context.view_layer.objects.active=cloth;bpy.ops.object.modifier_apply(modifier=wrap.name)
+    edges={}
+    for face in mesh.polygons:
+        for e in face.edge_keys:edges[e]=edges.get(e,0)+1
+    boundary={i for e,n in edges.items() if n==1 for i in e};attr=mesh.attributes['Sportswear binding']
+    for v in mesh.vertices:attr.data[v.index].value=max(0.,1.-min((v.co-mesh.vertices[j].co).length for j in boundary)/.012)
+    bpy.ops.wm.save_as_mainfile(filepath=str(out/'rest-pattern.blend'))
+    binding=out/'native-binding';binding.mkdir();garment_surface_bind(dict(config,animation_source=str(out/'rest-pattern.blend')),binding)
+    cloth=bpy.data.objects['SportsTank'];b=bpy.data.objects['Trophe_R2_Athlete'];s=bpy.context.scene
+    for m in list(cloth.modifiers):
+        if m.type=='SOLIDIFY':cloth.modifiers.remove(m)
+    rows=[]
+    for f,p in before.items():
+        s.frame_set(f);bpy.context.view_layer.update();d=float(np.linalg.norm(points(b)-p,axis=1).max());assert d<1e-6;rows.append({'frame':f,'body_delta_m':d})
+    s.frame_set(1);bpy.ops.wm.save_as_mainfile(filepath=str(out/'athlete.blend'))
+    record={'cause':'Projected core short sleeves retain axillary fold; full-cycle crossings localized there. Removing projection exposes torso skin through cloth and is rejected.','intervention':'Native local armhole recut as demonstrated in original Curl pattern; preserve crew neckline and waist, smooth only cut border3iterations and refit border4mm in skeletonREST. Rebind native SurfaceDeform after topology change. No skin deletion, body/rig/motion/grip change.','representation':'Sleeveless double-sided textile surface; intentional open armholes, no fabric volume simulation.','removed_faces':count,'border_vertices':len(original),'border_smoothing_max_m':delta,'armhole':settings,'body_comparison':rows,'human_reviews':'pending','technical_passed':False}
+    (out/'sleeveless-pattern.json').write_text(json.dumps(record,indent=2));return record
+
+
 def run(config,out):
     from incline_refine import garment,garment_surface_bind
     bpy.ops.wm.open_mainfile(filepath=config['animation_source']);s=bpy.context.scene;body=bpy.data.objects['Trophe_R2_Athlete'];before={}
