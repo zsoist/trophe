@@ -136,6 +136,7 @@ export interface CoachConversationResponse {
   proposals: CoachProposal[];
   receipts: CoachReceipt[];
   attachments: CoachAttachmentRef[];
+  uploads?: { images: true; storage: 'isolated_ephemeral'; analysis: 'not_connected'; limits: typeof COACH_IMAGE_LIMITS };
   telemetry: CoachTelemetry;
 }
 
