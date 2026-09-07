@@ -264,3 +264,36 @@ def contact_audit(config,out):
         reports.append({'source':source,'reference':'evaluated animated frame1, stable source IDs, prop local metres','rows':rows})
     record={'sources':reports,'method':'No master edits. Forward evaluation visits181frames; reverse revisits critical frames. Fixed13-ish skin IDs, full ORG-hand transforms, normal/tangential displacement and residual after rigid transport. Not signed contact gap or friction simulation.','human_reviews':'pending'}
     (out/'contact-audit.json').write_text(json.dumps(record,indent=2));return {'sources':len(reports),'rows':sum(len(x['rows']) for x in reports),'source_modified':False}
+
+
+def contact_constraint(config,out):
+    """One native constraint intervention; preserve immutable input and full prop path."""
+    import numpy as np
+    from localize_contact import mesh_data
+    bpy.ops.wm.open_mainfile(filepath=config['animation_source'],load_ui=False,use_scripts=False)
+    s=bpy.context.scene;r=bpy.data.objects['Trophe_R2_Authoring'];b=bpy.data.objects['Trophe_R2_Athlete'];prop=bpy.data.objects['Copa single dumbbell authority']
+    frames=config['frames'];before={};cam=studio(s);s.render.engine='BLENDER_EEVEE';s.render.resolution_x=640;s.render.resolution_y=480;s.render.resolution_percentage=100
+    def sample(f):
+        s.frame_set(math.floor(f),subframe=f-math.floor(f));bpy.context.view_layer.update();p,t,ids=mesh_data(b)
+        return p,t,ids,np.array(prop.matrix_world)
+    poses={}
+    for f in frames:
+        p,t,ids,m=sample(f);before[f]=(p,ids,m)
+        poses[f]={side:list(r.matrix_world@r.pose.bones['ORG-hand.'+side].head) for side in ['L','R']}
+    # Same camera and lighting for each side and corresponding time in both passes.
+    def images(label):
+        for f in config['render_frames']:
+            sample(f)
+            for side in ['L','R']:
+                target=Vector(poses[f][side]);place(cam,target+Vector((.35 if side=='L' else -.35,-.45,.12)),target,.34)
+                s.render.filepath=str(out/(label+'-'+side+'-'+str(f).replace('.','_')+'.png'));bpy.ops.render.render(write_still=True)
+    images('before')
+    constraints=[]
+    for side in ['L','R']:
+        hand=r.pose.bones['hand_fk.'+side];c=hand.constraints.new('COPY_TRANSFORMS');c.name='Copa continuous full wrist authority';c.target=bpy.data.objects['Copa wrist target '+side];c.owner_space='WORLD';c.target_space='WORLD';c.mix_mode='REPLACE';constraints.append({'bone':hand.name,'constraint':c.name,'target':c.target.name})
+    rows=[]
+    for f in frames:
+        p,t,ids,m=sample(f);old,oldids,oldm=before[f];assert ids==oldids;assert np.max(abs(m-oldm))==0
+        delta=np.linalg.norm(p-old,axis=1);rows.append({'frame':f,'max_surface_change_m':float(delta.max()),'changed_over_10um_source_ids':[ids[i] for i in np.where(delta>1e-5)[0]],'prop_matrix_delta':float(abs(m-oldm).max()),'wrist_target_error_m':{side:((r.matrix_world@r.pose.bones['ORG-hand.'+side].head)-bpy.data.objects['Copa wrist target '+side].matrix_world.translation).length for side in ['L','R']}})
+    images('after');s.frame_set(1);bpy.ops.wm.save_as_mainfile(filepath=str(out/'triceps.blend'))
+    record={'source':config['animation_source'],'intervention':constraints,'rows':rows,'scope':'Only two native COPY_TRANSFORMS constraints added. Existing prop animation, body geometry/weights, fingers and arm animation untouched. Images use identical camera/light before/after.','human_reviews':'pending','adopted':False};(out/'contact-constraint.json').write_text(json.dumps(record,indent=2));return {'frames':len(rows),'adopted':False}

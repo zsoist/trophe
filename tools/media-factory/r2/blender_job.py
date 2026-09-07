@@ -231,6 +231,7 @@ def main():
     dispatch['copa_time_fix']=copa_joint.time_fix
     dispatch['copa_joint_audit']=copa_joint.audit
     dispatch['copa_contact_audit']=copa_joint.contact_audit
+    dispatch['copa_contact_constraint']=copa_joint.contact_constraint
     dispatch['arm_revision']=arm_revision.run
     dispatch['arm_validate']=arm_revision.validate
     dispatch['arm_panel']=arm_revision.panel
