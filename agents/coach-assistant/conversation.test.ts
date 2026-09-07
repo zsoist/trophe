@@ -6,6 +6,18 @@ import { defaultWorkoutPreferences } from '@/lib/workout/preferences';
 const request = { version:'coach-assistant.v2',conversationId:'a2c5ec63-6f35-4671-b4f1-6644ca9d739c',turnId:'aac3a82e-898c-4907-b9b9-75133bb6d27f',message:'Tell me about my food and training this week' };
 const options = () => ({actorId:'synthetic-client',repository:fixtureRepository(),now:new Date('2026-09-07T03:30:00Z'),signal:new AbortController().signal,mode:'offline' as const});
 describe('authorized shared conversation broker',()=>{
+  it('advertises isolated actions only for the explicit service flag and authorized own valid profile',async()=>{
+    const opts=options();opts.repository.dataSource='authorized_records';
+    opts.repository.personalContext=async()=>({truncated:false,rows:[{userId:opts.actorId,preferences:defaultWorkoutPreferences,memories:[]}]});
+    const capability=(result:Awaited<ReturnType<typeof runConversation>>)=>result.snapshot?.capabilities.find(c=>c.key==='actions');
+    expect(capability(await runConversation(request,opts))?.status).toBe('not_connected');
+    expect(capability(await runConversation(request,{...opts,isolatedActionsEnabled:true}))).toMatchObject({status:'available',reason:'isolated_ephemeral_self_preferences'});
+    opts.repository.personalContext=async()=>({truncated:false,rows:[{userId:opts.actorId,preferences:{},memories:[]}]});
+    expect(capability(await runConversation(request,{...opts,isolatedActionsEnabled:true}))?.status).toBe('not_connected');
+    opts.repository.dataSource='synthetic';
+    opts.repository.personalContext=async()=>({truncated:false,rows:[{userId:opts.actorId,preferences:defaultWorkoutPreferences,memories:[]}]});
+    expect(capability(await runConversation(request,{...opts,isolatedActionsEnabled:true}))?.status).toBe('not_connected');
+  });
   it('loads profile and unconfirmed memory through a fourth authorized read, never as computed facts',async()=>{
     const opts=options();
     opts.repository.personalContext=async()=>({truncated:false,rows:[{userId:opts.actorId,preferences:defaultWorkoutPreferences,memories:[{id:request.turnId,userId:opts.actorId,text:'I prefer afternoons.',source:'user_input',createdAt:opts.now.toISOString(),scope:'user',version:'v1'}]}]});
