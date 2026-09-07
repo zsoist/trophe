@@ -1,4 +1,4 @@
-import type { CoachConversationResponse } from '@/agents/coach-assistant/contracts';
+import { COACH_IMAGE_LIMITS, type CoachConversationResponse } from '@/agents/coach-assistant/contracts';
 import { readCoachResponse } from '@/components/workout/coach/client';
 import type { ConversationTransport } from './conversation-state';
 
@@ -27,6 +27,12 @@ export function readConversationResponse(value: unknown): CoachConversationRespo
     || typeof item.id !== 'string' || typeof item.text !== 'string' || item.text.length > 2000 || typeof item.createdAt !== 'string'
     || !['user_input', 'coach', 'agent_inference', 'wearable'].includes(item.source)
     || !['user', 'session', 'agent'].includes(item.scope) || !['unconfirmed', 'confirmed'].includes(item.confirmation)))) throw new Error('invalid_output');
+  if (row.uploads !== undefined) {
+    const upload = row.uploads as Record<string, unknown>;
+    const limits = upload?.limits as Record<string, unknown> | undefined;
+    if (!upload || upload.images !== true || upload.storage !== 'isolated_ephemeral' || upload.analysis !== 'not_connected' || !limits
+      || Object.entries(COACH_IMAGE_LIMITS).some(([key, value]) => limits[key] !== value)) throw new Error('invalid_upload_capability');
+  }
   return value as CoachConversationResponse;
 }
 

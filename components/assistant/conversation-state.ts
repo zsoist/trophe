@@ -1,4 +1,4 @@
-import type { CoachContextHint, CoachConversationRequest, CoachConversationResponse, CoachSurface } from '@/agents/coach-assistant/contracts';
+import type { CoachAttachmentRef, CoachContextHint, CoachConversationRequest, CoachConversationResponse, CoachSurface } from '@/agents/coach-assistant/contracts';
 
 export type ConversationTransport = (request: CoachConversationRequest, signal: AbortSignal) => Promise<CoachConversationResponse>;
 export interface ConversationTurn { request: CoachConversationRequest; response?: CoachConversationResponse }
@@ -26,12 +26,13 @@ export class ConversationController {
     this.generation++; this.active.abort(); this.active = null;
     this.publish({ ...this.state, pending: false, error: 'cancelled', draft: this.state.draft || this.state.turns.at(-1)?.request.message || '' });
   }
-  async send(context: CoachContextHint | undefined, transport: ConversationTransport) {
+  async send(context: CoachContextHint | undefined, transport: ConversationTransport, attachments: CoachAttachmentRef[] = []) {
     const message = this.state.draft.trim();
     if (!this.identity || this.active || !message) return;
     const request: CoachConversationRequest = {
       version: 'coach-assistant.v2', conversationId: this.state.conversationId, turnId: crypto.randomUUID(), message,
       ...(context ? { context: structuredClone(context) } : {}),
+      ...(attachments.length ? { attachments: structuredClone(attachments.slice(0, 3)) } : {}),
       history: this.state.turns.filter(turn => turn.response?.ok).flatMap(turn => [
         { role: 'user' as const, text: turn.request.message.slice(0, 500) },
         { role: 'assistant' as const, text: (turn.response?.output?.answer ?? '').slice(0, 500) },

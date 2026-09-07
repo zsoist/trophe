@@ -41,3 +41,15 @@
 
 .memoryActions { display: flex; flex-wrap: wrap; gap: .5rem; }
 .profileBody textarea { display: block; width: 100%; resize: vertical; font-size: 16px; }
+
+.attachments { border-bottom: 1px solid var(--border-default); font-size: .75rem; }
+.attachments summary { display: flex; gap: .5rem; align-items: center; min-height: 44px; cursor: pointer; }
+.attachments[open] { max-height: 40dvh; overflow: auto; padding-bottom: .5rem; }
+.attachments p { line-height: 1.5; color: var(--text-secondary); }
+.attachments button { min-height: 44px; padding: .5rem .65rem; border: 1px solid var(--border-default); border-radius: 10px; margin-top: .4rem; }
+.attachments button:disabled { opacity: .5; }
+.attachments li { display: flex; gap: .5rem; margin-top: .75rem; }
+.attachments li > div { min-width: 0; flex: 1; }
+.attachments img { object-fit: cover; border-radius: 8px; width: 48px; height: 48px; }
+.fileName { overflow-wrap: anywhere; }
+.composer { overflow-y: auto; min-height: 0; }
