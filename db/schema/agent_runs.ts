@@ -13,6 +13,7 @@
  * Phase 4 will add food_id FK once the foods table exists.
  */
 
+import { sql } from 'drizzle-orm';
 import {
   pgTable,
   uuid,
@@ -21,6 +22,7 @@ import {
   real,
   timestamp,
   index,
+  uniqueIndex,
   jsonb,
 } from 'drizzle-orm/pg-core';
 import { userRoleEnum } from './enums';
@@ -97,5 +99,11 @@ export const agentRuns = pgTable(
     index('idx_agent_runs_generation').on(t.generationId),
     index('idx_agent_runs_org_created').on(t.organizationId, t.createdAt),
     index('idx_agent_runs_status_created').on(t.status, t.createdAt),
+    uniqueIndex('idx_agent_runs_coach_pilot_attempt')
+      .on(sql`(${t.metadata}->'coachPilot'->'binding'->>'attemptId')`)
+      .where(sql`${t.metadata} ? 'coachPilot'`),
+    index('idx_agent_runs_coach_pilot_rows')
+      .on(sql`(${t.metadata}->'coachPilot'->'binding'->>'pilotId')`)
+      .where(sql`${t.metadata} ? 'coachPilot'`),
   ],
 );
