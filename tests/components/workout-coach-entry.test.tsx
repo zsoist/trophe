@@ -11,7 +11,11 @@ vi.mock('@/components/ui/BotNav', () => ({ BotNav: () => null }));
 vi.mock('@/components/assistant/GlobalCoachEntry', () => ({ GlobalCoachEntry: ({ contextSlot }: { contextSlot?: unknown }) => <div data-testid="coach-entry" data-workout-context={String(Boolean(contextSlot))} /> }));
 vi.mock('@/components/workout/workspace/WorkoutWorkspaceHeader', () => ({ WorkoutWorkspaceHeader: () => null }));
 vi.mock('@/components/workout/workspace/WorkoutRouteTransition', () => ({ WorkoutRouteTransition: ({ children }: { children: React.ReactNode }) => children }));
-vi.mock('@/components/workout/workspace/WorkoutWorkspaceProvider', () => ({ WorkoutWorkspaceProvider: ({ children }: { children: React.ReactNode }) => <div data-testid="workout-provider">{children}</div> }));
+vi.mock('@/lib/supabase', () => ({ supabase: {} }));
+vi.mock('@/components/workout/workspace/WorkoutWorkspaceProvider', () => ({
+  WorkoutWorkspaceProvider: ({ children }: { children: React.ReactNode }) => <div data-testid="workout-provider">{children}</div>,
+  useWorkoutWorkspace: () => ({ state: { stage: 'home', draft: null, startRequest: null, retrospectiveRequest: null } }),
+}));
 
 import { ClientShell } from '@/components/shared/ClientShell';
 import WorkoutLayout from '@/app/dashboard/workout/layout';
