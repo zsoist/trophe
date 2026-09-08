@@ -70,6 +70,12 @@ describe('disposable CI authorized-records engine composition',()=>{
   const unbound=await engine.run({...request,turnId:id(6),context:{surface:'plan' as const,includeScreen:false,workspace:{kind:'draft' as const,version}}},{...options(),isolatedActionsEnabled:true});
   expect(unbound.ok).toBe(true);expect(unbound.actionIntents).toEqual([]);
  });
+ it('keeps ordinary isolated queries on the candidate path when actions are enabled',async()=>{
+  const engine=createIsolatedCoachEngineBinding(config());
+  const response=await engine.run(input,{...options(),isolatedActionsEnabled:true});
+  expect(response.ok).toBe(true);expect(response.actionIntents).toEqual([]);
+  expect(response).toMatchObject({evaluation:{transport:'injected_fixture',release:'unapproved_candidate'}});
+ });
  it.each([{CI:'false'},{GITHUB_ACTIONS:'false'},{CI_REAL_SUPABASE:'0'},{VERCEL_ENV:'production'},{TROPHE_ALLOW_PAID_AI:'1'},{NEXT_PUBLIC_SUPABASE_URL:'https://remote.invalid'},{DATABASE_URL:'postgresql://fixture@127.0.0.1:54323/postgres'},{COACH_ASSISTANT_DATA_SOURCE:'synthetic'}])('rejects mismatched server guard %j',override=>{expect(()=>createIsolatedCoachEngineBinding({...config(),...override})).toThrow('isolated_engine_disabled');});
  it('does not accept a forged capability or substitute transport and rechecks guard validity',async()=>{
   const env=config();const {boundary,provider}=createIsolatedEngineBoundary(env);const fake=vi.fn(provider);
