@@ -23,6 +23,7 @@ The pilot remains closed unless all server-side Preview variables are present:
 - `COACH_ASSISTANT_PREVIEW_USER_IDS=<authorized actor UUID>`
 
 Client Food confirmation also requires the existing `NEXT_PUBLIC_COACH_FOOD_ACTIONS_ENABLED=1`; it does not authorize provider spend.
+Removing every UUID from `allowed_actor_ids` is the database-level kill switch and blocks all actors.
 
 ## Operator-gated database package
 

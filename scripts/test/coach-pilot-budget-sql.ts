@@ -5,7 +5,7 @@ import { Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { createPilotBudgetStore } from '../../lib/workout/pilot-budget-service';
 import { COACH_ATTEMPT_RESERVATION_NANO_USD as reserve, executePilotBudgetCommand, type PilotAttemptBinding, type PilotBudgetCommand, type PilotBudgetResult } from '../../agents/coach-assistant/pilot-budget';
-import { COACH_PRICING_VERSION } from '../../agents/coach-assistant/economics';
+import { COACH_PILOT_OPERATING_TARGET_USD, COACH_PRICING_VERSION } from '../../agents/coach-assistant/economics';
 
 const target = new URL(process.env.DATABASE_URL ?? 'about:blank');
 if (process.env.CI !== 'true' || process.env.GITHUB_ACTIONS !== 'true' || process.env.CI_REAL_SUPABASE !== '1'
@@ -16,6 +16,7 @@ for (const id of [actorId, organizationId]) assert.match(id, /^[a-f0-9-]{36}$/);
 const pool = new Pool({ connectionString: target.toString(), max: 4, connectionTimeoutMillis: 5000, statement_timeout: 5000 });
 const service = createPilotBudgetStore(drizzle(pool), actorId), signal = new AbortController().signal;
 const pilotId = randomUUID(), runIds: string[] = [], pilotIds = [pilotId];
+const operatingTargetNanoUsd = COACH_PILOT_OPERATING_TARGET_USD * 1e9;
 let check = 'setup', fixtureInserted = false;
 function pass() { process.stdout.write(JSON.stringify({ event: 'coach_pilot_sql', check, outcome: 'passed' }) + '\n'); }
 const execute = (binding: PilotAttemptBinding, operation: PilotBudgetCommand['operation'], usage?: Extract<PilotBudgetCommand, { operation: 'settle' }>['usage']) => service.execute({ operation, binding, ...(usage ? { usage } : {}) } as PilotBudgetCommand, signal) as Promise<PilotBudgetResult>;
@@ -23,7 +24,8 @@ function attempt(turnId = randomUUID()): PilotAttemptBinding {
   const agentRunId = randomUUID(); runIds.push(agentRunId);
   return { pilotId, actorId, attemptId: randomUUID(), agentRunId, turnId, model: 'gpt-5.6-luna', pricingVersion: COACH_PRICING_VERSION, requestHash: 'a'.repeat(64), reservedNanoUsd: reserve };
 }
-const cap = (value: number) => pool.query('UPDATE private.coach_pilot_budgets SET cap_nano_usd=$2 WHERE id=$1', [pilotId, value]);
+const cap = (value: number) => pool.query(`UPDATE private.coach_pilot_budgets
+  SET cap_nano_usd=$2::bigint,operating_target_nano_usd=LEAST($2::bigint,$3::bigint) WHERE id=$1`, [pilotId, value, operatingTargetNanoUsd]);
 async function main() {
   if (process.argv[2] === 'recover-pricing') {
     const binding = JSON.parse(process.env.COACH_PILOT_RECOVERY!);
@@ -54,8 +56,11 @@ async function main() {
     WHERE n.nspname='public' AND t.relname='agent_runs' AND pg_get_indexdef(i.indexrelid) LIKE '%coachPilot%'`);
   assert.ok(indexes.rows.some(row=>row.indisunique&&row.definition.includes('attemptId')));
   assert.ok(indexes.rows.some(row=>row.definition.includes('pilotId')));pass();
-  await pool.query('INSERT INTO private.coach_pilot_budgets(id,organization_id,allowed_actor_ids) VALUES($1,$2,$3::uuid[])', [pilotId, organizationId, [actorId]]);
+  await pool.query(`INSERT INTO private.coach_pilot_budgets(
+    id,scope_key,organization_id,allowed_actor_ids,cap_nano_usd,operating_target_nano_usd
+  ) VALUES($1,'ask-trophe-shared',$2,$3::uuid[],$4,$5)`, [pilotId, organizationId, [actorId], 3_000_000_000, operatingTargetNanoUsd]);
   fixtureInserted=true;
+  await cap(0);
   check = 'zero_cap_and_foreign_identity_blocked';
   const zero = await execute(attempt(), 'reserve'); assert.ok(!zero.ok && zero.error === 'budget_blocked');
   const foreign = await execute({ ...attempt(), actorId: randomUUID() }, 'reserve'); assert.ok(!foreign.ok && foreign.error === 'budget_blocked'); pass();
@@ -63,6 +68,10 @@ async function main() {
   check = 'concurrent_reservations_cannot_exceed_cap';
   const left = attempt(), right = attempt();
   const competing = await Promise.all([execute(left, 'reserve'), execute(right, 'reserve')]);
+  if (competing.filter(result => result.ok).length !== 1) {
+    process.stderr.write(JSON.stringify({ event: 'coach_pilot_sql_diagnostic', check,
+      outcomes: competing.map(result => result.ok ? 'reserved' : result.error) }) + '\n');
+  }
   assert.equal(competing.filter(result => result.ok).length, 1);
   const selected = competing[0].ok ? left : right;
   assert.equal(Number((await pool.query('SELECT charged_nano_usd FROM private.coach_pilot_budgets WHERE id=$1', [pilotId])).rows[0].charged_nano_usd), reserve); pass();
@@ -109,7 +118,9 @@ async function main() {
   const todayAttempt=attempt();assert.equal((await execute(todayAttempt,'reserve')).ok,true);assert.equal((await execute(todayAttempt,'release_unstarted')).ok,true);pass();
   check = 'second_shared_budget_authority_is_rejected';
   const otherPilot = randomUUID(); pilotIds.push(otherPilot);
-  await assert.rejects(pool.query('INSERT INTO private.coach_pilot_budgets(id,organization_id,allowed_actor_ids,cap_nano_usd) VALUES($1,$2,$3::uuid[],$4)', [otherPilot, organizationId, [actorId], reserve * 20]), { code: '23505' });
+  await assert.rejects(pool.query(`INSERT INTO private.coach_pilot_budgets(
+    id,scope_key,organization_id,allowed_actor_ids,cap_nano_usd,operating_target_nano_usd
+  ) VALUES($1,'ask-trophe-shared',$2,$3::uuid[],$4,$5)`, [otherPilot, organizationId, [actorId], 3_000_000_000, operatingTargetNanoUsd]), { code: '23505' });
   const foreignPilot = await execute({ ...attempt(), pilotId: otherPilot }, 'reserve');
   assert.ok(!foreignPilot.ok && foreignPilot.error === 'budget_blocked'); pass();
   {

@@ -1,4 +1,5 @@
 import { isIsolatedEngineBoundary, type IsolatedEngineBoundary } from './isolated-engine-boundary';
+import { isGovernedPilotBoundary, type GovernedPilotBoundary } from './governed-engine-boundary';
 import { runConversation } from './conversation';
 import type { RunOptions } from './index';
 import { explicitFoodQuantityCorrectionTarget, explicitSetCorrectionTarget, type OfflineConversationProvider } from './open-conversation';
@@ -7,7 +8,7 @@ import { explicitFoodQuantityCorrectionTarget, explicitSetCorrectionTarget, type
  * No per-turn semantic oracle: acceptance belongs to independent release evals.
  * Non-synthetic inputs remain blocked and all results are marked unapproved.
  */
-export async function runConversationCandidate(raw:unknown,options:RunOptions&{capabilityRegistry?:import('./capability-registry').CoachCapabilityRegistry;offlineConversationProvider:OfflineConversationProvider;isolatedFixtureBoundary?:IsolatedEngineBoundary;isolatedActionsEnabled?:boolean;workoutSetIntentsEnabled?:boolean;foodQuantityIntentsEnabled?:boolean;pilotEvaluation?:boolean;providerEvidence?:'injected_fixture'|'provider_real'}) {
+export async function runConversationCandidate(raw:unknown,options:RunOptions&{capabilityRegistry?:import('./capability-registry').CoachCapabilityRegistry;offlineConversationProvider:OfflineConversationProvider;isolatedFixtureBoundary?:IsolatedEngineBoundary;governedPilotBoundary?:GovernedPilotBoundary;isolatedActionsEnabled?:boolean;workoutSetIntentsEnabled?:boolean;foodQuantityIntentsEnabled?:boolean;pilotEvaluation?:boolean;providerEvidence?:'injected_fixture'|'provider_real'}) {
   const request=raw&&typeof raw==='object'?raw as Record<string,unknown>:null;
   const context=request?.context&&typeof request.context==='object'?request.context as Record<string,unknown>:null;
   const workspace=context?.workspace&&typeof context.workspace==='object'?context.workspace as Record<string,unknown>:null;
@@ -21,10 +22,22 @@ export async function runConversationCandidate(raw:unknown,options:RunOptions&{c
     && typeof context?.surface==='string';
   const fixtureAction=(options.isolatedActionsEnabled===true&&boundDraftRequest||boundSetRequest||boundFoodRequest)
     && isIsolatedEngineBoundary(options.isolatedFixtureBoundary,options.offlineConversationProvider);
+  const governedPilot=isGovernedPilotBoundary(options.governedPilotBoundary,options.offlineConversationProvider);
+  const governedAction=governedPilot&&(boundDraftRequest||boundSetRequest||boundFoodRequest);
   const measuredPilot=options.pilotEvaluation===true;
-  const result=await runConversation(raw,{...options,mode:'model',offlineCandidateEvaluation:measuredPilot?false:!fixtureAction,
+  const result=await runConversation(raw,{...options,mode:'model',offlineCandidateEvaluation:measuredPilot?false:governedPilot||!fixtureAction,
+    candidateActionsEnabled:governedAction,
     workoutSetIntentsEnabled:measuredPilot||options.workoutSetIntentsEnabled,foodQuantityIntentsEnabled:measuredPilot||options.foodQuantityIntentsEnabled,
     ...(fixtureAction||measuredPilot?{offlineInterpretationReview:async()=>({approved:true})}:{}),
   });
+  if(options.providerEvidence==='provider_real'&&result.ok&&result.output) {
+    result.output.answer=result.output.answer.replace(
+      'Isolated transport fixture evaluation using authorized records. Unapproved conversational candidate:',
+      'Private Luna pilot:',
+    );
+    result.output.limitations=result.output.limitations.filter(value=>value!=='offline_transport_not_live_model_quality');
+    const model=result.snapshot?.capabilities.find(capability=>capability.key==='model');
+    if(model){model.status='available';model.reason='private_live_luna_pilot';}
+  }
   return {...result,evaluation:{transport:options.providerEvidence??'injected_fixture',records:result.dataSource,release:'unapproved_candidate' as const,semanticQualityVerified:false as const}};
 }

@@ -17,6 +17,7 @@ describe('Ask Trophē shared pilot budget migration', () => {
       expect.objectContaining({ tag: '0086_coach_pilot_budget_authority' }),
     ]);
     expect(migration).toContain("scope_key text NOT NULL UNIQUE CHECK (scope_key = 'ask-trophe-shared')");
+    expect(migration).toContain('cardinality(allowed_actor_ids) BETWEEN 0 AND 16');
     expect(migration).toContain('ALTER TABLE private.coach_pilot_budgets ENABLE ROW LEVEL SECURITY');
     expect(migration).toContain('REVOKE ALL ON private.coach_pilot_budgets FROM PUBLIC, anon, authenticated');
     expect(migration).toContain('GRANT SELECT, INSERT, UPDATE, DELETE ON private.coach_pilot_budgets TO service_role');

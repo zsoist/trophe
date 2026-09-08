@@ -2,7 +2,7 @@ CREATE TABLE private.coach_pilot_budgets (
   id uuid PRIMARY KEY,
   scope_key text NOT NULL UNIQUE CHECK (scope_key = 'ask-trophe-shared'),
   organization_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE RESTRICT,
-  allowed_actor_ids uuid[] NOT NULL CHECK (cardinality(allowed_actor_ids) BETWEEN 1 AND 16),
+  allowed_actor_ids uuid[] NOT NULL CHECK (cardinality(allowed_actor_ids) BETWEEN 0 AND 16),
   cap_nano_usd bigint NOT NULL DEFAULT 0 CHECK (cap_nano_usd BETWEEN 0 AND 3000000000),
   operating_target_nano_usd bigint NOT NULL DEFAULT 0 CHECK (operating_target_nano_usd BETWEEN 0 AND cap_nano_usd),
   budget_day date NOT NULL DEFAULT ((statement_timestamp() AT TIME ZONE 'America/Bogota')::date),

@@ -11,6 +11,20 @@ export async function POST(request: NextRequest) {
       const { createIsolatedCoachEngineBinding } = await import('@/agents/coach-assistant/isolated-engine');
       return createIsolatedCoachEngineBinding(process.env);
     },
+    createGovernedEngine: async (actorId: string) => {
+      const [{ db }, { invokeStructuredProvider }, { createPilotBudgetStore }, { createGovernedCoachEngineBinding }] = await Promise.all([
+        import('@/db/client'),
+        import('@/agents/runtime/providers/structured'),
+        import('@/lib/workout/pilot-budget-service'),
+        import('@/agents/coach-assistant/governed-engine'),
+      ]);
+      return createGovernedCoachEngineBinding({
+        env: process.env,
+        actorId,
+        persistentStore: createPilotBudgetStore(db, actorId),
+        transport: invokeStructuredProvider,
+      });
+    },
     guard: async () => {
       const { guardAiRoute } = await import('@/lib/security/api-guard');
       const guard = await guardAiRoute(request);

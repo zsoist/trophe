@@ -8,6 +8,7 @@ import { createPersistentMemoryTurn } from './memory-turn';
 import { executePersistentMemoryAction } from './memory-actions';
 import type { PersistentMemoryService } from './memory-contracts';
 import type { createIsolatedCoachEngineBinding } from './isolated-engine';
+import type { GovernedCoachEngineBinding } from './governed-engine';
 import { runConversationCandidate } from './conversation-candidate';
 import type { PilotTransport } from './pilot-runner';
 import { executeFoodQuantityAction, type FoodQuantityService } from './food-actions';
@@ -41,6 +42,7 @@ interface HandlerDependencies {
   createMessageService?:()=>CoachMessageService|Promise<CoachMessageService>;
   isolatedEngine?:ReturnType<typeof createIsolatedCoachEngineBinding>;
   createIsolatedEngine?:()=>ReturnType<typeof createIsolatedCoachEngineBinding>|Promise<ReturnType<typeof createIsolatedCoachEngineBinding>>;
+  createGovernedEngine?:(actorId:string)=>GovernedCoachEngineBinding|Promise<GovernedCoachEngineBinding>;
   candidateEvaluation?:{kind:'injected_fixture';transport:PilotTransport};
   now?: () => Date;
 }
@@ -219,12 +221,20 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
         if(!deps.createMessageService)return fail('provider_unavailable',503);
         capabilityRegistry=createCoachCapabilityRegistry({message:await deps.createMessageService()});
       }
-      const isolated=conversational&&deps.env.COACH_ASSISTANT_ISOLATED_ENGINE_ENABLED==='1';
+      const isolatedRequested=conversational&&deps.env.COACH_ASSISTANT_ISOLATED_ENGINE_ENABLED==='1';
+      const candidateRequested=conversational&&deps.env.COACH_ASSISTANT_CANDIDATE_EVALUATION_ENABLED==='1';
+      const liveRequested=conversational&&deps.env.COACH_ASSISTANT_LIVE_PILOT_ENABLED==='1';
+      if([isolatedRequested,candidateRequested,liveRequested].filter(Boolean).length>1)return fail('budget_blocked',503);
+      const isolated=isolatedRequested;
       if(isolated&&synthetic)return fail('budget_blocked',503);
       const isolatedEngine=isolated?(deps.isolatedEngine??await deps.createIsolatedEngine?.()):undefined;
       if(isolated&&!isolatedEngine)return fail('budget_blocked',503);
-      const candidate=!isolated&&conversational&&deps.env.COACH_ASSISTANT_CANDIDATE_EVALUATION_ENABLED==='1';
+      const candidate=candidateRequested;
       if(candidate&&(!synthetic||deps.candidateEvaluation?.kind!=='injected_fixture'))return fail('budget_blocked',503);
+      const live=liveRequested;
+      if(live&&synthetic)return fail('budget_blocked',503);
+      const governedEngine=live?await deps.createGovernedEngine?.(guard.userId):undefined;
+      if(live&&!governedEngine)return fail('budget_blocked',503);
       const durableChat=conversational&&deps.env.COACH_ASSISTANT_CHAT_HISTORY_ENABLED==='1';
       if(durableChat&&(synthetic||candidate||!deps.createChatService))return fail('provider_unavailable',503);
       const runOptions={
@@ -237,12 +247,12 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
         actorId:synthetic?'synthetic-client':guard.userId,
         repository,
         now:synthetic?new Date('2026-09-07T03:30:00Z'):(deps.now?.()??new Date()),
-        signal:controller.signal,mode:(isolated||candidate||deps.env.COACH_ASSISTANT_MODE==='model'?'model':'offline') as 'model'|'offline',
+        signal:controller.signal,mode:(isolated||candidate||live||deps.env.COACH_ASSISTANT_MODE==='model'?'model':'offline') as 'model'|'offline',
         deadlineMs:Math.max(1,45000-(performance.now()-start)),
       };
-      const persisted=durableChat?await runDurableChatTurn(parsed.data as import('./contracts').CoachConversationRequest,runOptions,await deps.createChatService!(),isolatedEngine):undefined;
+      const persisted=durableChat?await runDurableChatTurn(parsed.data as import('./contracts').CoachConversationRequest,runOptions,await deps.createChatService!(),isolatedEngine,governedEngine):undefined;
       if(persisted&&!persisted.saved)return fail('provider_unavailable',503);
-      const result=persisted?.saved?persisted.response:await (isolated?isolatedEngine!.run:candidate?runConversationCandidate:conversational?runConversation:run)(parsed.data,runOptions);
+      const result=persisted?.saved?persisted.response:await (isolated?isolatedEngine!.run:live?governedEngine!.run:candidate?runConversationCandidate:conversational?runConversation:run)(parsed.data,runOptions);
       if(durable&&result.version==='coach-assistant.v2'&&result.ok&&result.profile&&result.snapshot?.subjectId===guard.userId&&result.dataSource==='authorized_records') {
         const actions=result.snapshot.capabilities.find(capability=>capability.key==='actions');
         if(actions){actions.status='available';actions.reason='durable_preferences_only';}

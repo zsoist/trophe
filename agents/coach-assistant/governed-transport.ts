@@ -20,6 +20,7 @@ export interface GovernedAttemptTrace {
   reservationNanoUsd:number;usage:PilotUsage|null;pricedUsageNanoUsd:number|null;latencyMs:number|null;
   state:GovernedAttemptState;providerCalled:boolean;error:string|null;
 }
+const issuedTransports=new WeakSet<GovernedCoachTransport>();
 
 const digest=(value:unknown)=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 function stableId(parts:string[]):string {
@@ -69,5 +70,10 @@ export function createGovernedCoachTransport(input:{
       throw new Error('provider_unavailable');
     }
   };
+  issuedTransports.add(transport);
   return {transport,attempts,reservedMaximumUsd:2*COACH_ATTEMPT_RESERVATION_NANO_USD/USD_IN_NANODOLLARS};
+}
+
+export function isGovernedCoachTransport(value:unknown):value is GovernedCoachTransport {
+  return typeof value==='function'&&issuedTransports.has(value as GovernedCoachTransport);
 }

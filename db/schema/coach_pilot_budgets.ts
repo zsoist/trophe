@@ -20,7 +20,7 @@ export const coachPilotBudgets = privateSchema.table('coach_pilot_budgets', {
 }, (table) => [
   unique('coach_pilot_budgets_scope_key_key').on(table.scopeKey),
   check('coach_pilot_budgets_scope_key_check', sql`${table.scopeKey} = 'ask-trophe-shared'`),
-  check('coach_pilot_budgets_allowed_actor_ids_check', sql`cardinality(${table.allowedActorIds}) BETWEEN 1 AND 16`),
+  check('coach_pilot_budgets_allowed_actor_ids_check', sql`cardinality(${table.allowedActorIds}) BETWEEN 0 AND 16`),
   check('coach_pilot_budgets_cap_nano_usd_check', sql`${table.capNanoUsd} BETWEEN 0 AND 3000000000`),
   check('coach_pilot_budgets_operating_target_nano_usd_check', sql`${table.operatingTargetNanoUsd} BETWEEN 0 AND ${table.capNanoUsd}`),
   check('coach_pilot_budgets_charged_nano_usd_check', sql`${table.chargedNanoUsd} BETWEEN 0 AND 9007199254740991`),
