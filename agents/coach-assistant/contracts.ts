@@ -138,7 +138,7 @@ export interface CoachDraftUpdateIntent {
   source: 'provider_tool';
   subjectId: string;
   scopeKey: string;
-  surface: 'workout';
+  surface: 'workout' | 'plan';
   resource: { kind: 'draft'; id: string; version: string };
   target: { durationMinutes: number; equipment: ['dumbbells'] };
   reviewRequired: true;

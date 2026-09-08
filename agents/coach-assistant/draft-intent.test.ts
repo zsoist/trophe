@@ -18,7 +18,7 @@ const baseOutput = {
   escalation: false,
 };
 
-function request(surface: 'workout' | 'food' = 'workout', message = 'I only have 35 minutes and dumbbells.'): CoachConversationRequest {
+function request(surface: 'workout' | 'plan' | 'food' = 'workout', message = 'I only have 35 minutes and dumbbells.'): CoachConversationRequest {
   return {
     version: 'coach-assistant.v2' as const,
     conversationId,
@@ -103,6 +103,16 @@ describe('provider-authored Workout draft intent', () => {
       offlineInterpretationReview: review,
     });
     expect(result.actionIntents?.[0]?.target.durationMinutes).toBe(45);
+  });
+
+  it('preserves the canonical plan surface used by Workout build and review', async () => {
+    const result = await runConversation(request('plan'), {
+      actorId: 'synthetic-client', repository: fixtureRepository(), mode: 'model',
+      now: new Date('2026-09-08T00:00:00Z'), signal: new AbortController().signal,
+      offlineConversationProvider: provider({ action: 'draft.update', target: { durationMinutes: 35, equipment: ['dumbbells'] } }),
+      offlineInterpretationReview: review,
+    });
+    expect(result.actionIntents).toEqual([expect.objectContaining({ action: 'draft.update', surface: 'plan' })]);
   });
 
   it.each([
