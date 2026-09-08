@@ -6,14 +6,21 @@ This is not a second food mutation: manual edit/coachEdit and reviewed quantitie
 call the same applyFoodLogEdit and deriveFoodLogEdit with editFieldsSchema.
 
 createFoodQuantityService(db) implements FoodQuantityService.execute plus the real
-parseFoodQuantityChange validator. Operations are food.read/propose/apply/receipt,
-all bound to entryId, actor/self subject, organization, conversation and turn.
-Propose accepts grams only, showing the entry's full before/after values including
-recomputed macros. Apply requires proposal/hash/version/actionId and reviewed:true.
+parseFoodQuantityChange validator. Operations are food.resolve/read/propose/apply/receipt.
+Resolve accepts the old grams plus an optional visible meal or date hint, then selects
+exactly one currently owned row. No match returns not_found and multiple matches return
+ambiguous_selection for clarification; it never chooses another entry or creates a meal.
+Every later operation is bound to entryId, actor/self subject, organization, conversation
+and turn.
+Propose accepts grams only, showing the entry's full before/after values, foodId and
+source provenance, including macros recalculated through the shared Food derivation.
+The proposal carries expectedVersion. Apply requires proposal/hash/version/actionId
+and reviewed:true.
 The adapter verifies returned resource/quantity/receipt/refresh binding; no optimistic
 success is returned without an applied receipt and versioned refetch boundary.
 
-The transaction reauthorizes current client self and organization membership,
+The action boundary reauthorizes after service dispatch, and the transaction reauthorizes
+current client self and organization membership,
 locks the food_log row and canonical foods nutrient source, and checks the private
 entry revision. A saved proposal stores the shared calculation and a stable sorted
 JSON hash, independent of JSONB key ordering. Apply checks the original values and
@@ -60,7 +67,7 @@ and audit insertion: entry mutation, revision and receipt must roll back togethe
 These are required SQL oracles, not claims covered by the injected transaction tests.
 
 ### Gated handler transport (AG3)
-The existing `handleCoachRequest` accepts all four typed `food.*` operations via
+The existing `handleCoachRequest` accepts all five typed `food.*` operations via
 optional `createFoodService(): FoodQuantityService | Promise<FoodQuantityService>`.
 `COACH_ASSISTANT_FOOD_ACTIONS_ENABLED=1` is required independently of preference
 and isolated action flags. Default/off returns 404 before repository/service
@@ -71,6 +78,9 @@ binding and UI; activate only after isolated SQL acceptance. No route binding or
 flag activation is included in this change.
 
 UI contract: POST the `FoodQuantityOperation` union to the existing endpoint.
+The conversational intent target is `{selection:'authorized_food_entry',
+entryHintId,previousGrams,grams}`. It is only a review intent: call food.resolve with
+the old amount and optional hint, then use its canonical entry/version for propose.
 Read returns snapshot and its version. Propose sends that resourceVersion and
 `after: {grams}`; render the full before/after for review. Apply must carry the
 proposal id/hash, unchanged resourceVersion, stable actionId and `reviewed:true`.

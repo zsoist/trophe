@@ -153,7 +153,17 @@ export interface CoachWorkoutSetUpdateIntent {
   target: { selection: 'latest_open_session_set'; reps: number };
   reviewRequired: true;
 }
-export type CoachActionIntent = CoachDraftUpdateIntent | CoachWorkoutSetUpdateIntent;
+export interface CoachFoodQuantityUpdateIntent {
+  id: string;
+  action: 'food.quantity.update';
+  source: 'provider_tool';
+  subjectId: string;
+  scopeKey: string;
+  surface: CoachSurface;
+  target: { selection: 'authorized_food_entry'; entryHintId: string | null; previousGrams: number; grams: number };
+  reviewRequired: true;
+}
+export type CoachActionIntent = CoachDraftUpdateIntent | CoachWorkoutSetUpdateIntent | CoachFoodQuantityUpdateIntent;
 export interface CoachConversationResponse {
   foodPreference?:import('./food-preference-contracts').FoodPreferenceSnapshot;
   version: typeof COACH_CONVERSATION_VERSION;

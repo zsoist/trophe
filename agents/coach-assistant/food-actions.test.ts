@@ -5,9 +5,9 @@ import { fixtureRepository } from './fixtures';
 const id=(n:number)=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const actor=id(1);const entry=id(2);
 const base={version:'coach-assistant.v2',conversationId:id(3),turnId:id(4),entryId:entry};
-const before={loggedDate:'2026-09-07',foodName:'Fixture rice',grams:250,quantity:1,calories:500,proteinG:10,carbsG:100,fatG:5,fiberG:2,sugarG:1};
+const before={loggedDate:'2026-09-07',foodName:'Fixture rice',foodId:null,source:'natural_language',sourceId:'turn:fixture',grams:250,quantity:1,calories:500,proteinG:10,carbsG:100,fatG:5,fiberG:2,sugarG:1};
 const after={...before,grams:150,calories:300,proteinG:6,carbsG:60,fatG:3,fiberG:1.2,sugarG:0.6};
-const proposal={id:id(5),hash:'a'.repeat(64),action:'food.quantity.update',resource:{kind:'food_entry',id:entry,version:'7'},before,after,precondition:'7',expiresAt:'2026-09-07T01:00:00Z',reviewRequired:true};
+const proposal={id:id(5),hash:'a'.repeat(64),action:'food.quantity.update',resource:{kind:'food_entry',id:entry,version:'7'},before,after,expectedVersion:'7',precondition:'7',expiresAt:'2026-09-07T01:00:00Z',reviewRequired:true};
 const propose={...base,operation:'food.propose',resourceVersion:'7',after:{grams:150}};
 const apply={...base,operation:'food.apply',proposalId:proposal.id,hash:proposal.hash,actionId:id(6),resourceVersion:'7',reviewed:true};
 const receipt={id:id(7),actionId:id(6),proposalId:proposal.id,status:'applied',resourceVersion:'8',recordedAt:'2026-09-07T00:00:00Z'};
@@ -48,6 +48,11 @@ describe('Food grams adapter with injected shared service (no SQL or macro-calcu
     vi.mocked(deps.service.execute).mockClear();repositoryRevoked(deps.repository);
     expect(await executeFoodQuantityAction(actor,{...base,operation:'food.receipt',actionId:id(6)},deps.repository,deps.service,deps.signal)).toMatchObject({error:'forbidden'});
     expect(deps.service.execute).not.toHaveBeenCalled();
+  });
+  it('rejects a changed authorization scope after service dispatch',async()=>{
+    const deps=fixture();vi.mocked(deps.repository.authorize).mockResolvedValueOnce({actorId:actor,subjectId:actor,organizationId:id(8),timezone:'UTC',language:'en'}).mockResolvedValueOnce({actorId:actor,subjectId:actor,organizationId:id(9),timezone:'UTC',language:'en'});
+    expect(await executeFoodQuantityAction(actor,propose,deps.repository,deps.service,deps.signal)).toMatchObject({ok:false,error:'forbidden'});
+    expect(deps.service.execute).toHaveBeenCalledOnce();
   });
 });
 function repositoryRevoked(repository:ReturnType<typeof fixtureRepository>) {repository.authorize=async()=>{throw new Error('forbidden');};}

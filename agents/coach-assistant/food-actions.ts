@@ -3,21 +3,23 @@ import type { CoachRepository } from './repository';
 import type { FoodQuantityOperation, FoodQuantityResult } from './food-contracts';
 
 const version=z.string().min(1).max(128);
-const base={version:z.literal('coach-assistant.v2'),conversationId:z.string().uuid(),turnId:z.string().uuid(),entryId:z.string().uuid(),clientId:z.string().uuid().optional()};
+const common={version:z.literal('coach-assistant.v2'),conversationId:z.string().uuid(),turnId:z.string().uuid(),clientId:z.string().uuid().optional()};
+const base={...common,entryId:z.string().uuid()};
 /** Structural envelope only: the shared Food service validates the quantity domain. */
 export const foodQuantityOperationSchema=z.discriminatedUnion('operation',[
+  z.object({...common,operation:z.literal('food.resolve'),entryHintId:z.string().uuid().optional(),loggedDateHint:z.string().date().optional(),expectedPreviousGrams:z.number().positive().max(10000)}).strict(),
   z.object({...base,operation:z.literal('food.read')}).strict(),
   z.object({...base,operation:z.literal('food.propose'),resourceVersion:version,after:z.object({grams:z.number().finite()}).strict()}).strict(),
   z.object({...base,operation:z.literal('food.apply'),proposalId:z.string().uuid(),hash:z.string().regex(/^[a-f0-9]{64}$/),actionId:z.string().uuid(),resourceVersion:version,reviewed:z.literal(true)}).strict(),
   z.object({...base,operation:z.literal('food.receipt'),actionId:z.string().uuid()}).strict(),
 ]);
-export const foodEntryValuesSchema=z.object({loggedDate:z.string().date(),foodName:z.string().min(1).max(200),grams:z.number().positive().nullable(),quantity:z.number().nonnegative(),calories:z.number().nonnegative(),proteinG:z.number().nonnegative(),carbsG:z.number().nonnegative(),fatG:z.number().nonnegative(),fiberG:z.number().nonnegative().nullable(),sugarG:z.number().nonnegative().nullable()}).strict();
-export const foodQuantityProposalSchema=z.object({id:z.string().uuid(),hash:z.string().regex(/^[a-f0-9]{64}$/),action:z.literal('food.quantity.update'),resource:z.object({kind:z.literal('food_entry'),id:z.string().uuid(),version}).strict(),before:foodEntryValuesSchema,after:foodEntryValuesSchema,precondition:version,expiresAt:z.string().datetime({offset:true}),reviewRequired:z.literal(true)}).strict();
+export const foodEntryValuesSchema=z.object({loggedDate:z.string().date(),foodName:z.string().min(1).max(200),foodId:z.string().uuid().nullable(),source:z.string().min(1).max(80).nullable(),sourceId:z.string().min(1).max(500).nullable(),grams:z.number().positive().nullable(),quantity:z.number().nonnegative(),calories:z.number().nonnegative(),proteinG:z.number().nonnegative(),carbsG:z.number().nonnegative(),fatG:z.number().nonnegative(),fiberG:z.number().nonnegative().nullable(),sugarG:z.number().nonnegative().nullable()}).strict();
+export const foodQuantityProposalSchema=z.object({id:z.string().uuid(),hash:z.string().regex(/^[a-f0-9]{64}$/),action:z.literal('food.quantity.update'),resource:z.object({kind:z.literal('food_entry'),id:z.string().uuid(),version}).strict(),before:foodEntryValuesSchema,after:foodEntryValuesSchema,expectedVersion:version,precondition:version,expiresAt:z.string().datetime({offset:true}),reviewRequired:z.literal(true)}).strict();
 const receipt=z.object({id:z.string().uuid(),actionId:z.string().uuid(),proposalId:z.string().uuid(),status:z.enum(['applied','rejected','uncertain']),resourceVersion:version.nullable(),recordedAt:z.string().datetime({offset:true})}).strict();
 const refresh=z.object({entryId:z.string().uuid(),loggedDate:z.string().date(),previousVersion:version,version,strategy:z.literal('refetch')}).strict();
 const resultBase={version:z.literal('coach-assistant.v2'),storage:z.literal('database')};
 export const foodQuantityResultSchema=z.union([
-  z.object({...resultBase,ok:z.literal(false),error:z.enum(['invalid_input','forbidden','not_found','version_conflict','expired','idempotency_conflict','cancelled','uncertain'])}).strict(),
+  z.object({...resultBase,ok:z.literal(false),error:z.enum(['invalid_input','forbidden','not_found','ambiguous_selection','version_conflict','expired','idempotency_conflict','cancelled','uncertain'])}).strict(),
   z.object({...resultBase,ok:z.literal(true),snapshot:foodEntryValuesSchema.extend({entryId:z.string().uuid(),version})}).strict(),
   z.object({...resultBase,ok:z.literal(true),proposal:foodQuantityProposalSchema}).strict(),
   z.object({...resultBase,ok:z.literal(true),receipt,refresh:refresh.optional()}).strict(),
@@ -58,19 +60,24 @@ export async function executeFoodQuantityAction(actorId:string,raw:unknown,repos
     dispatched=true;
     const output=await service.execute({actorId,subjectId,organizationId:context.organizationId,operation:structuredClone(operation),signal});
     if(signal.aborted)return fail('uncertain');
+    const fresh=await repository.authorize(actorId,subjectId,signal);
+    if(JSON.stringify(fresh)!==JSON.stringify(context))return fail('forbidden');
     const validated=foodQuantityResultSchema.safeParse(output);
     if(!validated.success)return fail('uncertain');
     const result=validated.data;
     if(!result.ok)return result;
+    if(operation.operation==='food.resolve') {
+      return 'snapshot' in result&&(!operation.entryHintId||result.snapshot.entryId===operation.entryHintId)&&(!operation.loggedDateHint||result.snapshot.loggedDate===operation.loggedDateHint)&&result.snapshot.grams===operation.expectedPreviousGrams?result:fail('uncertain');
+    }
     if(operation.operation==='food.read') {
       return 'snapshot' in result&&result.snapshot.entryId===operation.entryId?result:fail('uncertain');
     }
     if(operation.operation==='food.propose') {
       if(!('proposal' in result))return fail('uncertain');
       const p=result.proposal;
-      if(p.resource.id!==operation.entryId||p.resource.version!==operation.resourceVersion||p.precondition!==operation.resourceVersion||p.after.grams!==operation.after.grams)return fail('uncertain');
+      if(p.resource.id!==operation.entryId||p.resource.version!==operation.resourceVersion||p.expectedVersion!==operation.resourceVersion||p.precondition!==operation.resourceVersion||p.after.grams!==operation.after.grams)return fail('uncertain');
       // This operation changes grams and derived macros only, never identity/day/name.
-      if(p.before.loggedDate!==p.after.loggedDate||p.before.foodName!==p.after.foodName||p.before.quantity!==p.after.quantity)return fail('uncertain');
+      if(p.before.loggedDate!==p.after.loggedDate||p.before.foodName!==p.after.foodName||p.before.foodId!==p.after.foodId||p.before.source!==p.after.source||p.before.sourceId!==p.after.sourceId||p.before.quantity!==p.after.quantity)return fail('uncertain');
       return result;
     }
     if(!('receipt' in result)||result.receipt.actionId!==operation.actionId||result.receipt.status==='uncertain')return fail('uncertain');

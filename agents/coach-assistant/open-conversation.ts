@@ -17,6 +17,7 @@ export type OfflineConversationProvider=(input:Parameters<typeof invokeStructure
 export type OfflineInterpretationReview=(input:{answer:string;followUp:string|null;limitations:string[];evidenceRefs:string[];evidence:CoachEvidence[];signal:AbortSignal})=>Promise<{approved:boolean}>;
 const draftActionIntentSchema=z.object({action:z.literal('draft.update'),target:z.object({durationMinutes:z.number().int().min(5).max(180),equipment:z.tuple([z.literal('dumbbells')])}).strict()}).strict();
 const setActionIntentSchema=z.object({action:z.literal('workout.set.reps.update'),target:z.object({reps:z.number().int().positive().max(2147483647)}).strict()}).strict();
+const foodActionIntentSchema=z.object({action:z.literal('food.quantity.update'),target:z.object({previousGrams:z.number().positive().max(10000),grams:z.number().positive().max(10000)}).strict()}).strict();
 export const openConversationSchema=z.object({
   answer:z.string().trim().min(1).max(1800),
   evidenceRefs:z.array(z.string().max(100)).max(24),
@@ -24,7 +25,7 @@ export const openConversationSchema=z.object({
   facts:z.array(z.object({kind:z.literal('record_fact'),evidenceId:z.string().max(100)}).strict()).max(24),
   followUp:z.string().trim().min(1).max(400).nullable(),
   limitations:z.array(z.enum(['insufficient_evidence','incomplete_records','professional_review_needed'])).max(3),escalation:z.boolean(),
-  actionIntent:z.union([draftActionIntentSchema,setActionIntentSchema]).nullable().optional(),
+  actionIntent:z.union([draftActionIntentSchema,setActionIntentSchema,foodActionIntentSchema]).nullable().optional(),
 }).strict();
 
 export const candidateConversationSchema=openConversationSchema.extend({
@@ -58,20 +59,37 @@ export function explicitSetCorrectionTarget(message:string):{reps:number}|null {
   const reps=Number(digits[0]);return Number.isSafeInteger(reps)&&reps<=2147483647?{reps}:null;
 }
 
+/** Binds one explicit new amount and one negated old amount. Entry identity is
+ * only a hint; the Food service resolves and authorizes the canonical record. */
+export function explicitFoodQuantityCorrectionTarget(message:string):{previousGrams:number;grams:number}|null {
+  const text=message.normalize('NFKD').replace(/\p{M}/gu,'').toLowerCase();
+  const numeric=text.match(/\b[1-9]\d*(?:[.,]\d+)?\b/g)??[];
+  if(numeric.length!==2)return null;
+  const next=text.match(/\b(?:fueron|eran|son|was|were|actually)\s+([1-9]\d*(?:[.,]\d+)?)\s*(?:g|grams?|gramos?)\b/);
+  const prior=text.match(/\b(?:no|not)\s+([1-9]\d*(?:[.,]\d+)?)(?:\s*(?:g|grams?|gramos?))?\b/);
+  if(!next||!prior)return null;
+  const grams=Number(next[1].replace(',','.')),previousGrams=Number(prior[1].replace(',','.'));
+  if(!Number.isFinite(grams)||!Number.isFinite(previousGrams)||grams<=0||previousGrams<=0||grams>10000||previousGrams>10000||grams===previousGrams)return null;
+  return {previousGrams,grams};
+}
+
 /** Deterministic bounds and source binding do not establish semantic truth of prose.
  * Independent adversarial review and a paid quality evaluation remain necessary.
  */
-export async function generateOpenConversation(input:CoachConversationRequest,response:CoachConversationResponse,provider:OfflineConversationProvider,signal:AbortSignal,reviewInterpretation?:OfflineInterpretationReview,candidateEvaluation=false,isolatedBoundary?:IsolatedEngineBoundary,workoutSetIntentsEnabled=false):Promise<void> {
+export async function generateOpenConversation(input:CoachConversationRequest,response:CoachConversationResponse,provider:OfflineConversationProvider,signal:AbortSignal,reviewInterpretation?:OfflineInterpretationReview,candidateEvaluation=false,isolatedBoundary?:IsolatedEngineBoundary,workoutSetIntentsEnabled=false,foodQuantityIntentsEnabled=false):Promise<void> {
   if(response.dataSource!=='synthetic'&&!isIsolatedEngineBoundary(isolatedBoundary,provider))throw new Error('budget_blocked');
   const facts=response.evidence;
   const entities=[...new Set(facts.flatMap(f=>f.sourceIds))].map((id,index)=>({alias:`entity:${index+1}`,evidenceRefs:facts.filter(f=>f.sourceIds.includes(id)).map(f=>f.id)}));
   const curated=availableGeneralExplanations(facts);
   const boundDraftTarget=explicitDraftTarget(input.message);
   const boundSetTarget=explicitSetCorrectionTarget(input.message);
+  const boundFoodTarget=explicitFoodQuantityCorrectionTarget(input.message);
   const draftSurface=response.snapshot?.surface==='workout'||response.snapshot?.surface==='plan'?response.snapshot.surface:null;
   const setSurface=input.context?.surface??null;
   const draftIntentAvailable=!candidateEvaluation&&Boolean(boundDraftTarget)&&response.snapshot?.access==='self'&&input.context?.includeScreen===true&&Boolean(draftSurface)&&input.context.workspace?.kind==='draft';
   const setIntentAvailable=workoutSetIntentsEnabled&&!candidateEvaluation&&Boolean(boundSetTarget)&&response.snapshot?.access==='self'&&Boolean(setSurface);
+  const foodIntentAvailable=foodQuantityIntentsEnabled&&!candidateEvaluation&&Boolean(boundFoodTarget)&&response.snapshot?.access==='self'&&Boolean(setSurface);
+  const entryHintId=input.context?.includeScreen===true&&input.context.entity?.kind==='meal'?input.context.entity.id:null;
   const payload={...(candidateEvaluation?{generalExplanations:curated.map(id=>({id,...GENERAL_EXPLANATIONS[id]}))}:{}),message:input.message,history:input.history??[],
     snapshot:response.snapshot?{surface:response.snapshot.surface,language:response.snapshot.language,units:response.snapshot.units,window:response.snapshot.window}:null,
     foodPreference:response.foodPreference?{preferences:response.foodPreference.preferences,version:response.foodPreference.version,source:'current_profile',meaning:'self_declared_preference_not_allergy_or_medical_instruction'}:null,
@@ -79,16 +97,11 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
     evidence:facts.map(({id,source,statement,value,unit,completeness})=>({id,source,statement,value,unit,completeness})),entities,
     profile:response.profile?{language:response.profile.language,timezone:response.profile.timezone,units:response.profile.units,preferences:response.profile.preferences}:null,
     memories:(response.memories??[]).map(({text,confirmation,source})=>({text,confirmation,source})),
-    limitations:response.output?.limitations.filter(value=>value!=='open_ended_interpretation_not_connected'),actionsAvailable:candidateEvaluation?false:[...(draftIntentAvailable?[{action:'draft.update',target:boundDraftTarget}]:[]),...(setIntentAvailable?[{action:'workout.set.reps.update',target:{selection:'latest_open_session_set',...boundSetTarget!}}]:[])]};
+    limitations:response.output?.limitations.filter(value=>value!=='open_ended_interpretation_not_connected'),actionsAvailable:candidateEvaluation?false:[...(draftIntentAvailable?[{action:'draft.update',target:boundDraftTarget}]:[]),...(setIntentAvailable?[{action:'workout.set.reps.update',target:{selection:'latest_open_session_set',...boundSetTarget!}}]:[]),...(foodIntentAvailable?[{action:'food.quantity.update',target:boundFoodTarget}]:[])]};
   const system=candidateEvaluation?COACH_CANDIDATE_SYSTEM_PROMPT:COACH_CONVERSATIONAL_SYSTEM_PROMPT+(reviewInterpretation?'\nAn independent offline interpretation oracle is configured for this fixture. Declarative explanations may be proposed in answer, grounded in cited evidence. They will be withheld unless that separate oracle approves. All numeric, receipt, entity, medical and action restrictions still apply.':'');
   let prompt=JSON.stringify(payload);
-  const validator=candidateEvaluation
-    ? candidateConversationSchema
-    : draftIntentAvailable&&!setIntentAvailable
-      ? openConversationSchema.extend({actionIntent:draftActionIntentSchema.nullable().optional()})
-      : setIntentAvailable&&!draftIntentAvailable
-        ? openConversationSchema.extend({actionIntent:setActionIntentSchema.nullable().optional()})
-        : openConversationSchema;
+  const availableIntentSchemas=[...(draftIntentAvailable?[draftActionIntentSchema]:[]),...(setIntentAvailable?[setActionIntentSchema]:[]),...(foodIntentAvailable?[foodActionIntentSchema]:[])];
+  const validator=candidateEvaluation?candidateConversationSchema:availableIntentSchemas.length===1?openConversationSchema.extend({actionIntent:availableIntentSchemas[0].nullable().optional()}):openConversationSchema;
   const promptVersion=candidateEvaluation?COACH_CANDIDATE_PROMPT_VERSION:COACH_CONVERSATIONAL_PROMPT_VERSION;
   const schema=z.toJSONSchema(validator);
   // UTF-8 bytes bound tokens conservatively, including schema/system overhead.
@@ -158,6 +171,14 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
       response.actionIntents=[{id,action:'workout.set.reps.update',source:'provider_tool',subjectId:response.snapshot.subjectId,scopeKey:response.snapshot.scopeKey,surface:setSurface,target,reviewRequired:true}];
       const actions=response.snapshot.capabilities.find(capability=>capability.key==='actions');
       if(actions){actions.status='available';actions.reason='reviewable_workout_set_intent';}
+    }
+    if(output.actionIntent?.action==='food.quantity.update'&&foodIntentAvailable&&boundFoodTarget&&response.snapshot&&setSurface) {
+      if(output.actionIntent.target.grams!==boundFoodTarget.grams||output.actionIntent.target.previousGrams!==boundFoodTarget.previousGrams)throw new Error('invalid_output');
+      const target={selection:'authorized_food_entry' as const,entryHintId,previousGrams:boundFoodTarget.previousGrams,grams:boundFoodTarget.grams};
+      const id=createHash('sha256').update(JSON.stringify({turnId:input.turnId,scopeKey:response.snapshot.scopeKey,action:'food.quantity.update',target})).digest('hex');
+      response.actionIntents=[{id,action:'food.quantity.update',source:'provider_tool',subjectId:response.snapshot.subjectId,scopeKey:response.snapshot.scopeKey,surface:setSurface,target,reviewRequired:true}];
+      const actions=response.snapshot.capabilities.find(capability=>capability.key==='actions');
+      if(actions){actions.status='available';actions.reason='reviewable_food_quantity_intent';}
     }
   }
   if(candidateEvaluation) {

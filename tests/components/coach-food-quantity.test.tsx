@@ -8,7 +8,7 @@ import { FoodQuantityPanel } from '@/components/assistant/FoodQuantityPanel';
 import type { FoodEntrySnapshot, FoodQuantityOperation, FoodQuantityProposal, FoodQuantityResult } from '@/agents/coach-assistant/food-contracts';
 const id = () => crypto.randomUUID();
 const entryId = id(), conversationId = id();
-const values = { loggedDate: '2026-09-07', foodName: 'Fixture rice', grams: 250, quantity: 1, calories: 500, proteinG: 10, carbsG: 100, fatG: 5, fiberG: 2, sugarG: 1 };
+const values = { loggedDate: '2026-09-07', foodName: 'Fixture rice', foodId: null, source: 'natural_language', sourceId: 'turn:fixture', grams: 250, quantity: 1, calories: 500, proteinG: 10, carbsG: 100, fatG: 5, fiberG: 2, sugarG: 1 };
 const base = { version: 'coach-assistant.v2' as const, storage: 'database' as const, ok: true as const };
 function fixture() {
   const controller = new FoodQuantityController();
@@ -19,7 +19,7 @@ function fixture() {
     if (operation.operation === 'food.read') return { ...base, snapshot: current };
     if (operation.operation === 'food.propose') {
       proposal = { id: id(), hash: 'a'.repeat(64), action: 'food.quantity.update', resource: { id: entryId, kind: 'food_entry', version: '1' }, before: values,
-        after: { ...values, grams: 150, calories: 300, proteinG: 6, carbsG: 60, fatG: 3, fiberG: 1.2, sugarG: 0.6 }, precondition: '1', expiresAt: new Date(Date.now() + 300000).toISOString(), reviewRequired: true };
+        after: { ...values, grams: 150, calories: 300, proteinG: 6, carbsG: 60, fatG: 3, fiberG: 1.2, sugarG: 0.6 }, expectedVersion: '1', precondition: '1', expiresAt: new Date(Date.now() + 300000).toISOString(), reviewRequired: true };
       return { ...base, proposal };
     }
     if (operation.operation === 'food.apply') {

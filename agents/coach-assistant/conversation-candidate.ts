@@ -7,7 +7,7 @@ import { explicitSetCorrectionTarget, type OfflineConversationProvider } from '.
  * No per-turn semantic oracle: acceptance belongs to independent release evals.
  * Non-synthetic inputs remain blocked and all results are marked unapproved.
  */
-export async function runConversationCandidate(raw:unknown,options:RunOptions&{offlineConversationProvider:OfflineConversationProvider;isolatedFixtureBoundary?:IsolatedEngineBoundary;isolatedActionsEnabled?:boolean;workoutSetIntentsEnabled?:boolean}) {
+export async function runConversationCandidate(raw:unknown,options:RunOptions&{offlineConversationProvider:OfflineConversationProvider;isolatedFixtureBoundary?:IsolatedEngineBoundary;isolatedActionsEnabled?:boolean;workoutSetIntentsEnabled?:boolean;foodQuantityIntentsEnabled?:boolean}) {
   const request=raw&&typeof raw==='object'?raw as Record<string,unknown>:null;
   const context=request?.context&&typeof request.context==='object'?request.context as Record<string,unknown>:null;
   const workspace=context?.workspace&&typeof context.workspace==='object'?context.workspace as Record<string,unknown>:null;
