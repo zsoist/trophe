@@ -47,6 +47,7 @@ import { WorkoutSetPanel } from './WorkoutSetPanel';
 import { requestWorkoutSet } from './workout-set-client';
 import { acceptedWorkoutSetIntent } from './workout-set-intent';
 import { COACH_WORKOUT_SET_REFRESH } from './workout-events';
+import { acceptedFoodQuantityIntent } from './food-intent';
 
 const HistoryPanel = dynamic(() => import('./HistoryPanel').then(module => module.HistoryPanel));
 
@@ -195,6 +196,11 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
     if (intent) void workoutSetController.activate(intent.id, state.conversationId, intent.target.reps, activeWorkoutSetTransport);
   }, [activeWorkoutSetTransport, identity, latestResponse, latestTurn, state.conversationId, subjectId, surface, workoutSetController]);
   useEffect(() => {
+    if (!latestResponse || !latestTurn || subjectId && subjectId !== identity) return;
+    const intent = acceptedFoodQuantityIntent(latestResponse, identity, state.conversationId, latestTurn.request.turnId, surface);
+    if (intent) void food.activate(intent.id, state.conversationId, intent.target.previousGrams, intent.target.grams, activeFoodTransport, intent.target.entryHintId);
+  }, [activeFoodTransport, food, identity, latestResponse, latestTurn, state.conversationId, subjectId, surface]);
+  useEffect(() => {
     const refresh = workoutSetState.refresh;
     if (!workoutSetSelf || !refresh || !workoutSetState.receipt || workoutSetState.pending || workoutSetState.error) return;
     window.dispatchEvent(new CustomEvent(COACH_WORKOUT_SET_REFRESH, { detail: { actorId: identity, ...refresh } }));
@@ -214,7 +220,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
         followLatest.current = node.scrollHeight - node.scrollTop - node.clientHeight < 64;
         if (followLatest.current) setShowLatest(false);
       }}>
-        {foodState.entryId && <FoodQuantityPanel key={foodState.entryId} controller={food} state={foodState} transport={activeFoodTransport} />}
+        {(foodState.intentId || foodState.entryId) && <FoodQuantityPanel key={foodState.intentId ?? foodState.entryId} controller={food} state={foodState} transport={activeFoodTransport} />}
         {workoutSetSelf && workoutSetState.intentId && <WorkoutSetPanel controller={workoutSetController} state={workoutSetState} transport={activeWorkoutSetTransport} />}
         {photoFoodState.attachmentId&&<PhotoFoodPanel controller={photoFood} state={photoFoodState} transport={photoFoodTransport??requestPhotoFood} onReceipt={entryId=>food.select(entryId,state.conversationId,activeFoodTransport)}/>}
         {historyEnabled && <button type="button" disabled={coachActionBlocked} onClick={() => {

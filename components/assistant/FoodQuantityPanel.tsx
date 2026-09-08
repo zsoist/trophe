@@ -24,6 +24,6 @@ export function FoodQuantityPanel({ controller, state, transport }: { controller
     </> : null}
     {state.pending && <p role="status">{t('global_coach.pending')}</p>}
     {state.error && !state.uncertain && <p role="status">{t(state.receipt ? 'global_coach.food_saved_refresh' : 'global_coach.food_changed')}</p>}
-    {state.error && !state.uncertain && !state.receipt && <button type="button" disabled={state.pending} onClick={() => void controller.read(transport)}>{t('global_coach.food_reload')}</button>}
+    {state.error && !state.uncertain && !state.receipt && <button type="button" disabled={state.pending} onClick={() => void controller.retry(transport)}>{t('global_coach.food_reload')}</button>}
   </section>;
 }

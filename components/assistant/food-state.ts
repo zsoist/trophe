@@ -1,12 +1,18 @@
 import type { FoodEntrySnapshot, FoodQuantityOperation, FoodQuantityProposal, FoodQuantityResult } from '@/agents/coach-assistant/food-contracts';
 import type { CoachReceipt } from '@/agents/coach-assistant/contracts';
-export type FoodTransport = (operation: FoodQuantityOperation, signal: AbortSignal) => Promise<FoodQuantityResult>;
+type FoodResolveOperation = {
+  version: 'coach-assistant.v2'; conversationId: string; turnId: string; clientId?: string;
+  operation: 'food.resolve'; entryHintId?: string; loggedDateHint?: string; expectedPreviousGrams: number;
+};
+type FoodOperation = FoodQuantityOperation | FoodResolveOperation;
+export type FoodTransport = (operation: FoodOperation, signal: AbortSignal) => Promise<FoodQuantityResult>;
 export interface FoodState {
+  intentId: string | null; targetGrams: number | null; previousGrams: number | null; entryHintId: string | null;
   entryId: string | null; entry: FoodEntrySnapshot | null; proposal: FoodQuantityProposal | null;
   receipt: CoachReceipt | null; pending: boolean; uncertain: boolean; error: string | null;
   receipts: Array<{ entryId: string; receipt: CoachReceipt }>;
 }
-const empty = (): FoodState => ({ entryId: null, entry: null, proposal: null, receipt: null, pending: false, uncertain: false, error: null, receipts: [] });
+const empty = (): FoodState => ({ intentId: null, targetGrams: null, previousGrams: null, entryHintId: null, entryId: null, entry: null, proposal: null, receipt: null, pending: false, uncertain: false, error: null, receipts: [] });
 /** The canonical reviewed apply envelope survives closing the panel. A lost
  * response is recovered by receipt lookup, never by a second mutation. */
 export class FoodQuantityController {
@@ -32,12 +38,29 @@ export class FoodQuantityController {
     this.generation++; this.active.abort(); this.active = null;
     this.publish({ ...this.state, pending: false, uncertain: Boolean(this.action && !this.state.receipt), error: this.action ? 'uncertain' : null });
   }
-  private header() { return { version: 'coach-assistant.v2' as const, conversationId: this.conversationId, turnId: crypto.randomUUID(), entryId: this.state.entryId! }; }
+  private header() { return { version: 'coach-assistant.v2' as const, conversationId: this.conversationId, turnId: crypto.randomUUID() }; }
   select(entryId: string, conversationId: string, transport: FoodTransport) {
     if (this.action && !this.state.receipt) return false;
     const receipts = this.state.receipts;
     this.reset(); this.conversationId = conversationId; this.publish({ ...empty(), entryId, receipts });
     void this.read(transport); return true;
+  }
+  async activate(intentId: string, conversationId: string, previousGrams: number, targetGrams: number, transport: FoodTransport, entryHintId?: string | null) {
+    if (this.action || this.state.pending) return false;
+    if (this.state.intentId === intentId) return true;
+    if (!/^[a-f0-9]{64}$/.test(intentId) || ![previousGrams, targetGrams].every(value => Number.isFinite(value) && value > 0 && value <= 10_000)
+      || previousGrams === targetGrams || entryHintId !== undefined && entryHintId !== null && !/^[0-9a-f-]{36}$/i.test(entryHintId)) return false;
+    this.reset(); this.conversationId = conversationId;
+    this.publish({ ...empty(), intentId, previousGrams, targetGrams, entryHintId: entryHintId ?? null });
+    return this.resolveAndPropose(transport);
+  }
+  private async resolveAndPropose(transport: FoodTransport) {
+    const { previousGrams, targetGrams, entryHintId } = this.state;
+    if (previousGrams === null || targetGrams === null || this.state.pending || this.action) return false;
+    await this.execute({ ...this.header(), operation: 'food.resolve', expectedPreviousGrams: previousGrams, ...(entryHintId ? { entryHintId } : {}) }, transport);
+    if (!this.state.entry || this.state.entry.grams !== previousGrams) return false;
+    await this.propose(targetGrams, transport);
+    return Boolean(this.state.proposal);
   }
   dismiss() {
     if (this.action && !this.state.receipt) return;
@@ -45,26 +68,31 @@ export class FoodQuantityController {
   }
   async read(transport: FoodTransport) {
     if (!this.state.entryId || this.state.pending || this.action) return;
-    await this.execute({ ...this.header(), operation: 'food.read' }, transport);
+    await this.execute({ ...this.header(), operation: 'food.read', entryId: this.state.entryId }, transport);
+  }
+  async retry(transport: FoodTransport) {
+    if (this.state.pending || this.action) return false;
+    if (this.state.intentId) return this.resolveAndPropose(transport);
+    await this.read(transport); return Boolean(this.state.entry);
   }
   async propose(grams: number, transport: FoodTransport) {
     if (!this.state.entry || this.state.pending || this.action || !Number.isFinite(grams) || grams <= 0 || grams > 10000) return;
     this.publish({ ...this.state, proposal: null, receipt: null });
-    await this.execute({ ...this.header(), operation: 'food.propose', resourceVersion: this.state.entry.version, after: { grams } }, transport);
+    await this.execute({ ...this.header(), operation: 'food.propose', entryId: this.state.entry.entryId, resourceVersion: this.state.entry.version, after: { grams } }, transport);
   }
   discard() { if (!this.state.pending && !this.action) this.publish({ ...this.state, proposal: null, error: null }); }
   async apply(transport: FoodTransport) {
     const proposal = this.state.proposal;
     if (!proposal || this.state.pending || this.action || this.state.receipt) return;
     if (Date.parse(proposal.expiresAt) <= Date.now()) { this.publish({ ...this.state, error: 'expired' }); return; }
-    this.action = { ...this.header(), operation: 'food.apply', proposalId: proposal.id, hash: proposal.hash, actionId: crypto.randomUUID(), resourceVersion: proposal.resource.version, reviewed: true };
+    this.action = { ...this.header(), operation: 'food.apply', entryId: proposal.resource.id, proposalId: proposal.id, hash: proposal.hash, actionId: crypto.randomUUID(), resourceVersion: proposal.resource.version, reviewed: true };
     await this.execute(this.action, transport);
   }
   async check(transport: FoodTransport) {
     if (!this.action || this.state.pending) return;
-    await this.execute({ ...this.header(), operation: 'food.receipt', actionId: this.action.actionId }, transport);
+    await this.execute({ ...this.header(), operation: 'food.receipt', entryId: this.action.entryId, actionId: this.action.actionId }, transport);
   }
-  private async execute(operation: FoodQuantityOperation, transport: FoodTransport) {
+  private async execute(operation: FoodOperation, transport: FoodTransport) {
     const abort = new AbortController(), generation = ++this.generation; this.active = abort;
     const valid = () => generation === this.generation && !abort.signal.aborted;
     this.publish({ ...this.state, pending: true, error: null });
@@ -84,9 +112,12 @@ export class FoodQuantityController {
         if (!unresolved) this.action = null;
         this.publish({ ...this.state, pending: false, uncertain: unresolved && !this.state.receipt, error: result.error }); return;
       }
-      if (operation.operation === 'food.read') {
-        if (!('snapshot' in result) || result.snapshot.entryId !== operation.entryId) throw new Error('invalid_entry');
-        this.publish({ ...this.state, pending: false, entry: result.snapshot, proposal: null }); return;
+      if (operation.operation === 'food.read' || operation.operation === 'food.resolve') {
+        if (!('snapshot' in result)
+          || operation.operation === 'food.read' && result.snapshot.entryId !== operation.entryId
+          || operation.operation === 'food.resolve' && (result.snapshot.grams !== operation.expectedPreviousGrams
+            || operation.entryHintId && result.snapshot.entryId !== operation.entryHintId)) throw new Error('invalid_entry');
+        this.publish({ ...this.state, pending: false, entryId: result.snapshot.entryId, entry: result.snapshot, proposal: null }); return;
       }
       if (operation.operation === 'food.propose') {
         if (!('proposal' in result) || result.proposal.resource.id !== operation.entryId || result.proposal.resource.version !== operation.resourceVersion
@@ -102,7 +133,7 @@ export class FoodQuantityController {
       const receipts = this.state.receipts.some(item => item.receipt.id === result.receipt.id) ? this.state.receipts
         : [...this.state.receipts, { entryId: action.entryId, receipt: result.receipt }].slice(-20);
       this.publish({ ...this.state, receipt: result.receipt, receipts, uncertain: false });
-      const fresh = await transport({ ...this.header(), operation: 'food.read' }, abort.signal);
+      const fresh = await transport({ ...this.header(), operation: 'food.read', entryId: action.entryId }, abort.signal);
       if (!valid()) return;
       if (!fresh.ok || !('snapshot' in fresh) || fresh.snapshot.entryId !== action.entryId
         || !/^\d+$/.test(fresh.snapshot.version) || !/^\d+$/.test(result.refresh.version)
