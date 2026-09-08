@@ -7,6 +7,7 @@ import ExerciseInfoSheet from '@/components/workout/ExerciseInfoSheet';
 import PainFlagModal from '@/components/workout/PainFlagModal';
 import PlateCalculator from '@/components/workout/PlateCalculator';
 import { ConfirmSheet } from '@/components/ui/ConfirmSheet';
+import { COACH_WORKOUT_SET_REFRESH, readWorkoutSetRefresh, type CoachWorkoutSetRefresh } from '@/components/assistant/workout-events';
 import { useWorkoutWorkspace } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
 import { ExerciseSetLogger, type RestClockSnapshot, type SetLoggerValue } from '@/components/workout/workspace/ExerciseSetLogger';
 import { FinishWorkoutDialog, type FinishBlockedReason } from '@/components/workout/workspace/FinishWorkoutDialog';
@@ -86,6 +87,7 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
     savedSetCount: number;
   } | null>(null);
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
+  const [coachRefresh, setCoachRefresh] = useState<CoachWorkoutSetRefresh | null>(null);
   const draft = state.draft;
   const sessionId = state.sessionId;
   const completedRetrospective = state.completedRetrospective;
@@ -133,6 +135,27 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
   const commitLiveStrengthStructure = workspace.commitLiveStrengthStructure;
   const reconcileLive = workspace.reconcileLive;
   const liveReconciliation = workspace.liveReconciliation;
+
+  useEffect(() => {
+    const receiveCoachRefresh = (event: Event) => {
+      const refresh = readWorkoutSetRefresh(event);
+      if (!refresh || refresh.actorId !== userId || refresh.sessionId !== sessionId) return;
+      setCoachRefresh(refresh);
+    };
+    window.addEventListener(COACH_WORKOUT_SET_REFRESH, receiveCoachRefresh);
+    return () => window.removeEventListener(COACH_WORKOUT_SET_REFRESH, receiveCoachRefresh);
+  }, [sessionId, userId]);
+
+  useEffect(() => {
+    if (!coachRefresh || pendingMutations > 0 || coachRefresh.actorId !== userId || coachRefresh.sessionId !== sessionId) return;
+    let active = true;
+    void loadLiveSessionSets(coachRefresh.sessionId).then((result) => {
+      if (!active || !result.ok || !result.sets.some(set => set.id === coachRefresh.setId && set.exercise_id === coachRefresh.exerciseId)) return;
+      setPersistedSets(result.sets);
+      setCoachRefresh(current => current === coachRefresh ? null : current);
+    });
+    return () => { active = false; };
+  }, [coachRefresh, pendingMutations, sessionId, userId]);
 
   useEffect(() => {
     let active = true;
