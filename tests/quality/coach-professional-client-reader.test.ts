@@ -32,3 +32,18 @@ it('accepts the bounded plan draft intent shape and rejects unrelated surfaces',
   expect(readConversationResponse({ ...value, actionIntents: [actionIntent] }).actionIntents).toHaveLength(1);
   expect(() => readConversationResponse({ ...value, actionIntents: [{ ...actionIntent, surface: 'food' }] })).toThrow('invalid_output');
 });
+
+it('accepts only the bounded latest-set correction intent shape', () => {
+  const value = response();
+  value.snapshot.actorRole = 'client';
+  value.snapshot.access = 'self';
+  value.snapshot.surface = 'live';
+  const actionIntent = {
+    id: 'd'.repeat(64), action: 'workout.set.reps.update', source: 'provider_tool', subjectId: value.snapshot.subjectId,
+    scopeKey: value.snapshot.scopeKey, surface: 'live', target: { selection: 'latest_open_session_set', reps: 10 }, reviewRequired: true,
+  };
+  expect(readConversationResponse({ ...value, actionIntents: [actionIntent] }).actionIntents).toHaveLength(1);
+  expect(readConversationResponse({ ...value, snapshot: { ...value.snapshot, surface: 'home' }, actionIntents: [{ ...actionIntent, surface: 'home' }] }).actionIntents).toHaveLength(1);
+  expect(() => readConversationResponse({ ...value, actionIntents: [{ ...actionIntent, target: { ...actionIntent.target, reps: 10.5 } }] })).toThrow('invalid_output');
+  expect(() => readConversationResponse({ ...value, actionIntents: [{ ...actionIntent, resource: { kind: 'workout_set' } }] })).toThrow('invalid_output');
+});

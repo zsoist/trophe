@@ -47,7 +47,7 @@ function explicitDraftTarget(message:string):{durationMinutes:number;equipment:[
 
 /** Binds only a single explicit digit count for a latest-set correction. The
  * model may select this capability, but it cannot choose the set or number. */
-function explicitSetCorrectionTarget(message:string):{reps:number}|null {
+export function explicitSetCorrectionTarget(message:string):{reps:number}|null {
   const text=message.normalize('NFKD').replace(/\p{M}/gu,'').toLowerCase();
   if(!/\b(?:last\s+set|ultima\s+serie)\b/.test(text)||!/\b(?:reps?|repetitions?|repeticiones?)\b/.test(text))return null;
   if(!/\b(?:wrong|incorrect|correct|correg\w*|mal|fueron|were|actually)\b/.test(text))return null;

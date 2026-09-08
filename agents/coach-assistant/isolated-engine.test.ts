@@ -70,6 +70,22 @@ describe('disposable CI authorized-records engine composition',()=>{
   const unbound=await engine.run({...request,turnId:id(6),context:{surface:'plan' as const,includeScreen:false,workspace:{kind:'draft' as const,version}}},{...options(),isolatedActionsEnabled:true});
   expect(unbound.ok).toBe(true);expect(unbound.actionIntents).toEqual([]);
  });
+ it('emits only the server-bound latest-set repetition intent from the isolated fixture',async()=>{
+  const fetch=vi.fn(()=>{throw new Error('network forbidden');});vi.stubGlobal('fetch',fetch);
+  const engine=createIsolatedCoachEngineBinding(config());
+  const request={version:'coach-assistant.v2',conversationId:id(2),turnId:id(7),message:'Registré mal la última serie: fueron 10 repeticiones',context:{surface:'workout' as const,includeScreen:true}};
+  const response=await engine.run(request,{...options(),workoutSetIntentsEnabled:true});
+  expect(response.ok).toBe(true);
+  expect(response.actionIntents).toEqual([expect.objectContaining({
+   action:'workout.set.reps.update',source:'provider_tool',subjectId:id(1),surface:'workout',
+   target:{selection:'latest_open_session_set',reps:10},reviewRequired:true,
+  })]);
+  expect(response.actionIntents?.[0]?.id).toMatch(/^[a-f0-9]{64}$/);
+  expect(response.proposals).toEqual([]);expect(response.receipts).toEqual([]);
+  expect(response.telemetry).toMatchObject({modelCalls:1,costUsd:0});expect(fetch).not.toHaveBeenCalled();
+  const disabled=await engine.run({...request,turnId:id(8)},{...options(),workoutSetIntentsEnabled:false});
+  expect(disabled.ok).toBe(true);expect(disabled.actionIntents).toEqual([]);
+ });
  it('keeps ordinary isolated queries on the candidate path when actions are enabled',async()=>{
   const engine=createIsolatedCoachEngineBinding(config());
   const response=await engine.run(input,{...options(),isolatedActionsEnabled:true});

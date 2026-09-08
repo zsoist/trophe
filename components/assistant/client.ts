@@ -6,12 +6,22 @@ const exactKeys = (value: Record<string, unknown>, keys: string[]) => {
   const actual = Object.keys(value).sort();
   return actual.length === keys.length && actual.every((key, index) => key === [...keys].sort()[index]);
 };
+const coachSurfaces = ['home', 'food', 'recipe', 'workout', 'plan', 'live', 'library', 'exercise', 'atlas', 'history', 'progress', 'profile', 'habits', 'coach', 'messages', 'intake', 'booking', 'supplements', 'form_check'];
 
 function validActionIntent(value: unknown): boolean {
   if (!value || typeof value !== 'object') return false;
   const item = value as Record<string, unknown>;
-  const resource = item.resource as Record<string, unknown> | undefined;
   const target = item.target as Record<string, unknown> | undefined;
+  if (item.action === 'workout.set.reps.update') {
+    return exactKeys(item, ['id', 'action', 'source', 'subjectId', 'scopeKey', 'surface', 'target', 'reviewRequired'])
+      && typeof item.id === 'string' && /^[a-f0-9]{64}$/.test(item.id)
+      && item.source === 'provider_tool' && typeof item.subjectId === 'string'
+      && typeof item.scopeKey === 'string' && /^[a-f0-9]{64}$/.test(item.scopeKey)
+      && coachSurfaces.includes(String(item.surface)) && item.reviewRequired === true
+      && Boolean(target) && exactKeys(target!, ['selection', 'reps'])
+      && target!.selection === 'latest_open_session_set' && Number.isInteger(target!.reps) && Number(target!.reps) > 0;
+  }
+  const resource = item.resource as Record<string, unknown> | undefined;
   return exactKeys(item, ['id', 'action', 'source', 'subjectId', 'scopeKey', 'surface', 'resource', 'target', 'reviewRequired'])
     && typeof item.id === 'string' && /^[a-f0-9]{64}$/.test(item.id)
     && item.action === 'draft.update' && item.source === 'provider_tool' && typeof item.subjectId === 'string'
