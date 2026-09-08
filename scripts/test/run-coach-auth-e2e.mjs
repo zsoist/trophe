@@ -9,7 +9,7 @@ import { runLocalAuthenticatedE2E } from './run-local-auth-e2e.mjs';
 import { assertLoopbackDatabaseUrl, assertLoopbackSupabaseUrl, assertAuthUserAbsent } from './local-auth-e2e-core.mjs';
 
 const commonPhases = new Set(['local_status', 'target_validation', 'auth_client', 'profile_client', 'auth_coach', 'profile_coach', 'auth_admin', 'profile_admin', 'relationship', 'nutrition', 'meal_plan', 'organization', 'execute', 'cleanup']);
-const phases = new Set([...commonPhases, 'preflight', 'auth_create', 'db_connect', 'seed_profiles', 'seed_memberships', 'seed_food', 'seed_catalog', 'seed_plan', 'seed_sessions', 'seed_complete', 'seed_commit', 'playwright_engine', 'playwright_voice', 'playwright_on', 'playwright_off', 'playwright_professional_on', 'playwright_professional_off', 'cleanup_db_connect', 'cleanup_sessions', 'cleanup_plan', 'cleanup_memberships', 'cleanup_commit', 'auth_delete', 'auth_verify', 'pool_close', 'local_status', 'common_auth', 'common_profile', 'common_client', 'common_relationship', 'common_food', 'common_plan', 'common_org', 'common_cleanup', 'unknown']);
+const phases = new Set([...commonPhases, 'preflight', 'auth_create', 'db_connect', 'seed_profiles', 'seed_memberships', 'seed_food', 'seed_catalog', 'seed_plan', 'seed_sessions', 'seed_complete', 'seed_commit', 'playwright_engine_voice', 'playwright_on', 'playwright_off', 'playwright_professional_on', 'playwright_professional_off', 'cleanup_db_connect', 'cleanup_sessions', 'cleanup_plan', 'cleanup_memberships', 'cleanup_commit', 'auth_delete', 'auth_verify', 'pool_close', 'local_status', 'common_auth', 'common_profile', 'common_client', 'common_relationship', 'common_food', 'common_plan', 'common_org', 'common_cleanup', 'unknown']);
 const commonErrors = new Map([
   ['local Supabase status is unavailable', 'local_status'],
   ['local auth user creation failed', 'common_auth'],
@@ -151,32 +151,25 @@ export async function executeCoachWeek({ status, env, actors, service }) {
     for (const key of Object.keys(childEnv)) {
       if (/(OPENAI|ANTHROPIC|GOOGLE|GEMINI|VOYAGE|DEEPSEEK|AI_GATEWAY|OPENROUTER).*(_KEY|_TOKEN)$/.test(key)) childEnv[key] = '';
     }
-    phase = 'playwright_engine';
-    const engineEnv = {
-      ...childEnv,
-      NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED: '1',
-      COACH_ASSISTANT_ISOLATED_ENGINE_ENABLED: '1',
-      COACH_ASSISTANT_ISOLATED_ACTIONS_ENABLED: '1',
-      COACH_SQL_ACTOR: clientId,
-      E2E_COACH_ENGINE: '1',
-      E2E_COACH_DRAFT_ONLY: '1',
-    };
-    const engine = spawnSync(process.execPath, [resolve('node_modules/@playwright/test/cli.js'), 'test', '--config', 'playwright.coach.config.ts', '--workers=1', 'e2e/coach-engine.spec.ts'], { stdio: 'inherit', env: engineEnv });
-    if (engine.error || engine.status !== 0) throw new Error(`Coach Auth E2E isolated engine failed with status ${engine.status ?? 1}`);
-    phase = 'playwright_voice';
-    const voiceEnv = {
+    phase = 'playwright_engine_voice';
+    const enabledEnv = {
       ...childEnv,
       NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED: '1',
       NEXT_PUBLIC_COACH_VOICE_FIXTURE_ENABLED: '1',
       NEXT_PUBLIC_COACH_VOICE_REVIEW_ENABLED: '1',
+      COACH_ASSISTANT_ISOLATED_ENGINE_ENABLED: '1',
+      COACH_ASSISTANT_ISOLATED_ACTIONS_ENABLED: '1',
       COACH_ASSISTANT_VOICE_FIXTURE_ENABLED: '1',
       COACH_ASSISTANT_VOICE_REVIEW_ENABLED: '1',
+      COACH_SQL_ACTOR: clientId,
+      E2E_COACH_ENGINE: '1',
+      E2E_COACH_DRAFT_ONLY: '1',
       E2E_COACH_VOICE: '1',
     };
-    const voice = spawnSync(process.execPath, [resolve('node_modules/@playwright/test/cli.js'), 'test', '--config', 'playwright.coach.config.ts', '--workers=1', 'e2e/coach-voice.spec.ts'], { stdio: 'inherit', env: voiceEnv });
-    if (voice.error || voice.status !== 0) throw new Error(`Coach Auth E2E isolated voice failed with status ${voice.status ?? 1}`);
-    // Each Playwright process owns and closes its app server before the next
-    // starts. Both reuse the same disposable Auth/DB fixture and final cleanup.
+    // These enabled-only suites share one app server. Keeping them in one
+    // process avoids a second Next dev startup between compatible flag sets.
+    const enabled = spawnSync(process.execPath, [resolve('node_modules/@playwright/test/cli.js'), 'test', '--config', 'playwright.coach.config.ts', '--workers=1', 'e2e/coach-engine.spec.ts', 'e2e/coach-voice.spec.ts'], { stdio: 'inherit', env: enabledEnv });
+    if (enabled.error || enabled.status !== 0) throw new Error(`Coach Auth E2E isolated engine/voice failed with status ${enabled.status ?? 1}`);
     const modes = [
       childEnv,
       { ...childEnv, NEXT_PUBLIC_COACH_ASSISTANT_ENABLED: '0', COACH_ASSISTANT_ENABLED: '0', E2E_COACH_FLAG_OFF: '1', E2E_COACH_PROFESSIONAL_FLAG_OFF: '1' },
