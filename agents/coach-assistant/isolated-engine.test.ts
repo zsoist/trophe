@@ -58,6 +58,18 @@ describe('disposable CI authorized-records engine composition',()=>{
   expect((await handleCoachRequest(request(input),{...deps,isolatedEngine:undefined})).status).toBe(503);
   expect((await handleCoachRequest(request(input),{...deps,guard:async()=>new Response('',{status:401})})).status).toBe(401);
  });
+ it('emits the bound draft tool output only through the existing isolated action path',async()=>{
+  const fetch=vi.fn(()=>{throw new Error('network forbidden');});vi.stubGlobal('fetch',fetch);
+  const env=config(),engine=createIsolatedCoachEngineBinding(env),version='a'.repeat(64);
+  const request={version:'coach-assistant.v2',conversationId:id(2),turnId:id(3),message:'I only have 35 minutes and dumbbells.',context:{surface:'plan' as const,includeScreen:true,workspace:{kind:'draft' as const,version}}};
+  const response=await engine.run(request,{...options(),isolatedActionsEnabled:true});
+  expect(response.ok).toBe(true);
+  expect(response.actionIntents).toEqual([expect.objectContaining({action:'draft.update',source:'provider_tool',subjectId:id(1),surface:'plan',resource:{kind:'draft',id:id(1),version},target:{durationMinutes:35,equipment:['dumbbells']},reviewRequired:true})]);
+  expect(response.proposals).toEqual([]);expect(response.receipts).toEqual([]);
+  expect(response.telemetry).toMatchObject({modelCalls:1,costUsd:0});expect(fetch).not.toHaveBeenCalled();
+  const unbound=await engine.run({...request,turnId:id(6),context:{surface:'plan' as const,includeScreen:false,workspace:{kind:'draft' as const,version}}},{...options(),isolatedActionsEnabled:true});
+  expect(unbound.ok).toBe(true);expect(unbound.actionIntents).toEqual([]);
+ });
  it.each([{CI:'false'},{GITHUB_ACTIONS:'false'},{CI_REAL_SUPABASE:'0'},{VERCEL_ENV:'production'},{TROPHE_ALLOW_PAID_AI:'1'},{NEXT_PUBLIC_SUPABASE_URL:'https://remote.invalid'},{DATABASE_URL:'postgresql://fixture@127.0.0.1:54323/postgres'},{COACH_ASSISTANT_DATA_SOURCE:'synthetic'}])('rejects mismatched server guard %j',override=>{expect(()=>createIsolatedCoachEngineBinding({...config(),...override})).toThrow('isolated_engine_disabled');});
  it('does not accept a forged capability or substitute transport and rechecks guard validity',async()=>{
   const env=config();const {boundary,provider}=createIsolatedEngineBoundary(env);const fake=vi.fn(provider);

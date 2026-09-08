@@ -6,7 +6,7 @@ import type { CoachConversationResponse } from './contracts';
 
 export interface IsolatedCoachEngineBinding {
  readonly kind:'isolated_coach_engine_binding';
- run(raw:unknown,options:RunOptions&{filterMemoryHistory?:(input:CoachConversationRequest)=>CoachConversationRequest}):Promise<CoachConversationResponse>;
+ run(raw:unknown,options:RunOptions&{filterMemoryHistory?:(input:CoachConversationRequest)=>CoachConversationRequest;isolatedActionsEnabled?:boolean}):Promise<CoachConversationResponse>;
 }
 interface VerifiedExecution {binding:IsolatedCoachEngineBinding;request:string;actorId:string}
 const bindings=new WeakSet<IsolatedCoachEngineBinding>();
@@ -19,7 +19,7 @@ const stable=(value:unknown):string=>{
 /** AG1 route composition point; never accepts request-controlled provider/options. */
 export function createIsolatedCoachEngineBinding(env:Record<string,string|undefined>):IsolatedCoachEngineBinding{
  const {boundary,provider}=createIsolatedEngineBoundary(env);
- const binding:IsolatedCoachEngineBinding=Object.freeze({kind:'isolated_coach_engine_binding',async run(raw:unknown,options:RunOptions&{filterMemoryHistory?:(input:CoachConversationRequest)=>CoachConversationRequest}){
+ const binding:IsolatedCoachEngineBinding=Object.freeze({kind:'isolated_coach_engine_binding',async run(raw:unknown,options:RunOptions&{filterMemoryHistory?:(input:CoachConversationRequest)=>CoachConversationRequest;isolatedActionsEnabled?:boolean}){
   if(options.repository.dataSource!=='authorized_records')throw new Error('isolated_engine_requires_authorized_records');
   const response=await runConversationCandidate(raw,{...options,mode:'model',offlineConversationProvider:provider,isolatedFixtureBoundary:boundary});
   executions.set(response,{binding,request:stable(raw),actorId:options.actorId});
