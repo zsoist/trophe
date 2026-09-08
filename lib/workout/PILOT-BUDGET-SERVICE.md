@@ -4,8 +4,9 @@ LIVE-01 now evaluates a US$3 authorized ceiling and a US$2.70 admission target o
 the America/Bogota server day. The writer records an admission day per attempt,
 recomputes the active ledger atomically when the date changes, excludes only prior
 day settled usage, and retains every open reservation. The isolated configuration
-permits one shared Ask Trophē authority row. This remains acceptance-only SQL until
-AG1 identifies and provisions the hosted pilot destination through the release gate.
+permits one shared Ask Trophē authority row. AG1 owns the canonical migration and
+hosted provisioning; AG3's isolated acceptance owns generated rows only and never
+drops the table or indexes.
 
 `createPilotBudgetStore` implements the coach port with the shared `agent_runs` table and one private configuration row per pilot. The caller identity comes from the server factory; the command cannot choose that authority. Each transaction locks configuration, rechecks allowed actors and current organization membership, validates every pilot record, and compares count/charge against the persisted aggregate before deciding. Missing or reclassified rows fail closed. Attempt IDs are globally unique; `agentRunId` is the same row ID/generation ID later used for reconciliation.
 

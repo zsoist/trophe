@@ -14,11 +14,13 @@ attempts admitted on prior days. At a natural day change, settled historical usa
 leaves the active total; open reservations remain charged. Rows and history are
 never deleted or reset by midnight. `accountingBlocked` also survives the boundary.
 
-The isolated table accepts exactly one `ask-trophe-shared` configuration row and
-stores the current ledger day. The transaction lock serializes rollover, reserve,
-dispatch and settlement. All pilot modalities and environments must point to this
-same hosted database row; separate deployments or pilot IDs are not compliant.
-The current SQL is still disposable acceptance DDL and must not be run in production.
+The canonical private table accepts exactly one `ask-trophe-shared` configuration
+row and stores the current ledger day. The transaction lock serializes rollover,
+reserve, dispatch and settlement. All pilot modalities and environments must point
+to this same hosted database row; separate deployments or pilot IDs are not
+compliant. The isolated acceptance script owns data rows only. It validates the
+migrated columns/indexes, inserts generated IDs, deletes only those IDs and verifies
+that the canonical schema survives cleanup.
 
 Implementation: pilot-budget.ts. AG3 owns pure decisions and the validating port
 adapter. AG1 owns the persistent transaction writer and any schema/root changes.

@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import { Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
@@ -17,7 +16,7 @@ for (const id of [actorId, organizationId]) assert.match(id, /^[a-f0-9-]{36}$/);
 const pool = new Pool({ connectionString: target.toString(), max: 4, connectionTimeoutMillis: 5000, statement_timeout: 5000 });
 const service = createPilotBudgetStore(drizzle(pool), actorId), signal = new AbortController().signal;
 const pilotId = randomUUID(), runIds: string[] = [], pilotIds = [pilotId];
-let check = 'setup', installed = false;
+let check = 'setup', fixtureInserted = false;
 function pass() { process.stdout.write(JSON.stringify({ event: 'coach_pilot_sql', check, outcome: 'passed' }) + '\n'); }
 const execute = (binding: PilotAttemptBinding, operation: PilotBudgetCommand['operation'], usage?: Extract<PilotBudgetCommand, { operation: 'settle' }>['usage']) => service.execute({ operation, binding, ...(usage ? { usage } : {}) } as PilotBudgetCommand, signal) as Promise<PilotBudgetResult>;
 function attempt(turnId = randomUUID()): PilotAttemptBinding {
@@ -45,8 +44,18 @@ async function main() {
     const claim = await execute(binding, 'claim_dispatch'); assert.ok(claim.ok && !claim.dispatchGranted);
     check = 'restart_keeps_unknown_charge_without_redispatch'; pass(); return;
   }
-  await pool.query(await readFile('db/isolated/coach-pilot-budget.sql', 'utf8')); installed = true;
+  check = 'canonical_budget_schema_and_indexes_present';
+  const columns = await pool.query(`SELECT column_name FROM information_schema.columns
+    WHERE table_schema='private' AND table_name='coach_pilot_budgets'`);
+  const names=new Set(columns.rows.map(row=>row.column_name));
+  for(const name of ['id','scope_key','organization_id','allowed_actor_ids','cap_nano_usd','operating_target_nano_usd','budget_day','charged_nano_usd','attempt_count','accounting_blocked'])assert.ok(names.has(name));
+  const indexes=await pool.query(`SELECT i.indisunique,pg_get_indexdef(i.indexrelid) AS definition FROM pg_index i
+    JOIN pg_class t ON t.oid=i.indrelid JOIN pg_namespace n ON n.oid=t.relnamespace
+    WHERE n.nspname='public' AND t.relname='agent_runs' AND pg_get_indexdef(i.indexrelid) LIKE '%coachPilot%'`);
+  assert.ok(indexes.rows.some(row=>row.indisunique&&row.definition.includes('attemptId')));
+  assert.ok(indexes.rows.some(row=>row.definition.includes('pilotId')));pass();
   await pool.query('INSERT INTO private.coach_pilot_budgets(id,organization_id,allowed_actor_ids) VALUES($1,$2,$3::uuid[])', [pilotId, organizationId, [actorId]]);
+  fixtureInserted=true;
   check = 'zero_cap_and_foreign_identity_blocked';
   const zero = await execute(attempt(), 'reserve'); assert.ok(!zero.ok && zero.error === 'budget_blocked');
   const foreign = await execute({ ...attempt(), actorId: randomUUID() }, 'reserve'); assert.ok(!foreign.ok && foreign.error === 'budget_blocked'); pass();
@@ -151,10 +160,13 @@ main().catch(error => {
   process.stderr.write(JSON.stringify({ event: 'coach_pilot_sql', check, outcome: 'failed', ...(typeof error?.code === 'string' && /^[0-9A-Z]{5}$/.test(error.code) ? { sqlstate: error.code } : {}) }) + '\n'); process.exitCode = 1;
 }).finally(async () => {
   try {
-    if (installed) {
+    if (fixtureInserted) {
       await pool.query("DELETE FROM public.agent_runs WHERE id=ANY($1::uuid[]) AND user_id=$2 AND organization_id=$3 AND task_name='coach_pilot' AND metadata->'coachPilot'->'binding'->>'pilotId'=ANY($4::text[])", [runIds, actorId, organizationId, pilotIds]);
-      await pool.query('DROP INDEX public.isolated_coach_pilot_attempt; DROP INDEX public.isolated_coach_pilot_rows; DROP TABLE private.coach_pilot_budgets;');
-      check = 'isolated_budget_fixture_removed'; pass();
+      await pool.query("DELETE FROM private.coach_pilot_budgets WHERE id=$1 AND organization_id=$2 AND scope_key='ask-trophe-shared'", [pilotId, organizationId]);
+      assert.ok((await pool.query("SELECT to_regclass('private.coach_pilot_budgets') IS NOT NULL AS present")).rows[0].present);
+      assert.ok((await pool.query(`SELECT count(*)::int AS count FROM pg_index i JOIN pg_class t ON t.oid=i.indrelid JOIN pg_namespace n ON n.oid=t.relnamespace
+        WHERE n.nspname='public' AND t.relname='agent_runs' AND pg_get_indexdef(i.indexrelid) LIKE '%coachPilot%'`)).rows[0].count>=2);
+      check = 'isolated_budget_rows_removed_schema_preserved'; pass();
     }
   } catch { process.stderr.write('Isolated budget fixture cleanup failed.\n'); process.exitCode = 1; }
   await pool.end();
