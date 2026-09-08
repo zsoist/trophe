@@ -166,7 +166,10 @@ async function main() {
   // guarantees cleanup even if the browser exits after propose or commit.
   const partialProposals = await pool.query<{ id: string }>("SELECT id FROM private.coach_action_proposals WHERE actor_id=$1 AND subject_id=$1 AND organization_id=$2 AND action='workout.set.reps.update'", [actorId, organizationId]);
   for (const row of partialProposals.rows) if (!proposalIds.includes(row.id)) proposalIds.push(row.id);
-  const partialReceipts = await pool.query<{ action_id: string }>("SELECT action_id FROM private.coach_action_receipts WHERE actor_id=$1 AND subject_id=$1 AND organization_id=$2 AND action='workout.set.reps.update'", [actorId, organizationId]);
+  const partialReceipts = await pool.query<{ action_id: string }>(`SELECT r.action_id FROM private.coach_action_receipts r
+    JOIN private.coach_action_proposals p ON p.id=r.proposal_id AND p.actor_id=r.actor_id AND p.subject_id=r.subject_id
+      AND p.organization_id=r.organization_id AND p.conversation_id=r.conversation_id
+    WHERE r.actor_id=$1 AND r.subject_id=$1 AND r.organization_id=$2 AND p.action='workout.set.reps.update'`, [actorId, organizationId]);
   for (const row of partialReceipts.rows) if (!actionIds.includes(row.action_id)) actionIds.push(row.action_id);
   assert.ok(typeof httpAction.actionId === 'string' && /^[a-f0-9-]{36}$/.test(httpAction.actionId)
     && typeof httpAction.proposalId === 'string' && /^[a-f0-9-]{36}$/.test(httpAction.proposalId));

@@ -44,6 +44,7 @@ test('Workout composer reviews and durably corrects the server-selected latest s
   try {
     await loginAs(page, 'client');
     await page.goto('/dashboard/workout');
+    await expect.poll(readWorkspace).not.toBeNull();
     const workspaceBefore = await readWorkspace();
     const setBefore = (await pool.query('SELECT reps FROM public.workout_sets WHERE id=$1', [setId])).rows[0];
     expect(setBefore?.reps).toBe(8);
