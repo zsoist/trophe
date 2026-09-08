@@ -37,16 +37,21 @@ import { PhotoFoodController } from './photo-food-state';
 import { PhotoFoodPanel } from './PhotoFoodPanel';
 import { requestPhotoFood, type PhotoFoodTransport } from './photo-food-client';
 import type { CoachConversationResponse, CoachContextHint, CoachSurface as CoachSurfaceName } from '@/agents/coach-assistant/contracts';
+import type { CoachVoiceResult } from '@/agents/coach-assistant/voice-contract';
+import type { CoachSpeechDescriptor } from '@/agents/coach-assistant/voice-turn';
+import type { ReviewedVoiceTransport, VoiceTranscriptionTransport } from './voice-client';
+import { requestReviewedVoiceTurn } from './voice-client';
+import { VoiceAnswerPlayback } from './VoiceAnswerPlayback';
 
 const HistoryPanel = dynamic(() => import('./HistoryPanel').then(module => module.HistoryPanel));
 
 export type CoachContextSlot = (props: { identity: string; controller: PreferenceController; state: PreferenceState; conversationId: string; turnId: string; surface: CoachSurfaceName; response: CoachConversationResponse; transport: PreferenceTransport }) => ReactNode;
-export type CoachVoiceSlot = (props: { conversationId: string; onUse: (text: string) => boolean }) => ReactNode;
-type Props = { identity: string; subjectId?: string; professional?: boolean; example?: ConversationTransport; preferenceTransport?: PreferenceTransport; memoryTransport?: MemoryTransport; dietTransport?: DietTransport; progressTransport?: ProgressTransport; foodTransport?:FoodTransport; photoFoodTransport?:PhotoFoodTransport; historyTransport?: HistoryTransport; contextSlot?: CoachContextSlot; voiceSlot?: CoachVoiceSlot; workspaceHint?: CoachContextHint['workspace'] };
+export type CoachVoiceSlot = (props: { conversationId: string; onUse: (text: string) => boolean; onSend?: (result: Extract<CoachVoiceResult, { ok: true }>, text: string) => Promise<'sent' | 'ambiguous' | 'failed'> }) => ReactNode;
+type Props = { identity: string; subjectId?: string; professional?: boolean; example?: ConversationTransport; preferenceTransport?: PreferenceTransport; memoryTransport?: MemoryTransport; dietTransport?: DietTransport; progressTransport?: ProgressTransport; foodTransport?:FoodTransport; photoFoodTransport?:PhotoFoodTransport; historyTransport?: HistoryTransport; contextSlot?: CoachContextSlot; voiceSlot?: CoachVoiceSlot; voiceTranscriptionTransport?: VoiceTranscriptionTransport; reviewedVoiceTransport?: ReviewedVoiceTransport; workspaceHint?: CoachContextHint['workspace'] };
 export default function GlobalCoach(props: Props) {
   return <CoachSurface key={`${props.identity}:${props.subjectId ?? props.identity}:${props.professional ? 'professional' : 'self'}`} {...props} />;
 }
-function CoachSurface({ identity, subjectId, professional = false, example, preferenceTransport, memoryTransport, dietTransport, progressTransport, foodTransport, photoFoodTransport, historyTransport, contextSlot, voiceSlot, workspaceHint }: Props) {
+function CoachSurface({ identity, subjectId, professional = false, example, preferenceTransport, memoryTransport, dietTransport, progressTransport, foodTransport, photoFoodTransport, historyTransport, contextSlot, voiceSlot, voiceTranscriptionTransport, reviewedVoiceTransport, workspaceHint }: Props) {
   const { t } = useGlobalCoachI18n();
   const path = usePathname();
   const surface = coachSurface(path);
@@ -87,6 +92,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   const log = useRef<HTMLDivElement>(null);
   const followLatest = useRef(true);
   const [showLatest, setShowLatest] = useState(false);
+  const [speechByTurn, setSpeechByTurn] = useState<Record<string, CoachSpeechDescriptor>>({});
   const scope = `${identity}:${subjectId ?? identity}`;
   const professionalMode = professional || Boolean(subjectId && subjectId !== identity);
   const missingProfessionalSubject = professionalMode && !subjectId;
@@ -131,7 +137,8 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
     else setShowLatest(true);
   }, [open, state.turns, state.pending]);
   const close = () => { controller.cancel(); preferences.cancel(); attachments.cancel(); voice.reset(); food.cancel(); photoFood.cancel(); memory.cancel(); diet.cancel(); progress.cancel(); setOpen(false); launcher.current?.focus(); };
-  const send = () => !voiceActive && !missingProfessionalSubject && controller.send({ surface, includeScreen, ...(includeScreen && selection ? selection.anatomy ? { anatomy: selection.anatomy } : { entity: selection.entity } : {}), ...(includeScreen && workspaceHint ? { workspace: workspaceHint } : {}), ...(subjectId ? { clientId: subjectId } : {}) }, async (request, signal) => {
+  const currentContext = (): CoachContextHint => ({ surface, includeScreen, ...(includeScreen && selection ? selection.anatomy ? { anatomy: selection.anatomy } : { entity: selection.entity } : {}), ...(includeScreen && workspaceHint ? { workspace: workspaceHint } : {}), ...(subjectId ? { clientId: subjectId } : {}) });
+  const send = () => !voiceActive && !missingProfessionalSubject && controller.send(currentContext(), async (request, signal) => {
     const response = await (example ?? requestConversation)(request, signal);
     if (subjectId && subjectId !== identity && response.ok) {
       const snapshot = response.snapshot as (typeof response.snapshot & { scopeKey?: string });
@@ -145,6 +152,24 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
     if (!create) return Promise.reject(new Error('history_unavailable'));
     return create(requestId, title, signal);
   } : undefined);
+  const sendVoice = async (result: Extract<CoachVoiceResult, { ok: true }>, text: string): Promise<'sent' | 'ambiguous' | 'failed'> => {
+    if (voiceActive || state.pending || missingProfessionalSubject || subjectId && subjectId !== identity) return 'failed';
+    controller.setDraft(text);
+    let outcome: 'sent' | 'ambiguous' | 'failed' = 'failed';
+    const transport = reviewedVoiceTransport ?? (!example && process.env.NEXT_PUBLIC_COACH_VOICE_REVIEW_ENABLED === '1' ? requestReviewedVoiceTurn : undefined);
+    if (!transport) return 'failed';
+    await controller.send(currentContext(), async (request, signal) => {
+      const { message: _message, ...requestTail } = request;
+      void _message;
+      const reviewed = await transport({ voice: result, editedText: text, reviewed: true, request: requestTail, offerSpeech: true }, signal);
+      if (!reviewed.ok) { outcome = reviewed.error === 'ambiguous_number' ? 'ambiguous' : 'failed'; throw new Error(reviewed.error); }
+      outcome = reviewed.response.ok ? 'sent' : 'failed';
+      const speech = reviewed.speech;
+      if (speech) setSpeechByTurn(current => ({ ...current, [request.turnId]: speech }));
+      return reviewed.response;
+    }, [], undefined, result.turnId);
+    return outcome;
+  };
   const latestTurn = state.turns.findLast(turn => turn.response?.ok);
   const latestResponse = latestTurn?.response;
   const professionalCapability = subjectId && subjectId !== identity
@@ -199,6 +224,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
           {Boolean(turn.request.attachments?.length) && <p className={styles.context}>{t(photoFoodEnabled ? 'global_coach.photos_sent_review' : 'global_coach.photos_sent', { count: turn.request.attachments!.length })}</p>}
           {turn.response?.output && <div className={styles.answer}>
             <p>{turn.response.output.answer}</p>
+            {speechByTurn[turn.request.turnId] && <VoiceAnswerPlayback descriptor={speechByTurn[turn.request.turnId]} text={turn.response.output.answer} />}
             {!example && turn.response.mode === 'offline' && <p className={styles.context}>{t('global_coach.offline')}</p>}
             {turn.response.evidence.length > 0 && <details><summary>{t('global_coach.sources')}</summary>{turn.response.evidence.map(item => <p key={item.id}>{item.statement}</p>)}{turn.response.output.limitations.length > 0 && <p className={styles.context}>{t('global_coach.limits')}</p>}</details>}
           </div>}
@@ -210,7 +236,13 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
       <form className={styles.composer} onSubmit={event => { event.preventDefault(); void send(); }}>
         <AttachmentPicker controller={attachments} state={attachmentState} conversationId={state.conversationId} transport={!example && latestResponse?.uploads?.images ? requestAttachment : undefined} disabled={state.pending} />
         {photoFoodEnabled&&attachmentState.items.filter(item=>item.state==='available'&&item.reference&&latestResponse?.attachments.some(reference=>reference.id===item.reference!.id&&reference.status==='available')).map(item=><button key={`food-${item.key}`} type="button" className={styles.contextToggle} disabled={photoFoodState.pending} onClick={()=>void photoFood.select(item.reference!.id,state.conversationId,photoFoodTransport??requestPhotoFood)}>{t('global_coach.photo_food_open')}</button>)}
-        <VoiceCapture controller={voice} state={voiceState} disabled={state.pending || attachmentState.pending} />
+        <VoiceCapture key={state.conversationId} controller={voice} state={voiceState} disabled={state.pending || attachmentState.pending} conversationId={state.conversationId} transcribe={subjectId && subjectId !== identity ? undefined : voiceTranscriptionTransport} onUse={text => {
+          if (voiceActive || state.pending) return false;
+          const current = controller.snapshot().draft;
+          const combined = current.trim() ? `${current}\n${text}` : text;
+          if (combined.length > 2000) return false;
+          controller.setDraft(combined); return true;
+        }} onSend={reviewedVoiceTransport || !example && process.env.NEXT_PUBLIC_COACH_VOICE_REVIEW_ENABLED === '1' ? sendVoice : undefined} />
         {voiceSlot?.({ conversationId: state.conversationId, onUse: text => {
           if (voiceActive || state.pending) return false;
           const current = controller.snapshot().draft;
@@ -218,7 +250,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
           if (combined.length > 2000) return false;
           controller.setDraft(combined);
           return true;
-        } })}
+        }, onSend: reviewedVoiceTransport || !example && process.env.NEXT_PUBLIC_COACH_VOICE_REVIEW_ENABLED === '1' ? sendVoice : undefined })}
         {includeScreen && selection && <button type="button" className={styles.contextToggle} onClick={() => setIncludeScreen(false)} aria-label={`${t('global_coach.remove_selection')}: ${selection.label}`}><span>{selection.label}</span><X size={16} aria-hidden="true" /></button>}
         <label className={styles.contextToggle}><input type="checkbox" checked={includeScreen} onChange={event => setIncludeScreen(event.target.checked)} />{t('global_coach.include')}<span>{t(`global_coach.${surface}`)}</span></label>
         <label className="sr-only" htmlFor="global-coach-question">{t('global_coach.question')}</label>

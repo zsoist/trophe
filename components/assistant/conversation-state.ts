@@ -40,11 +40,11 @@ export class ConversationController {
     this.generation++; this.active.abort(); this.active = null;
     this.publish({ ...this.state, pending: false, recoveryRequired: this.state.durable, error: 'cancelled', draft: this.state.draft || this.state.turns.at(-1)?.request.message || '' });
   }
-  async send(context: CoachContextHint | undefined, transport: ConversationTransport, attachments: CoachAttachmentRef[] = [], createThread?: (requestId: string, title: string, signal: AbortSignal) => Promise<{ id: string }>) {
+  async send(context: CoachContextHint | undefined, transport: ConversationTransport, attachments: CoachAttachmentRef[] = [], createThread?: (requestId: string, title: string, signal: AbortSignal) => Promise<{ id: string }>, requestedTurnId?: string) {
     const message = this.state.draft.trim();
     if (!this.identity || this.active || this.state.recoveryRequired || !message) return;
     const request: CoachConversationRequest = {
-      version: 'coach-assistant.v2', conversationId: this.state.conversationId, turnId: crypto.randomUUID(), message,
+      version: 'coach-assistant.v2', conversationId: this.state.conversationId, turnId: requestedTurnId ?? crypto.randomUUID(), message,
       ...(context ? { context: structuredClone(context) } : {}),
       ...(attachments.length ? { attachments: structuredClone(attachments.slice(0, 3)) } : {}),
       history: [...this.state.restored.map(item => ({ role: item.role, text: item.text.slice(0, 500) })), ...this.state.turns.filter(turn => turn.response?.ok).flatMap(turn => [

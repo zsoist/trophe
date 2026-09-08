@@ -7,6 +7,8 @@ import GlobalCoach from '@/components/assistant/GlobalCoach';
 import { VoiceTranscriptReview } from '@/components/assistant/VoiceTranscriptReview';
 import { PrivateVoiceReview } from '@/tools/anatomy/workout-review/voice-review';
 import type { CoachVoiceResult } from '@/agents/coach-assistant/voice-contract';
+import type { CoachConversationRequest, CoachConversationResponse } from '@/agents/coach-assistant/contracts';
+import type { ReviewedVoiceTransport } from '@/components/assistant/voice-client';
 vi.mock('next/navigation', () => ({ usePathname: () => '/dashboard/workout' }));
 HTMLElement.prototype.scrollTo = vi.fn();
 afterEach(cleanup);
@@ -45,9 +47,26 @@ it('discards unaccepted transcript text when the mounted coach identity changes'
 });
 it('will not offer use of a transcript whose reviewed scope differs from the current conversation', () => {
   const scope = { actorId: 'owner', organizationId: 'org', conversationId: 'conversation-a' };
-  const result: Extract<CoachVoiceResult, { ok: true }> = { version: 'coach-assistant.voice.v1', ok: true, status: 'review_required', scope, turnId: 'turn', transcript: { text: 'Private words', languages: [], source: 'synthetic_fixture' }, durationMs: 1000 };
+  const result: Extract<CoachVoiceResult, { ok: true }> = { version: 'coach-assistant.voice.v1', ok: true, status: 'review_required', scope, turnId: 'turn', transcript: { text: 'Private words', locale: 'en', languages: [], source: 'synthetic_fixture', trust: 'untrusted_transcript' }, review: { token: 'fixture', expiresAt: new Date(Date.now() + 60_000).toISOString(), editable: true, audioRetention: 'discarded_after_transcription' }, durationMs: 1000 };
   const use = vi.fn();
   render(<I18nProvider defaultLang="en"><VoiceTranscriptReview result={result} scope={{ ...scope, conversationId: 'conversation-b' }} onUse={use} onDiscard={vi.fn()} /></I18nProvider>);
   expect(screen.getByRole('button', { name: 'Add reviewed text to question' }).hasAttribute('disabled')).toBe(true);
   expect(use).not.toHaveBeenCalled();
+});
+it('sends reviewed fixture text through the integrated text turn and renders its response', async () => {
+  const reviewedImplementation: ReviewedVoiceTransport = async input => {
+    const request: CoachConversationRequest = { ...input.request, message: input.editedText };
+    const response: CoachConversationResponse = { version: 'coach-assistant.v2', conversationId: request.conversationId, turnId: request.turnId, ok: true, mode: 'offline', dataSource: 'synthetic', snapshot: null,
+      output: { answer: 'Reviewed voice answer', evidenceRefs: [], limitations: [], suggestions: [], escalation: { required: false, reason: null, draft: null } }, evidence: [], proposals: [], receipts: [], attachments: [],
+      telemetry: { model: null, provider: null, promptVersion: 'fixture', modelCalls: 0, dataReads: 0, tokensIn: 0, tokensOut: 0, reasoningTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, latencyMs: 0, costUsd: 0, pricingVersion: 'fixture' } };
+    return { ok: true, status: 'answered', transcript: { text: input.editedText, locale: input.voice.transcript.locale, languages: input.voice.transcript.languages, source: 'synthetic_fixture', trust: 'untrusted_user_reviewed_data' }, response, speech: null };
+  };
+  const reviewed = vi.fn(reviewedImplementation);
+  render(<I18nProvider defaultLang="en"><GlobalCoach identity="owner" example={example} reviewedVoiceTransport={reviewed} voiceSlot={props => <PrivateVoiceReview {...props} />} /></I18nProvider>);
+  openTranscript();
+  fireEvent.change(screen.getByRole('textbox', { name: 'Edit transcript' }), { target: { value: 'My reviewed workout question' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Send reviewed question' }));
+  await screen.findByText('Reviewed voice answer');
+  expect(reviewed).toHaveBeenCalledWith(expect.objectContaining({ editedText: 'My reviewed workout question', reviewed: true, offerSpeech: true, request: expect.objectContaining({ turnId: expect.any(String) }) }), expect.any(AbortSignal));
+  expect(screen.queryByRole('textbox', { name: 'Edit transcript' })).toBeNull();
 });

@@ -5,6 +5,7 @@ import { taskPolicies } from '@/agents/router/policies';
 import { normalizeAudioMediaType, readAudioDurationMs } from '@/lib/server/audio-duration';
 import { COACH_AUDIO_LIMITS, type CoachVoiceResult } from './voice-contract';
 import type { CoachRepository } from './repository';
+import {issueVoiceReviewToken} from './voice-review-token';
 
 /** Existing provider signature; only a synthetic fixture callback is accepted here. */
 export type OfflineCoachTranscriber=(input:Parameters<typeof invokeOpenAiTranscription>[0])=>ReturnType<typeof invokeOpenAiTranscription>;
@@ -48,7 +49,9 @@ export async function transcribeCoachAudio(file:File,raw:unknown,options:{actorI
       await reauthorize();
       const transcript=transcriptionOutputSchema.safeParse(result.output);
       if(!transcript.success||transcript.data.text.length>2000||result.rawStatus<200||result.rawStatus>=300)throw new Error('invalid_output');
-      return {version:'coach-assistant.voice.v1',ok:true,status:'review_required',scope:{actorId:context.actorId,organizationId:context.organizationId,conversationId:input.conversationId},turnId:input.turnId,transcript:{...transcript.data,source:'synthetic_fixture'},durationMs};
+      const scope={actorId:context.actorId,organizationId:context.organizationId,conversationId:input.conversationId};
+      const review=issueVoiceReviewToken({...scope,turnId:input.turnId,locale:input.locale,transcript:transcript.data.text});
+      return {version:'coach-assistant.voice.v1',ok:true,status:'review_required',scope,turnId:input.turnId,transcript:{...transcript.data,locale:input.locale,source:'synthetic_fixture',trust:'untrusted_transcript'},review:{...review,editable:true,audioRetention:'discarded_after_transcription'},durationMs};
     };
     return await Promise.race([work(),new Promise<never>((_,reject)=>{
       boundary=()=>reject(controller.signal.reason);controller.signal.addEventListener('abort',boundary,{once:true});if(controller.signal.aborted)boundary();

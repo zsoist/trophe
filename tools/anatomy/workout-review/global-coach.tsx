@@ -1,6 +1,5 @@
 import { useLayoutEffect, useRef } from 'react';
 import { PrivateDraftControls } from './draft-controls';
-import { PrivateVoiceReview } from './voice-review';
 import type { PreferenceTransport } from '../../../components/assistant/preference-state';
 import { useWorkoutWorkspace } from '../../../components/workout/workspace/WorkoutWorkspaceProvider';
 import GlobalCoach from '../../../components/assistant/GlobalCoach';
@@ -13,6 +12,8 @@ import { REVIEW_USER, reviewData } from './store';
 import { privatePreferences, privatePreferenceTransport } from './preferences';
 import { useCoachI18n } from '../../../components/workout/coach/useCoachI18n';
 import { localToday, localDateStr } from '../../../lib/utils/dates';
+import type { VoiceTranscriptionTransport, ReviewedVoiceTransport } from '../../../components/assistant/voice-client';
+import { hasAmbiguousSpokenNumber } from '../../../agents/coach-assistant/voice-ambiguity';
 export function PrivateGlobalCoach() {
   const workspace = useWorkoutWorkspace();
   const currentWorkspace = useRef(workspace);
@@ -44,5 +45,19 @@ export function PrivateGlobalCoach() {
       memories: preferences.memories, proposals: [], receipts: [], attachments: [],
     };
   };
-  return <GlobalCoach identity={REVIEW_USER} example={transport} preferenceTransport={actionTransport} contextSlot={props => <PrivateDraftControls {...props} />} voiceSlot={props => <PrivateVoiceReview {...props} />} />;
+  /** Explicit UI fixture: its text is not derived from the recorded Blob. */
+  const voiceTranscriptionTransport: VoiceTranscriptionTransport = async (_recording, metadata, signal) => {
+    signal.throwIfAborted();
+    return { version: 'coach-assistant.voice.v1', ok: true, status: 'review_required', scope: { actorId: REVIEW_USER, organizationId: '00000000-0000-4000-8000-000000000002', conversationId: metadata.conversationId }, turnId: metadata.turnId,
+      transcript: { text: t('global_coach.voice_example_text'), locale: metadata.locale, languages: [metadata.locale], source: 'synthetic_fixture', trust: 'untrusted_transcript' },
+      review: { token: 'offline-ui-fixture', expiresAt: new Date(Date.now() + 60_000).toISOString(), editable: true, audioRetention: 'discarded_after_transcription' }, durationMs: _recording.durationMs };
+  };
+  const reviewedVoiceTransport: ReviewedVoiceTransport = async (input, signal) => {
+    signal.throwIfAborted();
+    if (hasAmbiguousSpokenNumber(input.editedText)) return { ok: false, status: 'clarification_required', error: 'ambiguous_number' };
+    const response = await transport({ ...input.request, message: input.editedText }, signal);
+    return { ok: true, status: 'answered', transcript: { text: input.editedText, locale: input.voice.transcript.locale, languages: input.voice.transcript.languages, source: 'synthetic_fixture', trust: 'untrusted_user_reviewed_data' }, response,
+      speech: input.offerSpeech ? { status: 'available_on_request', conversationId: response.conversationId, turnId: response.turnId, textSource: 'validated_final_answer', syntheticVoice: true, autoplay: false, expiresInMs: 60_000, requiresResponseId: true } : null };
+  };
+  return <GlobalCoach identity={REVIEW_USER} example={transport} preferenceTransport={actionTransport} contextSlot={props => <PrivateDraftControls {...props} />} voiceTranscriptionTransport={voiceTranscriptionTransport} reviewedVoiceTransport={reviewedVoiceTransport} />;
 }

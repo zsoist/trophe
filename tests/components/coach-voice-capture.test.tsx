@@ -71,3 +71,12 @@ it('labels local capture honestly and provides permission failure recovery witho
   expect(screen.getByText(/Microphone permission was denied/)).toBeTruthy();
   expect(fetch).not.toHaveBeenCalled();
 });
+it('stops answer playback before requesting the microphone and again on reset', () => {
+  const start = vi.fn((options: typeof callbacks) => { callbacks = options; options.onRequesting(); return { active: true, cancel: vi.fn(), stop: vi.fn() }; });
+  const stopPlayback = vi.fn();
+  const controller = new VoiceController(start, stopPlayback);
+  controller.start();
+  expect(stopPlayback).toHaveBeenCalledTimes(1);
+  controller.reset();
+  expect(stopPlayback).toHaveBeenCalledTimes(2);
+});
