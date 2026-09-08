@@ -5,6 +5,7 @@ import { blockPaidRequests, loginAs } from './helpers/auth';
 
 test.skip(process.env.E2E_COACH_ENGINE !== '1', 'Exclusive disposable engine runner');
 test('authenticated HTTP engine uses current authorized profile with explicit fixture provenance', async ({ page }) => {
+  test.skip(process.env.E2E_COACH_DRAFT_ONLY === '1', 'The vertical draft gate runs independently');
   const target = new URL(process.env.DATABASE_URL ?? 'about:blank');
   if (process.env.CI !== 'true' || process.env.GITHUB_ACTIONS !== 'true' || process.env.CI_REAL_SUPABASE !== '1'
     || target.protocol !== 'postgresql:' || target.hostname !== '127.0.0.1' || target.port !== '54322'
@@ -82,39 +83,44 @@ test('authenticated HTTP engine uses current authorized profile with explicit fi
     const detachedResult = await detachedResponse.json();
     expect(detachedResult.snapshot.selection).toBeUndefined();
     expect(detachedResult.snapshot.screenIncluded).toBe(false);
-    await test.step('actual Workout composer reviews then applies the isolated draft intent', async () => {
-      const readDraft = () => page.evaluate(id => {
-        const value = localStorage.getItem(`trophe:workout-workspace:${id}`);
-        return value ? JSON.parse(value).draft : null;
-      }, actor);
-      await page.goto('/dashboard/workout');
-      await page.getByRole('button', { name: 'Review plan', exact: true }).first().click();
-      await page.getByRole('button', { name: 'Edit workout', exact: true }).click();
-      await page.getByRole('textbox', { name: 'Workout name', exact: true }).fill('Isolated draft before review');
-      await expect.poll(async () => (await readDraft())?.name).toBe('Isolated draft before review');
-      const before = await readDraft();
-      expect(before?.name).toBe('Isolated draft before review');
-      await page.getByRole('button', { name: 'Ask Trophē', exact: true }).click();
-      const coach = page.locator('#global-coach');
-      await coach.getByRole('textbox', { name: 'Your question', exact: true }).fill('I only have 35 minutes and dumbbells.');
-      const sent = page.waitForResponse(item => new URL(item.url()).pathname === '/api/coach-assistant' && item.request().method() === 'POST');
-      await coach.getByRole('button', { name: 'Send question', exact: true }).click();
-      const http = await sent;
-      expect(http.status()).toBe(200);
-      expect(http.request().postDataJSON()).toMatchObject({ message: 'I only have 35 minutes and dumbbells.', context: { surface: 'plan', includeScreen: true, workspace: { kind: 'draft' } } });
-      expect(http.request().postDataJSON().context.workspace.version).toMatch(/^[a-f0-9]{64}$/);
-      const result = await http.json();
-      expect(result).toMatchObject({ evaluation: { transport: 'injected_fixture' }, telemetry: { costUsd: 0 }, actionIntents: [{ action: 'draft.update', source: 'provider_tool', target: { durationMinutes: 35, equipment: ['dumbbells'] }, reviewRequired: true }], proposals: [], receipts: [] });
-      await coach.getByText('Your profile & memory', { exact: true }).click();
-      await expect(coach.getByRole('button', { name: 'Confirm change', exact: true })).toBeVisible();
-      await expect(coach.getByRole('region', { name: 'After', exact: true })).toContainText('35 min · Dumbbells');
-      expect(await readDraft()).toEqual(before);
-      await coach.getByRole('button', { name: 'Confirm change', exact: true }).click();
-      await expect(coach.getByText('Updated in your private Workout draft.', { exact: true })).toBeVisible();
-      await expect.poll(async () => (await readDraft())?.name).toContain('35 min · Dumbbells');
-    });
     expect((await pool.query('SELECT workout_preferences FROM public.client_profiles WHERE user_id=$1', [actor])).rows[0]).toEqual(before);
     expect(await ledger()).toEqual(ledgerBefore);
     noPaid();
   } finally { await anonymous.dispose(); await pool.end(); }
+});
+
+test('actual Workout composer reviews then applies the isolated draft intent', async ({ page }) => {
+  test.skip(process.env.E2E_COACH_DRAFT_ONLY !== '1', 'Only the vertical draft gate supplies this mode');
+  const actor = process.env.COACH_SQL_ACTOR!;
+  const noPaid = await blockPaidRequests(page);
+  const readDraft = () => page.evaluate(id => {
+    const value = localStorage.getItem(`trophe:workout-workspace:${id}`);
+    return value ? JSON.parse(value).draft : null;
+  }, actor);
+  await loginAs(page, 'client');
+  await page.goto('/dashboard/workout');
+  await page.getByRole('button', { name: 'Review plan', exact: true }).first().click();
+  await page.getByRole('button', { name: 'Edit workout', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Workout name', exact: true }).fill('Isolated draft before review');
+  await expect.poll(async () => (await readDraft())?.name).toBe('Isolated draft before review');
+  const before = await readDraft();
+  await page.getByRole('button', { name: 'Ask Trophē', exact: true }).click();
+  const coach = page.locator('#global-coach');
+  await coach.getByRole('textbox', { name: 'Your question', exact: true }).fill('I only have 35 minutes and dumbbells.');
+  const sent = page.waitForResponse(item => new URL(item.url()).pathname === '/api/coach-assistant' && item.request().method() === 'POST');
+  await coach.getByRole('button', { name: 'Send question', exact: true }).click();
+  const http = await sent;
+  const result = await http.json();
+  expect(http.status(), result?.error?.code).toBe(200);
+  expect(http.request().postDataJSON()).toMatchObject({ message: 'I only have 35 minutes and dumbbells.', context: { surface: 'plan', includeScreen: true, workspace: { kind: 'draft' } } });
+  expect(http.request().postDataJSON().context.workspace.version).toMatch(/^[a-f0-9]{64}$/);
+  expect(result).toMatchObject({ evaluation: { transport: 'injected_fixture' }, telemetry: { costUsd: 0 }, actionIntents: [{ action: 'draft.update', source: 'provider_tool', target: { durationMinutes: 35, equipment: ['dumbbells'] }, reviewRequired: true }], proposals: [], receipts: [] });
+  await coach.getByText('Your profile & memory', { exact: true }).click();
+  await expect(coach.getByRole('button', { name: 'Confirm change', exact: true })).toBeVisible();
+  await expect(coach.getByRole('region', { name: 'After', exact: true })).toContainText('35 min · Dumbbells');
+  expect(await readDraft()).toEqual(before);
+  await coach.getByRole('button', { name: 'Confirm change', exact: true }).click();
+  await expect(coach.getByText('Updated in your private Workout draft.', { exact: true })).toBeVisible();
+  await expect.poll(async () => (await readDraft())?.name).toContain('35 min · Dumbbells');
+  noPaid();
 });
