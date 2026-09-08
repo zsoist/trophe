@@ -27,7 +27,10 @@ export const openConversationSchema=z.object({
   actionIntent:z.union([draftActionIntentSchema,setActionIntentSchema]).nullable().optional(),
 }).strict();
 
-export const candidateConversationSchema=openConversationSchema.extend({generalExplanationRefs:z.array(z.enum(['records_are_partial_view','planned_is_not_completed','nutrition_log_is_not_intake'])).max(3)});
+export const candidateConversationSchema=openConversationSchema.extend({
+  actionIntent:z.null().optional(),
+  generalExplanationRefs:z.array(z.enum(['records_are_partial_view','planned_is_not_completed','nutrition_log_is_not_intake'])).max(3),
+});
 
 /** Binds only explicit numeric/equipment slots. This does not classify general intent. */
 function explicitDraftTarget(message:string):{durationMinutes:number;equipment:['dumbbells']}|null {
@@ -113,7 +116,13 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
   response.telemetry.tokensIn=usage.inputTokens;response.telemetry.tokensOut=usage.outputTokens;
   response.telemetry.reasoningTokens=usage.reasoningTokens??0;response.telemetry.cacheReadTokens=usage.cacheReadTokens??0;response.telemetry.cacheWriteTokens=usage.cacheWriteTokens??0;
   // Injected fixture counters are diagnostics, not measured live usage or cost.
-  const parsed=validator.safeParse(generated.output);
+  // Candidate actions are unavailable. The provider schema excludes them, and
+  // injected fixture transports are defensively normalized to preserve the
+  // existing fail-closed behavior: no intent, proposal or receipt can escape.
+  const generatedOutput=candidateEvaluation&&generated.output&&typeof generated.output==='object'
+    ? {...generated.output,actionIntent:null}
+    : generated.output;
+  const parsed=validator.safeParse(generatedOutput);
   if(!parsed.success||generated.rawStatus<200||generated.rawStatus>=300)throw new Error('invalid_output');
   const output=parsed.data;
   if(output.evidenceRefs.some(id=>!facts.some(f=>f.id===id))||output.entityRefs.some(alias=>!entities.some(e=>e.alias===alias&&e.evidenceRefs.some(id=>output.evidenceRefs.includes(id)))))throw new Error('invalid_output');
