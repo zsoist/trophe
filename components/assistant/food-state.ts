@@ -56,10 +56,11 @@ export class FoodQuantityController {
   private async resolveAndPropose(transport: FoodTransport) {
     const { previousGrams, targetGrams, entryHintId, loggedDateHint } = this.state;
     if (previousGrams === null || targetGrams === null || this.state.pending || this.action) return false;
-    await this.execute({ ...this.header(), operation: 'food.resolve', expectedPreviousGrams: previousGrams, ...(entryHintId ? { entryHintId } : {}), ...(loggedDateHint ? { loggedDateHint } : {}) }, transport);
-    if (!this.state.entry || this.state.entry.grams !== previousGrams) return false;
+    const intentId = this.state.intentId;
+    const resolved = await this.execute({ ...this.header(), operation: 'food.resolve', expectedPreviousGrams: previousGrams, ...(entryHintId ? { entryHintId } : {}), ...(loggedDateHint ? { loggedDateHint } : {}) }, transport);
+    if (!resolved || this.state.intentId !== intentId || !this.state.entry || this.state.entry.grams !== previousGrams || this.state.error) return false;
     await this.propose(targetGrams, transport);
-    return Boolean(this.state.proposal);
+    return this.state.intentId === intentId && Boolean(this.state.proposal);
   }
   dismiss() {
     if (this.action && !this.state.receipt) return;
@@ -91,12 +92,12 @@ export class FoodQuantityController {
     if (!this.action || this.state.pending) return;
     await this.execute({ ...this.header(), operation: 'food.receipt', entryId: this.action.entryId, actionId: this.action.actionId }, transport);
   }
-  private async execute(operation: FoodQuantityOperation, transport: FoodTransport) {
+  private async execute(operation: FoodQuantityOperation, transport: FoodTransport): Promise<boolean> {
     const abort = new AbortController(), generation = ++this.generation; this.active = abort;
     const valid = () => generation === this.generation && !abort.signal.aborted;
     this.publish({ ...this.state, pending: true, error: null });
     const fail = () => {
-      if (!valid()) return;
+      if (!valid()) return false;
       this.clearDeadline();
       this.generation++; abort.abort(); this.active = null;
       this.publish({ ...this.state, pending: false, uncertain: Boolean(this.action && !this.state.receipt), error: this.action ? 'uncertain' : 'failed' });
@@ -105,19 +106,19 @@ export class FoodQuantityController {
     this.deadline = timer;
     try {
       const result = await transport(operation, abort.signal);
-      if (!valid()) return;
+      if (!valid()) return false;
       if (!result.ok) {
         const unresolved = Boolean(this.action && (operation.operation === 'food.receipt' || ['uncertain', 'cancelled'].includes(result.error)));
         if (!unresolved) this.action = null;
         this.publish({ ...this.state, pending: false, uncertain: unresolved && !this.state.receipt, error: result.error,
-          ...(!unresolved && operation.operation === 'food.apply' ? { proposal: null } : {}) }); return;
+          ...(!unresolved && operation.operation === 'food.apply' ? { proposal: null } : {}) }); return false;
       }
       if (operation.operation === 'food.read' || operation.operation === 'food.resolve') {
         if (!('snapshot' in result)
           || operation.operation === 'food.read' && result.snapshot.entryId !== operation.entryId
           || operation.operation === 'food.resolve' && (result.snapshot.grams !== operation.expectedPreviousGrams
             || operation.entryHintId && result.snapshot.entryId !== operation.entryHintId)) throw new Error('invalid_entry');
-        this.publish({ ...this.state, pending: false, entryId: result.snapshot.entryId, entry: result.snapshot, proposal: null }); return;
+        this.publish({ ...this.state, pending: false, entryId: result.snapshot.entryId, entry: result.snapshot, proposal: null }); return true;
       }
       if (operation.operation === 'food.propose') {
         if (!('proposal' in result) || result.proposal.resource.id !== operation.entryId || result.proposal.resource.version !== operation.resourceVersion
@@ -131,7 +132,7 @@ export class FoodQuantityController {
           || result.proposal.after.source !== result.proposal.before.source
           || result.proposal.after.sourceId !== result.proposal.before.sourceId
           || result.proposal.after.quantity !== result.proposal.before.quantity) throw new Error('changed_before');
-        this.publish({ ...this.state, pending: false, proposal: result.proposal }); return;
+        this.publish({ ...this.state, pending: false, proposal: result.proposal }); return true;
       }
       const action = this.action;
       if (!action || !('receipt' in result) || result.receipt.status !== 'applied' || result.receipt.actionId !== action.actionId
@@ -141,14 +142,15 @@ export class FoodQuantityController {
         : [...this.state.receipts, { entryId: action.entryId, receipt: result.receipt }].slice(-20);
       this.publish({ ...this.state, receipt: result.receipt, receipts, uncertain: false });
       const fresh = await transport({ ...this.header(), operation: 'food.read', entryId: action.entryId }, abort.signal);
-      if (!valid()) return;
+      if (!valid()) return false;
       if (!fresh.ok || !('snapshot' in fresh) || fresh.snapshot.entryId !== action.entryId
         || !/^\d+$/.test(fresh.snapshot.version) || !/^\d+$/.test(result.refresh.version)
         || BigInt(fresh.snapshot.version) < BigInt(result.refresh.version)
         || !this.state.proposal || !sameValues(fresh.snapshot, this.state.proposal.after)) throw new Error('refresh_failed');
       this.action = null;
       this.publish({ ...this.state, pending: false, entry: fresh.snapshot, proposal: null, error: null });
-    } catch { fail(); }
+      return true;
+    } catch { fail(); return false; }
     finally { clearTimeout(timer); if (this.deadline === timer) this.deadline = null; if (generation === this.generation) this.active = null; }
   }
 }

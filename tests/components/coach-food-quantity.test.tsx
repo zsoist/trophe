@@ -92,6 +92,42 @@ it('asks for a specific Food selection when deterministic resolution is ambiguou
   fireEvent.click(screen.getByRole('button', { name: 'Close review' }));
   expect(controller.snapshot().intentId).toBeNull();
 });
+it('does not propose from a stale entry when retry resolution becomes ambiguous', async () => {
+  const controller = new FoodQuantityController();
+  let resolves = 0;
+  const transport = vi.fn<FoodTransport>(async operation => {
+    if (operation.operation === 'food.resolve') {
+      resolves++;
+      return resolves === 1 ? { ...base, snapshot: { ...values, entryId, version: '1' } }
+        : { ...base, ok: false, error: 'ambiguous_selection' };
+    }
+    if (operation.operation === 'food.propose') return { ...base, ok: false, error: 'version_conflict' };
+    return { ...base, ok: false, error: 'invalid_input' };
+  });
+  await controller.activate('c'.repeat(64), conversationId, 250, 150, transport, null, '2026-09-07');
+  expect(transport.mock.calls.map(([operation]) => operation.operation)).toEqual(['food.resolve', 'food.propose']);
+  await controller.retry(transport);
+  expect(controller.snapshot()).toMatchObject({ entry: { entryId }, proposal: null, error: 'ambiguous_selection' });
+  expect(transport.mock.calls.map(([operation]) => operation.operation)).toEqual(['food.resolve', 'food.propose', 'food.resolve']);
+});
+it('does not continue a late resolve after another entry is selected', async () => {
+  const controller = new FoodQuantityController();
+  const nextEntryId = id();
+  let finishResolve!: (result: FoodQuantityResult) => void;
+  const transport = vi.fn<FoodTransport>(operation => {
+    if (operation.operation === 'food.resolve') return new Promise(resolve => { finishResolve = resolve; });
+    if (operation.operation === 'food.read') return Promise.resolve({ ...base, snapshot: { ...values, entryId: nextEntryId, version: '4' } });
+    return Promise.resolve({ ...base, ok: false, error: 'invalid_input' });
+  });
+  const activating = controller.activate('d'.repeat(64), conversationId, 250, 150, transport, null, '2026-09-07');
+  await Promise.resolve();
+  expect(controller.select(nextEntryId, conversationId, transport)).toBe(true);
+  await Promise.resolve();
+  finishResolve({ ...base, snapshot: { ...values, entryId, version: '1' } });
+  await activating;
+  expect(controller.snapshot()).toMatchObject({ intentId: null, entryId: nextEntryId, entry: { entryId: nextEntryId, version: '4' } });
+  expect(transport.mock.calls.map(([operation]) => operation.operation)).toEqual(['food.resolve', 'food.read']);
+});
 it('keeps a confirmed receipt and blocks another entry until canonical refetch succeeds', async () => {
   const { controller, transport } = fixture(); await selected(controller, transport); await controller.propose(150, transport);
   const actual = transport.getMockImplementation()!;

@@ -50,15 +50,25 @@ import { COACH_WORKOUT_SET_REFRESH } from './workout-events';
 import { acceptedFoodQuantityIntent } from './food-intent';
 
 const HistoryPanel = dynamic(() => import('./HistoryPanel').then(module => module.HistoryPanel));
+const foodControllers = new Map<string, FoodQuantityController>();
+const foodControllerFor = (scope: string) => {
+  const current = foodControllers.get(scope);
+  if (current) return current;
+  const controller = new FoodQuantityController();
+  foodControllers.set(scope, controller);
+  return controller;
+};
 
 export type CoachContextSlot = (props: { identity: string; controller: PreferenceController; state: PreferenceState; conversationId: string; turnId: string; surface: CoachSurfaceName; response: CoachConversationResponse; transport: PreferenceTransport }) => ReactNode;
 export type CoachVoiceSlot = (props: { conversationId: string; onUse: (text: string) => boolean; onSend?: (result: Extract<CoachVoiceResult, { ok: true }>, text: string) => Promise<'sent' | 'ambiguous' | 'failed'> }) => ReactNode;
 type Props = { identity: string; subjectId?: string; professional?: boolean; example?: ConversationTransport; preferenceTransport?: PreferenceTransport; memoryTransport?: MemoryTransport; dietTransport?: DietTransport; progressTransport?: ProgressTransport; foodTransport?:FoodTransport; photoFoodTransport?:PhotoFoodTransport; workoutSetTransport?:WorkoutSetTransport; historyTransport?: HistoryTransport; contextSlot?: CoachContextSlot; voiceSlot?: CoachVoiceSlot; voiceTranscriptionTransport?: VoiceTranscriptionTransport; reviewedVoiceTransport?: ReviewedVoiceTransport; workspaceHint?: CoachContextHint['workspace'] };
 export default function GlobalCoach(props: Props) {
   const [workoutSet] = useState(() => new WorkoutSetController());
-  return <CoachSurface key={`${props.identity}:${props.subjectId ?? props.identity}:${props.professional ? 'professional' : 'self'}`} {...props} workoutSetController={workoutSet} />;
+  const foodScope = `${props.identity}:${props.subjectId ?? props.identity}`;
+  const [food] = useState(() => foodControllerFor(foodScope));
+  return <CoachSurface key={`${foodScope}:${props.professional ? 'professional' : 'self'}`} {...props} foodController={food} workoutSetController={workoutSet} />;
 }
-function CoachSurface({ identity, subjectId, professional = false, example, preferenceTransport, memoryTransport, dietTransport, progressTransport, foodTransport, photoFoodTransport, workoutSetTransport, historyTransport, contextSlot, voiceSlot, voiceTranscriptionTransport, reviewedVoiceTransport, workspaceHint, workoutSetController }: Props & { workoutSetController: WorkoutSetController }) {
+function CoachSurface({ identity, subjectId, professional = false, example, preferenceTransport, memoryTransport, dietTransport, progressTransport, foodTransport, photoFoodTransport, workoutSetTransport, historyTransport, contextSlot, voiceSlot, voiceTranscriptionTransport, reviewedVoiceTransport, workspaceHint, foodController: food, workoutSetController }: Props & { foodController: FoodQuantityController; workoutSetController: WorkoutSetController }) {
   const { t } = useGlobalCoachI18n();
   const path = usePathname();
   const surface = coachSurface(path);
@@ -66,7 +76,6 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   const selection = acceptedScreenSelection(publishedSelection, path, identity, subjectId);
   const [controller] = useState(() => new ConversationController());
   const [voice] = useState(() => new VoiceController());
-  const [food] = useState(() => new FoodQuantityController());
   const foodState = useSyncExternalStore(food.subscribe, food.snapshot, food.snapshot);
   const [photoFood] = useState(() => new PhotoFoodController());
   const photoFoodState = useSyncExternalStore(photoFood.subscribe, photoFood.snapshot, photoFood.snapshot);
@@ -114,7 +123,6 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   useEffect(() => () => preferences.reset(), [preferences]);
   useEffect(() => () => attachments.reset(), [attachments]);
   useEffect(() => () => voice.reset(), [voice]);
-  useEffect(() => () => food.reset(), [food]);
   useEffect(() => () => photoFood.reset(), [photoFood]);
   useEffect(() => () => memory.reset(), [memory]);
   useEffect(() => () => diet.reset(), [diet]);
