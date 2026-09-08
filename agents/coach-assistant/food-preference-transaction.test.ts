@@ -45,7 +45,7 @@ function fixture() {
   }} as unknown as Parameters<typeof createFoodPreferenceService>[0];
   const service=createFoodPreferenceService(database);
   const execute=(operation:FoodPreferenceOperation)=>service.execute({actorId:actor,subjectId:actor,organizationId:org,signal:new AbortController().signal,operation});
-  return {service,execute,missing:()=>{missing=true;},revoke:()=>{authorized=false;},loseCommit:()=>{lostCommit=true;},state:()=>({row,revision,receipts,proposals}),failReceipt:()=>{receiptFails=true;},manualEdit:()=>{row.dietPattern='vegan';revision++;}};
+  return {service,execute,missing:()=>{missing=true;},revoke:()=>{authorized=false;},loseCommit:()=>{lostCommit=true;},expireProposal:(proposalId:string)=>{if(proposals[proposalId])proposals[proposalId].expired=true;},state:()=>({row,revision,receipts,proposals}),failReceipt:()=>{receiptFails=true;},manualEdit:()=>{row.dietPattern='vegan';revision++;}};
 }
 describe('concrete Food profile preference transaction service through an injected SQL transaction',()=>{
   it('prepares canonical undeclared→vegetarian review, applies the shared writer and recovers the same receipt',async()=>{
@@ -68,6 +68,12 @@ describe('concrete Food profile preference transaction service through an inject
     f.manualEdit();
     expect(await f.execute({...base,operation:'diet.apply',proposalId:proposed.proposal.id,hash:proposed.proposal.hash,actionId:id(6),resourceVersion:'1',reviewed:true})).toMatchObject({error:'version_conflict'});
     expect(f.state().row.dietPattern).toBe('vegan');
+  });
+  it('rejects an expired proposal without applying or writing a receipt',async()=>{
+    const f=fixture();const proposed=await f.execute({...base,operation:'diet.propose',resourceVersion:'1',after:{version:1 as const,dietPattern:'vegetarian'}}) as {proposal:{id:string;hash:string}};
+    f.expireProposal(proposed.proposal.id);
+    expect(await f.execute({...base,operation:'diet.apply',proposalId:proposed.proposal.id,hash:proposed.proposal.hash,actionId:id(6),resourceVersion:'1',reviewed:true})).toMatchObject({ok:false,error:'expired'});
+    expect(f.state()).toMatchObject({row:{dietPattern:null},revision:1,receipts:{}});
   });
   it('reports uncertain after a committed fixture response is lost and recovers the durable receipt',async()=>{
     const f=fixture();const p=await f.execute({...base,operation:'diet.propose',resourceVersion:'1',after:{version:1 as const,dietPattern:'vegetarian'}}) as {proposal:{id:string;hash:string}};
