@@ -29,6 +29,7 @@ import {
   type AudioRecordingSession,
   type RecordingError,
 } from '@/lib/microphone/recording-session';
+import { COACH_MESSAGE_REFRESH, readMessageRefresh } from '@/components/assistant/message-events';
 
 const focusableSelector = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 function trapFocus(event: ReactKeyboardEvent<HTMLElement>, container: HTMLElement | null) {
@@ -310,6 +311,16 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
   }, [coachId, clientId, viewerRole]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    const refresh = (event: Event) => {
+      const hint = readMessageRefresh(event);
+      if (!hint || hint.coachId !== coachId || hint.clientId !== clientId) return;
+      void load();
+    };
+    window.addEventListener(COACH_MESSAGE_REFRESH, refresh);
+    return () => window.removeEventListener(COACH_MESSAGE_REFRESH, refresh);
+  }, [clientId, coachId, load]);
 
   // Live updates with graceful degradation.
   //

@@ -64,3 +64,18 @@ it('accepts only a bounded Food quantity correction intent', () => {
   expect(() => readConversationResponse({ ...value, actionIntents: [{ ...actionIntent, target: { ...actionIntent.target, previousGrams: 150 } }] })).toThrow('invalid_output');
   expect(() => readConversationResponse({ ...value, actionIntents: [{ ...actionIntent, target: { ...actionIntent.target, entryHintId: 'latest' } }] })).toThrow('invalid_output');
 });
+
+it('accepts only a strict review-only human-message capability result', () => {
+  const value = response();
+  value.snapshot.actorRole = 'client'; value.snapshot.access = 'self';
+  const proposal = {
+    id: crypto.randomUUID(), hash: 'f'.repeat(64), action: 'chat.message.send',
+    recipient: { coachId: crypto.randomUUID(), name: 'Coach Ana', version: 'v1' },
+    after: { message: 'Please review my plan.' }, expiresAt: '2099-09-08T12:05:00.000Z', reviewRequired: true,
+  };
+  const capabilityResult = { tool: 'coach.message.propose', status: 'review_required', result: { ok: true, proposal }, applied: false };
+  expect(readConversationResponse({ ...value, capabilityResult }).capabilityResult).toEqual(capabilityResult);
+  expect(() => readConversationResponse({ ...value, capabilityResult: { ...capabilityResult, applied: true } })).toThrow('invalid_output');
+  expect(() => readConversationResponse({ ...value, capabilityResult: { ...capabilityResult, result: { ok: true, proposal, html: '<b>send</b>' } } })).toThrow('invalid_output');
+  expect(() => readConversationResponse({ ...value, capabilityResult: { ...capabilityResult, status: 'read' } })).toThrow('invalid_output');
+});

@@ -1,5 +1,6 @@
 import { COACH_IMAGE_LIMITS, type CoachConversationResponse } from '@/agents/coach-assistant/contracts';
 import { readCoachResponse } from '@/components/workout/coach/client';
+import { readCoachMessageResult } from '@/agents/coach-assistant/message-result-reader';
 import type { ConversationTransport } from './conversation-state';
 
 const exactKeys = (value: Record<string, unknown>, keys: string[]) => {
@@ -47,6 +48,23 @@ function validActionIntent(value: unknown): boolean {
     && Array.isArray(target!.equipment) && target!.equipment.length === 1 && target!.equipment[0] === 'dumbbells';
 }
 
+function validCapabilityResult(value: unknown): boolean {
+  if (!value || typeof value !== 'object') return false;
+  const capability = value as Record<string, unknown>;
+  if (!exactKeys(capability, ['tool', 'status', 'result', 'applied']) || capability.applied !== false) return false;
+  if (capability.tool === 'none') {
+    const result = capability.result as Record<string, unknown> | undefined;
+    return capability.status === 'not_connected' && Boolean(result)
+      && exactKeys(result!, ['reason']) && result!.reason === 'human_message_service_not_connected';
+  }
+  if (capability.tool !== 'coach.message.recipient' && capability.tool !== 'coach.message.propose') return false;
+  const result = readCoachMessageResult(capability.result);
+  if (!result) return false;
+  if (!result.ok) return capability.status === (result.error === 'not_connected' ? 'not_connected' : 'rejected');
+  if (capability.tool === 'coach.message.recipient') return capability.status === 'read' && 'recipient' in result;
+  return capability.status === 'review_required' && 'proposal' in result;
+}
+
 export function readConversationResponse(value: unknown): CoachConversationResponse {
   if (!value || typeof value !== 'object') throw new Error('invalid_output');
   const row = value as Record<string, unknown>;
@@ -76,6 +94,7 @@ export function readConversationResponse(value: unknown): CoachConversationRespo
     || !['user_input', 'coach', 'agent_inference', 'wearable'].includes(item.source)
     || !['user', 'session', 'agent'].includes(item.scope) || !['unconfirmed', 'confirmed'].includes(item.confirmation)))) throw new Error('invalid_output');
   if (row.actionIntents !== undefined && (!Array.isArray(row.actionIntents) || row.actionIntents.length > 1 || row.actionIntents.some(item => !validActionIntent(item)))) throw new Error('invalid_output');
+  if (row.capabilityResult !== undefined && !validCapabilityResult(row.capabilityResult)) throw new Error('invalid_output');
   if (row.uploads !== undefined) {
     const upload = row.uploads as Record<string, unknown>;
     const limits = upload?.limits as Record<string, unknown> | undefined;

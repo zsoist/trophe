@@ -3,7 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 // One explicitly dispatched, ephemeral Auth matrix. Never joins ordinary smoke.
 export default defineConfig({
   testDir: './e2e',
-  testMatch: ['coach-week.spec.ts', 'coach-durable.spec.ts', 'coach-food.spec.ts', 'coach-engine.spec.ts', 'coach-memory.spec.ts', 'coach-memory-uncertain.spec.ts', 'coach-diet.spec.ts', 'coach-chat.spec.ts', 'coach-voice.spec.ts', 'coach-workout-set.spec.ts'],
+  testMatch: ['coach-week.spec.ts', 'coach-durable.spec.ts', 'coach-food.spec.ts', 'coach-engine.spec.ts', 'coach-memory.spec.ts', 'coach-memory-uncertain.spec.ts', 'coach-diet.spec.ts', 'coach-chat.spec.ts', 'coach-voice.spec.ts', 'coach-workout-set.spec.ts', 'coach-message.spec.ts'],
   timeout: 240_000,
   expect: { timeout: 15_000 },
   fullyParallel: false,
@@ -21,7 +21,9 @@ export default defineConfig({
     video: 'off',
   },
   webServer: {
-    command: 'npm run dev -- --hostname 127.0.0.1 --port 3300',
+    // Webpack supports the intentionally external node_modules symlink used by
+    // isolated worktrees; Turbopack rejects that path before tests can start.
+    command: 'npm run dev -- --webpack --hostname 127.0.0.1 --port 3300',
     url: 'http://127.0.0.1:3300',
     reuseExistingServer: false,
     timeout: 180_000,
