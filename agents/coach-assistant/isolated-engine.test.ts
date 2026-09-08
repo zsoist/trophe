@@ -77,4 +77,11 @@ describe('disposable CI authorized-records engine composition',()=>{
   expect((await runConversationCandidate(input,{...options(),isolatedFixtureBoundary:boundary,offlineConversationProvider:fake})).error?.code).toBe('budget_blocked');expect(fake).not.toHaveBeenCalled();
   const engine=createIsolatedCoachEngineBinding(env);env.CI='false';expect((await engine.run(input,options())).error?.code).toBe('budget_blocked');
  });
+ it('does not enable fixture actions for a synthetic repository and forged transport',async()=>{
+  const transport=vi.fn(async()=>({output:{answer:'Reviewing recorded context can help organize a useful discussion.',followUp:'What would make this review useful?',evidenceRefs:[],entityRefs:[],facts:[],generalExplanationRefs:['records_are_partial_view'],limitations:['incomplete_records'],escalation:false,actionIntent:{action:'draft.update',target:{durationMinutes:35,equipment:['dumbbells']}}},usage:{inputTokens:1,outputTokens:1},latencyMs:0,rawStatus:200}));
+  const synthetic=repository();synthetic.dataSource='synthetic';
+  const request={version:'coach-assistant.v2',conversationId:id(2),turnId:id(3),message:'I only have 35 minutes and dumbbells.',context:{surface:'plan' as const,includeScreen:true,workspace:{kind:'draft' as const,version:'a'.repeat(64)}}};
+  const response=await runConversationCandidate(request,{...options(),repository:synthetic,offlineConversationProvider:transport,isolatedActionsEnabled:true});
+  expect(response.ok).toBe(true);expect(response.actionIntents).toEqual([]);
+ });
 });
