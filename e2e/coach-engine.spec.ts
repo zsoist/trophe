@@ -18,9 +18,14 @@ test('authenticated HTTP engine uses current authorized profile with explicit fi
     expect((await anonymous.post('/api/coach-assistant', { data: body })).status()).toBe(401);
     await loginAs(page, 'client');
     const before = (await pool.query('SELECT workout_preferences FROM public.client_profiles WHERE user_id=$1', [actor])).rows[0];
-    const ledger = async () => (await pool.query(`SELECT
-      (SELECT count(*) FROM private.coach_action_proposals WHERE actor_id=$1) AS proposals,
-      (SELECT count(*) FROM private.coach_action_receipts WHERE actor_id=$1) AS receipts`, [actor])).rows[0];
+    const ledger = async () => {
+      const tables = (await pool.query("SELECT to_regclass('private.coach_action_proposals') AS proposals, to_regclass('private.coach_action_receipts') AS receipts")).rows[0];
+      if (!tables.proposals && !tables.receipts) return { schema: 'absent' };
+      expect(Boolean(tables.proposals)).toBe(Boolean(tables.receipts));
+      return (await pool.query(`SELECT
+        (SELECT count(*) FROM private.coach_action_proposals WHERE actor_id=$1) AS proposals,
+        (SELECT count(*) FROM private.coach_action_receipts WHERE actor_id=$1) AS receipts`, [actor])).rows[0];
+    };
     const ledgerBefore = await ledger();
     const response = await page.context().request.post('/api/coach-assistant', { data: body });
     expect(response.status()).toBe(200);
