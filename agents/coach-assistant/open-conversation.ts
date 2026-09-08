@@ -27,6 +27,21 @@ export const openConversationSchema=z.object({
 
 export const candidateConversationSchema=openConversationSchema.extend({generalExplanationRefs:z.array(z.enum(['records_are_partial_view','planned_is_not_completed','nutrition_log_is_not_intake'])).max(3)});
 
+/** Binds only explicit numeric/equipment slots. This does not classify general intent. */
+function explicitDraftTarget(message:string):{durationMinutes:number;equipment:['dumbbells']}|null {
+  const text=message.normalize('NFKD').replace(/\p{M}/gu,'').toLowerCase();
+  const durations:number[]=[];
+  const durationPattern=/\b([1-9]\d{0,2})\s*(?:(?:minutes?|mins?|minutos?)\b|(?:or|o)\s*([1-9]\d{0,2})\s*(?:minutes?|mins?|minutos?)\b)/g;
+  for(const match of text.matchAll(durationPattern)) {
+    durations.push(Number(match[1]));
+    if(match[2])durations.push(Number(match[2]));
+  }
+  const equipment=text.match(/\b(?:dumbbells?|mancuernas?|barbells?|kettlebells?|machines?|bodyweight|barras?|maquinas?|peso corporal)\b/g)??[];
+  if(durations.length!==1||durations[0]<5||durations[0]>180||equipment.length!==1||!/^(?:dumbbells?|mancuernas?)$/.test(equipment[0]))return null;
+  if(/\b(?:no|not|without|sin)\s+(?:dumbbells?|mancuernas?)\b/.test(text))return null;
+  return {durationMinutes:durations[0],equipment:['dumbbells']};
+}
+
 /** Deterministic bounds and source binding do not establish semantic truth of prose.
  * Independent adversarial review and a paid quality evaluation remain necessary.
  */
@@ -35,7 +50,8 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
   const facts=response.evidence;
   const entities=[...new Set(facts.flatMap(f=>f.sourceIds))].map((id,index)=>({alias:`entity:${index+1}`,evidenceRefs:facts.filter(f=>f.sourceIds.includes(id)).map(f=>f.id)}));
   const curated=availableGeneralExplanations(facts);
-  const draftIntentAvailable=!candidateEvaluation&&response.snapshot?.access==='self'&&input.context?.includeScreen===true&&response.snapshot.surface==='workout'&&input.context.workspace?.kind==='draft';
+  const boundDraftTarget=explicitDraftTarget(input.message);
+  const draftIntentAvailable=!candidateEvaluation&&Boolean(boundDraftTarget)&&response.snapshot?.access==='self'&&input.context?.includeScreen===true&&response.snapshot.surface==='workout'&&input.context.workspace?.kind==='draft';
   const payload={...(candidateEvaluation?{generalExplanations:curated.map(id=>({id,...GENERAL_EXPLANATIONS[id]}))}:{}),message:input.message,history:input.history??[],
     snapshot:response.snapshot?{surface:response.snapshot.surface,language:response.snapshot.language,units:response.snapshot.units,window:response.snapshot.window}:null,
     foodPreference:response.foodPreference?{preferences:response.foodPreference.preferences,version:response.foodPreference.version,source:'current_profile',meaning:'self_declared_preference_not_allergy_or_medical_instruction'}:null,
@@ -43,7 +59,7 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
     evidence:facts.map(({id,source,statement,value,unit,completeness})=>({id,source,statement,value,unit,completeness})),entities,
     profile:response.profile?{language:response.profile.language,timezone:response.profile.timezone,units:response.profile.units,preferences:response.profile.preferences}:null,
     memories:(response.memories??[]).map(({text,confirmation,source})=>({text,confirmation,source})),
-    limitations:response.output?.limitations.filter(value=>value!=='open_ended_interpretation_not_connected'),actionsAvailable:draftIntentAvailable?['draft.update']:[]};
+    limitations:response.output?.limitations.filter(value=>value!=='open_ended_interpretation_not_connected'),actionsAvailable:candidateEvaluation?false:draftIntentAvailable?[{action:'draft.update',target:boundDraftTarget}]:[]};
   const system=candidateEvaluation?COACH_CANDIDATE_SYSTEM_PROMPT:COACH_CONVERSATIONAL_SYSTEM_PROMPT+(reviewInterpretation?'\nAn independent offline interpretation oracle is configured for this fixture. Declarative explanations may be proposed in answer, grounded in cited evidence. They will be withheld unless that separate oracle approves. All numeric, receipt, entity, medical and action restrictions still apply.':'');
   let prompt=JSON.stringify(payload);
   const validator=candidateEvaluation?candidateConversationSchema:openConversationSchema;
@@ -94,7 +110,8 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
     const review=await reviewInterpretation!({answer:output.answer,followUp:output.followUp,limitations:[...output.limitations],evidenceRefs:[...output.evidenceRefs],evidence:structuredClone(facts),signal});
     signal.throwIfAborted();
     if(review.approved!==true)throw new Error('invalid_output');
-    if(output.actionIntent&&draftIntentAvailable&&response.snapshot&&input.context?.workspace) {
+    if(output.actionIntent&&draftIntentAvailable&&boundDraftTarget&&response.snapshot&&input.context?.workspace) {
+      if(output.actionIntent.target.durationMinutes!==boundDraftTarget.durationMinutes||output.actionIntent.target.equipment[0]!==boundDraftTarget.equipment[0])throw new Error('invalid_output');
       const target={durationMinutes:output.actionIntent.target.durationMinutes,equipment:['dumbbells'] as ['dumbbells']};
       const resource={kind:'draft' as const,id:response.snapshot.subjectId,version:input.context.workspace.version};
       const id=createHash('sha256').update(JSON.stringify({turnId:input.turnId,scopeKey:response.snapshot.scopeKey,resource,target})).digest('hex');
