@@ -51,10 +51,12 @@
 .attachments p { line-height: 1.5; color: var(--text-secondary); }
 .attachments button { min-height: 44px; padding: .5rem .65rem; border: 1px solid var(--border-default); border-radius: 10px; margin-top: .4rem; }
 .attachments button:disabled { opacity: .5; }
+.attachments textarea { width: 100%; resize: vertical; min-height: 5rem; margin-top: .35rem; padding: .65rem; border: 1px solid var(--border-default); border-radius: 10px; background: var(--bg-input); color: var(--text-primary); font-size: 16px; }
 .attachments li { display: flex; gap: .5rem; margin-top: .75rem; }
 .attachments li > div { min-width: 0; flex: 1; }
 .attachments img { object-fit: cover; border-radius: 8px; width: 48px; height: 48px; }
 .fileName { overflow-wrap: anywhere; }
+.speechControl { display: inline-flex; align-items: center; gap: .4rem; min-height: 40px; margin-top: .65rem; padding: .45rem .65rem; border: 1px solid var(--border-default); border-radius: 10px; color: var(--text-secondary); font-size: .75rem; }
 .composer { overflow-y: auto; min-height: 0; }
 
 .profileBody input { width: 100%; font-size: 16px; }

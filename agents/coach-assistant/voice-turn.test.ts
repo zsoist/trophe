@@ -14,7 +14,7 @@ function setup(text='No cambies 70 kg; registra 145 g.'){
  const repository=fixtureRepository();repository.dataSource='authorized_records';repository.authorize=vi.fn(async()=>({actorId,subjectId:actorId,organizationId,timezone:'America/Bogota',language:'es'}));
  const response=(request:CoachConversationRequest):CoachConversationResponse=>({version:'coach-assistant.v2',conversationId,turnId,ok:true,mode:'offline',dataSource:'authorized_records',snapshot:{id:randomUUID(),capturedAt:new Date().toISOString(),subjectId:actorId,organizationId,actorRole:'client',access:'self',scopeKey:'scope',surface:'food',screenIncluded:true,language:'es',units:{weight:'kg',energy:'kcal',protein:'g'},window:{start:'2026-09-08',end:'2026-09-08',days:1,timezone:'America/Bogota'},capabilities:[]},output:{answer:`Respuesta a: ${request.message}`,evidenceRefs:[],limitations:[],suggestions:[],escalation:{required:false,reason:null,draft:null}},evidence:[],proposals:[],receipts:[],attachments:[],telemetry:{model:null,provider:null,promptVersion:'fixture',modelCalls:0,dataReads:0,tokensIn:0,tokensOut:0,reasoningTokens:0,cacheReadTokens:0,cacheWriteTokens:0,latencyMs:1,costUsd:0,pricingVersion:'fixture'}});
  const pipeline:VoiceTextPipeline={run:vi.fn(async request=>response(request))};
- const request:Omit<CoachConversationRequest,'message'>={version:'coach-assistant.v2',conversationId,turnId,context:{surface:'food',includeScreen:true,displayWeightUnit:'kg'}};
+ const request:Omit<CoachConversationRequest,'message'>={version:'coach-assistant.v2',conversationId,turnId,context:{surface:'food',includeScreen:true}};
  return {actorId,organizationId,conversationId,turnId,voice,repository,pipeline,request};
 }
 

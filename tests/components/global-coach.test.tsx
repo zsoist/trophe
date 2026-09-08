@@ -69,4 +69,12 @@ it('releases a hung transport on deadline and preserves an independently edited 
   expect(transport).toHaveBeenCalledTimes(1);
   expect(transport.mock.calls[0][0].history).toEqual([]);
 });
+it('preserves a reviewed voice turn id when it enters the ordinary text transport', async () => {
+  const controller = new ConversationController(); controller.identify('A'); controller.setDraft('Reviewed voice text');
+  const transport = vi.fn(async (request: CoachConversationRequest) => response(request));
+  const turnId = crypto.randomUUID();
+  await controller.send({ surface: 'workout', includeScreen: true }, transport, [], undefined, turnId);
+  expect(transport.mock.calls[0][0]).toMatchObject({ turnId, message: 'Reviewed voice text' });
+  expect(controller.snapshot().turns[0].response?.ok).toBe(true);
+});
 it.each([['/dashboard/log', 'food'], ['/dashboard/workout/build', 'plan'], ['/dashboard/workout/live', 'live'], ['/dashboard/checkin', 'habits'], ['/dashboard/workout/atlas', 'atlas']])('maps %s to its actual surface', (path, expected) => expect(coachSurface(path)).toBe(expected));

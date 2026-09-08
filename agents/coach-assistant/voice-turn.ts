@@ -3,6 +3,8 @@ import {conversationRequestSchema} from './schema';
 import type {CoachRepository} from './repository';
 import {prepareReviewedVoiceMessage,type CoachVoiceResult,type CoachVoiceScope} from './voice-contract';
 import {verifyVoiceReviewToken} from './voice-review-token';
+export {hasAmbiguousSpokenNumber} from './voice-ambiguity';
+import {hasAmbiguousSpokenNumber} from './voice-ambiguity';
 
 type RequestTail=Omit<CoachConversationRequest,'message'>;
 export interface VoiceTextPipeline {run(request:CoachConversationRequest,signal:AbortSignal):Promise<CoachConversationResponse>}
@@ -11,23 +13,6 @@ export type ReviewedVoiceTurnResult=
  |{ok:false;status:'review_required'|'clarification_required'|'error';error:'review_required'|'ambiguous_number'|'forbidden'|'invalid_input'|'cancelled'|'pipeline_failed'}
  |{ok:true;status:'answered';transcript:{text:string;locale:string;languages:string[];source:'synthetic_fixture';trust:'untrusted_user_reviewed_data'};response:CoachConversationResponse;speech:CoachSpeechDescriptor|null};
 
-const alternatives=new Set(['or','o','ou','oder','of','ή','η','versus','vs']);
-const numberWords=new Set([
- 'zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen','twenty','thirty','forty','fifty','hundred',
- 'cero','uno','una','dos','tres','cuatro','cinco','seis','siete','ocho','nueve','diez','once','doce','trece','catorce','quince','dieciseis','dieciséis','veinte','treinta','cuarenta','cincuenta','cien',
- 'un','une','deux','trois','quatre','cinq','six','sept','huit','neuf','dix','quinze','cinquante',
- 'null','eins','ein','zwei','drei','vier','fünf','sechs','sieben','acht','neun','zehn','fünfzehn','fünfzig',
- 'uno','una','due','tre','quattro','cinque','sei','sette','otto','nove','dieci','quindici','cinquanta',
- 'um','uma','dois','duas','três','quatro','cinco','seis','sete','oito','nove','dez','quinze','cinquenta',
- 'nul','een','twee','drie','vier','vijf','zes','zeven','acht','negen','tien','vijftien','vijftig',
- 'μηδέν','ενα','ένα','δυο','δύο','τρία','τέσσερα','πέντε','έξι','επτά','οκτώ','εννέα','δέκα',
-]);
-const numeric=(token:string)=>/^\d+(?:[.,]\d+)?$/.test(token)||numberWords.has(token);
-export function hasAmbiguousSpokenNumber(text:string):boolean{
- const tokens=text.toLocaleLowerCase().normalize('NFKC').match(/[\p{L}]+|\d+(?:[.,]\d+)?(?:\/\d+(?:[.,]\d+)?)?/gu)??[];
- for(let i=1;i<tokens.length-1;i++)if(alternatives.has(tokens[i])&&numeric(tokens[i-1])&&numeric(tokens[i+1]))return true;
- return tokens.some(token=>/^\d+(?:[.,]\d+)?\/\d+(?:[.,]\d+)?$/.test(token));
-}
 const fail=(status:Extract<ReviewedVoiceTurnResult,{ok:false}>['status'],error:Extract<ReviewedVoiceTurnResult,{ok:false}>['error']):ReviewedVoiceTurnResult=>({ok:false,status,error});
 
 /** Continues through the existing text pipeline only after an ephemeral reviewed

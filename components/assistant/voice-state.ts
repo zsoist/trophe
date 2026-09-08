@@ -1,5 +1,6 @@
 import { COACH_AUDIO_LIMITS, startCoachAudioRecording } from '@/agents/coach-assistant/voice-capture';
 import type { AudioRecordingSession } from '@/lib/microphone/recording-session';
+import { stopCoachVoicePlayback } from './voice-playback';
 export interface VoiceState {
   phase: 'idle' | 'requesting' | 'recording' | 'stopping' | 'ready';
   recording: { blob: Blob; url: string; durationMs: number } | null;
@@ -14,12 +15,16 @@ export class VoiceController {
   private session: AudioRecordingSession | null = null;
   private generation = 0;
   private timer: ReturnType<typeof setInterval> | null = null;
-  constructor(private readonly startSession = startCoachAudioRecording) {}
+  constructor(
+    private readonly startSession = startCoachAudioRecording,
+    private readonly stopPlayback = stopCoachVoicePlayback,
+  ) {}
   snapshot = () => this.state;
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   private publish(state: VoiceState) { this.state = state; this.listeners.forEach(listener => listener()); }
   private clearTimer() { if (this.timer !== null) clearInterval(this.timer); this.timer = null; }
   reset() {
+    this.stopPlayback();
     this.clearTimer();
     this.generation++; this.session?.cancel(); this.session = null;
     if (this.state.recording) URL.revokeObjectURL(this.state.recording.url);
