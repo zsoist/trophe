@@ -7,6 +7,10 @@ describe('shared conversation contract', () => {
     expect(conversationRequestSchema.safeParse({...input,history:[{role:'user',text:'What did I record today?'}],context:{surface:'food',includeScreen:true}}).success).toBe(true);
     expect(requestSchema.safeParse({message:'Week?',intent:'week'}).success).toBe(true);
   });
+  it.each(['messages','intake','booking','supplements','form_check'] as const)('accepts the additive %s surface without executable fields',surface=>{
+    const parsed=conversationRequestSchema.safeParse({...input,context:{surface,includeScreen:true}});
+    expect(parsed.success).toBe(true);
+  });
   it('rejects authority, executable fields, remote attachments and unbounded history', () => {
     for(const extra of [{orgId:input.turnId},{tools:['shell']},{html:'<script />'}]) expect(conversationRequestSchema.safeParse({...input,...extra}).success).toBe(false);
     expect(conversationRequestSchema.safeParse({...input,attachments:[{id:input.turnId,kind:'image',status:'available',url:'https://arbitrary.invalid'}]}).success).toBe(false);

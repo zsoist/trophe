@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { requestSchema } from './schema';
-import { authorizeSubject, windowFor } from './context';
+import { authorizeSubject,conversationScope,scopeConversationInput, windowFor } from './context';
 
 describe('coach request authority', () => {
   it('accepts only the documented request fields', () => {
@@ -16,10 +16,18 @@ describe('coach request authority', () => {
     expect(() => authorizeSubject(null, subject)).toThrow('unauthenticated');
     expect(() => authorizeSubject(client, { ...subject, id: 'b' })).toThrow('forbidden');
     const coach = { ...client, id: 'coach', role: 'coach' as const };
-    expect(authorizeSubject(coach, subject).subjectId).toBe('a');
+    expect(authorizeSubject(coach, subject)).toMatchObject({subjectId:'a',actorRole:'coach',access:'assigned_professional'});
     expect(() => authorizeSubject(coach, { ...subject, organizationIds: ['org-b'] })).toThrow('forbidden');
     expect(() => authorizeSubject(coach, { ...subject, coachId: 'other' })).toThrow('forbidden');
     expect(() => authorizeSubject({ ...coach, role: 'super_admin' }, { ...subject, coachId: 'other' })).toThrow('forbidden');
+  });
+  it('derives a distinct cache boundary per professional subject and drops cross-subject browser state',()=>{
+    const coach={id:'coach',role:'coach',organizationIds:['org-a']};
+    const a=authorizeSubject(coach,{id:'a',coachId:'coach',organizationIds:['org-a'],timezone:'UTC',language:'en'});
+    const b=authorizeSubject(coach,{id:'b',coachId:'coach',organizationIds:['org-a'],timezone:'UTC',language:'en'});
+    expect(conversationScope(a).scopeKey).not.toBe(conversationScope(b).scopeKey);
+    const input={version:'coach-assistant.v2' as const,conversationId:'00000000-0000-4000-8000-000000000001',turnId:'00000000-0000-4000-8000-000000000002',message:'Review this client',context:{surface:'intake' as const,includeScreen:true,clientId:'00000000-0000-4000-8000-000000000003'},history:[{role:'assistant' as const,text:'Private history from another client'}],attachments:[{id:'00000000-0000-4000-8000-000000000004',kind:'image' as const,status:'available' as const}]};
+    expect(scopeConversationInput(input,a)).toMatchObject({history:undefined,attachments:undefined});
   });
   it('derives calendar windows from the subject timezone including DST', () => {
     expect(windowFor('week', 'America/Bogota', new Date('2026-09-07T03:30:00Z'))).toMatchObject({ start: '2026-08-31', end: '2026-09-06', days: 7 });
