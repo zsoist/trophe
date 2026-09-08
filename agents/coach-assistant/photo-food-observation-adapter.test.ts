@@ -23,7 +23,7 @@ describe('durable Photo Food observation adapter with injected SQL/runtime',()=>
   await expect(runVerifiedPhotoFoodAnalysis(scope,{digest:'a'.repeat(64),bytes:imageBytes},{invoke})).rejects.toThrow('invalid_image_binding');
  });
  it('rejects ambiguous, dropped, unconfirmed or wrong-policy task output',async()=>{
-  for(const mutate of [(r:ReturnType<typeof taskResult>)=>{r.selectedPolicy.provider='openai';},(r:ReturnType<typeof taskResult>)=>{r.output.content=[];},(r:ReturnType<typeof taskResult>)=>{r.output.content.push(r.output.content[0]);},(r:ReturnType<typeof taskResult>)=>{(r.output.content[0] as {input:{foods:unknown[]}}).input.foods=[food,{...food,estimated_grams:0}];},(r:ReturnType<typeof taskResult>)=>{(r.output.content[0] as {input:{foods:Array<typeof food&{needs_confirmation?:boolean}>}}).input.foods[0].needs_confirmation=true;}]){
+  for(const mutate of [(r:ReturnType<typeof taskResult>)=>{r.selectedPolicy.provider='openai';},(r:ReturnType<typeof taskResult>)=>{r.output.content=[];},(r:ReturnType<typeof taskResult>)=>{r.output.content.push(r.output.content[0]);},(r:ReturnType<typeof taskResult>)=>{(r.output.content[0] as {input:{foods:unknown[]}}).input.foods=[food,{...food,estimated_grams:0}];},(r:ReturnType<typeof taskResult>)=>{(r.output.content[0] as {input:{foods:Array<typeof food&{needs_confirmation?:boolean}>}}).input.foods[0].needs_confirmation=true;},(r:ReturnType<typeof taskResult>)=>{(r.output.content[0] as {input:{foods:Array<typeof food&{action?:string}>}}).input.foods[0].action='food.photo.apply';}]){
    const result=taskResult();mutate(result);executeAiTask.mockResolvedValueOnce(result);await expect(runVerifiedPhotoFoodAnalysis(scope,{digest:imageDigest,bytes:imageBytes},{invoke:vi.fn()})).rejects.toThrow();
   }
  });
