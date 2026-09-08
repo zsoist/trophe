@@ -12,6 +12,14 @@ cannot bypass admission. Reports aggregate measured usage while retaining per-at
 IDs and provider `x-request-id` values. Missing usage, uncertain transport outcomes,
 or an unpriced returned model retain the reservation and stop the run.
 
+`createGovernedCoachTransport` is the shared server-only composition boundary used
+by this runner and intended for the authenticated Ask Trophē route. Its caller must
+supply the fixed pilot authority ID, authenticated actor, captured turn ID and stable
+server identity parts. Request JSON cannot choose those values. The wrapper enforces
+Luna/low, the reviewed prompt allowlist, 2000 total output tokens, one HTTP attempt,
+two invocations per turn, reserve→claim before transport and settle/unknown after it.
+The product route must not call the raw provider alongside this wrapper.
+
 `runCoachPilotEvaluation` in pilot-runner.ts accepts pilotId, verified actorId,
 evaluationId, mode, optional fixed dataset caseIds and includeSyntheticText.
 Dependencies are the authorized persistent PilotBudgetStore and AbortSignal;

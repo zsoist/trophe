@@ -2,15 +2,14 @@ import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { fixtureRepository } from './fixtures';
 import { COACH_PILOT_BUDGET_USD, COACH_PILOT_FIRST_SMOKE_MAX_USD, COACH_PRICING_VERSION } from './economics';
-import { COACH_ATTEMPT_RESERVATION_NANO_USD, USD_IN_NANODOLLARS, executePilotBudgetCommand, reserveCoachPilotAttempt, pricePilotUsageNanoUsd, type PilotBudgetStore, type PilotUsage, type PilotAttemptBinding } from './pilot-budget';
-import type { invokeStructuredProvider } from '@/agents/runtime/providers/structured';
-export type PilotTransport=(input:Parameters<typeof invokeStructuredProvider>[0])=>Promise<import('@/agents/runtime/types').ProviderResult<unknown>>;
+import { COACH_ATTEMPT_RESERVATION_NANO_USD, USD_IN_NANODOLLARS, type PilotBudgetStore, type PilotUsage } from './pilot-budget';
+import { createGovernedCoachTransport, type GovernedCoachTransport } from './governed-transport';
+export type PilotTransport=GovernedCoachTransport;
 export interface PilotCandidate {
  promptVersion:string;
  allowedPromptVersions?:readonly string[];
  run(raw:unknown,options:{mode:'model';actorId:string;repository:ReturnType<typeof fixtureRepository>;signal:AbortSignal;now:Date;offlineConversationProvider:PilotTransport;pilotEvaluation?:true;providerEvidence?:'injected_fixture'|'provider_real';capabilityRegistry?:import('./capability-registry').CoachCapabilityRegistry}):Promise<{ok:boolean;error?:{code:string};output?:{answer:string;suggestions:string[];limitations?:string[];escalation:{reason:string|null}};proposals:unknown[];receipts:unknown[];actionIntents?:Array<{action:string;target:unknown;reviewRequired?:boolean}>;capabilityResult?:{tool:string;status:string;applied:boolean}}>;
 }
-import type { AiUsage } from '@/agents/runtime/types';
 
 export const COACH_PILOT_DATASET_VERSION='coach-pilot-live01.v2';
 const cases=[
@@ -28,7 +27,6 @@ function stableId(parts:string[]):string {
   const bytes=Buffer.from(hash(parts).slice(0,32),'hex');bytes[6]=(bytes[6]&0x0f)|0x40;bytes[8]=(bytes[8]&0x3f)|0x80;
   const hex=bytes.toString('hex');return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
 }
-function normalizedUsage(usage:AiUsage):PilotUsage {return {inputTokens:usage.inputTokens,outputTokens:usage.outputTokens,cacheReadTokens:usage.cacheReadTokens??0,cacheWriteTokens:usage.cacheWriteTokens??0,reasoningTokens:usage.reasoningTokens??0};}
 function addUsage(left:PilotUsage|null,right:PilotUsage):PilotUsage {return {inputTokens:(left?.inputTokens??0)+right.inputTokens,outputTokens:(left?.outputTokens??0)+right.outputTokens,cacheReadTokens:(left?.cacheReadTokens??0)+right.cacheReadTokens,cacheWriteTokens:(left?.cacheWriteTokens??0)+right.cacheWriteTokens,reasoningTokens:(left?.reasoningTokens??0)+right.reasoningTokens};}
 export interface PilotCaseMeasurement {
   caseId:string;attemptId?:string;agentRunId?:string;attemptIds:string[];agentRunIds:string[];requestIds:string[];expected:string;responseAccepted:boolean;structuralCheckPassed:boolean;needsHumanReview:true;qualityReview:'pending';
@@ -70,62 +68,19 @@ export async function runCoachPilotEvaluation(raw:unknown,deps:{store:PilotBudge
     const ids=[input.pilotId,input.evaluationId,test.id];
     const turnId=stableId([...ids,'turn']);
     const measurement:PilotCaseMeasurement={caseId:test.id,attemptIds:[],agentRunIds:[],requestIds:[],expected:test.expected,responseAccepted:false,structuralCheckPassed:false,needsHumanReview:true,qualityReview:'pending',selectedTool:null,toolArguments:null,proposalCount:0,receiptCount:0,requestedModel:'gpt-5.6-luna',returnedModel:null,modelCalls:0,latencyMs:0,transportLatencyMs:null,accounting:'not_attempted',usage:null,pricedUsageNanoUsd:null,measuredUsageCostUsd:null,simulatedUsageCostUsd:null,error:null,outputHash:null};
-    const measuredTransport:PilotTransport=async request=>{
-      const allowedPromptVersions=[deps.candidate.promptVersion,...(deps.candidate.allowedPromptVersions??[])];
-      if(request.policy.model!=='gpt-5.6-luna'||request.policy.provider!=='openai'||request.policy.reasoningEffort!=='low'||request.maxTokens!==2000||request.maxAttempts!==1||!allowedPromptVersions.includes(request.policy.promptVersion)) {measurement.error='unsupported_policy';throw new Error('budget_blocked');}
-      const invocation=measurement.modelCalls+1;if(invocation>2){measurement.error='turn_call_limit';throw new Error('budget_blocked');}
-      const binding:PilotAttemptBinding={pilotId:input.pilotId,actorId:input.actorId,attemptId:stableId([...ids,`attempt-${invocation}`]),agentRunId:stableId([...ids,`agent-run-${invocation}`]),turnId,model:'gpt-5.6-luna',pricingVersion:COACH_PRICING_VERSION,requestHash:hash({policy:request.policy,system:request.system,prompt:request.prompt,schema:request.schema,maxTokens:request.maxTokens}),reservedNanoUsd:COACH_ATTEMPT_RESERVATION_NANO_USD};
-      measurement.attemptId=binding.attemptId;measurement.agentRunId=binding.agentRunId;measurement.attemptIds.push(binding.attemptId);measurement.agentRunIds.push(binding.agentRunId);
-      const reserve=input.mode==='live'?await reserveCoachPilotAttempt(binding,deps.store,request.signal):await executePilotBudgetCommand({operation:'reserve',binding},deps.store,request.signal);
-      if(!reserve.ok){measurement.accounting=reserve.error==='uncertain'?'unknown':'blocked';measurement.error=reserve.error;throw new Error('budget_blocked');}
-      measurement.accounting='reserved';
-      const claim=await executePilotBudgetCommand({operation:'claim_dispatch',binding},deps.store,request.signal);
-      if(!claim.ok||!claim.dispatchGranted) {
-        measurement.accounting=claim.ok?'recovered':claim.error==='uncertain'?'unknown':'blocked';
-        measurement.error=claim.ok?'dispatch_not_granted':claim.error;
-        throw new Error('budget_blocked');
-      }
-      measurement.accounting='dispatched';measurement.modelCalls++;
-      const transportStarted=performance.now();
-      try {
-        const generated=await transport(request);
-        if(generated.requestId)measurement.requestIds.push(generated.requestId);
-        measurement.transportLatencyMs=(measurement.transportLatencyMs??0)+Math.round(performance.now()-transportStarted);
-        const observedModel=typeof generated.responseModel==='string'&&generated.responseModel.trim().length>0?generated.responseModel:null;
-        measurement.returnedModel=measurement.returnedModel===null?observedModel:measurement.returnedModel===observedModel?observedModel:null;
-        const attemptUsage=normalizedUsage(generated.usage);measurement.usage=addUsage(measurement.usage,attemptUsage);
-        // Exact versioned tariff identity only; no alias/prefix or missing-model fallback.
-        if(observedModel!=='gpt-5.6-luna') {
-          measurement.accounting='unknown';measurement.error='model_pricing_unverified';
-          await executePilotBudgetCommand({operation:'mark_pricing_unknown',binding,usage:attemptUsage,responseModel:observedModel},deps.store,request.signal);
-          throw new Error('model_pricing_unverified');
-        }
-        const attemptCostNanoUsd=pricePilotUsageNanoUsd(attemptUsage);
-        measurement.pricedUsageNanoUsd=attemptCostNanoUsd===null?null:(measurement.pricedUsageNanoUsd??0)+attemptCostNanoUsd;
-        const cost=attemptCostNanoUsd===null?null:attemptCostNanoUsd/USD_IN_NANODOLLARS;
-        if(input.mode==='live')measurement.measuredUsageCostUsd=cost===null?null:(measurement.measuredUsageCostUsd??0)+cost;else measurement.simulatedUsageCostUsd=cost===null?null:(measurement.simulatedUsageCostUsd??0)+cost;
-        // Even rejected/malformed prose can consume tokens: settle BEFORE validation.
-        const settled=await executePilotBudgetCommand({operation:'settle',binding,usage:attemptUsage},deps.store,request.signal);
-        if(!settled.ok||settled.record.state!=='settled') {
-          measurement.accounting='unknown';measurement.error='accounting_uncertain';
-          throw new Error('accounting_uncertain');
-        }
-        measurement.accounting='settled';
-        return generated;
-      } catch {
-        if(measurement.transportLatencyMs===null)measurement.transportLatencyMs=Math.round(performance.now()-transportStarted);
-        if(measurement.accounting!=='settled') {
-          measurement.accounting='unknown';measurement.error??='provider_outcome_unknown';
-          // If cancellation prevents this write, durable dispatched still retains
-          // the full reservation. There is no release or automatic transport retry.
-          await executePilotBudgetCommand({operation:'mark_unknown',binding},deps.store,request.signal);
-        }
-        throw new Error('provider_unavailable');
-      }
-    };
+    const governed=createGovernedCoachTransport({pilotId:input.pilotId,actorId:input.actorId,turnId,identityParts:ids,mode:input.mode,store:deps.store,signal:deps.signal,transport,
+      allowedPromptVersions:[deps.candidate.promptVersion,...(deps.candidate.allowedPromptVersions??[])]});
     const actionSelectionCase=test.expected==='food_review_intent'||test.expected==='clarification_without_action';
     const response=await deps.candidate.run({version:'coach-assistant.v2',conversationId:stableId([...ids,'conversation']),turnId,...test.request},
-      {mode:'model',actorId:'synthetic-client',repository:fixtureRepository(test.repository),signal:deps.signal,now:new Date('2026-09-08T15:30:00Z'),offlineConversationProvider:measuredTransport,...(actionSelectionCase?{pilotEvaluation:true as const}:{}),providerEvidence:input.mode==='live'?'provider_real':'injected_fixture'});
+      {mode:'model',actorId:'synthetic-client',repository:fixtureRepository(test.repository),signal:deps.signal,now:new Date('2026-09-08T15:30:00Z'),offlineConversationProvider:governed.transport,...(actionSelectionCase?{pilotEvaluation:true as const}:{}),providerEvidence:input.mode==='live'?'provider_real':'injected_fixture'});
+    const attempts=governed.attempts;const called=attempts.filter(item=>item.providerCalled);
+    measurement.attemptIds=attempts.map(item=>item.attemptId);measurement.agentRunIds=attempts.map(item=>item.agentRunId);measurement.attemptId=attempts.at(-1)?.attemptId;measurement.agentRunId=attempts.at(-1)?.agentRunId;
+    measurement.requestIds=called.flatMap(item=>item.requestId?[item.requestId]:[]);measurement.modelCalls=called.length;measurement.transportLatencyMs=called.length?called.reduce((sum,item)=>sum+(item.latencyMs??0),0):null;
+    measurement.usage=called.reduce((sum,item)=>item.usage?addUsage(sum,item.usage):sum,null as PilotUsage|null);
+    measurement.pricedUsageNanoUsd=called.length&&called.every(item=>item.pricedUsageNanoUsd!==null)?called.reduce((sum,item)=>sum+item.pricedUsageNanoUsd!,0):null;
+    const observed=called.map(item=>item.returnedModel);measurement.returnedModel=observed.length&&observed.every(model=>model!==null&&model===observed[0])?observed[0]:null;
+    measurement.accounting=attempts.length?attempts.every(item=>item.state==='settled')?'settled':attempts.at(-1)!.state:'not_attempted';measurement.error=attempts.find(item=>item.error)?.error??null;
+    const measuredCost=measurement.pricedUsageNanoUsd===null?null:measurement.pricedUsageNanoUsd/USD_IN_NANODOLLARS;if(input.mode==='live')measurement.measuredUsageCostUsd=measuredCost;else measurement.simulatedUsageCostUsd=measuredCost;
     measurement.latencyMs=Math.round(performance.now()-start);
     measurement.responseAccepted=response.ok;
     measurement.error??=response.error?.code??null;
