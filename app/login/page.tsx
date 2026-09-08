@@ -48,6 +48,7 @@ function LoginForm() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [pendingEmail, setPendingEmail] = useState<string | null>(null); // 202 → check-email screen
+  const [authReady, setAuthReady] = useState(false);
   const strength = passwordStrength(password);
   // A submit before hydration performs the browser's native GET `/login?`
   // instead of running handleSubmit. Keep it inert until React owns the form.
@@ -76,12 +77,17 @@ function LoginForm() {
   useEffect(() => {
     let active = true;
 
-    supabase.auth.getUser().then(async ({ error: authError }) => {
-      if (!active || !authError) return;
-      await recoverInvalidBrowserSession(authError, clearInvalidLocalSession);
-    }).catch(() => {
-      // Network failures leave browser auth state untouched and the form usable.
-    });
+    supabase.auth.getUser()
+      .then(async ({ error: authError }) => {
+        if (!active || !authError) return;
+        await recoverInvalidBrowserSession(authError, clearInvalidLocalSession);
+      })
+      .catch(() => {
+        // Network failures leave browser auth state untouched and the form usable.
+      })
+      .finally(() => {
+        if (active) setAuthReady(true);
+      });
 
     return () => { active = false; };
   }, []);
@@ -334,7 +340,7 @@ function LoginForm() {
 
             <Button
               type="submit"
-              disabled={loading || !hydrated}
+              disabled={loading || !hydrated || !authReady}
               fullWidth
               className="gap-2"
             >
