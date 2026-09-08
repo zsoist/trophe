@@ -38,6 +38,8 @@ The browser accepts only strict JSON capability/result shapes, keeps recipient a
 text visible for review, invalidates confirmation after editing, and blocks another Coach
 action while a review or uncertain write is unresolved. A receipt emits a scope-bound
 `refetch` event to the existing human chat; no parallel message timeline is created.
+If the assignment version is stale, the UI keeps the draft, clears the old review and
+requires an explicit recipient refresh followed by a new review and confirmation.
 
 `db/isolated/coach-message-actions.sql` provides the private relationship revision and
 extends the shared proposal/receipt ledger only inside the disposable CI database. It

@@ -139,6 +139,15 @@ export class MessageController {
     return true;
   }
 
+  async refreshRecipient(transport: MessageTransport) {
+    if (!this.conversationId || !this.state.draft.trim() || this.state.pending
+      || this.state.uncertain || this.action || this.state.receipt) return false;
+    const result = await this.call({ ...this.header(), operation: 'message.recipient' }, transport, false);
+    if (!result?.ok || !('recipient' in result)) return false;
+    this.publish({ ...this.state, recipient: result.recipient, proposal: null, error: null });
+    return true;
+  }
+
   discard() {
     if (!this.state.pending && !this.action) this.publish({ ...this.state, proposal: null, error: null });
   }
@@ -182,7 +191,13 @@ export class MessageController {
     if (!result.ok) {
       const uncertain = checking || result.error === 'uncertain' || result.error === 'cancelled' || result.error === 'not_found';
       if (!uncertain) this.action = null;
-      this.publish({ ...this.state, uncertain, error: result.error });
+      const staleRecipient = !checking && ['version_conflict', 'forbidden', 'not_found', 'ambiguous_selection'].includes(result.error);
+      this.publish({
+        ...this.state,
+        ...(staleRecipient ? { recipient: null, proposal: null } : {}),
+        uncertain,
+        error: result.error,
+      });
       return false;
     }
     if (!('receipt' in result) || result.receipt.status !== 'stored'

@@ -146,3 +146,74 @@ it('does not accept a receipt refresh bound to another client', async () => {
   await controller.apply(transport);
   expect(controller.snapshot()).toMatchObject({ receipt: null, uncertain: true, error: 'invalid_receipt' });
 });
+
+it('refreshes a stale recipient and requires a new review before applying to a reassigned coach', async () => {
+  const controller = new MessageController();
+  const reassigned = {
+    coachId: '77777777-7777-4777-8777-777777777777',
+    name: 'Coach Bea',
+    version: 'recipient-v2',
+  };
+  let recipientReads = 0;
+  const transport = vi.fn<MessageTransport>(async operation => {
+    if (operation.operation === 'message.apply') return { ok: false, error: 'version_conflict' };
+    if (operation.operation === 'message.recipient') {
+      recipientReads += 1;
+      return { ok: true, recipient: reassigned };
+    }
+    if (operation.operation === 'message.propose') return {
+      ok: true,
+      proposal: { ...proposal, id: crypto.randomUUID(), hash: 'b'.repeat(64), recipient: reassigned, after: operation.after },
+    };
+    return { ok: false, error: 'invalid_input' };
+  });
+
+  render(<Harness controller={controller} transport={transport} />);
+  act(() => { controller.adopt('1'.repeat(64), ids.conversationId, proposal, ids.conversationId); });
+  fireEvent.click(screen.getByRole('button', { name: 'Send to your coach' }));
+  expect(await screen.findByRole('button', { name: 'Refresh recipient' })).toBeTruthy();
+  expect(controller.snapshot()).toMatchObject({
+    draft: proposal.after.message,
+    recipient: null,
+    proposal: null,
+    error: 'version_conflict',
+  });
+  expect(transport.mock.calls.filter(([operation]) => operation.operation === 'message.apply')).toHaveLength(1);
+
+  fireEvent.click(screen.getByRole('button', { name: 'Refresh recipient' }));
+  expect(await screen.findByText('Coach Bea')).toBeTruthy();
+  expect(recipientReads).toBe(1);
+  expect(screen.queryByRole('button', { name: 'Send to your coach' })).toBeNull();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Review message' }));
+  expect(await screen.findByRole('button', { name: 'Send to your coach' })).toBeTruthy();
+  const repropose = transport.mock.calls.find(([operation]) => operation.operation === 'message.propose')?.[0];
+  expect(repropose).toMatchObject({ coachId: reassigned.coachId, resourceVersion: reassigned.version, after: proposal.after });
+});
+
+it('does not revive an old review after a same-coach ABA change', async () => {
+  const controller = new MessageController();
+  const refreshed = { ...recipient, name: 'Coach Ana Updated', version: 'recipient-v3' };
+  const transport = vi.fn<MessageTransport>(async operation => {
+    if (operation.operation === 'message.apply') return { ok: false, error: 'version_conflict' };
+    if (operation.operation === 'message.recipient') return { ok: true, recipient: refreshed };
+    if (operation.operation === 'message.propose') return {
+      ok: true,
+      proposal: { ...proposal, id: crypto.randomUUID(), hash: 'c'.repeat(64), recipient: refreshed, after: operation.after },
+    };
+    return { ok: false, error: 'invalid_input' };
+  });
+
+  controller.adopt('2'.repeat(64), ids.conversationId, proposal, ids.conversationId);
+  await controller.apply(transport);
+  expect(controller.snapshot()).toMatchObject({ draft: proposal.after.message, recipient: null, proposal: null });
+  await controller.refreshRecipient(transport);
+  expect(controller.snapshot()).toMatchObject({ recipient: refreshed, proposal: null });
+  await controller.propose(transport);
+  expect(controller.snapshot().proposal).toMatchObject({ recipient: refreshed, after: proposal.after });
+  expect(transport.mock.calls.map(([operation]) => operation.operation)).toEqual([
+    'message.apply',
+    'message.recipient',
+    'message.propose',
+  ]);
+});

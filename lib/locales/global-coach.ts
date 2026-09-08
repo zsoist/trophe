@@ -8,6 +8,7 @@ export const globalCoachTranslations: Record<string, { en: string; es: string; e
   'global_coach.message_saved': { en: 'Saved in your chat', es: 'Guardado en tu chat', el: 'Αποθηκεύτηκε στη συνομιλία σας' },
   'global_coach.message_uncertain': { en: 'The save result is not confirmed. Check the original action before continuing.', es: 'El resultado no está confirmado. Consulta la acción original antes de continuar.', el: 'Το αποτέλεσμα αποθήκευσης δεν επιβεβαιώθηκε. Ελέγξτε την αρχική ενέργεια πριν συνεχίσετε.' },
   'global_coach.message_check': { en: 'Check send status', es: 'Consultar estado del mensaje', el: 'Έλεγχος κατάστασης μηνύματος' },
+  'global_coach.message_refresh_recipient': { en: 'Refresh recipient', es: 'Actualizar destinatario', el: 'Ανανέωση παραλήπτη' },
   'global_coach.message_invalid_proposal': { en: 'The reviewed message did not match this recipient and text.', es: 'El mensaje revisado no coincide con este destinatario y texto.', el: 'Το ελεγμένο μήνυμα δεν αντιστοιχεί σε αυτόν τον παραλήπτη και κείμενο.' },
   'global_coach.message_expired': { en: 'This review expired. Review the message again.', es: 'Esta revisión venció. Revisa el mensaje de nuevo.', el: 'Αυτός ο έλεγχος έληξε. Ελέγξτε ξανά το μήνυμα.' },
   'global_coach.message_failed': { en: 'The message review could not be prepared.', es: 'No se pudo preparar la revisión del mensaje.', el: 'Δεν ήταν δυνατή η προετοιμασία του ελέγχου μηνύματος.' },

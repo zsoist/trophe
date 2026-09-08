@@ -33,6 +33,8 @@ export function MessagePanel({ controller, state, transport }: {
     </>}
     {state.recipient && !state.proposal && !saved && !state.uncertain && !state.pending
       && <button type="button" disabled={!state.draft.trim()} onClick={() => void controller.propose(transport)}>{t('global_coach.message_review')}</button>}
+    {!state.recipient && state.draft.trim() && !saved && !state.uncertain && !state.pending
+      && <button type="button" onClick={() => void controller.refreshRecipient(transport)}>{t('global_coach.message_refresh_recipient')}</button>}
     {saved && <><p role="status">{t('global_coach.message_saved')}</p><button type="button" onClick={() => controller.dismiss()}>{t('global_coach.food_done')}</button></>}
     {state.pending && <p role="status">{t('global_coach.pending')}</p>}
     {state.uncertain && <>
