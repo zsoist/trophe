@@ -1,3 +1,4 @@
+import { medicalBoundary } from './medical-boundary';
 import { COACH_CONTRACT_VERSION } from './contracts';
 import type { CoachErrorCode, CoachResponse } from './contracts';
 import { requestSchema, selectionSchema } from './schema';
@@ -70,20 +71,7 @@ export async function run(raw: unknown, options: RunOptions): Promise<CoachRespo
         response.telemetry.cacheReadTokens = result.usage.cacheReadTokens ?? 0;
         response.telemetry.cacheWriteTokens = result.usage.cacheWriteTokens ?? 0;
       }
-      const message = input.message.normalize('NFKD').replace(/\p{M}/gu,'').toLowerCase();
-      const urgent = /chest pain|dolor.*pecho|falta.*aire|can.t breathe|desmay|faint|passed out/.test(message);
-      const medication = /insulin|medic|dosis|inject|inyect|dose/.test(message);
-      // Broad referral categories; this is a conservative guard, not a clinical
-      // classifier or a substitute for independent multilingual safety review.
-      const medicalContext = /pregnan|embaraz|lactan|breastfeed|postpartum|posparto|enceinte|grossesse|εγκυ|θηλασ|vomit|purge|purgar|bulimi|anorexi|eating disorder|trastorno.*aliment|dehydrat|deshidrat|\binjur|lesion|surgery|cirugia/.test(message);
-      const riskyRestriction = /(?:strict|extreme|prolonged|estrict|extrem|prolongad).*(?:fast|ayun|diet|restrict)|(?:ayun|fast|restrict).*(?:strict|extreme|estrict|extrem|prolongad)/.test(message);
-      const recordsQuestion = /recorded|records|schedule|registrad|registro|horario/.test(message);
-      const adviceRequest = /safe|clearance|should i|can i|recommend|design|restrict|diet|fast|ayun|segur|puedo|deberia|recomiend|disen/.test(message);
-      const activeConcern = /vomit|purge|purgar|dehydrat|deshidrat/.test(message);
-      // A health-history mention does not invalidate an ordinary records lookup.
-      // Risky advice and acute concerns still require the existing referral.
-      const benignLookup = recordsQuestion && !adviceRequest && !activeConcern;
-      const medical = medication || riskyRestriction || medicalContext && !benignLookup;
+      const {urgent,medication,medical}=medicalBoundary(input.message);
       const reason = urgent ? 'urgent_symptoms' : medication ? 'medical_question' : medical ? 'medical_context' : escalate ? 'coach_review' : null;
       const disclaimer = 'No plan or record was changed. No message was sent.';
       const lead = urgent ? 'Stop exercising and seek urgent medical help. I cannot diagnose or clear you to continue.'
