@@ -10,7 +10,7 @@ test('authenticated HTTP engine uses current authorized profile with explicit fi
   if (process.env.CI !== 'true' || process.env.GITHUB_ACTIONS !== 'true' || process.env.CI_REAL_SUPABASE !== '1'
     || target.protocol !== 'postgresql:' || target.hostname !== '127.0.0.1' || target.port !== '54322'
     || target.pathname !== '/postgres' || target.search || target.hash) throw new Error('disposable_target_required');
-  const actor = process.env.COACH_SQL_ACTOR!;
+  const actor = process.env.E2E_CLIENT_ID!;
   const pool = new pg.Pool({ connectionString: target.toString(), max: 1, statement_timeout: 5000 });
   const noPaid = await blockPaidRequests(page);
   const anonymous = await apiRequest.newContext({ baseURL: 'http://127.0.0.1:3300' });
@@ -95,7 +95,7 @@ test('actual Workout composer reviews then applies the isolated draft intent', a
   if (process.env.CI !== 'true' || process.env.GITHUB_ACTIONS !== 'true' || process.env.CI_REAL_SUPABASE !== '1'
     || target.protocol !== 'postgresql:' || target.hostname !== '127.0.0.1' || target.port !== '54322'
     || target.pathname !== '/postgres' || target.search || target.hash) throw new Error('disposable_target_required');
-  const actor = process.env.COACH_SQL_ACTOR!;
+  const actor = process.env.E2E_CLIENT_ID!;
   const noPaid = await blockPaidRequests(page);
   const readDraft = () => page.evaluate(id => {
     const value = localStorage.getItem(`trophe:workout-workspace:${id}`);
