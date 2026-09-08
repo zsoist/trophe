@@ -69,7 +69,7 @@ export async function executeCoachWeek({ status, env, actors, service }) {
   const coachId = requireId(actors?.coachId);
   const orgId = requireId(env.E2E_TEST_ORG_ID);
   if (!service?.auth?.admin) throw new Error('Coach E2E requires the disposable Auth service');
-  const ids = Object.fromEntries(['org', 'template', 'program', 'day', 'meal', 'sessionA', 'sessionB', 'setA', 'setB', 'setC'].map(key => [key, randomUUID()]));
+  const ids = Object.fromEntries(['org', 'template', 'program', 'day', 'meal', 'draftDumbbell', 'sessionA', 'sessionB', 'setA', 'setB', 'setC'].map(key => [key, randomUUID()]));
   // Profiles are explicitly UTC. SQL derives the date in that same timezone.
   const pool = new pg.Pool({ connectionString: status.DB_URL, max: 1, connectionTimeoutMillis: 5000, statement_timeout: 5000 });
   let foreignId;
@@ -118,6 +118,7 @@ export async function executeCoachWeek({ status, env, actors, service }) {
       phase = 'seed_catalog';
       const exercise = (await db.query('SELECT id,name,muscle_group FROM exercises WHERE is_template=true AND created_by IS NULL ORDER BY id LIMIT 1')).rows[0];
       if (!exercise) throw new Error('Coach fixture requires an existing catalog exercise');
+      await db.query("INSERT INTO exercises (id,name,muscle_group,equipment,is_template,instructions) VALUES ($1,'Coach draft dumbbell fixture',$2,'dumbbell',true,'Disposable authenticated draft-review fixture.')", [ids.draftDumbbell, exercise.muscle_group]);
       phase = 'seed_plan';
       await db.query("INSERT INTO workout_templates (id,created_by,name,exercises) VALUES ($1,$2,'Coach week fixture',$3::jsonb)", [ids.template, coachId, JSON.stringify([{ exercise_id: exercise.id, name: exercise.name, muscle_group: exercise.muscle_group, target_sets: 3, target_reps: '10', rest_seconds: 90 }])]);
       await db.query("INSERT INTO workout_programs (id,client_id,coach_id,name) VALUES ($1,$2,$3,'Coach week fixture')", [ids.program, clientId, coachId]);
@@ -194,6 +195,7 @@ export async function executeCoachWeek({ status, env, actors, service }) {
         await db.query('DELETE FROM workout_program_days WHERE id=$1 AND program_id=$2', [ids.day, ids.program]);
         await db.query('DELETE FROM workout_programs WHERE id=$1 AND client_id=$2', [ids.program, clientId]);
         await db.query('DELETE FROM workout_templates WHERE id=$1 AND created_by=$2', [ids.template, coachId]);
+        await db.query('DELETE FROM exercises WHERE id=$1 AND is_template=true AND created_by IS NULL', [ids.draftDumbbell]);
         await db.query('DELETE FROM food_log WHERE id=$1 AND user_id=$2', [ids.meal, clientId]);
         phase = 'cleanup_memberships';
         await db.query('DELETE FROM organization_members WHERE (org_id=$1 AND user_id=ANY($2::uuid[])) OR (org_id=$3 AND user_id=$4)', [orgId, [clientId, coachId, unassignedId], ids.org, foreignId]);
