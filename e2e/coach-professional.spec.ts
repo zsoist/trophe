@@ -179,10 +179,12 @@ test('professional v2: server scope, denials, isolation, revocation and stale tu
       await page.getByLabel('Your question').fill('First scoped turn');
       await page.getByRole('button', { name: 'Send question' }).click();
       await expect(page.getByText(/Offline record summary/).first()).toBeVisible();
+      const acceptedAnswers = await page.getByText(/Offline record summary/).count();
       await page.getByLabel('Your question').fill('BAD-SCOPE-CANARY');
       await page.getByRole('button', { name: 'Send question' }).click();
       await expect(page.getByText('This request could not finish. You can edit your question and send it again.')).toBeVisible();
-      await expect(page.getByText(/BAD-SCOPE-CANARY/)).toHaveCount(1);
+      await expect(page.getByLabel('Your question')).toHaveValue('BAD-SCOPE-CANARY');
+      await expect(page.getByText(/Offline record summary/)).toHaveCount(acceptedAnswers);
     });
     noPaid();
   } finally {
