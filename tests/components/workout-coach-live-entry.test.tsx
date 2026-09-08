@@ -36,6 +36,7 @@ function DraftHarness() {
   const workspace = useWorkoutWorkspace();
   return <>
     <button onClick={() => { workspace.createDraft({ name: 'Push', kind: 'strength' }); workspace.addDraftExercise('bench-press'); }}>Create draft</button>
+    <button onClick={() => workspace.updateDraftName('Push now')}>Update draft</button>
     <output data-testid="draft">{workspace.state.draft?.name}:{workspace.state.draft?.kind === 'strength' ? `${workspace.state.draft.exercises[0]?.exerciseId}:${workspace.state.draft.exercises[0]?.targetSets}` : ''}</output>
     <WorkoutCoachEntry />
   </>;
@@ -44,7 +45,9 @@ function DraftHarness() {
 it('reviews and applies an accepted draft intent when no authorized profile is returned', async () => {
   render(<I18nProvider defaultLang="en"><WorkoutWorkspaceProvider userId={actor} storage={{ getItem: () => null, setItem: vi.fn(), removeItem: vi.fn() }}><DraftHarness /></WorkoutWorkspaceProvider></I18nProvider>);
   fireEvent.click(screen.getByRole('button', { name: 'Create draft' }));
-  fireEvent.click(await screen.findByRole('button', { name: 'Ask Trophē' }));
+  const launcher = await screen.findByRole('button', { name: 'Ask Trophē' });
+  fireEvent.click(screen.getByRole('button', { name: 'Update draft' }));
+  fireEvent.click(launcher);
   fireEvent.change(screen.getByRole('textbox', { name: 'Your question' }), { target: { value: 'I only have 35 minutes and dumbbells.' } });
   fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
   await screen.findByText('I prepared a 35-minute dumbbell alternative for review.');
@@ -52,10 +55,10 @@ it('reviews and applies an accepted draft intent when no authorized profile is r
   expect(requestConversation.mock.calls[0][0].context?.surface).toBe('plan');
   fireEvent.click(screen.getByText('Your profile & memory'));
   expect(await screen.findByRole('button', { name: 'Confirm change' })).toBeTruthy();
-  expect(screen.getByRole('region', { name: 'After' }).textContent).toContain('Push · 35 min · Dumbbells');
+  expect(screen.getByRole('region', { name: 'After' }).textContent).toContain('Push now · 35 min · Dumbbells');
   expect(screen.getByRole('region', { name: 'After' }).textContent).toContain('Dumbbell Flyes');
-  expect(screen.getByTestId('draft').textContent).toBe('Push:bench-press:3');
+  expect(screen.getByTestId('draft').textContent).toBe('Push now:bench-press:3');
   fireEvent.click(screen.getByRole('button', { name: 'Confirm change' }));
   await screen.findByText('Updated in your private Workout draft.');
-  expect(screen.getByTestId('draft').textContent).toBe('Push · 35 min · Dumbbells:dumbbell-flyes:3');
+  expect(screen.getByTestId('draft').textContent).toBe('Push now · 35 min · Dumbbells:dumbbell-flyes:3');
 });
