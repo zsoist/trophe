@@ -32,3 +32,24 @@ it('rejects a proposal that changes a different profile or reviewed choice', asy
   await controller.propose('vegan', async () => ({ version: 'coach-assistant.v2', storage: 'database', ok: true, proposal: { id: crypto.randomUUID(), hash: 'a'.repeat(64), action: 'food.preference.update', resource: { kind: 'food_preference', id: crypto.randomUUID(), version: '0' }, before: { version: 1, dietPattern: null }, after: { version: 1, dietPattern: 'vegetarian' }, precondition: '', expiresAt: new Date(Date.now() + 300000).toISOString(), reviewRequired: true } }));
   expect(controller.snapshot()).toMatchObject({ proposal: null, error: 'failed' });
 });
+it('keeps receipt recovery on its original conversation before adopting a queued conversation', async () => {
+  const controller = new DietController(), profileId = crypto.randomUUID(), original = crypto.randomUUID(), next = crypto.randomUUID();
+  let stored = false, actionId = '';
+  const seen: Array<{ operation: string; conversationId: string }> = [];
+  const proposal = { id: crypto.randomUUID(), hash: 'b'.repeat(64), action: 'food.preference.update' as const,
+    resource: { kind: 'food_preference' as const, id: profileId, version: '0' }, before: { version: 1 as const, dietPattern: null },
+    after: { version: 1 as const, dietPattern: 'vegan' as const }, precondition: 'b'.repeat(64), expiresAt: new Date(Date.now() + 300000).toISOString(), reviewRequired: true as const };
+  const transport: DietTransport = async operation => {
+    seen.push({ operation: operation.operation, conversationId: operation.conversationId });
+    if (operation.operation === 'diet.read') return { version: 'coach-assistant.v2', storage: 'database', ok: true, snapshot: { profileId, version: stored ? '1' : '0', preferences: stored ? proposal.after : proposal.before } };
+    if (operation.operation === 'diet.propose') return { version: 'coach-assistant.v2', storage: 'database', ok: true, proposal };
+    if (operation.operation === 'diet.apply') { stored = true; actionId = operation.actionId; throw new Error('lost_response'); }
+    return { version: 'coach-assistant.v2', storage: 'database', ok: true, receipt: { id: crypto.randomUUID(), actionId, proposalId: proposal.id, status: 'applied', resourceVersion: '1', recordedAt: new Date().toISOString() }, refresh: { profileId, previousVersion: '0', version: '1', strategy: 'refetch', discardDerivedContext: true } };
+  };
+  controller.select(profileId, original, transport); await new Promise(resolve => setTimeout(resolve, 0));
+  await controller.propose('vegan', transport); await controller.apply(transport);
+  expect(controller.moveConversation(next)).toBe(false);
+  await controller.check(transport);
+  expect(seen.slice(-2)).toEqual([{ operation: 'diet.receipt', conversationId: original }, { operation: 'diet.read', conversationId: original }]);
+  expect(controller.moveConversation(next)).toBe(true);
+});

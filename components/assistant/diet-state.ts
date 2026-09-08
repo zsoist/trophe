@@ -16,12 +16,17 @@ export class DietController {
   private generation = 0;
   private deadline: ReturnType<typeof setTimeout> | null = null;
   private conversationId = '';
+  private deferredConversationId: string | null = null;
   private action: Extract<FoodPreferenceOperation, { operation: 'diet.apply' }> | null = null;
   snapshot = () => this.state;
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   private publish(state: DietState) { this.state = state; this.listeners.forEach(listener => listener()); }
   private clearDeadline() { if (this.deadline !== null) clearTimeout(this.deadline); this.deadline = null; }
-  reset() { this.clearDeadline(); this.generation++; this.active?.abort(); this.active = null; this.action = null; this.publish(empty()); }
+  reset() { this.clearDeadline(); this.generation++; this.active?.abort(); this.active = null; this.action = null; this.deferredConversationId = null; this.publish(empty()); }
+  moveConversation(conversationId: string) {
+    if (this.action && !this.state.receipt) { this.deferredConversationId = conversationId; return false; }
+    this.conversationId = conversationId; this.deferredConversationId = null; return true;
+  }
   cancel() {
     if (!this.active) return;
     this.clearDeadline();
@@ -104,6 +109,7 @@ export class DietController {
         || !/^\d+$/.test(fresh.snapshot.version) || !/^\d+$/.test(result.refresh.version)
         || BigInt(fresh.snapshot.version) < BigInt(result.refresh.version)) throw new Error('refresh_failed');
       this.action = null;
+      if (this.deferredConversationId) { this.conversationId = this.deferredConversationId; this.deferredConversationId = null; }
       this.publish({ ...this.state, pending: false, profile: fresh.snapshot, proposal: null, error: null });
     } catch { fail(); }
     finally { clearTimeout(timer); if (this.deadline === timer) this.deadline = null; if (generation === this.generation) this.active = null; }

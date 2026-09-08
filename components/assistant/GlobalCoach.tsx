@@ -61,7 +61,7 @@ function CoachSurface({ identity, subjectId, example, preferenceTransport, memor
   const memoryEnabled = process.env.NEXT_PUBLIC_COACH_MEMORY_ACTIONS_ENABLED === '1' && (!historyEnabled || state.durable) && (!example || Boolean(memoryTransport)) && (!subjectId || subjectId === identity);
   const [diet] = useState(() => new DietController());
   const dietState = useSyncExternalStore(diet.subscribe, diet.snapshot, diet.snapshot);
-  const dietEnabled = process.env.NEXT_PUBLIC_COACH_DIET_ACTIONS_ENABLED === '1' && (!historyEnabled || state.durable) && (!example || Boolean(dietTransport)) && (!subjectId || subjectId === identity);
+  const dietEnabled = process.env.NEXT_PUBLIC_COACH_DIET_ACTIONS_ENABLED === '1' && (!example || Boolean(dietTransport)) && (!subjectId || subjectId === identity);
   const [open, setOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [includeScreen, setIncludeScreen] = useState(true);
@@ -132,15 +132,15 @@ function CoachSurface({ identity, subjectId, example, preferenceTransport, memor
       }}>
         {foodState.entryId && <FoodQuantityPanel key={foodState.entryId} controller={food} state={foodState} transport={requestFoodQuantity} />}
         {historyEnabled && <button type="button" onClick={() => {
-          voice.reset(); attachments.reset(); preferences.reset(); food.reset(); diet.reset(); memory.reset();
-          controller.startNew(); setHistoryOpen(false); input.current?.focus();
+          voice.reset(); attachments.reset(); preferences.reset(); food.reset(); memory.reset();
+          controller.startNew(); diet.moveConversation(controller.snapshot().conversationId); setHistoryOpen(false); input.current?.focus();
         }}>{t('global_coach.new_chat')}</button>}
         {historyEnabled && <details open={historyOpen} className={styles.profile} onToggle={event => setHistoryOpen(event.currentTarget.open)}><summary>{t('global_coach.saved_chats')}</summary>{historyOpen && <HistoryPanel transport={historyTransport ?? requestHistory} onInvalidate={threadId => {
           if (controller.snapshot().conversationId !== threadId) return;
-          voice.reset(); attachments.reset(); preferences.reset(); food.reset(); diet.reset(); memory.reset(); controller.startNew();
+          voice.reset(); attachments.reset(); preferences.reset(); food.reset(); memory.reset(); controller.startNew(); diet.moveConversation(controller.snapshot().conversationId);
         }} onResume={page => {
-          voice.reset(); attachments.reset(); preferences.reset(); food.reset(); diet.reset(); memory.reset();
-          controller.restore(page.thread.id, page.messages); setHistoryOpen(false); input.current?.focus();
+          voice.reset(); attachments.reset(); preferences.reset(); food.reset(); memory.reset();
+          controller.restore(page.thread.id, page.messages); diet.moveConversation(controller.snapshot().conversationId); setHistoryOpen(false); input.current?.focus();
         }} />}</details>}
         {dietEnabled && <details className={styles.profile} onToggle={event => { if (event.currentTarget.open) { voice.reset(); if (!dietState.profileId) diet.select(identity, state.conversationId, dietTransport ?? requestDiet); else if (!dietState.profile) void diet.read(dietTransport ?? requestDiet); } }}>
           <summary>{t('global_coach.diet_title')}</summary>

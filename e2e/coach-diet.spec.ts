@@ -70,3 +70,80 @@ test('diet selection requires exact review and confirmation then recovers its re
   // APIRequestContext replay is intentional; unchanged revision proves no reapply.
   // Parent owns cleanup through the merged conversation manifest, even on failure.
 });
+
+test('committed diet response loss survives a new conversation and recovers by receipt without another apply', async ({ page }) => {
+  const target = new URL(process.env.DATABASE_URL ?? 'about:blank');
+  if (process.env.CI !== 'true' || process.env.GITHUB_ACTIONS !== 'true' || process.env.CI_REAL_SUPABASE !== '1'
+    || target.protocol !== 'postgresql:' || target.hostname !== '127.0.0.1' || target.port !== '54322' || target.pathname !== '/postgres'
+    || target.username !== 'postgres' || target.password !== 'postgres' || target.search || target.hash) throw new Error('disposable_target_required');
+  const manifest = process.env.COACH_DIET_HTTP_THREADS!, root = process.env.RUNNER_TEMP!;
+  if (!manifest || !root || !isAbsolute(manifest) || !isAbsolute(root) || relative(resolve(root), resolve(manifest)).startsWith('..') || resolve(root) === resolve(manifest)) throw new Error('invalid_manifest');
+  const old: unknown = JSON.parse(readFileSync(manifest, 'utf8'));
+  if (!Array.isArray(old) || old.length > 4 || !old.every(id => typeof id === 'string' && /^[a-f0-9-]{36}$/.test(id))) throw new Error('invalid_manifest_contents');
+  const conversations = new Set<string>(old);
+  const browserOperations: Array<{ operation: string; actionId?: string }> = [];
+  let applyCount = 0, dropped = false, routeFailure: unknown;
+  let applyBody: Record<string, unknown> | undefined;
+  let committed: { id: string; actionId: string; proposalId: string; resourceVersion: string; status: string } | undefined;
+  const noPaid = await blockPaidRequests(page);
+  await page.route('**/api/coach-assistant', async route => {
+    try {
+      const body = route.request().postDataJSON() as Record<string, unknown>;
+      if (typeof body.operation !== 'string' || !body.operation.startsWith('diet.')) { await route.continue(); return; }
+      expect(body.conversationId).toMatch(/^[a-f0-9-]{36}$/);
+      conversations.add(body.conversationId as string); expect(conversations.size).toBeLessThanOrEqual(4);
+      writeFileSync(manifest, JSON.stringify([...conversations]), { mode: 0o600 });
+      browserOperations.push({ operation: body.operation, ...(typeof body.actionId === 'string' ? { actionId: body.actionId } : {}) });
+      if (body.operation !== 'diet.apply') { await route.continue(); return; }
+      applyCount++; expect(applyCount).toBe(1); applyBody = body;
+      const real = await route.fetch({ maxRetries: 0, maxRedirects: 0 });
+      expect(real.status()).toBe(200);
+      const result = await real.json(); expect(result.ok).toBe(true); expect(result.receipt.status).toBe('applied');
+      expect(result.receipt.actionId).toBe(body.actionId); expect(result.receipt.proposalId).toBe(body.proposalId);
+      committed = result.receipt;
+      const recovered = await page.context().request.post('/api/coach-assistant', { data: {
+        version: 'coach-assistant.v2', operation: 'diet.receipt', profileId: body.profileId,
+        conversationId: body.conversationId, turnId: randomUUID(), actionId: body.actionId,
+      } });
+      expect(recovered.status()).toBe(200); expect((await recovered.json()).receipt).toEqual(committed);
+      await real.dispose(); await recovered.dispose();
+      await route.abort('failed'); dropped = true;
+    } catch (error) { routeFailure = error; await route.abort('failed').catch(() => {}); }
+  });
+  const responseFor = (operation: string) => page.waitForResponse(response => new URL(response.url()).pathname === '/api/coach-assistant' && response.request().method() === 'POST' && response.request().postDataJSON().operation === operation);
+  await loginAs(page, 'client'); await page.goto('/dashboard/workout');
+  await page.getByRole('button', { name: 'Ask coach', exact: true }).click();
+  const panel = page.locator('#global-coach');
+  const reading = responseFor('diet.read');
+  await panel.locator('summary').filter({ hasText: 'Diet preference' }).click();
+  const read = await reading; expect(read.status()).toBe(200); const initial = await read.json();
+  const selector = panel.getByRole('combobox', { name: 'Diet preference', exact: true });
+  const current = initial.snapshot.preferences.dietPattern ?? '';
+  const next = current === 'pescatarian' ? 'omnivore' : 'pescatarian';
+  await selector.selectOption(next);
+  const proposing = responseFor('diet.propose');
+  await panel.getByRole('button', { name: 'Review change', exact: true }).click();
+  expect((await proposing).status()).toBe(200); expect(applyCount).toBe(0);
+  await panel.getByRole('button', { name: 'Confirm change', exact: true }).click();
+  await expect.poll(() => dropped || Boolean(routeFailure)).toBe(true); if (routeFailure) throw routeFailure;
+  await expect(panel.getByRole('button', { name: 'Check change status', exact: true })).toBeVisible();
+  await expect(panel.getByText('Diet preference saved.', { exact: true })).toHaveCount(0);
+  await panel.getByRole('button', { name: 'New conversation', exact: true }).click();
+  await expect(panel.getByRole('button', { name: 'Check change status', exact: true })).toBeVisible();
+  expect(applyCount).toBe(1);
+  const checking = responseFor('diet.receipt'), refreshing = responseFor('diet.read');
+  await panel.getByRole('button', { name: 'Check change status', exact: true }).click();
+  const checked = await checking; expect(checked.status()).toBe(200);
+  expect(checked.request().postDataJSON().actionId).toBe(applyBody!.actionId);
+  expect((await checked.json()).receipt).toEqual(committed);
+  const fresh = await refreshing; expect(fresh.status()).toBe(200); const snapshot = await fresh.json();
+  expect(snapshot.snapshot.preferences.dietPattern).toBe(next);
+  await expect(selector).toHaveValue(next);
+  await expect(panel.getByText('Diet preference saved.', { exact: true })).toBeVisible();
+  expect(browserOperations.slice(browserOperations.findIndex(op => op.operation === 'diet.apply'))).toEqual([
+    { operation: 'diet.apply', actionId: applyBody!.actionId },
+    { operation: 'diet.receipt', actionId: applyBody!.actionId }, { operation: 'diet.read' },
+  ]);
+  expect(applyCount).toBe(1); expect(routeFailure).toBeUndefined(); noPaid();
+  // Parent consumes the merged conversation manifest and removes exact rows.
+});

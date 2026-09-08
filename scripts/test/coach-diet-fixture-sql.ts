@@ -58,7 +58,7 @@ async function main() {
   await writeFile(uiManifest, '[]', { mode: 0o600 });
   const ui = spawnSync(process.execPath, ['node_modules/@playwright/test/cli.js', 'test', '--config', 'playwright.coach.config.ts', '--workers=1', 'e2e/coach-diet.spec.ts'], {
     stdio: 'inherit', env: { ...process.env, E2E_COACH_DIET: '1', E2E_CLIENT_ID: actorId, COACH_DIET_HTTP_THREADS: uiManifest,
-      NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED: '1', NEXT_PUBLIC_COACH_ASSISTANT_ENABLED: '0', NEXT_PUBLIC_COACH_DIET_ACTIONS_ENABLED: '1',
+      NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED: '1', NEXT_PUBLIC_COACH_ASSISTANT_ENABLED: '0', NEXT_PUBLIC_COACH_CHAT_HISTORY_ENABLED: '1', NEXT_PUBLIC_COACH_DIET_ACTIONS_ENABLED: '1',
       COACH_ASSISTANT_ENABLED: '1', COACH_ASSISTANT_MODE: 'offline', COACH_ASSISTANT_DATA_SOURCE: 'authorized_records',
       COACH_ASSISTANT_MEMORY_ACTIONS_ENABLED: '0', COACH_ASSISTANT_DIET_ACTIONS_ENABLED: '1', COACH_ASSISTANT_ISOLATED_ACTIONS_ENABLED: '0', COACH_ASSISTANT_PREVIEW_USER_IDS: actorId },
   });
