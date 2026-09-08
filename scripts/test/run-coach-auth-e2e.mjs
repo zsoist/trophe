@@ -156,6 +156,7 @@ export async function executeCoachWeek({ status, env, actors, service }) {
       NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED: '1',
       COACH_ASSISTANT_ISOLATED_ENGINE_ENABLED: '1',
       COACH_ASSISTANT_ISOLATED_ACTIONS_ENABLED: '1',
+      COACH_SQL_ACTOR: clientId,
       E2E_COACH_ENGINE: '1',
       E2E_COACH_DRAFT_ONLY: '1',
     };
