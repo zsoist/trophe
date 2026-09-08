@@ -53,6 +53,7 @@ it('turns an explicit Food correction into review, receipt, canonical readback a
   fireEvent.change(screen.getByRole('textbox', { name: 'Your question' }), { target: { value: 'Fueron 150 gramos, no 250' } });
   fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
   expect(await screen.findByRole('button', { name: 'Confirm quantity change' })).toBeTruthy();
+  expect(foodMock.mock.calls[0][0]).toMatchObject({ operation: 'food.resolve', entryHintId: entryId, loggedDateHint: '2026-09-08', expectedPreviousGrams: 250 });
   expect(screen.getByRole('table').textContent).toContain('250150');
   expect(screen.getByRole('textbox', { name: 'Your question' }).hasAttribute('disabled')).toBe(true);
   expect(refresh).not.toHaveBeenCalled();

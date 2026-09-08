@@ -86,6 +86,22 @@ describe('disposable CI authorized-records engine composition',()=>{
   const disabled=await engine.run({...request,turnId:id(8)},{...options(),workoutSetIntentsEnabled:false});
   expect(disabled.ok).toBe(true);expect(disabled.actionIntents).toEqual([]);
  });
+ it('emits only the server-bound Food quantity intent from the isolated fixture',async()=>{
+  const fetch=vi.fn(()=>{throw new Error('network forbidden');});vi.stubGlobal('fetch',fetch);
+  const engine=createIsolatedCoachEngineBinding(config());
+  const request={version:'coach-assistant.v2',conversationId:id(2),turnId:id(9),message:'Fueron 150 gramos, no 250',context:{surface:'food' as const,includeScreen:true}};
+  const response=await engine.run(request,{...options(),foodQuantityIntentsEnabled:true});
+  expect(response.ok).toBe(true);
+  expect(response.actionIntents).toEqual([expect.objectContaining({
+   action:'food.quantity.update',source:'provider_tool',subjectId:id(1),surface:'food',
+   target:{selection:'authorized_food_entry',entryHintId:null,previousGrams:250,grams:150},reviewRequired:true,
+  })]);
+  expect(response.actionIntents?.[0]?.id).toMatch(/^[a-f0-9]{64}$/);
+  expect(response.proposals).toEqual([]);expect(response.receipts).toEqual([]);
+  expect(response.telemetry).toMatchObject({modelCalls:1,costUsd:0});expect(fetch).not.toHaveBeenCalled();
+  const disabled=await engine.run({...request,turnId:id(10)},{...options(),foodQuantityIntentsEnabled:false});
+  expect(disabled.ok).toBe(true);expect(disabled.actionIntents).toEqual([]);
+ });
  it('keeps ordinary isolated queries on the candidate path when actions are enabled',async()=>{
   const engine=createIsolatedCoachEngineBinding(config());
   const response=await engine.run(input,{...options(),isolatedActionsEnabled:true});

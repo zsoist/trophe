@@ -22,7 +22,7 @@ for (const id of [actorId, coachId, organizationId]) assert.match(id, /^[a-f0-9-
 const pool = new Pool({ connectionString: target.toString(), max: 4, connectionTimeoutMillis: 5000, statement_timeout: 5000 });
 const database = drizzle(pool), service = createFoodQuantityService(database), preferences = createDurablePreferenceService(database);
 const scope = { actorId, subjectId: actorId, organizationId, signal: new AbortController().signal };
-const entryId = process.env.COACH_FOOD_ENTRY ?? randomUUID(), foreignEntryId = randomUUID(), foodId = randomUUID();
+const entryId = process.env.COACH_FOOD_ENTRY ?? randomUUID(), foreignEntryId = randomUUID(), ambiguousEntryId = randomUUID(), foodId = randomUUID();
 const conversationId = process.env.COACH_FOOD_CONVERSATION ?? randomUUID(), actionIds: string[] = [], proposalIds: string[] = [];
 const httpConversationIds: string[] = [];
 const header = () => ({ version: 'coach-assistant.v2' as const, conversationId, turnId: randomUUID(), entryId });
@@ -82,6 +82,22 @@ async function main() {
   for (const [id, owner] of [[entryId, actorId], [foreignEntryId, coachId]]) {
     await pool.query("INSERT INTO public.food_log(id,user_id,logged_date,food_name,food_id,qty_g,quantity,calories,protein_g,carbs_g,fat_g,fiber_g,sugar_g,source) VALUES($1,$2,'2026-09-07','Isolated coach rice',$3,250,1,500,10,100,5,2,1,'custom')", [id, owner, foodId]);
   }
+  check = 'resolve_is_authorized_bounded_and_read_only';
+  const resolved = await execute({ version: 'coach-assistant.v2', conversationId, turnId: randomUUID(), operation: 'food.resolve', entryHintId: entryId, loggedDateHint: '2026-09-07', expectedPreviousGrams: 250 });
+  assert.ok(resolved.ok && 'snapshot' in resolved && resolved.snapshot.entryId === entryId && resolved.snapshot.grams === 250);
+  const resolveBefore = {
+    entry: await pool.query('SELECT qty_g FROM public.food_log WHERE id=$1 AND user_id=$2', [entryId, actorId]),
+    proposals: await pool.query("SELECT count(*)::int AS n FROM private.coach_action_proposals WHERE actor_id=$1 AND action='food.quantity.update'", [actorId]),
+    receipts: await pool.query('SELECT count(*)::int AS n FROM private.coach_action_receipts WHERE actor_id=$1', [actorId]),
+  };
+  await pool.query("INSERT INTO public.food_log(id,user_id,logged_date,food_name,food_id,qty_g,quantity,calories,protein_g,carbs_g,fat_g,fiber_g,sugar_g,source) VALUES($1,$2,'2026-09-07','Second isolated rice',$3,250,1,500,10,100,5,2,1,'custom')", [ambiguousEntryId, actorId, foodId]);
+  const ambiguous = await execute({ version: 'coach-assistant.v2', conversationId, turnId: randomUUID(), operation: 'food.resolve', loggedDateHint: '2026-09-07', expectedPreviousGrams: 250 });
+  assert.deepEqual(ambiguous, { version: 'coach-assistant.v2', storage: 'database', ok: false, error: 'ambiguous_selection' });
+  assert.equal(Number(resolveBefore.entry.rows[0].qty_g), 250);
+  assert.equal(Number((await pool.query('SELECT qty_g FROM public.food_log WHERE id=$1 AND user_id=$2', [entryId, actorId])).rows[0].qty_g), 250);
+  assert.equal((await pool.query("SELECT count(*)::int AS n FROM private.coach_action_proposals WHERE actor_id=$1 AND action='food.quantity.update'", [actorId])).rows[0].n, resolveBefore.proposals.rows[0].n);
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM private.coach_action_receipts WHERE actor_id=$1', [actorId])).rows[0].n, resolveBefore.receipts.rows[0].n);
+  await pool.query('DELETE FROM public.food_log WHERE id=$1 AND user_id=$2', [ambiguousEntryId, actorId]); pass();
   check = 'canonical_preview_is_read_only';
   const before = await snapshot(), proposal = await propose(150);
   assert.deepEqual(await snapshot(), before);
@@ -123,12 +139,19 @@ async function main() {
   const prefAction = randomUUID(); actionIds.push(prefAction);
   assert.equal((await preferences.execute({ ...scope, operation: { ...preferenceApply, actionId: prefAction } })).ok, true);
   const collision = await execute(apply(await propose(80), prefAction)); assert.ok(!collision.ok && collision.error === 'idempotency_conflict'); pass();
-  check = 'foreign_entry_org_and_revoked_receipt_denied';
+  check = 'foreign_entry_org_and_revocation_before_write_are_denied';
   const foreign = await execute({ ...header(), entryId: foreignEntryId, operation: 'food.read' }); assert.ok(!foreign.ok && foreign.error === 'not_found');
   const wrongOrg = foodQuantityResultSchema.parse(await service.execute({ ...scope, organizationId: randomUUID(), operation: { ...header(), operation: 'food.read' } })); assert.ok(!wrongOrg.ok && wrongOrg.error === 'forbidden');
+  const revokeProposal = await propose(70), revokeOperation = apply(revokeProposal), revokeBefore = await snapshot();
   await pool.query("UPDATE public.organization_members SET role='coach' WHERE org_id=$1 AND user_id=$2", [organizationId, actorId]);
-  try { const revoked = await execute({ ...header(), operation: 'food.receipt', actionId: operation.actionId }); assert.ok(!revoked.ok && revoked.error === 'forbidden'); }
-  finally { await pool.query("UPDATE public.organization_members SET role='client' WHERE org_id=$1 AND user_id=$2", [organizationId, actorId]); } pass();
+  try {
+    const revokedApply = await execute(revokeOperation); assert.ok(!revokedApply.ok && revokedApply.error === 'forbidden');
+    const revokedReceipt = await execute({ ...header(), operation: 'food.receipt', actionId: operation.actionId }); assert.ok(!revokedReceipt.ok && revokedReceipt.error === 'forbidden');
+  }
+  finally { await pool.query("UPDATE public.organization_members SET role='client' WHERE org_id=$1 AND user_id=$2", [organizationId, actorId]); }
+  assert.deepEqual(await snapshot(), revokeBefore);
+  assert.equal((await pool.query('SELECT id FROM private.coach_action_receipts WHERE actor_id=$1 AND action_id=$2', [actorId, revokeOperation.actionId])).rowCount, 0);
+  pass();
   check = 'authenticated_manual_update_advances_private_revision_without_direct_access';
   const manualBefore = await snapshot(), connection = await pool.connect();
   try {
@@ -165,6 +188,7 @@ async function main() {
     ...process.env, E2E_COACH_FOOD: '1', E2E_COACH_DURABLE: '0', E2E_COACH_WEEK: '0', COACH_FOOD_HTTP_ACTIONS: manifest, COACH_FOOD_ENTRY: entryId,
     E2E_CLIENT_ID: actorId, NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED: '1', NEXT_PUBLIC_COACH_ASSISTANT_ENABLED: '0', NEXT_PUBLIC_COACH_FOOD_ACTIONS_ENABLED: '1',
     COACH_ASSISTANT_ENABLED: '1', COACH_ASSISTANT_MODE: 'offline', COACH_ASSISTANT_DATA_SOURCE: 'authorized_records', COACH_ASSISTANT_FOOD_ACTIONS_ENABLED: '1',
+    COACH_ASSISTANT_ISOLATED_ENGINE_ENABLED: '1',
     COACH_ASSISTANT_DURABLE_ACTIONS_ENABLED: '1', COACH_ASSISTANT_ISOLATED_ACTIONS_ENABLED: '0', COACH_ASSISTANT_PREVIEW_USER_IDS: actorId,
   } });
   const observed = JSON.parse(await readFile(manifest, 'utf8'));
@@ -184,7 +208,7 @@ main().catch(error => {
       await pool.query('DELETE FROM private.coach_action_proposals WHERE actor_id=$1 AND subject_id=$1 AND organization_id=$2 AND id=ANY($3::uuid[])', [actorId, organizationId, proposalIds]);
       assert.equal((await pool.query('SELECT id FROM private.coach_action_proposals WHERE id=ANY($1::uuid[])', [proposalIds])).rowCount, 0);
       await pool.query('DELETE FROM public.food_parse_corrections WHERE user_id=$1 AND corrected_by=$1 AND food_log_id=$2', [actorId, entryId]);
-      await pool.query('DELETE FROM public.food_log WHERE (id=$1 AND user_id=$2) OR (id=$3 AND user_id=$4)', [entryId, actorId, foreignEntryId, coachId]);
+      await pool.query('DELETE FROM public.food_log WHERE (id=$1 AND user_id=$2) OR (id=$3 AND user_id=$4) OR (id=$5 AND user_id=$2)', [entryId, actorId, foreignEntryId, coachId, ambiguousEntryId]);
       await pool.query("DELETE FROM public.foods WHERE id=$1::uuid AND source='custom' AND source_id=$1::uuid::text", [foodId]);
       if (originalPreferences !== undefined) await pool.query('UPDATE public.client_profiles SET workout_preferences=$2::jsonb WHERE user_id=$1', [actorId, JSON.stringify(originalPreferences)]);
       await pool.query('DROP TRIGGER coach_food_entry_revision ON public.food_log; DROP FUNCTION private.advance_coach_food_entry_version(); DROP TABLE private.coach_food_entry_versions;');

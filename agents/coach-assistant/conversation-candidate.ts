@@ -1,7 +1,7 @@
 import { isIsolatedEngineBoundary, type IsolatedEngineBoundary } from './isolated-engine-boundary';
 import { runConversation } from './conversation';
 import type { RunOptions } from './index';
-import { explicitSetCorrectionTarget, type OfflineConversationProvider } from './open-conversation';
+import { explicitFoodQuantityCorrectionTarget, explicitSetCorrectionTarget, type OfflineConversationProvider } from './open-conversation';
 
 /** Explicit evaluation entrypoint, never selected by HTTP/request JSON.
  * No per-turn semantic oracle: acceptance belongs to independent release evals.
@@ -16,7 +16,10 @@ export async function runConversationCandidate(raw:unknown,options:RunOptions&{o
   const boundSetRequest=options.workoutSetIntentsEnabled===true
     && typeof request?.message==='string'&&explicitSetCorrectionTarget(request.message)!==null
     && typeof context?.surface==='string';
-  const fixtureAction=(options.isolatedActionsEnabled===true&&boundDraftRequest||boundSetRequest)
+  const boundFoodRequest=options.foodQuantityIntentsEnabled===true
+    && typeof request?.message==='string'&&explicitFoodQuantityCorrectionTarget(request.message)!==null
+    && typeof context?.surface==='string';
+  const fixtureAction=(options.isolatedActionsEnabled===true&&boundDraftRequest||boundSetRequest||boundFoodRequest)
     && isIsolatedEngineBoundary(options.isolatedFixtureBoundary,options.offlineConversationProvider);
   const result=await runConversation(raw,{...options,mode:'model',offlineCandidateEvaluation:!fixtureAction,
     ...(fixtureAction?{offlineInterpretationReview:async()=>({approved:true})}:{}),
