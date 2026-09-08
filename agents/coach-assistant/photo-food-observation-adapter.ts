@@ -50,7 +50,7 @@ async function authorize(tx:PhotoFoodObservationTransaction,scope:PhotoFoodScope
 function parseRow(raw:unknown,scope:PhotoFoodScope){
  const row=rowSchema.parse(raw);for(const [key,value] of Object.entries(scope))if(row[key.replace(/[A-Z]/g,c=>`_${c.toLowerCase()}`) as keyof typeof row]!==value)throw new Error('forbidden');
  if(row.image_digest!==row.attachment_digest)throw new Error('version_conflict');
- const foods=normalizePhotoAnalysisFoods(row.foods);if(foods.length!==row.foods.length||foods.some(food=>food.needs_confirmation===true))throw new Error('invalid_observation');
+ assertNoPhotoControlFields(row.foods);const foods=normalizePhotoAnalysisFoods(row.foods);if(foods.length!==row.foods.length||foods.some(food=>food.needs_confirmation===true))throw new Error('invalid_observation');
  return {...scope,id:row.id,revision:row.revision,imageDigest:row.image_digest,source:'validated_photo_analysis' as const,foods};
 }
 
