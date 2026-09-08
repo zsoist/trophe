@@ -55,6 +55,11 @@ describe('durable Photo Food observation adapter with injected SQL/runtime',()=>
   const loaded=await f.adapter.load(scope,new AbortController().signal,f.tx as never);expect(loaded).toMatchObject({id:(recorded as {id:string}).id,revision:(recorded as {revision:string}).revision,source:'validated_photo_analysis'});
   expect(f.statements.find(statement=>statement.includes('FROM private.coach_photo_food_observations o'))).toContain('FOR UPDATE OF o,a FOR SHARE OF g');
  });
+ it('rejects control fields in a durable observation before normalization',async()=>{
+  const f=fixture(),p=await proof();await f.adapter.record(scope,p,new AbortController().signal);
+  const stored=f.state();expect(stored).not.toBeNull();(stored!.foods as Array<Record<string,unknown>>)[0].operation='food.photo.apply';
+  await expect(f.adapter.load(scope,new AbortController().signal,f.tx as never)).rejects.toThrow('untrusted_instruction');
+ });
  it('loads exact private normalized bytes, reauthorizes and records through one composed call',async()=>{
   const f=fixture(),authorizeCalls:{count:number}={count:0};executeAiTask.mockResolvedValueOnce(taskResult());
   const storage={readNormalized:vi.fn(async(rawScope:PhotoFoodScope,expected:string,_signal:AbortSignal,authorize:()=>Promise<void>)=>{expect(rawScope).toEqual(scope);expect(expected).toBe(imageDigest);await authorize();authorizeCalls.count++;return imageBytes.slice();})};
