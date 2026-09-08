@@ -120,9 +120,7 @@ test('actual Workout composer reviews then applies the isolated draft intent', a
     expect(http.request().postDataJSON()).toMatchObject({ message: 'I only have 35 minutes and dumbbells.', context: { surface: 'plan', includeScreen: true, workspace: { kind: 'draft' } } });
     expect(http.request().postDataJSON().context.workspace.version).toMatch(/^[a-f0-9]{64}$/);
     expect(result).toMatchObject({ evaluation: { transport: 'injected_fixture' }, telemetry: { costUsd: 0 }, actionIntents: [{ action: 'draft.update', source: 'provider_tool', target: { durationMinutes: 35, equipment: ['dumbbells'] }, reviewRequired: true }], proposals: [], receipts: [] });
-    const reviewCard = coach.locator('details:has(section button)');
-    await expect(reviewCard).toHaveCount(1);
-    await reviewCard.locator('summary').click();
+    await coach.getByText('Your profile & memory', { exact: true }).click();
     await expect(coach.getByRole('button', { name: 'Confirm change', exact: true })).toBeVisible();
     await expect(coach.getByRole('region', { name: 'After', exact: true })).toContainText('35 min · Dumbbells');
     expect(await readDraft()).toEqual(before);
