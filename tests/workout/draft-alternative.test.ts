@@ -45,7 +45,7 @@ it.each([
   ['wrong turn', (value: CoachConversationResponse) => { value.turnId = crypto.randomUUID(); }],
   ['foreign subject', (value: CoachConversationResponse) => { value.snapshot!.subjectId = crypto.randomUUID(); }],
   ['scope mismatch', (value: CoachConversationResponse) => { value.actionIntents![0].scopeKey = 'c'.repeat(64); }],
-  ['stale workspace', (value: CoachConversationResponse) => { value.actionIntents![0].resource.version = 'd'.repeat(64); }],
+  ['stale workspace', (value: CoachConversationResponse) => { const intent=value.actionIntents?.[0];if(intent?.action==='draft.update')intent.resource.version = 'd'.repeat(64); }],
   ['surface mismatch', (value: CoachConversationResponse) => { value.actionIntents![0].surface = 'workout'; }],
 ] as const)('rejects %s before a proposal can be materialized', (_name, mutate) => {
   const value = response();

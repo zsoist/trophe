@@ -52,6 +52,11 @@ export async function POST(request: NextRequest) {
       const { createProgressService } = await import('@/agents/coach-assistant/progress-service');
       return createProgressService(db);
     },
+    createWorkoutSetService: async () => {
+      const { db } = await import('@/db/client');
+      const { createWorkoutSetService } = await import('@/agents/coach-assistant/set-service');
+      return createWorkoutSetService(db);
+    },
     createRepository: async () => {
       const { pool } = await import('@/db/client');
       return createServerRepository(pool);

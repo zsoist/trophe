@@ -15,6 +15,8 @@ export type OfflineConversationProvider=(input:Parameters<typeof invokeStructure
  * Never configured by request JSON, the generator, or the HTTP handler.
  */
 export type OfflineInterpretationReview=(input:{answer:string;followUp:string|null;limitations:string[];evidenceRefs:string[];evidence:CoachEvidence[];signal:AbortSignal})=>Promise<{approved:boolean}>;
+const draftActionIntentSchema=z.object({action:z.literal('draft.update'),target:z.object({durationMinutes:z.number().int().min(5).max(180),equipment:z.tuple([z.literal('dumbbells')])}).strict()}).strict();
+const setActionIntentSchema=z.object({action:z.literal('workout.set.reps.update'),target:z.object({reps:z.number().int().positive().max(2147483647)}).strict()}).strict();
 export const openConversationSchema=z.object({
   answer:z.string().trim().min(1).max(1800),
   evidenceRefs:z.array(z.string().max(100)).max(24),
@@ -22,10 +24,13 @@ export const openConversationSchema=z.object({
   facts:z.array(z.object({kind:z.literal('record_fact'),evidenceId:z.string().max(100)}).strict()).max(24),
   followUp:z.string().trim().min(1).max(400).nullable(),
   limitations:z.array(z.enum(['insufficient_evidence','incomplete_records','professional_review_needed'])).max(3),escalation:z.boolean(),
-  actionIntent:z.object({action:z.literal('draft.update'),target:z.object({durationMinutes:z.number().int().min(5).max(180),equipment:z.tuple([z.literal('dumbbells')])}).strict()}).strict().nullable().optional(),
+  actionIntent:z.union([draftActionIntentSchema,setActionIntentSchema]).nullable().optional(),
 }).strict();
 
-export const candidateConversationSchema=openConversationSchema.extend({generalExplanationRefs:z.array(z.enum(['records_are_partial_view','planned_is_not_completed','nutrition_log_is_not_intake'])).max(3)});
+export const candidateConversationSchema=openConversationSchema.extend({
+  actionIntent:z.null().optional(),
+  generalExplanationRefs:z.array(z.enum(['records_are_partial_view','planned_is_not_completed','nutrition_log_is_not_intake'])).max(3),
+});
 
 /** Binds only explicit numeric/equipment slots. This does not classify general intent. */
 function explicitDraftTarget(message:string):{durationMinutes:number;equipment:['dumbbells']}|null {
@@ -42,17 +47,31 @@ function explicitDraftTarget(message:string):{durationMinutes:number;equipment:[
   return {durationMinutes:durations[0],equipment:['dumbbells']};
 }
 
+/** Binds only a single explicit digit count for a latest-set correction. The
+ * model may select this capability, but it cannot choose the set or number. */
+export function explicitSetCorrectionTarget(message:string):{reps:number}|null {
+  const text=message.normalize('NFKD').replace(/\p{M}/gu,'').toLowerCase();
+  if(!/\b(?:last\s+set|ultima\s+serie)\b/.test(text)||!/\b(?:reps?|repetitions?|repeticiones?)\b/.test(text))return null;
+  if(!/\b(?:wrong|incorrect|correct|correg\w*|mal|fueron|were|actually)\b/.test(text))return null;
+  const digits=text.match(/\b[1-9]\d*\b/g)??[];
+  if(digits.length!==1||/\b(?:no|not)\b[^.!?]{0,40}\b[1-9]\d*\b/.test(text))return null;
+  const reps=Number(digits[0]);return Number.isSafeInteger(reps)&&reps<=2147483647?{reps}:null;
+}
+
 /** Deterministic bounds and source binding do not establish semantic truth of prose.
  * Independent adversarial review and a paid quality evaluation remain necessary.
  */
-export async function generateOpenConversation(input:CoachConversationRequest,response:CoachConversationResponse,provider:OfflineConversationProvider,signal:AbortSignal,reviewInterpretation?:OfflineInterpretationReview,candidateEvaluation=false,isolatedBoundary?:IsolatedEngineBoundary):Promise<void> {
+export async function generateOpenConversation(input:CoachConversationRequest,response:CoachConversationResponse,provider:OfflineConversationProvider,signal:AbortSignal,reviewInterpretation?:OfflineInterpretationReview,candidateEvaluation=false,isolatedBoundary?:IsolatedEngineBoundary,workoutSetIntentsEnabled=false):Promise<void> {
   if(response.dataSource!=='synthetic'&&!isIsolatedEngineBoundary(isolatedBoundary,provider))throw new Error('budget_blocked');
   const facts=response.evidence;
   const entities=[...new Set(facts.flatMap(f=>f.sourceIds))].map((id,index)=>({alias:`entity:${index+1}`,evidenceRefs:facts.filter(f=>f.sourceIds.includes(id)).map(f=>f.id)}));
   const curated=availableGeneralExplanations(facts);
   const boundDraftTarget=explicitDraftTarget(input.message);
+  const boundSetTarget=explicitSetCorrectionTarget(input.message);
   const draftSurface=response.snapshot?.surface==='workout'||response.snapshot?.surface==='plan'?response.snapshot.surface:null;
+  const setSurface=input.context?.surface??null;
   const draftIntentAvailable=!candidateEvaluation&&Boolean(boundDraftTarget)&&response.snapshot?.access==='self'&&input.context?.includeScreen===true&&Boolean(draftSurface)&&input.context.workspace?.kind==='draft';
+  const setIntentAvailable=workoutSetIntentsEnabled&&!candidateEvaluation&&Boolean(boundSetTarget)&&response.snapshot?.access==='self'&&Boolean(setSurface);
   const payload={...(candidateEvaluation?{generalExplanations:curated.map(id=>({id,...GENERAL_EXPLANATIONS[id]}))}:{}),message:input.message,history:input.history??[],
     snapshot:response.snapshot?{surface:response.snapshot.surface,language:response.snapshot.language,units:response.snapshot.units,window:response.snapshot.window}:null,
     foodPreference:response.foodPreference?{preferences:response.foodPreference.preferences,version:response.foodPreference.version,source:'current_profile',meaning:'self_declared_preference_not_allergy_or_medical_instruction'}:null,
@@ -60,10 +79,16 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
     evidence:facts.map(({id,source,statement,value,unit,completeness})=>({id,source,statement,value,unit,completeness})),entities,
     profile:response.profile?{language:response.profile.language,timezone:response.profile.timezone,units:response.profile.units,preferences:response.profile.preferences}:null,
     memories:(response.memories??[]).map(({text,confirmation,source})=>({text,confirmation,source})),
-    limitations:response.output?.limitations.filter(value=>value!=='open_ended_interpretation_not_connected'),actionsAvailable:candidateEvaluation?false:draftIntentAvailable?[{action:'draft.update',target:boundDraftTarget}]:[]};
+    limitations:response.output?.limitations.filter(value=>value!=='open_ended_interpretation_not_connected'),actionsAvailable:candidateEvaluation?false:[...(draftIntentAvailable?[{action:'draft.update',target:boundDraftTarget}]:[]),...(setIntentAvailable?[{action:'workout.set.reps.update',target:{selection:'latest_open_session_set',...boundSetTarget!}}]:[])]};
   const system=candidateEvaluation?COACH_CANDIDATE_SYSTEM_PROMPT:COACH_CONVERSATIONAL_SYSTEM_PROMPT+(reviewInterpretation?'\nAn independent offline interpretation oracle is configured for this fixture. Declarative explanations may be proposed in answer, grounded in cited evidence. They will be withheld unless that separate oracle approves. All numeric, receipt, entity, medical and action restrictions still apply.':'');
   let prompt=JSON.stringify(payload);
-  const validator=candidateEvaluation?candidateConversationSchema:openConversationSchema;
+  const validator=candidateEvaluation
+    ? candidateConversationSchema
+    : draftIntentAvailable&&!setIntentAvailable
+      ? openConversationSchema.extend({actionIntent:draftActionIntentSchema.nullable().optional()})
+      : setIntentAvailable&&!draftIntentAvailable
+        ? openConversationSchema.extend({actionIntent:setActionIntentSchema.nullable().optional()})
+        : openConversationSchema;
   const promptVersion=candidateEvaluation?COACH_CANDIDATE_PROMPT_VERSION:COACH_CONVERSATIONAL_PROMPT_VERSION;
   const schema=z.toJSONSchema(validator);
   // UTF-8 bytes bound tokens conservatively, including schema/system overhead.
@@ -91,7 +116,13 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
   response.telemetry.tokensIn=usage.inputTokens;response.telemetry.tokensOut=usage.outputTokens;
   response.telemetry.reasoningTokens=usage.reasoningTokens??0;response.telemetry.cacheReadTokens=usage.cacheReadTokens??0;response.telemetry.cacheWriteTokens=usage.cacheWriteTokens??0;
   // Injected fixture counters are diagnostics, not measured live usage or cost.
-  const parsed=validator.safeParse(generated.output);
+  // Candidate actions are unavailable. The provider schema excludes them, and
+  // injected fixture transports are defensively normalized to preserve the
+  // existing fail-closed behavior: no intent, proposal or receipt can escape.
+  const generatedOutput=candidateEvaluation&&generated.output&&typeof generated.output==='object'
+    ? {...generated.output,actionIntent:null}
+    : generated.output;
+  const parsed=validator.safeParse(generatedOutput);
   if(!parsed.success||generated.rawStatus<200||generated.rawStatus>=300)throw new Error('invalid_output');
   const output=parsed.data;
   if(output.evidenceRefs.some(id=>!facts.some(f=>f.id===id))||output.entityRefs.some(alias=>!entities.some(e=>e.alias===alias&&e.evidenceRefs.some(id=>output.evidenceRefs.includes(id)))))throw new Error('invalid_output');
@@ -111,7 +142,7 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
     const review=await reviewInterpretation!({answer:output.answer,followUp:output.followUp,limitations:[...output.limitations],evidenceRefs:[...output.evidenceRefs],evidence:structuredClone(facts),signal});
     signal.throwIfAborted();
     if(review.approved!==true)throw new Error('invalid_output');
-    if(output.actionIntent&&draftIntentAvailable&&boundDraftTarget&&response.snapshot&&input.context?.workspace) {
+    if(output.actionIntent?.action==='draft.update'&&draftIntentAvailable&&boundDraftTarget&&response.snapshot&&input.context?.workspace) {
       if(output.actionIntent.target.durationMinutes!==boundDraftTarget.durationMinutes||output.actionIntent.target.equipment[0]!==boundDraftTarget.equipment[0])throw new Error('invalid_output');
       const target={durationMinutes:output.actionIntent.target.durationMinutes,equipment:['dumbbells'] as ['dumbbells']};
       const resource={kind:'draft' as const,id:response.snapshot.subjectId,version:input.context.workspace.version};
@@ -119,6 +150,14 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
       response.actionIntents=[{id,action:'draft.update',source:'provider_tool',subjectId:response.snapshot.subjectId,scopeKey:response.snapshot.scopeKey,surface:draftSurface!,resource,target,reviewRequired:true}];
       const actions=response.snapshot.capabilities.find(capability=>capability.key==='actions');
       if(actions){actions.status='available';actions.reason='reviewable_draft_intent';}
+    }
+    if(output.actionIntent?.action==='workout.set.reps.update'&&setIntentAvailable&&boundSetTarget&&response.snapshot&&setSurface) {
+      if(output.actionIntent.target.reps!==boundSetTarget.reps)throw new Error('invalid_output');
+      const target={selection:'latest_open_session_set' as const,reps:boundSetTarget.reps};
+      const id=createHash('sha256').update(JSON.stringify({turnId:input.turnId,scopeKey:response.snapshot.scopeKey,action:'workout.set.reps.update',target})).digest('hex');
+      response.actionIntents=[{id,action:'workout.set.reps.update',source:'provider_tool',subjectId:response.snapshot.subjectId,scopeKey:response.snapshot.scopeKey,surface:setSurface,target,reviewRequired:true}];
+      const actions=response.snapshot.capabilities.find(capability=>capability.key==='actions');
+      if(actions){actions.status='available';actions.reason='reviewable_workout_set_intent';}
     }
   }
   if(candidateEvaluation) {

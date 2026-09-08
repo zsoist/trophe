@@ -4,6 +4,7 @@ import React from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WorkoutWorkspaceState } from '@/lib/workout/workspace-state';
+import { COACH_WORKOUT_SET_REFRESH } from '@/components/assistant/workout-events';
 
 const harness = vi.hoisted(() => ({
   requestFinish: vi.fn(), cancelFinish: vi.fn(), completeFinish: vi.fn(), discardLive: vi.fn(),
@@ -77,6 +78,39 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.clearAllMocks(); workspace = { state: liveState, liveReconciliation: null, pause: vi.fn(), resume: vi.fn(), ...harness }; });
 
 describe('LiveWorkout reconciles recovery with server truth', () => {
+  it('refetches the active session after a verified coach receipt for the same owner', async () => {
+    const actorId = '11111111-1111-4111-8111-111111111111';
+    const sessionId = '22222222-2222-4222-8222-222222222222';
+    const exerciseId = '33333333-3333-4333-8333-333333333333';
+    const setId = '44444444-4444-4444-8444-444444444444';
+    workspace = {
+      ...workspace,
+      state: {
+        ...liveState,
+        sessionId,
+        draft: { ...liveState.draft, exercises: [{ exerciseId, exerciseName: 'Bench Press', targetSets: 1, targetReps: '8' }] },
+      },
+    };
+    harness.loadLiveStructure.mockResolvedValue({
+      ...activeStructure,
+      structure: [{ exercise_id: exerciseId, target_sets: 1, target_reps: '8', superset_group: null }],
+    });
+    render(<LiveWorkout exercises={[]} userId={actorId} />);
+    await vi.waitFor(() => expect(harness.loadLiveSessionSets).toHaveBeenCalledTimes(1));
+    harness.loadLiveSessionSets.mockResolvedValue({ ok: true, sets: [{
+      id: setId, session_id: sessionId, exercise_id: exerciseId, set_number: 1,
+      weight_kg: 60, reps: 10, rpe: null, is_warmup: false, is_pr: false,
+      superset_group: null, notes: null,
+    }] });
+    window.dispatchEvent(new CustomEvent(COACH_WORKOUT_SET_REFRESH, { detail: { actorId, sessionId, exerciseId, setId, version: '2' } }));
+    await vi.waitFor(() => expect(harness.loadLiveSessionSets).toHaveBeenCalledTimes(2));
+    expect(harness.loadLiveSessionSets).toHaveBeenLastCalledWith(sessionId);
+
+    window.dispatchEvent(new CustomEvent(COACH_WORKOUT_SET_REFRESH, { detail: { actorId: '55555555-5555-4555-8555-555555555555', sessionId, exerciseId, setId, version: '2' } }));
+    await Promise.resolve();
+    expect(harness.loadLiveSessionSets).toHaveBeenCalledTimes(2);
+  });
+
   it('reconciles a live session to completed when the server row is terminal and clears queued sets', async () => {
     harness.loadLiveStructure.mockResolvedValue({ ok: true, terminal: true, completedAt: '2026-09-03T10:00:00.000Z', durationMinutes: 40 });
     render(<LiveWorkout exercises={[]} />);

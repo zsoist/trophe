@@ -154,6 +154,10 @@ async function main() {
   const progress = spawnSync(process.execPath, ['--import', 'tsx', 'scripts/test/coach-progress-fixture-sql.ts'], { stdio: 'inherit', env: process.env });
   assert.equal(progress.status, 0);
 
+  check = 'reviewed_workout_set_transactions';
+  const workoutSet = spawnSync(process.execPath, ['--import', 'tsx', 'scripts/test/coach-workout-set-sql.ts'], { stdio: 'inherit', env: process.env });
+  assert.equal(workoutSet.status, 0);
+
   check = 'durable_global_ui_real_auth_http';
   const root = process.env.RUNNER_TEMP;
   assert.ok(root && isAbsolute(root));

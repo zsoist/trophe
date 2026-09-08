@@ -12,6 +12,7 @@ import { runConversationCandidate } from './conversation-candidate';
 import type { PilotTransport } from './pilot-runner';
 import { executeFoodQuantityAction, type FoodQuantityService } from './food-actions';
 import { executePhotoFoodAction, type PhotoFoodService } from './photo-food-actions';
+import { executeWorkoutSetAction, type WorkoutSetService } from './set-actions';
 import { executeDurablePreferenceAction, withDurablePreferenceRead, type DurableCoachProfileService } from './durable-actions';
 import { run } from './index';
 import { runConversation } from './conversation';
@@ -34,6 +35,7 @@ interface HandlerDependencies {
   createFoodService?:()=>FoodQuantityService|Promise<FoodQuantityService>;
   createPhotoFoodService?:(operation:unknown)=>PhotoFoodService|Promise<PhotoFoodService>;
   createProgressService?:()=>ProgressService|Promise<ProgressService>;
+  createWorkoutSetService?:()=>WorkoutSetService|Promise<WorkoutSetService>;
   isolatedEngine?:ReturnType<typeof createIsolatedCoachEngineBinding>;
   createIsolatedEngine?:()=>ReturnType<typeof createIsolatedCoachEngineBinding>|Promise<ReturnType<typeof createIsolatedCoachEngineBinding>>;
   candidateEvaluation?:{kind:'injected_fixture';transport:PilotTransport};
@@ -151,6 +153,12 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
         const result=await executeProgressAction(guard.userId,raw,await deps.createRepository(),await deps.createProgressService(),controller.signal);
         return json(result,result.ok?200:result.error==='forbidden'?403:result.error==='invalid_input'?400:result.error==='expired'?410:result.error==='not_found'?404:result.error==='not_connected'||result.error==='uncertain'||result.error==='cancelled'?503:409);
       }
+      if(raw && typeof raw==='object' && 'operation' in raw && typeof raw.operation==='string' && raw.operation.startsWith('set.')) {
+        if(deps.env.COACH_ASSISTANT_WORKOUT_SET_ACTIONS_ENABLED!=='1')return fail('disabled',404);
+        if(!deps.createWorkoutSetService)return fail('provider_unavailable',503);
+        const result=await executeWorkoutSetAction(guard.userId,raw,await deps.createRepository(),await deps.createWorkoutSetService(),controller.signal);
+        return json(result,result.ok?200:result.error==='forbidden'?403:result.error==='invalid_input'?400:result.error==='expired'?410:result.error==='not_found'?404:result.error==='uncertain'||result.error==='cancelled'?503:409);
+      }
       if(raw && typeof raw==='object' && 'operation' in raw && typeof raw.operation==='string' && raw.operation.startsWith('memory.')) {
         if(deps.env.COACH_ASSISTANT_MEMORY_ACTIONS_ENABLED!=='1')return fail('disabled',404);
         if(!deps.createMemoryService)return fail('provider_unavailable',503);
@@ -208,6 +216,7 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
         filterMemoryHistory:historyTurn?.filterHistory,
         offlineConversationProvider:candidate?deps.candidateEvaluation!.transport:undefined!,
         isolatedActionsEnabled:!durable&&deps.env.COACH_ASSISTANT_ISOLATED_ACTIONS_ENABLED==='1',
+        workoutSetIntentsEnabled:deps.env.COACH_ASSISTANT_WORKOUT_SET_ACTIONS_ENABLED==='1'&&Boolean(deps.createWorkoutSetService),
         actorId:synthetic?'synthetic-client':guard.userId,
         repository,
         now:synthetic?new Date('2026-09-07T03:30:00Z'):(deps.now?.()??new Date()),

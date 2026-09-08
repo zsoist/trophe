@@ -143,7 +143,17 @@ export interface CoachDraftUpdateIntent {
   target: { durationMinutes: number; equipment: ['dumbbells'] };
   reviewRequired: true;
 }
-export type CoachActionIntent = CoachDraftUpdateIntent;
+export interface CoachWorkoutSetUpdateIntent {
+  id: string;
+  action: 'workout.set.reps.update';
+  source: 'provider_tool';
+  subjectId: string;
+  scopeKey: string;
+  surface: CoachSurface;
+  target: { selection: 'latest_open_session_set'; reps: number };
+  reviewRequired: true;
+}
+export type CoachActionIntent = CoachDraftUpdateIntent | CoachWorkoutSetUpdateIntent;
 export interface CoachConversationResponse {
   foodPreference?:import('./food-preference-contracts').FoodPreferenceSnapshot;
   version: typeof COACH_CONVERSATION_VERSION;
