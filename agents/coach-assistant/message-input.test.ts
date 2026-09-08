@@ -11,7 +11,7 @@ const original = z.string().min(1).max(2000).transform(value =>
   value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '').trim())
   .pipe(z.string().min(1));
 const scope = { actorId:'actor', organizationId:'org', conversationId:'conversation' };
-const result:CoachVoiceResult = {version:'coach-assistant.voice.v1',ok:true,status:'review_required',scope,turnId:'turn',transcript:{text:'original',languages:['es'],source:'synthetic_fixture'},durationMs:100};
+const result:CoachVoiceResult = {version:'coach-assistant.voice.v1',ok:true,status:'review_required',scope,turnId:'turn',transcript:{text:'original',locale:'es',languages:['es'],source:'synthetic_fixture',trust:'untrusted_transcript'},review:{token:'fixture',expiresAt:new Date(Date.now()+1000).toISOString(),editable:true,audioRetention:'discarded_after_transcription'},durationMs:100};
 describe('shared message validation and isolated capture imports',()=>{
   it('preserves the original validator in requests and reviewed transcripts',()=>{
     expect(requestSchema.shape.message).toBe(coachMessageInputSchema);

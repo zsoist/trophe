@@ -21,7 +21,10 @@ describe('isolated coach voice adapter without paid STT',()=>{
     const transport=provider();const result=await transcribeCoachAudio(file(),input,{...options(),offlineTranscriber:transport});
     expect(result.ok).toBe(true);if(!result.ok)throw new Error('expected transcript');
     expect(result.durationMs).toBeGreaterThanOrEqual(100);expect(result.durationMs).toBeLessThanOrEqual(120);
-    expect(result.status).toBe('review_required');expect(result.transcript.source).toBe('synthetic_fixture');
+    expect(result.status).toBe('review_required');expect(result.transcript).toMatchObject({locale:'es',source:'synthetic_fixture',trust:'untrusted_transcript'});
+    expect(result.review).toMatchObject({editable:true,audioRetention:'discarded_after_transcription'});
+    expect(result.review.token).toEqual(expect.any(String));expect(Date.parse(result.review.expiresAt)).toBeGreaterThan(Date.now());
+    expect(result).not.toHaveProperty('audio');expect(result).not.toHaveProperty('file');expect(result).not.toHaveProperty('blob');
     expect(prepareReviewedVoiceMessage(result,result.scope,'Texto editado',false).ok).toBe(false);
     expect(prepareReviewedVoiceMessage(result,result.scope,'Texto editado',true)).toEqual({ok:true,message:'Texto editado'});
     expect(prepareReviewedVoiceMessage(result,{...result.scope,conversationId:input.turnId},'Texto editado',true)).toEqual({ok:false,error:'forbidden'});
