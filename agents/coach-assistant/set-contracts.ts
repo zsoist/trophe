@@ -2,17 +2,17 @@ import type { CoachReceipt } from './contracts';
 
 /** A persisted single-set correction. Selection is resolved before proposing. */
 export interface WorkoutSetValues {
- sessionId:string;exerciseId:string;setNumber:number;reps:number|null;weightKg:number|null;
+ sessionId:string;exerciseId:string;exerciseName:string;setNumber:number;reps:number|null;weightKg:number|null;
  rpe:number|null;isWarmup:boolean|null;isPr:boolean|null;
 }
 export interface WorkoutSetSnapshot extends WorkoutSetValues {setId:string;version:string}
 export interface WorkoutSetProposal {
  id:string;hash:string;action:'workout.set.reps.update';resource:{kind:'workout_set';id:string;version:string};
- before:WorkoutSetValues;after:WorkoutSetValues;precondition:string;expiresAt:string;reviewRequired:true;
+ before:WorkoutSetValues;after:WorkoutSetValues;expectedVersion:string;precondition:string;expiresAt:string;reviewRequired:true;
 }
 interface Base {version:'coach-assistant.v2';conversationId:string;turnId:string;clientId?:string}
 export type WorkoutSetOperation=Base&(
- {operation:'set.resolve';sessionId:string;exerciseId:string}|
+ {operation:'set.resolve';sessionId?:string;exerciseId?:string}|
  {operation:'set.read';setId:string}|
  {operation:'set.propose';setId:string;resourceVersion:string;after:{reps:number}}|
  {operation:'set.apply';setId:string;proposalId:string;hash:string;actionId:string;resourceVersion:string;reviewed:true}|

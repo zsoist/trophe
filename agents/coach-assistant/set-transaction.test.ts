@@ -8,15 +8,17 @@ const base={version:'coach-assistant.v2' as const,conversationId:id(4),turnId:id
 /** SQL statements execute against a transactional test double, NOT PostgreSQL. */
 function fixture() {
   let row={id:entry,sessionId:id(7),exerciseId:id(8),setNumber:2,reps:8,weightKg:50,rpe:7,isWarmup:false,isPr:false,supersetGroup:null,notes:null,clientRequest:{reps:8},createdAt:'2026-09-07T12:00:00Z'};
-  let completedAt:string|null=null;let revision=1;let receiptFails=false;let lostCommit=false;let authorized=true;let owned=true;let candidates:Array<{id:string;created_at:string|null}>=[{id:entry,created_at:row.createdAt}];
+  let completedAt:string|null=null;let revision=1;let receiptFails=false;let lostCommit=false;let authorized=true;let owned=true;let sessions:Array<{id:string;completed_at:string|null;created_at:string|null}>=[{id:id(7),completed_at:null,created_at:'2026-09-07T11:00:00Z'}];let candidates:Array<{id:string;created_at:string|null}>=[{id:entry,created_at:row.createdAt}];
   let proposals:Record<string,Record<string,unknown>>={};let receipts:Record<string,Record<string,unknown>>={};
   const tx={
     select:()=>({from:()=>({where:()=>({limit:()=>({for:async()=>[structuredClone(row)]})})})}),
     update:()=>({set:(next:object)=>({where:()=>({returning:async()=>{row={...row,...next};revision++;return [structuredClone(row)];}})})}),
     execute:async(query:Parameters<PgDialect['sqlToQuery']>[0])=>{
       const {sql,params:p}=new PgDialect().sqlToQuery(query);
+      if(sql.includes('s.created_at::text AS created_at'))return {rows:owned?sessions:[]};
       if(sql.includes('SELECT s.id,s.completed_at FROM public.workout_sessions'))return {rows:owned?[{id:id(7),completed_at:completedAt}]:[]};
       if(sql.includes('SELECT id,created_at::text'))return {rows:candidates};
+      if(sql.includes('SELECT name FROM public.exercises'))return {rows:[{name:'Back Squat'}]};
       if(sql.includes('FROM public.profiles actor'))return {rows:authorized?[{id:actor}]:[]};
       if(sql.includes('FROM private.coach_action_receipts r'))return {rows:receipts[String(p[1])]?[receipts[String(p[1])]]:[]};
       if(sql.includes('SELECT revision::text'))return {rows:[{revision:String(revision)}]};
@@ -39,17 +41,19 @@ function fixture() {
   }} as unknown as Parameters<typeof createWorkoutSetService>[0];
   const service=createWorkoutSetService(database);
   const execute=(operation:WorkoutSetOperation)=>service.execute({actorId:actor,subjectId:actor,organizationId:org,signal:new AbortController().signal,operation});
-  return {execute,finish:()=>{completedAt="2026-09-07T12:02:00Z";},revoke:()=>{authorized=false;},foreign:()=>{owned=false;},loseCommit:()=>{lostCommit=true;},candidates:(rows:typeof candidates)=>{candidates=rows;},state:()=>({row,revision,receipts}),failReceipt:()=>{receiptFails=true;},manualEdit:()=>{row.reps=12;revision++;}};
+  return {execute,finish:()=>{completedAt="2026-09-07T12:02:00Z";},revoke:()=>{authorized=false;},foreign:()=>{owned=false;},loseCommit:()=>{lostCommit=true;},sessions:(rows:typeof sessions)=>{sessions=rows;},candidates:(rows:typeof candidates)=>{candidates=rows;},state:()=>({row,revision,receipts}),failReceipt:()=>{receiptFails=true;},manualEdit:()=>{row.reps=12;revision++;}};
 }
 describe('concrete Workout transaction service through an injected SQL transaction',()=>{
   it('prepares canonical 8→10 review, applies the shared writer and recovers the same receipt',async()=>{
     const f=fixture();const proposed=await f.execute({...base,operation:'set.propose',resourceVersion:'1',after:{reps:10}}) as {proposal:{id:string;hash:string}};
+    expect(proposed).toMatchObject({proposal:{expectedVersion:'1',before:{exerciseName:'Back Squat'},after:{exerciseName:'Back Squat'}}});
     expect(f.state().row.reps).toBe(8);
     const apply={...base,operation:'set.apply' as const,proposalId:proposed.proposal.id,hash:proposed.proposal.hash,actionId:id(6),resourceVersion:'1',reviewed:true as const};
     const first=await f.execute(apply);
     expect(first).toMatchObject({ok:true,receipt:{status:'applied',resourceVersion:'2'},refresh:{setId:entry,strategy:'refetch'}});
     expect(f.state().row).toMatchObject({reps:10,clientRequest:{reps:8}});
     expect(await f.execute(apply)).toEqual(first);expect(f.state().revision).toBe(2);
+    expect(await f.execute({...base,operation:'set.read'})).toMatchObject({ok:true,snapshot:{setId:entry,reps:10,version:'2'}});
   });
   it('rolls back the shared update when receipt insertion fails in the test transaction',async()=>{
     const f=fixture();const proposed=await f.execute({...base,operation:'set.propose',resourceVersion:'1',after:{reps:10}}) as {proposal:{id:string;hash:string}};
@@ -74,10 +78,12 @@ describe('concrete Workout transaction service through an injected SQL transacti
   });
   it('rejects foreign ownership, unreviewed apply and ambiguous last-set hints',async()=>{
     const f=fixture();const resolveBase={version:base.version,conversationId:base.conversationId,turnId:base.turnId};
+    expect(await f.execute({...resolveBase,operation:'set.resolve'} as unknown as WorkoutSetOperation)).toMatchObject({ok:true,snapshot:{sessionId:id(7),setId:entry,exerciseName:'Back Squat'}});
     const resolve={...resolveBase,operation:'set.resolve' as const,sessionId:id(7),exerciseId:id(8)};
     expect(await f.execute(resolve)).toMatchObject({ok:true,snapshot:{setId:entry}});
     f.candidates([{id:entry,created_at:null}]);expect(await f.execute(resolve)).toMatchObject({error:'ambiguous_selection'});
     f.candidates([{id:entry,created_at:'same'},{id:id(9),created_at:'same'}]);expect(await f.execute(resolve)).toMatchObject({error:'ambiguous_selection'});
+    f.candidates([{id:entry,created_at:'2026-09-07T12:00:00Z'}]);f.sessions([{id:id(7),completed_at:null,created_at:'2026-09-07T11:00:00Z'},{id:id(9),completed_at:null,created_at:'2026-09-07T10:00:00Z'}]);expect(await f.execute({...resolveBase,operation:'set.resolve'} as unknown as WorkoutSetOperation)).toMatchObject({error:'ambiguous_selection'});
     f.foreign();expect(await f.execute({...base,operation:'set.read'})).toMatchObject({error:'not_found'});
     expect(await f.execute({...base,operation:'set.apply',proposalId:id(10),hash:'0'.repeat(64),actionId:id(11),resourceVersion:'1',reviewed:false} as unknown as WorkoutSetOperation)).toMatchObject({error:'invalid_input'});
   });

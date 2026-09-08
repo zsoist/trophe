@@ -2,12 +2,21 @@
 
 New shared writer, approved AG1 lease: `lib/workout/set-edit-service.ts` and its test. The existing `save_live_workout_set` RPC inserts/idempotently replays; it does not edit. No UI/router/schema/production SQL changed.
 
-Compose `createWorkoutSetService(database)` with `executeWorkoutSetAction(authenticatedActor, raw, authorizedRepository, service, signal)` in the existing gated Coach handler when isolated SQL acceptance is ready. No model tool or new public route is enabled by this slice.
+`createWorkoutSetService(database)` is composed with `executeWorkoutSetAction(authenticatedActor, raw, authorizedRepository, service, signal)` through the existing `/api/coach-assistant` POST handler. `set.*` remains default-off behind `COACH_ASSISTANT_WORKOUT_SET_ACTIONS_ENABLED=1`, the existing preview allowlist and the existing production denial. No new route or runtime is created.
+
+The existing open conversation schema can return one typed `workout.set.reps.update`
+action intent only when the same server process has the set action capability enabled.
+The model selects the offered action; deterministic parsing binds one explicit digit
+count from a latest-set correction in the user message. Ambiguous, negated or spelled
+counts are not offered, and a provider-selected count that differs from the bound
+value invalidates the response. The intent carries `latest_open_session_set`; it is
+not a proposal and contains no model-selected record ID. The client follows it with
+`set.resolve` and `set.propose` and must display the canonical proposal before apply.
 
 Operations use version `coach-assistant.v2`, conversationId and turnId:
 - `set.read`: explicit setId returns canonical snapshot/version.
-- `set.resolve`: explicit authorized sessionId + exerciseId returns latest persisted creation timestamp, reading at most two candidates. Null or tied latest timestamps return ambiguous_selection. No selection is inferred from prose. Prefer the user's explicit setId.
-- `set.propose`: setId, resourceVersion, after `{reps:10}`. Creates a five-minute canonical before/after proposal; changes no set.
+- `set.resolve`: optional authorized sessionId and exerciseId narrow the target. Without IDs, exactly one owned open session must exist; zero returns not_found and multiple sessions return ambiguous_selection. Within it, the latest persisted set creation timestamp is read from at most two candidates. Null or tied latest timestamps return ambiguous_selection. No record ID is inferred by the model or client. Prefer an explicit setId when already known.
+- `set.propose`: setId, resourceVersion, after `{reps:10}`. Creates a five-minute canonical before/after proposal with expectedVersion/precondition; changes no set.
 - `set.apply`: setId, proposalId, hash, actionId, resourceVersion, reviewed:true. Commits the single update and durable receipt together.
 - `set.receipt`: setId + actionId recovers an uncertain outcome. Reuse the same actionId; do not create a replacement action to retry.
 
@@ -22,4 +31,4 @@ AG1 isolated prerequisites (NOT supplied as production migration):
 - private.coach_workout_set_versions(set_id UUID primary key, revision monotonic bigint), backfill existing rows and increment on every ordinary insert/update/delete; retain tombstones across deletion/recreation (including session cascades). Do not cascade away the revision. Missing revision fails closed. Scope/session/exercise changes must invalidate it.
 - Existing ledger uniqueness/immutability, RLS isolation and action receipts stay unchanged. Audit action is workout_set_reps_updated for workout_sets; no sensitive prose in audit payload.
 
-Validation: ten tests across the shared writer, action boundary and transaction service; scoped TypeScript and lint. Transaction tests use an injected SQL double, including rollback and a simulated committed transaction with a lost response, followed by same-action receipt recovery. This does not prove real PostgreSQL/RLS/concurrency or HTTP/Auth behavior. Real SQL fixtures must cover foreign session/organization, ordinary edits and delete/recreate ABA, finalized sessions, original insertion replay after correction, concurrent applies and durable receipt recovery. No CI/build/database execution performed by AG3.
+Validation uses focused tests across the shared writer, action boundary, transaction service, conversational action intent and default-off HTTP dispatch. Transaction tests use an injected SQL double, including rollback and a simulated committed transaction with a lost response, followed by same-action receipt recovery and canonical read. This does not prove real PostgreSQL/RLS/concurrency or HTTP/Auth behavior. Real SQL fixtures must cover foreign session/organization, ordinary edits and delete/recreate ABA, finalized sessions, original insertion replay after correction, concurrent applies and durable receipt recovery. No database, provider or production execution is performed by AG3.

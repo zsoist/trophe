@@ -102,7 +102,7 @@ describe('provider-authored Workout draft intent', () => {
       offlineConversationProvider: provider({ action: 'draft.update', target: { durationMinutes: 45, equipment: ['dumbbells'] } }),
       offlineInterpretationReview: review,
     });
-    expect(result.actionIntents?.[0]?.target.durationMinutes).toBe(45);
+    expect(result.actionIntents?.find(intent=>intent.action==='draft.update')?.target.durationMinutes).toBe(45);
   });
 
   it('preserves the canonical plan surface used by Workout build and review', async () => {

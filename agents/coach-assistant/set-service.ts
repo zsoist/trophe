@@ -22,7 +22,7 @@ function canonical(value:unknown):string {
   return JSON.stringify(value);
 }
 function digest(value:unknown){return createHash('sha256').update(canonical(value)).digest('hex');}
-function values(row:WorkoutSetRow){return workoutSetValuesSchema.parse({sessionId:row.sessionId,exerciseId:row.exerciseId,setNumber:row.setNumber,reps:row.reps,weightKg:row.weightKg,rpe:row.rpe,isWarmup:row.isWarmup,isPr:row.isPr});}
+function values(row:WorkoutSetRow,exerciseName:string){return workoutSetValuesSchema.parse({sessionId:row.sessionId,exerciseId:row.exerciseId,exerciseName,setNumber:row.setNumber,reps:row.reps,weightKg:row.weightKg,rpe:row.rpe,isWarmup:row.isWarmup,isPr:row.isPr});}
 async function authorize(tx:Transaction,scope:Scope) {
   scope.signal.throwIfAborted();
   const found=await tx.execute(sql`SELECT actor.id FROM public.profiles actor
@@ -71,31 +71,39 @@ export function createWorkoutSetService(database:Database):WorkoutSetService {
           if(operation.operation==='set.receipt')return fail('not_found');
         }
         // Lock the owner session before the set, matching existing Workout RPC ordering.
-        const session=await tx.execute<{id:string;completed_at:string|null}>(operation.operation==='set.resolve'
-          ? sql`SELECT s.id,s.completed_at FROM public.workout_sessions s WHERE s.id=${operation.sessionId}::uuid AND s.user_id=${scope.subjectId}::uuid FOR UPDATE`
-          : sql`SELECT s.id,s.completed_at FROM public.workout_sessions s JOIN public.workout_sets ws ON ws.session_id=s.id WHERE ws.id=${operation.setId}::uuid AND s.user_id=${scope.subjectId}::uuid FOR UPDATE OF s`);
-        if(session.rows.length!==1)throw new Rejected('not_found');
+        const session=await tx.execute<{id:string;completed_at:string|null;created_at?:string|null}>(operation.operation==='set.resolve'&&!operation.sessionId
+          ? sql`SELECT s.id,s.completed_at,s.created_at::text AS created_at FROM public.workout_sessions s WHERE s.user_id=${scope.subjectId}::uuid AND s.completed_at IS NULL ORDER BY s.created_at DESC NULLS FIRST LIMIT 2 FOR UPDATE`
+          : operation.operation==='set.resolve'
+            ? sql`SELECT s.id,s.completed_at FROM public.workout_sessions s WHERE s.id=${operation.sessionId}::uuid AND s.user_id=${scope.subjectId}::uuid FOR UPDATE`
+            : sql`SELECT s.id,s.completed_at FROM public.workout_sessions s JOIN public.workout_sets ws ON ws.session_id=s.id WHERE ws.id=${operation.setId}::uuid AND s.user_id=${scope.subjectId}::uuid FOR UPDATE OF s`);
+        if(!session.rows.length)throw new Rejected('not_found');
+        if(operation.operation==='set.resolve'&&!operation.sessionId&&(session.rows.length!==1||!session.rows[0].created_at))throw new Rejected('ambiguous_selection');
+        if(operation.operation!=='set.resolve'||operation.sessionId)if(session.rows.length!==1)throw new Rejected('not_found');
         if(session.rows[0].completed_at!==null)throw new Rejected('session_completed');
         let setId:string;
         if(operation.operation==='set.resolve'){
-          const candidates=await tx.execute<{id:string;created_at:string|null}>(sql`SELECT id,created_at::text FROM public.workout_sets WHERE session_id=${session.rows[0].id}::uuid AND exercise_id=${operation.exerciseId}::uuid ORDER BY created_at DESC NULLS FIRST LIMIT 2 FOR UPDATE`);
+          const candidates=await tx.execute<{id:string;created_at:string|null}>(operation.exerciseId
+            ? sql`SELECT id,created_at::text FROM public.workout_sets WHERE session_id=${session.rows[0].id}::uuid AND exercise_id=${operation.exerciseId}::uuid ORDER BY created_at DESC NULLS FIRST LIMIT 2 FOR UPDATE`
+            : sql`SELECT id,created_at::text FROM public.workout_sets WHERE session_id=${session.rows[0].id}::uuid ORDER BY created_at DESC NULLS FIRST LIMIT 2 FOR UPDATE`);
           if(!candidates.rows.length)throw new Rejected('not_found');
           if(!candidates.rows[0].created_at||(candidates.rows.length>1&&candidates.rows[0].created_at===candidates.rows[1].created_at))throw new Rejected('ambiguous_selection');
           setId=candidates.rows[0].id;
         }else setId=operation.setId;
         const [existing]=await tx.select().from(workoutSets).where(and(eq(workoutSets.id,setId),eq(workoutSets.sessionId,session.rows[0].id))).limit(1).for('update');
         if(!existing)throw new Rejected('not_found');
+        const label=await tx.execute<{name:string}>(sql`SELECT name FROM public.exercises WHERE id=${existing.exerciseId}::uuid`);
+        if(label.rows.length!==1)throw new Rejected('uncertain');
         const currentVersion=await version(tx,setId);
-        const before=values(existing);
+        const before=values(existing,label.rows[0].name);
         if(operation.operation==='set.read'||operation.operation==='set.resolve') {scope.signal.throwIfAborted();return {version:'coach-assistant.v2',storage:'database',ok:true,snapshot:{...before,setId,version:currentVersion}} as WorkoutSetResult;}
         if(operation.operation==='set.propose') {
           if(currentVersion!==operation.resourceVersion)throw new Rejected('version_conflict');
           if(before.reps===operation.after.reps)throw new Rejected('invalid_input');
           const count=await tx.execute<{count:string}>(sql`SELECT count(*)::text FROM private.coach_action_proposals WHERE actor_id=${scope.actorId}::uuid AND expires_at>now()`);
           if(Number(count.rows[0].count)>=128)throw new Rejected('uncertain');
-          const after=values({...existing,...parseWorkoutSetRepsChange(operation.after)});
+          const after=values({...existing,...parseWorkoutSetRepsChange(operation.after)},label.rows[0].name);
           const clock=await tx.execute<{expires:string}>(sql`SELECT (clock_timestamp()+interval '5 minutes')::text AS expires`);
-          const proposal:WorkoutSetProposal={id:randomUUID(),hash:'',action,resource:{kind:'workout_set',id:operation.setId,version:currentVersion},before,after,precondition:currentVersion,expiresAt:new Date(clock.rows[0].expires).toISOString(),reviewRequired:true};
+          const proposal:WorkoutSetProposal={id:randomUUID(),hash:'',action,resource:{kind:'workout_set',id:operation.setId,version:currentVersion},before,after,expectedVersion:currentVersion,precondition:currentVersion,expiresAt:new Date(clock.rows[0].expires).toISOString(),reviewRequired:true};
           const envelope={proposal};
           proposal.hash=digest({actor:scope.actorId,subject:scope.subjectId,organization:scope.organizationId,conversation:operation.conversationId,envelope});
           if(new TextEncoder().encode(JSON.stringify(envelope)).length>4096)throw new Rejected('invalid_input');
@@ -110,13 +118,13 @@ export function createWorkoutSetService(database:Database):WorkoutSetService {
         const envelope=envelopeSchema.parse(stored.envelope);const proposal=envelope.proposal;
         if(proposal.resource.id!==operation.setId||proposal.id!==operation.proposalId||stored.request_hash!==operation.hash||proposal.hash!==operation.hash)throw new Rejected('invalid_input');
         if(stored.expired)throw new Rejected('expired');
-        if(currentVersion!==operation.resourceVersion||stored.resource_version!==currentVersion||proposal.resource.version!==currentVersion||proposal.precondition!==currentVersion||canonical(proposal.before)!==canonical(before))throw new Rejected('version_conflict');
+        if(currentVersion!==operation.resourceVersion||stored.resource_version!==currentVersion||proposal.resource.version!==currentVersion||proposal.expectedVersion!==currentVersion||proposal.precondition!==currentVersion||canonical(proposal.before)!==canonical(before))throw new Rejected('version_conflict');
         const claimedHash=digest({actor:scope.actorId,subject:scope.subjectId,organization:scope.organizationId,conversation:operation.conversationId,envelope:{...envelope,proposal:{...proposal,hash:''}}});
         if(claimedHash!==proposal.hash)throw new Rejected('invalid_input');
         scope.signal.throwIfAborted();
         await authorize(tx,scope);
         const updated=await applyWorkoutSetRepsEdit(tx,existing,scope.subjectId,{reps:proposal.after.reps});
-        if(canonical(values(updated))!==canonical(proposal.after))throw new Rejected('version_conflict');
+        if(canonical(values(updated,label.rows[0].name))!==canonical(proposal.after))throw new Rejected('version_conflict');
         const nextVersion=await version(tx,operation.setId);if(nextVersion===currentVersion)throw new Rejected('uncertain');
         const clock=await tx.execute<{recorded:string}>(sql`SELECT clock_timestamp()::text AS recorded`);
         const receipt:CoachReceipt={id:randomUUID(),actionId:operation.actionId,proposalId:proposal.id,status:'applied',resourceVersion:nextVersion,recordedAt:new Date(clock.rows[0].recorded).toISOString()};
