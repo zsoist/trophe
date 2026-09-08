@@ -21,6 +21,14 @@ function fixture() {
 }
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
+it('does not show an empty context card when a profileless response has no draft intent', () => {
+  const controller = new PreferenceController();
+  const response = { snapshot: { capabilities: [] }, memories: [], actionIntents: [] } as unknown as CoachConversationResponse;
+  render(<I18nProvider defaultLang="en"><ContextCards response={response} conversationId={conversation} controller={controller} state={controller.snapshot()} transport={vi.fn()}><span>Empty workout slot</span></ContextCards></I18nProvider>);
+  expect(screen.queryByText('Your profile & memory')).toBeNull();
+  expect(screen.queryByText('Empty workout slot')).toBeNull();
+});
+
 it('reviews before applying and displays an actual isolated receipt without changing the fixture until confirmation', async () => {
   HTMLElement.prototype.scrollTo = vi.fn();
   const { store, transport } = fixture();
