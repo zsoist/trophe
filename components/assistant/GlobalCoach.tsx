@@ -12,7 +12,7 @@ import { requestAttachment } from './attachment-client';
 import { AttachmentController } from './attachment-state';
 import { VoiceCapture } from './VoiceCapture';
 import { VoiceController } from './voice-state';
-import { FoodQuantityController } from './food-state';
+import { FoodQuantityController, type FoodTransport } from './food-state';
 import { FoodQuantityPanel } from './FoodQuantityPanel';
 import { requestFoodQuantity } from './food-client';
 import { COACH_FOOD_SELECT, COACH_FOOD_REFRESH, readFoodSelection } from './food-events';
@@ -33,17 +33,20 @@ import { ProgressController, type ProgressTransport } from './progress-state';
 import { ProgressPanel } from './ProgressPanel';
 import { requestProgress } from './progress-client';
 import { COACH_PROGRESS_REFRESH } from './progress-events';
+import { PhotoFoodController } from './photo-food-state';
+import { PhotoFoodPanel } from './PhotoFoodPanel';
+import { requestPhotoFood, type PhotoFoodTransport } from './photo-food-client';
 import type { CoachConversationResponse, CoachContextHint, CoachSurface as CoachSurfaceName } from '@/agents/coach-assistant/contracts';
 
 const HistoryPanel = dynamic(() => import('./HistoryPanel').then(module => module.HistoryPanel));
 
 export type CoachContextSlot = (props: { identity: string; controller: PreferenceController; state: PreferenceState; conversationId: string; turnId: string; surface: CoachSurfaceName; response: CoachConversationResponse; transport: PreferenceTransport }) => ReactNode;
 export type CoachVoiceSlot = (props: { conversationId: string; onUse: (text: string) => boolean }) => ReactNode;
-type Props = { identity: string; subjectId?: string; professional?: boolean; example?: ConversationTransport; preferenceTransport?: PreferenceTransport; memoryTransport?: MemoryTransport; dietTransport?: DietTransport; progressTransport?: ProgressTransport; historyTransport?: HistoryTransport; contextSlot?: CoachContextSlot; voiceSlot?: CoachVoiceSlot; workspaceHint?: CoachContextHint['workspace'] };
+type Props = { identity: string; subjectId?: string; professional?: boolean; example?: ConversationTransport; preferenceTransport?: PreferenceTransport; memoryTransport?: MemoryTransport; dietTransport?: DietTransport; progressTransport?: ProgressTransport; foodTransport?:FoodTransport; photoFoodTransport?:PhotoFoodTransport; historyTransport?: HistoryTransport; contextSlot?: CoachContextSlot; voiceSlot?: CoachVoiceSlot; workspaceHint?: CoachContextHint['workspace'] };
 export default function GlobalCoach(props: Props) {
   return <CoachSurface key={`${props.identity}:${props.subjectId ?? props.identity}:${props.professional ? 'professional' : 'self'}`} {...props} />;
 }
-function CoachSurface({ identity, subjectId, professional = false, example, preferenceTransport, memoryTransport, dietTransport, progressTransport, historyTransport, contextSlot, voiceSlot, workspaceHint }: Props) {
+function CoachSurface({ identity, subjectId, professional = false, example, preferenceTransport, memoryTransport, dietTransport, progressTransport, foodTransport, photoFoodTransport, historyTransport, contextSlot, voiceSlot, workspaceHint }: Props) {
   const { t } = useGlobalCoachI18n();
   const path = usePathname();
   const surface = coachSurface(path);
@@ -53,6 +56,8 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   const [voice] = useState(() => new VoiceController());
   const [food] = useState(() => new FoodQuantityController());
   const foodState = useSyncExternalStore(food.subscribe, food.snapshot, food.snapshot);
+  const [photoFood] = useState(() => new PhotoFoodController());
+  const photoFoodState = useSyncExternalStore(photoFood.subscribe, photoFood.snapshot, photoFood.snapshot);
   const voiceState = useSyncExternalStore(voice.subscribe, voice.snapshot, voice.snapshot);
   const voiceActive = ['requesting', 'recording', 'stopping'].includes(voiceState.phase);
   const [attachments] = useState(() => new AttachmentController());
@@ -70,6 +75,8 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   const [progress] = useState(() => new ProgressController());
   const progressState = useSyncExternalStore(progress.subscribe, progress.snapshot, progress.snapshot);
   const progressEnabled = surface === 'progress' && process.env.NEXT_PUBLIC_COACH_PROGRESS_ACTIONS_ENABLED === '1' && (!example || Boolean(progressTransport)) && (!subjectId || subjectId === identity);
+  const photoFoodEnabled = process.env.NEXT_PUBLIC_COACH_PHOTO_FOOD_ACTIONS_ENABLED === '1' && (!example || Boolean(photoFoodTransport)) && (!subjectId || subjectId === identity);
+  const activeFoodTransport=foodTransport??requestFoodQuantity;
   const [open, setOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [includeScreen, setIncludeScreen] = useState(true);
@@ -89,6 +96,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   useEffect(() => () => attachments.reset(), [attachments]);
   useEffect(() => () => voice.reset(), [voice]);
   useEffect(() => () => food.reset(), [food]);
+  useEffect(() => () => photoFood.reset(), [photoFood]);
   useEffect(() => () => memory.reset(), [memory]);
   useEffect(() => () => diet.reset(), [diet]);
   useEffect(() => () => progress.reset(), [progress]);
@@ -107,6 +115,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
     if (!foodState.receipt || foodState.pending || foodState.error || !foodState.entry) return;
     window.dispatchEvent(new CustomEvent(COACH_FOOD_REFRESH, { detail: { actorId: identity, entryId: foodState.entry.entryId } }));
   }, [foodState.receipt, foodState.pending, foodState.error, foodState.entry, identity]);
+  useEffect(()=>{if(!photoFoodState.receipt||!photoFoodState.refreshEntryId||foodState.pending||foodState.error||foodState.entry?.entryId!==photoFoodState.refreshEntryId)return;window.dispatchEvent(new CustomEvent(COACH_FOOD_REFRESH,{detail:{actorId:identity,entryId:photoFoodState.refreshEntryId}}));},[foodState.entry,foodState.error,foodState.pending,identity,photoFoodState.receipt,photoFoodState.refreshEntryId]);
   useEffect(() => { setAnchor(document.getElementById('global-coach-anchor')); }, []);
   useEffect(() => {
     if (!open) return;
@@ -121,7 +130,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
     if (followLatest.current && !window.getSelection()?.toString()) log.current?.scrollTo({ top: log.current.scrollHeight });
     else setShowLatest(true);
   }, [open, state.turns, state.pending]);
-  const close = () => { controller.cancel(); preferences.cancel(); attachments.cancel(); voice.reset(); food.cancel(); memory.cancel(); diet.cancel(); progress.cancel(); setOpen(false); launcher.current?.focus(); };
+  const close = () => { controller.cancel(); preferences.cancel(); attachments.cancel(); voice.reset(); food.cancel(); photoFood.cancel(); memory.cancel(); diet.cancel(); progress.cancel(); setOpen(false); launcher.current?.focus(); };
   const send = () => !voiceActive && !missingProfessionalSubject && controller.send({ surface, includeScreen, ...(includeScreen && selection ? selection.anatomy ? { anatomy: selection.anatomy } : { entity: selection.entity } : {}), ...(includeScreen && workspaceHint ? { workspace: workspaceHint } : {}), ...(subjectId ? { clientId: subjectId } : {}) }, async (request, signal) => {
     const response = await (example ?? requestConversation)(request, signal);
     if (subjectId && subjectId !== identity && response.ok) {
@@ -157,17 +166,18 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
         followLatest.current = node.scrollHeight - node.scrollTop - node.clientHeight < 64;
         if (followLatest.current) setShowLatest(false);
       }}>
-        {foodState.entryId && <FoodQuantityPanel key={foodState.entryId} controller={food} state={foodState} transport={requestFoodQuantity} />}
+        {foodState.entryId && <FoodQuantityPanel key={foodState.entryId} controller={food} state={foodState} transport={activeFoodTransport} />}
+        {photoFoodState.attachmentId&&<PhotoFoodPanel controller={photoFood} state={photoFoodState} transport={photoFoodTransport??requestPhotoFood} onReceipt={entryId=>food.select(entryId,state.conversationId,activeFoodTransport)}/>}
         {historyEnabled && <button type="button" onClick={() => {
           voice.reset(); attachments.reset(); preferences.moveConversation(); food.reset(); memory.reset();
-          controller.startNew(); diet.moveConversation(controller.snapshot().conversationId); progress.moveConversation(controller.snapshot().conversationId); setHistoryOpen(false); input.current?.focus();
+          controller.startNew(); photoFood.moveConversation(controller.snapshot().conversationId); diet.moveConversation(controller.snapshot().conversationId); progress.moveConversation(controller.snapshot().conversationId); setHistoryOpen(false); input.current?.focus();
         }}>{t('global_coach.new_chat')}</button>}
         {historyEnabled && <details open={historyOpen} className={styles.profile} onToggle={event => setHistoryOpen(event.currentTarget.open)}><summary>{t('global_coach.saved_chats')}</summary>{historyOpen && <HistoryPanel transport={historyTransport ?? requestHistory} onInvalidate={threadId => {
           if (controller.snapshot().conversationId !== threadId) return;
-          voice.reset(); attachments.reset(); preferences.moveConversation(); food.reset(); memory.reset(); controller.startNew(); diet.moveConversation(controller.snapshot().conversationId); progress.moveConversation(controller.snapshot().conversationId);
+          voice.reset(); attachments.reset(); preferences.moveConversation(); food.reset(); memory.reset(); controller.startNew(); photoFood.moveConversation(controller.snapshot().conversationId); diet.moveConversation(controller.snapshot().conversationId); progress.moveConversation(controller.snapshot().conversationId);
         }} onResume={page => {
           voice.reset(); attachments.reset(); preferences.moveConversation(); food.reset(); memory.reset();
-          controller.restore(page.thread.id, page.messages); diet.moveConversation(controller.snapshot().conversationId); progress.moveConversation(controller.snapshot().conversationId); setHistoryOpen(false); input.current?.focus();
+          controller.restore(page.thread.id, page.messages); photoFood.moveConversation(controller.snapshot().conversationId); diet.moveConversation(controller.snapshot().conversationId); progress.moveConversation(controller.snapshot().conversationId); setHistoryOpen(false); input.current?.focus();
         }} />}</details>}
         {dietEnabled && <details className={styles.profile} onToggle={event => { if (event.currentTarget.open) { voice.reset(); if (!dietState.profileId) diet.select(identity, state.conversationId, dietTransport ?? requestDiet); else if (!dietState.profile) void diet.read(dietTransport ?? requestDiet); } }}>
           <summary>{t('global_coach.diet_title')}</summary>
@@ -186,7 +196,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
         {state.turns.map(turn => <article className={styles.turn} key={turn.request.turnId}>
           <p className={styles.question}>{turn.request.message}</p>
           <p className={styles.context}>{t(turn.request.context?.includeScreen ? `global_coach.${turn.request.context.surface}` : 'global_coach.detached')}</p>
-          {Boolean(turn.request.attachments?.length) && <p className={styles.context}>{t('global_coach.photos_sent', { count: turn.request.attachments!.length })}</p>}
+          {Boolean(turn.request.attachments?.length) && <p className={styles.context}>{t(photoFoodEnabled ? 'global_coach.photos_sent_review' : 'global_coach.photos_sent', { count: turn.request.attachments!.length })}</p>}
           {turn.response?.output && <div className={styles.answer}>
             <p>{turn.response.output.answer}</p>
             {!example && turn.response.mode === 'offline' && <p className={styles.context}>{t('global_coach.offline')}</p>}
@@ -199,6 +209,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
       {showLatest && <button type="button" className="min-h-11 px-4 text-sm" onClick={() => { followLatest.current = true; setShowLatest(false); log.current?.scrollTo({ top: log.current.scrollHeight }); }}>{t('global_coach.latest')}</button>}
       <form className={styles.composer} onSubmit={event => { event.preventDefault(); void send(); }}>
         <AttachmentPicker controller={attachments} state={attachmentState} conversationId={state.conversationId} transport={!example && latestResponse?.uploads?.images ? requestAttachment : undefined} disabled={state.pending} />
+        {photoFoodEnabled&&attachmentState.items.filter(item=>item.state==='available'&&item.reference&&latestResponse?.attachments.some(reference=>reference.id===item.reference!.id&&reference.status==='available')).map(item=><button key={`food-${item.key}`} type="button" className={styles.contextToggle} disabled={photoFoodState.pending} onClick={()=>void photoFood.select(item.reference!.id,state.conversationId,photoFoodTransport??requestPhotoFood)}>{t('global_coach.photo_food_open')}</button>)}
         <VoiceCapture controller={voice} state={voiceState} disabled={state.pending || attachmentState.pending} />
         {voiceSlot?.({ conversationId: state.conversationId, onUse: text => {
           if (voiceActive || state.pending) return false;
