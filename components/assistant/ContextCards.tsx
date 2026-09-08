@@ -18,7 +18,7 @@ export function ContextCards({ response, conversationId, subjectId, controller, 
   const reviewRef = useRef<HTMLElement>(null);
   const receiptRef = useRef<HTMLParagraphElement>(null);
   useEffect(() => { if (state.receipt?.status === 'applied') receiptRef.current?.focus(); else if (state.proposal) reviewRef.current?.focus(); }, [state.proposal, state.receipt]);
-  if (!profile && (hideMemories || !response.memories?.length) && state.proposal?.action !== 'draft.update') return null;
+  if (!profile && (hideMemories || !response.memories?.length) && state.proposal?.action !== 'draft.update' && !children) return null;
   const canChange = response.snapshot?.capabilities.some(item => item.key === 'actions' && item.status === 'available');
   const applied = state.receipt?.status === 'applied';
   const profileNewer = profile?.source === 'authorized_profile' && state.confirmed?.storage === 'database'

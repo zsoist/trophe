@@ -10,7 +10,6 @@ const actor = '00000000-0000-4000-8000-000000000001';
 const requestConversation = vi.hoisted(() => vi.fn(async (request: { conversationId: string; turnId: string; context?: { surface?: string; workspace?: { version: string } } }) => ({
   version: 'coach-assistant.v2' as const, conversationId: request.conversationId, turnId: request.turnId, ok: true, mode: 'model' as const, dataSource: 'authorized_records' as const,
   snapshot: { id: 'snapshot', capturedAt: '2026-09-08T08:00:00Z', subjectId: actor, organizationId: 'self', actorRole: 'client' as const, access: 'self' as const, scopeKey: 'a'.repeat(64), surface: 'plan' as const, screenIncluded: true, window: { start: '2026-09-08', end: '2026-09-08', days: 1, timezone: 'UTC' }, language: 'en', units: { weight: 'kg' as const, energy: 'kcal' as const, protein: 'g' as const }, capabilities: [{ key: 'actions' as const, status: 'available' as const, reason: 'reviewable_draft_intent' }] },
-  profile: { language: 'en', timezone: 'UTC', units: { weight: 'kg' as const, energy: 'kcal' as const, protein: 'g' as const }, preferences: { durationMinutes: 30 as const }, version: 'profile-v1', source: 'authorized_profile' as const },
   output: { answer: 'I prepared a 35-minute dumbbell alternative for review.', evidenceRefs: [], limitations: [], suggestions: [], escalation: { required: false, reason: null, draft: null } },
   evidence: [], proposals: [], actionIntents: [{ id: 'b'.repeat(64), action: 'draft.update' as const, source: 'provider_tool' as const, subjectId: actor, scopeKey: 'a'.repeat(64), surface: 'plan' as const, resource: { kind: 'draft' as const, id: actor, version: request.context?.workspace?.version ?? '' }, target: { durationMinutes: 35, equipment: ['dumbbells'] as ['dumbbells'] }, reviewRequired: true as const }], receipts: [], attachments: [], telemetry: { model: null, provider: null, promptVersion: 'test', modelCalls: 0, dataReads: 0, tokensIn: 0, tokensOut: 0, reasoningTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, latencyMs: 0, costUsd: 0, pricingVersion: 'test' },
 })));
@@ -42,7 +41,7 @@ function DraftHarness() {
   </>;
 }
 
-it('turns the accepted composer message into review, then applies one receipt to the source draft', async () => {
+it('reviews and applies an accepted draft intent when no authorized profile is returned', async () => {
   render(<I18nProvider defaultLang="en"><WorkoutWorkspaceProvider userId={actor} storage={{ getItem: () => null, setItem: vi.fn(), removeItem: vi.fn() }}><DraftHarness /></WorkoutWorkspaceProvider></I18nProvider>);
   fireEvent.click(screen.getByRole('button', { name: 'Create draft' }));
   fireEvent.click(await screen.findByRole('button', { name: 'Ask Trophē' }));
