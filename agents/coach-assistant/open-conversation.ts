@@ -15,6 +15,8 @@ export type OfflineConversationProvider=(input:Parameters<typeof invokeStructure
  * Never configured by request JSON, the generator, or the HTTP handler.
  */
 export type OfflineInterpretationReview=(input:{answer:string;followUp:string|null;limitations:string[];evidenceRefs:string[];evidence:CoachEvidence[];signal:AbortSignal})=>Promise<{approved:boolean}>;
+const draftActionIntentSchema=z.object({action:z.literal('draft.update'),target:z.object({durationMinutes:z.number().int().min(5).max(180),equipment:z.tuple([z.literal('dumbbells')])}).strict()}).strict();
+const setActionIntentSchema=z.object({action:z.literal('workout.set.reps.update'),target:z.object({reps:z.number().int().positive().max(2147483647)}).strict()}).strict();
 export const openConversationSchema=z.object({
   answer:z.string().trim().min(1).max(1800),
   evidenceRefs:z.array(z.string().max(100)).max(24),
@@ -22,10 +24,7 @@ export const openConversationSchema=z.object({
   facts:z.array(z.object({kind:z.literal('record_fact'),evidenceId:z.string().max(100)}).strict()).max(24),
   followUp:z.string().trim().min(1).max(400).nullable(),
   limitations:z.array(z.enum(['insufficient_evidence','incomplete_records','professional_review_needed'])).max(3),escalation:z.boolean(),
-  actionIntent:z.union([
-    z.object({action:z.literal('draft.update'),target:z.object({durationMinutes:z.number().int().min(5).max(180),equipment:z.tuple([z.literal('dumbbells')])}).strict()}).strict(),
-    z.object({action:z.literal('workout.set.reps.update'),target:z.object({reps:z.number().int().positive().max(2147483647)}).strict()}).strict(),
-  ]).nullable().optional(),
+  actionIntent:z.union([draftActionIntentSchema,setActionIntentSchema]).nullable().optional(),
 }).strict();
 
 export const candidateConversationSchema=openConversationSchema.extend({generalExplanationRefs:z.array(z.enum(['records_are_partial_view','planned_is_not_completed','nutrition_log_is_not_intake'])).max(3)});
@@ -80,7 +79,13 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
     limitations:response.output?.limitations.filter(value=>value!=='open_ended_interpretation_not_connected'),actionsAvailable:candidateEvaluation?false:[...(draftIntentAvailable?[{action:'draft.update',target:boundDraftTarget}]:[]),...(setIntentAvailable?[{action:'workout.set.reps.update',target:{selection:'latest_open_session_set',...boundSetTarget!}}]:[])]};
   const system=candidateEvaluation?COACH_CANDIDATE_SYSTEM_PROMPT:COACH_CONVERSATIONAL_SYSTEM_PROMPT+(reviewInterpretation?'\nAn independent offline interpretation oracle is configured for this fixture. Declarative explanations may be proposed in answer, grounded in cited evidence. They will be withheld unless that separate oracle approves. All numeric, receipt, entity, medical and action restrictions still apply.':'');
   let prompt=JSON.stringify(payload);
-  const validator=candidateEvaluation?candidateConversationSchema:openConversationSchema;
+  const validator=candidateEvaluation
+    ? candidateConversationSchema
+    : draftIntentAvailable&&!setIntentAvailable
+      ? openConversationSchema.extend({actionIntent:draftActionIntentSchema.nullable().optional()})
+      : setIntentAvailable&&!draftIntentAvailable
+        ? openConversationSchema.extend({actionIntent:setActionIntentSchema.nullable().optional()})
+        : openConversationSchema;
   const promptVersion=candidateEvaluation?COACH_CANDIDATE_PROMPT_VERSION:COACH_CONVERSATIONAL_PROMPT_VERSION;
   const schema=z.toJSONSchema(validator);
   // UTF-8 bytes bound tokens conservatively, including schema/system overhead.
