@@ -84,6 +84,23 @@ it('queries the same action receipt after a lost apply response and never resubm
   expect((transport.mock.calls.at(-1)![0] as { operation: string }).operation).toBe('receipt');
 });
 
+it('keeps the original receipt lookup after a new conversation but discards an unconfirmed proposal', async () => {
+  const { store, transport } = fixture();
+  const controller = new PreferenceController();
+  await controller.propose(conversation, store.read(actor, actor)!.version, 20, transport);
+  controller.moveConversation();
+  expect(controller.snapshot()).toMatchObject({ proposal: null, uncertain: false });
+
+  await controller.propose(conversation, store.read(actor, actor)!.version, 20, transport);
+  const lost = vi.fn(async (operation: unknown) => { store.execute(actor, operation); throw new Error('Connection lost after commit'); });
+  await controller.apply(conversation, lost);
+  controller.moveConversation();
+  expect(controller.snapshot()).toMatchObject({ uncertain: true, proposal: { action: 'preference.update' } });
+  await controller.check(transport);
+  expect(controller.snapshot()).toMatchObject({ uncertain: false, receipt: { status: 'applied' } });
+  expect(transport.mock.calls.at(-1)![0]).toMatchObject({ operation: 'receipt', conversationId: conversation });
+});
+
 it('keeps cancelled apply uncertain and discards a late receipt after identity reset', async () => {
   const { store, transport } = fixture(); const controller = new PreferenceController();
   await controller.propose(conversation, store.read(actor, actor)!.version, 20, transport);

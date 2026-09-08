@@ -21,6 +21,11 @@ export class PreferenceController {
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   private publish(state: PreferenceState) { this.state = state; this.listeners.forEach(listener => listener()); }
   reset() { this.generation++; this.active?.abort(); this.active = null; this.applyEnvelope = null; this.publish(empty()); }
+  /** A new chat drops review-only state but keeps an uncertain apply bound to its original receipt envelope. */
+  moveConversation() {
+    if (this.active) this.cancel();
+    if (!this.state.uncertain || !this.applyEnvelope) this.reset();
+  }
   cancel() {
     if (!this.active) return;
     this.generation++; this.active.abort(); this.active = null;

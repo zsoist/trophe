@@ -96,6 +96,8 @@ export const globalCoachTranslations: Record<string, { en: string; es: string; e
   "global_coach.voice_error_limit": {"en": "The recording exceeds the local limit of 30 seconds or 2 MiB.", "es": "La grabación supera el límite local de 30 segundos o 2 MiB.", "el": "Η εγγραφή υπερβαίνει το τοπικό όριο των 30 δευτερολέπτων ή 2 MiB."},
   "global_coach.draft_title": {"en": "Workout draft", "es": "Borrador de Workout", "el": "Προσχέδιο προπόνησης"},
   "global_coach.draft_private": {"en": "Private draft copy · review before applying.", "es": "Copia privada del borrador · revisa antes de aplicar.", "el": "Ιδιωτικό αντίγραφο προσχεδίου · ελέγξτε πριν την εφαρμογή."},
+  "global_coach.draft_origin": {"en": "Suggested by Ask Trophē · only this Workout draft will change.", "es": "Sugerido por Ask Trophē · solo cambiará este borrador de Workout.", "el": "Πρόταση από το Ask Trophē · θα αλλάξει μόνο αυτό το προσχέδιο Workout."},
+  "global_coach.draft_impact": {"en": "Impact", "es": "Impacto", "el": "Επίδραση"},
   "global_coach.draft_name": {"en": "Draft name", "es": "Nombre del borrador", "el": "Όνομα προσχεδίου"},
   "global_coach.draft_sets": {"en": "Sets for each exercise", "es": "Series para cada ejercicio", "el": "Σετ για κάθε άσκηση"},
   "global_coach.draft_keep_sets": {"en": "Keep current sets", "es": "Mantener las series actuales", "el": "Διατήρηση τωρινών σετ"},

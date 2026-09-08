@@ -3,9 +3,10 @@ import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import GlobalCoach from './GlobalCoach';
+import type { CoachContextSlot } from './GlobalCoach';
 import { professionalCoachSubject } from './conversation-state';
 
-export default function AccountCoach({ professional = false }: { professional?: boolean }) {
+export default function AccountCoach({ professional = false, contextSlot }: { professional?: boolean; contextSlot?: CoachContextSlot }) {
   const path = usePathname();
   const subjectId = professional ? professionalCoachSubject(path) : undefined;
   const [identity, setIdentity] = useState<string | null>(null);
@@ -22,5 +23,5 @@ export default function AccountCoach({ professional = false }: { professional?: 
     return () => { alive = false; subscription.unsubscribe(); };
   }, []);
   // The key synchronously discards the old subject's surface and pending response.
-  return identity ? <GlobalCoach key={`${identity}:${subjectId ?? identity}`} professional={professional} identity={identity} subjectId={subjectId} /> : null;
+  return identity ? <GlobalCoach key={`${identity}:${subjectId ?? identity}`} professional={professional} identity={identity} subjectId={subjectId} contextSlot={contextSlot} /> : null;
 }
