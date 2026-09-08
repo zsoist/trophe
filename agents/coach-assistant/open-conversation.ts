@@ -51,7 +51,8 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
   const entities=[...new Set(facts.flatMap(f=>f.sourceIds))].map((id,index)=>({alias:`entity:${index+1}`,evidenceRefs:facts.filter(f=>f.sourceIds.includes(id)).map(f=>f.id)}));
   const curated=availableGeneralExplanations(facts);
   const boundDraftTarget=explicitDraftTarget(input.message);
-  const draftIntentAvailable=!candidateEvaluation&&Boolean(boundDraftTarget)&&response.snapshot?.access==='self'&&input.context?.includeScreen===true&&response.snapshot.surface==='workout'&&input.context.workspace?.kind==='draft';
+  const draftSurface=response.snapshot?.surface==='workout'||response.snapshot?.surface==='plan'?response.snapshot.surface:null;
+  const draftIntentAvailable=!candidateEvaluation&&Boolean(boundDraftTarget)&&response.snapshot?.access==='self'&&input.context?.includeScreen===true&&Boolean(draftSurface)&&input.context.workspace?.kind==='draft';
   const payload={...(candidateEvaluation?{generalExplanations:curated.map(id=>({id,...GENERAL_EXPLANATIONS[id]}))}:{}),message:input.message,history:input.history??[],
     snapshot:response.snapshot?{surface:response.snapshot.surface,language:response.snapshot.language,units:response.snapshot.units,window:response.snapshot.window}:null,
     foodPreference:response.foodPreference?{preferences:response.foodPreference.preferences,version:response.foodPreference.version,source:'current_profile',meaning:'self_declared_preference_not_allergy_or_medical_instruction'}:null,
@@ -115,7 +116,7 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
       const target={durationMinutes:output.actionIntent.target.durationMinutes,equipment:['dumbbells'] as ['dumbbells']};
       const resource={kind:'draft' as const,id:response.snapshot.subjectId,version:input.context.workspace.version};
       const id=createHash('sha256').update(JSON.stringify({turnId:input.turnId,scopeKey:response.snapshot.scopeKey,resource,target})).digest('hex');
-      response.actionIntents=[{id,action:'draft.update',source:'provider_tool',subjectId:response.snapshot.subjectId,scopeKey:response.snapshot.scopeKey,surface:'workout',resource,target,reviewRequired:true}];
+      response.actionIntents=[{id,action:'draft.update',source:'provider_tool',subjectId:response.snapshot.subjectId,scopeKey:response.snapshot.scopeKey,surface:draftSurface!,resource,target,reviewRequired:true}];
       const actions=response.snapshot.capabilities.find(capability=>capability.key==='actions');
       if(actions){actions.status='available';actions.reason='reviewable_draft_intent';}
     }
