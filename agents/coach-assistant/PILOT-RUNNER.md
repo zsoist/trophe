@@ -20,12 +20,20 @@ Mode=live does not accept an injected transport masquerading as measured usage.
 No live call or credential access has been performed. This runner is not an HTTP
 feature flag.
 
-The built-in small dataset contains two positive explanation/follow-up cases, an
-unsupported completion request and acute triage. It stops on failed structural
-checks or uncertain accounting instead of blindly running the full set. Positive
-cases must answer with a follow-up, so reject-everything cannot pass. Structural
-checks are not a semantic release score: the unsupported-completion case checks only no-action structure, not whether prose is factually safe; positive cases check answer/follow-up shape, not explanation truth; every case has qualityReview=pending and still needs human review and
-releaseApproved is always false. Dataset/prompt/pricing versions accompany results.
+The built-in LIVE-01 dataset contains the six authorized situations: complete week,
+partial/empty week, Food 250g→150g review intent, ambiguous Food correction,
+instruction injection in retrieved curated data, and a denied subject switch. The
+Food case enables the existing provider-selected typed action only when the server
+has deterministically bounded both quantities and screen scope. The model must
+select and copy that allowlisted action; the runner never inserts the expected intent
+into the response. No proposal is applied in this direct runner. AG1's integrated
+app trace owns canonical Food resolution, proposal, confirmation and receipt.
+
+The runner stops on failed structural checks or uncertain accounting. Structural
+checks are not a semantic release score; every case has `qualityReview=pending` and
+`releaseApproved=false`. Dataset/prompt/pricing versions, selected tool/arguments,
+proposal/receipt counts, request IDs, usage, latency, reservation and cost accompany
+the review artifact.
 
 For each generated turn, deterministic evaluation/case IDs bind one agentRunId,
 attemptId, turnId and request hash. The runner validates the Luna/OpenAI/low policy

@@ -10,7 +10,9 @@ const id=(n:number)=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 function transport(){
  return vi.fn<PilotTransport>(async input=>{
   const data=JSON.parse(input.prompt);
-  return {responseModel:'gpt-5.6-luna',output:{answer:'Reviewing recorded context can help organize a useful discussion.',followUp:'What would make this review useful?',evidenceRefs:data.evidence.map((e:{id:string})=>e.id),facts:data.evidence.map((e:{id:string})=>({kind:'record_fact',evidenceId:e.id})),entityRefs:[],generalExplanationRefs:['records_are_partial_view'],limitations:['incomplete_records'],escalation:false},usage:{inputTokens:1200,outputTokens:300,reasoningTokens:40},latencyMs:1,rawStatus:200};
+  const actionIntent=typeof data.message==='string'&&data.message.startsWith('Fueron 150')?{action:'food.quantity.update',target:{previousGrams:250,grams:150}}:null;
+  const output={answer:'Reviewing recorded context can help organize a useful discussion.',followUp:'What would make this review useful?',evidenceRefs:data.evidence.map((e:{id:string})=>e.id),facts:data.evidence.map((e:{id:string})=>({kind:'record_fact',evidenceId:e.id})),entityRefs:[],limitations:['incomplete_records'],escalation:false,actionIntent};
+  return {responseModel:'gpt-5.6-luna',output:input.policy.promptVersion.includes('candidate')?{...output,generalExplanationRefs:['records_are_partial_view']} : output,usage:{inputTokens:1200,outputTokens:300,reasoningTokens:40},latencyMs:1,rawStatus:200};
  });
 }
 describe('actual guarded candidate composition, synthetic transports only',()=>{
@@ -53,10 +55,15 @@ describe('actual guarded candidate composition, synthetic transports only',()=>{
    events.push(command.operation);const decision=decidePilotBudgetCommand({pilotId:id(1),budgetDay:'2026-09-08',capNanoUsd:44_000_000,chargedNanoUsd:[...records.values()].reduce((n,r)=>n+r.chargedNanoUsd,0),turnAttemptCount:[...records.values()].filter(r=>r.binding.turnId===command.binding.turnId).length,accountingBlocked:[...records.values()].some(r=>r.accountingAlert),existing:records.get(command.binding.attemptId)},command);
    if(decision.ok&&decision.write!=='none')records.set(command.binding.attemptId,structuredClone(decision.record));return {storage:'database',...decision};
   }};
-  const provider=transport();const input={pilotId:id(1),actorId:id(2),evaluationId:id(3),mode:'injected',caseIds:['explain_food','follow_up']};
+  const provider=transport();const input={pilotId:id(1),actorId:id(2),evaluationId:id(3),mode:'injected',caseIds:['complete_week']};
   const report=await runCoachConversationPilot(input,{store,transport:provider,signal:new AbortController().signal});
-  if(!report.ok)throw new Error('report');expect(report.allStructuralChecksPassed).toBe(true);expect(report.actualProviderCalls).toBe(0);expect(report.injectedProviderCalls).toBe(2);expect(report.measuredUsageCostUsd).toBeNull();expect(report.releaseApproved).toBe(false);expect(events).toEqual(['reserve','claim_dispatch','settle','reserve','claim_dispatch','settle']);
-  await runCoachConversationPilot(input,{store,transport:provider,signal:new AbortController().signal});expect(provider).toHaveBeenCalledTimes(2);
+  if(!report.ok)throw new Error('report');expect(report.allStructuralChecksPassed,JSON.stringify(report)).toBe(true);expect(report.actualProviderCalls).toBe(0);expect(report.injectedProviderCalls).toBe(1);expect(report.measuredUsageCostUsd).toBeNull();expect(report.releaseApproved).toBe(false);expect(events).toEqual(['reserve','claim_dispatch','settle']);
+  await runCoachConversationPilot(input,{store,transport:provider,signal:new AbortController().signal});expect(provider).toHaveBeenCalledTimes(1);
   expect(await runCoachConversationPilot({...input,mode:'live'},{store,transport:provider,signal:new AbortController().signal})).toMatchObject({error:'budget_blocked'});
+  const six=await runCoachConversationPilot({...input,evaluationId:id(30),caseIds:undefined},{store,transport:provider,signal:new AbortController().signal});
+  if(!six.ok)throw new Error('six-case report');expect(six.cases).toHaveLength(6);expect(six.allStructuralChecksPassed,JSON.stringify(six)).toBe(true);
+  expect(six.maximumReservedCostUsd).toBeCloseTo(0.0528);expect(six.injectedProviderCalls).toBe(5);
+  expect(six.cases.find(item=>item.caseId==='food_250_to_150')).toMatchObject({selectedTool:'food.quantity.update',toolArguments:{selection:'authorized_food_entry',entryHintId:'00000000-0000-4000-8000-000000000150',previousGrams:250,grams:150},proposalCount:0,receiptCount:0});
+  expect(six.cases.find(item=>item.caseId==='subject_permission_change')).toMatchObject({responseAccepted:false,error:'forbidden',modelCalls:0});
  });
 });

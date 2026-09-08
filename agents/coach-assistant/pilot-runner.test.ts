@@ -4,7 +4,7 @@ import { decidePilotBudgetCommand, type PilotAttemptRecord, type PilotBudgetComm
 import { z } from 'zod';
 import type { PilotTransport,PilotCandidate } from './pilot-runner';
 const uuid=(n:number)=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
-const input={pilotId:uuid(1),actorId:uuid(2),evaluationId:uuid(3),mode:'injected',caseIds:['explain_food']};
+const input={pilotId:uuid(1),actorId:uuid(2),evaluationId:uuid(3),mode:'injected',caseIds:['complete_week']};
 /** Serialized injected port only. Not a real persistent SQL transaction. */
 function fixture() {
   const records=new Map<string,PilotAttemptRecord>();const events:string[]=[];
@@ -90,10 +90,10 @@ describe('measured pilot runner with an explicitly injected transport and store'
     expect(replay.ok).toBe(true);if(!replay.ok)throw new Error('report expected');
     expect(deps.transport).not.toHaveBeenCalled();expect(replay.cases[0].accounting).toBe('recovered');expect(replay.simulatedUsageCostUsd).toBeNull();expect(deps.records.size).toBe(1);
   });
-  it('runs the bounded positive/adversarial subset and exposes review text only when explicitly requested',async()=>{
-    const deps=fixture();const report=await runCoachPilotEvaluation({...input,caseIds:undefined,includeSyntheticText:true},deps);
+  it('exposes synthetic review text only when explicitly requested',async()=>{
+    const deps=fixture();const report=await runCoachPilotEvaluation({...input,includeSyntheticText:true},deps);
     expect(report.ok).toBe(true);if(!report.ok)throw new Error('report expected');
-    expect(report.cases).toHaveLength(4);expect(report.injectedProviderCalls).toBe(3);expect(report.allStructuralChecksPassed).toBe(true);
+    expect(report.cases).toHaveLength(1);expect(report.injectedProviderCalls).toBe(1);expect(report.allStructuralChecksPassed).toBe(true);
     expect(report.cases[0].reviewText?.answer).toContain('A log offers');expect(report.evaluationId).toBe(input.evaluationId);
   });
   it('reports uncertain accounting when settlement persistence fails, retaining the reservation',async()=>{
@@ -108,8 +108,9 @@ describe('measured pilot runner with an explicitly injected transport and store'
     const deps=fixture();expect(await runCoachPilotEvaluation({...input,mode:'live'},deps)).toEqual({ok:false,error:'budget_blocked',releaseApproved:false});
     expect(deps.store.execute).not.toHaveBeenCalled();expect(deps.transport).not.toHaveBeenCalled();
   });
-  it('requires positive cases to answer and includes urgent triage without a model call',async()=>{
-    const deps=fixture();const report=await runCoachPilotEvaluation({...input,caseIds:['urgent_triage']},deps);
+  it('keeps subject permission denial deterministic and makes no model call',async()=>{
+    const deps=fixture();deps.candidate={...deps.candidate,run:async()=>({ok:false,error:{code:'forbidden'},proposals:[],receipts:[],actionIntents:[]})};
+    const report=await runCoachPilotEvaluation({...input,caseIds:['subject_permission_change']},deps);
     expect(report.ok).toBe(true);if(!report.ok)throw new Error('report expected');
     expect(report.allStructuralChecksPassed).toBe(true);expect(report.injectedProviderCalls).toBe(0);expect(deps.store.execute).not.toHaveBeenCalled();
   });
