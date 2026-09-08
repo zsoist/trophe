@@ -10,7 +10,8 @@ const empty=():PhotoFoodState=>({attachmentId:null,snapshot:null,itemIndex:null,
 export class PhotoFoodController {
  private state=empty();private listeners=new Set<()=>void>();private active:AbortController|null=null;private generation=0;private conversationId='';private action:Extract<PhotoFoodOperation,{operation:'photo.food.apply'}>|null=null;
  snapshot=()=>this.state;subscribe=(listener:()=>void)=>{this.listeners.add(listener);return()=>{this.listeners.delete(listener);};};private publish(state:PhotoFoodState){this.state=state;this.listeners.forEach(listener=>listener());}
- reset(){this.generation++;this.active?.abort();this.active=null;this.action=null;this.publish(empty());}
+ reset(){this.generation++;this.active?.abort();this.active=null;this.action=null;this.conversationId='';this.publish(empty());}
+ moveConversation(conversationId:string){if(conversationId===this.conversationId)return;this.reset();this.conversationId=conversationId;}
  cancel(){if(!this.active)return;this.generation++;this.active.abort();this.active=null;this.publish({...this.state,pending:false,uncertain:Boolean(this.action&&!this.state.receipt),error:this.action?'uncertain':null});}
  dismiss(){if(this.action&&!this.state.receipt)return;this.reset();}
  async select(attachmentId:string,conversationId:string,transport:PhotoFoodTransport){if(this.action&&!this.state.receipt)return false;this.reset();this.conversationId=conversationId;this.publish({...empty(),attachmentId});await this.run({version:'coach-assistant.v2',operation:'photo.food.read',conversationId,turnId:crypto.randomUUID(),attachmentId},transport);return true;}
