@@ -280,6 +280,7 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
     })]);
   } catch(error) {
     if(error instanceof Error&&error.message==='forbidden')return fail('forbidden',403);
+    if(error instanceof Error&&error.message==='budget_blocked')return fail('budget_blocked',503);
     return fail(error instanceof Error&&error.message==='invalid_input'?'invalid_input':'query_failed',error instanceof SyntaxError||error instanceof Error&&error.message==='invalid_input'?400:503);
   } finally {
     clearTimeout(timer);request.signal.removeEventListener('abort',cancel);

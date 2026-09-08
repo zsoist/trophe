@@ -133,7 +133,11 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
   if(response.telemetry.modelCalls>2)throw new Error('context_limit');
   let generated:ProviderResult<unknown>;
   try { generated=await provider({policy:{...taskPolicies.coach_assistant,promptVersion},system,prompt,schema,validator,signal,maxTokens:2000,maxAttempts:1,store:false}); }
-  catch { signal.throwIfAborted();throw new Error('provider_unavailable'); }
+  catch (error) {
+    signal.throwIfAborted();
+    if (error instanceof Error && error.message === 'budget_blocked') throw error;
+    throw new Error('provider_unavailable');
+  }
   signal.throwIfAborted();
   const usage=generated.usage;
   const counts=[usage.inputTokens,usage.outputTokens,usage.reasoningTokens??0,usage.cacheReadTokens??0,usage.cacheWriteTokens??0];

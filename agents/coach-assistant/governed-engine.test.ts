@@ -7,6 +7,7 @@ import { handleCoachRequest } from './handler';
 import { fixtureRepository } from './fixtures';
 import type { GovernedCoachTransport } from './governed-transport';
 import { defaultWorkoutPreferences } from '@/lib/workout/preferences';
+import { ASK_TROPHE_SHARED_PILOT_ID } from '@/lib/workout/shared-pilot-budget';
 
 const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const env = () => ({
@@ -164,5 +165,37 @@ describe('governed LIVE-01 app engine', () => {
     expect(conflicting.status).toBe(503);
     expect((await conflicting.json()).error.code).toBe('budget_blocked');
     expect(factory).toHaveBeenCalledTimes(1);
+  });
+
+  it('stops the authenticated route before provider dispatch when the durable authority reaches its smoke target', async () => {
+    const test = fixture();
+    const seen: PilotBudgetCommand[] = [];
+    const execute = vi.fn(async (command: PilotBudgetCommand) => {
+      seen.push(command);
+      return {
+      storage: 'database' as const,
+      ok: false as const,
+      error: 'budget_blocked' as const,
+      };
+    });
+    const engine = createGovernedCoachEngineBinding({
+      env: env(), actorId: id(1), persistentStore: { execute }, transport: test.transport,
+    });
+    const response = await handleCoachRequest(new Request('https://private.invalid/api/coach-assistant', {
+      method: 'POST', body: JSON.stringify(request),
+    }), {
+      env: env(),
+      guard: async () => ({ userId: id(1) }),
+      createRepository: repository,
+      createGovernedEngine: async () => engine,
+      createFoodService: async () => ({}) as never,
+      now: () => test.options.now,
+    });
+
+    expect(response.status).toBe(503);
+    expect((await response.json()).error.code).toBe('budget_blocked');
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(seen[0].binding.pilotId).toBe(ASK_TROPHE_SHARED_PILOT_ID);
+    expect(test.transport).not.toHaveBeenCalled();
   });
 });

@@ -24,7 +24,7 @@ describe('open v2 conversation with explicit synthetic provider',()=>{
     expect(result.proposals).toEqual([]);expect(result.receipts).toEqual([]);
     expect(result.telemetry.modelCalls).toBe(1);expect(result.telemetry.costUsd).toBe(0);
     const call=vi.mocked(transport).mock.calls[0][0];
-    expect(call.policy).toMatchObject({model:'gpt-5.6-luna',reasoningEffort:'low',maxCostUsd:0});
+    expect(call.policy).toMatchObject({model:'gpt-5.6-luna',reasoningEffort:'low',maxCostUsd:0.0044});
     expect(call.maxAttempts).toBe(1);expect(call.maxTokens).toBe(2000);
     const payload=JSON.parse(call.prompt);expect(payload.history).toEqual(request.history);
     expect(call.prompt).not.toContain('synthetic-client');expect(call.prompt).not.toContain('synthetic-org');
