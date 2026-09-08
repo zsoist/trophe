@@ -93,15 +93,23 @@ it('aborts processing on cancel and offers a fresh recording after review', asyn
 });
 
 it('never autoplays a validated answer and exposes explicit device play and stop controls', async () => {
-  const speak = vi.fn(); const cancel = vi.fn();
-  class Utterance { lang = ''; onend: (() => void) | null = null; onerror: (() => void) | null = null; constructor(public text: string) {} }
+  const speak = vi.fn(); const cancel = vi.fn(); const pause = vi.fn(); const resume = vi.fn();
+  class Utterance { lang = ''; rate = 1; onend: (() => void) | null = null; onerror: (() => void) | null = null; constructor(public text: string) {} }
   vi.stubGlobal('SpeechSynthesisUtterance', Utterance);
-  Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: { speak, cancel } });
+  Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: { speak, cancel, pause, resume } });
   render(<I18nProvider defaultLang="en"><VoiceAnswerPlayback text="Validated answer" descriptor={{ status: 'available_on_request', conversationId: 'conversation', turnId: 'turn', textSource: 'validated_final_answer', syntheticVoice: true, autoplay: false, expiresInMs: 60_000, requiresResponseId: true }} /></I18nProvider>);
   const play = await screen.findByRole('button', { name: 'Listen with device voice' });
   expect(speak).not.toHaveBeenCalled();
   fireEvent.click(play);
-  expect(speak).toHaveBeenCalledWith(expect.objectContaining({ text: 'Validated answer', lang: 'en' }));
+  expect(speak).toHaveBeenCalledWith(expect.objectContaining({ text: 'Validated answer', lang: 'en', rate: 1 }));
+  fireEvent.click(screen.getByRole('button', { name: 'Pause voice playback' }));
+  expect(pause).toHaveBeenCalledOnce();
+  fireEvent.click(screen.getByRole('button', { name: 'Resume voice playback' }));
+  expect(resume).toHaveBeenCalledOnce();
+  fireEvent.change(screen.getByRole('combobox', { name: 'Speed' }), { target: { value: '1.5' } });
+  expect(screen.getByRole('status').textContent).toMatch(/restart from the beginning/);
+  fireEvent.click(screen.getByRole('button', { name: 'Listen with device voice' }));
+  expect(speak).toHaveBeenLastCalledWith(expect.objectContaining({ rate: 1.5 }));
   fireEvent.click(screen.getByRole('button', { name: 'Stop voice playback' }));
   expect(cancel).toHaveBeenCalled();
 });
