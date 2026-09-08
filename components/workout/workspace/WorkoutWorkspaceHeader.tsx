@@ -16,6 +16,7 @@ const titleKeys: Record<string, string> = {
   [WORKOUT_ROUTES.review]: 'workout.workspace_review_title',
   [WORKOUT_ROUTES.live]: 'workout.workspace_live_title',
   [WORKOUT_ROUTES.exercises]: 'workout.workspace_exercises_title',
+  '/dashboard/workout/atlas': 'anatomy.workout_title',
   '/dashboard/workout/history': 'workout.history',
   '/dashboard/workout/stats': 'workout.stats',
   '/dashboard/workout/form-check': 'workout.form_check',
@@ -41,6 +42,7 @@ function WorkoutWorkspaceHeaderContent({ stage, onBack, backDisabled = false }: 
   const title = t(titleKey);
   const isHome = pathname === WORKOUT_ROUTES.home;
   const backHref = workoutBackRoute(pathname, stage, {
+    returnToExercises: searchParams.get('from') === 'exercises',
     replaceExerciseId: searchParams.get('replace')?.trim() || undefined,
     returnRoute: searchParams.get('return') === 'review' ? 'review' : searchParams.get('return') === 'build' ? 'build' : undefined,
   });

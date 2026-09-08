@@ -1,9 +1,11 @@
 'use client';
+import { WorkoutAtlasEntry } from '@/components/anatomy/WorkoutAtlasEntry';
+import { WorkoutCoachEntry } from '@/components/workout/coach/WorkoutCoachEntry';
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Activity, BarChart3, ChevronRight, History, Search } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { ConfirmSheet } from '@/components/ui/ConfirmSheet';
 import { exerciseDisplayName, muscleLabelKey } from '@/components/workout/muscle-groups';
 import { WorkoutAtlasHome } from '@/components/workout/workspace/WorkoutAtlasHome';
@@ -38,8 +40,11 @@ interface WorkoutHomeProps {
   recommendationError?: boolean;
   supportError?: boolean;
   recents: WorkoutSession[];
+  workedExerciseIds?: string[] | null;
   routines: WorkoutHomeTemplate[];
   disabled?: boolean;
+  /** Private design composition only. Normal accounts use the separately gated entry. */
+  coachPreview?: ReactNode;
 }
 
 type ReplacementChoice = {
@@ -112,8 +117,10 @@ export function WorkoutHome({
   recommendationError = false,
   supportError = false,
   recents,
+  workedExerciseIds = null,
   routines,
   disabled = false,
+  coachPreview,
 }: WorkoutHomeProps) {
   const router = useRouter();
   const { lang, t } = useI18n();
@@ -132,6 +139,7 @@ export function WorkoutHome({
   const recoveredTemplate = workspaceTemplate(workspace.state, t('workout.home_workout_draft'));
   const displayedTemplate = workspace.state.draft ? recoveredTemplate : offeredTemplate;
   const activations = useMemo(() => uniqueActivations(displayedTemplate, exercises), [displayedTemplate, exercises]);
+  const workedActivations = useMemo(() => uniqueActivations({ templateKey: 'recorded-today', name: '', muscleSummary: [], exercises: exercises.filter(exercise => workedExerciseIds?.includes(exercise.id)).map(exercise => ({ exerciseId: exercise.id, exerciseName: exercise.name, muscleGroup: exercise.muscle_group, targetSets: 0, targetReps: '' })) }, exercises), [workedExerciseIds, exercises]);
   const isCardioDraft = workspace.state.draft?.kind === 'cardio';
   const targetLabel = displayedTemplate?.muscleSummary.length
     ? displayedTemplate.muscleSummary.map((muscle) => t(muscleLabelKey(muscle))).join(' · ')
@@ -210,8 +218,11 @@ export function WorkoutHome({
         {(programError || recommendationError) && !offeredTemplate ? <div role="alert" className="rounded-xl border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]">{t('workout.program_load_failed')}</div> : null}
         {supportError ? <div role="alert" className="rounded-xl border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] p-3 text-sm text-[var(--content-primary)]">{t('workout.support_data_load_failed')}</div> : null}
 
+        <WorkoutAtlasEntry />
         <WorkoutAtlasHome
           activations={activations}
+          workedActivations={workedActivations}
+          workedAvailable={workedExerciseIds !== null}
           targetLabel={targetLabel}
           emptyState={isCardioDraft ? 'cardio' : 'strength'}
           action={<button type="button" data-testid="workout-primary-action" onClick={primaryAction.action} disabled={disabled && !recoveryStage && !hasDraft} className="btn-gold min-h-11 w-full rounded-xl px-4 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50">{primaryAction.label}</button>}
@@ -219,6 +230,8 @@ export function WorkoutHome({
       </div>
 
       {!recoveryStage ? <WorkoutScheduleStrip program={program} todayName={displayedWorkoutName} todaySource={source} /> : null}
+
+      {!recoveryStage ? coachPreview ?? (process.env.NEXT_PUBLIC_COACH_ASSISTANT_ENABLED === '1' && process.env.NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED !== '1' ? <WorkoutCoachEntry /> : null) : null}
 
       {!recoveryStage ? <section aria-labelledby="workout-destinations-title"><h2 id="workout-destinations-title" className="mb-2 text-sm font-bold tracking-[-0.01em] text-[var(--content-primary)]">{t('workout.home_explore_plan')}</h2><div className="overflow-hidden rounded-[14px] border border-[var(--workout-rail)] bg-[var(--workout-surface)]">
         <Link href={WORKOUT_ROUTES.exercises} className="flex min-h-11 items-center gap-3 px-3 py-2 text-sm font-medium text-[var(--content-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--focus-ring)]"><Search aria-hidden="true" size={16} className="text-[var(--content-muted)]" /><span className="flex-1">{t('workout.home_find_exercise')}</span><ChevronRight aria-hidden="true" size={16} /></Link>

@@ -1,0 +1,30 @@
+import { describe, expect, it } from 'vitest';
+import { invokeOfflineCoachModel } from './provider';
+import { priceCoachUsage } from './economics';
+import { taskPolicies, taskFallbacks } from '@/agents/router/policies';
+
+describe('isolated Luna configuration and accounting', () => {
+  it.each(['none','low','medium'] as const)('sends %s with one attempt and bounded completion including reasoning', async effort => {
+    let body: Record<string, unknown> = {};
+    const result = await invokeOfflineCoachModel({system:'Rules',prompt:'Synthetic facts',signal:new AbortController().signal,effort,
+      fetchImpl:async (_url, init)=>{ body=JSON.parse(String(init?.body)); return new Response(JSON.stringify({
+        id:'offline-generation',choices:[{finish_reason:'tool_calls',message:{tool_calls:[{function:{name:'select_coach_evidence',arguments:JSON.stringify({factIds:[],suggestionCodes:[],escalate:false})}}]}}],
+        usage:{prompt_tokens:2000,completion_tokens:500,prompt_tokens_details:{cached_tokens:1000,cache_write_tokens:500},completion_tokens_details:{reasoning_tokens:300}},
+      }),{status:200}); } });
+    expect(body.reasoning_effort).toBe(effort);
+    expect(body.max_completion_tokens).toBe(2000);
+    expect(body.store).toBe(false);
+    expect(priceCoachUsage(result.usage)).toBeCloseTo(.000845,10);
+  });
+  it('adds a disabled coach task without moving existing health context or fallbacks', () => {
+    expect(taskPolicies.coach_assistant.maxCostUsd).toBe(0);
+    expect(taskPolicies.coach_assistant.reasoningEffort).toBe('low');
+    expect(taskPolicies.coach_insight.provider).toBe('anthropic');
+    expect(taskPolicies.memory_extract.provider).toBe('anthropic');
+    expect(taskFallbacks.coach_assistant).toBeUndefined();
+  });
+  it('never treats absent or invalid usage as free', () => {
+    expect(priceCoachUsage({inputTokens:0,outputTokens:0})).toBeNull();
+    expect(priceCoachUsage({inputTokens:10,outputTokens:5,reasoningTokens:6})).toBeNull();
+  });
+});

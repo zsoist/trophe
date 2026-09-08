@@ -22,7 +22,11 @@ vi.mock('framer-motion', async () => {
   return { AnimatePresence: ({ children }: { children: React.ReactNode }) => children, motion: { div: MotionDiv }, useReducedMotion: () => route.reduced };
 });
 vi.mock('@/components/workout/workspace/WorkoutWorkspaceHeader', () => ({ WorkoutWorkspaceHeader: () => null }));
-vi.mock('@/components/workout/workspace/WorkoutWorkspaceProvider', () => ({ WorkoutWorkspaceProvider: ({ children }: { children: React.ReactNode }) => children }));
+vi.mock('@/lib/supabase', () => ({ supabase: {} }));
+vi.mock('@/components/workout/workspace/WorkoutWorkspaceProvider', () => ({
+  WorkoutWorkspaceProvider: ({ children }: { children: React.ReactNode }) => children,
+  useWorkoutWorkspace: () => ({ state: { stage: 'home', draft: null, startRequest: null, retrospectiveRequest: null } }),
+}));
 
 import WorkoutLayout from '@/app/dashboard/workout/layout';
 

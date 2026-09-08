@@ -5,16 +5,23 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      coach_auth_only:
+        description: Run only the disposable, zero-model-cost coach HTTP/Auth matrix
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.ref }}-${{ inputs.coach_auth_only && 'coach-auth' || 'verify' }}
   cancel-in-progress: true
 
 jobs:
   verify:
+    if: ${{ !inputs.coach_auth_only }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
@@ -241,3 +248,74 @@ jobs:
           name: db-artifacts
           path: artifacts/db/
           if-no-files-found: ignore
+
+  coach-auth:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.coach_auth_only && !github.event.repository.private }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: true
+      CI_REAL_SUPABASE: 1
+      PG_HOST: 127.0.0.1
+      PG_PORT: 54322
+      PG_USER: postgres
+      PG_PASS: postgres
+      PG_DB: postgres
+      PGPASSWORD: postgres
+      NEXT_TELEMETRY_DISABLED: 1
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+      - name: Check ephemeral runner capacity
+        run: |
+          set -euo pipefail
+          available_kib=$(df -Pk . | awk 'NR==2 {print $4}')
+          memory_kib=$(awk '/MemTotal/ {print $2}' /proc/meminfo)
+          test "$available_kib" -ge 20971520
+          test "$memory_kib" -ge 6291456
+          test ! -f .env.local
+          test ! -f supabase/.temp/project-ref
+          docker info >/dev/null
+      - name: Install existing tools
+        run: |
+          sudo apt-get update && sudo apt-get install -y postgresql-client
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Start disposable Supabase Auth and PostgreSQL
+        run: |
+          node_modules/.bin/supabase start --exclude realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor > "$RUNNER_TEMP/supabase-start.log" 2>&1
+      - name: Bootstrap canonical schema with real Auth helpers
+        env:
+          DB_ARTIFACT_DIR: ${{ runner.temp }}/coach-db
+        run: |
+          set -euo pipefail
+          psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "SELECT pg_get_functiondef('auth.uid()'::regprocedure)" > "$RUNNER_TEMP/auth-uid-before.txt"
+          npm run db:bootstrap
+          psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "SELECT pg_get_functiondef('auth.uid()'::regprocedure)" > "$RUNNER_TEMP/auth-uid-after.txt"
+          cmp "$RUNNER_TEMP/auth-uid-before.txt" "$RUNNER_TEMP/auth-uid-after.txt"
+          psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -c "NOTIFY pgrst, 'reload schema'"
+      - name: Exercise UI to real Auth, HTTP and bounded SQL at zero model cost
+        run: node scripts/test/run-coach-auth-e2e.mjs
+      - name: Verify isolated durable preference transactions
+        run: node scripts/test/run-coach-durable-sql.mjs
+      - name: Record exact scope
+        if: always()
+        run: |
+          echo "Coach HTTP/Auth candidate: $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo 'See assertion results in job logs. Disposable local identities and records only. No model evaluation or physical-device performance claim.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload isolated coach UI evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: coach-ui-evidence
+          path: ${{ runner.temp }}/coach-ui-evidence/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Stop disposable stack
+        if: always()
+        run: |
+          if [ -x node_modules/.bin/supabase ]; then
+            node_modules/.bin/supabase stop --no-backup
+          fi

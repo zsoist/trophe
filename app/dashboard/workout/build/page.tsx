@@ -6,7 +6,6 @@ import { WorkoutBuilder, type PlanSaveState, type WorkoutExerciseOption } from '
 import { useWorkoutWorkspace } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
 import { useI18n } from '@/lib/i18n';
 import { supabase } from '@/lib/supabase';
-import { saveWorkoutRoutine } from '@/lib/workout/routine-repository';
 import { WORKOUT_ROUTES, workoutRouteForStage } from '@/lib/workout/workspace-routes';
 import type { WorkoutDraft } from '@/lib/workout/workspace-state';
 
@@ -54,6 +53,7 @@ export default function WorkoutBuildPage() {
     savedRevisionRef.current = null;
     setSaveState('pending');
     try {
+      const { saveWorkoutRoutine } = await import('@/lib/workout/routine-repository');
       const authResult = await supabase.auth.getUser();
       const ownerId = authResult.data.user?.id;
       if (!ownerId) throw new Error('Workout owner is unavailable');

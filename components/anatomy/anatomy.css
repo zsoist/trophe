@@ -1,76 +1,155 @@
 .anatomy-explorer {
-  --anatomy-bone: #dfd5bb;
-  max-width: 1120px;
+  --anatomy-bone: #707875;
+  --atlas-rail: color-mix(in srgb, var(--text-primary) 14%, transparent);
+  --atlas-muted: var(--text-secondary);
+  --atlas-active: color-mix(in srgb, var(--accent) 12%, var(--bg-surface));
+  max-width: 1400px;
   margin: auto;
-  padding: 16px 12px calc(120px + env(safe-area-inset-bottom));
+  padding: 24px 16px calc(100px + env(safe-area-inset-bottom));
   color: var(--text-primary);
   background: var(--bg-primary);
+  accent-color: var(--accent);
+  caret-color: var(--accent);
 }
 .light .anatomy-explorer {
-  --anatomy-bone: #746b57;
+  --anatomy-bone: #8a918e;
+}
+.anatomy-explorer *,
+.anatomy-explorer *::before,
+.anatomy-explorer *::after {
+  box-sizing: border-box;
+}
+.anatomy-explorer ::selection {
+  background: var(--accent);
+  color: var(--bg-primary);
+}
+.anatomy-explorer header {
+  padding: 0 4px 24px;
 }
 .anatomy-explorer h1 {
   font:
-    36px/1.15 var(--font-serif, Georgia),
+    400 clamp(32px, 5vw, 48px)/1.08 var(--font-serif, Georgia),
     serif;
-  margin: 8px 0;
+  letter-spacing: -0.025em;
+  margin: 0 0 12px;
 }
 .anatomy-explorer h2 {
-  font-size: 18px;
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  margin: 0;
+}
+.anatomy-explorer h3 {
+  font-size: 22px;
+  line-height: 1.25;
+  margin: 14px 0 8px;
+  overflow-wrap: anywhere;
 }
 .anatomy-explorer p {
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.55;
 }
-.anatomy-eyebrow {
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-secondary);
+.anatomy-intro {
+  max-width: 65ch;
+  color: var(--atlas-muted);
+  margin: 0;
 }
 .anatomy-workspace {
   display: grid;
-  gap: 18px;
+  gap: 24px;
+  align-items: start;
 }
-.anatomy-stage,
-.anatomy-context {
+.anatomy-stage {
+  position: relative;
   min-width: 0;
   background: var(--bg-surface);
-  border: 1px solid var(--border-default);
   border-radius: 16px;
+  overflow: hidden;
   padding: 12px;
 }
-.anatomy-viewbar,
-.anatomy-actions {
+.anatomy-context {
+  min-width: 0;
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  flex-direction: column;
+  gap: 24px;
 }
 .anatomy-explorer button {
   min-height: 44px;
-  padding: 8px 12px;
-  border: 1px solid var(--border-default);
-  border-radius: 9px;
-  background: var(--bg-primary);
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 550;
   text-align: left;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+.anatomy-explorer button:hover {
+  background: color-mix(in srgb, var(--text-primary) 7%, transparent);
 }
 .anatomy-explorer button[aria-pressed="true"] {
-  border-color: var(--accent);
-  box-shadow: inset 0 -2px var(--accent);
+  color: var(--accent);
+  background: var(--atlas-active);
 }
-.anatomy-explorer button:focus-visible,
-.anatomy-explorer input:focus-visible {
+.anatomy-explorer button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.anatomy-explorer :is(button, input, select, summary, a):focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline-offset: 3px;
+}
+.anatomy-viewbar {
+  display: flex;
+  gap: 2px;
+  width: fit-content;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--bg-primary);
+  position: relative;
+  z-index: 1;
+}
+.anatomy-viewbar button {
+  min-width: 56px;
+  padding: 8px 10px;
+}
+.anatomy-viewbar .anatomy-icon-button {
+  min-width: 44px;
+  border-left: 1px solid var(--atlas-rail);
+  border-radius: 0 8px 8px 0;
+}
+.anatomy-zoom {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+  background: var(--bg-primary);
+  z-index: 1;
+}
+.anatomy-zoom button {
+  width: 44px;
+  padding: 0;
+}
+.anatomy-zoom button + button {
+  border-top: 1px solid var(--atlas-rail);
+  border-radius: 0 0 8px 8px;
 }
 .anatomy-canvas,
 .anatomy-poster {
-  height: 440px;
-  max-height: 65vh;
-  min-height: 280px;
+  height: clamp(300px, 49svh, 470px);
   width: 100%;
   overflow: hidden;
+}
+.anatomy-canvas canvas {
+  display: block;
+  max-width: 100%;
 }
 .anatomy-poster {
   display: flex;
@@ -78,82 +157,349 @@
   align-items: center;
   justify-content: center;
   text-align: center;
+  gap: 8px;
 }
-.anatomy-canvas canvas {
-  display: block;
+.anatomy-poster img {
+  max-height: 58%;
+  width: auto;
   max-width: 100%;
+  object-fit: contain;
 }
-.anatomy-explorer fieldset {
-  border: 0;
-  border-top: 1px solid var(--border-default);
-  padding: 12px 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+.anatomy-poster p {
+  max-width: 30ch;
+  color: var(--atlas-muted);
+  margin: 4px 0;
 }
-.anatomy-explorer fieldset label {
+.anatomy-poster button {
+  background: var(--accent);
+  color: var(--bg-primary);
+  padding-inline: 24px;
+}
+.anatomy-stage-footer {
   display: flex;
   align-items: center;
-  gap: 6px;
-  min-height: 44px;
-  padding: 4px 8px;
+  gap: 4px;
+  border-top: 1px solid var(--atlas-rail);
+  padding-top: 8px;
 }
-.anatomy-explorer input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--accent);
+.anatomy-stage-footer > button {
+  flex-shrink: 0;
+}
+.anatomy-stage-footer .anatomy-icon-button {
+  width: 44px;
+  padding: 0;
+}
+.anatomy-load-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 1;
+  font-size: 11px !important;
+  color: var(--atlas-muted);
+  margin: 0;
+  min-width: 0;
+}
+.anatomy-status-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+.anatomy-panel-heading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 8px;
+}
+.anatomy-panel-heading > svg {
+  color: var(--accent);
+}
+.anatomy-panel-heading > span {
+  margin-left: auto;
+  color: var(--atlas-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.anatomy-panel-hint {
+  color: var(--atlas-muted);
+  margin: 0 0 14px;
+}
+.anatomy-layer-panel {
+  padding: 0 4px;
+}
+.anatomy-explorer fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.anatomy-layer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  min-height: 56px;
+  border-radius: 9px;
+  background: var(--bg-surface);
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.anatomy-layer > svg {
+  flex-shrink: 0;
+  color: var(--atlas-muted);
+}
+.anatomy-layer > span {
+  font-size: 12px;
+  font-weight: 550;
+  line-height: 1.3;
+  flex: 1;
+}
+.anatomy-layer small {
+  font-size: 10px;
+  color: var(--atlas-muted);
+  font-variant-numeric: tabular-nums;
+}
+.anatomy-layer[data-active="true"] {
+  background: var(--atlas-active);
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+}
+.anatomy-layer[data-active="true"] > svg {
+  color: var(--accent);
+}
+.anatomy-layer input {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  flex-shrink: 0;
+  border: 1px solid var(--atlas-muted);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.anatomy-layer input:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 3px var(--bg-surface);
+}
+.anatomy-selection-panel {
+  padding: 20px;
+  background: var(--bg-surface);
+  border-radius: 12px;
+  order: 2;
+}
+.anatomy-selection-panel > h2 {
+  color: var(--atlas-muted);
+  font-size: 12px;
+}
+.anatomy-selection-panel p {
+  color: var(--atlas-muted);
+  margin: 6px 0;
+}
+.anatomy-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 14px;
+}
+.anatomy-actions button {
+  background: var(--bg-primary);
+}
+.anatomy-selection-panel ul {
+  list-style: none;
+  padding: 8px 0 0;
+  margin: 8px 0 0;
+  border-top: 1px solid var(--atlas-rail);
+}
+.anatomy-selection-panel li button {
+  justify-content: flex-start;
+  padding: 8px 0;
+  font-size: 12px;
+}
+.anatomy-catalogue {
+  border-top: 1px solid var(--atlas-rail);
+  padding-top: 24px;
 }
 .anatomy-search {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  position: relative;
+  margin: 14px 0 12px;
+  align-items: center;
+}
+.anatomy-search > svg {
+  position: absolute;
+  left: 14px;
+  color: var(--atlas-muted);
+  pointer-events: none;
 }
 .anatomy-search input {
   width: 100%;
+  min-height: 48px;
   font-size: 16px;
-  padding: 12px;
+  padding: 12px 12px 12px 42px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--atlas-rail);
+  border-radius: 10px;
+}
+.anatomy-search input::placeholder {
+  color: var(--atlas-muted);
+  font-size: 13px;
+  opacity: 1;
+}
+.anatomy-filters {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 10px;
+}
+.anatomy-filters label {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.anatomy-filters label > span {
+  font-size: 11px;
+  color: var(--atlas-muted);
+}
+.anatomy-filters select {
+  min-height: 44px;
+  width: 100%;
+  border: 1px solid var(--atlas-rail);
+  border-radius: 8px;
   background: var(--bg-primary);
   color: var(--text-primary);
-  border: 1px solid var(--border-default);
-  border-radius: 10px;
+  font-size: 13px;
+  padding: 8px;
+}
+.anatomy-result-count {
+  color: var(--atlas-muted);
+  font-variant-numeric: tabular-nums;
+  margin: 16px 0 8px;
+  font-size: 11px !important;
 }
 .anatomy-results {
   list-style: none;
   padding: 0;
+  margin: 0 0 12px;
   max-height: 320px;
   overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--atlas-rail) transparent;
+}
+.anatomy-results li + li {
+  border-top: 1px solid var(--atlas-rail);
 }
 .anatomy-results button {
   display: flex;
   flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
   width: 100%;
-  margin-bottom: 5px;
+  border-radius: 0;
+  padding: 13px 8px;
+}
+.anatomy-result-name {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.anatomy-result-name svg {
+  flex-shrink: 0;
+  color: var(--atlas-muted);
 }
 .anatomy-results small {
-  color: var(--text-secondary);
+  color: var(--atlas-muted);
+  font-size: 10px;
+  font-weight: 400;
+}
+.anatomy-empty {
+  text-align: center;
+  padding: 24px 12px;
+  color: var(--atlas-muted);
+}
+.anatomy-empty button {
+  color: var(--accent);
+}
+.anatomy-notice {
+  color: var(--text-primary);
+  border-top: 1px solid var(--accent);
+  padding-top: 12px;
 }
 .anatomy-explorer details {
-  margin-top: 20px;
-  border-top: 1px solid var(--border-default);
-  padding: 16px 0;
+  margin-top: 32px;
+  border-top: 1px solid var(--atlas-rail);
+  padding: 16px 4px;
+  color: var(--atlas-muted);
 }
 .anatomy-explorer summary {
   min-height: 44px;
   cursor: pointer;
+  font-size: 12px;
+}
+.anatomy-explorer a {
+  text-underline-offset: 3px;
 }
 .anatomy-hash {
   overflow-wrap: anywhere;
   font-family: monospace;
   font-size: 11px !important;
 }
-@media (min-width: 768px) {
+.anatomy-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+@media (min-width: 900px) {
+  .anatomy-explorer {
+    padding: 40px 32px 80px;
+  }
   .anatomy-workspace {
-    grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr);
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 32px;
+  }
+  .anatomy-stage {
+    position: sticky;
+    top: 20px;
+    padding: 16px;
   }
   .anatomy-canvas,
   .anatomy-poster {
-    height: 600px;
-    max-height: 70vh;
+    height: clamp(480px, 68svh, 780px);
+  }
+  .anatomy-context {
+    max-height: calc(100svh - 40px);
+    overflow-y: auto;
+    padding-right: 8px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--atlas-rail) transparent;
+  }
+}
+@media (max-width: 359px) {
+  .anatomy-explorer {
+    padding-inline: 10px;
+  }
+  .anatomy-layer {
+    gap: 5px;
+    padding: 8px;
+  }
+  .anatomy-layer small {
+    display: none;
+  }
+  .anatomy-stage-footer button {
+    padding-inline: 8px;
+    font-size: 12px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -163,9 +509,853 @@
   }
 }
 
-.anatomy-poster img {
-  max-height: 65%;
-  width: auto;
-  max-width: 100%;
-  object-fit: contain;
+.anatomy-panel-nav {
+  display: flex;
+  padding: 4px;
+  gap: 4px;
+  background: var(--bg-surface);
+  border-radius: 10px;
 }
+.anatomy-panel-nav button {
+  flex: 1;
+}
+@media (max-width: 899px) {
+  .anatomy-context[data-panel="layers"] .anatomy-catalogue,
+  .anatomy-context[data-panel="search"] .anatomy-layer-panel {
+    display: none;
+  }
+  .anatomy-catalogue {
+    border-top: 0;
+    padding-top: 0;
+  }
+}
+@media (min-width: 900px) {
+  .anatomy-panel-nav {
+    display: none;
+  }
+}
+
+.anatomy-category-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+  margin: 16px 0;
+}
+.anatomy-category-grid button {
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 9px;
+  min-height: 82px;
+  padding: 13px 6px;
+  font-size: 11px;
+  text-align: center;
+  background: var(--bg-surface);
+  border: 1px solid transparent;
+}
+.anatomy-category-grid button svg {
+  color: var(--atlas-muted);
+}
+.anatomy-category-grid button[aria-pressed="true"] {
+  border-color: var(--accent);
+}
+.anatomy-category-grid button[aria-pressed="true"] svg {
+  color: var(--accent);
+}
+.anatomy-group-list {
+  padding-block: 0 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.anatomy-group-list p {
+  width: 100%;
+  margin: 0 0 5px;
+  color: var(--atlas-muted);
+  font-size: 12px;
+}
+.anatomy-group-list button {
+  border: 1px solid var(--atlas-rail);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+.anatomy-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+.anatomy-presets button {
+  font-size: 11px;
+  background: var(--bg-surface);
+  padding-inline: 8px;
+}
+.anatomy-full-catalogue {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 44px;
+  font-size: 11px;
+  color: var(--atlas-muted);
+  cursor: pointer;
+}
+.anatomy-full-catalogue input {
+  accent-color: var(--accent);
+  width: 16px;
+  height: 16px;
+}
+.anatomy-browse-start {
+  color: var(--atlas-muted);
+  padding: 8px 0;
+}
+.anatomy-pick-card {
+  position: absolute;
+  bottom: 75px;
+  left: 20px;
+  right: 20px;
+  max-width: 360px;
+  z-index: 2;
+  padding: 14px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg-primary) 90%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 12px 32px #0003;
+  animation: atlas-card-enter 150ms ease-out;
+}
+.anatomy-pick-title {
+  display: flex;
+  gap: 8px;
+  align-items: start;
+  justify-content: space-between;
+}
+.anatomy-pick-title h2 {
+  font-size: 18px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.anatomy-pick-title > button {
+  flex-shrink: 0;
+  width: 44px;
+  padding: 0;
+  margin: -6px -6px 0 0;
+}
+.anatomy-pick-card p {
+  font-size: 11px;
+  margin: 3px 0;
+  color: var(--atlas-muted);
+}
+.anatomy-pick-title p {
+  font-size: 10px;
+  margin: 0 0 5px;
+}
+.anatomy-pick-card .anatomy-actions {
+  margin-top: 8px;
+}
+.anatomy-pick-card .anatomy-actions button {
+  font-size: 11px;
+}
+.anatomy-explorer :is(button, .anatomy-layer) {
+  transition:
+    background-color 120ms ease-out,
+    border-color 120ms ease-out;
+}
+@keyframes atlas-card-enter {
+  from {
+    opacity: 0.7;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .anatomy-explorer * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+.anatomy-pick-card {
+  max-width: 300px;
+}
+.anatomy-pick-card[data-edge="top"] {
+  top: 80px;
+  bottom: auto;
+}
+.anatomy-pick-card .anatomy-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.anatomy-pick-card .anatomy-actions button {
+  padding: 6px 4px;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.anatomy-depth-toggle {
+  margin-top: 12px;
+  color: var(--accent) !important;
+  padding-left: 0 !important;
+}
+.anatomy-training-controls {
+  padding: 0 4px 20px;
+}
+.anatomy-training-groups {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.anatomy-training-groups button {
+  flex-direction: column;
+  gap: 9px;
+  min-height: 82px;
+  background: var(--bg-surface);
+  border: 1px solid transparent;
+  padding: 12px 6px;
+  border-radius: 12px;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    transform 150ms ease;
+}
+.anatomy-training-groups button:active {
+  transform: scale(0.97);
+}
+.anatomy-training-groups button svg {
+  color: var(--atlas-muted);
+}
+.anatomy-training-groups button[aria-pressed="true"] {
+  border-color: var(--accent);
+}
+.anatomy-training-groups button[aria-pressed="true"] svg {
+  color: var(--accent);
+}
+.anatomy-gesture-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--atlas-muted);
+  font-size: 11px;
+}
+.anatomy-stage {
+  scroll-margin-top: 16px;
+}
+@media (min-width: 900px) {
+  .anatomy-workout-mode {
+    display: grid;
+    grid-template-columns: 340px minmax(0, 1fr);
+    gap: 0 28px;
+    align-items: start;
+  }
+  .anatomy-workout-mode > header,
+  .anatomy-workout-mode > details {
+    grid-column: 1 / -1;
+  }
+  .anatomy-workout-mode .anatomy-workspace {
+    position: sticky;
+    top: 20px;
+  }
+}
+.anatomy-focus-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 20px;
+}
+.anatomy-focus-summary h2 {
+  font-size: 20px;
+}
+.anatomy-focus-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  list-style: none;
+  margin: 8px 0 12px;
+  padding: 0;
+}
+.anatomy-focus-legend li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.anatomy-focus-legend li > span:first-child {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.anatomy-exercise-link {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.anatomy-workout-mode .anatomy-workspace {
+  grid-template-columns: minmax(0, 1fr);
+}
+.anatomy-workout-mode .anatomy-context {
+  display: none;
+}
+.anatomy-workout-mode .anatomy-stage {
+  position: relative;
+  top: auto;
+  max-width: 900px;
+  width: 100%;
+  margin-inline: auto;
+}
+.anatomy-context-note {
+  color: var(--atlas-muted);
+  font-size: 10px !important;
+  padding-inline: 4px;
+  margin: 0 0 8px;
+}
+.anatomy-workout-mode .anatomy-canvas {
+  height: clamp(360px, 58svh, 650px);
+}
+
+/* Current selection leads; the grid opens only when choosing a different group. */
+.anatomy-selection-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.anatomy-selection-bar .anatomy-group-selector {
+  justify-content: space-between;
+  flex: 1;
+  min-height: 48px;
+  padding: 12px 16px;
+  border: 1px solid var(--atlas-rail);
+  border-radius: 12px;
+}
+.anatomy-group-selector[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+.anatomy-group-selector svg {
+  transition: transform 180ms ease-out;
+}
+.anatomy-explorer .anatomy-exercise-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  color: var(--bg-primary);
+  background: var(--accent);
+  font-size: 14px;
+  font-weight: 650;
+  text-decoration: none;
+}
+.anatomy-explorer .anatomy-current-group {
+  font-size: clamp(34px, 5vw, 44px);
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  margin: 24px 0 8px;
+  font-weight: 650;
+}
+.anatomy-selection-help {
+  color: var(--atlas-muted);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0 0 20px;
+}
+.anatomy-training-groups {
+  margin: 16px 0;
+}
+.anatomy-focus-summary {
+  margin-top: 16px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.anatomy-focus-summary h3 {
+  font-size: 14px;
+  margin: 0;
+}
+.anatomy-focus-summary button {
+  font-size: 12px;
+  padding-inline: 8px;
+}
+.anatomy-focus-legend {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin: 8px 0 16px;
+}
+.anatomy-focus-legend li {
+  color: var(--text-primary);
+  font-size: 14px;
+  align-items: baseline;
+}
+.anatomy-focus-legend small {
+  display: block;
+  color: var(--atlas-muted);
+  font-size: 12px;
+  margin-top: 4px;
+}
+.anatomy-group-details {
+  color: var(--atlas-muted);
+  font-size: 12px;
+  margin-top: 16px;
+}
+.anatomy-group-details summary,
+.anatomy-source-detail summary {
+  cursor: pointer;
+  min-height: 44px;
+  align-content: center;
+}
+.anatomy-group-details p {
+  line-height: 1.6;
+}
+.anatomy-viewbar select {
+  min-height: 44px;
+  min-width: 112px;
+  color: var(--accent);
+  background: var(--bg-primary);
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+}
+.anatomy-source-detail {
+  color: var(--atlas-muted);
+  font-size: 11px;
+}
+.anatomy-source-detail p {
+  overflow-wrap: anywhere;
+}
+.anatomy-pick-title h2 {
+  font-size: 22px;
+  line-height: 1.15;
+}
+@media (max-width: 899px) {
+  .anatomy-training-controls {
+    padding-bottom: 12px;
+  }
+  .anatomy-selection-bar {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    background: var(--bg-primary);
+    padding-block: 8px;
+  }
+  .anatomy-focus-legend {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 16px;
+  }
+  .anatomy-workout-mode .anatomy-canvas {
+    height: clamp(360px, 58svh, 650px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .anatomy-group-selector svg {
+    transition: none;
+  }
+}
+
+.anatomy-selection-bar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  grid-column: 1 / -1;
+  background: var(--bg-primary);
+  padding-block: 8px;
+  margin-bottom: 12px;
+}
+.anatomy-group-selector > span {
+  display: grid;
+  text-align: left;
+  gap: 2px;
+}
+.anatomy-group-selector small {
+  font-size: 11px;
+  color: var(--atlas-muted);
+  font-weight: 400;
+}
+.anatomy-group-selector strong {
+  font-size: 15px;
+  line-height: 1.2;
+}
+.anatomy-selection-bar .anatomy-training-groups {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: min(100%, 440px);
+  margin: 0;
+  padding: 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--atlas-rail);
+  border-radius: 12px;
+  max-height: 65svh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.anatomy-selection-bar .anatomy-group-selector {
+  max-width: 300px;
+}
+.anatomy-selection-bar .anatomy-exercise-button {
+  min-height: 60px;
+}
+.anatomy-stage {
+  scroll-margin-top: 92px;
+}
+
+.anatomy-view-picker {
+  position: relative;
+}
+.anatomy-view-picker > button {
+  color: var(--accent);
+  gap: 10px;
+  min-width: 132px;
+  justify-content: space-between;
+}
+.anatomy-view-options {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 180px;
+  padding: 6px;
+  background: var(--bg-primary);
+  border: 1px solid var(--atlas-rail);
+  border-radius: 12px;
+}
+.anatomy-view-options button {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  min-height: 48px;
+  padding: 12px;
+  border-radius: 8px;
+}
+.anatomy-viewbar:focus-within {
+  z-index: 4;
+}
+
+.anatomy-muscle-options {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 20px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.anatomy-muscle-options button {
+  width: 100%;
+  min-height: 76px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: start;
+  gap: 10px;
+  text-align: left;
+  background: var(--bg-surface);
+  border: 1px solid transparent;
+  border-radius: 12px;
+}
+.anatomy-muscle-options button[aria-pressed="true"] {
+  border-color: var(--accent);
+}
+.anatomy-muscle-options strong {
+  display: block;
+  font-size: 13px;
+  line-height: 1.35;
+  font-weight: 600;
+}
+.anatomy-muscle-options small {
+  display: block;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--atlas-muted);
+  margin-top: 4px;
+}
+.anatomy-muscle-options button > svg {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--atlas-muted);
+}
+.anatomy-muscle-swatch {
+  display: block;
+  width: 8px;
+  height: 28px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.anatomy-region-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  margin: 16px 0;
+  background: var(--bg-surface);
+  border-radius: 12px;
+}
+.anatomy-region-tabs button {
+  flex: 1;
+  padding: 8px;
+  min-width: 0;
+  font-size: 12px;
+}
+.anatomy-viewbar .anatomy-color-toggle {
+  border-left: 0;
+  border-radius: 8px;
+  margin-left: 4px;
+}
+@media (min-width: 900px) {
+  .anatomy-muscle-options {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 380px) {
+  .anatomy-muscle-options {
+    grid-template-columns: 1fr;
+  }
+  .anatomy-view-picker > button {
+    min-width: 104px;
+    gap: 6px;
+  }
+}
+
+.anatomy-focus-caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  background: var(--bg-primary);
+  border-radius: 10px;
+  margin-block: 8px;
+  font-size: 13px;
+}
+.anatomy-focus-caption button {
+  min-width: 44px;
+}
+
+/* Muscle Atlas: compact brand, useful location previews and explicit return. */
+.anatomy-brand-header {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  border-bottom: 1px solid var(--atlas-rail);
+  margin-bottom: 16px;
+}
+.anatomy-brand-mark {
+  width: 76px;
+  height: 76px;
+  border-radius: 18px;
+}
+.anatomy-brand-copy {
+  min-width: 0;
+}
+.anatomy-brand-header h1 {
+  margin-bottom: 8px;
+  font-size: clamp(30px, 5vw, 46px);
+}
+.anatomy-explorer .anatomy-depth-toggle {
+  grid-column: 1 / -1;
+  display: flex;
+  width: 100%;
+  justify-content: flex-start;
+  gap: 16px;
+  padding: 18px !important;
+  margin-top: 4px;
+  border: 1px solid var(--atlas-rail);
+  border-radius: 14px;
+  background: var(--bg-surface);
+}
+.anatomy-depth-toggle span {
+  flex: 1;
+}
+.anatomy-depth-toggle strong {
+  display: block;
+  font-size: 16px;
+}
+.anatomy-depth-toggle small {
+  display: block;
+  color: var(--atlas-muted);
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 400;
+  margin-top: 5px;
+}
+.anatomy-depth-toggle > svg {
+  flex-shrink: 0;
+}
+.anatomy-explorer {
+  --atlas-preview-line: color-mix(
+    in srgb,
+    var(--text-secondary) 60%,
+    transparent
+  );
+}
+.anatomy-muscle-options {
+  gap: 8px;
+}
+.anatomy-muscle-options li {
+  min-width: 0;
+}
+.anatomy-muscle-options button {
+  height: 100%;
+  padding: 10px;
+  gap: 9px;
+  position: relative;
+  min-height: 90px;
+}
+.anatomy-muscle-options button > span {
+  min-width: 0;
+  flex: 1;
+}
+.anatomy-muscle-options strong {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.anatomy-muscle-options button > svg.anatomy-muscle-preview {
+  width: 38px;
+  height: 58px;
+  margin: 0;
+  flex: 0 0 38px;
+}
+.anatomy-muscle-options button > svg:not(.anatomy-muscle-preview) {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 11px;
+  height: 11px;
+  color: var(--accent);
+}
+.anatomy-muscle-count {
+  color: var(--atlas-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.anatomy-explorer .anatomy-show-group {
+  min-height: 44px;
+  border: 1px solid var(--atlas-rail);
+  background: var(--bg-primary);
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+.anatomy-training-controls > .anatomy-show-group {
+  width: 100%;
+}
+.anatomy-focus-caption {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.anatomy-focus-caption strong {
+  flex: 1;
+  min-width: 120px;
+}
+.anatomy-focus-caption .anatomy-show-group {
+  flex-basis: 100%;
+}
+@media (min-width: 900px) {
+  .anatomy-brand-header {
+    grid-template-columns: 96px minmax(0, 1fr) minmax(260px, 360px);
+    gap: 24px;
+  }
+  .anatomy-brand-mark {
+    width: 96px;
+    height: 96px;
+  }
+  .anatomy-brand-header .anatomy-depth-toggle {
+    grid-column: auto;
+    margin: 0;
+  }
+  .anatomy-muscle-options button {
+    min-height: 76px;
+  }
+  .anatomy-muscle-options strong {
+    font-size: 14px;
+  }
+}
+
+.anatomy-authored-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--atlas-muted);
+  margin-top: 4px;
+}
+
+/* Contextual exercise guides share the atlas palette and leave the scene mounted. */
+.atlas-exercise-suggestions { padding: 12px 0; border-top: 1px solid var(--border-default); margin-top: 12px; }
+.anatomy-stage > .atlas-exercise-suggestions { padding: 16px; }
+.atlas-exercise-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; font-size:13px; }
+.atlas-exercise-row { display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; text-align:left; padding:12px 0; border:0; border-bottom:1px solid var(--border-default); background:transparent; color:var(--text-primary); cursor:pointer; }
+.atlas-exercise-row span { min-width:0; }
+.atlas-exercise-row strong { display:block; font-size:14px; font-weight:600; overflow-wrap:anywhere; }
+.atlas-exercise-row small { display:block; color:var(--text-secondary); font-size:11px; margin-top:4px; }
+.atlas-exercise-row > svg { flex-shrink:0; color:var(--accent); }
+.atlas-exercise-more, .atlas-exercise-library { display:flex; align-items:center; justify-content:center; gap:8px; padding:12px; width:100%; min-height:44px; margin-top:12px; border:1px solid var(--border-default); border-radius:12px; background:transparent; color:var(--text-primary); font-size:13px; cursor:pointer; text-decoration:none; }
+.atlas-exercise-dialog { --atlas-preview-line:color-mix(in srgb, var(--text-secondary) 65%, transparent); --atlas-muted:var(--text-secondary); padding:0; border:1px solid var(--border-default); border-radius:24px 24px 0 0; width:min(100%, 620px); max-width:100%; max-height:90dvh; margin:auto auto 0; background:var(--bg-primary); color:var(--text-primary); box-shadow:0 -12px 60px #0004; }
+.atlas-exercise-dialog::backdrop { background:#0009; backdrop-filter:blur(4px); }
+.atlas-exercise-sheet { padding-bottom:env(safe-area-inset-bottom, 12px); }
+.atlas-exercise-toolbar { display:flex; align-items:center; gap:12px; position:sticky; top:0; padding:12px 16px; background:var(--bg-primary); border-bottom:1px solid var(--border-default); z-index:1; }
+.atlas-exercise-toolbar span { flex:1; font-size:13px; color:var(--text-secondary); }
+.atlas-exercise-toolbar button { display:grid; place-items:center; flex-shrink:0; width:44px; height:44px; border:0; border-radius:50%; color:var(--text-primary); background:var(--bg-surface); cursor:pointer; }
+.atlas-exercise-content { padding:24px; }
+.atlas-exercise-content h2 { margin:0 0 12px; font-size:28px; line-height:1.15; letter-spacing:-.03em; }
+.atlas-exercise-content h3 { font-size:15px; margin:0 0 12px; }
+.atlas-exercise-content p { color:var(--text-secondary); font-size:14px; line-height:1.6; }
+.atlas-exercise-content section { margin-top:24px; }
+.atlas-exercise-equipment { display:flex; align-items:center; gap:8px; }
+.atlas-exercise-guide { padding:20px; border-radius:16px; background:var(--bg-surface); }
+.atlas-exercise-guide p { margin-bottom:0; color:var(--text-primary); }
+.atlas-exercise-muscles { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.atlas-exercise-muscles > div { display:flex; align-items:center; gap:10px; min-width:0; }
+.atlas-exercise-muscles svg { width:40px; height:84px; flex-shrink:0; }
+.atlas-exercise-muscles strong { display:block; font-size:12px; overflow-wrap:anywhere; }
+.atlas-exercise-muscles small { display:block; font-size:11px; color:var(--text-secondary); margin-top:4px; }
+.atlas-exercise-dialog :is(button,a):focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+.atlas-exercise-dialog .atlas-exercise-row:hover { background:var(--bg-surface); }
+.anatomy-pick-card { max-height:min(70dvh, 520px); overflow-y:auto; overscroll-behavior:contain; }
+.anatomy-pick-card .atlas-exercise-row { border-radius:0; padding:10px 0; background:transparent; }
+@media(min-width:640px) { .atlas-exercise-dialog { margin:auto; border-radius:24px; } }
+
+.anatomy-explorer .atlas-exercise-row { justify-content:space-between; border-bottom:1px solid var(--atlas-rail); }
+.anatomy-explorer .atlas-exercise-more { border:1px solid var(--atlas-rail); }
+.anatomy-pick-card { max-width:360px; }
+.anatomy-pick-card .anatomy-source-detail { margin:8px 0 0; padding:0; border-top:1px solid var(--atlas-rail); }
+.anatomy-pick-card .anatomy-source-detail summary { padding:8px 0; }
+.atlas-exercise-thumbnail { display:grid; place-items:center; width:64px; height:76px; border-radius:10px; overflow:hidden; background:var(--bg-surface); flex-shrink:0; color:var(--accent); }
+.atlas-exercise-thumbnail img { width:100%; height:100%; object-fit:cover; }
+.atlas-exercise-row-copy { flex:1; }
+.atlas-exercise-targets { display:block; color:var(--text-primary); font-size:11px; margin-top:7px; line-height:1.4; }
+.atlas-exercise-row .atlas-exercise-row-copy small { line-height:1.4; }
+.atlas-exercise-dialog[data-detail=true] { width:min(100%, 900px); }
+.atlas-exercise-dialog[data-detail=true] .atlas-exercise-content { padding:16px; }
+.atlas-exercise-dialog .exercise-detail h2 { font-size:18px; line-height:1.35; letter-spacing:-.02em; }
+.atlas-exercise-dialog .exercise-detail h3 { margin:0; font-size:12px; }
+.atlas-exercise-dialog .exercise-detail__identity h1 { font-family:inherit; font-size:30px; }
+.atlas-exercise-dialog .exercise-detail button { font:inherit; }
+.atlas-exercise-dialog .exercise-detail__media-meta { top:8px; left:8px; }
+.atlas-exercise-dialog .exercise-detail__phase { margin-top:20px; }
+.atlas-exercise-dialog .exercise-detail__anatomy .muscle-atlas__header { flex-wrap:wrap; }
+.private-review-switch { display:flex; gap:8px; max-width:1100px; margin:12px auto; padding:0 16px; }
+.private-review-switch button { padding:10px 14px; min-height:44px; border:1px solid var(--border-default); border-radius:10px; color:var(--text-secondary); background:var(--bg-surface); font:inherit; font-size:12px; }
+.private-review-switch button[aria-pressed=true] { border-color:var(--accent); color:var(--text-primary); }
+.private-home-preview { max-width:840px; margin:24px auto; padding:0 16px 64px; }
+
+.atlas-information-trigger { display:grid; place-items:center; width:36px; height:36px; border:0; border-radius:50%; background:transparent; color:var(--text-secondary); cursor:pointer; }
+.atlas-information-dialog { position:fixed; inset:0; margin:auto; width:min(540px,calc(100% - 24px)); max-height:80dvh; overflow:auto; padding:24px; border:1px solid var(--border-default); border-radius:20px; background:var(--bg-surface); color:var(--text-primary); font-size:13px; line-height:1.6; }
+.atlas-information-dialog::backdrop { background:#0009; backdrop-filter:blur(5px); }
+.atlas-information-dialog header { display:flex; justify-content:space-between; align-items:center; gap:16px; }
+.atlas-information-dialog h2 { font-size:20px; margin:0; }
+.atlas-information-dialog header button { width:44px; height:44px; border:0; color:inherit; background:transparent; cursor:pointer; }
+.atlas-information-dialog p { overflow-wrap:anywhere; }
+.anatomy-brand-header { position:relative; }
+.anatomy-brand-header > .atlas-information { position:absolute; right:0; top:0; }
+.anatomy-brand-copy { padding-right:32px; }
+.anatomy-workout-mode .anatomy-training-controls:empty { display:none; }
+.anatomy-workout-mode .anatomy-training-controls { padding-top:8px; padding-bottom:8px; }

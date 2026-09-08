@@ -1,11 +1,10 @@
 'use client';
 
-import Link from 'next/link';
-import {activeAtlasRelease} from '@/lib/anatomy/release';
+import type { WorkoutRouteContext } from '@/lib/workout/workspace-routes';
+import { WorkoutAtlasEntry } from '@/components/anatomy/WorkoutAtlasEntry';
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Check, Dumbbell, Plus, RefreshCw, Trophy } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
-import { supabase } from '@/lib/supabase';
 import type { Exercise, Language } from '@/lib/types';
 import type { AnatomyMuscleId } from '@/lib/workout/anatomy';
 import { exercisePosterAltKey, resolveExerciseMedia } from '@/lib/workout/exercise-media';
@@ -34,6 +33,7 @@ export interface ExerciseDetailProps {
   playbackDisabled?: boolean;
   actionLabel?: string;
   actionAriaLabel?: string;
+  atlasContext?: WorkoutRouteContext;
 }
 
 const breathingPattern = /\b(?:breath\w*|inhale\w*|exhale\w*|respir\w*|inhala\w*|exhala\w*)\b|αναπν|εισπν|εκπν/i;
@@ -101,6 +101,7 @@ export function ExerciseDetail({
   playbackDisabled = false,
   actionLabel,
   actionAriaLabel,
+  atlasContext,
 }: ExerciseDetailProps) {
   const { t, lang } = useI18n();
   const [unit] = useWeightUnit();
@@ -144,7 +145,9 @@ export function ExerciseDetail({
       setPrState({ requestKey, value: null });
     });
     void (async () => {
-      // The authenticated browser client and joined user filter preserve workout_sets RLS.
+      // Load authenticated history only for a real user/exercise identity. Guest atlas guides never open a database client.
+      const { supabase } = await import('@/lib/supabase');
+      if (!active) return;
       const { data, error } = await supabase
         .from('workout_sets')
         .select('weight_kg, reps, is_warmup, workout_sessions!inner(user_id, session_date)')
@@ -214,7 +217,7 @@ export function ExerciseDetail({
 
       <div className="exercise-detail__body">
         <div className="exercise-detail__anatomy">
-          {presentation==='route'&&activeAtlasRelease(process.env.NEXT_PUBLIC_ANATOMY_ATLAS_ENABLED)&&<Link prefetch={false} href={`/dashboard/anatomy${selectedMuscle?`?muscle=${selectedMuscle}`:''}`} className="inline-flex min-h-11 items-center underline">{t('anatomy.title')}</Link>}
+          {presentation === 'route' && <WorkoutAtlasEntry muscle={selectedMuscle} context={atlasContext} />}
           {media.activations.length > 0 ? (
             <MuscleAtlas
               activations={media.activations}

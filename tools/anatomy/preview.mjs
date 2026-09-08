@@ -7,6 +7,8 @@ import { createServer } from "node:http";
 import { build } from "esbuild";
 import { gzipSync } from "node:zlib";
 import { tsImport } from "tsx/esm/api";
+import postcss from "postcss";
+import tailwind from "@tailwindcss/postcss";
 const exportAt = process.argv.indexOf("--export-review");
 const exportDirectory =
   exportAt >= 0 ? resolve(process.argv[exportAt + 1]) : null;
@@ -29,11 +31,58 @@ if (
 )
   throw Error("Commit review code before exporting an exact-SHA deployment");
 const light = process.argv.includes("--light");
+const authoredAt = process.argv.indexOf("--authored");
+const authoredPath =
+  authoredAt < 0 ? null : resolve(process.argv[authoredAt + 1]);
+const { validateAuthored } = await tsImport(
+  "../../lib/anatomy/authored.ts",
+  import.meta.url,
+);
+const authoredSupplement = authoredPath
+  ? validateAuthored(JSON.parse(await readFile(authoredPath, "utf8")))
+  : undefined;
 const manifestBytes = await readFile(join(directory, "manifest.json"));
 if (manifestBytes.length > 8 * 1024 * 1024) throw Error("Manifest cap");
 const manifest = validateAtlas(JSON.parse(manifestBytes));
 const assets = new Map();
+assets.set("/anatomy/muscle-atlas-mark.webp", {
+  bytes: await readFile(join(root, "public/anatomy/muscle-atlas-mark.webp")),
+  mime: "image/webp",
+});
+// Serve only media resolved by the production catalogue; never candidate or AG2 review media.
+const { resolveExerciseMedia } = await tsImport('../../lib/workout/exercise-media.ts', import.meta.url);
+const { ATLAS_EXERCISES } = await tsImport('../../lib/anatomy/exercises.ts', import.meta.url);
+for (const exercise of ATLAS_EXERCISES) {
+  const media = resolveExerciseMedia({ name: exercise.name, equipment: exercise.equipment, muscleGroup: exercise.muscle_group });
+  for (const url of [media.posterSrc, media.motionSrc, media.mobileMotionSrc].filter(Boolean)) {
+    if (!/^\/workout(?:-v[23])?\//.test(url) || url.includes('..')) throw Error('Unexpected catalogue media path');
+    const extension = url.split('.').at(-1);
+    const mime = { webp: 'image/webp', svg: 'image/svg+xml', webm: 'video/webm', mp4: 'video/mp4' }[extension];
+    if (!mime) throw Error('Unexpected catalogue media type');
+    assets.set(url, { bytes: await readFile(join(root, 'public', url)), mime });
+  }
+}
+const styles = await postcss([tailwind({ base: root })]).process(await readFile(join(root, 'app/globals.css'), 'utf8'), { from: join(root, 'app/globals.css') });
+assets.set('/_qa/workout.css', { bytes: Buffer.from(styles.css), mime: 'text/css' });
+assets.set('/device-check.txt', { bytes: await readFile(join(root, 'tools/anatomy/workout-review/DEVICE_CHECK.md')), mime: 'text/plain; charset=utf-8' });
+assets.set('/sprite.svg', { bytes: await readFile(join(root, 'public/sprite.svg')), mime: 'image/svg+xml' });
+const fontDirectory = join(root, 'public/fonts/workout-review');
+const fontSources = JSON.parse(await readFile(join(fontDirectory, 'sources.json'), 'utf8'));
+for (const font of fontSources.fonts) assets.set('/fonts/workout-review/' + font.file, { bytes: await readFile(join(fontDirectory, font.file)), mime: 'font/woff2' });
+assets.set('/fonts/workout-review/fonts.css', { bytes: await readFile(join(fontDirectory, 'fonts.css')), mime: 'text/css' });
+for (const file of ['inter-OFL.txt', 'instrumentserif-OFL.txt', 'jetbrainsmono-OFL.txt']) assets.set('/fonts/workout-review/' + file, { bytes: await readFile(join(fontDirectory, file)), mime: 'text/plain' });
 const prefix = `/anatomy/${manifest.release}/`;
+if (authoredSupplement) {
+  if (authoredSupplement.baseRelease !== manifest.release)
+    throw Error("Authored base release mismatch");
+  const c = authoredSupplement.chunk;
+  assets.set(c.url, {
+    path: join(dirname(authoredPath), "authored-core.glb"),
+    sha256: c.sha256,
+    size: c.bytes,
+    mime: "model/gltf-binary",
+  });
+}
 assets.set(prefix + "manifest.json", {
   bytes: manifestBytes,
   mime: "application/json",
@@ -61,10 +110,21 @@ if (manifest.poster)
 const temp = await mkdtemp(join(directory, "preview-"));
 const result = await build({
   stdin: {
-    contents: `import React from 'react';import {createRoot} from 'react-dom/client';import {PrivateAtlasReview} from './tools/anatomy/private-review';import {I18nProvider} from './lib/i18n';createRoot(document.getElementById('root')).render(<I18nProvider defaultLang="es"><PrivateAtlasReview manifestUrl="${prefix}manifest.json" identity={${JSON.stringify({ codeSha, manifestSha256: createHash("sha256").update(manifestBytes).digest("hex"), release: manifest.release })}}/></I18nProvider>);`,
+    contents: `import React from 'react';import {createRoot} from 'react-dom/client';import {PrivateAtlasReview} from './tools/anatomy/private-review';import {I18nProvider} from './lib/i18n';import {ThemeModeProvider} from './components/shared/ThemeMode';createRoot(document.getElementById('root')).render(<I18nProvider defaultLang="en"><ThemeModeProvider><PrivateAtlasReview manifestUrl="${prefix}manifest.json" authoredSupplement={${JSON.stringify(authoredSupplement) ?? "undefined"}} identity={${JSON.stringify({ codeSha, manifestSha256: createHash("sha256").update(manifestBytes).digest("hex"), release: manifest.release, authoredSha256: authoredSupplement?.chunk.sha256 ?? null })}}/></ThemeModeProvider></I18nProvider>);`,
     resolveDir: root,
     loader: "tsx",
   },
+  plugins: [{ name: 'private-workout-boundaries', setup(build) {
+    const aliases = {
+      'next/navigation': 'navigation.tsx', 'next/link': 'navigation.tsx',
+      '@/lib/supabase': 'supabase.ts',
+      '@/lib/trpc/client': 'trpc.ts',
+      '@/components/workout/workout-persistence': 'persistence.ts',
+      '@/lib/workout/analytics-data': 'analytics.ts',
+    };
+    build.onResolve({ filter: /^(next\/(navigation|link)|@\/lib\/(supabase|trpc\/client|workout\/analytics-data)|@\/components\/workout\/workout-persistence)$/ }, args => ({ path: join(root, 'tools/anatomy/workout-review', aliases[args.path]) }));
+  } }],
+  metafile: true,
   bundle: true,
   write: false,
   format: "esm",
@@ -73,10 +133,17 @@ const result = await build({
   jsx: "automatic",
   minify: true,
   define: {
+    // Standalone review has no Next runtime or host environment. Only explicit
+    // public flags below are available; never serialize the process environment.
+    "process.env": "{}",
     "process.env.NODE_ENV": '"production"',
     "process.env.__NEXT_IMAGE_OPTS": "undefined",
+    "process.env.NEXT_PUBLIC_ANATOMY_ATLAS_ENABLED": '"false"',
+    "process.env.NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED": '"0"',
+    "process.env.NEXT_PUBLIC_COACH_ASSISTANT_ENABLED": '"0"',
   },
 });
+if (Object.keys(result.metafile.inputs).some(path => path.includes('@supabase/') || path.includes('@trpc/'))) throw Error('Private export must not bundle account data clients');
 for (const f of result.outputFiles)
   assets.set("/_qa/" + f.path.slice(temp.length + 1), {
     bytes: f.contents,
@@ -84,15 +151,15 @@ for (const f of result.outputFiles)
   });
 assets.set("/_qa/theme.css", {
   bytes: Buffer.from(
-    ":root{color-scheme:dark;--bg-primary:#181c1d;--bg-surface:#222828;--text-primary:#f3f1e9;--text-secondary:#b9c0b7;--border-default:#59605d;--accent:#d4a853}:root.light{color-scheme:light;--bg-primary:#faf9f6;--bg-surface:#eeeae1;--text-primary:#242a27;--text-secondary:#55615b;--border-default:#a7aea6;--accent:#71531c}*{box-sizing:border-box}.private-device-review{padding:12px;max-width:1120px;margin:auto}.private-device-review pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}.private-device-review button,.private-device-review select{min-height:44px}.private-device-review summary{min-height:44px}body{margin:0;font:16px system-ui;background:var(--bg-primary);color:var(--text-primary)}button,input{font:inherit}a{color:inherit}",
+    ":root{--font-inter:Inter,system-ui,sans-serif;--font-instrument-serif:'Instrument Serif',Georgia,serif;--font-jetbrains-mono:'JetBrains Mono',monospace}.private-device-review{padding:8px 16px;border-bottom:1px solid var(--border-default);color:var(--content-secondary);font-size:12px}.private-device-review>details>summary{min-height:28px;cursor:pointer}.private-device-review>details>p{margin:12px 0;max-width:65ch}.private-review-language{display:flex;align-items:center;gap:12px;margin:12px 0}.private-review-language select,.private-device-review select{color:var(--content-primary);background:var(--surface-raised);border:1px solid var(--border-default);border-radius:8px;padding:6px 10px}.private-device-review pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}.private-device-review button,.private-device-review select{min-height:44px}.private-review-switch{display:flex;flex-wrap:wrap;gap:8px}.private-review-switch button{border:1px solid var(--border-default);border-radius:8px;padding:8px 12px;color:var(--content-primary);background:var(--surface-raised)}body{margin:0;font-family:var(--font-inter);background:var(--bg-primary);color:var(--content-primary)}button,input{font:inherit}",
   ),
   mime: "text/css",
 });
 assets.set("/", {
   bytes: Buffer.from(
-    '<!doctype html><html lang="es" class="' +
+    '<!doctype html><html lang="en" class="' +
       (light ? "light" : "") +
-      '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Trophē · atlas privado</title><link rel="stylesheet" href="/_qa/theme.css"><link rel="stylesheet" href="/_qa/stdin.css"></head><body><div id="root"></div><script type="module" src="/_qa/stdin.js"></script></body></html>',
+      '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Trophē · Workout design preview</title><link rel="stylesheet" href="/fonts/workout-review/fonts.css"><link rel="stylesheet" href="/_qa/workout.css"><link rel="stylesheet" href="/_qa/theme.css"><link rel="stylesheet" href="/_qa/stdin.css"></head><body><div id="root"></div><script type="module" src="/_qa/stdin.js"></script></body></html>',
   ),
   mime: "text/html",
 });
@@ -113,7 +180,7 @@ if (exportDirectory) {
     const file = url === "/" ? "index.html" : url.slice(1),
       path = join(staticRoot, file);
     await mkdir(dirname(path), { recursive: true });
-    const compressed = gzipSync(bytes);
+    const compressed = asset.mime.startsWith('video/') ? bytes : gzipSync(bytes);
     await writeFile(path, compressed);
     records.push({
       url,
@@ -126,12 +193,12 @@ if (exportDirectory) {
       dest: "/" + file,
       headers: {
         "Content-Type": asset.mime,
-        "Content-Encoding": "gzip",
+        ...(asset.mime.startsWith("video/") ? {} : { "Content-Encoding": "gzip" }),
         "Cache-Control": "no-store",
         "X-Content-Type-Options": "nosniff",
         "X-Robots-Tag": "noindex, nofollow",
         "Content-Security-Policy":
-          "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
+          "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
       },
     });
   }
@@ -144,6 +211,14 @@ if (exportDirectory) {
     JSON.stringify(
       {
         codeSha,
+        workoutPreview: { components: 'Production WorkoutHome, builder, review, browser, detail, live, history and analytics', data: 'Isolated example records in browser session storage; no account writes', persistence: 'Private export alias; production backend unchanged', css: 'Compiled app/globals.css with project Tailwind' },
+        authoredSupplement: authoredSupplement
+          ? {
+              sha256: authoredSupplement.chunk.sha256,
+              recipeSha256: authoredSupplement.recipeSha256,
+              author: authoredSupplement.author,
+            }
+          : null,
         release: manifest.release,
         manifestSha256: createHash("sha256")
           .update(manifestBytes)
@@ -182,7 +257,7 @@ const server = createServer(async (req, res) => {
   res.setHeader("X-Robots-Tag", "noindex, nofollow");
   res.setHeader(
     "Content-Security-Policy",
-    "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
+    "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
   );
   const asset = assets.get(req.url);
   if (!asset) {
@@ -202,7 +277,16 @@ const server = createServer(async (req, res) => {
         createHash("sha256").update(bytes).digest("hex") !== asset.sha256)
     )
       throw Error("Source changed");
-    const compressed = req.headers["accept-encoding"]?.includes("gzip")
+    if (asset.mime.startsWith('video/') && req.headers.range) {
+      const range = /^bytes=(\d+)-(\d*)$/.exec(req.headers.range);
+      const start = range ? Number(range[1]) : -1;
+      const end = range?.[2] ? Math.min(Number(range[2]), bytes.length - 1) : bytes.length - 1;
+      if (start < 0 || start >= bytes.length || end < start) { res.writeHead(416, { 'Content-Range': `bytes */${bytes.length}` }).end(); return; }
+      res.writeHead(206, { 'Content-Type': asset.mime, 'Content-Range': `bytes ${start}-${end}/${bytes.length}`, 'Accept-Ranges': 'bytes', 'Content-Length': end - start + 1 });
+      res.end(req.method === 'HEAD' ? undefined : bytes.subarray(start, end + 1));
+      return;
+    }
+    const compressed = !asset.mime.startsWith('video/') && req.headers["accept-encoding"]?.includes("gzip")
       ? gzipSync(bytes)
       : bytes;
     if (compressed !== bytes) res.setHeader("Content-Encoding", "gzip");

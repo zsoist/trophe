@@ -33,7 +33,18 @@ LOCAL_PASS="${PG_PASS:-${PGPASSWORD:-postgres}}"
 LOCAL_DB="${PG_DB:-postgres}"
 COMPAT_MODE=1
 
-if [ "${SKIP_SUPABASE_START:-0}" != "1" ] && [ "${CI:-false}" != "true" ]; then
+if [ "${CI_REAL_SUPABASE:-0}" = "1" ]; then
+  # Explicit, ephemeral Auth integration job. Preserve Supabase's real auth
+  # helpers instead of installing the plain-Postgres compatibility functions.
+  if [ "${CI:-false}" != "true" ] || [ "${GITHUB_ACTIONS:-false}" != "true" ] \
+    || [ "$LOCAL_HOST" != "127.0.0.1" ] || [ "$LOCAL_PORT" != "54322" ] \
+    || [ "$LOCAL_USER" != "postgres" ] || [ "$LOCAL_DB" != "postgres" ]; then
+    echo "Real Supabase CI bootstrap requires the disposable GitHub loopback stack." >&2
+    exit 1
+  fi
+  "$SUPABASE_BIN" status -o env >/dev/null 2>&1
+  COMPAT_MODE=0
+elif [ "${SKIP_SUPABASE_START:-0}" != "1" ] && [ "${CI:-false}" != "true" ]; then
   echo "==> Checking OrbStack / Docker / Supabase readiness"
   if ! "$TSX_BIN" scripts/db/doctor.ts >/dev/null 2>&1; then
     echo "==> Starting OrbStack"
@@ -193,6 +204,51 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA auth GRANT USAGE, SELECT ON SEQUENCES TO auth
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM anon;
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM anon;
 GRANT SELECT ON TABLE public.food_database TO anon;
+SQL
+fi
+
+# The real Auth stack does not inherit the compatibility-mode fixture grants.
+# Limit service-role provisioning to operations used by run-local-auth-e2e.mjs.
+# This branch has already enforced GitHub CI and the exact disposable target.
+if [ "${CI_REAL_SUPABASE:-0}" = "1" ]; then
+  psql -X -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" <<'SQL'
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM (VALUES ('public.profiles'), ('public.client_profiles'),
+      ('public.food_log'), ('public.meal_plan_entries'), ('public.organizations'),
+      ('public.workout_templates')) AS required(name)
+    LEFT JOIN pg_class c ON c.oid = to_regclass(required.name)
+    WHERE c.oid IS NULL OR NOT c.relrowsecurity
+  ) THEN RAISE EXCEPTION 'Fixture ACL requires all named tables with RLS enabled'; END IF;
+  IF NOT has_table_privilege('authenticated', 'public.profiles', 'SELECT')
+     OR NOT has_table_privilege('authenticated', 'public.client_profiles', 'SELECT') THEN
+    RAISE EXCEPTION 'Canonical authenticated profile SELECT privilege is missing';
+  END IF;
+END $$;
+GRANT SELECT, INSERT, UPDATE ON TABLE public.profiles, public.client_profiles TO service_role;
+GRANT INSERT ON TABLE public.food_log, public.meal_plan_entries TO service_role;
+GRANT SELECT, INSERT, DELETE ON TABLE public.organizations TO service_role;
+GRANT SELECT, DELETE ON TABLE public.workout_templates TO service_role;
+SQL
+fi
+
+# Read-only diagnostics for the explicitly guarded disposable Auth CI target.
+# Fixed object names and booleans only: no credentials, user rows or free errors.
+if [ "${CI_REAL_SUPABASE:-0}" = "1" ]; then
+  psql -X -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -At <<'SQL'
+SELECT json_build_object(
+  'event', 'coach_fixture_acl', 'object', target,
+  'schema_usage', has_schema_privilege('service_role', 'public', 'USAGE'),
+  'select', has_table_privilege('service_role', target, 'SELECT'),
+  'insert', has_table_privilege('service_role', target, 'INSERT'),
+  'update', has_table_privilege('service_role', target, 'UPDATE'),
+  'delete', has_table_privilege('service_role', target, 'DELETE'),
+  'rls', c.relrowsecurity,
+  'bypass_rls', (SELECT rolbypassrls FROM pg_roles WHERE rolname = 'service_role')
+)::text
+FROM (VALUES ('public.profiles'), ('public.client_profiles')) AS objects(target)
+JOIN pg_class c ON c.oid = to_regclass(target);
 SQL
 fi
 

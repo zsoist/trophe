@@ -3,6 +3,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Icon } from '@/components/ui';
+import { WorkoutAtlasEntry } from '@/components/anatomy/WorkoutAtlasEntry';
 import TodayWorkoutCard from '@/components/workout/TodayWorkoutCard';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
@@ -485,6 +486,7 @@ export default function DashboardPage() {
 
         {/* ══ 2b · Today's training — workout finally lives on home ══ */}
         <TodayWorkoutCard userId={userId} />
+        <WorkoutAtlasEntry />
 
         {/* Desktop: sections below the hero flow into two columns */}
         <div className="dash-cols lg:columns-2 lg:gap-5">

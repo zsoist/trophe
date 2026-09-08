@@ -141,7 +141,10 @@ describe('paid provider access policy', () => {
 
   it('keeps paid-provider modules out of use-client source files', () => {
     expect(findClientProviderImportViolations({ rootDir: REPO_ROOT })).toEqual([]);
-  });
+  // This parses the entire repository import graph under CI coverage. The
+  // ordinary 5s unit deadline was exceeded on the hosted runner; scope and
+  // forbidden-import assertions remain identical, including transitive imports.
+  }, 15_000);
 
   it('imports paid-provider adapters through the normal tsx CLI before enforcing access', () => {
     const tsxCli = path.join(REPO_ROOT, 'node_modules/tsx/dist/cli.mjs');

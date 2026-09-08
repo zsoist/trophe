@@ -655,7 +655,7 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
                 : pendingInput
                   ? { weight: pendingInput.weightKg === null ? null : kgToDisplay(pendingInput.weightKg, unit), reps: pendingInput.reps, rpe: pendingInput.rpe, isWarmup: pendingInput.isWarmup }
                   : undefined}
-              restTargetSeconds={getRestTarget(resolved.id, resolved.is_compound)}
+              restTargetSeconds={draftExercise?.restSeconds ?? getRestTarget(resolved.id, resolved.is_compound)}
               onComplete={async (value: SetLoggerValue) => {
                 const weightKg = value.weight === null ? null : displayToKg(value.weight, unit);
                 const isPr = Boolean(resolved.is_compound) && !value.isWarmup && weightKg !== null && weightKg > (prMap[row.exerciseId] ?? 0);

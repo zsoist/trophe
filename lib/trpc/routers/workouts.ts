@@ -34,6 +34,7 @@ import { assertCanAccessClient } from '@/lib/auth/tenant-access';
 import { recordAuditEvent } from '@/lib/utils/audit';
 import type { Exercise, Goal, MuscleGroup, TemplateExercise, WorkoutTemplate } from '@/lib/types';
 import { parseWorkoutPreferences, workoutPreferencesSchema } from '@/lib/workout/preferences';
+import { writeWorkoutPreferences } from '@/lib/workout/preference-service';
 import { buildWorkoutRecommendation } from '@/lib/workout/recommendation';
 import { resolveCuratedMuscleActivations } from '@/lib/workout/anatomy';
 
@@ -319,22 +320,7 @@ export const workoutsRouter = router({
           throw new TRPCError({ code: 'FORBIDDEN', message: 'Only the client or assigned coach may update workout preferences' });
         }
 
-        const [updated] = await ctx.db
-          .update(clientProfiles)
-          .set({
-            workoutPreferences: input.preferences,
-            updatedAt: new Date().toISOString(),
-          })
-          .where(and(
-            eq(clientProfiles.userId, clientId),
-            isClientSelfUpdate
-              ? eq(clientProfiles.userId, ctx.user!.id)
-              : eq(clientProfiles.coachId, ctx.user!.id),
-          ))
-          .returning({ workoutPreferences: clientProfiles.workoutPreferences });
-        if (!updated) {
-          throw new TRPCError({ code: 'FORBIDDEN', message: 'Client is no longer assigned to this coach' });
-        }
+        const updated = await writeWorkoutPreferences(ctx.db, { actorId: ctx.user!.id, subjectId: clientId, role: ctx.profile!.role, preferences: input.preferences });
         await recordAuditEvent({
           actorId: ctx.user!.id,
           actorRole: ctx.profile!.role,
@@ -343,7 +329,7 @@ export const workoutsRouter = router({
           recordId: clientId,
           newValue: { clientId, version: input.preferences.version },
         });
-        return parseWorkoutPreferences(updated.workoutPreferences);
+        return updated;
       }),
   }),
 

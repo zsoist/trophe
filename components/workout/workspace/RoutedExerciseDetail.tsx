@@ -25,6 +25,7 @@ export function RoutedExerciseDetail({ exercise, userId, replaceExerciseId, retu
   return (
     <main className="exercise-detail-route">
       <ExerciseDetail
+        atlasContext={{ replaceExerciseId, returnRoute }}
         exercise={exercise}
         userId={userId}
         isAdded={added}

@@ -1653,6 +1653,7 @@ export const translations: Record<string, Record<CoreLanguage, string>> = {
   'food.edit.sugar': { en: 'Sugar', es: 'Azúcar', el: 'Ζάχαρη' },
   'food.edit.save': { en: 'Save', es: 'Guardar', el: 'Αποθήκευση' },
   'food.edit.saveQuantity': { en: 'Save quantity', es: 'Guardar cantidad', el: 'Αποθήκευση ποσότητας' },
+  'food.coach_review_quantity': { en: 'Review {name} quantity with coach', es: 'Revisar cantidad de {name} con el coach', el: 'Έλεγχος ποσότητας {name} με τον βοηθό' },
   'food.edit.invalid': { en: 'Check the edited values before saving', es: 'Revisa los valores editados antes de guardar', el: 'Έλεγξε τις αλλαγμένες τιμές πριν την αποθήκευση' },
   'food.edit.failed': { en: 'This edit was not saved — try again', es: 'Este cambio no se guardó — inténtalo de nuevo', el: 'Αυτή η αλλαγή δεν αποθηκεύτηκε — δοκίμασε ξανά' },
   'food.edit.decreaseGrams': { en: 'Decrease grams', es: 'Reducir gramos', el: 'Μείωση γραμμαρίων' },

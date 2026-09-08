@@ -1,4 +1,6 @@
 'use client';
+import type { WorkoutRouteContext } from '@/lib/workout/workspace-routes';
+import { WorkoutAtlasEntry } from '@/components/anatomy/WorkoutAtlasEntry';
 
 /**
  * Exercise picker (full-screen) + custom-exercise modal — extracted from
@@ -365,6 +367,8 @@ export default function ExercisePicker({
   onReturnToBuild,
   addedExerciseIds = [],
   replacementExerciseName,
+  atlasContext,
+  initialAtlasFilter,
 }: {
   exercises: Exercise[];
   recentIds: string[];
@@ -380,10 +384,12 @@ export default function ExercisePicker({
   onReturnToBuild?: () => void;
   addedExerciseIds?: string[];
   replacementExerciseName?: string;
+  atlasContext?: WorkoutRouteContext;
+  initialAtlasFilter?: {area: WorkoutBodyArea; muscle: MuscleGroup | 'all'} | null;
 }) {
   const [search, setSearch] = useState('');
-  const [selectedAreaKey, setSelectedAreaKey] = useState<WorkoutBodyArea | null>(null);
-  const [filterMuscle, setFilterMuscle] = useState<MuscleGroup | 'all'>('all');
+  const [selectedAreaKey, setSelectedAreaKey] = useState<WorkoutBodyArea | null>(initialAtlasFilter?.area ?? null);
+  const [filterMuscle, setFilterMuscle] = useState<MuscleGroup | 'all'>(initialAtlasFilter?.muscle ?? 'all');
   const [equipmentFilter, setEquipmentFilter] = useState('all');
   const [showCustomModal, setShowCustomModal] = useState(false);
   const [optimisticAddedIds, setOptimisticAddedIds] = useState<Set<string>>(() => new Set());
@@ -596,6 +602,7 @@ export default function ExercisePicker({
                 </p>
               </div>
 
+              {presentation === "page" && <WorkoutAtlasEntry context={atlasContext} />}
               <div className="mt-5 rounded-[0.875rem] border border-[var(--border-subtle)] bg-[var(--surface-1)] p-3">
                 <MuscleAtlas
                   compact

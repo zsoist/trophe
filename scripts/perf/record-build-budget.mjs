@@ -1,6 +1,6 @@
 // npm's postbuild lifecycle makes the existing CI Production build fail closed.
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 
 let checkedOutSha;
@@ -31,5 +31,15 @@ const evidence = {
 // Existing CI uploads artifacts/evals even on failure; no workflow permission needed.
 mkdirSync('artifacts/evals', { recursive: true });
 writeFileSync('artifacts/evals/build-budget.json', JSON.stringify(evidence, null, 2) + '\n');
+// Preserve the actual browser chunks behind a failed hosted measurement. Only
+// public client JS named in the budget report is copied; never server bundles,
+// environment files or build caches. Existing CI artifact upload collects it.
+if (process.env.CI === 'true' && process.env.GITHUB_ACTIONS === 'true' && result.status !== 0) {
+  const directory = 'artifacts/evals/client-budget-diagnostics';
+  mkdirSync(directory, { recursive: true });
+  const chunks = [...new Set((result.stdout ?? '').match(/static\/chunks\/[a-zA-Z0-9_-]+\.js/g) ?? [])].slice(0, 32);
+  for (const chunk of chunks) copyFileSync(`.next/${chunk}`, `${directory}/${chunk.split('/').at(-1)}`);
+  writeFileSync(`${directory}/identity.json`, JSON.stringify({ checkedOutSha, prHeadSha, buildId, chunks }, null, 2) + '\n');
+}
 console.log(JSON.stringify(evidence, null, 2));
 process.exitCode = result.status === 0 && !result.error ? 0 : 1;

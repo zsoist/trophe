@@ -1,0 +1,157 @@
+{
+  "version": "trophe.authored-atlas/1",
+  "baseRelease": "119bbec1069c64147209baad1a05e8f416417622a06be3d83dc66b75efcd5933",
+  "recipeSha256": "a218d173db2f32cff8468f48c017c111cf9cc383ba15b283b24569fb087116cb",
+  "author": "Troph\u0113 / AG2",
+  "license": "CC-BY-4.0; original illustrative additions",
+  "chunk": {
+    "id": "authored-core",
+    "url": "/anatomy/4c88e87bdfe51780b800e72c3ee2602d6db0d40a383ce2e7473ba96f3b76c522/authored-core.glb",
+    "sha256": "4c88e87bdfe51780b800e72c3ee2602d6db0d40a383ce2e7473ba96f3b76c522",
+    "bytes": 289012,
+    "vertices": 7924,
+    "triangles": 15832,
+    "system": "muscles",
+    "region": "middle",
+    "bounds": [
+      [
+        -0.17399999499320984,
+        0.8149999976158142,
+        -0.029160773381590843
+      ],
+      [
+        0.17399999499320984,
+        1.284999966621399,
+        0.23750051856040955
+      ]
+    ],
+    "element_ids": [
+      "AG2_authored_latissimus_dorsi_L",
+      "AG2_authored_latissimus_dorsi_R",
+      "AG2_authored_rectus_abdominis_L",
+      "AG2_authored_rectus_abdominis_R"
+    ]
+  },
+  "muscles": [
+    {
+      "id": "rectus-abdominis",
+      "label": "Rectus abdominis",
+      "elements": [
+        {
+          "id": "AG2_authored_rectus_abdominis_L",
+          "concept_ids": [],
+          "availability": "available",
+          "system": "muscles",
+          "region": "middle",
+          "bounds": [
+            [
+              0.003000000026077032,
+              0.8149999976158142,
+              0.14749999344348907
+            ],
+            [
+              0.0470585972070694,
+              1.215000033378601,
+              0.23750051856040955
+            ]
+          ],
+          "vertices": 2976,
+          "triangles": 5948,
+          "fragments": [
+            {
+              "chunk": "authored-core",
+              "node": "AG2_authored_rectus_abdominis_L"
+            }
+          ]
+        },
+        {
+          "id": "AG2_authored_rectus_abdominis_R",
+          "concept_ids": [],
+          "availability": "available",
+          "system": "muscles",
+          "region": "middle",
+          "bounds": [
+            [
+              -0.0470585972070694,
+              0.8149999976158142,
+              0.14749999344348907
+            ],
+            [
+              -0.003000000026077032,
+              1.215000033378601,
+              0.23750051856040955
+            ]
+          ],
+          "vertices": 2976,
+          "triangles": 5948,
+          "fragments": [
+            {
+              "chunk": "authored-core",
+              "node": "AG2_authored_rectus_abdominis_R"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "latissimus-dorsi",
+      "label": "Latissimus dorsi",
+      "elements": [
+        {
+          "id": "AG2_authored_latissimus_dorsi_L",
+          "concept_ids": [],
+          "availability": "available",
+          "system": "muscles",
+          "region": "middle",
+          "bounds": [
+            [
+              0.011836721561849117,
+              0.9100000262260437,
+              -0.029160773381590843
+            ],
+            [
+              0.17399999499320984,
+              1.284999966621399,
+              0.08460000157356262
+            ]
+          ],
+          "vertices": 986,
+          "triangles": 1968,
+          "fragments": [
+            {
+              "chunk": "authored-core",
+              "node": "AG2_authored_latissimus_dorsi_L"
+            }
+          ]
+        },
+        {
+          "id": "AG2_authored_latissimus_dorsi_R",
+          "concept_ids": [],
+          "availability": "available",
+          "system": "muscles",
+          "region": "middle",
+          "bounds": [
+            [
+              -0.17399999499320984,
+              0.9100000262260437,
+              -0.029160773381590843
+            ],
+            [
+              -0.011836721561849117,
+              1.284999966621399,
+              0.08460000157356262
+            ]
+          ],
+          "vertices": 986,
+          "triangles": 1968,
+          "fragments": [
+            {
+              "chunk": "authored-core",
+              "node": "AG2_authored_latissimus_dorsi_R"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

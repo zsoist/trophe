@@ -294,6 +294,7 @@ export const de: Record<string, string> = {
   'food.pre_workout': 'Pre-Workout',
   'food.post_workout': 'Post-Workout',
   'food.quantity': 'Menge',
+  'food.coach_review_quantity': 'Menge von {name} mit dem Coach prüfen',
   'food.add': 'Hinzufügen',
   'food.per_serving': 'pro Portion',
   'food.recent': 'Zuletzt',

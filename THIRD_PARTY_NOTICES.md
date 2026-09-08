@@ -28,4 +28,4 @@ guides rather than surface contours.
 The atlas's non-diagnostic wording and deep-location-guide rationale refer to
 [OpenStax Anatomy & Physiology, 11.2 Naming Skeletal Muscles](https://openstax.org/books/anatomy-and-physiology/pages/11-2-naming-skeletal-muscles)
 and the [OpenStax-derived front/back illustration provenance on Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Muscles_front_and_back.svg).
-No third-party body photos or AI-generated anatomy are used.
+The 2D location diagrams use the licensed paths described above, not generated body images. Muscle Atlas also uses an original generated brand symbol. Private 3D review builds may include separately attributed, original illustrated meshes; these are labeled and do not replace BodyParts3D source identities.

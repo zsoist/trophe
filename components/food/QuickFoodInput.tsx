@@ -42,6 +42,8 @@ interface QuickFoodInputProps {
   onSearchMode: () => void;
   /** kcal strings in the review UI render only when enabled (threaded by MealSlotCard). */
   showCalories?: boolean;
+  /** Reuse the manual form where AI/search capabilities are not connected. */
+  manualOnly?: boolean;
 }
 
 type InputMode = 'idle' | 'parsing' | 'confirming' | 'photo_analyzing' | 'success' | 'manual_entry' | 'requesting' | 'listening' | 'transcribing' | 'question';
@@ -102,7 +104,7 @@ const RECORDING_ERROR_KEYS: Record<RecordingError, string> = {
 type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
 type RetryAction = 'text' | 'photo' | 'voice';
 
-export default function QuickFoodInput({ userId, mealType, date, onLogged, showCalories = false }: QuickFoodInputProps) {
+export default function QuickFoodInput({ userId, mealType, date, onLogged, showCalories = false, manualOnly = false }: QuickFoodInputProps) {
   const { t, lang } = useI18n();
   const reducedMotion = useReducedMotion();
   const [text, setText] = useState('');
@@ -889,7 +891,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
   }
 
   // F21: Manual entry mode
-  if (mode === 'manual_entry') {
+  if (mode === 'manual_entry' || (manualOnly && mode === 'idle')) {
     return (
       <motion.div
         initial={{ opacity: 0, y: 10 }}
@@ -898,9 +900,9 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
       >
         <div className="flex items-center justify-between">
           <span className="text-[var(--content-secondary)] text-sm font-medium">{t('food.quick_add')}</span>
-          <button onClick={() => setMode('idle')} className="text-[var(--content-muted)] hover:text-[var(--content-secondary)] text-xs min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
+          {!manualOnly && <button onClick={() => setMode('idle')} className="text-[var(--content-muted)] hover:text-[var(--content-secondary)] text-xs min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
             {t('general.cancel')}
-          </button>
+          </button>}
         </div>
         <input
           type="text"

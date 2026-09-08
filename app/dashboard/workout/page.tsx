@@ -81,6 +81,7 @@ export default function WorkoutPage() {
   const [loadingLibrary, setLoadingLibrary] = useState(true);
   const [supportError, setSupportError] = useState(false);
   const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [workedExerciseIds, setWorkedExerciseIds] = useState<string[] | null>(null);
   const [recents, setRecents] = useState<WorkoutSession[]>([]);
   const [storedRoutines, setStoredRoutines] = useState<StoredRoutine[]>([]);
   const [pendingRepeat, setPendingRepeat] = useState<PendingRepeat | null>(null);
@@ -104,15 +105,17 @@ export default function WorkoutPage() {
       }
       setUserId(user.id);
 
-      const [exerciseResult, recentResult, routineResult] = await Promise.all([
+      const [exerciseResult, recentResult, routineResult, workedResult] = await Promise.all([
         supabase.from('exercises').select('*').order('muscle_group').order('name'),
         supabase.from('workout_sessions').select('*').eq('user_id', user.id).order('session_date', { ascending: false }).order('created_at', { ascending: false }).limit(5),
         supabase.from('workout_templates').select('id, name, exercises').eq('created_by', user.id).order('created_at', { ascending: false }).limit(8),
+        Promise.resolve(supabase.from('workout_sets').select('exercise_id, workout_sessions!inner(user_id, session_date)').eq('workout_sessions.user_id', user.id).eq('workout_sessions.session_date', localToday()).eq('is_warmup', false).gt('reps', 0).limit(1000)).catch(() => ({ data: null, error: true })),
       ]);
       if (!active) return;
 
       setSupportError(Boolean(exerciseResult.error || recentResult.error || routineResult.error));
       setExercises((exerciseResult.data as Exercise[] | null) ?? []);
+      setWorkedExerciseIds(workedResult.error ? null : [...new Set((workedResult.data ?? []).map(row => row.exercise_id))]);
       setRecents((recentResult.data as WorkoutSession[] | null) ?? []);
       setStoredRoutines(((routineResult.data as { id: string; name: string; exercises: unknown }[] | null) ?? []).map((routine) => ({
         id: routine.id,
@@ -123,7 +126,7 @@ export default function WorkoutPage() {
     }
     void loadHomeData();
     return () => { active = false; };
-  }, [router]);
+  }, [router, workspaceState.stage]);
 
   useEffect(() => {
     const normalizedRepeatId = normalizeUuid(repeatId);
@@ -301,6 +304,7 @@ export default function WorkoutPage() {
       recommendationError={Boolean(recommendationQuery.error)}
       supportError={supportError}
       recents={recents}
+      workedExerciseIds={workedExerciseIds}
       routines={routines}
       disabled={!userId || loadingLibrary}
     />

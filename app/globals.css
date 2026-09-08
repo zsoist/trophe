@@ -3385,3 +3385,8 @@ input, textarea, select {
   background-size: 21px 21px;
   mask-image: linear-gradient(to bottom, transparent 20%, black 45%, black 55%, transparent 80%);
 }
+
+/* The global coach and route content share desktop space; mobile stays modeless. */
+@media (min-width: 1100px) {
+  .client-shell:has(#global-coach) .client-shell__content { width: calc(100% - 500px); }
+}

@@ -183,6 +183,10 @@ function parseTtl(scope: 'user' | 'session' | 'agent'): Date | null {
 // ── Main export ────────────────────────────────────────────────────────────
 
 export async function writeMemory(input: WriteMemoryInput): Promise<WriteMemoryResult> {
+  // Reserved for explicit reviewed writes through the tenant/thread-bound service.
+  if (input.agentName === 'coach-assistant-confirmed' || input.scopeAgentName === 'coach-assistant-confirmed') {
+    return { factsExtracted: 0, factsSuperseded: 0, skipped: true, reason: 'reserved confirmed-memory namespace' };
+  }
   // Skip very short messages (greetings, single-word inputs, system messages)
   if (input.content.trim().length < 20) {
     return { factsExtracted: 0, factsSuperseded: 0, skipped: true, reason: 'content too short' };

@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import {
@@ -25,6 +25,7 @@ import {
 } from '@/lib/workout/workspace-state';
 import {
   clearWorkspaceState,
+  isDraft,
   loadWorkspaceState,
   saveWorkspaceState,
   type WorkspaceStorage,
@@ -43,6 +44,7 @@ export interface WorkoutWorkspaceContextValue {
   createCardioDraftFromHistory(input: CardioHistoryDraftInput): void;
   replaceCardioDraftFromHistory(input: CardioHistoryDraftInput): void;
   updateDraftName(name: string): void;
+  applyReviewedDraft(ownerId: string, expected: WorkoutWorkspaceState, draft: WorkoutDraft): void;
   updateCardioDraft(patch: Partial<Pick<CardioDraft, 'activity' | 'durationMinutes' | 'distanceKm' | 'effort'>>): void;
   updateLiveCardioDraft(patch: Partial<Pick<CardioDraft, 'activity' | 'distanceKm' | 'effort'>>): void;
   commitLiveStrengthStructure(exercises: DraftExercise[]): void;
@@ -246,6 +248,17 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
   const clientRequestIdRef = useRef<string | null>(null);
   const skipNextPersistRef = useRef(false);
   const resolvedStorage = storage ?? browserStorage();
+  const currentOwner = useRef<string | null | undefined>(undefined);
+  useLayoutEffect(() => {
+    currentOwner.current = loading ? undefined : userId !== undefined ? userId : ownerId;
+    return () => { currentOwner.current = undefined; };
+  }, [loading, ownerId, userId]);
+  const applyReviewedDraft = useCallback((expectedOwner: string, expected: WorkoutWorkspaceState, draft: WorkoutDraft) => {
+    if (currentOwner.current !== expectedOwner || !isDraft(draft)) return;
+    setState(current => currentOwner.current === expectedOwner && current === expected
+      && (current.stage === 'draft' || current.stage === 'review') && !current.startRequest && !current.retrospectiveRequest
+      ? workoutWorkspaceReducer(current, { type: 'draft.updated', payload: { draft: structuredClone(draft) } }) : current);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -686,6 +699,7 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
     createCardioDraftFromHistory,
     replaceCardioDraftFromHistory,
     updateDraftName,
+    applyReviewedDraft,
     updateCardioDraft,
     updateLiveCardioDraft,
     commitLiveStrengthStructure,
@@ -713,7 +727,7 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
     discardLive,
     acknowledgeCompleted,
     discardDraft,
-  }), [acknowledgeCompleted, addDraftExercise, cancelFinish, commitLiveStrengthStructure, completeFinish, createCardioDraftFromHistory, createDraft, createDraftFromTemplate, discardDraft, discardLive, ensureClientRequestId, goToReview, loading, ownerId, pause, reconcileLive, removeDraftExercise, reorderDraftExercise, replaceCardioDraftFromHistory, replaceDraft, replaceDraftExercise, replaceDraftFromTemplate, requestFinish, resume, retrospectiveSaving, retryRetrospective, returnToDraft, saveRetrospective, startLive, state, updateCardioDraft, updateDraftExercise, updateDraftName, updateLiveCardioDraft, visibleLiveReconciliation, visibleStartBlocked, visibleStartRejection]);
+  }), [applyReviewedDraft, acknowledgeCompleted, addDraftExercise, cancelFinish, commitLiveStrengthStructure, completeFinish, createCardioDraftFromHistory, createDraft, createDraftFromTemplate, discardDraft, discardLive, ensureClientRequestId, goToReview, loading, ownerId, pause, reconcileLive, removeDraftExercise, reorderDraftExercise, replaceCardioDraftFromHistory, replaceDraft, replaceDraftExercise, replaceDraftFromTemplate, requestFinish, resume, retrospectiveSaving, retryRetrospective, returnToDraft, saveRetrospective, startLive, state, updateCardioDraft, updateDraftExercise, updateDraftName, updateLiveCardioDraft, visibleLiveReconciliation, visibleStartBlocked, visibleStartRejection]);
 
   if (loading || ownerId === undefined) {
     return <div role="status" aria-label={t('workout.loading_workspace')} className="min-h-24 animate-pulse rounded-xl bg-[var(--surface-subtle)]" />;

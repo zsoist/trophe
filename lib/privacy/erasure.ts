@@ -1,3 +1,4 @@
+import { eraseStoragePages } from './erase-storage-pages';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 
 /**
@@ -174,27 +175,31 @@ export async function eraseUser(userId: string, opts: { dryRun: boolean }): Prom
     // Distinct coach_ids across ALL messages (page past the 1000-row cap).
     const coachIds = new Set<string>();
     for (let from = 0; ; from += 1000) {
-      const { data } = await service
+      const { data, error } = await service
         .from('messages').select('coach_id').eq('client_id', userId)
         .order('coach_id').range(from, from + 999);
-      for (const r of data ?? []) coachIds.add(r.coach_id as string);
-      if (!data || data.length < 1000) break;
+      if (error) { result.errors.push(`chat-attachments inventory: ${error.message}`); break; }
+      if (data === null || data === undefined) { result.errors.push(`chat-attachments inventory: no data returned`); break; }
+      for (const r of data) coachIds.add(r.coach_id as string);
+      if (data.length < 1000) break;
     }
     let objCount = 0;
     for (const coachId of coachIds) {
       const prefix = `${coachId}/${userId}`;
-      // Page storage.list until a short page (fewer than the limit) is returned.
-      for (let offset = 0; ; offset += 1000) {
-        const { data: objs } = await service.storage.from('chat-attachments')
-          .list(prefix, { limit: 1000, offset });
-        const paths = (objs ?? []).map((o) => `${prefix}/${o.name}`);
-        objCount += paths.length;
-        if (!opts.dryRun && paths.length > 0) {
+      const erased = await eraseStoragePages({
+        list: async (offset, limit) => {
+          const { data, error } = await service.storage.from('chat-attachments').list(prefix, { limit, offset });
+          if (error) return { names: [], error: error.message };
+          if (data === null || data === undefined) return { names: [], error: 'no data returned' };
+          return { names: data.map(object => `${prefix}/${object.name}`) };
+        },
+        remove: async paths => {
           const { error } = await service.storage.from('chat-attachments').remove(paths);
-          if (error) result.errors.push(`chat-attachments remove: ${error.message}`);
-        }
-        if (!objs || objs.length < 1000) break;
-      }
+          return error ? { error: error.message } : {};
+        },
+      }, opts.dryRun);
+      objCount += erased.count;
+      if (erased.error) { result.errors.push(`chat-attachments ${erased.error}`); break; }
     }
     result.counts['chat-attachments storage (delete)'] = objCount;
   }
@@ -209,8 +214,9 @@ export async function eraseUser(userId: string, opts: { dryRun: boolean }): Prom
     const orClause = email
       ? `accepted_user_id.eq.${userId},client_email.eq.${email}`
       : `accepted_user_id.eq.${userId}`;
-    const { count } = await service
+    const { count, error: inviteCountError } = await service
       .from('client_invites').select('*', { count: 'exact', head: true }).or(orClause);
+    if (inviteCountError) result.errors.push(`client_invites: count failed — ${inviteCountError.message}`);
     result.counts['client_invites (delete)'] = count ?? 0;
     if (!opts.dryRun && (count ?? 0) > 0) {
       const { error } = await service.from('client_invites').delete().or(orClause);
@@ -232,8 +238,9 @@ export async function eraseUser(userId: string, opts: { dryRun: boolean }): Prom
         result.errors.push(`exercises (content scrub): count failed — ${error.message}`);
         break;
       }
-      authoredExerciseIds.push(...(data ?? []).map((row) => row.id as string).filter(Boolean));
-      if (!data || data.length < 1000) break;
+      if (data === null || data === undefined) { result.errors.push(`exercises (content scrub): no data returned`); break; }
+      authoredExerciseIds.push(...data.map((row) => row.id as string).filter(Boolean));
+      if (data.length < 1000) break;
     }
     result.counts['exercises (content scrub)'] = authoredExerciseIds.length;
     if (!opts.dryRun && authoredExerciseIds.length > 0) {
@@ -266,7 +273,8 @@ export async function eraseUser(userId: string, opts: { dryRun: boolean }): Prom
   // 3) Cascade root — count the big tables for the evidence trail, then delete
   for (const t of ['food_log', 'water_log', 'measurements', 'messages', 'workout_sessions', 'consents'] as const) {
     const col = t === 'messages' ? 'client_id' : 'user_id';
-    const { count } = await service.from(t).select('*', { count: 'exact', head: true }).eq(col, userId);
+    const { count, error: countError } = await service.from(t).select('*', { count: 'exact', head: true }).eq(col, userId);
+    if (countError) result.errors.push(`${t} (cascade): count failed — ${countError.message}`);
     result.counts[`${t} (cascade)`] = count ?? 0;
   }
   if (!opts.dryRun && profile && result.errors.length === 0) {

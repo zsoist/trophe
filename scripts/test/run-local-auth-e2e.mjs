@@ -62,9 +62,17 @@ export async function cleanupUserOwnedRows(service, userId) {
   if (error) throw new Error('local E2E owned rows cleanup failed');
 }
 
-function adminAdapter(service) {
+function fixtureFailure(phase, message, cause) {
+  const error = new Error(message, { cause });
+  error.localE2EPhase = phase;
+  return error;
+}
+
+function adminAdapter(service, onPhase = () => {}) {
   return {
     async createUser(user) {
+      const phase = `auth_${user.role === 'super_admin' ? 'admin' : user.role}`;
+      onPhase(phase);
       const { data, error } = await service.auth.admin.createUser({
         email: user.email,
         password: user.password,
@@ -74,11 +82,13 @@ function adminAdapter(service) {
           local_e2e: true,
         },
       });
-      if (error || !data.user) throw new Error('local auth user creation failed');
+      if (error || !data.user) throw fixtureFailure(phase, 'local auth user creation failed', error);
       return { id: data.user.id };
     },
 
     async provisionProfile(id, user) {
+      const phase = `profile_${user.role === 'super_admin' ? 'admin' : user.role}`;
+      onPhase(phase);
       const { error: profileError } = await service.from('profiles').upsert({
         id,
         full_name: localE2EDisplayName(user.role),
@@ -87,7 +97,7 @@ function adminAdapter(service) {
         language: 'en',
         timezone: 'UTC',
       });
-      if (profileError) throw new Error('local E2E profile provisioning failed');
+      if (profileError) throw fixtureFailure(phase, 'local E2E profile provisioning failed', profileError);
 
       if (user.role === 'client') {
         const { error: clientError } = await service.from('client_profiles').upsert({
@@ -104,14 +114,16 @@ function adminAdapter(service) {
           target_fat_g: 70,
           coaching_phase: 'active',
         }, { onConflict: 'user_id' });
-        if (clientError) throw new Error('local E2E client profile provisioning failed');
+        // Existing diagnostic label distinguishes client_profiles from profiles.
+        if (clientError) throw fixtureFailure('common_client', 'local E2E client profile provisioning failed', clientError);
       }
     },
 
     async deleteUser(id) {
+      onPhase('cleanup');
       await cleanupUserOwnedRows(service, id);
       const { error } = await service.auth.admin.deleteUser(id);
-      if (error) throw new Error('local E2E user cleanup failed');
+      if (error) throw fixtureFailure('cleanup', 'local E2E user cleanup failed', error);
       assertAuthUserAbsent(
         await service.auth.admin.getUserById(id),
         'user cleanup',
@@ -125,8 +137,16 @@ function adminAdapter(service) {
  * Runs a zero-paid local role fixture. The default remains the authenticated
  * Playwright suite; callers may provide a disposable-role callback instead.
  */
-export async function runLocalAuthenticatedE2E({ executeWithDisposableRoles, playwrightArgs = TEST_SPECS } = {}) {
-  const status = localStatus();
+export async function runLocalAuthenticatedE2E({ executeWithDisposableRoles, validateStatus, onPhase = () => {}, playwrightArgs = TEST_SPECS } = {}) {
+  onPhase('local_status');
+  let status;
+  try { status = localStatus(); }
+  catch (error) { throw fixtureFailure('local_status', 'local Supabase status failed', error); }
+  // Specialized CI matrices may impose a narrower destination before any user
+  // or fixture is provisioned. The normal local runner remains unchanged.
+  onPhase('target_validation');
+  try { validateStatus?.(status); }
+  catch (error) { throw fixtureFailure('target_validation', 'local E2E target validation failed', error); }
   const service = createClient(status.API_URL, status.SERVICE_ROLE_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
@@ -141,7 +161,7 @@ export async function runLocalAuthenticatedE2E({ executeWithDisposableRoles, pla
     admin: users[2],
   };
   const userIds = new Map();
-  const disposableAdmin = adminAdapter(service);
+  const disposableAdmin = adminAdapter(service, onPhase);
   const childEnv = buildLocalPlaywrightEnv(process.env, status, credentials);
   const nextDistDir = localE2ECachePath(process.cwd());
   if (existsSync(nextDistDir)) {
@@ -165,16 +185,18 @@ export async function runLocalAuthenticatedE2E({ executeWithDisposableRoles, pla
       const coachId = userIds.get('coach');
       if (!clientId || !coachId) throw new Error('local E2E relationship users are unavailable');
       childEnv.E2E_CLIENT_ID = clientId;
+      onPhase('relationship');
       const { error: linkError } = await service
         .from('client_profiles')
         .update({ coach_id: coachId })
         .eq('user_id', clientId);
-      if (linkError) throw new Error('local E2E coach relationship provisioning failed');
+      if (linkError) throw fixtureFailure('relationship', 'local E2E coach relationship provisioning failed', linkError);
 
       const now = new Date();
       const jsDay = now.getDay();
       const dayOfWeek = jsDay === 0 ? 6 : jsDay - 1;
       const loggedDate = localE2EDateKey(now);
+      onPhase('nutrition');
       const { error: nutritionFixtureError } = await service.from('food_log').insert({
         user_id: clientId,
         logged_date: loggedDate,
@@ -190,8 +212,9 @@ export async function runLocalAuthenticatedE2E({ executeWithDisposableRoles, pla
         sugar_g: null,
         source: 'natural_language',
       });
-      if (nutritionFixtureError) throw new Error('local E2E nutrition fixture provisioning failed');
+      if (nutritionFixtureError) throw fixtureFailure('nutrition', 'local E2E nutrition fixture provisioning failed', nutritionFixtureError);
 
+      onPhase('meal_plan');
       const { error: mealPlanFixtureError } = await service.from('meal_plan_entries').insert({
         client_id: clientId,
         coach_id: coachId,
@@ -199,8 +222,9 @@ export async function runLocalAuthenticatedE2E({ executeWithDisposableRoles, pla
         meal_slot: 'lunch',
         description: 'Beans, rice, avocado, and grilled beef',
       });
-      if (mealPlanFixtureError) throw new Error('local E2E meal-plan fixture provisioning failed');
+      if (mealPlanFixtureError) throw fixtureFailure('meal_plan', 'local E2E meal-plan fixture provisioning failed', mealPlanFixtureError);
 
+      onPhase('organization');
       const organizationSlug = `codex-local-matrix-${randomUUID()}`;
       const { data: organization, error: organizationError } = await service
         .from('organizations')
@@ -213,17 +237,20 @@ export async function runLocalAuthenticatedE2E({ executeWithDisposableRoles, pla
         })
         .select('id')
         .maybeSingle();
-      if (organizationError || !organization) throw new Error('local E2E organization provisioning failed');
+      if (organizationError || !organization) throw fixtureFailure('organization', 'local E2E organization provisioning failed', organizationError);
       childEnv.E2E_TEST_ORG_ID = organization.id;
       childEnv.E2E_TEST_ORG_SLUG = organizationSlug;
       childEnv.E2E_CLIENT_FIRST_NAME = localE2EDisplayName('client');
 
       return withFixtureCleanup({
         execute: async () => {
+          onPhase('execute');
           if (executeWithDisposableRoles) {
             return executeWithDisposableRoles({
               status,
               env: buildLocalThemePerformanceEnv(childEnv, credentials),
+              service,
+              actors: { clientId, coachId, adminId: userIds.get('super_admin') },
             });
           }
           const playwrightBin = path.resolve('node_modules/@playwright/test/cli.js');
@@ -237,6 +264,7 @@ export async function runLocalAuthenticatedE2E({ executeWithDisposableRoles, pla
           }
         },
         cleanup: async () => {
+          onPhase('cleanup');
           await cleanupFixtureResources({
             relationshipCleanup: () => retryLocalE2EOperation(
               () => service.from('client_profiles').update({ coach_id: null }).eq('user_id', clientId).select('user_id'),

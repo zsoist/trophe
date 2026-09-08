@@ -1,0 +1,1542 @@
+[
+  {
+    "name": "Bench Press",
+    "name_es": "Press de banca",
+    "name_el": "Πιέσεις πάγκου",
+    "muscle_group": "chest",
+    "secondary_muscles": [
+      "triceps",
+      "shoulders"
+    ],
+    "equipment": "barbell",
+    "is_compound": true,
+    "id": "bench-press",
+    "instructions": "Keep shoulder blades pinched, feet planted; lower the bar to mid-chest and press up in a slight arc.",
+    "instructions_es": "Escápulas retraídas y pies firmes; baja la barra al pecho medio y empuja en un arco ligero.",
+    "instructions_el": "Κράτα τις ωμοπλάτες σφιγμένες, πόδια σταθερά· κατέβασε την μπάρα στο μέσο του στήθους και πίεσε ψηλά."
+  },
+  {
+    "name": "Incline Bench Press",
+    "name_es": "Press inclinado",
+    "name_el": "Πιέσεις πάγκου κεκλιμένου",
+    "muscle_group": "chest",
+    "secondary_muscles": [
+      "triceps",
+      "shoulders"
+    ],
+    "equipment": "barbell",
+    "is_compound": true,
+    "id": "incline-bench-press",
+    "instructions": "Set the bench 30-45°; lower to the upper chest and press without bouncing.",
+    "instructions_es": "Banco a 30-45°; baja al pecho superior y empuja sin rebotar.",
+    "instructions_el": "Πάγκος 30-45°· κατέβασε στο άνω στήθος και πίεσε χωρίς αναπήδηση."
+  },
+  {
+    "name": "Dumbbell Flyes",
+    "name_es": "Aperturas con mancuernas",
+    "name_el": "Πεταλούδες με αλτήρες",
+    "muscle_group": "chest",
+    "secondary_muscles": [
+      "shoulders"
+    ],
+    "equipment": "dumbbell",
+    "is_compound": false,
+    "id": "dumbbell-flyes",
+    "instructions": "Keep a soft elbow bend and open wide until a stretch, then squeeze the dumbbells together.",
+    "instructions_es": "Codos semiflexionados; abre amplio hasta estirar y junta las mancuernas apretando el pecho.",
+    "instructions_el": "Ελαφρώς λυγισμένοι αγκώνες· άνοιξε μέχρι διάταση και σφίξε τους αλτήρες μαζί."
+  },
+  {
+    "name": "Cable Crossover",
+    "name_es": "Cruce de cables",
+    "name_el": "Χιαστί καλωδίου",
+    "muscle_group": "chest",
+    "secondary_muscles": [
+      "shoulders"
+    ],
+    "equipment": "cable",
+    "is_compound": false,
+    "id": "cable-crossover",
+    "instructions": "Cross the handles slightly at the bottom and control the return — no shoulder shrugging.",
+    "instructions_es": "Cruza levemente los agarres abajo y controla el regreso — sin encoger hombros.",
+    "instructions_el": "Σταύρωσε ελαφρά τις λαβές χαμηλά και έλεγξε την επιστροφή — χωρίς σήκωμα ώμων."
+  },
+  {
+    "name": "Push-ups",
+    "name_es": "Flexiones",
+    "name_el": "Κάμψεις",
+    "muscle_group": "chest",
+    "secondary_muscles": [
+      "triceps",
+      "shoulders",
+      "core"
+    ],
+    "equipment": "bodyweight",
+    "is_compound": true,
+    "id": "push-ups",
+    "instructions": "Body in one line, hands under shoulders; lower chest to an inch from the floor.",
+    "instructions_es": "Cuerpo en línea, manos bajo hombros; baja el pecho casi al suelo.",
+    "instructions_el": "Σώμα σε ευθεία, χέρια κάτω από ώμους· κατέβασε το στήθος σχεδόν στο πάτωμα."
+  },
+  {
+    "name": "Decline Bench Press",
+    "name_es": "Press declinado",
+    "name_el": "Πιέσεις πάγκου αρνητικής κλίσης",
+    "muscle_group": "chest",
+    "secondary_muscles": [
+      "triceps"
+    ],
+    "equipment": "barbell",
+    "is_compound": true,
+    "id": "decline-bench-press",
+    "instructions": "Lock your legs, lower the bar to the lower chest, and keep wrists stacked over elbows.",
+    "instructions_es": "Asegura las piernas, baja la barra al pecho inferior y mantén muñecas sobre codos.",
+    "instructions_el": "Κλείδωσε τα πόδια, κατέβασε στην κάτω πλευρά του στήθους, καρποί πάνω από αγκώνες."
+  },
+  {
+    "name": "Chest Dips",
+    "name_es": "Fondos para pecho",
+    "name_el": "Βυθίσεις στήθους",
+    "muscle_group": "chest",
+    "secondary_muscles": [
+      "triceps",
+      "shoulders"
+    ],
+    "equipment": "bodyweight",
+    "is_compound": true,
+    "id": "chest-dips",
+    "instructions": "Flare elbows slightly and lean forward; press up without locking out abruptly.",
+    "instructions_es": "Codos algo abiertos e inclinación adelante; sube sin bloquear de golpe.",
+    "instructions_el": "Αγκώνες ελαφρώς ανοιχτοί και κλίση μπροστά· ανέβα χωρίς απότομο κλείδωμα."
+  },
+  {
+    "name": "Pec Deck",
+    "name_es": "Pec deck",
+    "name_el": "Πεκ ντεκ",
+    "muscle_group": "chest",
+    "secondary_muscles": [],
+    "equipment": "machine",
+    "is_compound": false,
+    "id": "pec-deck",
+    "instructions": "Sit tall with elbows level to shoulders; squeeze the pads together and resist the way back.",
+    "instructions_es": "Siéntate erguido, codos a la altura de hombros; junta y resiste la vuelta.",
+    "instructions_el": "Κάτσε όρθια με αγκώνες στο ύψος των ώμων· σφίξε τα μαξιλαράκια και αντιστάσου στην επιστροφή."
+  },
+  {
+    "name": "Machine Chest Press",
+    "name_es": "Press de pecho en máquina",
+    "name_el": "Πιέσεις στήθους μηχανής",
+    "muscle_group": "chest",
+    "secondary_muscles": [
+      "triceps",
+      "shoulders"
+    ],
+    "equipment": "machine",
+    "is_compound": true,
+    "id": "machine-chest-press",
+    "instructions": "Adjust the seat so handles sit at mid-chest; press smoothly without locking elbows hard.",
+    "instructions_es": "Ajusta el asiento con agarres al pecho medio; empuja suave sin bloquear codos.",
+    "instructions_el": "Ρύθμισε το κάθισμα ώστε οι λαβές να είναι στο μέσο στήθος· πίεσε ομαλά χωρίς κλείδωμα αγκώνων."
+  },
+  {
+    "name": "Landmine Press",
+    "name_es": "Press landmine",
+    "name_el": "Πιέσεις landmine",
+    "muscle_group": "chest",
+    "secondary_muscles": [
+      "shoulders",
+      "triceps"
+    ],
+    "equipment": "barbell",
+    "is_compound": true,
+    "id": "landmine-press",
+    "instructions": "Press the bar up and slightly across; keep ribs down and glutes tight.",
+    "instructions_es": "Empuja la barra arriba y algo cruzada; costillas abajo y glúteos firmes.",
+    "instructions_el": "Πίεσε την μπάρα ψηλά και ελαφρώς διαγώνια· πλευρά μέσα, γλουτοί σφιχτοί."
+  },
+  {
+    "name": "Pull-ups",
+    "name_es": "Dominadas",
+    "name_el": "Έλξεις",
+    "muscle_group": "back",
+    "secondary_muscles": [
+      "biceps",
+      "forearms"
+    ],
+    "equipment": "bodyweight",
+    "is_compound": true,
+    "id": "pull-ups",
+    "instructions": "Full hang to chin-over-bar; keep the core braced to stop swinging.",
+    "instructions_es": "De colgado completo a barbilla sobre barra; core firme para no balancear.",
+    "instructions_el": "Πλήρης ανάρτηση μέχρι πηγούνι πάνω από μπάρα· σφιχτός κορμός, όχι αιώρηση."
+  },
+  {
+    "name": "Lat Pulldown",
+    "name_es": "Jalón al pecho",
+    "name_el": "Κατεβάσματα πλάτης",
+    "muscle_group": "back",
+    "secondary_muscles": [
+      "biceps"
+    ],
+    "equipment": "cable",
+    "is_compound": true,
+    "id": "lat-pulldown",
+    "instructions": "Pull the bar to your collarbone with elbows down-and-back; no leaning way back.",
+    "instructions_es": "Lleva la barra a la clavícula con codos abajo y atrás; no te recuestes.",
+    "instructions_el": "Τράβα την μπάρα στην κλείδα με αγκώνες κάτω-πίσω· μην γέρνεις πολύ πίσω."
+  },
+  {
+    "name": "Barbell Row",
+    "name_es": "Remo con barra",
+    "name_el": "Κωπηλατική με μπάρα",
+    "muscle_group": "back",
+    "secondary_muscles": [
+      "biceps",
+      "forearms"
+    ],
+    "equipment": "barbell",
+    "is_compound": true,
+    "id": "barbell-row",
+    "instructions": "Hinge to ~45°, pull the bar to your lower ribs, and squeeze the blades together.",
+    "instructions_es": "Inclina el torso ~45°, lleva la barra a las costillas bajas y junta las escápulas.",
+    "instructions_el": "Κλίση ~45°, τράβα την μπάρα στα κάτω πλευρά και σφίξε τις ωμοπλάτες."
+  },
+  {
+    "name": "Dumbbell Row",
+    "name_es": "Remo con mancuerna",
+    "name_el": "Κωπηλατική με αλτήρα",
+    "muscle_group": "back",
+    "secondary_muscles": [
+      "biceps"
+    ],
+    "equipment": "dumbbell",
+    "is_compound": true,
+    "id": "dumbbell-row",
+    "instructions": "Support on the bench, pull the dumbbell to your hip, and avoid torso rotation.",
+    "instructions_es": "Apóyate en el banco, lleva la mancuerna a la cadera y evita rotar el torso.",
+    "instructions_el": "Στήριξη στον πάγκο, τράβα τον αλτήρα στον γοφό χωρίς περιστροφή κορμού."
+  },
+  {
+    "name": "Seated Cable Row",
+    "name_es": "Remo sentado con cable",
+    "name_el": "Καθιστή κωπηλατική",
+    "muscle_group": "back",
+    "secondary_muscles": [
+      "biceps"
+    ],
+    "equipment": "cable",
+    "is_compound": true,
+    "id": "seated-cable-row",
+    "instructions": "Sit tall; pull to your navel and let the shoulders roll forward on the stretch.",
+    "instructions_es": "Siéntate erguido; jala al ombligo y deja estirar los hombros al frente.",
+    "instructions_el": "Κάτσε όρθια· τράβα προς τον αφαλό και άφησε διάταση στην επιστροφή."
+  },
+  {
+    "name": "T-Bar Row",
+    "name_es": "Remo en T",
+    "name_el": "Κωπηλατική T-bar",
+    "muscle_group": "back",
+    "secondary_muscles": [
+      "biceps",
+      "forearms"
+    ],
+    "equipment": "barbell",
+    "is_compound": true,
+    "id": "t-bar-row",
+    "instructions": "Chest up, hinge steady; drive elbows back and squeeze at the top.",
+    "instructions_es": "Pecho arriba, bisagra estable; codos atrás y aprieta arriba.",
+    "instructions_el": "Στήθος ψηλά, σταθερή κλίση· αγκώνες πίσω και σφίξιμο στην κορυφή."
+  },
+  {
+    "name": "Face Pulls",
+    "name_es": "Face pulls",
+    "name_el": "Έλξεις προσώπου",
+    "muscle_group": "back",
+    "secondary_muscles": [
+      "shoulders"
+    ],
+    "equipment": "cable",
+    "is_compound": false,
+    "id": "face-pulls",
+    "instructions": "Pull the rope to your forehead with elbows high; finish with hands apart.",
+    "instructions_es": "Lleva la cuerda a la frente con codos altos; termina con manos separadas.",
+    "instructions_el": "Τράβα το σχοινί προς το μέτωπο με ψηλούς αγκώνες· τελείωσε με χέρια ανοιχτά."
+  },
+  {
+    "name": "Deadlift",
+    "name_es": "Peso muerto",
+    "name_el": "Άρσεις θανάτου",
+    "muscle_group": "back",
+    "secondary_muscles": [
+      "hamstrings",
+      "glutes",
+      "forearms",
+      "core"
+    ],
+    "equipment": "barbell",
+    "is_compound": true,
+    "id": "deadlift",
+    "instructions": "Brace hard, push the floor away, and keep the bar dragging up your legs.",
+    "instructions_es": "Aprieta el core, empuja el suelo y mantén la barra pegada a las piernas.",
+    "instructions_el": "Σφίξε τον κορμό, σπρώξε το πάτωμα και κράτα την μπάρα κολλητά στα πόδια."
+  },
+  {
+    "name": "Rack Pulls",
+    "name_es": "Rack pulls",
+    "name_el": "Έλξεις ράκας",
+    "muscle_group": "back",
+    "secondary_muscles": [
+      "forearms",
+      "glutes"
+    ],
+    "equipment": "barbell",
+    "is_compound": true,
+    "id": "rack-pulls",
+    "instructions": "Set the pins near knee height; brace and lock out with glutes, not lower back.",
+    "instructions_es": "Barra a la altura de rodillas; aprieta y bloquea con glúteos, no con lumbar.",
+    "instructions_el": "Μπάρα στο ύψος των γονάτων· κλείδωσε με γλουτούς, όχι με τη μέση."
+  },
+  {
+    "name": "Straight-Arm Pulldown",
+    "name_es": "Pulldown con brazos rectos",
+    "name_el": "Κατεβάσματα ευθείων χεριών",
+    "muscle_group": "back",
+    "secondary_muscles": [],
+    "equipment": "cable",
+    "is_compound": false,
+    "id": "straight-arm-pulldown",
+    "instructions": "Arms near-straight; sweep the bar to your thighs using only the lats.",
+    "instructions_es": "Brazos casi rectos; lleva la barra a los muslos usando solo dorsales.",
+    "instructions_el": "Χέρια σχεδόν τεντωμένα· φέρε την μπάρα στους μηρούς μόνο με τους πλατείς."
+  },
+  {
+    "name": "Overhead Press",
+    "name_es": "Press militar",
+    "name_el": "Πιέσεις ώμων",
+    "muscle_group": "shoulders",
+    "secondary_muscles": [
+      "triceps"
+    ],
+    "equipment": "barbell",
+    "is_compound": true,
+    "id": "overhead-press",
+    "instructions": "Squeeze glutes, brace, and press the bar in a straight line past your face.",
+    "instructions_es": "Aprieta glúteos, core firme, y empuja la barra en línea recta pasando la cara.",
+    "instructions_el": "Σφίξε γλουτούς και κορμό· πίεσε την μπάρα σε ευθεία περνώντας το πρόσωπο."
+  },
+  {
+    "name": "Lateral Raises",
+    "name_es": "Elevaciones laterales",
+    "name_el": "Πλάγιες άρσεις",
+    "muscle_group": "shoulders",
+    "secondary_muscles": [],
+    "equipment": "dumbbell",
+    "is_compound": false,
+    "id": "lateral-raises",
+    "instructions": "Slight forward lean, raise to shoulder height, and lower twice as slow.",
+    "instructions_es": "Ligera inclinación, sube a la altura del hombro y baja el doble de lento.",
+    "instructions_el": "Ελαφριά κλίση μπροστά, άνοδος ως τον ώμο, κάθοδος διπλά αργή."
+  },
+  {
+    "name": "Front Raises",
+    "name_es": "Elevaciones frontales",
+    "name_el": "Μπροστινές άρσεις",
+    "muscle_group": "shoulders",
+    "secondary_muscles": [],
+    "equipment": "dumbbell",
+    "is_compound": false,
+    "id": "front-raises",
+    "instructions": "Raise to eye level with a neutral or overhand grip; no torso swing.",
+    "instructions_es": "Eleva a la altura de los ojos; sin balancear el torso.",
+    "instructions_el": "Ανέβασε ως το ύψος των ματιών· χωρίς ταλάντευση κορμού."
+  },
+  {
+    "name": "Rear Delt Flyes",
+    "name_es": "Aperturas posteriores",
+    "name_el": "Πεταλούδες οπίσθιου δελτοειδή",
+    "muscle_group": "shoulders",
+    "secondary_muscles": [
+      "back"
+    ],
+    "equipment": "dumbbell",
+    "is_compound": false,
+    "id": "rear-delt-flyes",
+    "instructions": "Hinge forward; open the arms wide with soft elbows and squeeze the rear delts.",
+    "instructions_es": "Inclínate; abre los brazos con codos suaves y aprieta el deltoides posterior.",
+    "instructions_el": "Κλίση μπροστά· άνοιξε τα χέρια με μαλακούς αγκώνες, σφίξε τους οπίσθιους δελτοειδείς."
+  },
+  {
+    "name": "Arnold Press",
+    "name_es": "Press Arnold",
+    "name_el": "Πιέσεις Arnold",
+    "muscle_group": "shoulders",
+    "secondary_muscles": [
+      "triceps"
+    ],
+    "equipment": "dumbbell",
+    "is_compound": true,
+    "id": "arnold-press",
+    "instructions": "Rotate palms from facing you to facing forward as you press.",
+    "instructions_es": "Gira las palmas de mirarte a mirar al frente mientras empujas.",
+    "instructions_el": "Περίστρεψε τις παλάμες από μέσα προς τα εμπρός καθώς πιέζεις."
+  },
+  {
+    "name": "Upright Row",
+    "name_es": "Remo vertical",
+    "name_el": "Όρθια κωπηλατική",
+    "muscle_group": "shoulders",
+    "secondary_muscles": [
+      "biceps"
+    ],
+    "equipment": "barbell",
+    "is_compound": true,
+    "id": "upright-row",
+    "instructions": "Pull the bar to chest height with elbows leading; stop if shoulders pinch.",
+    "instructions_es": "Sube la barra al pecho con codos guiando; detente si molesta el hombro.",
+    "instructions_el": "Ανέβασε την μπάρα ως το στήθος με τους αγκώνες μπροστά· σταμάτα αν τσιμπάει ο ώμος."
+  },
+  {
+    "name": "Shrugs",
+    "name_es": "Encogimientos de hombros",
+    "name_el": "Σρακ ώμων",
+    "muscle_group": "shoulders",
+    "secondary_muscles": [
+      "forearms"
+    ],
+    "equipment": "dumbbell",
+    "is_compound": false,
+    "id": "shrugs",
+    "instructions": "Straight up and down — no rolling; pause a second at the top.",
+    "instructions_es": "Sube y baja recto — sin rotar; pausa un segundo arriba.",
+    "instructions_el": "Ευθεία πάνω-κάτω — χωρίς κύλισμα· παύση ενός δευτερολέπτου ψηλά."
+  },
+  {
+    "name": "Cable Lateral Raise",
+    "name_es": "Elevación lateral con cable",
+    "name_el": "Πλάγιες άρσεις με καλώδιο",
+    "muscle_group": "shoulders",
+    "secondary_muscles": [],
+    "equipment": "cable",
+    "is_compound": false,
+    "id": "cable-lateral-raise",
+    "instructions": "Stand side-on to the stack; raise across your body to shoulder height.",
+    "instructions_es": "De lado a la polea; eleva cruzando el cuerpo hasta el hombro.",
+    "instructions_el": "Πλάγια στην τροχαλία· ανέβασε διαγώνια ως το ύψος του ώμου."
+  },
+  {
+    "name": "Squat",
+    "name_es": "Sentadilla",
+    "name_el": "Κάθισμα",
+    "muscle_group": "quads",
+    "secondary_muscles": [
+      "glutes",
+      "hamstrings",
+      "core"
+    ],
+    "equipment": "barbell",
+    "is_compound": true,
+    "id": "squat",
+    "instructions": "Brace, sit between your hips, and drive up through the mid-foot.",
+    "instructions_es": "Aprieta el core, siéntate entre las caderas y empuja desde el mediopié.",
+    "instructions_el": "Σφίξε τον κορμό, κάτσε ανάμεσα στους γοφούς και πίεσε από το μέσο πέλμα."
+  },
+  {
+    "name": "Leg Press",
+    "name_es": "Prensa de piernas",
+    "name_el": "Πρέσα ποδιών",
+    "muscle_group": "quads",
+    "secondary_muscles": [
+      "glutes",
+      "hamstrings"
+    ],
+    "equipment": "machine",
+    "is_compound": true,
+    "id": "leg-press",
+    "instructions": "Feet mid-platform; lower until hips begin to tuck, never slam the lockout.",
+    "instructions_es": "Pies al centro; baja hasta que la cadera empiece a curvarse, sin golpear el bloqueo.",
+    "instructions_el": "Πέλματα στο κέντρο· κατέβα μέχρι να κυρτώνει η λεκάνη, ποτέ απότομο κλείδωμα."
+  },
+  {
+    "name": "Romanian Deadlift",
+    "name_es": "Peso muerto rumano",
+    "name_el": "Ρουμανικές άρσεις θανάτου",
+    "muscle_group": "hamstrings",
+    "secondary_muscles": [
+      "glutes",
+      "back"
+    ],
+    "equipment": "barbell",
+    "is_compound": true,
+    "id": "romanian-deadlift",
+    "instructions": "Soft knees; push the hips back until the hamstrings load, then stand tall.",
+    "instructions_es": "Rodillas suaves; lleva la cadera atrás hasta cargar isquios y vuelve erguido.",
+    "instructions_el": "Μαλακά γόνατα· γοφοί πίσω μέχρι να φορτώσουν οι μηριαίοι, μετά όρθια."
+  },
+  {
+    "name": "Lunges",
+    "name_es": "Zancadas",
+    "name_el": "Προβολές",
+    "muscle_group": "quads",
+    "secondary_muscles": [
+      "glutes",
+      "hamstrings"
+    ],
+    "equipment": "dumbbell",
+    "is_compound": true,
+    "id": "lunges",
+    "instructions": "Alternate legs; keep the front knee over the ankle, not past the toes.",
+    "instructions_es": "Alterna piernas; rodilla frontal sobre el tobillo, no pasa los dedos.",
+    "instructions_el": "Εναλλάξ πόδια· μπροστινό γόνατο πάνω από τον αστράγαλο."
+  },
+  {
+    "name": "Bulgarian Split Squat",
+    "name_es": "Sentadilla búlgara",
+    "name_el": "Βουλγαρικό split squat",
+    "muscle_group": "quads",
+    "secondary_muscles": [
+      "glutes",
+      "hamstrings"
+    ],
+    "equipment": "dumbbell",
+    "is_compound": true,
+    "id": "bulgarian-split-squat",
+    "instructions": "Rear foot elevated; drop the back knee straight down, torso slightly forward.",
+    "instructions_es": "Pie trasero elevado; baja la rodilla trasera recta, torso algo adelante.",
+    "instructions_el": "Πίσω πόδι ανυψωμένο· κατέβασε το πίσω γόνατο κάθετα, κορμός ελαφρώς μπροστά."
+  },
+  {
+    "name": "Leg Curl",
+    "name_es": "Curl de piernas",
+    "name_el": "Κάμψη ποδιών",
+    "muscle_group": "hamstrings",
+    "secondary_muscles": [],
+    "equipment": "machine",
+    "is_compound": false,
+    "id": "leg-curl",
+    "instructions": "Curl the heels to your glutes; pause, then resist the way back.",
+    "instructions_es": "Lleva talones a los glúteos; pausa y resiste el regreso.",
+    "instructions_el": "Φέρε τις φτέρνες στους γλουτούς· παύση και αντίσταση στην επιστροφή."
+  },
+  {
+    "name": "Leg Extension",
+    "name_es": "Extensión de piernas",
+    "name_el": "Εκτάσεις ποδιών",
+    "muscle_group": "quads",
+    "secondary_muscles": [],
+    "equipment": "machine",
+    "is_compound": false,
+    "id": "leg-extension",
+    "instructions": "Pause one second at full extension; lower under control.",
+    "instructions_es": "Pausa un segundo en extensión completa; baja controlado.",
+    "instructions_el": "Παύση ενός δευτερολέπτου σε πλήρη έκταση· ελεγχόμενη κάθοδος."
+  },
+  {
+    "name": "Calf Raises",
+    "name_es": "Elevaciones de gemelos",
+    "name_el": "Άρσεις γαμπών",
+    "muscle_group": "calves",
+    "secondary_muscles": [],
+    "equipment": "machine",
+    "is_compound": false,
+    "id": "calf-raises",
+    "instructions": "Pause one second at the top and stretch fully at the bottom.",
+    "instructions_es": "Pausa un segundo arriba y estira del todo abajo.",
+    "instructions_el": "Παύση ενός δευτερολέπτου πάνω και πλήρης διάταση κάτω."
+  },
+  {
+    "name": "Hip Thrust",
+    "name_es": "Empuje de cadera",
+    "name_el": "Ώθηση γοφών",
+    "muscle_group": "glutes",
+    "secondary_muscles": [
+      "hamstrings"
+    ],
+    "equipment": "barbell",
+    "is_compound": true,
+    "id": "hip-thrust",
+    "instructions": "Upper back on the bench; drive the hips to full lockout and squeeze.",
+    "instructions_es": "Espalda alta en el banco; extiende la cadera al bloqueo y aprieta.",
+    "instructions_el": "Άνω πλάτη στον πάγκο· ανέβασε τους γοφούς σε πλήρες κλείδωμα και σφίξε."
+  },
+  {
+    "name": "Goblet Squat",
+    "name_es": "Sentadilla goblet",
+    "name_el": "Goblet squat",
+    "muscle_group": "quads",
+    "secondary_muscles": [
+      "glutes",
+      "core"
+    ],
+    "equipment": "dumbbell",
+    "is_compound": true,
+    "id": "goblet-squat",
+    "instructions": "Hold the dumbbell at your chest; elbows slide inside the knees at depth.",
+    "instructions_es": "Mancuerna al pecho; codos dentro de las rodillas al fondo.",
+    "instructions_el": "Αλτήρας στο στήθος· αγκώνες μέσα από τα γόνατα στο βάθος."
+  },
+  {
+    "name": "Step-ups",
+    "name_es": "Subidas al cajón",
+    "name_el": "Ανεβάσματα",
+    "muscle_group": "quads",
+    "secondary_muscles": [
+      "glutes"
+    ],
+    "equipment": "dumbbell",
+    "is_compound": true,
+    "id": "step-ups",
+    "instructions": "Whole foot on the box; drive up without pushing off the back leg.",
+    "instructions_es": "Pie completo en el cajón; sube sin impulsarte con la pierna trasera.",
+    "instructions_el": "Όλο το πέλμα στο κουτί· ανέβα χωρίς ώθηση από το πίσω πόδι."
+  },
+  {
+    "name": "Hack Squat",
+    "name_es": "Sentadilla hack",
+    "name_el": "Hack squat",
+    "muscle_group": "quads",
+    "secondary_muscles": [
+      "glutes"
+    ],
+    "equipment": "machine",
+    "is_compound": true,
+    "id": "hack-squat",
+    "instructions": "Back flat on the pad; lower deep and push through the whole foot.",
+    "instructions_es": "Espalda plana al respaldo; baja profundo y empuja con todo el pie.",
+    "instructions_el": "Πλάτη στο μαξιλάρι· βαθύ κάθισμα, πίεση με όλο το πέλμα."
+  },
+  {
+    "name": "Barbell Curl",
+    "name_es": "Curl con barra",
+    "name_el": "Δικεφαλικές με μπάρα",
+    "muscle_group": "biceps",
+    "secondary_muscles": [
+      "forearms"
+    ],
+    "equipment": "barbell",
+    "is_compound": false,
+    "id": "barbell-curl",
+    "instructions": "Elbows pinned to your sides; curl without leaning back.",
+    "instructions_es": "Codos fijos al costado; curl sin inclinarte atrás.",
+    "instructions_el": "Αγκώνες σταθεροί στα πλευρά· κάμψη χωρίς κλίση πίσω."
+  },
+  {
+    "name": "Dumbbell Curl",
+    "name_es": "Curl con mancuernas",
+    "name_el": "Δικεφαλικές με αλτήρες",
+    "muscle_group": "biceps",
+    "secondary_muscles": [
+      "forearms"
+    ],
+    "equipment": "dumbbell",
+    "is_compound": false,
+    "id": "dumbbell-curl",
+    "instructions": "Supinate as you curl — pinky up at the top — and lower slow.",
+    "instructions_es": "Supina al subir — meñique arriba al final — y baja lento.",
+    "instructions_el": "Γύρνα την παλάμη καθώς ανεβαίνεις και κατέβασε αργά."
+  },
+  {
+    "name": "Hammer Curl",
+    "name_es": "Curl martillo",
+    "name_el": "Σφυριά",
+    "muscle_group": "biceps",
+    "secondary_muscles": [
+      "forearms"
+    ],
+    "equipment": "dumbbell",
+    "is_compound": false,
+    "id": "hammer-curl",
+    "instructions": "Neutral grip throughout; drive up without swinging the elbows forward.",
+    "instructions_es": "Agarre neutro; sube sin llevar los codos adelante.",
+    "instructions_el": "Ουδέτερη λαβή· ανέβασε χωρίς οι αγκώνες να πάνε μπροστά."
+  },
+  {
+    "name": "Preacher Curl",
+    "name_es": "Curl predicador",
+    "name_el": "Preacher curl",
+    "muscle_group": "biceps",
+    "secondary_muscles": [],
+    "equipment": "barbell",
+    "is_compound": false,
+    "id": "preacher-curl",
+    "instructions": "Armpits tight over the pad; never bounce out of the stretched bottom.",
+    "instructions_es": "Axilas firmes sobre el apoyo; nunca rebotes desde abajo.",
+    "instructions_el": "Μασχάλες σταθερές στο μαξιλάρι· ποτέ αναπήδηση από την τεντωμένη θέση."
+  },
+  {
+    "name": "Concentration Curl",
+    "name_es": "Curl concentrado",
+    "name_el": "Curl συγκέντρωσης",
+    "muscle_group": "biceps",
+    "secondary_muscles": [],
+    "equipment": "dumbbell",
+    "is_compound": false,
+    "id": "concentration-curl",
+    "instructions": "Elbow braced inside the thigh; curl slow and squeeze hard at the top.",
+    "instructions_es": "Codo apoyado en el muslo; sube lento y aprieta fuerte arriba.",
+    "instructions_el": "Αγκώνας στο εσωτερικό του μηρού· αργή κάμψη, δυνατό σφίξιμο ψηλά."
+  },
+  {
+    "name": "Tricep Pushdown",
+    "name_es": "Empuje de tríceps",
+    "name_el": "Πιέσεις τρικέφαλων",
+    "muscle_group": "triceps",
+    "secondary_muscles": [],
+    "equipment": "cable",
+    "is_compound": false,
+    "id": "tricep-pushdown",
+    "instructions": "Pin the elbows to your sides; push to full lockout and control up.",
+    "instructions_es": "Codos fijos al costado; empuja hasta bloquear y controla la subida.",
+    "instructions_el": "Αγκώνες σταθεροί στα πλευρά· πίεση ως το κλείδωμα, ελεγχόμενη επιστροφή."
+  },
+  {
+    "name": "Skull Crushers",
+    "name_es": "Rompecráneos",
+    "name_el": "Skull crushers",
+    "muscle_group": "triceps",
+    "secondary_muscles": [],
+    "equipment": "barbell",
+    "is_compound": false,
+    "id": "skull-crushers",
+    "instructions": "Elbows fixed and slightly back; stretch behind the head, extend to lockout.",
+    "instructions_es": "Codos fijos y algo atrás; estira tras la cabeza y extiende al bloqueo.",
+    "instructions_el": "Αγκώνες σταθεροί, ελαφρώς πίσω· διάταση πίσω από το κεφάλι, πλήρης έκταση."
+  },
+  {
+    "name": "Overhead Tricep Extension",
+    "name_es": "Extensión de tríceps sobre cabeza",
+    "name_el": "Εκτάσεις τρικέφαλων πάνω από το κεφάλι",
+    "muscle_group": "triceps",
+    "secondary_muscles": [],
+    "equipment": "dumbbell",
+    "is_compound": false,
+    "id": "overhead-tricep-extension",
+    "instructions": "Elbows by your ears; lower behind the head and extend fully.",
+    "instructions_es": "Codos junto a las orejas; baja tras la cabeza y extiende del todo.",
+    "instructions_el": "Αγκώνες δίπλα στα αυτιά· κατέβασε πίσω από το κεφάλι και τέντωσε πλήρως."
+  },
+  {
+    "name": "Close-Grip Bench Press",
+    "name_es": "Press de banca agarre cerrado",
+    "name_el": "Πιέσεις στενής λαβής",
+    "muscle_group": "triceps",
+    "secondary_muscles": [
+      "chest",
+      "shoulders"
+    ],
+    "equipment": "barbell",
+    "is_compound": true,
+    "id": "close-grip-bench-press",
+    "instructions": "Hands just inside shoulder width; tuck the elbows and press through the triceps.",
+    "instructions_es": "Manos algo más cerradas que los hombros; codos pegados y empuja con tríceps.",
+    "instructions_el": "Χέρια λίγο πιο κλειστά από τους ώμους· αγκώνες κοντά, πίεση με τρικέφαλα."
+  },
+  {
+    "name": "Cable Curl",
+    "name_es": "Curl con cable",
+    "name_el": "Δικεφαλικές με καλώδιο",
+    "muscle_group": "biceps",
+    "secondary_muscles": [],
+    "equipment": "cable",
+    "is_compound": false,
+    "id": "cable-curl",
+    "instructions": "Constant tension is the point — control both directions fully.",
+    "instructions_es": "La tensión constante es la clave — controla ambas direcciones.",
+    "instructions_el": "Το ζητούμενο είναι η σταθερή τάση — έλεγχος και στις δύο κατευθύνσεις."
+  },
+  {
+    "name": "Plank",
+    "name_es": "Plancha",
+    "name_el": "Σανίδα",
+    "muscle_group": "core",
+    "secondary_muscles": [
+      "shoulders"
+    ],
+    "equipment": "bodyweight",
+    "is_compound": false,
+    "id": "plank",
+    "instructions": "Squeeze glutes and abs; one straight line from head to heels.",
+    "instructions_es": "Aprieta glúteos y abdomen; línea recta de cabeza a talones.",
+    "instructions_el": "Σφίξε γλουτούς και κοιλιακούς· ευθεία γραμμή από κεφάλι ως φτέρνες."
+  },
+  {
+    "name": "Crunches",
+    "name_es": "Abdominales",
+    "name_el": "Κοιλιακοί",
+    "muscle_group": "core",
+    "secondary_muscles": [],
+    "equipment": "bodyweight",
+    "is_compound": false,
+    "id": "crunches",
+    "instructions": "Curl the ribs toward the pelvis; don't pull on your neck.",
+    "instructions_es": "Encoge costillas hacia la pelvis; no jales el cuello.",
+    "instructions_el": "Φέρε τα πλευρά προς τη λεκάνη· μην τραβάς τον αυχένα."
+  },
+  {
+    "name": "Hanging Leg Raise",
+    "name_es": "Elevación de piernas colgado",
+    "name_el": "Ανεβάσματα ποδιών σε μπάρα",
+    "muscle_group": "core",
+    "secondary_muscles": [
+      "forearms"
+    ],
+    "equipment": "bodyweight",
+    "is_compound": false,
+    "id": "hanging-leg-raise",
+    "instructions": "From a dead hang, raise the legs with a posterior pelvic tilt — no swing.",
+    "instructions_es": "Desde colgado, sube las piernas basculando la pelvis — sin balanceo.",
+    "instructions_el": "Από ανάρτηση, ανέβασε τα πόδια με κλίση λεκάνης — χωρίς ταλάντευση."
+  },
+  {
+    "name": "Cable Woodchop",
+    "name_es": "Leñador con cable",
+    "name_el": "Ξυλοκόπος με καλώδιο",
+    "muscle_group": "core",
+    "secondary_muscles": [
+      "shoulders"
+    ],
+    "equipment": "cable",
+    "is_compound": true,
+    "id": "cable-woodchop",
+    "instructions": "Rotate through the hips and torso; arms stay long like a lever.",
+    "instructions_es": "Gira desde cadera y torso; brazos largos como palanca.",
+    "instructions_el": "Στροφή από γοφούς και κορμό· χέρια τεντωμένα σαν μοχλός."
+  },
+  {
+    "name": "Russian Twist",
+    "name_es": "Giro ruso",
+    "name_el": "Ρωσική στροφή",
+    "muscle_group": "core",
+    "secondary_muscles": [],
+    "equipment": "bodyweight",
+    "is_compound": false,
+    "id": "russian-twist",
+    "instructions": "Lean back 45°, rotate from the torso — the arms just follow.",
+    "instructions_es": "Reclínate 45°, gira desde el torso — los brazos solo acompañan.",
+    "instructions_el": "Κλίση 45°, στροφή από τον κορμό — τα χέρια απλώς ακολουθούν."
+  },
+  {
+    "name": "Ab Wheel",
+    "name_es": "Rueda abdominal",
+    "name_el": "Ρόδα κοιλιακών",
+    "muscle_group": "core",
+    "secondary_muscles": [
+      "shoulders"
+    ],
+    "equipment": "bodyweight",
+    "is_compound": false,
+    "id": "ab-wheel",
+    "instructions": "Roll out only as far as you can keep the hips tucked; no sagging.",
+    "instructions_es": "Rueda solo hasta donde mantengas la pelvis firme; sin hundir la cadera.",
+    "instructions_el": "Κύλισε μόνο όσο κρατάς τη λεκάνη σταθερή· χωρίς βύθισμα."
+  },
+  {
+    "name": "Dead Bug",
+    "name_es": "Bicho muerto",
+    "name_el": "Νεκρό έντομο",
+    "muscle_group": "core",
+    "secondary_muscles": [],
+    "equipment": "bodyweight",
+    "is_compound": false,
+    "id": "dead-bug",
+    "instructions": "Opposite arm and leg extend; the lower back never leaves the floor.",
+    "instructions_es": "Extiende brazo y pierna opuestos; la lumbar nunca se despega.",
+    "instructions_el": "Τέντωσε αντίθετο χέρι-πόδι· η μέση δεν φεύγει ποτέ από το πάτωμα."
+  },
+  {
+    "name": "Pallof Press",
+    "name_es": "Press Pallof",
+    "name_el": "Pallof press",
+    "muscle_group": "core",
+    "secondary_muscles": [],
+    "equipment": "cable",
+    "is_compound": false,
+    "id": "pallof-press",
+    "instructions": "Press the handle straight out and resist the rotation; breathe steadily.",
+    "instructions_es": "Empuja el agarre al frente y resiste la rotación; respira estable.",
+    "instructions_el": "Πίεσε τη λαβή ευθεία μπροστά και αντιστάσου στην περιστροφή."
+  },
+  {
+    "name": "Clean and Press",
+    "name_es": "Cargada y press",
+    "name_el": "Clean and press",
+    "muscle_group": "full_body",
+    "secondary_muscles": [
+      "shoulders",
+      "back",
+      "quads",
+      "glutes"
+    ],
+    "equipment": "barbell",
+    "is_compound": true,
+    "id": "clean-and-press",
+    "instructions": "Explode the bar to the shoulders, reset, then press strictly overhead.",
+    "instructions_es": "Sube explosivo a los hombros, acomoda y empuja estricto arriba.",
+    "instructions_el": "Εκρηκτικά στους ώμους, σταθεροποίηση και αυστηρή πίεση ψηλά."
+  },
+  {
+    "name": "Thrusters",
+    "name_es": "Thrusters",
+    "name_el": "Thrusters",
+    "muscle_group": "full_body",
+    "secondary_muscles": [
+      "quads",
+      "shoulders",
+      "core"
+    ],
+    "equipment": "barbell",
+    "is_compound": true,
+    "id": "thrusters",
+    "instructions": "Front squat into an overhead press in one fluid drive.",
+    "instructions_es": "Sentadilla frontal a press de hombros en un solo impulso fluido.",
+    "instructions_el": "Μπροστινό κάθισμα σε πίεση ώμων με μία ρευστή κίνηση."
+  },
+  {
+    "name": "Burpees",
+    "name_es": "Burpees",
+    "name_el": "Burpees",
+    "muscle_group": "full_body",
+    "secondary_muscles": [
+      "chest",
+      "quads",
+      "core"
+    ],
+    "equipment": "bodyweight",
+    "is_compound": true,
+    "id": "burpees",
+    "instructions": "Chest to the floor, snap the hips up, and finish with a small jump.",
+    "instructions_es": "Pecho al suelo, sube la cadera rápido y termina con salto corto.",
+    "instructions_el": "Στήθος στο πάτωμα, γρήγορη άνοδος και μικρό άλμα στο τέλος."
+  },
+  {
+    "name": "Kettlebell Swing",
+    "name_es": "Swing con kettlebell",
+    "name_el": "Αιώρηση kettlebell",
+    "muscle_group": "full_body",
+    "secondary_muscles": [
+      "glutes",
+      "hamstrings",
+      "core",
+      "shoulders"
+    ],
+    "equipment": "dumbbell",
+    "is_compound": true,
+    "id": "kettlebell-swing",
+    "instructions": "It's a hip hinge, not a squat — snap the hips and let the bell float.",
+    "instructions_es": "Es bisagra de cadera, no sentadilla — extiende con fuerza y deja flotar la pesa.",
+    "instructions_el": "Είναι κλίση γοφών, όχι κάθισμα — δυνατή έκταση και άφησε το βαράκι να αιωρηθεί."
+  },
+  {
+    "name": "Battle Ropes",
+    "name_es": "Cuerdas de batalla",
+    "name_el": "Σχοινιά μάχης",
+    "muscle_group": "full_body",
+    "secondary_muscles": [
+      "shoulders",
+      "core",
+      "forearms"
+    ],
+    "equipment": "bodyweight",
+    "is_compound": true,
+    "id": "battle-ropes",
+    "instructions": "Slight squat, waves from the shoulders; keep breathing rhythmic.",
+    "instructions_es": "Semisentadilla, olas desde los hombros; respiración rítmica.",
+    "instructions_el": "Ημικάθισμα, κύματα από τους ώμους· ρυθμική αναπνοή."
+  },
+  {
+    "name": "Treadmill Run",
+    "name_es": "Correr en cinta",
+    "name_el": "Τρέξιμο σε διάδρομο",
+    "muscle_group": "cardio",
+    "secondary_muscles": [
+      "quads",
+      "calves",
+      "hamstrings"
+    ],
+    "equipment": "machine",
+    "is_compound": true,
+    "id": "treadmill-run",
+    "instructions": "Relaxed shoulders, quick light steps; land under your hips.",
+    "instructions_es": "Hombros relajados, pasos rápidos y ligeros; aterriza bajo la cadera.",
+    "instructions_el": "Χαλαροί ώμοι, γρήγορα ελαφριά βήματα· προσγείωση κάτω από τους γοφούς."
+  },
+  {
+    "name": "Rowing Machine",
+    "name_es": "Máquina de remo",
+    "name_el": "Κωπηλατικό μηχάνημα",
+    "muscle_group": "cardio",
+    "secondary_muscles": [
+      "back",
+      "biceps",
+      "core"
+    ],
+    "equipment": "machine",
+    "is_compound": true,
+    "id": "rowing-machine",
+    "instructions": "Legs, then back, then arms — reverse the order on the way in.",
+    "instructions_es": "Piernas, espalda, brazos — invierte el orden al volver.",
+    "instructions_el": "Πόδια, μετά πλάτη, μετά χέρια — αντίστροφα στην επιστροφή."
+  },
+  {
+    "name": "Cycling",
+    "name_es": "Bicicleta",
+    "name_el": "Ποδηλασία",
+    "muscle_group": "cardio",
+    "secondary_muscles": [
+      "quads",
+      "calves"
+    ],
+    "equipment": "machine",
+    "is_compound": true,
+    "id": "cycling",
+    "instructions": "Set saddle height so the knee stays slightly bent at the bottom.",
+    "instructions_es": "Ajusta el sillín para que la rodilla quede algo flexionada abajo.",
+    "instructions_el": "Ρύθμισε τη σέλα ώστε το γόνατο να μένει ελαφρώς λυγισμένο κάτω."
+  },
+  {
+    "name": "Stair Climber",
+    "name_es": "Escaladora",
+    "name_el": "Αναρρίχηση σκάλας",
+    "muscle_group": "cardio",
+    "secondary_muscles": [
+      "quads",
+      "glutes",
+      "calves"
+    ],
+    "equipment": "machine",
+    "is_compound": true,
+    "id": "stair-climber",
+    "instructions": "Stand tall, fingertips only on the rails; step through the whole foot.",
+    "instructions_es": "Erguido, solo puntas de dedos en el pasamanos; pisa con todo el pie.",
+    "instructions_el": "Όρθια, μόνο ακροδάχτυλα στα χερούλια· πάτημα με όλο το πέλμα."
+  },
+  {
+    "name": "Jump Rope",
+    "name_es": "Saltar la cuerda",
+    "name_el": "Σχοινάκι",
+    "muscle_group": "cardio",
+    "secondary_muscles": [
+      "calves",
+      "core",
+      "shoulders"
+    ],
+    "equipment": "bodyweight",
+    "is_compound": true,
+    "id": "jump-rope",
+    "instructions": "Bounce on the balls of the feet; spin from the wrists, not the arms.",
+    "instructions_es": "Rebota en el antepié; gira desde las muñecas, no los brazos.",
+    "instructions_el": "Αναπήδηση στις μύτες· περιστροφή από τους καρπούς, όχι τα χέρια."
+  },
+  {
+    "name": "Incline Dumbbell Press",
+    "name_es": "Press inclinado con mancuernas",
+    "name_el": "Πιέσεις κεκλιμένου με αλτήρες",
+    "muscle_group": "chest",
+    "secondary_muscles": [
+      "triceps",
+      "shoulders"
+    ],
+    "equipment": "dumbbell",
+    "is_compound": true,
+    "id": "incline-dumbbell-press",
+    "instructions": "Press the dumbbells up and slightly together; lower until you feel a chest stretch.",
+    "instructions_es": "Empuja las mancuernas arriba y ligeramente juntas; baja hasta sentir estiramiento en el pecho.",
+    "instructions_el": "Πίεσε τους αλτήρες ψηλά και ελαφρώς μαζί· κατέβασε μέχρι να νιώσεις διάταση στο στήθος."
+  },
+  {
+    "name": "Chin-ups",
+    "name_es": "Dominadas supinas",
+    "name_el": "Έλξεις ανάποδη λαβή",
+    "muscle_group": "back",
+    "secondary_muscles": [
+      "biceps"
+    ],
+    "equipment": "bodyweight",
+    "is_compound": true,
+    "id": "chin-ups",
+    "instructions": "Underhand grip; pull until chin clears the bar and lower with control.",
+    "instructions_es": "Agarre supino; sube hasta pasar la barbilla y baja controlado.",
+    "instructions_el": "Ανάποδη λαβή· ανέβα μέχρι το πηγούνι να περάσει και κατέβα ελεγχόμενα."
+  },
+  {
+    "name": "Dumbbell Shoulder Press",
+    "name_es": "Press de hombros con mancuernas",
+    "name_el": "Πιέσεις ώμων με αλτήρες",
+    "muscle_group": "shoulders",
+    "secondary_muscles": [
+      "triceps"
+    ],
+    "equipment": "dumbbell",
+    "is_compound": true,
+    "id": "dumbbell-shoulder-press",
+    "instructions": "Start at ear level; press up without flaring the ribs.",
+    "instructions_es": "Empieza a la altura de las orejas; empuja sin abrir las costillas.",
+    "instructions_el": "Ξεκίνα στο ύψος των αυτιών· πίεσε ψηλά χωρίς να ανοίγουν τα πλευρά."
+  },
+  {
+    "name": "Front Squat",
+    "name_es": "Sentadilla frontal",
+    "name_el": "Μπροστινό κάθισμα",
+    "muscle_group": "quads",
+    "secondary_muscles": [
+      "glutes",
+      "core"
+    ],
+    "equipment": "barbell",
+    "is_compound": true,
+    "id": "front-squat",
+    "instructions": "Elbows high to keep the bar racked; stay upright into the hole.",
+    "instructions_es": "Codos altos para sostener la barra; mantente erguido al bajar.",
+    "instructions_el": "Αγκώνες ψηλά για την μπάρα· μείνε όρθια σε όλο το βάθος."
+  },
+  {
+    "name": "Sumo Deadlift",
+    "name_es": "Peso muerto sumo",
+    "name_el": "Sumo άρσεις θανάτου",
+    "muscle_group": "hamstrings",
+    "secondary_muscles": [
+      "glutes",
+      "back",
+      "quads"
+    ],
+    "equipment": "barbell",
+    "is_compound": true,
+    "id": "sumo-deadlift",
+    "instructions": "Wide stance, toes out; spread the floor and keep the chest proud.",
+    "instructions_es": "Postura amplia, puntas afuera; separa el suelo y pecho arriba.",
+    "instructions_el": "Φαρδιά στάση, δάχτυλα έξω· άνοιξε το πάτωμα με στήθος ψηλά."
+  },
+  {
+    "name": "Seated Calf Raise",
+    "name_es": "Elevación de gemelos sentado",
+    "name_el": "Καθιστές άρσεις γαμπών",
+    "muscle_group": "calves",
+    "secondary_muscles": [],
+    "equipment": "machine",
+    "is_compound": false,
+    "id": "seated-calf-raise",
+    "instructions": "Knees bent targets the soleus; slow reps through a full range.",
+    "instructions_es": "Con rodillas dobladas trabaja el sóleo; repeticiones lentas y completas.",
+    "instructions_el": "Με λυγισμένα γόνατα δουλεύει ο υποκνημίδιος· αργές πλήρεις επαναλήψεις."
+  },
+  {
+    "name": "Cable Tricep Kickback",
+    "name_es": "Patada de tríceps con cable",
+    "name_el": "Kickback τρικέφαλων με καλώδιο",
+    "muscle_group": "triceps",
+    "secondary_muscles": [],
+    "equipment": "cable",
+    "is_compound": false,
+    "id": "cable-tricep-kickback",
+    "instructions": "Hinge forward, upper arm parallel to the floor; extend straight back.",
+    "instructions_es": "Inclínate, brazo paralelo al suelo; extiende recto atrás.",
+    "instructions_el": "Κλίση μπροστά, βραχίονας παράλληλος στο πάτωμα· έκταση ευθεία πίσω."
+  },
+  {
+    "name": "Incline Curl",
+    "name_es": "Curl inclinado",
+    "name_el": "Κεκλιμένες δικεφαλικές",
+    "muscle_group": "biceps",
+    "secondary_muscles": [],
+    "equipment": "dumbbell",
+    "is_compound": false,
+    "id": "incline-curl",
+    "instructions": "Lie back on the incline; let the arms hang behind you for a long stretch.",
+    "instructions_es": "Recuéstate en el banco inclinado; deja colgar los brazos atrás para más estiramiento.",
+    "instructions_el": "Ξάπλωσε στον επικλινή· άφησε τα χέρια πίσω για μεγάλη διάταση."
+  },
+  {
+    "name": "Wrist Curl",
+    "name_es": "Curl de muñeca",
+    "name_el": "Κάμψη καρπού",
+    "muscle_group": "forearms",
+    "secondary_muscles": [],
+    "equipment": "barbell",
+    "is_compound": false,
+    "id": "wrist-curl",
+    "instructions": "Forearms on the bench, palms up; curl the wrist through a full range.",
+    "instructions_es": "Antebrazos en el banco, palmas arriba; curl de muñeca en rango completo.",
+    "instructions_el": "Αντιβράχια στον πάγκο, παλάμες πάνω· κάμψη καρπού σε πλήρες εύρος."
+  },
+  {
+    "name": "Reverse Wrist Curl",
+    "name_es": "Curl inverso de muñeca",
+    "name_el": "Αντίστροφη κάμψη καρπού",
+    "muscle_group": "forearms",
+    "secondary_muscles": [],
+    "equipment": "barbell",
+    "is_compound": false,
+    "id": "reverse-wrist-curl",
+    "instructions": "Palms down; lift the knuckles up slowly — light weight, strict form.",
+    "instructions_es": "Palmas abajo; sube los nudillos lento — poco peso, forma estricta.",
+    "instructions_el": "Παλάμες κάτω· ανέβασε αργά — ελαφρύ βάρος, αυστηρή τεχνική."
+  },
+  {
+    "name": "Farmer Walk",
+    "name_es": "Caminata del granjero",
+    "name_el": "Περπάτημα αγρότη",
+    "muscle_group": "forearms",
+    "secondary_muscles": [
+      "core",
+      "shoulders"
+    ],
+    "equipment": "dumbbell",
+    "is_compound": true,
+    "id": "farmer-walk",
+    "instructions": "Heavy in both hands; walk tall with tight abs and level shoulders.",
+    "instructions_es": "Peso en ambas manos; camina erguido con abdomen firme y hombros nivelados.",
+    "instructions_el": "Βάρος και στα δύο χέρια· περπάτα όρθια με σφιχτούς κοιλιακούς."
+  },
+  {
+    "name": "Good Morning",
+    "name_es": "Buenos días",
+    "name_el": "Good morning",
+    "muscle_group": "hamstrings",
+    "secondary_muscles": [
+      "back",
+      "glutes"
+    ],
+    "equipment": "barbell",
+    "is_compound": true,
+    "id": "good-morning",
+    "instructions": "Bar on the back, soft knees; hinge until the torso nears parallel.",
+    "instructions_es": "Barra a la espalda, rodillas suaves; bisagra hasta casi paralelo.",
+    "instructions_el": "Μπάρα στην πλάτη, μαλακά γόνατα· κλίση μέχρι σχεδόν παράλληλα."
+  },
+  {
+    "name": "Glute Bridge",
+    "name_es": "Puente de glúteos",
+    "name_el": "Γέφυρα γλουτών",
+    "muscle_group": "glutes",
+    "secondary_muscles": [
+      "hamstrings"
+    ],
+    "equipment": "bodyweight",
+    "is_compound": false,
+    "id": "glute-bridge",
+    "instructions": "Heels close to the glutes; lift the hips and hold the squeeze two seconds.",
+    "instructions_es": "Talones cerca de glúteos; eleva la cadera y aprieta dos segundos.",
+    "instructions_el": "Φτέρνες κοντά στους γλουτούς· ανέβασε τη λεκάνη και σφίξε δύο δευτερόλεπτα."
+  },
+  {
+    "name": "Side Plank",
+    "name_es": "Plancha lateral",
+    "name_el": "Πλάγια σανίδα",
+    "muscle_group": "core",
+    "secondary_muscles": [
+      "shoulders"
+    ],
+    "equipment": "bodyweight",
+    "is_compound": false,
+    "id": "side-plank",
+    "instructions": "Stack the feet, lift the hips high, and keep the shoulder over the elbow.",
+    "instructions_es": "Pies apilados, cadera alta y hombro sobre el codo.",
+    "instructions_el": "Πόδια σε ευθεία, γοφοί ψηλά, ώμος πάνω από τον αγκώνα."
+  },
+  {
+    "name": "Mountain Climbers",
+    "name_es": "Escaladores",
+    "name_el": "Ορειβάτες",
+    "muscle_group": "core",
+    "secondary_muscles": [
+      "quads",
+      "shoulders"
+    ],
+    "equipment": "bodyweight",
+    "is_compound": true,
+    "id": "mountain-climbers",
+    "instructions": "Hips level with shoulders; drive the knees fast without bouncing the hips.",
+    "instructions_es": "Cadera al nivel de hombros; rodillas rápidas sin rebotar la cadera.",
+    "instructions_el": "Γοφοί στο ύψος των ώμων· γρήγορα γόνατα χωρίς αναπήδηση λεκάνης."
+  },
+  {
+    "name": "Box Jump",
+    "name_es": "Salto al cajón",
+    "name_el": "Πηδήματα σε κουτί",
+    "muscle_group": "quads",
+    "secondary_muscles": [
+      "glutes",
+      "calves"
+    ],
+    "equipment": "bodyweight",
+    "is_compound": true,
+    "id": "box-jump",
+    "instructions": "Land soft and quiet in a quarter squat; step down, don't jump down.",
+    "instructions_es": "Aterriza suave en cuarto de sentadilla; baja caminando, no saltando.",
+    "instructions_el": "Προσγειώσου μαλακά σε ημικάθισμα· κατέβα περπατώντας, όχι με άλμα."
+  },
+  {
+    "name": "Reverse Lunge",
+    "name_es": "Zancada inversa",
+    "name_el": "Αντίστροφη προβολή",
+    "muscle_group": "quads",
+    "secondary_muscles": [
+      "glutes",
+      "hamstrings"
+    ],
+    "equipment": "dumbbell",
+    "is_compound": true,
+    "id": "reverse-lunge",
+    "instructions": "Step backward — easier on the knees; load stays on the front leg.",
+    "instructions_es": "Paso atrás — más amable con las rodillas; la carga queda en la pierna delantera.",
+    "instructions_el": "Βήμα πίσω — πιο φιλικό στα γόνατα· το φορτίο μένει στο μπροστινό πόδι."
+  },
+  {
+    "name": "Walking Lunge",
+    "name_es": "Zancada caminando",
+    "name_el": "Περπατώντας προβολή",
+    "muscle_group": "quads",
+    "secondary_muscles": [
+      "glutes",
+      "hamstrings"
+    ],
+    "equipment": "dumbbell",
+    "is_compound": true,
+    "id": "walking-lunge",
+    "instructions": "Step through continuously; drive off the front heel each stride.",
+    "instructions_es": "Avanza continuo; impúlsate con el talón delantero en cada paso.",
+    "instructions_el": "Συνεχόμενα βήματα· ώθηση από τη μπροστινή φτέρνα σε κάθε διασκελισμό."
+  },
+  {
+    "name": "Dumbbell Pullover",
+    "name_es": "Pullover con mancuerna",
+    "name_el": "Pullover με αλτήρα",
+    "muscle_group": "chest",
+    "secondary_muscles": [
+      "back"
+    ],
+    "equipment": "dumbbell",
+    "is_compound": false,
+    "id": "dumbbell-pullover",
+    "instructions": "Keep hips down and arms near-straight; pull the dumbbell over in a wide arc.",
+    "instructions_es": "Caderas abajo y brazos casi rectos; lleva la mancuerna en arco amplio.",
+    "instructions_el": "Γοφοί χαμηλά, χέρια σχεδόν τεντωμένα· φέρε τον αλτήρα σε φαρδύ τόξο."
+  },
+  {
+    "name": "Machine Lat Pulldown (Close Grip)",
+    "name_es": "Jalón agarre cerrado",
+    "name_el": "Κατεβάσματα στενής λαβής",
+    "muscle_group": "back",
+    "secondary_muscles": [
+      "biceps"
+    ],
+    "equipment": "cable",
+    "is_compound": true,
+    "id": "machine-lat-pulldown-close-grip-",
+    "instructions": "Elbows tight to the ribs; pull low and pause before the slow release.",
+    "instructions_es": "Codos pegados a las costillas; jala bajo y pausa antes de soltar lento.",
+    "instructions_el": "Αγκώνες κοντά στα πλευρά· τράβα χαμηλά, παύση και αργή επιστροφή."
+  },
+  {
+    "name": "Pendlay Row",
+    "name_es": "Remo Pendlay",
+    "name_el": "Κωπηλατική Pendlay",
+    "muscle_group": "back",
+    "secondary_muscles": [
+      "biceps",
+      "forearms"
+    ],
+    "equipment": "barbell",
+    "is_compound": true,
+    "id": "pendlay-row",
+    "instructions": "Reset the bar on the floor each rep; explode it to your chest with a flat back.",
+    "instructions_es": "Apoya la barra en el suelo cada repetición; jálala explosiva al pecho con espalda plana.",
+    "instructions_el": "Ακούμπα την μπάρα στο πάτωμα κάθε φορά· τράβα εκρηκτικά στο στήθος με ίσια πλάτη."
+  },
+  {
+    "name": "Single-Leg Deadlift",
+    "name_es": "Peso muerto a una pierna",
+    "name_el": "Μονοπόδιες άρσεις θανάτου",
+    "muscle_group": "hamstrings",
+    "secondary_muscles": [
+      "glutes",
+      "core"
+    ],
+    "equipment": "dumbbell",
+    "is_compound": true,
+    "id": "single-leg-deadlift",
+    "instructions": "Hinge on one leg with square hips; reach long and stand with control.",
+    "instructions_es": "Bisagra a una pierna con caderas cuadradas; alcanza lejos y sube con control.",
+    "instructions_el": "Κλίση στο ένα πόδι με ίσιους γοφούς· τεντώσου και ανέβα ελεγχόμενα."
+  },
+  {
+    "name": "Leg Press (Single Leg)",
+    "name_es": "Prensa a una pierna",
+    "name_el": "Πρέσα μονού ποδιού",
+    "muscle_group": "quads",
+    "secondary_muscles": [
+      "glutes"
+    ],
+    "equipment": "machine",
+    "is_compound": true,
+    "id": "leg-press-single-leg-",
+    "instructions": "One foot centered; press evenly through heel and forefoot.",
+    "instructions_es": "Un pie centrado; empuja parejo con talón y antepié.",
+    "instructions_el": "Ένα πόδι στο κέντρο· πίεση ομοιόμορφα με φτέρνα και μπροστινό πέλμα."
+  },
+  {
+    "name": "Cable Face Pull",
+    "name_es": "Face pull con cable",
+    "name_el": "Face pull με καλώδιο",
+    "muscle_group": "shoulders",
+    "secondary_muscles": [
+      "back"
+    ],
+    "equipment": "cable",
+    "is_compound": false,
+    "id": "cable-face-pull",
+    "instructions": "Set the pulley at face height; pull apart, not just back.",
+    "instructions_es": "Polea a la altura de la cara; separa las manos, no solo jales atrás.",
+    "instructions_el": "Τροχαλία στο ύψος του προσώπου· άνοιξε τα χέρια, όχι μόνο τράβηγμα πίσω."
+  },
+  {
+    "name": "Dumbbell Shrug",
+    "name_es": "Encogimiento con mancuernas",
+    "name_el": "Σρακ με αλτήρες",
+    "muscle_group": "shoulders",
+    "secondary_muscles": [
+      "forearms"
+    ],
+    "equipment": "dumbbell",
+    "is_compound": false,
+    "id": "dumbbell-shrug",
+    "instructions": "Dumbbells at your sides; shrug straight up, hold, and lower slowly.",
+    "instructions_es": "Mancuernas a los lados; encoge recto, sostén y baja lento.",
+    "instructions_el": "Αλτήρες στα πλάγια· ανασήκωσε ευθεία, κράτησε και κατέβασε αργά."
+  },
+  {
+    "name": "Spider Curl",
+    "name_es": "Curl araña",
+    "name_el": "Spider curl",
+    "muscle_group": "biceps",
+    "secondary_muscles": [],
+    "equipment": "dumbbell",
+    "is_compound": false,
+    "id": "spider-curl",
+    "instructions": "Chest on the incline pad, arms hanging vertical; curl strictly.",
+    "instructions_es": "Pecho en el banco inclinado, brazos verticales; curl estricto.",
+    "instructions_el": "Στήθος στον πάγκο, χέρια κάθετα· αυστηρή κάμψη."
+  },
+  {
+    "name": "Tricep Dips",
+    "name_es": "Fondos de tríceps",
+    "name_el": "Βυθίσεις τρικέφαλων",
+    "muscle_group": "triceps",
+    "secondary_muscles": [
+      "chest",
+      "shoulders"
+    ],
+    "equipment": "bodyweight",
+    "is_compound": true,
+    "id": "tricep-dips",
+    "instructions": "Stay upright for triceps; lower to 90° elbows and press to lockout.",
+    "instructions_es": "Mantente vertical para tríceps; baja a 90° y empuja hasta bloquear.",
+    "instructions_el": "Κατακόρυφος για τρικέφαλα· κατέβα στις 90° και πίεσε ως το κλείδωμα."
+  },
+  {
+    "name": "Diamond Push-ups",
+    "name_es": "Flexiones diamante",
+    "name_el": "Διαμαντένιες κάμψεις",
+    "muscle_group": "triceps",
+    "secondary_muscles": [
+      "chest"
+    ],
+    "equipment": "bodyweight",
+    "is_compound": true,
+    "id": "diamond-push-ups",
+    "instructions": "Hands form a diamond under the chest; elbows track back, not out.",
+    "instructions_es": "Manos en diamante bajo el pecho; codos hacia atrás, no afuera.",
+    "instructions_el": "Χέρια σε ρόμβο κάτω από το στήθος· αγκώνες πίσω, όχι έξω."
+  },
+  {
+    "name": "V-ups",
+    "name_es": "V-ups",
+    "name_el": "V-ups",
+    "muscle_group": "core",
+    "secondary_muscles": [],
+    "equipment": "bodyweight",
+    "is_compound": false,
+    "id": "v-ups",
+    "instructions": "Reach hands to feet in one crisp fold; lower both halves with control.",
+    "instructions_es": "Manos a los pies en un pliegue limpio; baja ambas mitades con control.",
+    "instructions_el": "Χέρια προς πόδια σε ένα καθαρό δίπλωμα· ελεγχόμενη κάθοδος."
+  },
+  {
+    "name": "Bicycle Crunches",
+    "name_es": "Abdominales bicicleta",
+    "name_el": "Ποδήλατο κοιλιακών",
+    "muscle_group": "core",
+    "secondary_muscles": [],
+    "equipment": "bodyweight",
+    "is_compound": false,
+    "id": "bicycle-crunches",
+    "instructions": "Slow opposite elbow-to-knee; keep the lower back gently pressed down.",
+    "instructions_es": "Codo a rodilla contraria lento; lumbar apoyada suave.",
+    "instructions_el": "Αργά αντίθετος αγκώνας-γόνατο· μέση απαλά πιεσμένη κάτω."
+  },
+  {
+    "name": "Turkish Get-up",
+    "name_es": "Levantamiento turco",
+    "name_el": "Τουρκική έγερση",
+    "muscle_group": "full_body",
+    "secondary_muscles": [
+      "core",
+      "shoulders"
+    ],
+    "equipment": "dumbbell",
+    "is_compound": true,
+    "id": "turkish-get-up",
+    "instructions": "Eyes on the bell the whole way; move slow through each position.",
+    "instructions_es": "Mirada en la pesa todo el tiempo; pasa lento por cada posición.",
+    "instructions_el": "Μάτια στο βάρος συνέχεια· αργά από κάθε θέση."
+  },
+  {
+    "name": "Sled Push",
+    "name_es": "Empuje de trineo",
+    "name_el": "Ώθηση ελκήθρου",
+    "muscle_group": "full_body",
+    "secondary_muscles": [
+      "quads",
+      "glutes",
+      "core"
+    ],
+    "equipment": "machine",
+    "is_compound": true,
+    "id": "sled-push",
+    "instructions": "Low arms, long strides; drive through the whole foot.",
+    "instructions_es": "Brazos bajos, zancadas largas; empuja con todo el pie.",
+    "instructions_el": "Χαμηλά χέρια, μεγάλοι διασκελισμοί· ώθηση με όλο το πέλμα."
+  },
+  {
+    "name": "Elliptical",
+    "name_es": "Elíptica",
+    "name_el": "Ελλειπτικό",
+    "muscle_group": "cardio",
+    "secondary_muscles": [
+      "quads",
+      "glutes"
+    ],
+    "equipment": "machine",
+    "is_compound": true,
+    "id": "elliptical",
+    "instructions": "Push and pull the handles; keep the heels down for glute drive.",
+    "instructions_es": "Empuja y jala los agarres; talones abajo para activar glúteos.",
+    "instructions_el": "Σπρώξε και τράβα τις λαβές· φτέρνες κάτω για γλουτούς."
+  },
+  {
+    "name": "Swimming",
+    "name_es": "Natación",
+    "name_el": "Κολύμβηση",
+    "muscle_group": "cardio",
+    "secondary_muscles": [
+      "back",
+      "shoulders",
+      "core"
+    ],
+    "equipment": "bodyweight",
+    "is_compound": true,
+    "id": "swimming",
+    "instructions": "Long strokes, steady exhale in the water; keep the hips high.",
+    "instructions_es": "Brazadas largas, exhala constante en el agua; cadera alta.",
+    "instructions_el": "Μεγάλες χεριές, σταθερή εκπνοή στο νερό· γοφοί ψηλά."
+  }
+]
