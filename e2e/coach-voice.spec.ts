@@ -1,9 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
 import { blockPaidRequests, loginAs } from './helpers/auth';
+import { VALID_SILENT_WEBM } from '../tests/fixtures/voice-audio';
 
 const enabled = process.env.E2E_COACH_VOICE === '1';
 test.skip(!enabled, 'Only the explicitly dispatched disposable voice runner supplies this fixture');
-const validSilentWebm = 'GkXfo59ChoEBQveBAULygQRC84EIQoKEd2VibUKHgQRChYECGFOAZwEAAAAAAAI3EU2bdLpNu4tTq4QVSalmU6yBoU27i1OrhBZUrmtTrIHYTbuMU6uEElTDZ1OsggFCTbuMU6uEHFO7a1OsggIh7AEAAAAAAABZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAVSalmsirXsYMPQkBNgI1MYXZmNjIuMTIuMTAyV0GNTGF2ZjYyLjEyLjEwMkSJiEBbAAAAAAAAFlSua+WuAQAAAAAAAFzXgQFzxYgsJ0xZKgl/uJyBACK1nIN1bmSIgQCGhkFfT1BVU1aqg2MuoFa7hATEtACDgQLhkZ+BAbWIQL9AAAAAAABiZIEQY6KTT3B1c0hlYWQBATgBQB8AAAAAABJUw2f9c3OgY8CAZ8iaRaOHRU5DT0RFUkSHjUxhdmY2Mi4xMi4xMDJzc9djwItjxYgsJ0xZKgl/uGfIokWjh0VOQ09ERVJEh5VMYXZjNjIuMjguMTAyIGxpYm9wdXNnyKFFo4hEVVJBVElPTkSHkzAwOjAwOjAwLjEwODAwMDAwMAAfQ7Z12OeBAKOLgQAAgAgL5jsjq2CjioEAFYAICKyzDsajioEAKYAICKyzDsajioEAPYAICKyzDsajioEAUYAICKyzDsaglqGKgQBlAAgIrLMOxpuBB3WihADN/mAcU7trkbuPs4EAt4r3gQHxggHE8IED';
 
 type VoiceHarness = { mode: 'granted' | 'denied' | 'pending'; trackStops: number; speak: number; pause: number; resume: number; cancel: number; grant?: () => void };
 
@@ -36,7 +36,7 @@ async function installSimulatedBrowserPrimitives(page: Page) {
     Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: {
       speak: () => { harness.speak++; }, pause: () => { harness.pause++; }, resume: () => { harness.resume++; }, cancel: () => { harness.cancel++; },
     } });
-  }, validSilentWebm);
+  }, VALID_SILENT_WEBM);
 }
 
 const harness = (page: Page) => page.evaluate(() => (window as typeof window & { __voiceHarness: VoiceHarness }).__voiceHarness);
