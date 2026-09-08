@@ -1,6 +1,7 @@
 import {beforeEach,describe,expect,it,vi} from 'vitest';
 import {PgDialect} from 'drizzle-orm/pg-core';
 import type {ExecuteAiTaskResult} from '@/agents/runtime';
+import {taskPolicies} from '@/agents/router/policies';
 import {createDatabasePhotoFoodObservationAdapter,runVerifiedPhotoFoodAnalysis,type VerifiedPhotoFoodAnalysis} from './photo-food-observation-adapter';
 import type {PhotoFoodScope} from './photo-food-observation';
 
@@ -11,7 +12,7 @@ const scope:PhotoFoodScope={actorId:id(1),subjectId:id(1),organizationId:id(2),c
 const imageBytes=new Uint8Array([1,2,3]);
 const imageDigest='039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81';
 const food={name:'Rice',estimated_grams:100,estimated_calories:130,estimated_protein_g:2.7,estimated_carbs_g:28,estimated_fat_g:.3,estimated_fiber_g:.4,estimated_sugar_g:0,confidence:.7,source:'ai_estimate',accuracy_note:'Estimate; confirm grams.'};
-const taskResult=(generation=5):ExecuteAiTaskResult<{content:Array<unknown>} >=>({generationId:id(generation),estimatedCostUsd:.001,selectedPolicy:{provider:'anthropic',model:'claude-haiku-4-5-20251001',reasoningEffort:'none',costClass:'cheap',latencyClass:'fast',maxTokens:2048,timeoutMs:30000,maxInputChars:10000000,maxCostUsd:.08,promptVersion:'photo-analyze-v1'},isFallback:false,output:{content:[{type:'tool_use',name:'submit_food_photo_analysis',input:{foods:[structuredClone(food)]}}]},usage:{inputTokens:10,outputTokens:10},latencyMs:1,rawStatus:200});
+const taskResult=(generation=5):ExecuteAiTaskResult<{content:Array<unknown>} >=>({generationId:id(generation),estimatedCostUsd:.001,selectedPolicy:{...taskPolicies.photo_analyze,reasoningEffort:'none'},isFallback:false,output:{content:[{type:'tool_use',name:'submit_food_photo_analysis',input:{foods:[structuredClone(food)]}}]},usage:{inputTokens:10,outputTokens:10},latencyMs:1,rawStatus:200});
 
 beforeEach(()=>executeAiTask.mockReset());
 describe('durable Photo Food observation adapter with injected SQL/runtime',()=>{
