@@ -157,6 +157,7 @@ export async function executeCoachWeek({ status, env, actors, service }) {
       COACH_ASSISTANT_ISOLATED_ENGINE_ENABLED: '1',
       COACH_ASSISTANT_ISOLATED_ACTIONS_ENABLED: '1',
       E2E_COACH_ENGINE: '1',
+      E2E_COACH_DRAFT_ONLY: '1',
     };
     const engine = spawnSync(process.execPath, [resolve('node_modules/@playwright/test/cli.js'), 'test', '--config', 'playwright.coach.config.ts', '--workers=1', 'e2e/coach-engine.spec.ts'], { stdio: 'inherit', env: engineEnv });
     if (engine.error || engine.status !== 0) throw new Error(`Coach Auth E2E isolated engine failed with status ${engine.status ?? 1}`);
