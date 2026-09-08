@@ -51,6 +51,15 @@ async function main() {
       COACH_ASSISTANT_CHAT_HISTORY_ENABLED: '1', COACH_ASSISTANT_ISOLATED_ENGINE_ENABLED: '1', COACH_ASSISTANT_PREVIEW_USER_IDS: actorId },
   });
   assert.equal(ui.status, 0); pass();
+  check = 'chat_cleanup_pending_real_auth_http';
+  const pending = spawnSync(process.execPath, ['node_modules/@playwright/test/cli.js', 'test', '--config', 'playwright.coach.config.ts', '--workers=1', 'e2e/coach-chat-cleanup-pending.spec.ts'], {
+    stdio: 'inherit', env: { ...process.env, E2E_COACH_CHAT_CLEANUP_PENDING: '1', E2E_CLIENT_ID: actorId, COACH_CHAT_HTTP_THREADS: uiManifest,
+      NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED: '1', NEXT_PUBLIC_COACH_ASSISTANT_ENABLED: '0', NEXT_PUBLIC_COACH_CHAT_HISTORY_ENABLED: '1',
+      COACH_ASSISTANT_ENABLED: '1', COACH_ASSISTANT_MODE: 'model', COACH_ASSISTANT_DATA_SOURCE: 'authorized_records',
+      COACH_ASSISTANT_MEMORY_ACTIONS_ENABLED: '0', COACH_ASSISTANT_DIET_ACTIONS_ENABLED: '0', COACH_ASSISTANT_ISOLATED_ACTIONS_ENABLED: '0',
+      COACH_ASSISTANT_CHAT_HISTORY_ENABLED: '1', COACH_ASSISTANT_ISOLATED_ENGINE_ENABLED: '1', COACH_ASSISTANT_PREVIEW_USER_IDS: actorId },
+  });
+  assert.equal(pending.status, 0); pass();
 }
 main().catch(error => {
   process.stderr.write(JSON.stringify({ event: 'coach_chat_fixture_sql', check, outcome: 'failed', ...(typeof error?.code === 'string' && /^[0-9A-Z]{5}$/.test(error.code) ? { sqlstate: error.code } : {}) }) + '\n'); process.exitCode = 1;
@@ -58,14 +67,17 @@ main().catch(error => {
   try {
     if (installed) {
       if (uiManifest) {
-        const manifest = JSON.parse(await readFile(uiManifest, 'utf8')) as { requestIds: unknown; threadIds: unknown };
+        const manifest = JSON.parse(await readFile(uiManifest, 'utf8')) as { requestIds: unknown; threadIds: unknown; attachmentIds?: unknown };
         const valid = (items: unknown): items is string[] => Array.isArray(items) && items.length <= 4 && items.every(id => typeof id === 'string' && /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/.test(id));
         assert.ok(valid(manifest.requestIds) && valid(manifest.threadIds));
+        const attachmentIds = manifest.attachmentIds ?? []; assert.ok(valid(attachmentIds));
         const scoped = (await pool.query<{ id: string }>("SELECT id FROM private.coach_chat_threads WHERE actor_id=$1 AND subject_id=$1 AND organization_id=$2 AND actor_role='client' AND (id=ANY($3::uuid[]) OR request_id=ANY($4::uuid[]))", [actorId, process.env.COACH_SQL_ORG, manifest.threadIds, manifest.requestIds])).rows.map(row => row.id);
         assert.ok(scoped.length <= 8);
         const cleanup = await pool.connect();
         try {
           await cleanup.query('BEGIN');
+          // These test rows never had Storage bytes; available uploads are not eligible.
+          await cleanup.query("DELETE FROM private.coach_attachment_uploads WHERE id=ANY($1::uuid[]) AND actor_id=$2 AND subject_id=$2 AND organization_id=$3 AND conversation_id=ANY($4::uuid[]) AND bucket='coach-attachments-chat-cleanup-fixture' AND object_path=organization_id::text || '/' || subject_id::text || '/' || conversation_id::text || '/' || id::text || '.jpg' AND state IN ('prepared','removed') AND source_digest IS NULL AND normalized_digest IS NULL AND metadata IS NULL", [attachmentIds, actorId, process.env.COACH_SQL_ORG, scoped]);
           await cleanup.query("DELETE FROM public.agent_conversation c USING private.coach_chat_turns t WHERE t.thread_id=ANY($1::uuid[]) AND c.id=t.content_id AND c.user_id=$2 AND c.agent_name='coach-assistant-global-v1'", [scoped, actorId]);
           await cleanup.query('DELETE FROM private.coach_chat_turns WHERE thread_id=ANY($1::uuid[])', [scoped]);
           await cleanup.query('DELETE FROM private.coach_chat_threads WHERE id=ANY($1::uuid[]) AND actor_id=$2 AND subject_id=$2 AND organization_id=$3', [scoped, actorId, process.env.COACH_SQL_ORG]);

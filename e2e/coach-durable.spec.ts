@@ -5,6 +5,20 @@ import pg from 'pg';
 import { expect, test } from '@playwright/test';
 import { blockPaidRequests, loginAs } from './helpers/auth';
 
+const durableErrors = new Set([
+  'cancelled', 'forbidden', 'invalid_input', 'version_conflict', 'expired',
+  'not_found', 'idempotency_conflict', 'uncertain', 'unauthenticated',
+  'disabled', 'provider_unavailable', 'deadline', 'query_failed', 'rate_limited',
+]);
+
+function durableHttpDiagnostic(step: 'R1' | 'R2', status: number, body: Record<string, unknown>) {
+  const nested = body.error && typeof body.error === 'object' ? (body.error as { code?: unknown }).code : undefined;
+  const candidate = typeof body.error === 'string' ? body.error : typeof nested === 'string' ? nested : undefined;
+  const error = candidate && durableErrors.has(candidate) ? candidate : undefined;
+  process.stdout.write(`${JSON.stringify({ event: 'coach_durable_http', step, status,
+    outcome: status === 200 && body.ok === true && Boolean(body.receipt) ? 'passed' : 'failed', ...(error ? { error } : {}) })}\n`);
+}
+
 test.skip(process.env.E2E_COACH_DURABLE !== '1', 'Exclusive disposable durable HTTP runner');
 
 test('global v2 UI reviews and saves durable preferences; HTTP replay, stale version and revocation remain guarded', async ({ page }) => {
@@ -67,8 +81,12 @@ test('global v2 UI reviews and saves durable preferences; HTTP replay, stale ver
     expect(uiApply).toBeDefined(); expect(applied.receipt.actionId).toBe(uiApply!.actionId);
     const header = { version: 'coach-assistant.v2', conversationId: initial.conversationId, turnId: randomUUID() };
     const receiptRequest = { ...header, operation: 'receipt', actionId: applied.receipt.actionId };
-    expect((await (await post(receiptRequest)).json()).receipt).toEqual(applied.receipt);
-    expect((await (await post(uiApply!)).json()).receipt).toEqual(applied.receipt);
+    const receiptResponse = await post(receiptRequest); const recovered = await receiptResponse.json() as Record<string, unknown>;
+    durableHttpDiagnostic('R1', receiptResponse.status(), recovered);
+    expect(receiptResponse.status()).toBe(200); expect(recovered).toMatchObject({ ok: true, receipt: applied.receipt });
+    const replayResponse = await post(uiApply!); const replayed = await replayResponse.json() as Record<string, unknown>;
+    durableHttpDiagnostic('R2', replayResponse.status(), replayed);
+    expect(replayResponse.status()).toBe(200); expect(replayed).toMatchObject({ ok: true, receipt: applied.receipt });
     await page.reload();
     const refreshedResponse = await post({ ...header, message: 'Show my workout records today' }); expect(refreshedResponse.status()).toBe(200);
     const refreshed = await refreshedResponse.json();

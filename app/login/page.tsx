@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, useEffect } from 'react';
+import { Suspense, useState, useEffect, useSyncExternalStore } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -13,6 +13,7 @@ import { ThemeModeProvider, ThemeModeToggle } from '@/components/shared/ThemeMod
 import { Button, IconButton } from '@/components/ui/Button';
 
 const clearInvalidLocalSession = () => supabase.auth.signOut({ scope: 'local' });
+const subscribeHydration = () => () => {};
 
 function passwordStrength(password: string): { label: 'Weak' | 'Good' | 'Strong'; percent: number } {
   const checks = [
@@ -47,7 +48,11 @@ function LoginForm() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [pendingEmail, setPendingEmail] = useState<string | null>(null); // 202 → check-email screen
+  const [authReady, setAuthReady] = useState(false);
   const strength = passwordStrength(password);
+  // A submit before hydration performs the browser's native GET `/login?`
+  // instead of running handleSubmit. Keep it inert until React owns the form.
+  const hydrated = useSyncExternalStore(subscribeHydration, () => true, () => false);
 
   // Sync mode with URL param changes; surface the post-confirmation success notice (P1).
   useEffect(() => {
@@ -72,12 +77,17 @@ function LoginForm() {
   useEffect(() => {
     let active = true;
 
-    supabase.auth.getUser().then(async ({ error: authError }) => {
-      if (!active || !authError) return;
-      await recoverInvalidBrowserSession(authError, clearInvalidLocalSession);
-    }).catch(() => {
-      // Network failures leave browser auth state untouched and the form usable.
-    });
+    supabase.auth.getUser()
+      .then(async ({ error: authError }) => {
+        if (!active || !authError) return;
+        await recoverInvalidBrowserSession(authError, clearInvalidLocalSession);
+      })
+      .catch(() => {
+        // Network failures leave browser auth state untouched and the form usable.
+      })
+      .finally(() => {
+        if (active) setAuthReady(true);
+      });
 
     return () => { active = false; };
   }, []);
@@ -330,7 +340,7 @@ function LoginForm() {
 
             <Button
               type="submit"
-              disabled={loading}
+              disabled={loading || !hydrated || !authReady}
               fullWidth
               className="gap-2"
             >
