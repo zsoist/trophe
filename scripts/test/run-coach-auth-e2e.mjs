@@ -137,7 +137,7 @@ export async function executeCoachWeek({ status, env, actors, service }) {
     finally { db.release(); }
 
     const childEnv = {
-      ...env, CI: 'true', NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED: '1', NEXT_PUBLIC_COACH_ASSISTANT_ENABLED: '1', COACH_ASSISTANT_ENABLED: '1', COACH_ASSISTANT_MODE: 'offline',
+      ...env, CI: 'true', NEXT_PUBLIC_COACH_ASSISTANT_ENABLED: '1', COACH_ASSISTANT_ENABLED: '1', COACH_ASSISTANT_MODE: 'offline',
       COACH_ASSISTANT_DATA_SOURCE: 'authorized_records', COACH_ASSISTANT_PREVIEW_USER_IDS: `${clientId},${coachId}`,
       E2E_COACH_WEEK: '1', E2E_COACH_FLAG_OFF: '0', E2E_COACH_PROFESSIONAL: '1', E2E_COACH_PROFESSIONAL_FLAG_OFF: '0',
       E2E_CLIENT_ID: clientId, E2E_COACH_ID: coachId, E2E_FOREIGN_ID: foreignId, E2E_UNASSIGNED_ID: unassignedId,
@@ -154,14 +154,15 @@ export async function executeCoachWeek({ status, env, actors, service }) {
     // starts. Both reuse the same disposable Auth/DB fixture and final cleanup.
     const modes = [
       childEnv,
-      { ...childEnv, NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED: '0', NEXT_PUBLIC_COACH_ASSISTANT_ENABLED: '0', COACH_ASSISTANT_ENABLED: '0', E2E_COACH_FLAG_OFF: '1', E2E_COACH_PROFESSIONAL_FLAG_OFF: '1' },
+      { ...childEnv, NEXT_PUBLIC_COACH_ASSISTANT_ENABLED: '0', COACH_ASSISTANT_ENABLED: '0', E2E_COACH_FLAG_OFF: '1', E2E_COACH_PROFESSIONAL_FLAG_OFF: '1' },
     ];
     for (const modeEnv of modes) {
       phase = modeEnv.E2E_COACH_FLAG_OFF === '1' ? 'playwright_off' : 'playwright_on';
       const result = spawnSync(process.execPath, [resolve('node_modules/@playwright/test/cli.js'), 'test', '--config', 'playwright.coach.config.ts', '--workers=1', 'e2e/coach-week.spec.ts'], { stdio: 'inherit', env: modeEnv });
       if (result.error || result.status !== 0) throw new Error(`Coach Auth E2E flag-${modeEnv.E2E_COACH_FLAG_OFF === '1' ? 'off' : 'on'} failed with status ${result.status ?? 1}`);
       phase = modeEnv.E2E_COACH_PROFESSIONAL_FLAG_OFF === '1' ? 'playwright_professional_off' : 'playwright_professional_on';
-      const professional = spawnSync(process.execPath, [resolve('node_modules/@playwright/test/cli.js'), 'test', '--config', 'playwright.coach-professional.config.ts', '--workers=1'], { stdio: 'inherit', env: modeEnv });
+      const professionalEnv = { ...modeEnv, NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED: modeEnv.E2E_COACH_PROFESSIONAL_FLAG_OFF === '1' ? '0' : '1' };
+      const professional = spawnSync(process.execPath, [resolve('node_modules/@playwright/test/cli.js'), 'test', '--config', 'playwright.coach-professional.config.ts', '--workers=1'], { stdio: 'inherit', env: professionalEnv });
       if (professional.error || professional.status !== 0) throw new Error(`Professional Coach Auth E2E flag-${modeEnv.E2E_COACH_PROFESSIONAL_FLAG_OFF === '1' ? 'off' : 'on'} failed with status ${professional.status ?? 1}`);
     }
   } catch (error) { diagnostic(phase, error); primaryError = error; }
