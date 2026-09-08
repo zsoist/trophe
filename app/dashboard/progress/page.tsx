@@ -19,6 +19,7 @@ import { useAppearance } from '@/components/shared/AppearanceProvider';
 import { isProgressPanelOn, orderedPanels } from '@/lib/appearance';
 import { MACRO_COLORS } from '@/lib/macro-colors';
 import { localToday } from '../../../lib/utils/dates';
+import { COACH_PROGRESS_REFRESH, progressRefreshActor } from '@/components/assistant/progress-events';
 
 /*
  * Client Progress — registry-driven, user-customizable.
@@ -302,6 +303,11 @@ export default function ProgressPage() {
   }, [router]);
 
   useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    const refresh = (event: Event) => { const actorId = progressRefreshActor(event); if (actorId && (!userId || actorId === userId)) void loadData(); };
+    window.addEventListener(COACH_PROGRESS_REFRESH, refresh);
+    return () => window.removeEventListener(COACH_PROGRESS_REFRESH, refresh);
+  }, [loadData, userId]);
 
   const addMeasurement = async () => {
     if (!userId || !formWeight) return;

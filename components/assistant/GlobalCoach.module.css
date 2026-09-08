@@ -64,6 +64,10 @@
 .foodReview input { display: block; width: 100%; font-size: 16px; padding: .5rem; background: var(--bg-input); border: 1px solid var(--border-default); border-radius: 8px; }
 .foodReview button { min-height: 44px; padding: .5rem .65rem; margin: .5rem .4rem 0 0; border: 1px solid var(--border-default); border-radius: 10px; font-size: .875rem; }
 .foodReview button:disabled { opacity: .45; }
+.periods { display: flex; gap: .35rem; margin: .5rem 0; }
+.periods button[aria-pressed="true"] { border-color: var(--gold-300); color: var(--gold-300); }
+.progressFields { display: grid; grid-template-columns: 1fr 1fr; gap: .55rem; margin-top: .65rem; }
+.progressFields label { min-width: 0; font-size: .75rem; color: var(--text-secondary); }
 
 /* Keep the working surface beside the coach at desktop widths. */
 @media (min-width: 1100px) {

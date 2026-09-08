@@ -61,7 +61,7 @@ export async function runConversation(raw: unknown, options: RunOptions & { isol
       const capabilities: CoachCapability[] = [
         ...(['food_records','workout_records','active_plan'] as const).map(key=>({key,status:result.evidence.some(f=>key==='food_records'?f.source==='nutrition':key==='active_plan'?f.source==='plan':f.source==='workout')?'available' as const:'unknown' as const,reason:result.evidence.some(f=>key==='food_records'?f.source==='nutrition':key==='active_plan'?f.source==='plan':f.source==='workout')?'authorized_records':'no_supported_records'})),
         {key:'screen_entity',status:exerciseId && result.evidence.some(f=>f.source==='exercise')?'available':'not_connected',reason:exerciseId?'curated_exercise_lookup':'entity_detail_not_connected'},
-        ...(['model','profile','memory','images','voice','actions'] as const).map(key=>({key,status:'not_connected' as const,reason:key==='model'?'paid_provider_disabled':'service_not_connected'})),
+        ...(['model','profile','memory','images','voice','actions','progress'] as const).map(key=>({key,status:'not_connected' as const,reason:key==='model'?'paid_provider_disabled':'service_not_connected'})),
       ];
       response.snapshot = {id:randomUUID(),capturedAt:options.now.toISOString(),subjectId:authorized.subjectId,organizationId:authorized.organizationId,surface,screenIncluded:surface!==null,language:authorized.language,units:{weight:'kg',energy:'kcal',protein:'g'},window:windowFor(intent,authorized.timezone,options.now),capabilities};
       response.snapshot.selection=selection.snapshot();

@@ -1,4 +1,5 @@
 import { createFoodPreferenceTurn } from './food-preference-turn';
+import { executeProgressAction, type ProgressService } from './progress-actions';
 import { runDurableChatTurn } from './chat-turn';
 import { executeCoachChatAction } from './chat-actions';
 import type { createCoachChatService } from './chat-service';
@@ -30,6 +31,7 @@ interface HandlerDependencies {
   createMemoryService?:()=>PersistentMemoryService|Promise<PersistentMemoryService>;
   createChatService?:()=>ReturnType<typeof createCoachChatService>|Promise<ReturnType<typeof createCoachChatService>>;
   createFoodService?:()=>FoodQuantityService|Promise<FoodQuantityService>;
+  createProgressService?:()=>ProgressService|Promise<ProgressService>;
   isolatedEngine?:ReturnType<typeof createIsolatedCoachEngineBinding>;
   createIsolatedEngine?:()=>ReturnType<typeof createIsolatedCoachEngineBinding>|Promise<ReturnType<typeof createIsolatedCoachEngineBinding>>;
   candidateEvaluation?:{kind:'injected_fixture';transport:PilotTransport};
@@ -135,6 +137,12 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
         const result=await executeFoodPreferenceAction(guard.userId,raw,await deps.createRepository(),await deps.createFoodPreferenceService(),controller.signal);
         return json(result,result.ok?200:result.error==='forbidden'?403:result.error==='invalid_input'?400:result.error==='expired'?410:result.error==='not_found'?404:result.error==='not_connected'||result.error==='uncertain'||result.error==='cancelled'?503:409);
       }
+      if(raw && typeof raw==='object' && 'operation' in raw && typeof raw.operation==='string' && (raw.operation==='progress.read'||raw.operation.startsWith('measurement.'))) {
+        if(deps.env.COACH_ASSISTANT_PROGRESS_ACTIONS_ENABLED!=='1')return fail('disabled',404);
+        if(!deps.createProgressService)return fail('provider_unavailable',503);
+        const result=await executeProgressAction(guard.userId,raw,await deps.createRepository(),await deps.createProgressService(),controller.signal);
+        return json(result,result.ok?200:result.error==='forbidden'?403:result.error==='invalid_input'?400:result.error==='expired'?410:result.error==='not_found'?404:result.error==='not_connected'||result.error==='uncertain'||result.error==='cancelled'?503:409);
+      }
       if(raw && typeof raw==='object' && 'operation' in raw && typeof raw.operation==='string' && raw.operation.startsWith('memory.')) {
         if(deps.env.COACH_ASSISTANT_MEMORY_ACTIONS_ENABLED!=='1')return fail('disabled',404);
         if(!deps.createMemoryService)return fail('provider_unavailable',503);
@@ -204,6 +212,10 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
       if(durable&&result.version==='coach-assistant.v2'&&result.ok&&result.profile&&result.snapshot?.subjectId===guard.userId&&result.dataSource==='authorized_records') {
         const actions=result.snapshot.capabilities.find(capability=>capability.key==='actions');
         if(actions){actions.status='available';actions.reason='durable_preferences_only';}
+      }
+      if(result.version==='coach-assistant.v2'&&result.ok&&result.snapshot?.subjectId===guard.userId&&result.dataSource==='authorized_records'&&deps.env.COACH_ASSISTANT_PROGRESS_ACTIONS_ENABLED==='1'&&deps.createProgressService) {
+        const progress=result.snapshot.capabilities.find(capability=>capability.key==='progress');
+        if(progress){progress.status='available';progress.reason='reviewed_self_measurements';}
       }
       if(result.version==='coach-assistant.v2'&&result.ok&&result.snapshot&&deps.env.COACH_ASSISTANT_ISOLATED_ATTACHMENTS_ENABLED==='1'&&result.snapshot.subjectId===guard.userId&&result.dataSource==='authorized_records') {
         const {isolatedAttachmentStore}=await import('./isolated-attachments');

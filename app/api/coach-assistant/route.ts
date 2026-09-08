@@ -42,6 +42,11 @@ export async function POST(request: NextRequest) {
       const { createFoodQuantityService } = await import('@/agents/coach-assistant/food-service');
       return createFoodQuantityService(db);
     },
+    createProgressService: async () => {
+      const { db } = await import('@/db/client');
+      const { createProgressService } = await import('@/agents/coach-assistant/progress-service');
+      return createProgressService(db);
+    },
     createRepository: async () => {
       const { pool } = await import('@/db/client');
       return createServerRepository(pool);

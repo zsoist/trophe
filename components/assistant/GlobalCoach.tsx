@@ -29,16 +29,20 @@ import dynamic from 'next/dynamic';
 import type { HistoryTransport } from './history-client';
 import { requestHistory } from './history-lazy-client';
 import { requestDiet } from './diet-client';
+import { ProgressController, type ProgressTransport } from './progress-state';
+import { ProgressPanel } from './ProgressPanel';
+import { requestProgress } from './progress-client';
+import { COACH_PROGRESS_REFRESH } from './progress-events';
 
 const HistoryPanel = dynamic(() => import('./HistoryPanel').then(module => module.HistoryPanel));
 
 export type CoachContextSlot = (props: { controller: PreferenceController; state: PreferenceState; conversationId: string; transport: PreferenceTransport }) => ReactNode;
 export type CoachVoiceSlot = (props: { conversationId: string; onUse: (text: string) => boolean }) => ReactNode;
-type Props = { identity: string; subjectId?: string; example?: ConversationTransport; preferenceTransport?: PreferenceTransport; memoryTransport?: MemoryTransport; dietTransport?: DietTransport; historyTransport?: HistoryTransport; contextSlot?: CoachContextSlot; voiceSlot?: CoachVoiceSlot };
+type Props = { identity: string; subjectId?: string; example?: ConversationTransport; preferenceTransport?: PreferenceTransport; memoryTransport?: MemoryTransport; dietTransport?: DietTransport; progressTransport?: ProgressTransport; historyTransport?: HistoryTransport; contextSlot?: CoachContextSlot; voiceSlot?: CoachVoiceSlot };
 export default function GlobalCoach(props: Props) {
   return <CoachSurface key={`${props.identity}:${props.subjectId ?? props.identity}`} {...props} />;
 }
-function CoachSurface({ identity, subjectId, example, preferenceTransport, memoryTransport, dietTransport, historyTransport, contextSlot, voiceSlot }: Props) {
+function CoachSurface({ identity, subjectId, example, preferenceTransport, memoryTransport, dietTransport, progressTransport, historyTransport, contextSlot, voiceSlot }: Props) {
   const { t } = useGlobalCoachI18n();
   const path = usePathname();
   const surface = coachSurface(path);
@@ -62,6 +66,9 @@ function CoachSurface({ identity, subjectId, example, preferenceTransport, memor
   const [diet] = useState(() => new DietController());
   const dietState = useSyncExternalStore(diet.subscribe, diet.snapshot, diet.snapshot);
   const dietEnabled = process.env.NEXT_PUBLIC_COACH_DIET_ACTIONS_ENABLED === '1' && (!example || Boolean(dietTransport)) && (!subjectId || subjectId === identity);
+  const [progress] = useState(() => new ProgressController());
+  const progressState = useSyncExternalStore(progress.subscribe, progress.snapshot, progress.snapshot);
+  const progressEnabled = surface === 'progress' && process.env.NEXT_PUBLIC_COACH_PROGRESS_ACTIONS_ENABLED === '1' && (!example || Boolean(progressTransport)) && (!subjectId || subjectId === identity);
   const [open, setOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [includeScreen, setIncludeScreen] = useState(true);
@@ -80,6 +87,7 @@ function CoachSurface({ identity, subjectId, example, preferenceTransport, memor
   useEffect(() => () => food.reset(), [food]);
   useEffect(() => () => memory.reset(), [memory]);
   useEffect(() => () => diet.reset(), [diet]);
+  useEffect(() => () => progress.reset(), [progress]);
   useEffect(() => { memory.identify(state.conversationId); }, [memory, state.conversationId]);
   useEffect(() => {
     if (process.env.NEXT_PUBLIC_COACH_FOOD_ACTIONS_ENABLED !== '1' || example || subjectId && subjectId !== identity) return;
@@ -109,7 +117,7 @@ function CoachSurface({ identity, subjectId, example, preferenceTransport, memor
     if (followLatest.current && !window.getSelection()?.toString()) log.current?.scrollTo({ top: log.current.scrollHeight });
     else setShowLatest(true);
   }, [open, state.turns, state.pending]);
-  const close = () => { controller.cancel(); preferences.cancel(); attachments.cancel(); voice.reset(); food.cancel(); memory.cancel(); diet.cancel(); setOpen(false); launcher.current?.focus(); };
+  const close = () => { controller.cancel(); preferences.cancel(); attachments.cancel(); voice.reset(); food.cancel(); memory.cancel(); diet.cancel(); progress.cancel(); setOpen(false); launcher.current?.focus(); };
   const send = () => !voiceActive && controller.send({ surface, includeScreen, ...(includeScreen && selection ? selection.anatomy ? { anatomy: selection.anatomy } : { entity: selection.entity } : {}), ...(subjectId ? { clientId: subjectId } : {}) }, example ?? requestConversation, attachments.references(), historyEnabled ? (requestId, title, signal) => {
     const create = (historyTransport ?? requestHistory).create;
     if (!create) return Promise.reject(new Error('history_unavailable'));
@@ -133,18 +141,22 @@ function CoachSurface({ identity, subjectId, example, preferenceTransport, memor
         {foodState.entryId && <FoodQuantityPanel key={foodState.entryId} controller={food} state={foodState} transport={requestFoodQuantity} />}
         {historyEnabled && <button type="button" onClick={() => {
           voice.reset(); attachments.reset(); preferences.reset(); food.reset(); memory.reset();
-          controller.startNew(); diet.moveConversation(controller.snapshot().conversationId); setHistoryOpen(false); input.current?.focus();
+          controller.startNew(); diet.moveConversation(controller.snapshot().conversationId); progress.moveConversation(controller.snapshot().conversationId); setHistoryOpen(false); input.current?.focus();
         }}>{t('global_coach.new_chat')}</button>}
         {historyEnabled && <details open={historyOpen} className={styles.profile} onToggle={event => setHistoryOpen(event.currentTarget.open)}><summary>{t('global_coach.saved_chats')}</summary>{historyOpen && <HistoryPanel transport={historyTransport ?? requestHistory} onInvalidate={threadId => {
           if (controller.snapshot().conversationId !== threadId) return;
-          voice.reset(); attachments.reset(); preferences.reset(); food.reset(); memory.reset(); controller.startNew(); diet.moveConversation(controller.snapshot().conversationId);
+          voice.reset(); attachments.reset(); preferences.reset(); food.reset(); memory.reset(); controller.startNew(); diet.moveConversation(controller.snapshot().conversationId); progress.moveConversation(controller.snapshot().conversationId);
         }} onResume={page => {
           voice.reset(); attachments.reset(); preferences.reset(); food.reset(); memory.reset();
-          controller.restore(page.thread.id, page.messages); diet.moveConversation(controller.snapshot().conversationId); setHistoryOpen(false); input.current?.focus();
+          controller.restore(page.thread.id, page.messages); diet.moveConversation(controller.snapshot().conversationId); progress.moveConversation(controller.snapshot().conversationId); setHistoryOpen(false); input.current?.focus();
         }} />}</details>}
         {dietEnabled && <details className={styles.profile} onToggle={event => { if (event.currentTarget.open) { voice.reset(); if (!dietState.profileId) diet.select(identity, state.conversationId, dietTransport ?? requestDiet); else if (!dietState.profile) void diet.read(dietTransport ?? requestDiet); } }}>
           <summary>{t('global_coach.diet_title')}</summary>
           <DietPanel controller={diet} state={dietState} transport={dietTransport ?? requestDiet} />
+        </details>}
+        {progressEnabled && <details className={styles.profile} onToggle={event => { if (event.currentTarget.open) { voice.reset(); if (!progressState.subjectId) progress.select(identity, state.conversationId); if (!progress.snapshot().snapshot) void progress.read(progressTransport ?? requestProgress); } }}>
+          <summary>{t('global_coach.progress_title')}</summary>
+          <ProgressPanel controller={progress} state={progressState} transport={progressTransport ?? requestProgress} onSaved={() => window.dispatchEvent(new CustomEvent(COACH_PROGRESS_REFRESH, { detail: { actorId: identity } }))} />
         </details>}
         {memoryEnabled && <details className={styles.profile} onToggle={event => { if (event.currentTarget.open) { voice.reset(); if (!memoryState.loaded) void memory.read(memoryTransport ?? requestMemory); } }}>
           <summary>{t('global_coach.memory')}</summary>

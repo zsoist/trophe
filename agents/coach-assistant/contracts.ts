@@ -87,7 +87,7 @@ export interface CoachConversationRequest {
   attachments?: CoachAttachmentRef[];
 }
 export interface CoachCapability {
-  key: 'food_records' | 'workout_records' | 'active_plan' | 'screen_entity' | 'model' | 'profile' | 'memory' | 'images' | 'voice' | 'actions';
+  key: 'food_records' | 'workout_records' | 'active_plan' | 'screen_entity' | 'model' | 'profile' | 'memory' | 'images' | 'voice' | 'actions' | 'progress';
   status: CoachCapabilityStatus;
   reason: string;
 }
