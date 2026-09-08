@@ -22,6 +22,7 @@ const conversationId = process.env.COACH_SET_CONVERSATION ?? randomUUID();
 const sessionId = process.env.COACH_SET_SESSION ?? randomUUID();
 const setId = process.env.COACH_SET_ID ?? randomUUID();
 const foreignSessionId = randomUUID(), foreignSetId = randomUUID();
+const completedSessionId = randomUUID(), completedSetId = randomUUID();
 const actionIds: string[] = [], proposalIds: string[] = [];
 const header = () => ({ version: 'coach-assistant.v2' as const, conversationId, turnId: randomUUID() });
 const execute = async (operation: WorkoutSetOperation) => workoutSetResultSchema.parse(await service.execute({ ...scope, operation }));
@@ -74,8 +75,11 @@ async function main() {
   await pool.query(await readFile('db/isolated/coach-workout-set-actions.sql', 'utf8')); installed = true;
   const exercise = (await pool.query<{ id: string; name: string }>('SELECT id,name FROM public.exercises WHERE is_template=true AND created_by IS NULL ORDER BY id LIMIT 1')).rows[0];
   assert.ok(exercise);
-  await pool.query("INSERT INTO public.workout_sessions(id,user_id,name,session_date,workout_kind) VALUES($1,$2,'Coach set fixture',CURRENT_DATE,'strength'),($3,$4,'Foreign set fixture',CURRENT_DATE,'strength')", [sessionId, actorId, foreignSessionId, coachId]);
-  await pool.query('INSERT INTO public.workout_sets(id,session_id,exercise_id,set_number,reps,weight_kg,is_warmup,is_pr) VALUES($1,$2,$3,3,8,80,false,false),($4,$5,$3,1,6,60,false,false)', [setId, sessionId, exercise.id, foreignSetId, foreignSessionId]);
+  await pool.query("INSERT INTO public.workout_sessions(id,user_id,name,session_date,workout_kind) VALUES($1,$2,'Coach set fixture',CURRENT_DATE,'strength'),($3,$4,'Foreign set fixture',CURRENT_DATE,'strength'),($5,$2,'Completed set fixture',CURRENT_DATE,'strength')", [sessionId, actorId, foreignSessionId, coachId, completedSessionId]);
+  await pool.query('INSERT INTO public.workout_sets(id,session_id,exercise_id,set_number,reps,weight_kg,is_warmup,is_pr) VALUES($1,$2,$3,3,8,80,false,false),($4,$5,$3,1,6,60,false,false),($6,$7,$3,1,7,70,false,false)', [setId, sessionId, exercise.id, foreignSetId, foreignSessionId, completedSetId, completedSessionId]);
+  // Canonical completion sets duration_minutes; the terminal-authority trigger
+  // owns completed_at and permanently seals this separate parent session.
+  await pool.query('UPDATE public.workout_sessions SET duration_minutes=30 WHERE id=$1', [completedSessionId]);
   seeded = true;
 
   check = 'resolve_preview_identifies_one_latest_set_without_write';
@@ -109,9 +113,7 @@ async function main() {
 
   check = 'completed_foreign_and_revoked_scope_fail_closed';
   const foreign = await execute({ ...header(), operation: 'set.read', setId: foreignSetId }); assert.ok(!foreign.ok && foreign.error === 'not_found');
-  await pool.query('UPDATE public.workout_sessions SET completed_at=clock_timestamp() WHERE id=$1', [sessionId]);
-  const completed = await execute({ ...header(), operation: 'set.read', setId }); assert.ok(!completed.ok && completed.error === 'session_completed');
-  await pool.query('UPDATE public.workout_sessions SET completed_at=NULL WHERE id=$1', [sessionId]);
+  const completed = await execute({ ...header(), operation: 'set.read', setId: completedSetId }); assert.ok(!completed.ok && completed.error === 'session_completed');
   await pool.query("UPDATE public.organization_members SET role='coach' WHERE org_id=$1 AND user_id=$2", [organizationId, actorId]);
   try {
     const revoked = await execute({ ...header(), operation: 'set.receipt', setId, actionId: operation.actionId }); assert.ok(!revoked.ok && revoked.error === 'forbidden');
@@ -180,7 +182,7 @@ main().catch(error => {
       await removeAudit();
       if (actionIds.length) await pool.query('DELETE FROM private.coach_action_receipts WHERE actor_id=$1 AND action_id=ANY($2::uuid[])', [actorId, actionIds]);
       if (proposalIds.length) await pool.query('DELETE FROM private.coach_action_proposals WHERE actor_id=$1 AND id=ANY($2::uuid[])', [actorId, proposalIds]);
-      if (seeded) await pool.query('DELETE FROM public.workout_sessions WHERE id=ANY($1::uuid[])', [[sessionId, foreignSessionId]]);
+      if (seeded) await pool.query('DELETE FROM public.workout_sessions WHERE id=ANY($1::uuid[])', [[sessionId, foreignSessionId, completedSessionId]]);
       await pool.query('DROP TRIGGER coach_workout_set_revision ON public.workout_sets; DROP FUNCTION private.advance_coach_workout_set_version(); DROP TABLE private.coach_workout_set_versions;');
       for (const constraint of priorConstraints) {
         assert.ok(['coach_action_proposals_action_check', 'coach_action_proposals_envelope_check'].includes(constraint.name));
