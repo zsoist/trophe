@@ -11,6 +11,7 @@ import type { createIsolatedCoachEngineBinding } from './isolated-engine';
 import { runConversationCandidate } from './conversation-candidate';
 import type { PilotTransport } from './pilot-runner';
 import { executeFoodQuantityAction, type FoodQuantityService } from './food-actions';
+import { executePhotoFoodAction, type PhotoFoodService } from './photo-food-actions';
 import { executeDurablePreferenceAction, withDurablePreferenceRead, type DurableCoachProfileService } from './durable-actions';
 import { run } from './index';
 import { runConversation } from './conversation';
@@ -31,6 +32,7 @@ interface HandlerDependencies {
   createMemoryService?:()=>PersistentMemoryService|Promise<PersistentMemoryService>;
   createChatService?:()=>ReturnType<typeof createCoachChatService>|Promise<ReturnType<typeof createCoachChatService>>;
   createFoodService?:()=>FoodQuantityService|Promise<FoodQuantityService>;
+  createPhotoFoodService?:()=>PhotoFoodService|Promise<PhotoFoodService>;
   createProgressService?:()=>ProgressService|Promise<ProgressService>;
   isolatedEngine?:ReturnType<typeof createIsolatedCoachEngineBinding>;
   createIsolatedEngine?:()=>ReturnType<typeof createIsolatedCoachEngineBinding>|Promise<ReturnType<typeof createIsolatedCoachEngineBinding>>;
@@ -130,6 +132,12 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
         if(!deps.createFoodService)return fail('provider_unavailable',503);
         const result=await executeFoodQuantityAction(guard.userId,raw,await deps.createRepository(),await deps.createFoodService(),controller.signal);
         return json(result,result.ok?200:result.error==='forbidden'?403:result.error==='invalid_input'?400:result.error==='expired'?410:result.error==='not_found'?404:result.error==='uncertain'||result.error==='cancelled'?503:409);
+      }
+      if(raw && typeof raw==='object' && 'operation' in raw && typeof raw.operation==='string' && raw.operation.startsWith('photo.food.')) {
+        if(deps.env.COACH_ASSISTANT_PHOTO_FOOD_ACTIONS_ENABLED!=='1')return fail('disabled',404);
+        if(!deps.createPhotoFoodService)return fail('provider_unavailable',503);
+        const result=await executePhotoFoodAction(guard.userId,raw,await deps.createRepository(),await deps.createPhotoFoodService(),controller.signal);
+        return json(result,result.ok?200:result.error==='forbidden'?403:result.error==='invalid_input'?400:result.error==='expired'?410:result.error==='not_found'?404:result.error==='not_connected'||result.error==='uncertain'||result.error==='cancelled'?503:409);
       }
       if(raw && typeof raw==='object' && 'operation' in raw && typeof raw.operation==='string' && raw.operation.startsWith('diet.')) {
         if(deps.env.COACH_ASSISTANT_DIET_ACTIONS_ENABLED!=='1')return fail('disabled',404);

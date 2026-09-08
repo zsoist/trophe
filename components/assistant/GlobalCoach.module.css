@@ -64,7 +64,7 @@
 .foodReview table { width: 100%; border-collapse: collapse; margin: .75rem 0; }
 .foodReview caption { text-align: left; font-weight: 600; margin-bottom: .5rem; }
 .foodReview th, .foodReview td { text-align: left; padding: .35rem .2rem; border-bottom: 1px solid var(--border-default); }
-.foodReview input { display: block; width: 100%; font-size: 16px; padding: .5rem; background: var(--bg-input); border: 1px solid var(--border-default); border-radius: 8px; }
+.foodReview input, .foodReview select { display: block; width: 100%; font-size: 16px; padding: .5rem; background: var(--bg-input); border: 1px solid var(--border-default); border-radius: 8px; }
 .foodReview button { min-height: 44px; padding: .5rem .65rem; margin: .5rem .4rem 0 0; border: 1px solid var(--border-default); border-radius: 10px; font-size: .875rem; }
 .foodReview button:disabled { opacity: .45; }
 .periods { display: flex; gap: .35rem; margin: .5rem 0; }
