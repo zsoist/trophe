@@ -73,3 +73,35 @@ it('fails closed when the server cannot select exactly one open workout and neve
   expect(screen.queryByRole('button', { name: 'Confirm set correction' })).toBeNull();
   expect(transport).toHaveBeenCalledTimes(1);
 });
+
+it('replays the exact reviewed action after a missing receipt without creating a second action', async () => {
+  const controller = new WorkoutSetController();
+  let firstApply: Extract<import('@/agents/coach-assistant/set-contracts').WorkoutSetOperation, { operation: 'set.apply' }> | null = null;
+  let applyCalls = 0;
+  const transport = vi.fn<WorkoutSetTransport>(async operation => {
+    if (operation.operation === 'set.resolve') return { version: 'coach-assistant.v2', storage: 'database', ok: true, snapshot };
+    if (operation.operation === 'set.propose') return { version: 'coach-assistant.v2', storage: 'database', ok: true, proposal };
+    if (operation.operation === 'set.apply') {
+      applyCalls += 1;
+      if (!firstApply) { firstApply = structuredClone(operation); throw new Error('request_never_arrived'); }
+      expect(operation).toEqual(firstApply);
+      return {
+        version: 'coach-assistant.v2', storage: 'database', ok: true,
+        receipt: { id: ids.receiptId, actionId: operation.actionId, proposalId: ids.proposalId, status: 'applied', resourceVersion: '2', recordedAt: '2026-09-08T12:00:00Z' },
+        refresh: { setId: ids.setId, sessionId: ids.sessionId, exerciseId: ids.exerciseId, previousVersion: '1', version: '2', strategy: 'refetch' },
+      };
+    }
+    if (operation.operation === 'set.receipt') return { version: 'coach-assistant.v2', storage: 'database', ok: false, error: 'not_found' };
+    return { version: 'coach-assistant.v2', storage: 'database', ok: true, snapshot: { ...snapshot, reps: 10, version: '2' } };
+  });
+  render(<Harness controller={controller} transport={transport} />);
+  await act(() => controller.activate('d'.repeat(64), ids.conversationId, 10, transport));
+  fireEvent.click(screen.getByRole('button', { name: 'Confirm set correction' }));
+  expect(await screen.findByRole('button', { name: 'Check saved correction' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Check saved correction' }));
+  expect(await screen.findByText('Set saved and refreshed · 10 reps')).toBeTruthy();
+  expect(applyCalls).toBe(2);
+  expect(transport.mock.calls.map(([operation]) => operation.operation)).toEqual([
+    'set.resolve', 'set.propose', 'set.apply', 'set.receipt', 'set.apply', 'set.read',
+  ]);
+});

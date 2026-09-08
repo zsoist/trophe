@@ -158,6 +158,13 @@ export class WorkoutSetController {
     const action = this.action;
     if (!action || this.state.pending) return false;
     const result = await this.call({ ...this.header(), operation: 'set.receipt', setId: action.setId, actionId: action.actionId }, transport, true);
+    if (result && !result.ok && result.error === 'not_found') {
+      // A missing receipt proves no durable outcome at lookup time. Replay the
+      // exact reviewed envelope and actionId so the server can apply once or
+      // return the receipt from a concurrent first attempt.
+      const replay = await this.call(action, transport, true);
+      return this.acceptReceipt(replay, transport);
+    }
     return this.acceptReceipt(result, transport);
   }
 

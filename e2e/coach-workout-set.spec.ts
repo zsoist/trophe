@@ -21,11 +21,22 @@ test('Workout composer reviews and durably corrects the server-selected latest s
   const pool = new pg.Pool({ connectionString: target.toString(), max: 1, statement_timeout: 5000 });
   const noPaid = await blockPaidRequests(page);
   const operations: Record<string, unknown>[] = [];
+  const observed: { actionId?: unknown; proposalId?: unknown } = {};
+  const saveObserved = () => writeFileSync(manifest, JSON.stringify(observed), { mode: 0o600 });
   await page.route('**/api/coach-assistant', async route => {
     const body = route.request().postDataJSON() as Record<string, unknown>;
     if (typeof body.operation === 'string' && body.operation.startsWith('set.')) {
       operations.push(body);
-      if (body.operation === 'set.apply') writeFileSync(manifest, JSON.stringify({ actionId: body.actionId, proposalId: body.proposalId }), { mode: 0o600 });
+      if (body.operation === 'set.apply') {
+        observed.actionId = body.actionId; observed.proposalId = body.proposalId; saveObserved();
+      }
+      if (body.operation === 'set.propose') {
+        const response = await route.fetch();
+        const result = await response.json() as { proposal?: { id?: unknown } };
+        observed.proposalId = result.proposal?.id; saveObserved();
+        await route.fulfill({ response });
+        return;
+      }
     }
     await route.continue();
   });

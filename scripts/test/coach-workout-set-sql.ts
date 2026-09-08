@@ -154,10 +154,16 @@ async function main() {
     },
   });
   const httpAction = JSON.parse(await readFile(manifest, 'utf8')) as { actionId?: unknown; proposalId?: unknown };
-  assert.ok(httpAction && typeof httpAction === 'object'
-    && typeof httpAction.actionId === 'string' && /^[a-f0-9-]{36}$/.test(httpAction.actionId)
+  if (typeof httpAction.actionId === 'string' && /^[a-f0-9-]{36}$/.test(httpAction.actionId)) actionIds.push(httpAction.actionId);
+  if (typeof httpAction.proposalId === 'string' && /^[a-f0-9-]{36}$/.test(httpAction.proposalId)) proposalIds.push(httpAction.proposalId);
+  // Discover partial E2E writes before asserting the browser result. This
+  // guarantees cleanup even if the browser exits after propose or commit.
+  const partialProposals = await pool.query<{ id: string }>("SELECT id FROM private.coach_action_proposals WHERE actor_id=$1 AND subject_id=$1 AND organization_id=$2 AND action='workout.set.reps.update'", [actorId, organizationId]);
+  for (const row of partialProposals.rows) if (!proposalIds.includes(row.id)) proposalIds.push(row.id);
+  const partialReceipts = await pool.query<{ action_id: string }>("SELECT action_id FROM private.coach_action_receipts WHERE actor_id=$1 AND subject_id=$1 AND organization_id=$2 AND action='workout.set.reps.update'", [actorId, organizationId]);
+  for (const row of partialReceipts.rows) if (!actionIds.includes(row.action_id)) actionIds.push(row.action_id);
+  assert.ok(typeof httpAction.actionId === 'string' && /^[a-f0-9-]{36}$/.test(httpAction.actionId)
     && typeof httpAction.proposalId === 'string' && /^[a-f0-9-]{36}$/.test(httpAction.proposalId));
-  actionIds.push(httpAction.actionId); proposalIds.push(httpAction.proposalId);
   assert.equal(http.status, 0); pass();
 }
 
