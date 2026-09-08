@@ -61,7 +61,7 @@ test('pending cleanup survives reload, blocks content and generation, then disap
     [attachmentId, actorId, organizationId, threadId, randomUUID(), bucket, objectPath, 'a'.repeat(64)]);
 
     await page.goto('/dashboard/workout');
-    await page.getByRole('button', { name: 'Ask coach', exact: true }).click();
+    await page.getByRole('button', { name: 'Ask Trophē', exact: true }).click();
     const panel = page.locator('#global-coach');
     await panel.locator('summary').filter({ hasText: 'Saved conversations' }).click();
     const firstList = page.waitForResponse(response => response.request().postDataJSON()?.operation === 'list');
@@ -82,7 +82,7 @@ test('pending cleanup survives reload, blocks content and generation, then disap
     expect((await pool.query("SELECT count(*)::int AS n FROM public.agent_conversation WHERE user_id=$1 AND agent_name='coach-assistant-global-v1' AND session_id=$2", [actorId, threadId])).rows[0].n).toBe(0);
 
     // Reload must rediscover the blank pending row, never its withdrawn content.
-    await page.reload(); await page.getByRole('button', { name: 'Ask coach', exact: true }).click();
+    await page.reload(); await page.getByRole('button', { name: 'Ask Trophē', exact: true }).click();
     const reloaded = page.locator('#global-coach');
     await reloaded.locator('summary').filter({ hasText: 'Saved conversations' }).click();
     const secondList = page.waitForResponse(response => response.request().postDataJSON()?.operation === 'list');
