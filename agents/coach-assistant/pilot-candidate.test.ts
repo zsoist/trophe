@@ -47,16 +47,16 @@ describe('actual guarded candidate composition, synthetic transports only',()=>{
   expect((await handleCoachRequest(request(),{...deps,env:{...deps.env,COACH_ASSISTANT_DATA_SOURCE:'authorized_records'}})).status).toBe(503);
   expect(provider).toHaveBeenCalledTimes(1);
  });
- it('runs the real engine through existing budget/runner and retains the zero-live gate',async()=>{
+ it('runs the real engine through the existing budget/runner and rejects injected transport in live mode',async()=>{
   const records=new Map<string,PilotAttemptRecord>();const events:string[]=[];
   const store:PilotBudgetStore={execute:async command=>{
-   events.push(command.operation);const decision=decidePilotBudgetCommand({pilotId:id(1),capNanoUsd:44_000_000,chargedNanoUsd:[...records.values()].reduce((n,r)=>n+r.chargedNanoUsd,0),turnAttemptCount:[...records.values()].filter(r=>r.binding.turnId===command.binding.turnId).length,accountingBlocked:[...records.values()].some(r=>r.accountingAlert),existing:records.get(command.binding.attemptId)},command);
+   events.push(command.operation);const decision=decidePilotBudgetCommand({pilotId:id(1),budgetDay:'2026-09-08',capNanoUsd:44_000_000,chargedNanoUsd:[...records.values()].reduce((n,r)=>n+r.chargedNanoUsd,0),turnAttemptCount:[...records.values()].filter(r=>r.binding.turnId===command.binding.turnId).length,accountingBlocked:[...records.values()].some(r=>r.accountingAlert),existing:records.get(command.binding.attemptId)},command);
    if(decision.ok&&decision.write!=='none')records.set(command.binding.attemptId,structuredClone(decision.record));return {storage:'database',...decision};
   }};
   const provider=transport();const input={pilotId:id(1),actorId:id(2),evaluationId:id(3),mode:'injected',caseIds:['explain_food','follow_up']};
   const report=await runCoachConversationPilot(input,{store,transport:provider,signal:new AbortController().signal});
   if(!report.ok)throw new Error('report');expect(report.allStructuralChecksPassed).toBe(true);expect(report.actualProviderCalls).toBe(0);expect(report.injectedProviderCalls).toBe(2);expect(report.measuredUsageCostUsd).toBeNull();expect(report.releaseApproved).toBe(false);expect(events).toEqual(['reserve','claim_dispatch','settle','reserve','claim_dispatch','settle']);
   await runCoachConversationPilot(input,{store,transport:provider,signal:new AbortController().signal});expect(provider).toHaveBeenCalledTimes(2);
-  expect(await runCoachConversationPilot({...input,mode:'live'},{store,signal:new AbortController().signal})).toMatchObject({error:'budget_blocked'});
+  expect(await runCoachConversationPilot({...input,mode:'live'},{store,transport:provider,signal:new AbortController().signal})).toMatchObject({error:'budget_blocked'});
  });
 });

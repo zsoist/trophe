@@ -1,13 +1,14 @@
 import { describe,it,expect,vi } from 'vitest';
-import { COACH_ATTEMPT_RESERVATION_NANO_USD as amount, decidePilotBudgetCommand, executePilotBudgetCommand, reserveCoachPilotAttempt, pricePilotUsageNanoUsd, type PilotAttemptBinding, type PilotAttemptRecord, type PilotBudgetCommand, type PilotBudgetStore } from './pilot-budget';
+import { COACH_ATTEMPT_RESERVATION_NANO_USD as amount, decidePilotBudgetCommand, executePilotBudgetCommand, reserveCoachPilotAttempt, pricePilotUsageNanoUsd, pilotRecordActiveCharge, type PilotAttemptBinding, type PilotAttemptRecord, type PilotBudgetCommand, type PilotBudgetStore } from './pilot-budget';
 const uuid=(n:number)=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
-const binding=(n=1):PilotAttemptBinding=>({pilotId:uuid(1),actorId:uuid(2),attemptId:uuid(n+10),agentRunId:uuid(n+20),turnId:uuid(3),model:'gpt-5.6-luna',pricingVersion:'luna-standard-2026-09-07',requestHash:'a'.repeat(64),reservedNanoUsd:amount});
+const day='2026-09-08';
+const binding=(n=1):PilotAttemptBinding=>({pilotId:uuid(1),actorId:uuid(2),attemptId:uuid(n+10),agentRunId:uuid(n+20),turnId:uuid(3),model:'gpt-5.6-luna',pricingVersion:'gpt-5.6-luna-standard-2026-09-08',requestHash:'a'.repeat(64),reservedNanoUsd:amount});
 const usage={inputTokens:1000,outputTokens:200,cacheReadTokens:200,cacheWriteTokens:100,reasoningTokens:50};
 /** Explicit test harness, not a persistent implementation or SQL proof. */
 function fixture(cap=amount*2) {
   const rows=new Map<string,PilotAttemptRecord>();
   const execute=vi.fn(async(command:PilotBudgetCommand)=>{
-    const snapshot={pilotId:uuid(1),capNanoUsd:cap,accountingBlocked:[...rows.values()].some(row=>row.accountingAlert),chargedNanoUsd:[...rows.values()].reduce((sum,row)=>sum+row.chargedNanoUsd,0),turnAttemptCount:[...rows.values()].filter(row=>row.binding.turnId===command.binding.turnId).length,existing:rows.get(command.binding.attemptId)};
+    const snapshot={pilotId:uuid(1),budgetDay:day,capNanoUsd:cap,accountingBlocked:[...rows.values()].some(row=>row.accountingAlert),chargedNanoUsd:[...rows.values()].reduce((sum,row)=>sum+row.chargedNanoUsd,0),turnAttemptCount:[...rows.values()].filter(row=>row.binding.turnId===command.binding.turnId).length,existing:rows.get(command.binding.attemptId)};
     const decision=decidePilotBudgetCommand(snapshot,command);
     if(decision.ok&&decision.write!=='none')rows.set(command.binding.attemptId,structuredClone(decision.record));
     return {storage:'database' as const,...decision};
@@ -66,8 +67,14 @@ describe('pilot budget pure core and injected persistent port',()=>{
     expect(await executePilotBudgetCommand(command('reserve',binding(2)),store,signal)).toMatchObject({error:'budget_blocked'});
   });
   it('denies a new dispatch after the configured cap is reduced to zero',()=>{
-    const reserved:PilotAttemptRecord={binding:binding(),state:'reserved',chargedNanoUsd:amount,usage:null,accountingAlert:false};
-    expect(decidePilotBudgetCommand({pilotId:uuid(1),capNanoUsd:0,accountingBlocked:false,chargedNanoUsd:amount,turnAttemptCount:1,existing:reserved},{operation:'claim_dispatch',binding:binding()})).toMatchObject({error:'budget_blocked'});
+    const reserved:PilotAttemptRecord={binding:binding(),admissionDay:day,state:'reserved',chargedNanoUsd:amount,usage:null,accountingAlert:false};
+    expect(decidePilotBudgetCommand({pilotId:uuid(1),budgetDay:day,capNanoUsd:0,accountingBlocked:false,chargedNanoUsd:amount,turnAttemptCount:1,existing:reserved},{operation:'claim_dispatch',binding:binding()})).toMatchObject({error:'budget_blocked'});
+  });
+  it('resets only settled daily usage at Bogotá midnight while retaining open reservations',()=>{
+    const settled:PilotAttemptRecord={binding:binding(),admissionDay:'2026-09-07',state:'settled',chargedNanoUsd:409000,usage,accountingAlert:false};
+    const open:PilotAttemptRecord={binding:binding(2),admissionDay:'2026-09-07',state:'unknown',chargedNanoUsd:amount,usage:null,accountingAlert:false};
+    expect(pilotRecordActiveCharge(settled,'2026-09-08')).toBe(0);
+    expect(pilotRecordActiveCharge(open,'2026-09-08')).toBe(amount);
   });
   it('quarantines unpriced long-context usage and preserves the anomalous counters across lookup',async()=>{
     const {store,command}=fixture(amount*10);const signal=new AbortController().signal;
@@ -78,10 +85,10 @@ describe('pilot budget pure core and injected persistent port',()=>{
     expect(await executePilotBudgetCommand(command('lookup'),store,signal)).toMatchObject({ok:true,record:{accountingAlert:true,usage:long}});
     expect(await executePilotBudgetCommand(command('reserve',binding(2)),store,signal)).toMatchObject({error:'budget_blocked'});
   });
-  it('never permits transport after an ambiguous commit and keeps the live zero-budget entrypoint closed',async()=>{
+  it('never permits transport after an ambiguous budget-store commit',async()=>{
     const store:PilotBudgetStore={execute:vi.fn().mockRejectedValue(new Error('private detail'))};const signal=new AbortController().signal;
     expect(await executePilotBudgetCommand({operation:'claim_dispatch',binding:binding()},store,signal)).toMatchObject({ok:false,error:'uncertain'});
     vi.mocked(store.execute).mockClear();
-    expect(await reserveCoachPilotAttempt(binding(),store,signal)).toMatchObject({ok:false,error:'budget_blocked'});expect(store.execute).not.toHaveBeenCalled();
+    expect(await reserveCoachPilotAttempt(binding(),store,signal)).toMatchObject({ok:false,error:'uncertain'});expect(store.execute).toHaveBeenCalledOnce();
   });
 });

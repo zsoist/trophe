@@ -1,12 +1,24 @@
-# Measured pilot runner — live disabled
+# Measured pilot runner — LIVE-01 gated
+
+The US$3/day America/Bogota authorization replaces the former zero-dollar gate.
+Live mode is callable only with the real shared transport and durable budget store;
+an injected transport is rejected. The initial evaluation's conservative maximum
+reservation is calculated before work and must stay at or below US$0.50. A missing
+credential or failed budget gate still prevents provider dispatch.
+
+Each model invocation receives its own reservation and stable attempt identity.
+There are at most two per turn, each configured with one HTTP attempt so SDK retries
+cannot bypass admission. Reports aggregate measured usage while retaining per-attempt
+IDs and provider `x-request-id` values. Missing usage, uncertain transport outcomes,
+or an unpriced returned model retain the reservation and stop the run.
 
 `runCoachPilotEvaluation` in pilot-runner.ts accepts pilotId, verified actorId,
 evaluationId, mode, optional fixed dataset caseIds and includeSyntheticText.
 Dependencies are the authorized persistent PilotBudgetStore and AbortSignal;
 mode=injected additionally requires an explicitly injected structured transport.
-Mode=live refuses at the current zero cap before touching the store/provider and
-does not accept an injected transport masquerading as measured usage. No call or
-credential access has been performed. This runner is not an HTTP feature flag.
+Mode=live does not accept an injected transport masquerading as measured usage.
+No live call or credential access has been performed. This runner is not an HTTP
+feature flag.
 
 The built-in small dataset contains two positive explanation/follow-up cases, an
 unsupported completion request and acute triage. It stops on failed structural

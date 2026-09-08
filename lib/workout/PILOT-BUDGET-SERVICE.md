@@ -1,8 +1,17 @@
 # Persistent pilot accounting — isolated candidate
 
+LIVE-01 now evaluates a US$3 authorized ceiling and a US$2.70 admission target on
+the America/Bogota server day. The writer records an admission day per attempt,
+recomputes the active ledger atomically when the date changes, excludes only prior
+day settled usage, and retains every open reservation. The isolated configuration
+permits one shared Ask Trophē authority row. This remains acceptance-only SQL until
+AG1 identifies and provisions the hosted pilot destination through the release gate.
+
 `createPilotBudgetStore` implements the coach port with the shared `agent_runs` table and one private configuration row per pilot. The caller identity comes from the server factory; the command cannot choose that authority. Each transaction locks configuration, rechecks allowed actors and current organization membership, validates every pilot record, and compares count/charge against the persisted aggregate before deciding. Missing or reclassified rows fail closed. Attempt IDs are globally unique; `agentRunId` is the same row ID/generation ID later used for reconciliation.
 
-The isolated configuration defaults to a zero cap. It is never provisioned from a request. Productive migrations, provider wiring and paid dispatch are absent. The pure entry point still denies at the effective US$0 cap.
+The isolated configuration defaults to a zero cap and is provisioned only by the
+guarded test/operator path. It is never provisioned from a request. Productive
+migrations and hosted provider wiring remain absent.
 
 Financial states remain in `metadata.coachPilot.state`. Existing `agent_runs.status` stays within its current constraint: reserved/dispatched/unknown → pending; settled measured usage → completed; released before dispatch → failed with `pilot_cancelled_before_dispatch` and zero estimated cost. Settlement here concerns usage accounting, not answer quality or approval. Other metadata is preserved. The measured runner must reuse this row rather than create a second generation.
 

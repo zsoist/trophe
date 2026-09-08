@@ -10,13 +10,13 @@ function fixture() {
   const records=new Map<string,PilotAttemptRecord>();const events:string[]=[];
   const store:PilotBudgetStore={execute:vi.fn(async(command:PilotBudgetCommand)=>{
     events.push(command.operation);
-    const decision=decidePilotBudgetCommand({pilotId:uuid(1),capNanoUsd:44_000_000,chargedNanoUsd:[...records.values()].reduce((sum,row)=>sum+row.chargedNanoUsd,0),turnAttemptCount:[...records.values()].filter(row=>row.binding.turnId===command.binding.turnId).length,accountingBlocked:[...records.values()].some(row=>row.accountingAlert),existing:records.get(command.binding.attemptId)},command);
+    const decision=decidePilotBudgetCommand({pilotId:uuid(1),budgetDay:'2026-09-08',capNanoUsd:44_000_000,chargedNanoUsd:[...records.values()].reduce((sum,row)=>sum+row.chargedNanoUsd,0),turnAttemptCount:[...records.values()].filter(row=>row.binding.turnId===command.binding.turnId).length,accountingBlocked:[...records.values()].some(row=>row.accountingAlert),existing:records.get(command.binding.attemptId)},command);
     if(decision.ok&&decision.write!=='none')records.set(command.binding.attemptId,structuredClone(decision.record));
     return {storage:'database',...decision};
   })};
   const transport=vi.fn<PilotTransport>(async request=>{
     events.push('transport');const data=JSON.parse(request.prompt);
-    return {responseModel:'gpt-5.6-luna',output:{answer:'A log offers a starting point for review rather than a complete picture of daily life.',followUp:'What would make the review useful?',evidenceRefs:data.evidence.map((f:{id:string})=>f.id),entityRefs:[],facts:[],generalExplanationRefs:['records_are_partial_view'],limitations:[],escalation:false},usage:{inputTokens:1000,outputTokens:200,reasoningTokens:50},latencyMs:1,rawStatus:200};
+    return {requestId:'req_injected_fixture',responseModel:'gpt-5.6-luna',output:{answer:'A log offers a starting point for review rather than a complete picture of daily life.',followUp:'What would make the review useful?',evidenceRefs:data.evidence.map((f:{id:string})=>f.id),entityRefs:[],facts:[],generalExplanationRefs:['records_are_partial_view'],limitations:[],escalation:false},usage:{inputTokens:1000,outputTokens:200,reasoningTokens:50},latencyMs:1,rawStatus:200};
   });
   // Budget/transport fixture only; does not import or approve a conversation engine.
   const candidate:PilotCandidate={promptVersion:'pilot-test-fixture.v1',run:async(raw,options)=>{
@@ -39,8 +39,19 @@ describe('measured pilot runner with an explicitly injected transport and store'
     expect(report.requestedModel).toBe('gpt-5.6-luna');expect(report.returnedModel).toBe('gpt-5.6-luna');
     expect(report.actualProviderCalls).toBe(0);expect(report.injectedProviderCalls).toBe(1);
     expect(report.measuredUsageCostUsd).toBeNull();expect(report.simulatedUsageCostUsd).toBeCloseTo(0.00044);
+    expect(report.cases[0].requestIds).toEqual(['req_injected_fixture']);expect(report.maximumReservedCostUsd).toBeCloseTo(0.0088);
     expect(report.allStructuralChecksPassed).toBe(true);expect(report.releaseApproved).toBe(false);
     expect(report.cases[0].reviewText).toBeUndefined();expect(report.cases[0].outputHash).toMatch(/^[a-f0-9]{64}$/);
+  });
+  it('gives each of the two allowed model invocations its own durable reservation and aggregates usage',async()=>{
+    const deps=fixture();const original=deps.candidate.run;
+    deps.candidate={...deps.candidate,run:async(raw,options)=>{await original(raw,options);return original(raw,options);}};
+    const report=await runCoachPilotEvaluation(input,deps);if(!report.ok)throw new Error('report expected');
+    expect(report.cases[0].modelCalls).toBe(2);expect(report.cases[0].attemptIds).toHaveLength(2);
+    expect(new Set(report.cases[0].attemptIds).size).toBe(2);expect(new Set(report.cases[0].agentRunIds).size).toBe(2);
+    expect(report.cases[0].usage).toMatchObject({inputTokens:2000,outputTokens:400,reasoningTokens:100});
+    expect(report.simulatedUsageCostUsd).toBeCloseTo(0.00088);expect(deps.records.size).toBe(2);
+    expect(deps.events).toEqual(['reserve','claim_dispatch','transport','settle','reserve','claim_dispatch','transport','settle']);
   });
   it.each([undefined,'gpt-5.6-luna-snapshot','another-model',''])('preserves observed metadata %s without substituting the request',async(responseModel)=>{
     const deps=fixture();const original=deps.transport.getMockImplementation()!;

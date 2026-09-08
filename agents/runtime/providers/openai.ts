@@ -316,6 +316,7 @@ export async function invokeOpenAiStructured<T>(input: {
     responseModel: typeof data.model === 'string' && data.model.trim().length > 0 ? data.model : undefined,
     output,
     providerGenerationId: data.id,
+    requestId: response.headers.get('x-request-id') ?? undefined,
     usage,
     latencyMs: Date.now() - startedAt,
     rawStatus: response.status,

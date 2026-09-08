@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { fixtureRepository } from './fixtures';
-import { COACH_PILOT_BUDGET_USD, COACH_PRICING_VERSION } from './economics';
+import { COACH_PILOT_BUDGET_USD, COACH_PILOT_FIRST_SMOKE_MAX_USD, COACH_PRICING_VERSION } from './economics';
 import { COACH_ATTEMPT_RESERVATION_NANO_USD, USD_IN_NANODOLLARS, executePilotBudgetCommand, reserveCoachPilotAttempt, pricePilotUsageNanoUsd, type PilotBudgetStore, type PilotUsage, type PilotAttemptBinding } from './pilot-budget';
 import type { invokeStructuredProvider } from '@/agents/runtime/providers/structured';
 export type PilotTransport=(input:Parameters<typeof invokeStructuredProvider>[0])=>Promise<import('@/agents/runtime/types').ProviderResult<unknown>>;
@@ -25,8 +25,9 @@ function stableId(parts:string[]):string {
   const hex=bytes.toString('hex');return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
 }
 function normalizedUsage(usage:AiUsage):PilotUsage {return {inputTokens:usage.inputTokens,outputTokens:usage.outputTokens,cacheReadTokens:usage.cacheReadTokens??0,cacheWriteTokens:usage.cacheWriteTokens??0,reasoningTokens:usage.reasoningTokens??0};}
+function addUsage(left:PilotUsage|null,right:PilotUsage):PilotUsage {return {inputTokens:(left?.inputTokens??0)+right.inputTokens,outputTokens:(left?.outputTokens??0)+right.outputTokens,cacheReadTokens:(left?.cacheReadTokens??0)+right.cacheReadTokens,cacheWriteTokens:(left?.cacheWriteTokens??0)+right.cacheWriteTokens,reasoningTokens:(left?.reasoningTokens??0)+right.reasoningTokens};}
 export interface PilotCaseMeasurement {
-  caseId:string;attemptId?:string;agentRunId?:string;expected:string;responseAccepted:boolean;structuralCheckPassed:boolean;needsHumanReview:true;qualityReview:'pending';
+  caseId:string;attemptId?:string;agentRunId?:string;attemptIds:string[];agentRunIds:string[];requestIds:string[];expected:string;responseAccepted:boolean;structuralCheckPassed:boolean;needsHumanReview:true;qualityReview:'pending';
   requestedModel:'gpt-5.6-luna';returnedModel:string|null;
   modelCalls:number;latencyMs:number;transportLatencyMs:number|null;
   accounting:'not_attempted'|'reserved'|'dispatched'|'unknown'|'settled'|'blocked'|'recovered';
@@ -36,12 +37,12 @@ export interface PilotCaseMeasurement {
 }
 export type PilotEvaluationReport={ok:false;error:'invalid_input'|'budget_blocked';releaseApproved:false}|{
   ok:true;releaseApproved:false;pilotId:string;evaluationId:string;mode:'injected'|'live';datasetVersion:string;promptVersion:string;pricingVersion:string;requestedModel:'gpt-5.6-luna';returnedModel:string|null;
-  actualProviderCalls:number;injectedProviderCalls:number;allStructuralChecksPassed:boolean;cases:PilotCaseMeasurement[];
+  actualProviderCalls:number;injectedProviderCalls:number;maximumReservedCostUsd:number;allStructuralChecksPassed:boolean;cases:PilotCaseMeasurement[];
   measuredUsageCostUsd:number|null;simulatedUsageCostUsd:number|null;
 };
 
 /** Standalone measured runner, never selected by the product endpoint.
- * Live stays disabled at cap zero. Injected transport costs are NEVER labeled
+ * Live requires the durable budget gate. Injected transport costs are NEVER labeled
  * measured spend. Durable store success/dispatch permission must precede a call.
  */
 export async function runCoachPilotEvaluation(raw:unknown,deps:{store:PilotBudgetStore;signal:AbortSignal;transport?:PilotTransport;candidate:PilotCandidate}):Promise<PilotEvaluationReport> {
@@ -55,17 +56,20 @@ export async function runCoachPilotEvaluation(raw:unknown,deps:{store:PilotBudge
     return invokeStructuredProvider(request);
   });
   const selected=cases.filter(test=>!input.caseIds||input.caseIds.includes(test.id));
+  const maximumReservedCostUsd=selected.length*2*COACH_ATTEMPT_RESERVATION_NANO_USD/USD_IN_NANODOLLARS;
+  if(input.mode==='live'&&maximumReservedCostUsd>COACH_PILOT_FIRST_SMOKE_MAX_USD)return {ok:false,error:'budget_blocked',releaseApproved:false};
   const measurements:PilotCaseMeasurement[]=[];
   for(const test of selected) {
     if(deps.signal.aborted)break;
     const start=performance.now();
     const ids=[input.pilotId,input.evaluationId,test.id];
     const turnId=stableId([...ids,'turn']);
-    const measurement:PilotCaseMeasurement={caseId:test.id,expected:test.expected,responseAccepted:false,structuralCheckPassed:false,needsHumanReview:true,qualityReview:'pending',requestedModel:'gpt-5.6-luna',returnedModel:null,modelCalls:0,latencyMs:0,transportLatencyMs:null,accounting:'not_attempted',usage:null,pricedUsageNanoUsd:null,measuredUsageCostUsd:null,simulatedUsageCostUsd:null,error:null,outputHash:null};
+    const measurement:PilotCaseMeasurement={caseId:test.id,attemptIds:[],agentRunIds:[],requestIds:[],expected:test.expected,responseAccepted:false,structuralCheckPassed:false,needsHumanReview:true,qualityReview:'pending',requestedModel:'gpt-5.6-luna',returnedModel:null,modelCalls:0,latencyMs:0,transportLatencyMs:null,accounting:'not_attempted',usage:null,pricedUsageNanoUsd:null,measuredUsageCostUsd:null,simulatedUsageCostUsd:null,error:null,outputHash:null};
     const measuredTransport:PilotTransport=async request=>{
       if(request.policy.model!=='gpt-5.6-luna'||request.policy.provider!=='openai'||request.policy.reasoningEffort!=='low'||request.maxTokens!==2000||request.maxAttempts!==1||request.policy.promptVersion!==deps.candidate.promptVersion) {measurement.error='unsupported_policy';throw new Error('budget_blocked');}
-      const binding:PilotAttemptBinding={pilotId:input.pilotId,actorId:input.actorId,attemptId:stableId([...ids,'attempt']),agentRunId:stableId([...ids,'agent-run']),turnId,model:'gpt-5.6-luna',pricingVersion:COACH_PRICING_VERSION,requestHash:hash({policy:request.policy,system:request.system,prompt:request.prompt,schema:request.schema,maxTokens:request.maxTokens}),reservedNanoUsd:COACH_ATTEMPT_RESERVATION_NANO_USD};
-      measurement.attemptId=binding.attemptId;measurement.agentRunId=binding.agentRunId;
+      const invocation=measurement.modelCalls+1;if(invocation>2){measurement.error='turn_call_limit';throw new Error('budget_blocked');}
+      const binding:PilotAttemptBinding={pilotId:input.pilotId,actorId:input.actorId,attemptId:stableId([...ids,`attempt-${invocation}`]),agentRunId:stableId([...ids,`agent-run-${invocation}`]),turnId,model:'gpt-5.6-luna',pricingVersion:COACH_PRICING_VERSION,requestHash:hash({policy:request.policy,system:request.system,prompt:request.prompt,schema:request.schema,maxTokens:request.maxTokens}),reservedNanoUsd:COACH_ATTEMPT_RESERVATION_NANO_USD};
+      measurement.attemptId=binding.attemptId;measurement.agentRunId=binding.agentRunId;measurement.attemptIds.push(binding.attemptId);measurement.agentRunIds.push(binding.agentRunId);
       const reserve=input.mode==='live'?await reserveCoachPilotAttempt(binding,deps.store,request.signal):await executePilotBudgetCommand({operation:'reserve',binding},deps.store,request.signal);
       if(!reserve.ok){measurement.accounting=reserve.error==='uncertain'?'unknown':'blocked';measurement.error=reserve.error;throw new Error('budget_blocked');}
       measurement.accounting='reserved';
@@ -79,20 +83,23 @@ export async function runCoachPilotEvaluation(raw:unknown,deps:{store:PilotBudge
       const transportStarted=performance.now();
       try {
         const generated=await transport(request);
-        measurement.transportLatencyMs=Math.round(performance.now()-transportStarted);
-        measurement.returnedModel=typeof generated.responseModel==='string'&&generated.responseModel.trim().length>0?generated.responseModel:null;
-        measurement.usage=normalizedUsage(generated.usage);
+        if(generated.requestId)measurement.requestIds.push(generated.requestId);
+        measurement.transportLatencyMs=(measurement.transportLatencyMs??0)+Math.round(performance.now()-transportStarted);
+        const observedModel=typeof generated.responseModel==='string'&&generated.responseModel.trim().length>0?generated.responseModel:null;
+        measurement.returnedModel=measurement.returnedModel===null?observedModel:measurement.returnedModel===observedModel?observedModel:null;
+        const attemptUsage=normalizedUsage(generated.usage);measurement.usage=addUsage(measurement.usage,attemptUsage);
         // Exact versioned tariff identity only; no alias/prefix or missing-model fallback.
-        if(measurement.returnedModel!=='gpt-5.6-luna') {
+        if(observedModel!=='gpt-5.6-luna') {
           measurement.accounting='unknown';measurement.error='model_pricing_unverified';
-          await executePilotBudgetCommand({operation:'mark_pricing_unknown',binding,usage:measurement.usage,responseModel:measurement.returnedModel},deps.store,request.signal);
+          await executePilotBudgetCommand({operation:'mark_pricing_unknown',binding,usage:attemptUsage,responseModel:observedModel},deps.store,request.signal);
           throw new Error('model_pricing_unverified');
         }
-        measurement.pricedUsageNanoUsd=pricePilotUsageNanoUsd(measurement.usage);
-        const cost=measurement.pricedUsageNanoUsd===null?null:measurement.pricedUsageNanoUsd/USD_IN_NANODOLLARS;
-        if(input.mode==='live')measurement.measuredUsageCostUsd=cost;else measurement.simulatedUsageCostUsd=cost;
+        const attemptCostNanoUsd=pricePilotUsageNanoUsd(attemptUsage);
+        measurement.pricedUsageNanoUsd=attemptCostNanoUsd===null?null:(measurement.pricedUsageNanoUsd??0)+attemptCostNanoUsd;
+        const cost=attemptCostNanoUsd===null?null:attemptCostNanoUsd/USD_IN_NANODOLLARS;
+        if(input.mode==='live')measurement.measuredUsageCostUsd=cost===null?null:(measurement.measuredUsageCostUsd??0)+cost;else measurement.simulatedUsageCostUsd=cost===null?null:(measurement.simulatedUsageCostUsd??0)+cost;
         // Even rejected/malformed prose can consume tokens: settle BEFORE validation.
-        const settled=await executePilotBudgetCommand({operation:'settle',binding,usage:measurement.usage},deps.store,request.signal);
+        const settled=await executePilotBudgetCommand({operation:'settle',binding,usage:attemptUsage},deps.store,request.signal);
         if(!settled.ok||settled.record.state!=='settled') {
           measurement.accounting='unknown';measurement.error='accounting_uncertain';
           throw new Error('accounting_uncertain');
@@ -100,7 +107,7 @@ export async function runCoachPilotEvaluation(raw:unknown,deps:{store:PilotBudge
         measurement.accounting='settled';
         return generated;
       } catch {
-        measurement.transportLatencyMs=Math.round(performance.now()-transportStarted);
+        if(measurement.transportLatencyMs===null)measurement.transportLatencyMs=Math.round(performance.now()-transportStarted);
         if(measurement.accounting!=='settled') {
           measurement.accounting='unknown';measurement.error??='provider_outcome_unknown';
           // If cancellation prevents this write, durable dispatched still retains
@@ -133,5 +140,5 @@ export async function runCoachPilotEvaluation(raw:unknown,deps:{store:PilotBudge
   const calls=measurements.reduce((total,item)=>total+item.modelCalls,0);
   const observed=measurements.filter(item=>item.modelCalls>0);
   const returnedModel=observed.length>0&&observed.every(item=>item.returnedModel!==null&&item.returnedModel===observed[0].returnedModel)?observed[0].returnedModel:null;
-  return {ok:true,releaseApproved:false,pilotId:input.pilotId,evaluationId:input.evaluationId,mode:input.mode,datasetVersion:COACH_PILOT_DATASET_VERSION,promptVersion:deps.candidate.promptVersion,pricingVersion:COACH_PRICING_VERSION,requestedModel:'gpt-5.6-luna',returnedModel,actualProviderCalls:input.mode==='live'?calls:0,injectedProviderCalls:input.mode==='injected'?calls:0,allStructuralChecksPassed:measurements.length===selected.length&&measurements.every(item=>item.structuralCheckPassed),cases:measurements,measuredUsageCostUsd:input.mode==='live'?sum('measuredUsageCostUsd'):null,simulatedUsageCostUsd:input.mode==='injected'?sum('simulatedUsageCostUsd'):null};
+  return {ok:true,releaseApproved:false,pilotId:input.pilotId,evaluationId:input.evaluationId,mode:input.mode,datasetVersion:COACH_PILOT_DATASET_VERSION,promptVersion:deps.candidate.promptVersion,pricingVersion:COACH_PRICING_VERSION,requestedModel:'gpt-5.6-luna',returnedModel,actualProviderCalls:input.mode==='live'?calls:0,injectedProviderCalls:input.mode==='injected'?calls:0,maximumReservedCostUsd,allStructuralChecksPassed:measurements.length===selected.length&&measurements.every(item=>item.structuralCheckPassed),cases:measurements,measuredUsageCostUsd:input.mode==='live'?sum('measuredUsageCostUsd'):null,simulatedUsageCostUsd:input.mode==='injected'?sum('simulatedUsageCostUsd'):null};
 }

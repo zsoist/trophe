@@ -20,7 +20,7 @@ export const pilotBudgetCommandSchema=z.discriminatedUnion('operation',[
 ]);
 export type PilotBudgetCommand=z.infer<typeof pilotBudgetCommandSchema>;
 export const pilotAttemptRecordSchema=z.object({
-  binding:pilotAttemptBindingSchema,state:z.enum(['reserved','dispatched','unknown','settled','released']),chargedNanoUsd:nano,usage:usageSchema.nullable(),accountingAlert:z.boolean(),unpricedModel:z.string().min(1).nullable().optional(),
+  binding:pilotAttemptBindingSchema,admissionDay:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),state:z.enum(['reserved','dispatched','unknown','settled','released']),chargedNanoUsd:nano,usage:usageSchema.nullable(),accountingAlert:z.boolean(),unpricedModel:z.string().min(1).nullable().optional(),
 }).strict().refine(record=>record.unpricedModel===undefined||(record.state==='unknown'&&record.accountingAlert&&record.usage!==null)).refine(record=>record.state==='settled'?record.unpricedModel===undefined&&record.usage!==null&&pricePilotUsageNanoUsd(record.usage)===record.chargedNanoUsd&&record.accountingAlert===(record.chargedNanoUsd>record.binding.reservedNanoUsd):record.state==='unknown'?record.chargedNanoUsd===record.binding.reservedNanoUsd&&(record.usage===null||record.accountingAlert&&(record.unpricedModel!==undefined||pricePilotUsageNanoUsd(record.usage)===null)):record.usage===null&&!record.accountingAlert&&record.chargedNanoUsd===(record.state==='released'?0:record.binding.reservedNanoUsd));
 export type PilotAttemptRecord=z.infer<typeof pilotAttemptRecordSchema>;
 export type PilotBudgetError='budget_blocked'|'invalid_input'|'not_found'|'idempotency_conflict'|'invalid_transition'|'uncertain'|'cancelled';
@@ -47,11 +47,17 @@ export function samePilotBinding(a:PilotAttemptBinding,b:PilotAttemptBinding):bo
  * before reading this snapshot; persist record and delta before returning success.
  * This function does not provide database atomicity or an in-memory ledger.
  */
-export function decidePilotBudgetCommand(snapshot:{pilotId:string;capNanoUsd:number;chargedNanoUsd:number;turnAttemptCount:number;accountingBlocked:boolean;existing?:PilotAttemptRecord},raw:unknown):PilotBudgetDecision {
+export function pilotRecordActiveCharge(record:PilotAttemptRecord,budgetDay:string):number {
+  if(record.state==='released')return 0;
+  if(record.state==='settled'&&record.admissionDay!==budgetDay)return 0;
+  return record.chargedNanoUsd;
+}
+
+export function decidePilotBudgetCommand(snapshot:{pilotId:string;budgetDay:string;capNanoUsd:number;chargedNanoUsd:number;turnAttemptCount:number;accountingBlocked:boolean;existing?:PilotAttemptRecord},raw:unknown):PilotBudgetDecision {
   const parsed=pilotBudgetCommandSchema.safeParse(raw);
   if(!parsed.success)return failure('invalid_input');
   const command=parsed.data;
-  if(typeof snapshot.accountingBlocked!=='boolean'||snapshot.pilotId!==command.binding.pilotId||![snapshot.capNanoUsd,snapshot.chargedNanoUsd,snapshot.turnAttemptCount].every(n=>Number.isSafeInteger(n)&&n>=0))return failure('invalid_input');
+  if(typeof snapshot.accountingBlocked!=='boolean'||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(snapshot.budgetDay)||snapshot.pilotId!==command.binding.pilotId||![snapshot.capNanoUsd,snapshot.chargedNanoUsd,snapshot.turnAttemptCount].every(n=>Number.isSafeInteger(n)&&n>=0))return failure('invalid_input');
   let previous:PilotAttemptRecord|undefined;
   if(snapshot.existing) {
     const validated=pilotAttemptRecordSchema.safeParse(snapshot.existing);
@@ -64,11 +70,14 @@ export function decidePilotBudgetCommand(snapshot:{pilotId:string;capNanoUsd:num
     if(previous)return unchanged();
     const total=snapshot.chargedNanoUsd+command.binding.reservedNanoUsd;
     if(snapshot.accountingBlocked||snapshot.turnAttemptCount>=2||!Number.isSafeInteger(total)||total>snapshot.capNanoUsd)return failure('budget_blocked');
-    return {ok:true,record:{binding:structuredClone(command.binding),state:'reserved',chargedNanoUsd:command.binding.reservedNanoUsd,usage:null,accountingAlert:false},write:'insert',chargeDeltaNanoUsd:command.binding.reservedNanoUsd,dispatchGranted:false};
+    return {ok:true,record:{binding:structuredClone(command.binding),admissionDay:snapshot.budgetDay,state:'reserved',chargedNanoUsd:command.binding.reservedNanoUsd,usage:null,accountingAlert:false},write:'insert',chargeDeltaNanoUsd:command.binding.reservedNanoUsd,dispatchGranted:false};
   }
   if(!previous)return failure('not_found');
   if(command.operation==='lookup')return unchanged();
-  const update=(state:PilotAttemptRecord['state'],chargedNanoUsd:number,usage:PilotUsage|null,dispatchGranted=false,accountingAlert=false):PilotBudgetDecision=>({ok:true,record:{binding:structuredClone(previous!.binding),state,chargedNanoUsd,usage:structuredClone(usage),accountingAlert},write:'update',chargeDeltaNanoUsd:chargedNanoUsd-previous!.chargedNanoUsd,dispatchGranted});
+  const update=(state:PilotAttemptRecord['state'],chargedNanoUsd:number,usage:PilotUsage|null,dispatchGranted=false,accountingAlert=false):PilotBudgetDecision=>{
+    const record:PilotAttemptRecord={binding:structuredClone(previous!.binding),admissionDay:previous!.admissionDay,state,chargedNanoUsd,usage:structuredClone(usage),accountingAlert};
+    return {ok:true,record,write:'update',chargeDeltaNanoUsd:pilotRecordActiveCharge(record,snapshot.budgetDay)-pilotRecordActiveCharge(previous!,snapshot.budgetDay),dispatchGranted};
+  };
   if(command.operation==='claim_dispatch') {
     // A replay never grants a second transport permission, even after restart.
     if(previous.state==='reserved'&&(snapshot.accountingBlocked||snapshot.capNanoUsd===0||snapshot.chargedNanoUsd>snapshot.capNanoUsd))return failure('budget_blocked');
@@ -134,9 +143,7 @@ export async function executePilotBudgetCommand(raw:unknown,store:PilotBudgetSto
   } catch {return fail('uncertain');}
 }
 
-/** Production-facing reservation remains disabled; tests use the pure core/port.
- * Enabling a cap requires the separate authorization and persistent SQL gates.
- */
+/** Server-facing reservation delegates every admission to the persistent store. */
 export async function reserveCoachPilotAttempt(binding:PilotAttemptBinding,store:PilotBudgetStore,signal:AbortSignal):Promise<PilotBudgetResult> {
   if(COACH_PILOT_BUDGET_USD<=0)return {ok:false,error:'budget_blocked',storage:'database'};
   return executePilotBudgetCommand({operation:'reserve',binding},store,signal);

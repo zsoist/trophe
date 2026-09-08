@@ -13,7 +13,7 @@
  *   - embed        → Voyage voyage-4
  *
  * Costs ($/M tokens, approximate 2026-06):
- *   gpt-5.6-luna      ~$1.00 in / $6.00 out
+ *   gpt-5.6-luna      $0.20 in / $1.20 out (official 2026-09-08)
  *   deepseek-v4-flash ~$0.14 in / $0.28 out (+ prompt cache discounts)
  *   gemini-2.5-flash  ~$0.30 in / $2.50 out
  *   claude-haiku-4-5  ~$1.00 in / $5.00 out
@@ -65,7 +65,7 @@ export const taskPolicies: Record<TaskName, RoutingPolicy> = {
   coach_assistant: {
     provider: 'openai', model: LUNA_MODEL, reasoningEffort: 'low',
     costClass: 'cheap', latencyClass: 'fast', maxTokens: 2000,
-    timeoutMs: 45000, maxInputChars: 6500, maxCostUsd: 0,
+    timeoutMs: 45000, maxInputChars: 6500, maxCostUsd: 0.0044,
     promptVersion: 'coach-assistant.v3',
   },
   food_parse: {

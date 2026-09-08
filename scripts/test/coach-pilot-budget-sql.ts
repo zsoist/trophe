@@ -91,25 +91,50 @@ async function main() {
   const held = attempt(); assert.equal((await execute(held, 'reserve')).ok, true); await cap(0);
   const blocked = await execute(held, 'claim_dispatch'); assert.ok(!blocked.ok && blocked.error === 'budget_blocked');
   await cap(reserve * 20); pass();
+  check = 'bogota_midnight_drops_only_prior_day_settled_usage_and_retains_open_reservations';
+  const days = (await pool.query("SELECT ((statement_timestamp() AT TIME ZONE 'America/Bogota')::date)::text AS today,(((statement_timestamp() AT TIME ZONE 'America/Bogota')::date)-1)::text AS yesterday")).rows[0];
+  await pool.query("UPDATE public.agent_runs SET metadata=jsonb_set(metadata,'{coachPilot,admissionDay}',to_jsonb($2::text)) WHERE id=ANY($1::uuid[])", [[selected.agentRunId, held.agentRunId], days.yesterday]);
+  await pool.query('UPDATE private.coach_pilot_budgets SET budget_day=$2::date,charged_nano_usd=$3 WHERE id=$1', [pilotId, days.yesterday, reserve + 32000]);
+  const midnightLookup = await execute(held, 'lookup'); assert.ok(midnightLookup.ok && midnightLookup.record.state === 'reserved');
+  assert.deepEqual((await pool.query('SELECT budget_day::text,charged_nano_usd::text FROM private.coach_pilot_budgets WHERE id=$1', [pilotId])).rows[0], { budget_day: days.today, charged_nano_usd: String(reserve) });
+  const todayAttempt=attempt();assert.equal((await execute(todayAttempt,'reserve')).ok,true);assert.equal((await execute(todayAttempt,'release_unstarted')).ok,true);pass();
+  check = 'second_shared_budget_authority_is_rejected';
+  const otherPilot = randomUUID(); pilotIds.push(otherPilot);
+  await assert.rejects(pool.query('INSERT INTO private.coach_pilot_budgets(id,organization_id,allowed_actor_ids,cap_nano_usd) VALUES($1,$2,$3::uuid[],$4)', [otherPilot, organizationId, [actorId], reserve * 20]), { code: '23505' });
+  const foreignPilot = await execute({ ...attempt(), pilotId: otherPilot }, 'reserve');
+  assert.ok(!foreignPilot.ok && foreignPilot.error === 'budget_blocked'); pass();
+  {
+    const responseModel = 'different-model';
+    check = 'unverified_model_pricing_stays_reserved_with_durable_alert';
+    const unpriced = attempt();
+    assert.equal((await execute(unpriced, 'reserve')).ok, true);
+    assert.equal((await execute(unpriced, 'claim_dispatch')).ok, true);
+    const modelUsage = { inputTokens: 100, outputTokens: 10, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 5 };
+    const result = await executePilotBudgetCommand({ operation: 'mark_pricing_unknown', binding: unpriced, usage: modelUsage, responseModel }, service, signal);
+    assert.ok(result.ok && result.record.state === 'unknown' && result.record.chargedNanoUsd === reserve && result.record.accountingAlert);
+    const next = await execute(attempt(), 'reserve'); assert.ok(!next.ok && next.error === 'budget_blocked');
+    const recovery = spawnSync(process.execPath, ['--import', 'tsx', 'scripts/test/coach-pilot-budget-sql.ts', 'recover-pricing'], { stdio: 'inherit', env: {
+      ...process.env, COACH_PILOT_RECOVERY: JSON.stringify(unpriced), COACH_PILOT_PRICING: JSON.stringify({ responseModel, usage: modelUsage }),
+    } });
+    assert.equal(recovery.status, 0); pass();
+    // Isolate the next destructive-accounting case inside this disposable fixture.
+    await pool.query('DELETE FROM public.agent_runs WHERE id=$1', [unpriced.agentRunId]);
+    await pool.query('UPDATE private.coach_pilot_budgets SET charged_nano_usd=charged_nano_usd-$2,attempt_count=attempt_count-1,accounting_blocked=false WHERE id=$1', [pilotId, reserve]);
+  }
+  check = 'unsupported_usage_stays_reserved_and_blocks_pilot';
+  const anomaly = attempt();
+  await execute(anomaly, 'reserve'); await execute(anomaly, 'claim_dispatch');
+  const result = await execute(anomaly, 'settle', { ...usage, inputTokens: 300000 });
+  assert.ok(result.ok && result.record.state === 'unknown' && result.record.chargedNanoUsd === reserve && result.record.accountingAlert);
+  assert.equal((await pool.query('SELECT accounting_blocked FROM private.coach_pilot_budgets WHERE id=$1', [pilotId])).rows[0].accounting_blocked, true);
+  pass();
+  await pool.query('DELETE FROM public.agent_runs WHERE id=$1', [anomaly.agentRunId]);
+  await pool.query('UPDATE private.coach_pilot_budgets SET charged_nano_usd=charged_nano_usd-$2,attempt_count=attempt_count-1,accounting_blocked=false WHERE id=$1', [pilotId, reserve]);
   check = 'measured_overrun_charged_and_quarantines_pilot';
   const over = attempt(); await execute(over, 'reserve'); await execute(over, 'claim_dispatch');
   const billed = await execute(over, 'settle', { ...usage, inputTokens: 200000, outputTokens: 2000 });
   assert.ok(billed.ok && billed.record.chargedNanoUsd === 42400000 && billed.record.accountingAlert);
   const stopped = await execute(held, 'claim_dispatch'); assert.ok(!stopped.ok && stopped.error === 'budget_blocked'); pass();
-  check = 'cross_pilot_attempt_and_run_identity_collisions';
-  const otherPilot = randomUUID(); pilotIds.push(otherPilot);
-  await pool.query('INSERT INTO private.coach_pilot_budgets(id,organization_id,allowed_actor_ids,cap_nano_usd) VALUES($1,$2,$3::uuid[],$4)', [otherPilot, organizationId, [actorId], reserve * 20]);
-  for (const collision of [{ ...selected, pilotId: otherPilot }, { ...attempt(), pilotId: otherPilot, attemptId: selected.attemptId }]) {
-    const result = await execute(collision, 'reserve'); assert.ok(!result.ok && result.error === 'idempotency_conflict');
-  }
-  assert.equal(Number((await pool.query('SELECT charged_nano_usd FROM private.coach_pilot_budgets WHERE id=$1', [otherPilot])).rows[0].charged_nano_usd), 0); pass();
-  check = 'unsupported_usage_stays_reserved_and_blocks_pilot';
-  const anomaly = { ...attempt(), pilotId: otherPilot };
-  await execute(anomaly, 'reserve'); await execute(anomaly, 'claim_dispatch');
-  const result = await execute(anomaly, 'settle', { ...usage, inputTokens: 300000 });
-  assert.ok(result.ok && result.record.state === 'unknown' && result.record.chargedNanoUsd === reserve && result.record.accountingAlert);
-  assert.equal((await pool.query('SELECT accounting_blocked FROM private.coach_pilot_budgets WHERE id=$1', [otherPilot])).rows[0].accounting_blocked, true);
-  pass();
   check = 'revoked_actor_and_direct_authenticated_access_denied';
   await pool.query("UPDATE private.coach_pilot_budgets SET allowed_actor_ids='{}' WHERE id=$1", [pilotId]);
   const revoked = await execute(held, 'lookup'); assert.ok(!revoked.ok && revoked.error === 'budget_blocked');
@@ -121,22 +146,6 @@ async function main() {
   check = 'deleted_attempt_is_detected_without_resetting_accounting';
   await pool.query('DELETE FROM public.agent_runs WHERE id=$1', [selected.agentRunId]);
   const missing = await execute(held, 'lookup'); assert.ok(!missing.ok && missing.error === 'uncertain'); pass();
-  for (const responseModel of [null, 'different-model', 'gpt-5.6-luna-snapshot']) {
-    check = 'unverified_model_pricing_stays_reserved_with_durable_alert';
-    const pricingPilot = randomUUID(); pilotIds.push(pricingPilot);
-    await pool.query('INSERT INTO private.coach_pilot_budgets(id,organization_id,allowed_actor_ids,cap_nano_usd) VALUES($1,$2,$3::uuid[],$4)', [pricingPilot, organizationId, [actorId], reserve * 3]);
-    const unpriced = { ...attempt(), pilotId: pricingPilot };
-    assert.equal((await execute(unpriced, 'reserve')).ok, true);
-    assert.equal((await execute(unpriced, 'claim_dispatch')).ok, true);
-    const usage = { inputTokens: 100, outputTokens: 10, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 5 };
-    const result = await executePilotBudgetCommand({ operation: 'mark_pricing_unknown', binding: unpriced, usage, responseModel }, service, signal);
-    assert.ok(result.ok && result.record.state === 'unknown' && result.record.chargedNanoUsd === reserve && result.record.accountingAlert);
-    const next = await execute({ ...attempt(), pilotId: pricingPilot }, 'reserve'); assert.ok(!next.ok && next.error === 'budget_blocked');
-    const recovery = spawnSync(process.execPath, ['--import', 'tsx', 'scripts/test/coach-pilot-budget-sql.ts', 'recover-pricing'], { stdio: 'inherit', env: {
-      ...process.env, COACH_PILOT_RECOVERY: JSON.stringify(unpriced), COACH_PILOT_PRICING: JSON.stringify({ responseModel, usage }),
-    } });
-    assert.equal(recovery.status, 0); pass();
-  }
 }
 main().catch(error => {
   process.stderr.write(JSON.stringify({ event: 'coach_pilot_sql', check, outcome: 'failed', ...(typeof error?.code === 'string' && /^[0-9A-Z]{5}$/.test(error.code) ? { sqlstate: error.code } : {}) }) + '\n'); process.exitCode = 1;
