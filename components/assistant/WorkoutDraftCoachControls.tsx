@@ -6,10 +6,10 @@ import { useGlobalCoachI18n } from '@/components/assistant/useGlobalCoachI18n';
 import { reviewDraftRefresh } from '@/agents/coach-assistant/draft-refresh';
 import { hashWorkoutWorkspace } from '@/lib/workout/workspace-hash';
 import type { WorkoutDraft } from '@/lib/workout/workspace-state';
-import { useWorkoutWorkspace } from './WorkoutWorkspaceProvider';
+import { useWorkoutWorkspace } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
 import styles from '@/components/assistant/GlobalCoach.module.css';
 
-type Props = Parameters<CoachContextSlot>[0] & { identity: string; allowDirectProposal?: boolean };
+type Props = Omit<Parameters<CoachContextSlot>[0], 'response' | 'turnId' | 'surface'> & { identity: string; allowDirectProposal?: boolean };
 
 function DraftSnapshot({ label, draft }: { label: string; draft: WorkoutDraft }) {
   return <section aria-label={label}>

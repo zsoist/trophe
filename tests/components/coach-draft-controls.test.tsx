@@ -7,7 +7,7 @@ import { WorkoutWorkspaceProvider, useWorkoutWorkspace } from '@/components/work
 import { PreferenceController, type PreferenceTransport } from '@/components/assistant/preference-state';
 import { createPreferenceStore } from '@/agents/coach-assistant/preference-store';
 import { defaultWorkoutPreferences } from '@/lib/workout/preferences';
-import { WorkoutDraftCoachControls } from '@/components/workout/workspace/WorkoutDraftCoachControls';
+import { WorkoutDraftCoachControls } from '@/components/assistant/WorkoutDraftCoachControls';
 import { hashWorkspace } from '../../tools/anatomy/workout-review/preferences';
 import { REVIEW_USER } from '../../tools/anatomy/workout-review/store';
 vi.mock('@/lib/supabase', () => ({ supabase: { auth: { getUser: vi.fn() } } }));

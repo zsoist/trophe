@@ -2,6 +2,28 @@ import { COACH_IMAGE_LIMITS, type CoachConversationResponse } from '@/agents/coa
 import { readCoachResponse } from '@/components/workout/coach/client';
 import type { ConversationTransport } from './conversation-state';
 
+const exactKeys = (value: Record<string, unknown>, keys: string[]) => {
+  const actual = Object.keys(value).sort();
+  return actual.length === keys.length && actual.every((key, index) => key === [...keys].sort()[index]);
+};
+
+function validActionIntent(value: unknown): boolean {
+  if (!value || typeof value !== 'object') return false;
+  const item = value as Record<string, unknown>;
+  const resource = item.resource as Record<string, unknown> | undefined;
+  const target = item.target as Record<string, unknown> | undefined;
+  return exactKeys(item, ['id', 'action', 'source', 'subjectId', 'scopeKey', 'surface', 'resource', 'target', 'reviewRequired'])
+    && typeof item.id === 'string' && /^[a-f0-9]{64}$/.test(item.id)
+    && item.action === 'draft.update' && item.source === 'provider_tool' && typeof item.subjectId === 'string'
+    && typeof item.scopeKey === 'string' && /^[a-f0-9]{64}$/.test(item.scopeKey)
+    && (item.surface === 'workout' || item.surface === 'plan') && item.reviewRequired === true
+    && Boolean(resource) && exactKeys(resource!, ['kind', 'id', 'version']) && resource!.kind === 'draft'
+    && typeof resource!.id === 'string' && typeof resource!.version === 'string' && /^[a-f0-9]{64}$/.test(String(resource!.version))
+    && Boolean(target) && exactKeys(target!, ['durationMinutes', 'equipment'])
+    && Number.isInteger(target!.durationMinutes) && Number(target!.durationMinutes) >= 5 && Number(target!.durationMinutes) <= 180
+    && Array.isArray(target!.equipment) && target!.equipment.length === 1 && target!.equipment[0] === 'dumbbells';
+}
+
 export function readConversationResponse(value: unknown): CoachConversationResponse {
   if (!value || typeof value !== 'object') throw new Error('invalid_output');
   const row = value as Record<string, unknown>;
@@ -30,6 +52,7 @@ export function readConversationResponse(value: unknown): CoachConversationRespo
     || typeof item.id !== 'string' || typeof item.text !== 'string' || item.text.length > 2000 || typeof item.createdAt !== 'string'
     || !['user_input', 'coach', 'agent_inference', 'wearable'].includes(item.source)
     || !['user', 'session', 'agent'].includes(item.scope) || !['unconfirmed', 'confirmed'].includes(item.confirmation)))) throw new Error('invalid_output');
+  if (row.actionIntents !== undefined && (!Array.isArray(row.actionIntents) || row.actionIntents.length > 1 || row.actionIntents.some(item => !validActionIntent(item)))) throw new Error('invalid_output');
   if (row.uploads !== undefined) {
     const upload = row.uploads as Record<string, unknown>;
     const limits = upload?.limits as Record<string, unknown> | undefined;

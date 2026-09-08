@@ -18,3 +18,17 @@ it('accepts a complete server-derived professional scope and rejects an incomple
   delete (incomplete.snapshot as Partial<typeof incomplete.snapshot>).scopeKey;
   expect(() => readConversationResponse(incomplete)).toThrow('invalid_output');
 });
+
+it('accepts the bounded plan draft intent shape and rejects unrelated surfaces', () => {
+  const value = response();
+  value.snapshot.actorRole = 'client';
+  value.snapshot.access = 'self';
+  value.snapshot.surface = 'plan';
+  const actionIntent = {
+    id: 'b'.repeat(64), action: 'draft.update', source: 'provider_tool', subjectId: value.snapshot.subjectId,
+    scopeKey: value.snapshot.scopeKey, surface: 'plan', resource: { kind: 'draft', id: value.snapshot.subjectId, version: 'c'.repeat(64) },
+    target: { durationMinutes: 35, equipment: ['dumbbells'] }, reviewRequired: true,
+  };
+  expect(readConversationResponse({ ...value, actionIntents: [actionIntent] }).actionIntents).toHaveLength(1);
+  expect(() => readConversationResponse({ ...value, actionIntents: [{ ...actionIntent, surface: 'food' }] })).toThrow('invalid_output');
+});

@@ -1,5 +1,5 @@
 import type { CoachContextSlot } from '../../../components/assistant/GlobalCoach';
-import { WorkoutDraftCoachControls } from '../../../components/workout/workspace/WorkoutDraftCoachControls';
+import { WorkoutDraftCoachControls } from '../../../components/assistant/WorkoutDraftCoachControls';
 import { REVIEW_USER } from './store';
 
 /** Private fixture controls. Receipt alone never means the shared workspace changed. */
