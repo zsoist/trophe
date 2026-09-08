@@ -7,6 +7,7 @@ import type { invokeStructuredProvider } from '@/agents/runtime/providers/struct
 import type { ProviderResult } from '@/agents/runtime/types';
 import type { CoachConversationRequest, CoachConversationResponse, CoachEvidence } from './contracts';
 import { COACH_CONVERSATIONAL_PROMPT_VERSION, COACH_CONVERSATIONAL_SYSTEM_PROMPT } from './prompt.v4';
+import { createHash } from 'node:crypto';
 
 /** Same existing structured-provider input, injected only for synthetic evaluation. */
 export type OfflineConversationProvider=(input:Parameters<typeof invokeStructuredProvider>[0])=>Promise<ProviderResult<unknown>>;
@@ -21,6 +22,7 @@ export const openConversationSchema=z.object({
   facts:z.array(z.object({kind:z.literal('record_fact'),evidenceId:z.string().max(100)}).strict()).max(24),
   followUp:z.string().trim().min(1).max(400).nullable(),
   limitations:z.array(z.enum(['insufficient_evidence','incomplete_records','professional_review_needed'])).max(3),escalation:z.boolean(),
+  actionIntent:z.object({action:z.literal('draft.update'),target:z.object({durationMinutes:z.number().int().min(5).max(180),equipment:z.tuple([z.literal('dumbbells')])}).strict()}).strict().nullable().optional(),
 }).strict();
 
 export const candidateConversationSchema=openConversationSchema.extend({generalExplanationRefs:z.array(z.enum(['records_are_partial_view','planned_is_not_completed','nutrition_log_is_not_intake'])).max(3)});
@@ -33,6 +35,7 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
   const facts=response.evidence;
   const entities=[...new Set(facts.flatMap(f=>f.sourceIds))].map((id,index)=>({alias:`entity:${index+1}`,evidenceRefs:facts.filter(f=>f.sourceIds.includes(id)).map(f=>f.id)}));
   const curated=availableGeneralExplanations(facts);
+  const draftIntentAvailable=!candidateEvaluation&&response.snapshot?.access==='self'&&input.context?.includeScreen===true&&response.snapshot.surface==='workout'&&input.context.workspace?.kind==='draft';
   const payload={...(candidateEvaluation?{generalExplanations:curated.map(id=>({id,...GENERAL_EXPLANATIONS[id]}))}:{}),message:input.message,history:input.history??[],
     snapshot:response.snapshot?{surface:response.snapshot.surface,language:response.snapshot.language,units:response.snapshot.units,window:response.snapshot.window}:null,
     foodPreference:response.foodPreference?{preferences:response.foodPreference.preferences,version:response.foodPreference.version,source:'current_profile',meaning:'self_declared_preference_not_allergy_or_medical_instruction'}:null,
@@ -40,7 +43,7 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
     evidence:facts.map(({id,source,statement,value,unit,completeness})=>({id,source,statement,value,unit,completeness})),entities,
     profile:response.profile?{language:response.profile.language,timezone:response.profile.timezone,units:response.profile.units,preferences:response.profile.preferences}:null,
     memories:(response.memories??[]).map(({text,confirmation,source})=>({text,confirmation,source})),
-    limitations:response.output?.limitations.filter(value=>value!=='open_ended_interpretation_not_connected'),actionsAvailable:false};
+    limitations:response.output?.limitations.filter(value=>value!=='open_ended_interpretation_not_connected'),actionsAvailable:draftIntentAvailable?['draft.update']:[]};
   const system=candidateEvaluation?COACH_CANDIDATE_SYSTEM_PROMPT:COACH_CONVERSATIONAL_SYSTEM_PROMPT+(reviewInterpretation?'\nAn independent offline interpretation oracle is configured for this fixture. Declarative explanations may be proposed in answer, grounded in cited evidence. They will be withheld unless that separate oracle approves. All numeric, receipt, entity, medical and action restrictions still apply.':'');
   let prompt=JSON.stringify(payload);
   const validator=candidateEvaluation?candidateConversationSchema:openConversationSchema;
@@ -91,6 +94,14 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
     const review=await reviewInterpretation!({answer:output.answer,followUp:output.followUp,limitations:[...output.limitations],evidenceRefs:[...output.evidenceRefs],evidence:structuredClone(facts),signal});
     signal.throwIfAborted();
     if(review.approved!==true)throw new Error('invalid_output');
+    if(output.actionIntent&&draftIntentAvailable&&response.snapshot&&input.context?.workspace) {
+      const target={durationMinutes:output.actionIntent.target.durationMinutes,equipment:['dumbbells'] as ['dumbbells']};
+      const resource={kind:'draft' as const,id:response.snapshot.subjectId,version:input.context.workspace.version};
+      const id=createHash('sha256').update(JSON.stringify({turnId:input.turnId,scopeKey:response.snapshot.scopeKey,resource,target})).digest('hex');
+      response.actionIntents=[{id,action:'draft.update',source:'provider_tool',subjectId:response.snapshot.subjectId,scopeKey:response.snapshot.scopeKey,surface:'workout',resource,target,reviewRequired:true}];
+      const actions=response.snapshot.capabilities.find(capability=>capability.key==='actions');
+      if(actions){actions.status='available';actions.reason='reviewable_draft_intent';}
+    }
   }
   if(candidateEvaluation) {
     const normalized=prose.normalize('NFKD').replace(/\p{M}/gu,'');

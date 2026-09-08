@@ -40,6 +40,7 @@ export const conversationRequestSchema = z.object({
     clientId: z.string().uuid().optional(),
     entity: z.object({ kind: z.enum(['meal', 'recipe', 'session', 'plan', 'exercise']), id: z.string().uuid(),version:z.string().regex(/^[a-f0-9]{64}$/).optional() }).strict().optional(),
     anatomy:z.object({group:z.enum(COACH_ANATOMY_GROUP_IDS),subgroup:z.string().min(1).max(80).optional(),legRegion:z.enum(['all','upper','lower']).optional(),version:z.string().regex(/^[a-f0-9]{64}$/).optional()}).strict().optional(),
+    workspace:z.object({kind:z.literal('draft'),version:z.string().regex(/^[a-f0-9]{64}$/)}).strict().optional(),
   }).strict().optional(),
   history: z.array(z.object({ role: z.enum(['user', 'assistant']), text: z.string().min(1).max(500), kind:z.enum(['conversation','memory_summary']).optional(), derivedToken:z.string().min(1).max(512).optional() }).strict()).max(6).optional(),
   attachments: z.array(z.object({ id: z.string().uuid(), kind: z.enum(['image', 'audio']), status: z.enum(['pending', 'available', 'unknown', 'unauthorized', 'not_connected']) }).strict()).max(3).optional(),

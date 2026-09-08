@@ -25,7 +25,7 @@ export async function runConversation(raw: unknown, options: RunOptions & { isol
   const response: CoachConversationResponse = {
     version: COACH_CONVERSATION_VERSION, conversationId: parsed.success ? parsed.data.conversationId : '',
     turnId: parsed.success ? parsed.data.turnId : '', ok: false, mode: options.mode,
-    dataSource: options.repository.dataSource, snapshot: null, evidence: [], proposals: [], receipts: [], attachments: [],
+    dataSource: options.repository.dataSource, snapshot: null, evidence: [], proposals: [], actionIntents: [], receipts: [], attachments: [],
     telemetry: {model:null,provider:null,promptVersion:COACH_PROMPT_VERSION,modelCalls:0,dataReads:0,tokensIn:0,tokensOut:0,reasoningTokens:0,cacheReadTokens:0,cacheWriteTokens:0,latencyMs:0,costUsd:0,pricingVersion:COACH_PRICING_VERSION},
   };
   const controller = new AbortController();
@@ -123,7 +123,7 @@ export async function runConversation(raw: unknown, options: RunOptions & { isol
     const allowed = ['invalid_input','forbidden','unauthenticated','invalid_timezone','budget_blocked','context_limit','invalid_output','provider_unavailable'];
     const code: CoachErrorCode = controller.signal.aborted ? options.signal.aborted?'cancelled':'deadline' : error instanceof Error && allowed.includes(error.message)?error.message as CoachErrorCode:'query_failed';
     response.error={code,retryable:code==='query_failed'||code==='deadline'||code==='provider_unavailable'};
-    response.ok=false;response.snapshot=null;response.evidence=[];delete response.output;delete response.profile;delete response.foodPreference;delete response.memories;delete response.explanations;
+    response.ok=false;response.snapshot=null;response.evidence=[];response.actionIntents=[];delete response.output;delete response.profile;delete response.foodPreference;delete response.memories;delete response.explanations;
   } finally {
     clearTimeout(timer);options.signal.removeEventListener('abort',abort);
     if(boundary)controller.signal.removeEventListener('abort',boundary);
