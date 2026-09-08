@@ -21,7 +21,8 @@ test('authenticated HTTP engine uses current authorized profile with explicit fi
     const ledger = async () => {
       const tables = (await pool.query(`SELECT to_regclass('private.coach_action_proposals')::text AS proposals,
         to_regclass('private.coach_action_receipts')::text AS receipts`)).rows[0];
-      if (!tables.proposals || !tables.receipts) return { proposals: null, receipts: null };
+      if (!tables.proposals && !tables.receipts) return { schema: 'absent' };
+      expect(Boolean(tables.proposals)).toBe(Boolean(tables.receipts));
       return (await pool.query(`SELECT
         (SELECT count(*) FROM private.coach_action_proposals WHERE actor_id=$1) AS proposals,
         (SELECT count(*) FROM private.coach_action_receipts WHERE actor_id=$1) AS receipts`, [actor])).rows[0];
