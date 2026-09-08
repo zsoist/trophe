@@ -115,7 +115,6 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
     if (!foodState.receipt || foodState.pending || foodState.error || !foodState.entry) return;
     window.dispatchEvent(new CustomEvent(COACH_FOOD_REFRESH, { detail: { actorId: identity, entryId: foodState.entry.entryId } }));
   }, [foodState.receipt, foodState.pending, foodState.error, foodState.entry, identity]);
-  useEffect(()=>{if(!photoFoodState.receipt||!photoFoodState.refreshEntryId)return;food.select(photoFoodState.refreshEntryId,state.conversationId,activeFoodTransport);},[activeFoodTransport,food,photoFoodState.receipt,photoFoodState.refreshEntryId,state.conversationId]);
   useEffect(()=>{if(!photoFoodState.receipt||!photoFoodState.refreshEntryId||foodState.pending||foodState.error||foodState.entry?.entryId!==photoFoodState.refreshEntryId)return;window.dispatchEvent(new CustomEvent(COACH_FOOD_REFRESH,{detail:{actorId:identity,entryId:photoFoodState.refreshEntryId}}));},[foodState.entry,foodState.error,foodState.pending,identity,photoFoodState.receipt,photoFoodState.refreshEntryId]);
   useEffect(() => { setAnchor(document.getElementById('global-coach-anchor')); }, []);
   useEffect(() => {
@@ -168,7 +167,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
         if (followLatest.current) setShowLatest(false);
       }}>
         {foodState.entryId && <FoodQuantityPanel key={foodState.entryId} controller={food} state={foodState} transport={activeFoodTransport} />}
-        {photoFoodState.attachmentId&&<PhotoFoodPanel controller={photoFood} state={photoFoodState} transport={photoFoodTransport??requestPhotoFood}/>}
+        {photoFoodState.attachmentId&&<PhotoFoodPanel controller={photoFood} state={photoFoodState} transport={photoFoodTransport??requestPhotoFood} onReceipt={entryId=>food.select(entryId,state.conversationId,activeFoodTransport)}/>}
         {historyEnabled && <button type="button" onClick={() => {
           voice.reset(); attachments.reset(); preferences.moveConversation(); food.reset(); memory.reset();
           controller.startNew(); photoFood.moveConversation(controller.snapshot().conversationId); diet.moveConversation(controller.snapshot().conversationId); progress.moveConversation(controller.snapshot().conversationId); setHistoryOpen(false); input.current?.focus();

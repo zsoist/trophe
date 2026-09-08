@@ -14,6 +14,8 @@ try {
       stdio: 'inherit', env: { ...env, DATABASE_URL: status.DB_URL, COACH_SQL_ACTOR: actors.clientId, COACH_SQL_COACH: actors.coachId, COACH_SQL_ORG: env.E2E_TEST_ORG_ID },
     });
     if (result.error || result.status !== 0) throw new Error('durable_sql_failed');
+    const ui = spawnSync(process.execPath, ['node_modules/vitest/vitest.mjs', 'run', 'tests/components/coach-photo-food.test.tsx', 'agents/coach-assistant/photo-food-handler.test.ts'], { stdio: 'inherit', env });
+    if (ui.error || ui.status !== 0) throw new Error('photo_food_ui_failed');
   } });
   process.stdout.write('Durable SQL checks passed; disposable Auth fixtures removed.\n');
 } catch (error) {

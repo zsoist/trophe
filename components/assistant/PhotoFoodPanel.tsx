@@ -1,13 +1,14 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { PhotoFoodTransport } from './photo-food-client';
 import { PhotoFoodController, type PhotoFoodState } from './photo-food-state';
 import { useGlobalCoachI18n } from './useGlobalCoachI18n';
 import styles from './GlobalCoach.module.css';
 
 const today=()=>new Date().toISOString().slice(0,10);
-export function PhotoFoodPanel({controller,state,transport}:{controller:PhotoFoodController;state:PhotoFoodState;transport:PhotoFoodTransport}){
+export function PhotoFoodPanel({controller,state,transport,onReceipt}:{controller:PhotoFoodController;state:PhotoFoodState;transport:PhotoFoodTransport;onReceipt?:(entryId:string)=>void}){
  const {t}=useGlobalCoachI18n();const selected=state.snapshot?.items.find(item=>item.index===state.itemIndex);const [grams,setGrams]=useState('');const [date,setDate]=useState(today());const [meal,setMeal]=useState<'breakfast'|'lunch'|'dinner'|'snack'|'pre_workout'|'post_workout'>('lunch');const proposal=state.proposal;
+ const delivered=useRef<string|null>(null);useEffect(()=>{if(!state.receipt||!state.refreshEntryId||delivered.current===state.receipt.id)return;delivered.current=state.receipt.id;onReceipt?.(state.refreshEntryId);},[onReceipt,state.receipt,state.refreshEntryId]);
  return <section className={styles.foodReview} aria-label={t('global_coach.photo_food_title')}>
   <h3>{t('global_coach.photo_food_title')}</h3>
   {state.snapshot&&<><p>{t(state.snapshot.source==='offline_fixture'?'global_coach.photo_food_offline':'global_coach.photo_food_observation')}</p><p>{t('global_coach.photo_food_estimate')}</p>

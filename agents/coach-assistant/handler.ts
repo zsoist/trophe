@@ -32,7 +32,7 @@ interface HandlerDependencies {
   createMemoryService?:()=>PersistentMemoryService|Promise<PersistentMemoryService>;
   createChatService?:()=>ReturnType<typeof createCoachChatService>|Promise<ReturnType<typeof createCoachChatService>>;
   createFoodService?:()=>FoodQuantityService|Promise<FoodQuantityService>;
-  createPhotoFoodService?:()=>PhotoFoodService|Promise<PhotoFoodService>;
+  createPhotoFoodService?:(operation:unknown)=>PhotoFoodService|Promise<PhotoFoodService>;
   createProgressService?:()=>ProgressService|Promise<ProgressService>;
   isolatedEngine?:ReturnType<typeof createIsolatedCoachEngineBinding>;
   createIsolatedEngine?:()=>ReturnType<typeof createIsolatedCoachEngineBinding>|Promise<ReturnType<typeof createIsolatedCoachEngineBinding>>;
@@ -136,7 +136,7 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
       if(raw && typeof raw==='object' && 'operation' in raw && typeof raw.operation==='string' && raw.operation.startsWith('photo.food.')) {
         if(deps.env.COACH_ASSISTANT_PHOTO_FOOD_ACTIONS_ENABLED!=='1')return fail('disabled',404);
         if(!deps.createPhotoFoodService)return fail('provider_unavailable',503);
-        const result=await executePhotoFoodAction(guard.userId,raw,await deps.createRepository(),await deps.createPhotoFoodService(),controller.signal);
+        const result=await executePhotoFoodAction(guard.userId,raw,await deps.createRepository(),await deps.createPhotoFoodService(raw),controller.signal);
         return json(result,result.ok?200:result.error==='forbidden'?403:result.error==='invalid_input'?400:result.error==='expired'?410:result.error==='not_found'?404:result.error==='not_connected'||result.error==='uncertain'||result.error==='cancelled'?503:409);
       }
       if(raw && typeof raw==='object' && 'operation' in raw && typeof raw.operation==='string' && raw.operation.startsWith('diet.')) {
