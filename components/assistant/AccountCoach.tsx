@@ -1,9 +1,13 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import GlobalCoach from './GlobalCoach';
+import { professionalCoachSubject } from './conversation-state';
 
-export default function AccountCoach() {
+export default function AccountCoach({ professional = false }: { professional?: boolean }) {
+  const path = usePathname();
+  const subjectId = professional ? professionalCoachSubject(path) : undefined;
   const [identity, setIdentity] = useState<string | null>(null);
   useEffect(() => {
     let alive = true;
@@ -18,5 +22,5 @@ export default function AccountCoach() {
     return () => { alive = false; subscription.unsubscribe(); };
   }, []);
   // The key synchronously discards the old subject's surface and pending response.
-  return identity ? <GlobalCoach key={identity} identity={identity} /> : null;
+  return identity ? <GlobalCoach key={`${identity}:${subjectId ?? identity}`} professional={professional} identity={identity} subjectId={subjectId} /> : null;
 }

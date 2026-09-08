@@ -309,7 +309,7 @@ it('publishes the actual muscle selection and clears or normalizes it when chang
   const serratus = await screen.findByRole('button', { name: 'Serratus anterior' });
   await waitFor(() => expect((serratus as HTMLButtonElement).disabled).toBe(false));
   fireEvent.click(serratus);
-  fireEvent.click(screen.getByRole("button", { name: "Ask coach" }));
+  fireEvent.click(screen.getByRole("button", { name: "Ask Trophē" }));
   expect(screen.getByRole("button", { name: "Remove screen selection: Serratus anterior" })).toBeTruthy();
   expect(screenSelectionSnapshot()?.anatomy).toMatchObject({ group: 'chest', subgroup: 'serratus-anterior' });
   expect(coachAnatomyHintSchema.safeParse(screenSelectionSnapshot()?.anatomy).success).toBe(true);

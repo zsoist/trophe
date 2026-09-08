@@ -27,13 +27,13 @@ it('reviews before applying and displays an actual isolated receipt without chan
   const profile = store.read(actor, actor)!;
   const body: Omit<CoachConversationResponse, 'conversationId' | 'turnId'> = {
     version: 'coach-assistant.v2', ok: true, mode: 'offline', dataSource: 'synthetic',
-    snapshot: { id: 'snapshot', capturedAt: '2026-09-07T04:00:00Z', subjectId: actor, organizationId: 'example', surface: 'workout', screenIncluded: true, window: { start: '2026-09-07', end: '2026-09-07', days: 1, timezone: 'UTC' }, language: 'en', units: { weight: 'kg', energy: 'kcal', protein: 'g' }, capabilities: [{ key: 'actions', status: 'available', reason: 'isolated_ephemeral' }] },
+    snapshot: { id: 'snapshot', capturedAt: '2026-09-07T04:00:00Z', subjectId: actor, organizationId: 'example', actorRole: 'client', access: 'self', scopeKey: 'a'.repeat(64), surface: 'workout', screenIncluded: true, window: { start: '2026-09-07', end: '2026-09-07', days: 1, timezone: 'UTC' }, language: 'en', units: { weight: 'kg', energy: 'kcal', protein: 'g' }, capabilities: [{ key: 'actions', status: 'available', reason: 'isolated_ephemeral' }] },
     profile: { language: 'en', timezone: 'UTC', units: { weight: 'kg', energy: 'kcal', protein: 'g' }, preferences: { durationMinutes: 30 }, version: profile.version, source: 'isolated_fixture' },
     output: { answer: 'Your current records.', evidenceRefs: [], limitations: [], suggestions: [], escalation: { required: false, reason: null, draft: null } },
     memories: profile.memories, evidence: [], proposals: [], receipts: [], attachments: [], telemetry: { model: null, provider: null, promptVersion: 'test', modelCalls: 0, dataReads: 0, tokensIn: 0, tokensOut: 0, reasoningTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, latencyMs: 0, costUsd: 0, pricingVersion: 'test' },
   };
   render(<I18nProvider defaultLang="en"><GlobalCoach identity={actor} example={async request => ({ ...body, conversationId: request.conversationId, turnId: request.turnId })} preferenceTransport={transport} /></I18nProvider>);
-  fireEvent.click(screen.getByRole('button', { name: 'Ask coach' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
   fireEvent.change(screen.getByRole('textbox'), { target: { value: 'My profile' } });
   fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
   await screen.findByText('Your current records.');

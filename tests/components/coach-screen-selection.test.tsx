@@ -31,7 +31,7 @@ it('sends current hints, preserves earlier turns, detaches via the chip and neve
   publishScreenSelection({ path: route.path, label: 'Chest', anatomy: { group: 'chest', subgroup: 'sternocostal', legRegion: 'all' } });
   const transport = vi.fn(async (request: CoachConversationRequest) => response(request));
   const view = render(<I18nProvider defaultLang="en"><GlobalCoach identity="A" example={transport} /></I18nProvider>);
-  fireEvent.click(screen.getByRole('button', { name: 'Ask coach' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
   expect(screen.getByRole('button', { name: 'Remove screen selection: Chest' })).toBeTruthy();
   const send = async () => {
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Explain this' } });

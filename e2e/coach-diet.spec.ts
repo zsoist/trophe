@@ -29,7 +29,7 @@ test('diet selection requires exact review and confirmation then recovers its re
   });
   const responseFor = (operation: string) => page.waitForResponse(response => new URL(response.url()).pathname === '/api/coach-assistant' && response.request().method() === 'POST' && response.request().postDataJSON().operation === operation);
   await loginAs(page, 'client'); await page.goto('/dashboard/workout');
-  await page.getByRole('button', { name: 'Ask coach', exact: true }).click();
+  await page.getByRole('button', { name: 'Ask Trophē', exact: true }).click();
   const panel = page.locator('#global-coach');
   const reading = responseFor('diet.read');
   await panel.locator('summary').filter({ hasText: 'Diet preference' }).click();
@@ -112,7 +112,7 @@ test('committed diet response loss survives a new conversation and recovers by r
   });
   const responseFor = (operation: string) => page.waitForResponse(response => new URL(response.url()).pathname === '/api/coach-assistant' && response.request().method() === 'POST' && response.request().postDataJSON().operation === operation);
   await loginAs(page, 'client'); await page.goto('/dashboard/workout');
-  await page.getByRole('button', { name: 'Ask coach', exact: true }).click();
+  await page.getByRole('button', { name: 'Ask Trophē', exact: true }).click();
   const panel = page.locator('#global-coach');
   const reading = responseFor('diet.read');
   await panel.locator('summary').filter({ hasText: 'Diet preference' }).click();

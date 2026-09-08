@@ -39,7 +39,7 @@ test('authenticated HTTP engine uses current authorized profile with explicit fi
       ORDER BY id LIMIT 1`)).rows[0];
     expect(exercise?.id).toBeTruthy();
     await page.goto(`/dashboard/workout/exercises/${exercise.id}`);
-    await page.getByRole('button', { name: 'Ask coach', exact: true }).click();
+    await page.getByRole('button', { name: 'Ask Trophē', exact: true }).click();
     const panel = page.locator('#global-coach');
     await expect(panel.getByRole('button', { name: `Remove screen selection: ${exercise.name}`, exact: true })).toBeVisible();
     await panel.getByRole('textbox', { name: 'Your question', exact: true }).fill('Explain this exercise');

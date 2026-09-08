@@ -77,7 +77,7 @@ test('durable chat creates, reloads and resumes one real Auth/HTTP conversation 
   let coachContext: Awaited<ReturnType<typeof browser.newContext>> | undefined;
   try {
     await loginAs(page, 'client'); await page.goto('/dashboard/workout');
-    await page.getByRole('button', { name: 'Ask coach', exact: true }).click();
+    await page.getByRole('button', { name: 'Ask Trophē', exact: true }).click();
     const panel = page.locator('#global-coach');
     const firstText = `Synthetic durable chat ${randomUUID()}`;
     await panel.getByRole('textbox', { name: 'Your question', exact: true }).fill(firstText);
@@ -96,15 +96,15 @@ test('durable chat creates, reloads and resumes one real Auth/HTTP conversation 
 
     // Closing and reopening keeps the current in-memory conversation without a request.
     const beforeClose = operations.length;
-    await panel.getByRole('button', { name: 'Close coach', exact: true }).click();
-    await page.getByRole('button', { name: 'Ask coach', exact: true }).click();
+    await panel.getByRole('button', { name: 'Close Ask Trophē', exact: true }).click();
+    await page.getByRole('button', { name: 'Ask Trophē', exact: true }).click();
     await expect(panel.getByText(first.output.answer, { exact: true })).toBeVisible();
     expect(operations).toHaveLength(beforeClose);
 
     // A page reload removes in-memory state. List/read must reconstruct only
     // historical text; selecting Continue moves it into the active controller.
     await page.reload();
-    await page.getByRole('button', { name: 'Ask coach', exact: true }).click();
+    await page.getByRole('button', { name: 'Ask Trophē', exact: true }).click();
     const reloaded = page.locator('#global-coach');
     await reloaded.locator('summary').filter({ hasText: 'Saved conversations' }).click();
     const listing = page.waitForResponse(response => response.request().postDataJSON()?.operation === 'list');

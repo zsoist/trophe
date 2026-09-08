@@ -42,7 +42,7 @@ test('global v2 UI reviews and saves durable preferences; HTTP replay, stale ver
   try {
     await pool.query("UPDATE public.profiles SET language='en' WHERE id=$1", [actor]);
     await loginAs(page, 'client'); await page.goto('/dashboard/workout');
-    await page.getByRole('button', { name: 'Ask coach', exact: true }).click();
+    await page.getByRole('button', { name: 'Ask Trophē', exact: true }).click();
     const panel = page.locator('#global-coach');
     await panel.getByRole('textbox', { name: 'Your question', exact: true }).fill('Show my workout records today');
     const reading = responseFor(); await panel.getByRole('button', { name: 'Send question', exact: true }).click();

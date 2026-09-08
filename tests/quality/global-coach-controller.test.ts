@@ -1,5 +1,17 @@
 import { expect, it } from 'vitest';
-import { ConversationController, type ConversationTransport } from '@/components/assistant/conversation-state';
+import { ConversationController, coachSurface, professionalCoachSubject, type ConversationTransport } from '@/components/assistant/conversation-state';
+
+it('maps the five professional routes and extracts only explicit client route hints', () => {
+ expect(coachSurface('/coach/inbox/client-a')).toBe('messages');
+ expect(coachSurface('/coach/questionnaires')).toBe('intake');
+ expect(coachSurface('/coach/calendar')).toBe('booking');
+ expect(coachSurface('/coach/protocols')).toBe('supplements');
+ expect(coachSurface('/coach/client/client-a/form-check')).toBe('form_check');
+ expect(professionalCoachSubject('/coach/client/client-a')).toBe('client-a');
+ expect(professionalCoachSubject('/coach/inbox/client-b')).toBe('client-b');
+ expect(professionalCoachSubject('/coach/inbox')).toBeUndefined();
+ expect(professionalCoachSubject('/coach/client/client-a/plan?client=client-b')).toBe('client-a');
+});
 
 it('navigation hints are snapshotted and identity changes suppress late output',async()=>{
  const controller=new ConversationController();controller.identify('actor-a');controller.setDraft('A private question');

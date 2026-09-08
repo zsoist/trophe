@@ -13,7 +13,7 @@ afterEach(cleanup);
 const example = vi.fn();
 const mounted = (identity = 'owner') => <I18nProvider defaultLang="en"><GlobalCoach identity={identity} example={example} voiceSlot={props => <PrivateVoiceReview {...props} />} /></I18nProvider>;
 function openTranscript() {
-  fireEvent.click(screen.getByRole('button', { name: 'Ask coach' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
   fireEvent.click(screen.getByRole('button', { name: 'Try a transcript example' }));
 }
 it('edits and explicitly appends reviewed text to the real composer without sending or replacing an existing question', () => {
@@ -39,7 +39,7 @@ it('discards unaccepted transcript text when the mounted coach identity changes'
   const view = render(mounted()); openTranscript();
   fireEvent.change(screen.getByRole('textbox', { name: 'Edit transcript' }), { target: { value: 'Private unaccepted words' } });
   view.rerender(mounted('other-owner'));
-  fireEvent.click(screen.getByRole('button', { name: 'Ask coach' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
   expect(screen.queryByRole('textbox', { name: 'Edit transcript' })).toBeNull();
   expect((screen.getByRole('textbox', { name: 'Your question' }) as HTMLTextAreaElement).value).toBe('');
 });

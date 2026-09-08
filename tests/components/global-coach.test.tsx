@@ -21,16 +21,16 @@ it('keeps the same conversation and editable draft across real Food and Workout 
   HTMLElement.prototype.scrollTo = vi.fn();
   const transport = vi.fn(async (request: CoachConversationRequest) => response(request));
   const view = render(mounted(transport));
-  fireEvent.click(screen.getByRole('button', { name: 'Ask coach' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
   expect(transport).not.toHaveBeenCalled();
   fireEvent.change(screen.getByRole('textbox', { name: 'Your question' }), { target: { value: 'My training today' } });
   fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
   await screen.findByText('Recorded summary');
   fireEvent.change(screen.getByRole('textbox'), { target: { value: 'What about lunch?' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Close coach' }));
-  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Ask coach' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Close Ask Trophē' }));
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Ask Trophē' }));
   route.path = '/dashboard/log'; view.rerender(mounted(transport));
-  fireEvent.click(screen.getByRole('button', { name: 'Ask coach' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
   expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toBe('What about lunch?');
   expect(transport).toHaveBeenCalledTimes(1);
   fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
@@ -44,7 +44,7 @@ it('detaches screen context and aborts a late response when the subject changes 
   let settle!: (value: CoachConversationResponse) => void;
   const transport = vi.fn((_request: CoachConversationRequest, _signal: AbortSignal) => new Promise<CoachConversationResponse>(resolve => { settle = resolve; }));
   const view = render(mounted(transport, 'A', 'client-1'));
-  fireEvent.click(screen.getByRole('button', { name: 'Ask coach' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
   fireEvent.click(screen.getByRole('checkbox'));
   fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Private question' } });
   fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
@@ -52,7 +52,7 @@ it('detaches screen context and aborts a late response when the subject changes 
   view.rerender(mounted(transport, 'A', 'client-2'));
   expect(transport.mock.calls[0][1].aborted).toBe(true);
   await act(async () => settle(response(transport.mock.calls[0][0], 'Private answer A')));
-  fireEvent.click(screen.getByRole('button', { name: 'Ask coach' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
   expect(screen.queryByText('Private answer A')).toBeNull();
   expect(screen.queryByText('Private question')).toBeNull();
   expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toBe('');

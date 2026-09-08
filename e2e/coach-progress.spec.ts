@@ -37,7 +37,7 @@ test('reviewed measurement survives a lost response and refetches the canonical 
   });
   const responseFor = (operation: string) => page.waitForResponse(response => new URL(response.url()).pathname === '/api/coach-assistant' && response.request().method() === 'POST' && response.request().postDataJSON().operation === operation);
   await loginAs(page, 'client'); await page.goto('/dashboard/progress');
-  await page.getByRole('button', { name: 'Ask coach', exact: true }).click(); const panel = page.locator('#global-coach');
+  await page.getByRole('button', { name: 'Ask Trophē', exact: true }).click(); const panel = page.locator('#global-coach');
   const reading = responseFor('progress.read'); await panel.locator('summary').filter({ hasText: 'Progress measurements' }).click();
   const initialResponse = await reading; expect(initialResponse.status()).toBe(200); const initial = await initialResponse.json();
   expect(initial).toMatchObject({ ok: true, snapshot: { subjectId: process.env.COACH_SQL_ACTOR, window: { days: 90, timezone: 'America/Bogota' } } });

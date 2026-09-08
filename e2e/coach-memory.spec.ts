@@ -24,7 +24,7 @@ test('memory review, save, correction and deletion use authenticated HTTP with r
   const noPaid = await blockPaidRequests(page);
   const responseFor = (operation: string) => page.waitForResponse(response => new URL(response.url()).pathname === '/api/coach-assistant' && response.request().method() === 'POST' && response.request().postDataJSON().operation === operation);
   await loginAs(page, 'client'); await page.goto('/dashboard/workout');
-  await page.getByRole('button', { name: 'Ask coach', exact: true }).click();
+  await page.getByRole('button', { name: 'Ask Trophē', exact: true }).click();
   const panel = page.locator('#global-coach');
   const reading = responseFor('memory.read');
   await panel.locator('summary').filter({ hasText: 'Remembered context' }).click();

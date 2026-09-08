@@ -17,6 +17,9 @@
 .header { display: flex; justify-content: space-between; gap: .75rem; align-items: flex-start; padding: 1rem 1rem .75rem; border-bottom: 1px solid var(--border-default); }
 .header h2 { font-size: 1.125rem; font-weight: 700; letter-spacing: -.02em; }
 .header p, .context { color: var(--text-secondary); font-size: .75rem; line-height: 1.5; margin-top: .35rem; }
+.header .subject { display: inline-flex; min-height: 28px; align-items: center; margin-top: .55rem; padding: .25rem .55rem; border: 1px solid var(--border-default); border-radius: 999px; color: var(--text-primary); font-family: var(--font-mono); }
+.professionalNotice { padding: .65rem 1rem; border-bottom: 1px solid var(--border-default); color: var(--text-secondary); font-size: .75rem; line-height: 1.45; }
+.capabilityStatus { padding: .55rem 1rem; border-bottom: 1px solid var(--border-default); color: var(--text-secondary); font-size: .75rem; font-weight: 600; }
 .header button { min-width: 44px; min-height: 44px; display: grid; place-items: center; border-radius: 12px; }
 .log { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 1rem; scrollbar-color: var(--border-default) transparent; }
 .intro { max-width: 35ch; line-height: 1.7; color: var(--text-secondary); padding: 1rem 0; }

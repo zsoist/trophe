@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { createPortal } from 'react-dom';
-import { MessageCircle, Send, X } from 'lucide-react';
+import { Send, Sparkles, X } from 'lucide-react';
 import { ConversationController, coachSurface, type ConversationTransport } from './conversation-state';
 import { requestConversation } from './client';
 import { acceptedScreenSelection, subscribeScreenSelection, screenSelectionSnapshot, emptyScreenSelection } from './screen-selection';
@@ -38,11 +38,11 @@ const HistoryPanel = dynamic(() => import('./HistoryPanel').then(module => modul
 
 export type CoachContextSlot = (props: { controller: PreferenceController; state: PreferenceState; conversationId: string; transport: PreferenceTransport }) => ReactNode;
 export type CoachVoiceSlot = (props: { conversationId: string; onUse: (text: string) => boolean }) => ReactNode;
-type Props = { identity: string; subjectId?: string; example?: ConversationTransport; preferenceTransport?: PreferenceTransport; memoryTransport?: MemoryTransport; dietTransport?: DietTransport; progressTransport?: ProgressTransport; historyTransport?: HistoryTransport; contextSlot?: CoachContextSlot; voiceSlot?: CoachVoiceSlot };
+type Props = { identity: string; subjectId?: string; professional?: boolean; example?: ConversationTransport; preferenceTransport?: PreferenceTransport; memoryTransport?: MemoryTransport; dietTransport?: DietTransport; progressTransport?: ProgressTransport; historyTransport?: HistoryTransport; contextSlot?: CoachContextSlot; voiceSlot?: CoachVoiceSlot };
 export default function GlobalCoach(props: Props) {
-  return <CoachSurface key={`${props.identity}:${props.subjectId ?? props.identity}`} {...props} />;
+  return <CoachSurface key={`${props.identity}:${props.subjectId ?? props.identity}:${props.professional ? 'professional' : 'self'}`} {...props} />;
 }
-function CoachSurface({ identity, subjectId, example, preferenceTransport, memoryTransport, dietTransport, progressTransport, historyTransport, contextSlot, voiceSlot }: Props) {
+function CoachSurface({ identity, subjectId, professional = false, example, preferenceTransport, memoryTransport, dietTransport, progressTransport, historyTransport, contextSlot, voiceSlot }: Props) {
   const { t } = useGlobalCoachI18n();
   const path = usePathname();
   const surface = coachSurface(path);
@@ -80,6 +80,9 @@ function CoachSurface({ identity, subjectId, example, preferenceTransport, memor
   const followLatest = useRef(true);
   const [showLatest, setShowLatest] = useState(false);
   const scope = `${identity}:${subjectId ?? identity}`;
+  const professionalMode = professional || Boolean(subjectId && subjectId !== identity);
+  const missingProfessionalSubject = professionalMode && !subjectId;
+  const serverScope = useRef<string | null>(null);
   useEffect(() => { controller.identify(scope); return () => controller.identify(null); }, [controller, scope]);
   useEffect(() => () => preferences.reset(), [preferences]);
   useEffect(() => () => attachments.reset(), [attachments]);
@@ -118,20 +121,34 @@ function CoachSurface({ identity, subjectId, example, preferenceTransport, memor
     else setShowLatest(true);
   }, [open, state.turns, state.pending]);
   const close = () => { controller.cancel(); preferences.cancel(); attachments.cancel(); voice.reset(); food.cancel(); memory.cancel(); diet.cancel(); progress.cancel(); setOpen(false); launcher.current?.focus(); };
-  const send = () => !voiceActive && controller.send({ surface, includeScreen, ...(includeScreen && selection ? selection.anatomy ? { anatomy: selection.anatomy } : { entity: selection.entity } : {}), ...(subjectId ? { clientId: subjectId } : {}) }, example ?? requestConversation, attachments.references(), historyEnabled ? (requestId, title, signal) => {
+  const send = () => !voiceActive && !missingProfessionalSubject && controller.send({ surface, includeScreen, ...(includeScreen && selection ? selection.anatomy ? { anatomy: selection.anatomy } : { entity: selection.entity } : {}), ...(subjectId ? { clientId: subjectId } : {}) }, async (request, signal) => {
+    const response = await (example ?? requestConversation)(request, signal);
+    if (subjectId && subjectId !== identity && response.ok) {
+      const snapshot = response.snapshot as (typeof response.snapshot & { scopeKey?: string });
+      if (!snapshot || snapshot.subjectId !== subjectId || typeof snapshot.scopeKey !== 'string' || !snapshot.scopeKey
+        || serverScope.current && serverScope.current !== snapshot.scopeKey) throw new Error('scope_mismatch');
+      serverScope.current = snapshot.scopeKey;
+    }
+    return response;
+  }, attachments.references(), historyEnabled ? (requestId, title, signal) => {
     const create = (historyTransport ?? requestHistory).create;
     if (!create) return Promise.reject(new Error('history_unavailable'));
     return create(requestId, title, signal);
   } : undefined);
   const latestResponse = state.turns.findLast(turn => turn.response?.ok)?.response;
+  const professionalCapability = subjectId && subjectId !== identity
+    ? latestResponse?.snapshot?.capabilities.find(item => item.key === surface as typeof item.key)
+    : undefined;
   useEffect(() => { if (latestResponse) attachments.reconcile(latestResponse.attachments); }, [attachments, latestResponse]);
   const launch = <button ref={launcher} type="button" className={styles.launcher} aria-expanded={open} aria-controls="global-coach" onClick={() => open ? close() : setOpen(true)}>
-      <MessageCircle size={19} aria-hidden="true" />{t('global_coach.open')}
+      <Sparkles size={19} aria-hidden="true" />{t('global_coach.open')}
     </button>;
   return <div className={styles.root}>
     {anchor ? createPortal(launch, anchor) : launch}
     {open && <section id="global-coach" className={styles.panel} style={{ top: panelTop }} aria-labelledby="global-coach-title" onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); close(); } }}>
-      <header className={styles.header}><div><h2 id="global-coach-title">{t('global_coach.title')}</h2><p>{t(example ? 'global_coach.example' : 'global_coach.identity')}</p></div><button type="button" onClick={close} aria-label={t('global_coach.close')}><X size={22} /></button></header>
+      <header className={styles.header}><div><h2 id="global-coach-title">{t('global_coach.title')}</h2><p>{t(example ? 'global_coach.example' : 'global_coach.identity')}</p>{subjectId && subjectId !== identity && <p className={styles.subject}>{t('global_coach.professional_subject', { subject: subjectId.slice(0, 8) })}</p>}</div><button type="button" onClick={close} aria-label={t('global_coach.close')}><X size={22} /></button></header>
+      {professionalMode && <p className={styles.professionalNotice}>{t(missingProfessionalSubject ? 'global_coach.professional_select_subject' : 'global_coach.professional_notice')}</p>}
+      {professionalCapability && <p className={styles.capabilityStatus}>{t(`global_coach.${surface}`)} · {t(`global_coach.capability_${professionalCapability.status}`)}</p>}
       {latestResponse && <ContextCards response={latestResponse} conversationId={state.conversationId} subjectId={subjectId} hideMemories={memoryEnabled} onExpand={() => voice.reset()} controller={preferences} state={preferenceState} transport={preferenceTransport ?? requestPreference}>{contextSlot?.({ controller: preferences, state: preferenceState, conversationId: state.conversationId, transport: preferenceTransport ?? requestPreference })}</ContextCards>}
       <div ref={log} className={styles.log} role="log" aria-live="polite" aria-relevant="additions text" onScroll={() => {
         const node = log.current; if (!node) return;
@@ -193,7 +210,7 @@ function CoachSurface({ identity, subjectId, example, preferenceTransport, memor
         <label className={styles.contextToggle}><input type="checkbox" checked={includeScreen} onChange={event => setIncludeScreen(event.target.checked)} />{t('global_coach.include')}<span>{t(`global_coach.${surface}`)}</span></label>
         <label className="sr-only" htmlFor="global-coach-question">{t('global_coach.question')}</label>
         <textarea id="global-coach-question" ref={input} maxLength={2000} rows={3} value={state.draft} onChange={event => controller.setDraft(event.target.value)} placeholder={t('global_coach.placeholder')} />
-        <div className={styles.actions}><span>{state.draft.length}/2000</span>{state.pending ? <button type="button" onClick={() => controller.cancel()}>{t('global_coach.cancel')}</button> : <button type="submit" disabled={state.recoveryRequired || !state.draft.trim() || attachmentState.pending || voiceActive}><Send size={17} aria-hidden="true" />{t('global_coach.send')}</button>}</div>
+        <div className={styles.actions}><span>{state.draft.length}/2000</span>{state.pending ? <button type="button" onClick={() => controller.cancel()}>{t('global_coach.cancel')}</button> : <button type="submit" disabled={missingProfessionalSubject || state.recoveryRequired || !state.draft.trim() || attachmentState.pending || voiceActive}><Send size={17} aria-hidden="true" />{t('global_coach.send')}</button>}</div>
       </form>
     </section>}
   </div>;

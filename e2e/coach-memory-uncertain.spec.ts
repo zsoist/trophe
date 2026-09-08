@@ -50,7 +50,7 @@ test('committed memory response loss survives close and recovers by receipt with
   });
   const responseFor = (operation: string) => page.waitForResponse(response => new URL(response.url()).pathname === '/api/coach-assistant' && response.request().method() === 'POST' && response.request().postDataJSON().operation === operation);
   await loginAs(page, 'client'); await page.goto('/dashboard/workout');
-  await page.getByRole('button', { name: 'Ask coach', exact: true }).click();
+  await page.getByRole('button', { name: 'Ask Trophē', exact: true }).click();
   const panel = page.locator('#global-coach');
   const initialRead = responseFor('memory.read');
   await panel.locator('summary').filter({ hasText: 'Remembered context' }).click();
@@ -63,9 +63,9 @@ test('committed memory response loss survives close and recovers by receipt with
   await expect.poll(() => dropped || Boolean(routeFailure)).toBe(true); if (routeFailure) throw routeFailure;
   await expect(panel.getByRole('button', { name: 'Check change status', exact: true })).toBeVisible();
   await expect(panel.getByText('Memory change saved.', { exact: true })).toHaveCount(0);
-  await panel.getByRole('button', { name: 'Close coach', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Ask coach', exact: true })).toBeFocused();
-  await page.getByRole('button', { name: 'Ask coach', exact: true }).click();
+  await panel.getByRole('button', { name: 'Close Ask Trophē', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Ask Trophē', exact: true })).toBeFocused();
+  await page.getByRole('button', { name: 'Ask Trophē', exact: true }).click();
   await panel.locator('summary').filter({ hasText: 'Remembered context' }).click();
   await expect(panel.getByRole('button', { name: 'Check change status', exact: true })).toBeVisible();
   expect(applyCount).toBe(1);

@@ -27,7 +27,7 @@ async function mount(mappings:string[]){
  const transport=vi.fn();
  const view=render(<I18nProvider defaultLang="en"><AnatomyExplorer workout initialGroup="chest" manifestUrl="/fixture-manifest.json"/><GlobalCoach identity="fixture-actor" example={transport}/></I18nProvider>);
  await screen.findByRole('button',{name:'Fixture mesh pick'});
- fireEvent.click(screen.getByRole('button',{name:'Ask coach'}));
+ fireEvent.click(screen.getByRole('button',{name:'Ask Trophē'}));
  return {view,transport};
 }
 it('links real Explorer controls to emitted selection and the real removable chip, then clears whole body',async()=>{

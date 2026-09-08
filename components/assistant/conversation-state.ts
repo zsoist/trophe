@@ -83,6 +83,11 @@ export class ConversationController {
 }
 
 export function coachSurface(path: string): CoachSurface {
+  if (path.includes('/form-check')) return 'form_check' as CoachSurface;
+  if (path.includes('/messages') || path.includes('/coach/inbox')) return 'messages' as CoachSurface;
+  if (path.includes('/intake') || path.includes('/coach/questionnaires')) return 'intake' as CoachSurface;
+  if (path.includes('/book') || path.includes('/coach/calendar')) return 'booking' as CoachSurface;
+  if (path.includes('/supplements') || path.includes('/coach/protocols')) return 'supplements' as CoachSurface;
   if (path.includes('/atlas') || path.includes('/anatomy')) return 'atlas';
   if (path.includes('/recipes')) return 'recipe';
   if (path.includes('/food') || path === '/dashboard/log') return 'food';
@@ -97,4 +102,11 @@ export function coachSurface(path: string): CoachSurface {
   if (path.includes('/habits') || path.includes('/checkin')) return 'habits';
   if (path.includes('/coach')) return 'coach';
   return 'home';
+}
+
+/** Extracts a route hint only. The server still authorizes actor, client and tenant. */
+export function professionalCoachSubject(path: string): string | undefined {
+  const pathname = path.split(/[?#]/, 1)[0];
+  const match = pathname.match(/^\/coach\/(?:client\/([^/]+)|inbox\/([^/]+))(?:\/|$)/);
+  return match?.[1] ?? match?.[2];
 }

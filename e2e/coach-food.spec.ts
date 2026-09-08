@@ -33,7 +33,7 @@ test('meal row opens shared coach, reviews 250 to 150 grams and refreshes after 
   try {
     await pool.query("UPDATE public.profiles SET language='en',timezone='UTC' WHERE id=$1", [actor]);
     await loginAs(page, 'client'); await page.goto('/dashboard/log');
-    await expect(page.getByRole('button', { name: 'Ask coach', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Ask Trophē', exact: true })).toBeVisible();
     await page.getByRole('button', { name: /^Breakfast, \d+ items$/ }).click();
     const reading = responseFor('food.read');
     await page.getByRole('button', { name: 'Review Isolated coach rice quantity with coach', exact: true }).click();
@@ -58,7 +58,7 @@ test('meal row opens shared coach, reviews 250 to 150 grams and refreshes after 
     expect(actions.size).toBe(1);
     expect(Number((await pool.query('SELECT qty_g FROM public.food_log WHERE id=$1 AND user_id=$2', [entryId, actor])).rows[0].qty_g)).toBe(150);
     expect((await pool.query('SELECT id FROM private.coach_action_receipts WHERE actor_id=$1 AND action_id=$2', [actor, [...actions][0]])).rowCount).toBe(1);
-    await panel.getByRole('button', { name: 'Close coach', exact: true }).click();
+    await panel.getByRole('button', { name: 'Close Ask Trophē', exact: true }).click();
     const mealRow = page.getByRole('button', { name: 'Review Isolated coach rice quantity with coach', exact: true }).locator('..').locator('..');
     await expect(mealRow.getByText('300 kcal', { exact: true })).toBeVisible();
     await expect(mealRow.getByText('500 kcal', { exact: true })).toHaveCount(0);

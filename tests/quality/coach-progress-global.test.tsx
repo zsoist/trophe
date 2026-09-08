@@ -14,11 +14,11 @@ it('exposes the reviewed Progress capability only for the authenticated self on 
   const actor = crypto.randomUUID(); const calls: unknown[] = [];
   const progress: ProgressTransport = async operation => { calls.push(operation); return { version: 'coach-assistant.v2', storage: 'database', ok: true, snapshot: { subjectId: actor, version: '1', window: { start: '2026-06-10', end: '2026-09-07', timezone: 'UTC', days: 90 }, measurements: [], trends: [], truncated: false, duplicateRowsDropped: 0, invalidValuesExcluded: 0, limitations: [] } }; };
   const view = render(<I18nProvider defaultLang="en"><GlobalCoach identity={actor} example={vi.fn()} progressTransport={progress} /></I18nProvider>);
-  fireEvent.click(screen.getByRole('button', { name: 'Ask coach' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
   fireEvent.click(document.querySelector('#global-coach details summary')!);
   await screen.findByText('No measurements in the last 90 days.');
   expect(calls).toHaveLength(1);
   view.rerender(<I18nProvider defaultLang="en"><GlobalCoach identity={actor} subjectId={crypto.randomUUID()} example={vi.fn()} progressTransport={progress} /></I18nProvider>);
-  fireEvent.click(screen.getByRole('button', { name: 'Ask coach' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
   expect(screen.queryByText('Progress measurements')).toBeNull();
 });

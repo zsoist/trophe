@@ -13,6 +13,9 @@ export function readConversationResponse(value: unknown): CoachConversationRespo
     const snapshot = row.snapshot as Record<string, unknown>;
     if (typeof snapshot.id !== 'string' || typeof snapshot.capturedAt !== 'string' || typeof snapshot.subjectId !== 'string'
       || typeof snapshot.organizationId !== 'string' || typeof snapshot.screenIncluded !== 'boolean'
+      || !['client', 'coach', 'admin', 'super_admin'].includes(String(snapshot.actorRole))
+      || !['self', 'assigned_professional'].includes(String(snapshot.access))
+      || typeof snapshot.scopeKey !== 'string' || !/^[a-f0-9]{64}$/.test(snapshot.scopeKey)
       || !(snapshot.surface === null || typeof snapshot.surface === 'string') || !Array.isArray(snapshot.capabilities)) throw new Error('invalid_output');
     if (snapshot.capabilities.length > 20 || snapshot.capabilities.some(item => !item || typeof item !== 'object'
       || typeof item.key !== 'string' || !['available', 'unknown', 'unauthorized', 'not_connected'].includes(item.status))) throw new Error('invalid_output');
