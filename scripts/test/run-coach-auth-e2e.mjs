@@ -9,7 +9,7 @@ import { runLocalAuthenticatedE2E } from './run-local-auth-e2e.mjs';
 import { assertLoopbackDatabaseUrl, assertLoopbackSupabaseUrl, assertAuthUserAbsent } from './local-auth-e2e-core.mjs';
 
 const commonPhases = new Set(['local_status', 'target_validation', 'auth_client', 'profile_client', 'auth_coach', 'profile_coach', 'auth_admin', 'profile_admin', 'relationship', 'nutrition', 'meal_plan', 'organization', 'execute', 'cleanup']);
-const phases = new Set([...commonPhases, 'preflight', 'auth_create', 'db_connect', 'seed_profiles', 'seed_memberships', 'seed_food', 'seed_catalog', 'seed_plan', 'seed_sessions', 'seed_complete', 'seed_commit', 'playwright_on', 'playwright_off', 'cleanup_db_connect', 'cleanup_sessions', 'cleanup_plan', 'cleanup_memberships', 'cleanup_commit', 'auth_delete', 'auth_verify', 'pool_close', 'local_status', 'common_auth', 'common_profile', 'common_client', 'common_relationship', 'common_food', 'common_plan', 'common_org', 'common_cleanup', 'unknown']);
+const phases = new Set([...commonPhases, 'preflight', 'auth_create', 'db_connect', 'seed_profiles', 'seed_memberships', 'seed_food', 'seed_catalog', 'seed_plan', 'seed_sessions', 'seed_complete', 'seed_commit', 'playwright_on', 'playwright_off', 'playwright_professional_on', 'playwright_professional_off', 'cleanup_db_connect', 'cleanup_sessions', 'cleanup_plan', 'cleanup_memberships', 'cleanup_commit', 'auth_delete', 'auth_verify', 'pool_close', 'local_status', 'common_auth', 'common_profile', 'common_client', 'common_relationship', 'common_food', 'common_plan', 'common_org', 'common_cleanup', 'unknown']);
 const commonErrors = new Map([
   ['local Supabase status is unavailable', 'local_status'],
   ['local auth user creation failed', 'common_auth'],
@@ -73,6 +73,7 @@ export async function executeCoachWeek({ status, env, actors, service }) {
   // Profiles are explicitly UTC. SQL derives the date in that same timezone.
   const pool = new pg.Pool({ connectionString: status.DB_URL, max: 1, connectionTimeoutMillis: 5000, statement_timeout: 5000 });
   let foreignId;
+  let unassignedId;
   let seeded = false;
   let primaryError;
   let phase = 'auth_create';
@@ -85,6 +86,13 @@ export async function executeCoachWeek({ status, env, actors, service }) {
     if (created.error) throw created.error;
     if (!created.data?.user) throw new Error('Coach foreign Auth fixture creation failed');
     foreignId = requireId(created.data.user.id);
+    const unassigned = await service.auth.admin.createUser({
+      email: `coach-unassigned-${randomUUID()}@local.invalid`, password: `${randomUUID()}Aa1!`,
+      email_confirm: true, user_metadata: { full_name: 'Coach unassigned fixture', local_e2e: true },
+    });
+    if (unassigned.error) throw unassigned.error;
+    if (!unassigned.data?.user) throw new Error('Coach unassigned Auth fixture creation failed');
+    unassignedId = requireId(unassigned.data.user.id);
     phase = 'db_connect';
     const db = await pool.connect();
     let day;
@@ -96,9 +104,11 @@ export async function executeCoachWeek({ status, env, actors, service }) {
       if (profile.rowCount !== 1) throw new Error('Coach disposable client profile is missing');
       await db.query("INSERT INTO profiles (id,full_name,email,role,timezone,language) VALUES ($1,'Coach foreign fixture',$2,'client','UTC','en') ON CONFLICT (id) DO UPDATE SET role='client',timezone='UTC',language='en'", [foreignId, created.data.user.email]);
       await db.query('INSERT INTO client_profiles (user_id,coach_id) VALUES ($1,$2) ON CONFLICT (user_id) DO UPDATE SET coach_id=EXCLUDED.coach_id', [foreignId, coachId]);
+      await db.query("INSERT INTO profiles (id,full_name,email,role,timezone,language) VALUES ($1,'Coach unassigned fixture',$2,'client','UTC','en') ON CONFLICT (id) DO UPDATE SET role='client',timezone='UTC',language='en'", [unassignedId, unassigned.data.user.email]);
+      await db.query('INSERT INTO client_profiles (user_id,coach_id) VALUES ($1,NULL) ON CONFLICT (user_id) DO UPDATE SET coach_id=NULL', [unassignedId]);
       phase = 'seed_memberships';
       await db.query("INSERT INTO organizations (id,name,slug,owner_id) VALUES ($1,'Coach foreign fixture',$2,$3)", [ids.org, `coach-week-${ids.org}`, coachId]);
-      await db.query("INSERT INTO organization_members (org_id,user_id,role) VALUES ($1,$2,'client'),($1,$3,'coach'),($4,$5,'client')", [orgId, clientId, coachId, ids.org, foreignId]);
+      await db.query("INSERT INTO organization_members (org_id,user_id,role) VALUES ($1,$2,'client'),($1,$3,'coach'),($1,$4,'client'),($5,$6,'client')", [orgId, clientId, coachId, unassignedId, ids.org, foreignId]);
       // The common runner owns these disposable identities. Remove its base meal
       // by captured IDs so the week has a single, explicit nutritional oracle.
       phase = 'seed_food';
@@ -127,9 +137,10 @@ export async function executeCoachWeek({ status, env, actors, service }) {
     finally { db.release(); }
 
     const childEnv = {
-      ...env, CI: 'true', NEXT_PUBLIC_COACH_ASSISTANT_ENABLED: '1', COACH_ASSISTANT_ENABLED: '1', COACH_ASSISTANT_MODE: 'offline',
+      ...env, CI: 'true', NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED: '1', NEXT_PUBLIC_COACH_ASSISTANT_ENABLED: '1', COACH_ASSISTANT_ENABLED: '1', COACH_ASSISTANT_MODE: 'offline',
       COACH_ASSISTANT_DATA_SOURCE: 'authorized_records', COACH_ASSISTANT_PREVIEW_USER_IDS: `${clientId},${coachId}`,
-      E2E_COACH_WEEK: '1', E2E_COACH_FLAG_OFF: '0', E2E_CLIENT_ID: clientId, E2E_COACH_ID: coachId, E2E_FOREIGN_ID: foreignId,
+      E2E_COACH_WEEK: '1', E2E_COACH_FLAG_OFF: '0', E2E_COACH_PROFESSIONAL: '1', E2E_COACH_PROFESSIONAL_FLAG_OFF: '0',
+      E2E_CLIENT_ID: clientId, E2E_COACH_ID: coachId, E2E_FOREIGN_ID: foreignId, E2E_UNASSIGNED_ID: unassignedId,
       E2E_WEEK_SESSION_IDS: JSON.stringify([ids.sessionA, ids.sessionB]),
       E2E_WEEK_SET_IDS: JSON.stringify([ids.setA, ids.setB, ids.setC]),
       E2E_COACH_DAY: day,
@@ -143,12 +154,15 @@ export async function executeCoachWeek({ status, env, actors, service }) {
     // starts. Both reuse the same disposable Auth/DB fixture and final cleanup.
     const modes = [
       childEnv,
-      { ...childEnv, NEXT_PUBLIC_COACH_ASSISTANT_ENABLED: '0', COACH_ASSISTANT_ENABLED: '0', E2E_COACH_FLAG_OFF: '1' },
+      { ...childEnv, NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED: '0', NEXT_PUBLIC_COACH_ASSISTANT_ENABLED: '0', COACH_ASSISTANT_ENABLED: '0', E2E_COACH_FLAG_OFF: '1', E2E_COACH_PROFESSIONAL_FLAG_OFF: '1' },
     ];
     for (const modeEnv of modes) {
       phase = modeEnv.E2E_COACH_FLAG_OFF === '1' ? 'playwright_off' : 'playwright_on';
       const result = spawnSync(process.execPath, [resolve('node_modules/@playwright/test/cli.js'), 'test', '--config', 'playwright.coach.config.ts', '--workers=1', 'e2e/coach-week.spec.ts'], { stdio: 'inherit', env: modeEnv });
       if (result.error || result.status !== 0) throw new Error(`Coach Auth E2E flag-${modeEnv.E2E_COACH_FLAG_OFF === '1' ? 'off' : 'on'} failed with status ${result.status ?? 1}`);
+      phase = modeEnv.E2E_COACH_PROFESSIONAL_FLAG_OFF === '1' ? 'playwright_professional_off' : 'playwright_professional_on';
+      const professional = spawnSync(process.execPath, [resolve('node_modules/@playwright/test/cli.js'), 'test', '--config', 'playwright.coach-professional.config.ts', '--workers=1'], { stdio: 'inherit', env: modeEnv });
+      if (professional.error || professional.status !== 0) throw new Error(`Professional Coach Auth E2E flag-${modeEnv.E2E_COACH_PROFESSIONAL_FLAG_OFF === '1' ? 'off' : 'on'} failed with status ${professional.status ?? 1}`);
     }
   } catch (error) { diagnostic(phase, error); primaryError = error; }
   finally {
@@ -169,7 +183,7 @@ export async function executeCoachWeek({ status, env, actors, service }) {
         await db.query('DELETE FROM workout_templates WHERE id=$1 AND created_by=$2', [ids.template, coachId]);
         await db.query('DELETE FROM food_log WHERE id=$1 AND user_id=$2', [ids.meal, clientId]);
         phase = 'cleanup_memberships';
-        await db.query('DELETE FROM organization_members WHERE (org_id=$1 AND user_id=ANY($2::uuid[])) OR (org_id=$3 AND user_id=$4)', [orgId, [clientId, coachId], ids.org, foreignId]);
+        await db.query('DELETE FROM organization_members WHERE (org_id=$1 AND user_id=ANY($2::uuid[])) OR (org_id=$3 AND user_id=$4)', [orgId, [clientId, coachId, unassignedId], ids.org, foreignId]);
         await db.query('DELETE FROM organizations WHERE id=$1', [ids.org]);
         phase = 'cleanup_commit';
         await db.query('COMMIT');
@@ -181,13 +195,14 @@ export async function executeCoachWeek({ status, env, actors, service }) {
       } finally { db?.release(); }
     }
     if (!seeded) diagnostic('cleanup_commit', null, 'skipped');
-    if (foreignId) {
+    for (const [fixtureName, fixtureId] of [['foreign', foreignId], ['unassigned', unassignedId]]) {
+      if (!fixtureId) continue;
       try {
         phase = 'auth_delete';
-        const result = await service.auth.admin.deleteUser(foreignId);
+        const result = await service.auth.admin.deleteUser(fixtureId);
         if (result.error) throw result.error;
         phase = 'auth_verify';
-        assertAuthUserAbsent(await service.auth.admin.getUserById(foreignId), 'coach foreign cleanup', foreignId);
+        assertAuthUserAbsent(await service.auth.admin.getUserById(fixtureId), `coach ${fixtureName} cleanup`, fixtureId);
         diagnostic('auth_verify', null, 'passed');
       } catch (error) { diagnostic(phase, error); cleanupErrors.push(error); }
     }
