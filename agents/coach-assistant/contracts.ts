@@ -62,7 +62,8 @@ export interface CoachResponse {
 /** Single browser-safe contract for the shared Food/Workout conversation. */
 export const COACH_CONVERSATION_VERSION = 'coach-assistant.v2' as const;
 export type CoachCapabilityStatus = 'available' | 'unknown' | 'unauthorized' | 'not_connected';
-export type CoachSurface = 'home' | 'food' | 'recipe' | 'workout' | 'plan' | 'live' | 'library' | 'exercise' | 'atlas' | 'history' | 'progress' | 'profile' | 'habits' | 'coach';
+export type CoachSurface = 'home' | 'food' | 'recipe' | 'workout' | 'plan' | 'live' | 'library' | 'exercise' | 'atlas' | 'history' | 'progress' | 'profile' | 'habits' | 'coach' | 'messages' | 'intake' | 'booking' | 'supplements' | 'form_check';
+export type CoachActorRole = 'client' | 'coach' | 'admin' | 'super_admin';
 export interface CoachContextHint {
   surface: CoachSurface;
   includeScreen: boolean;
@@ -87,7 +88,7 @@ export interface CoachConversationRequest {
   attachments?: CoachAttachmentRef[];
 }
 export interface CoachCapability {
-  key: 'food_records' | 'workout_records' | 'active_plan' | 'screen_entity' | 'model' | 'profile' | 'memory' | 'images' | 'voice' | 'actions' | 'progress';
+  key: 'food_records' | 'workout_records' | 'active_plan' | 'screen_entity' | 'model' | 'profile' | 'memory' | 'images' | 'voice' | 'actions' | 'progress' | 'messages' | 'intake' | 'booking' | 'supplements' | 'form_check';
   status: CoachCapabilityStatus;
   reason: string;
 }
@@ -97,6 +98,10 @@ export interface CoachContextSnapshot {
   /** Server-authorized scope; supplied hints cannot populate these fields. */
   subjectId: string;
   organizationId: string;
+  actorRole: CoachActorRole;
+  access: 'self' | 'assigned_professional';
+  /** Server-derived cache boundary. Changes with actor, subject, tenant or role. */
+  scopeKey: string;
   surface: CoachSurface | null;
   screenIncluded: boolean;
   selection?: import('./selection-contracts').CoachSelectionSnapshot;

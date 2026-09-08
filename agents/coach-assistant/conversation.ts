@@ -9,10 +9,14 @@ import type { CoachCapability, CoachConversationResponse, CoachErrorCode } from 
 import { conversationRequestSchema } from './schema';
 import { run } from './index';
 import type { RunOptions } from './index';
-import { windowFor } from './context';
+import { conversationScope, scopeConversationInput, windowFor } from './context';
 import { workoutPreferencesSchema } from '@/lib/workout/preferences';
 import { COACH_PRICING_VERSION } from './economics';
 import { COACH_PROMPT_VERSION } from './prompt.v3';
+
+const disconnectedSurfaceCapabilities = (): CoachCapability[] =>
+  (['messages', 'intake', 'booking', 'supplements', 'form_check'] as const)
+    .map(key => ({ key, status: 'not_connected', reason: `${key}_service_not_connected` }));
 
 /** History is a hint for a window/domain, never a source of facts or authority. */
 export async function runConversation(raw: unknown, options: RunOptions & { isolatedActionsEnabled?:boolean; offlineConversationProvider?:OfflineConversationProvider; offlineInterpretationReview?:OfflineInterpretationReview; offlineCandidateEvaluation?:boolean; isolatedFixtureBoundary?:IsolatedEngineBoundary; filterMemoryHistory?:(input:import('./contracts').CoachConversationRequest)=>import('./contracts').CoachConversationRequest }): Promise<CoachConversationResponse> {
@@ -40,6 +44,8 @@ export async function runConversation(raw: unknown, options: RunOptions & { isol
       const authorized = await options.repository.authorize(options.actorId,subject,controller.signal);
       controller.signal.throwIfAborted();
       if(authorized.actorId !== options.actorId || authorized.subjectId !== subject) throw new Error('forbidden');
+      const scope = conversationScope(authorized);
+      const scopedInput = scopeConversationInput(input, authorized);
       // A captured scope cannot silently switch between initial authorization
       // and any subsequent content read, including changes of timezone/tenant.
       const authorizedRepository = {...options.repository, authorize: async (actor:string,client:string,signal:AbortSignal) => {
@@ -47,10 +53,10 @@ export async function runConversation(raw: unknown, options: RunOptions & { isol
         if(JSON.stringify(fresh)!==JSON.stringify(authorized)) throw new Error('forbidden');
         return fresh;
       }};
-      const selection=createSelectionContext(authorizedRepository,input.context,authorized);
+      const selection=createSelectionContext(authorizedRepository,scopedInput.context,authorized);
       const repository=selection.repository;
-      const {intent,surface,exerciseId,domain}=selectConversationScope(options.filterMemoryHistory?.(input)??input);
-      const result = await run({message:input.message,intent,clientId:input.context?.clientId,exerciseId}, {
+      const {intent,surface,exerciseId,domain}=selectConversationScope(options.filterMemoryHistory?.(scopedInput)??scopedInput);
+      const result = await run({message:scopedInput.message,intent,clientId:scopedInput.context?.clientId,exerciseId}, {
         ...options, mode:'offline', repository, signal:controller.signal, deadlineMs:Math.max(1,budget-(performance.now()-start)),
       });
       controller.signal.throwIfAborted();
@@ -62,13 +68,14 @@ export async function runConversation(raw: unknown, options: RunOptions & { isol
         ...(['food_records','workout_records','active_plan'] as const).map(key=>({key,status:result.evidence.some(f=>key==='food_records'?f.source==='nutrition':key==='active_plan'?f.source==='plan':f.source==='workout')?'available' as const:'unknown' as const,reason:result.evidence.some(f=>key==='food_records'?f.source==='nutrition':key==='active_plan'?f.source==='plan':f.source==='workout')?'authorized_records':'no_supported_records'})),
         {key:'screen_entity',status:exerciseId && result.evidence.some(f=>f.source==='exercise')?'available':'not_connected',reason:exerciseId?'curated_exercise_lookup':'entity_detail_not_connected'},
         ...(['model','profile','memory','images','voice','actions','progress'] as const).map(key=>({key,status:'not_connected' as const,reason:key==='model'?'paid_provider_disabled':'service_not_connected'})),
+        ...disconnectedSurfaceCapabilities(),
       ];
-      response.snapshot = {id:randomUUID(),capturedAt:options.now.toISOString(),subjectId:authorized.subjectId,organizationId:authorized.organizationId,surface,screenIncluded:surface!==null,language:authorized.language,units:{weight:'kg',energy:'kcal',protein:'g'},window:windowFor(intent,authorized.timezone,options.now),capabilities};
+      response.snapshot = {id:randomUUID(),capturedAt:options.now.toISOString(),subjectId:authorized.subjectId,organizationId:authorized.organizationId,...scope,surface,screenIncluded:surface!==null,language:authorized.language,units:{weight:'kg',energy:'kcal',protein:'g'},window:windowFor(intent,authorized.timezone,options.now),capabilities};
       response.snapshot.selection=selection.snapshot();
       if(response.snapshot.selection){const screen=capabilities.find(c=>c.key==='screen_entity')!;screen.status='available';screen.reason='server_resolved_selection';}
-      response.attachments = (input.attachments ?? []).map(item=>({...item,status:'not_connected'}));
+      response.attachments = (scopedInput.attachments ?? []).map(item=>({...item,status:'not_connected'}));
       const facts = response.evidence.map(f=>f.statement).join('\n');
-      response.output = {...result.output!,evidenceRefs:response.evidence.map(f=>f.id),answer:medical ? result.output!.answer : `${options.repository.dataSource==='synthetic'?'Synthetic example records. ':''}Offline record summary; no AI model interpreted your message.\n${facts || 'There are no supported records for this scope.'}\nI can show recorded facts, but open-ended interpretation is not connected. No record was changed.`,limitations:[...result.output!.limitations,'conversation_history_not_evidence','open_ended_interpretation_not_connected',...(input.attachments?.length?['attachments_not_processed']:[])]};
+      response.output = {...result.output!,evidenceRefs:response.evidence.map(f=>f.id),answer:medical ? result.output!.answer : `${options.repository.dataSource==='synthetic'?'Synthetic example records. ':''}Offline record summary; no AI model interpreted your message.\n${facts || 'There are no supported records for this scope.'}\nI can show recorded facts, but open-ended interpretation is not connected. No record was changed.`,limitations:[...result.output!.limitations,'conversation_history_not_evidence','open_ended_interpretation_not_connected',...(scopedInput.attachments?.length?['attachments_not_processed']:[])]};
       if(repository.personalContext && response.telemetry.dataReads < 4 && !medical) {
         const window=response.snapshot.window;
         const context=await repository.authorize(options.actorId,subject,controller.signal);
@@ -101,7 +108,7 @@ export async function runConversation(raw: unknown, options: RunOptions & { isol
         }
       }
       if(options.mode==='model'&&!medical) {
-        await generateOpenConversation(options.filterMemoryHistory?.(input)??input,response,options.offlineConversationProvider!,controller.signal,options.offlineInterpretationReview,options.offlineCandidateEvaluation,options.isolatedFixtureBoundary);
+        await generateOpenConversation(options.filterMemoryHistory?.(scopedInput)??scopedInput,response,options.offlineConversationProvider!,controller.signal,options.offlineInterpretationReview,options.offlineCandidateEvaluation,options.isolatedFixtureBoundary);
         await repository.authorize(options.actorId,subject,controller.signal);
         controller.signal.throwIfAborted();
       }

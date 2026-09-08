@@ -35,7 +35,7 @@ export const conversationRequestSchema = z.object({
   turnId: z.string().uuid(),
   message: requestSchema.shape.message,
   context: z.object({
-    surface: z.enum(['home', 'food', 'recipe', 'workout', 'plan', 'live', 'library', 'exercise', 'atlas', 'history', 'progress', 'profile', 'habits', 'coach']),
+    surface: z.enum(['home', 'food', 'recipe', 'workout', 'plan', 'live', 'library', 'exercise', 'atlas', 'history', 'progress', 'profile', 'habits', 'coach', 'messages', 'intake', 'booking', 'supplements', 'form_check']),
     includeScreen: z.boolean(),
     clientId: z.string().uuid().optional(),
     entity: z.object({ kind: z.enum(['meal', 'recipe', 'session', 'plan', 'exercise']), id: z.string().uuid(),version:z.string().regex(/^[a-f0-9]{64}$/).optional() }).strict().optional(),
