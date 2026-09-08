@@ -69,6 +69,8 @@ export interface CoachContextHint {
   includeScreen: boolean;
   clientId?: string;
   entity?: { kind: 'meal' | 'recipe' | 'session' | 'plan' | 'exercise'; id: string; version?:string };
+  /** Untrusted local binding hint. The client must compare it with the live workspace again. */
+  workspace?: { kind: 'draft'; version: string };
   anatomy?: import('./selection-contracts').CoachAnatomyHint;
 }
 export interface CoachAttachmentRef {
@@ -130,6 +132,18 @@ export interface CoachReceipt {
   resourceVersion: string | null;
   recordedAt: string;
 }
+export interface CoachDraftUpdateIntent {
+  id: string;
+  action: 'draft.update';
+  source: 'provider_tool';
+  subjectId: string;
+  scopeKey: string;
+  surface: 'workout';
+  resource: { kind: 'draft'; id: string; version: string };
+  target: { durationMinutes: number; equipment: ['dumbbells'] };
+  reviewRequired: true;
+}
+export type CoachActionIntent = CoachDraftUpdateIntent;
 export interface CoachConversationResponse {
   foodPreference?:import('./food-preference-contracts').FoodPreferenceSnapshot;
   version: typeof COACH_CONVERSATION_VERSION;
@@ -143,6 +157,8 @@ export interface CoachConversationResponse {
   error?: CoachResponse['error'];
   evidence: CoachEvidence[];
   proposals: CoachProposal[];
+  /** Provider-selected, server-scoped request. This is not a proposal or authority to mutate. */
+  actionIntents?: CoachActionIntent[];
   receipts: CoachReceipt[];
   attachments: CoachAttachmentRef[];
   explanations?: Array<{kind:'curated_general';id:string;text:string;source:'coach-general.v1'}>;
