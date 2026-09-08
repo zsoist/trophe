@@ -57,6 +57,12 @@ export async function POST(request: NextRequest) {
       const { createWorkoutSetService } = await import('@/agents/coach-assistant/set-service');
       return createWorkoutSetService(db);
     },
+    ...(process.env.COACH_ASSISTANT_MESSAGE_ACTIONS_ENABLED === '1' ? { createMessageService: async () => {
+      const { db } = await import('@/db/client');
+      const { consumeRateLimit } = await import('@/lib/security/durable-rate-limit');
+      const { createCoachMessageService } = await import('@/agents/coach-assistant/message-service');
+      return createCoachMessageService(db, consumeRateLimit);
+    }} : {}),
     createRepository: async () => {
       const { pool } = await import('@/db/client');
       return createServerRepository(pool);

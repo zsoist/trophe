@@ -48,6 +48,11 @@ import { requestWorkoutSet } from './workout-set-client';
 import { acceptedWorkoutSetIntent } from './workout-set-intent';
 import { COACH_WORKOUT_SET_REFRESH } from './workout-events';
 import { acceptedFoodQuantityIntent } from './food-intent';
+import { MessageController, type MessageTransport } from './message-state';
+import { MessagePanel } from './MessagePanel';
+import { requestCoachMessage } from './message-client';
+import { acceptedMessageProposal } from './message-capability';
+import { COACH_MESSAGE_REFRESH } from './message-events';
 
 const HistoryPanel = dynamic(() => import('./HistoryPanel').then(module => module.HistoryPanel));
 const foodControllers = new Map<string, FoodQuantityController>();
@@ -58,17 +63,26 @@ const foodControllerFor = (scope: string) => {
   foodControllers.set(scope, controller);
   return controller;
 };
+const messageControllers = new Map<string, MessageController>();
+const messageControllerFor = (scope: string) => {
+  const current = messageControllers.get(scope);
+  if (current) return current;
+  const controller = new MessageController();
+  messageControllers.set(scope, controller);
+  return controller;
+};
 
 export type CoachContextSlot = (props: { identity: string; controller: PreferenceController; state: PreferenceState; conversationId: string; turnId: string; surface: CoachSurfaceName; response: CoachConversationResponse; transport: PreferenceTransport }) => ReactNode;
 export type CoachVoiceSlot = (props: { conversationId: string; onUse: (text: string) => boolean; onSend?: (result: Extract<CoachVoiceResult, { ok: true }>, text: string) => Promise<'sent' | 'ambiguous' | 'failed'> }) => ReactNode;
-type Props = { identity: string; subjectId?: string; professional?: boolean; example?: ConversationTransport; preferenceTransport?: PreferenceTransport; memoryTransport?: MemoryTransport; dietTransport?: DietTransport; progressTransport?: ProgressTransport; foodTransport?:FoodTransport; photoFoodTransport?:PhotoFoodTransport; workoutSetTransport?:WorkoutSetTransport; historyTransport?: HistoryTransport; contextSlot?: CoachContextSlot; voiceSlot?: CoachVoiceSlot; voiceTranscriptionTransport?: VoiceTranscriptionTransport; reviewedVoiceTransport?: ReviewedVoiceTransport; workspaceHint?: CoachContextHint['workspace'] };
+type Props = { identity: string; subjectId?: string; professional?: boolean; example?: ConversationTransport; preferenceTransport?: PreferenceTransport; memoryTransport?: MemoryTransport; dietTransport?: DietTransport; progressTransport?: ProgressTransport; foodTransport?:FoodTransport; photoFoodTransport?:PhotoFoodTransport; workoutSetTransport?:WorkoutSetTransport; messageTransport?:MessageTransport; historyTransport?: HistoryTransport; contextSlot?: CoachContextSlot; voiceSlot?: CoachVoiceSlot; voiceTranscriptionTransport?: VoiceTranscriptionTransport; reviewedVoiceTransport?: ReviewedVoiceTransport; workspaceHint?: CoachContextHint['workspace'] };
 export default function GlobalCoach(props: Props) {
   const [workoutSet] = useState(() => new WorkoutSetController());
   const foodScope = `${props.identity}:${props.subjectId ?? props.identity}`;
   const food = useMemo(() => foodControllerFor(foodScope), [foodScope]);
-  return <CoachSurface key={`${foodScope}:${props.professional ? 'professional' : 'self'}`} {...props} foodController={food} workoutSetController={workoutSet} />;
+  const message = useMemo(() => messageControllerFor(foodScope), [foodScope]);
+  return <CoachSurface key={`${foodScope}:${props.professional ? 'professional' : 'self'}`} {...props} foodController={food} workoutSetController={workoutSet} messageController={message} />;
 }
-function CoachSurface({ identity, subjectId, professional = false, example, preferenceTransport, memoryTransport, dietTransport, progressTransport, foodTransport, photoFoodTransport, workoutSetTransport, historyTransport, contextSlot, voiceSlot, voiceTranscriptionTransport, reviewedVoiceTransport, workspaceHint, foodController: food, workoutSetController }: Props & { foodController: FoodQuantityController; workoutSetController: WorkoutSetController }) {
+function CoachSurface({ identity, subjectId, professional = false, example, preferenceTransport, memoryTransport, dietTransport, progressTransport, foodTransport, photoFoodTransport, workoutSetTransport, messageTransport, historyTransport, contextSlot, voiceSlot, voiceTranscriptionTransport, reviewedVoiceTransport, workspaceHint, foodController: food, workoutSetController, messageController }: Props & { foodController: FoodQuantityController; workoutSetController: WorkoutSetController; messageController: MessageController }) {
   const { t } = useGlobalCoachI18n();
   const path = usePathname();
   const surface = coachSurface(path);
@@ -98,12 +112,16 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   const progressEnabled = surface === 'progress' && process.env.NEXT_PUBLIC_COACH_PROGRESS_ACTIONS_ENABLED === '1' && (!example || Boolean(progressTransport)) && (!subjectId || subjectId === identity);
   const photoFoodEnabled = process.env.NEXT_PUBLIC_COACH_PHOTO_FOOD_ACTIONS_ENABLED === '1' && (!example || Boolean(photoFoodTransport)) && (!subjectId || subjectId === identity);
   const workoutSetState = useSyncExternalStore(workoutSetController.subscribe, workoutSetController.snapshot, workoutSetController.snapshot);
+  const messageState = useSyncExternalStore(messageController.subscribe, messageController.snapshot, messageController.snapshot);
+  const messageEnabled = (process.env.NEXT_PUBLIC_COACH_MESSAGE_ACTIONS_ENABLED === '1' || Boolean(example && messageTransport)) && (!subjectId || subjectId === identity);
+  const activeMessageTransport = messageTransport ?? requestCoachMessage;
   const activeWorkoutSetTransport = workoutSetTransport ?? requestWorkoutSet;
   const workoutSetSelf = !subjectId || subjectId === identity;
   const workoutSetBlocked = workoutSetSelf && (workoutSetState.pending || Boolean(workoutSetState.proposal) || workoutSetState.uncertain || Boolean(workoutSetState.receipt && workoutSetState.error));
   const activeFoodTransport=foodTransport??requestFoodQuantity;
   const foodBlocked = foodState.pending || Boolean(foodState.proposal) || foodState.uncertain || Boolean(foodState.receipt && foodState.error);
-  const coachActionBlocked = workoutSetBlocked || foodBlocked;
+  const messageBlocked = messageEnabled && (messageState.pending || Boolean(messageState.proposal) || messageState.uncertain || Boolean(messageState.receipt && messageState.error));
+  const coachActionBlocked = workoutSetBlocked || foodBlocked || messageBlocked;
   const [open, setOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [includeScreen, setIncludeScreen] = useState(true);
@@ -128,6 +146,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   useEffect(() => () => diet.reset(), [diet]);
   useEffect(() => () => progress.reset(), [progress]);
   useEffect(() => () => workoutSetController.moveConversation(), [workoutSetController]);
+  useEffect(() => () => { messageController.cancel(); }, [messageController]);
   useEffect(() => { memory.identify(state.conversationId); }, [memory, state.conversationId]);
   useEffect(() => {
     if (process.env.NEXT_PUBLIC_COACH_FOOD_ACTIONS_ENABLED !== '1' || example || subjectId && subjectId !== identity) return;
@@ -158,7 +177,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
     if (followLatest.current && !window.getSelection()?.toString()) log.current?.scrollTo({ top: log.current.scrollHeight });
     else setShowLatest(true);
   }, [open, state.turns, state.pending]);
-  const close = () => { controller.cancel(); preferences.cancel(); attachments.cancel(); voice.reset(); food.cancel(); photoFood.cancel(); memory.cancel(); diet.cancel(); progress.cancel(); workoutSetController.cancel(); setOpen(false); launcher.current?.focus(); };
+  const close = () => { controller.cancel(); preferences.cancel(); attachments.cancel(); voice.reset(); food.cancel(); photoFood.cancel(); memory.cancel(); diet.cancel(); progress.cancel(); workoutSetController.cancel(); messageController.cancel(); setOpen(false); launcher.current?.focus(); };
   const currentContext = (): CoachContextHint => ({ surface, includeScreen, ...(includeScreen && selection ? selection.anatomy ? { anatomy: selection.anatomy } : { entity: selection.entity } : {}), ...(includeScreen && workspaceHint ? { workspace: workspaceHint } : {}), ...(subjectId ? { clientId: subjectId } : {}) });
   const send = () => !voiceActive && !missingProfessionalSubject && !coachActionBlocked && controller.send(currentContext(), async (request, signal) => {
     const response = await (example ?? requestConversation)(request, signal);
@@ -209,10 +228,22 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
     if (intent) void food.activate(intent.id, state.conversationId, intent.target.previousGrams, intent.target.grams, activeFoodTransport, intent.target.entryHintId, latestResponse.snapshot?.window.end);
   }, [activeFoodTransport, food, identity, latestResponse, latestTurn, state.conversationId, subjectId, surface]);
   useEffect(() => {
+    if (!messageEnabled || !latestResponse || !latestTurn || subjectId && subjectId !== identity) return;
+    const proposal = acceptedMessageProposal(latestResponse, identity, state.conversationId, latestTurn.request.turnId);
+    if (proposal) messageController.adopt(proposal.hash, state.conversationId, proposal, identity);
+  }, [identity, latestResponse, latestTurn, messageController, messageEnabled, state.conversationId, subjectId]);
+  useEffect(() => {
     const refresh = workoutSetState.refresh;
     if (!workoutSetSelf || !refresh || !workoutSetState.receipt || workoutSetState.pending || workoutSetState.error) return;
     window.dispatchEvent(new CustomEvent(COACH_WORKOUT_SET_REFRESH, { detail: { actorId: identity, ...refresh } }));
   }, [identity, workoutSetSelf, workoutSetState.error, workoutSetState.pending, workoutSetState.receipt, workoutSetState.refresh]);
+  useEffect(() => {
+    const refresh = messageState.refresh;
+    const receipt = messageState.receipt;
+    if (!messageEnabled || !refresh || !receipt || messageState.pending || messageState.error
+      || refresh.clientId !== identity || refresh.coachId !== receipt.coachId) return;
+    window.dispatchEvent(new CustomEvent(COACH_MESSAGE_REFRESH, { detail: { ...refresh, messageId: receipt.messageId } }));
+  }, [identity, messageEnabled, messageState.error, messageState.pending, messageState.receipt, messageState.refresh]);
   const launch = <button ref={launcher} type="button" className={styles.launcher} aria-expanded={open} aria-controls="global-coach" onClick={() => open ? close() : setOpen(true)}>
       <Sparkles size={19} aria-hidden="true" />{t('global_coach.open')}
     </button>;
@@ -230,19 +261,20 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
       }}>
         {(foodState.intentId || foodState.entryId) && <FoodQuantityPanel key={foodState.intentId ?? foodState.entryId} controller={food} state={foodState} transport={activeFoodTransport} />}
         {workoutSetSelf && workoutSetState.intentId && <WorkoutSetPanel controller={workoutSetController} state={workoutSetState} transport={activeWorkoutSetTransport} />}
+        {messageEnabled && messageState.intentId && <MessagePanel controller={messageController} state={messageState} transport={activeMessageTransport} />}
         {photoFoodState.attachmentId&&<PhotoFoodPanel controller={photoFood} state={photoFoodState} transport={photoFoodTransport??requestPhotoFood} onReceipt={entryId=>food.select(entryId,state.conversationId,activeFoodTransport)}/>}
         {historyEnabled && <button type="button" disabled={coachActionBlocked} onClick={() => {
           voice.reset(); attachments.reset(); preferences.moveConversation(); food.moveConversation(); memory.reset();
-          workoutSetController.moveConversation(); controller.startNew(); photoFood.moveConversation(controller.snapshot().conversationId); diet.moveConversation(controller.snapshot().conversationId); progress.moveConversation(controller.snapshot().conversationId); setHistoryOpen(false); input.current?.focus();
+          workoutSetController.moveConversation(); controller.startNew(); messageController.moveConversation(controller.snapshot().conversationId); photoFood.moveConversation(controller.snapshot().conversationId); diet.moveConversation(controller.snapshot().conversationId); progress.moveConversation(controller.snapshot().conversationId); setHistoryOpen(false); input.current?.focus();
         }}>{t('global_coach.new_chat')}</button>}
         {historyEnabled && <details open={historyOpen} className={styles.profile} onToggle={event => setHistoryOpen(event.currentTarget.open)}><summary>{t('global_coach.saved_chats')}</summary>{historyOpen && <HistoryPanel transport={historyTransport ?? requestHistory} onInvalidate={threadId => {
           if (controller.snapshot().conversationId !== threadId) return;
           if (coachActionBlocked) return;
-          voice.reset(); attachments.reset(); preferences.moveConversation(); food.moveConversation(); memory.reset(); workoutSetController.moveConversation(); controller.startNew(); photoFood.moveConversation(controller.snapshot().conversationId); diet.moveConversation(controller.snapshot().conversationId); progress.moveConversation(controller.snapshot().conversationId);
+          voice.reset(); attachments.reset(); preferences.moveConversation(); food.moveConversation(); memory.reset(); workoutSetController.moveConversation(); controller.startNew(); messageController.moveConversation(controller.snapshot().conversationId); photoFood.moveConversation(controller.snapshot().conversationId); diet.moveConversation(controller.snapshot().conversationId); progress.moveConversation(controller.snapshot().conversationId);
         }} onResume={page => {
           if (coachActionBlocked) return;
           voice.reset(); attachments.reset(); preferences.moveConversation(); food.moveConversation(); memory.reset();
-          workoutSetController.moveConversation(); controller.restore(page.thread.id, page.messages); photoFood.moveConversation(controller.snapshot().conversationId); diet.moveConversation(controller.snapshot().conversationId); progress.moveConversation(controller.snapshot().conversationId); setHistoryOpen(false); input.current?.focus();
+          workoutSetController.moveConversation(); controller.restore(page.thread.id, page.messages); messageController.moveConversation(controller.snapshot().conversationId); photoFood.moveConversation(controller.snapshot().conversationId); diet.moveConversation(controller.snapshot().conversationId); progress.moveConversation(controller.snapshot().conversationId); setHistoryOpen(false); input.current?.focus();
         }} />}</details>}
         {dietEnabled && <details className={styles.profile} onToggle={event => { if (event.currentTarget.open) { voice.reset(); if (!dietState.profileId) diet.select(identity, state.conversationId, dietTransport ?? requestDiet); else if (!dietState.profile) void diet.read(dietTransport ?? requestDiet); } }}>
           <summary>{t('global_coach.diet_title')}</summary>

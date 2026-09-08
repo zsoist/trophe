@@ -71,6 +71,8 @@
 .foodReview caption { text-align: left; font-weight: 600; margin-bottom: .5rem; }
 .foodReview th, .foodReview td { text-align: left; padding: .35rem .2rem; border-bottom: 1px solid var(--border-default); }
 .foodReview input, .foodReview select { display: block; width: 100%; font-size: 16px; padding: .5rem; background: var(--bg-input); border: 1px solid var(--border-default); border-radius: 8px; }
+.foodReview textarea { display: block; width: 100%; min-height: 96px; margin-top: .4rem; resize: vertical; font-size: 16px; line-height: 1.5; padding: .65rem; color: var(--text-primary); background: var(--bg-input); border: 1px solid var(--border-default); border-radius: 8px; }
+.messagePreview { margin-top: .45rem; padding: .65rem; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text-primary); background: var(--bg-input); border-radius: 8px; }
 .foodReview button { min-height: 44px; padding: .5rem .65rem; margin: .5rem .4rem 0 0; border: 1px solid var(--border-default); border-radius: 10px; font-size: .875rem; }
 .foodReview button:disabled { opacity: .45; }
 .periods { display: flex; gap: .35rem; margin: .5rem 0; }

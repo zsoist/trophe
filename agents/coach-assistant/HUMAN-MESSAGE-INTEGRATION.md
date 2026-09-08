@@ -32,7 +32,21 @@ delivered, read or still present after later deletion. The refresh signal instru
 to refetch the canonical client/coach thread. The flow never promises rollback of a stored
 message and never retries an uncertain apply automatically.
 
-The private relationship revision and shared proposal/receipt schema remain isolated
-prerequisites owned by AG1. No production DDL or migration was executed here. Tests use
-synthetic identities and injected transaction doubles only. API spend is US$0 and no real
-recipient was contacted.
+AG1 composes the service in the existing route only when the server flag is `1`; the
+browser entry is separately compiled behind `NEXT_PUBLIC_COACH_MESSAGE_ACTIONS_ENABLED`.
+The browser accepts only strict JSON capability/result shapes, keeps recipient and exact
+text visible for review, invalidates confirmation after editing, and blocks another Coach
+action while a review or uncertain write is unresolved. A receipt emits a scope-bound
+`refetch` event to the existing human chat; no parallel message timeline is created.
+
+`db/isolated/coach-message-actions.sql` provides the private relationship revision and
+extends the shared proposal/receipt ledger only inside the disposable CI database. It
+invalidates reviews for assignment, profile role/name and organization-membership changes,
+including ABA changes. The guarded fixture exercises real local Auth, HTTP, SQL and mobile
+UI with synthetic client/coach identities. It verifies one message, one receipt and one
+limiter charge; recovery uses the same action ID in a new process. Evidence label:
+`AUTH_DB_ISOLATED`; model cost is US$0 and no external recipient is contacted.
+
+Known limit: both flags remain off by default. This isolated SQL is not a production
+migration and was not applied to production. Enabling production remains a separate
+integration decision after review and migration approval.
