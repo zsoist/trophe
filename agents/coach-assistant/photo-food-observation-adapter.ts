@@ -7,7 +7,7 @@ import type {db} from '@/db/client';
 import {executeAiTask} from '@/agents/runtime';
 import type {ExecuteAiTaskInput,ExecuteAiTaskResult} from '@/agents/runtime';
 import {normalizePhotoAnalysisFoods,type PhotoAnalysisFood} from '@/lib/food/photo-analysis';
-import {photoFoodScopeSchema,type PhotoFoodObservationPort,type PhotoFoodScope,type PhotoFoodObservationTransaction} from './photo-food-observation';
+import {assertNoPhotoControlFields,photoFoodScopeSchema,type PhotoFoodObservationPort,type PhotoFoodScope,type PhotoFoodObservationTransaction} from './photo-food-observation';
 import type {PrivateCoachImageStorage} from './attachments-storage';
 
 type Database=typeof db;
@@ -30,7 +30,7 @@ export async function runVerifiedPhotoFoodAnalysis(scope:PhotoFoodScope,image:{d
  if(result.selectedPolicy.provider!=='anthropic'||result.selectedPolicy.promptVersion!=='photo-analyze-v1')throw new Error('invalid_photo_pipeline');
  const uses=result.output.content?.filter(value=>value.type==='tool_use'&&value.name==='submit_food_photo_analysis')??[];
  if(uses.length!==1||!Array.isArray(uses[0].input?.foods)||uses[0].input!.foods!.length<1||uses[0].input!.foods!.length>8)throw new Error('invalid_photo_output');
- const foods=normalizePhotoAnalysisFoods(uses[0].input!.foods);
+ assertNoPhotoControlFields(uses[0].input!.foods);const foods=normalizePhotoAnalysisFoods(uses[0].input!.foods);
  if(foods.length!==uses[0].input!.foods!.length||foods.some(food=>food.needs_confirmation===true))throw new Error('invalid_photo_output');
  const proof:VerifiedPhotoFoodAnalysis=Object.freeze({kind:'verified_photo_food_analysis'});
  analyses.set(proof,{scope:structuredClone(scope),imageDigest,generationId:result.generationId,foods:structuredClone(foods)});

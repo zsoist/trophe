@@ -95,6 +95,11 @@ that path with the private attachment + composed adapter flow after schema/RLS a
 provider-budget review; importing the recorder alone is insufficient.
 
 `createOfflinePhotoFoodObservationPort` preserves `offline_fixture` provenance.
+Every snapshot and proposal also carries `trust=untrusted_image_data`; neither a
+validated model observation nor an offline fixture becomes an instruction. Food
+candidates containing control-shaped fields such as `operation`, `action`,
+`tool`, `prompt`, `system` or `instructions` are rejected before normalization,
+so image-derived text cannot smuggle a capability request into the Food contract.
 In the normal service, offline review proposals are ephemeral and cannot apply.
 The separate server-minted `createIsolatedPhotoFoodBoundary` permits the SAME
 reviewed transaction path only in the existing disposable CI/Auth/DB-loopback
