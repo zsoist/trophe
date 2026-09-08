@@ -22,6 +22,10 @@ export class FoodQuantityController {
   private publish(state: FoodState) { this.state = state; this.listeners.forEach(listener => listener()); }
   private clearDeadline() { if (this.deadline !== null) clearTimeout(this.deadline); this.deadline = null; }
   reset() { this.clearDeadline(); this.generation++; this.active?.abort(); this.active = null; this.action = null; this.publish(empty()); }
+  moveConversation() {
+    if (this.active) this.cancel();
+    if (!this.action) this.reset();
+  }
   cancel() {
     if (!this.active) return;
     this.clearDeadline();

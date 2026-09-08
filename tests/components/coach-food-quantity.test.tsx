@@ -62,6 +62,23 @@ it('retains the same action through a lost response and blocks another entry unt
   expect(lookup.actionId).toBe(apply.actionId); expect(controller.snapshot().entry?.version).toBe('2');
   expect(transport.mock.calls.filter(([op]) => op.operation === 'food.apply')).toHaveLength(1);
 });
+it('keeps an unresolved action in its original conversation when receipt status is still unknown', async () => {
+  const { controller, transport } = fixture(); await selected(controller, transport); await controller.propose(150, transport);
+  const actual = transport.getMockImplementation()!;
+  transport.mockImplementation(async (op, signal) => {
+    const result = await actual(op, signal);
+    if (op.operation === 'food.apply') throw new Error('lost after commit');
+    if (op.operation === 'food.receipt') return { version: base.version, storage: base.storage, ok: false, error: 'not_found' };
+    return result;
+  });
+  await controller.apply(transport);
+  controller.moveConversation();
+  expect(controller.snapshot()).toMatchObject({ entryId, uncertain: true, receipt: null });
+  await controller.check(transport);
+  expect(controller.snapshot()).toMatchObject({ entryId, uncertain: true, receipt: null, error: 'not_found' });
+  expect(controller.select(id(), id(), transport)).toBe(false);
+  expect(transport.mock.calls.filter(([op]) => op.operation === 'food.apply')).toHaveLength(1);
+});
 it('keeps a confirmed historical receipt but permits another entry when refetch returns not found', async () => {
   const { controller, transport } = fixture(); await selected(controller, transport); await controller.propose(150, transport);
   const actual = transport.getMockImplementation()!;
