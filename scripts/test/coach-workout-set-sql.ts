@@ -112,9 +112,13 @@ async function main() {
   await pool.query('UPDATE public.workout_sessions SET completed_at=clock_timestamp() WHERE id=$1', [sessionId]);
   const completed = await execute({ ...header(), operation: 'set.read', setId }); assert.ok(!completed.ok && completed.error === 'session_completed');
   await pool.query('UPDATE public.workout_sessions SET completed_at=NULL WHERE id=$1', [sessionId]);
-  await pool.query('DELETE FROM public.organization_members WHERE org_id=$1 AND user_id=$2', [organizationId, actorId]);
-  const revoked = await execute({ ...header(), operation: 'set.receipt', setId, actionId: operation.actionId }); assert.ok(!revoked.ok && revoked.error === 'forbidden');
-  await pool.query("INSERT INTO public.organization_members(org_id,user_id,role) VALUES($1,$2,'client')", [organizationId, actorId]); pass();
+  await pool.query("UPDATE public.organization_members SET role='coach' WHERE org_id=$1 AND user_id=$2", [organizationId, actorId]);
+  try {
+    const revoked = await execute({ ...header(), operation: 'set.receipt', setId, actionId: operation.actionId }); assert.ok(!revoked.ok && revoked.error === 'forbidden');
+  } finally {
+    await pool.query("UPDATE public.organization_members SET role='client' WHERE org_id=$1 AND user_id=$2", [organizationId, actorId]);
+  }
+  pass();
 
   check = 'receipt_failure_rolls_back_set_revision_and_receipt';
   const doomed = apply(await propose(13)), canonical = await read();
@@ -182,6 +186,7 @@ main().catch(error => {
         assert.ok(['coach_action_proposals_action_check', 'coach_action_proposals_envelope_check'].includes(constraint.name));
         await pool.query(`ALTER TABLE private.coach_action_proposals DROP CONSTRAINT ${constraint.name}; ALTER TABLE private.coach_action_proposals ADD CONSTRAINT ${constraint.name} ${constraint.definition}`);
       }
+      check = 'isolated_delta_removed';
       pass();
     }
   } catch (error) {
