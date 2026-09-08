@@ -32,6 +32,7 @@ const empty = (): MessageState => ({
   uncertain: false,
   error: null,
 });
+const staleRecipientError = (error: string) => ['version_conflict', 'forbidden', 'not_found', 'ambiguous_selection'].includes(error);
 
 /** Owns one exact, user-reviewed message to the currently assigned coach. */
 export class MessageController {
@@ -127,7 +128,13 @@ export class MessageController {
       resourceVersion: recipient.version,
       after: { message },
     }, transport, false);
-    if (!result?.ok || !('proposal' in result)) return false;
+    if (!result?.ok) {
+      if (result && staleRecipientError(result.error)) {
+        this.publish({ ...this.state, recipient: null, proposal: null, error: result.error });
+      }
+      return false;
+    }
+    if (!('proposal' in result)) return false;
     const proposal = result.proposal;
     if (proposal.action !== 'chat.message.send' || proposal.reviewRequired !== true
       || proposal.recipient.coachId !== recipient.coachId || proposal.recipient.version !== recipient.version
@@ -191,7 +198,7 @@ export class MessageController {
     if (!result.ok) {
       const uncertain = checking || result.error === 'uncertain' || result.error === 'cancelled' || result.error === 'not_found';
       if (!uncertain) this.action = null;
-      const staleRecipient = !checking && ['version_conflict', 'forbidden', 'not_found', 'ambiguous_selection'].includes(result.error);
+      const staleRecipient = !checking && staleRecipientError(result.error);
       this.publish({
         ...this.state,
         ...(staleRecipient ? { recipient: null, proposal: null } : {}),

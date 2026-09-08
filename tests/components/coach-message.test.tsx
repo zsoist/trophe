@@ -217,3 +217,46 @@ it('does not revive an old review after a same-coach ABA change', async () => {
     'message.propose',
   ]);
 });
+
+it('refreshes the recipient when an edited draft meets a stale proposal version', async () => {
+  const controller = new MessageController();
+  const reassigned = {
+    coachId: '88888888-8888-4888-8888-888888888888',
+    name: 'Coach Cora',
+    version: 'recipient-v4',
+  };
+  let proposals = 0;
+  const transport = vi.fn<MessageTransport>(async operation => {
+    if (operation.operation === 'message.propose') {
+      proposals += 1;
+      if (proposals === 1) return { ok: false, error: 'version_conflict' };
+      return { ok: true, proposal: {
+        ...proposal, id: crypto.randomUUID(), hash: 'd'.repeat(64), recipient: reassigned, after: operation.after,
+      } };
+    }
+    if (operation.operation === 'message.recipient') return { ok: true, recipient: reassigned };
+    return { ok: false, error: 'invalid_input' };
+  });
+
+  render(<Harness controller={controller} transport={transport} />);
+  act(() => { controller.adopt('3'.repeat(64), ids.conversationId, proposal, ids.conversationId); });
+  fireEvent.change(screen.getByRole('textbox', { name: 'Message to your coach' }), {
+    target: { value: 'Please review the updated plan.' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Review message' }));
+  expect(await screen.findByRole('button', { name: 'Refresh recipient' })).toBeTruthy();
+  expect(controller.snapshot()).toMatchObject({
+    draft: 'Please review the updated plan.', recipient: null, proposal: null, error: 'version_conflict',
+  });
+
+  fireEvent.click(screen.getByRole('button', { name: 'Refresh recipient' }));
+  expect(await screen.findByText('Coach Cora')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Send to your coach' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Review message' }));
+  expect(await screen.findByRole('button', { name: 'Send to your coach' })).toBeTruthy();
+  expect(transport.mock.calls.filter(([operation]) => operation.operation === 'message.propose')[1][0]).toMatchObject({
+    coachId: reassigned.coachId,
+    resourceVersion: reassigned.version,
+    after: { message: 'Please review the updated plan.' },
+  });
+});
