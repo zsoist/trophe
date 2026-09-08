@@ -171,14 +171,14 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
         {photoFoodState.attachmentId&&<PhotoFoodPanel controller={photoFood} state={photoFoodState} transport={photoFoodTransport??requestPhotoFood}/>}
         {historyEnabled && <button type="button" onClick={() => {
           voice.reset(); attachments.reset(); preferences.moveConversation(); food.reset(); memory.reset();
-          controller.startNew(); diet.moveConversation(controller.snapshot().conversationId); progress.moveConversation(controller.snapshot().conversationId); setHistoryOpen(false); input.current?.focus();
+          controller.startNew(); photoFood.moveConversation(controller.snapshot().conversationId); diet.moveConversation(controller.snapshot().conversationId); progress.moveConversation(controller.snapshot().conversationId); setHistoryOpen(false); input.current?.focus();
         }}>{t('global_coach.new_chat')}</button>}
         {historyEnabled && <details open={historyOpen} className={styles.profile} onToggle={event => setHistoryOpen(event.currentTarget.open)}><summary>{t('global_coach.saved_chats')}</summary>{historyOpen && <HistoryPanel transport={historyTransport ?? requestHistory} onInvalidate={threadId => {
           if (controller.snapshot().conversationId !== threadId) return;
-          voice.reset(); attachments.reset(); preferences.moveConversation(); food.reset(); memory.reset(); controller.startNew(); diet.moveConversation(controller.snapshot().conversationId); progress.moveConversation(controller.snapshot().conversationId);
+          voice.reset(); attachments.reset(); preferences.moveConversation(); food.reset(); memory.reset(); controller.startNew(); photoFood.moveConversation(controller.snapshot().conversationId); diet.moveConversation(controller.snapshot().conversationId); progress.moveConversation(controller.snapshot().conversationId);
         }} onResume={page => {
           voice.reset(); attachments.reset(); preferences.moveConversation(); food.reset(); memory.reset();
-          controller.restore(page.thread.id, page.messages); diet.moveConversation(controller.snapshot().conversationId); progress.moveConversation(controller.snapshot().conversationId); setHistoryOpen(false); input.current?.focus();
+          controller.restore(page.thread.id, page.messages); photoFood.moveConversation(controller.snapshot().conversationId); diet.moveConversation(controller.snapshot().conversationId); progress.moveConversation(controller.snapshot().conversationId); setHistoryOpen(false); input.current?.focus();
         }} />}</details>}
         {dietEnabled && <details className={styles.profile} onToggle={event => { if (event.currentTarget.open) { voice.reset(); if (!dietState.profileId) diet.select(identity, state.conversationId, dietTransport ?? requestDiet); else if (!dietState.profile) void diet.read(dietTransport ?? requestDiet); } }}>
           <summary>{t('global_coach.diet_title')}</summary>
