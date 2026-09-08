@@ -105,6 +105,13 @@ it('preserves an uncertain Food action across shell unmount and recovers without
   fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
   fireEvent.click(await screen.findByRole('button', { name: 'Confirm quantity change' }));
   expect(await screen.findByRole('button', { name: 'Check saved change' })).toBeTruthy();
+  first.rerender(<I18nProvider defaultLang="en"><GlobalCoach identity="99999999-9999-4999-8999-999999999999" example={conversation} foodTransport={foodMock as unknown as FoodTransport} /></I18nProvider>);
+  fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
+  expect(screen.queryByRole('button', { name: 'Check saved change' })).toBeNull();
+  expect(screen.getByRole('textbox', { name: 'Your question' }).hasAttribute('disabled')).toBe(false);
+  first.rerender(<I18nProvider defaultLang="en"><GlobalCoach identity={actorId} example={conversation} foodTransport={foodMock as unknown as FoodTransport} /></I18nProvider>);
+  fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
+  expect(screen.getByRole('button', { name: 'Check saved change' })).toBeTruthy();
   first.unmount();
 
   render(<I18nProvider defaultLang="en"><GlobalCoach identity={actorId} example={conversation} foodTransport={foodMock as unknown as FoodTransport} /></I18nProvider>);

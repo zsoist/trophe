@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { Send, Sparkles, X } from 'lucide-react';
@@ -65,7 +65,7 @@ type Props = { identity: string; subjectId?: string; professional?: boolean; exa
 export default function GlobalCoach(props: Props) {
   const [workoutSet] = useState(() => new WorkoutSetController());
   const foodScope = `${props.identity}:${props.subjectId ?? props.identity}`;
-  const [food] = useState(() => foodControllerFor(foodScope));
+  const food = useMemo(() => foodControllerFor(foodScope), [foodScope]);
   return <CoachSurface key={`${foodScope}:${props.professional ? 'professional' : 'self'}`} {...props} foodController={food} workoutSetController={workoutSet} />;
 }
 function CoachSurface({ identity, subjectId, professional = false, example, preferenceTransport, memoryTransport, dietTransport, progressTransport, foodTransport, photoFoodTransport, workoutSetTransport, historyTransport, contextSlot, voiceSlot, voiceTranscriptionTransport, reviewedVoiceTransport, workspaceHint, foodController: food, workoutSetController }: Props & { foodController: FoodQuantityController; workoutSetController: WorkoutSetController }) {
