@@ -1,6 +1,6 @@
 import { COACH_ANATOMY_GROUP_IDS } from './selection-contracts';
 import { coachMessageInputSchema } from './message-input';
-import { isDraft } from '@/lib/workout/workspace-storage';
+import { readWorkoutDraft } from '@/lib/workout/draft-validation';
 import type { WorkoutDraft } from '@/lib/workout/workspace-state';
 import { z } from 'zod';
 
@@ -63,7 +63,7 @@ export const memoryOperationSchema = z.discriminatedUnion('action',[
   z.object({...memoryProposeBase,action:z.literal('memory.correct'),after:z.object({text:z.string().trim().min(1).max(500)}).strict()}).strict(),
 ]);
 export const coachDraftSchema = z.custom<WorkoutDraft>(value => {
-  try { return JSON.stringify(value).length <= 6000 && isDraft(value); } catch { return false; }
+  return readWorkoutDraft(value) !== null;
 });
 export const draftOperationSchema = z.object({...preferenceOperationBase,operation:z.literal('propose'),action:z.literal('draft.update'),resourceVersion:z.string().min(1).max(128),after:coachDraftSchema}).strict();
 export const actionOperationSchema = z.union([preferenceOperationSchema,memoryOperationSchema,draftOperationSchema]);

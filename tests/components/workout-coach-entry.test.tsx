@@ -23,14 +23,14 @@ import WorkoutLayout from '@/app/dashboard/workout/layout';
 beforeEach(() => { process.env.NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED = '1'; });
 afterEach(() => { cleanup(); delete process.env.NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED; route.pathname = '/dashboard'; });
 
-it('keeps the dashboard entry outside Workout and delegates Workout to its workspace-owned entry', () => {
+it('keeps the dashboard entry outside Workout and delegates Workout to its workspace-owned entry', async () => {
   const shell = render(<ClientShell><main /></ClientShell>);
   expect(screen.getByTestId('coach-entry').dataset.workoutContext).toBe('false');
   shell.unmount();
 
   route.pathname = '/dashboard/workout/build';
   const view = render(<ClientShell><WorkoutLayout><main /></WorkoutLayout></ClientShell>);
-  const entries = screen.getAllByTestId('coach-entry');
+  const entries = await screen.findAllByTestId('coach-entry');
   expect(entries).toHaveLength(1);
   expect(entries[0].dataset.workoutContext).toBe('true');
   expect(screen.getByTestId('workout-provider').contains(entries[0])).toBe(true);

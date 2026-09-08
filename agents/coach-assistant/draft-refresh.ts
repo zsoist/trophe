@@ -1,5 +1,5 @@
 import { workoutWorkspaceReducer, type WorkoutWorkspaceState } from '@/lib/workout/workspace-state';
-import { coachDraftSchema } from './schema';
+import { readWorkoutDraft } from '@/lib/workout/draft-validation';
 import type { CoachActionResult } from './contracts';
 import type { PreferencePrimitives } from './preference-store';
 
@@ -12,10 +12,10 @@ export function reviewDraftRefresh(current:WorkoutWorkspaceState, refresh:NonNul
   if(signal?.aborted)return {ok:false,error:'cancelled'};
   if(!reviewed)return {ok:false,error:'review_required'};
   if(hash(current)!==refresh.previousVersion)return {ok:false,error:'version_conflict'};
-  const draft=coachDraftSchema.safeParse(refresh.draft);
-  if(!draft.success)return {ok:false,error:'invalid_input'};
+  const draft=readWorkoutDraft(refresh.draft);
+  if(!draft)return {ok:false,error:'invalid_input'};
   try {
-    const state=workoutWorkspaceReducer(current,{type:'draft.updated',payload:{draft:structuredClone(draft.data)}});
+    const state=workoutWorkspaceReducer(current,{type:'draft.updated',payload:{draft:structuredClone(draft)}});
     if(hash(state)!==refresh.version)return {ok:false,error:'invalid_input'};
     return {ok:true,state};
   } catch { return {ok:false,error:'version_conflict'}; }
