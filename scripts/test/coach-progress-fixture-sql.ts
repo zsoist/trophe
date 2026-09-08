@@ -14,13 +14,14 @@ const actorId = process.env.COACH_SQL_ACTOR!, coachId = process.env.COACH_SQL_CO
 for (const id of [actorId, coachId, organizationId]) assert.match(id, /^[a-f0-9-]{36}$/);
 const root = process.env.RUNNER_TEMP; assert.ok(root && isAbsolute(root));
 const sqlManifest = resolve(root, `coach-progress-sql-${randomUUID()}.json`), httpManifest = resolve(root, `coach-progress-http-${randomUUID()}.json`), conversationId = randomUUID();
-await writeFile(sqlManifest, JSON.stringify({ measurementIds: [], conversationIds: [conversationId], actionIds: [] }), { mode: 0o600 }); await writeFile(httpManifest, '[]', { mode: 0o600 });
 const pool = new Pool({ connectionString: target.toString(), max: 2, connectionTimeoutMillis: 5000, statement_timeout: 5000 });
 let installed = false, check = 'baseline';
 let baselineConstraint = '', baselineProfile: unknown, baselineMembership: unknown, baselineMeasurements: unknown[] = [], baselineReceipts: unknown[] = [], baselineProposals: unknown[] = [], baselineAudit: unknown[] = [], baselinePolicies: unknown[] = [];
 const pass = () => process.stdout.write(JSON.stringify({ event: 'coach_progress_fixture_sql', check, outcome: 'passed' }) + '\n');
 const rows = async (text: string, values: unknown[] = []) => (await pool.query(text, values)).rows;
 async function main() {
+  await writeFile(sqlManifest, JSON.stringify({ measurementIds: [], conversationIds: [conversationId], actionIds: [] }), { mode: 0o600 });
+  await writeFile(httpManifest, '[]', { mode: 0o600 });
   assert.equal((await pool.query("SELECT to_regclass('private.coach_measurement_scope_versions') AS relation")).rows[0].relation, null);
   assert.equal((await pool.query("SELECT relrowsecurity FROM pg_class WHERE oid='public.measurements'::regclass")).rows[0].relrowsecurity, true);
   baselineConstraint = (await pool.query("SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid='private.coach_action_proposals'::regclass AND conname='coach_action_proposals_action_check'")).rows[0]?.definition; assert.ok(baselineConstraint);
