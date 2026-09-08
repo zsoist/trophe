@@ -43,7 +43,7 @@ function DraftHarness() {
 }
 
 it('reviews and applies an accepted draft intent when no authorized profile is returned', async () => {
-  render(<I18nProvider defaultLang="en"><WorkoutWorkspaceProvider userId={actor} storage={{ getItem: () => null, setItem: vi.fn(), removeItem: vi.fn() }}><DraftHarness /></WorkoutWorkspaceProvider></I18nProvider>);
+  render(<React.StrictMode><I18nProvider defaultLang="en"><WorkoutWorkspaceProvider userId={actor} storage={{ getItem: () => null, setItem: vi.fn(), removeItem: vi.fn() }}><DraftHarness /></WorkoutWorkspaceProvider></I18nProvider></React.StrictMode>);
   fireEvent.click(screen.getByRole('button', { name: 'Create draft' }));
   const launcher = await screen.findByRole('button', { name: 'Ask Trophē' });
   fireEvent.click(screen.getByRole('button', { name: 'Update draft' }));

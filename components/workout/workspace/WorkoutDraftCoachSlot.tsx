@@ -30,7 +30,6 @@ export default function WorkoutDraftCoachSlot(props: Props) {
   const intent = acceptedWorkoutDraftIntent(props.response, props.identity, props.conversationId, props.turnId, props.surface, workspace.state);
   useEffect(() => {
     if (!intent || props.state.pending || props.state.uncertain || props.state.proposal || props.state.receipt || attempted.current.has(intent.id)) return;
-    attempted.current.add(intent.id);
     let active = true;
     void supabase.from('exercises').select('id, name, muscle_group, equipment').order('name').then(({ data, error }) => {
       if (!active || error || !Array.isArray(data)) return;
@@ -39,7 +38,9 @@ export default function WorkoutDraftCoachSlot(props: Props) {
       const current = workspace.state;
       if (hashWorkoutWorkspace(current) !== intent.resource.version || !current.draft) return;
       const after = buildWorkoutDraftAlternative(current.draft, catalogue, intent.target, Date.now());
-      if (after) void props.controller.proposeDraft(props.conversationId, intent.resource.version, after, transport);
+      if (!after || attempted.current.has(intent.id)) return;
+      attempted.current.add(intent.id);
+      void props.controller.proposeDraft(props.conversationId, intent.resource.version, after, transport);
     });
     return () => { active = false; };
   }, [intent, props.controller, props.conversationId, props.state.pending, props.state.proposal, props.state.receipt, props.state.uncertain, transport, workspace.state]);
