@@ -42,6 +42,11 @@ export async function POST(request: NextRequest) {
       const { createFoodQuantityService } = await import('@/agents/coach-assistant/food-service');
       return createFoodQuantityService(db);
     },
+    ...(process.env.COACH_ASSISTANT_ISOLATED_PHOTO_FOOD_ENABLED === '1' ? { createPhotoFoodService: async (operation:unknown) => {
+      const { db } = await import('@/db/client');
+      const { createIsolatedPhotoFoodRouteService } = await import('@/agents/coach-assistant/isolated-photo-food-route');
+      return createIsolatedPhotoFoodRouteService(process.env,db,operation);
+    }} : {}),
     createProgressService: async () => {
       const { db } = await import('@/db/client');
       const { createProgressService } = await import('@/agents/coach-assistant/progress-service');
