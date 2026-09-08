@@ -8,7 +8,7 @@ import { FoodQuantityPanel } from '@/components/assistant/FoodQuantityPanel';
 import type { FoodEntrySnapshot, FoodQuantityOperation, FoodQuantityProposal, FoodQuantityResult } from '@/agents/coach-assistant/food-contracts';
 const id = () => crypto.randomUUID();
 const entryId = id(), conversationId = id();
-const values = { loggedDate: '2026-09-07', foodName: 'Fixture rice', grams: 250, quantity: 1, calories: 500, proteinG: 10, carbsG: 100, fatG: 5, fiberG: 2, sugarG: 1 };
+const values = { loggedDate: '2026-09-07', foodName: 'Fixture rice', foodId: null, source: 'natural_language', sourceId: 'turn:fixture', grams: 250, quantity: 1, calories: 500, proteinG: 10, carbsG: 100, fatG: 5, fiberG: 2, sugarG: 1 };
 const base = { version: 'coach-assistant.v2' as const, storage: 'database' as const, ok: true as const };
 function fixture() {
   const controller = new FoodQuantityController();
@@ -19,7 +19,7 @@ function fixture() {
     if (operation.operation === 'food.read') return { ...base, snapshot: current };
     if (operation.operation === 'food.propose') {
       proposal = { id: id(), hash: 'a'.repeat(64), action: 'food.quantity.update', resource: { id: entryId, kind: 'food_entry', version: '1' }, before: values,
-        after: { ...values, grams: 150, calories: 300, proteinG: 6, carbsG: 60, fatG: 3, fiberG: 1.2, sugarG: 0.6 }, precondition: '1', expiresAt: new Date(Date.now() + 300000).toISOString(), reviewRequired: true };
+        after: { ...values, grams: 150, calories: 300, proteinG: 6, carbsG: 60, fatG: 3, fiberG: 1.2, sugarG: 0.6 }, expectedVersion: '1', precondition: '1', expiresAt: new Date(Date.now() + 300000).toISOString(), reviewRequired: true };
       return { ...base, proposal };
     }
     if (operation.operation === 'food.apply') {
@@ -62,16 +62,85 @@ it('retains the same action through a lost response and blocks another entry unt
   expect(lookup.actionId).toBe(apply.actionId); expect(controller.snapshot().entry?.version).toBe('2');
   expect(transport.mock.calls.filter(([op]) => op.operation === 'food.apply')).toHaveLength(1);
 });
-it('keeps a confirmed historical receipt but permits another entry when refetch returns not found', async () => {
+it('keeps an unresolved action in its original conversation when receipt status is still unknown', async () => {
+  const { controller, transport } = fixture(); await selected(controller, transport); await controller.propose(150, transport);
+  const actual = transport.getMockImplementation()!;
+  transport.mockImplementation(async (op, signal) => {
+    const result = await actual(op, signal);
+    if (op.operation === 'food.apply') throw new Error('lost after commit');
+    if (op.operation === 'food.receipt') return { version: base.version, storage: base.storage, ok: false, error: 'not_found' };
+    return result;
+  });
+  await controller.apply(transport);
+  controller.moveConversation();
+  expect(controller.snapshot()).toMatchObject({ entryId, uncertain: true, receipt: null });
+  await controller.check(transport);
+  expect(controller.snapshot()).toMatchObject({ entryId, uncertain: true, receipt: null, error: 'not_found' });
+  expect(controller.select(id(), id(), transport)).toBe(false);
+  expect(transport.mock.calls.filter(([op]) => op.operation === 'food.apply')).toHaveLength(1);
+});
+it('asks for a specific Food selection when deterministic resolution is ambiguous', async () => {
+  const controller = new FoodQuantityController();
+  const transport = vi.fn<FoodTransport>(async operation => ({ ...base, ok: false, error: operation.operation === 'food.resolve' ? 'ambiguous_selection' : 'invalid_input' }));
+  await controller.activate('b'.repeat(64), conversationId, 250, 150, transport, null, '2026-09-07');
+  function Harness() { const state = React.useSyncExternalStore(controller.subscribe, controller.snapshot); return <I18nProvider defaultLang="en"><FoodQuantityPanel controller={controller} state={state} transport={transport} /></I18nProvider>; }
+  render(<Harness />);
+  expect(screen.getByText('More than one 250 g entry matches. Select the food item, then ask again.')).toBeTruthy();
+  expect(transport.mock.calls).toHaveLength(1);
+  expect(transport.mock.calls[0][0]).toMatchObject({ operation: 'food.resolve', expectedPreviousGrams: 250, loggedDateHint: '2026-09-07' });
+  expect(controller.snapshot()).toMatchObject({ entry: null, proposal: null, receipt: null, uncertain: false });
+  fireEvent.click(screen.getByRole('button', { name: 'Close review' }));
+  expect(controller.snapshot().intentId).toBeNull();
+});
+it('does not propose from a stale entry when retry resolution becomes ambiguous', async () => {
+  const controller = new FoodQuantityController();
+  let resolves = 0;
+  const transport = vi.fn<FoodTransport>(async operation => {
+    if (operation.operation === 'food.resolve') {
+      resolves++;
+      return resolves === 1 ? { ...base, snapshot: { ...values, entryId, version: '1' } }
+        : { ...base, ok: false, error: 'ambiguous_selection' };
+    }
+    if (operation.operation === 'food.propose') return { ...base, ok: false, error: 'version_conflict' };
+    return { ...base, ok: false, error: 'invalid_input' };
+  });
+  await controller.activate('c'.repeat(64), conversationId, 250, 150, transport, null, '2026-09-07');
+  expect(transport.mock.calls.map(([operation]) => operation.operation)).toEqual(['food.resolve', 'food.propose']);
+  await controller.retry(transport);
+  expect(controller.snapshot()).toMatchObject({ entry: { entryId }, proposal: null, error: 'ambiguous_selection' });
+  expect(transport.mock.calls.map(([operation]) => operation.operation)).toEqual(['food.resolve', 'food.propose', 'food.resolve']);
+});
+it('does not continue a late resolve after another entry is selected', async () => {
+  const controller = new FoodQuantityController();
+  const nextEntryId = id();
+  let finishResolve!: (result: FoodQuantityResult) => void;
+  const transport = vi.fn<FoodTransport>(operation => {
+    if (operation.operation === 'food.resolve') return new Promise(resolve => { finishResolve = resolve; });
+    if (operation.operation === 'food.read') return Promise.resolve({ ...base, snapshot: { ...values, entryId: nextEntryId, version: '4' } });
+    return Promise.resolve({ ...base, ok: false, error: 'invalid_input' });
+  });
+  const activating = controller.activate('d'.repeat(64), conversationId, 250, 150, transport, null, '2026-09-07');
+  await Promise.resolve();
+  expect(controller.select(nextEntryId, conversationId, transport)).toBe(true);
+  await Promise.resolve();
+  finishResolve({ ...base, snapshot: { ...values, entryId, version: '1' } });
+  await activating;
+  expect(controller.snapshot()).toMatchObject({ intentId: null, entryId: nextEntryId, entry: { entryId: nextEntryId, version: '4' } });
+  expect(transport.mock.calls.map(([operation]) => operation.operation)).toEqual(['food.resolve', 'food.read']);
+});
+it('keeps a confirmed receipt and blocks another entry until canonical refetch succeeds', async () => {
   const { controller, transport } = fixture(); await selected(controller, transport); await controller.propose(150, transport);
   const actual = transport.getMockImplementation()!;
   transport.mockImplementation(async (op, signal) => op.operation === 'food.read' ? { version: base.version, storage: base.storage, ok: false, error: 'not_found' } : actual(op, signal));
   await controller.apply(transport);
   expect(controller.snapshot()).toMatchObject({ uncertain: false, receipt: { status: 'applied' } });
   const receiptId = controller.snapshot().receipt!.id;
+  const nextId = id();
+  expect(controller.select(nextId, conversationId, transport)).toBe(false);
+  transport.mockImplementation(actual);
+  await controller.check(transport);
   controller.dismiss();
   expect(controller.snapshot().receipts[0]).toMatchObject({ entryId, receipt: { id: receiptId } });
-  const nextId = id();
   expect(controller.select(nextId, conversationId, transport)).toBe(true); await Promise.resolve();
   expect(controller.snapshot().receipts[0].receipt.id).toBe(receiptId);
   expect(transport.mock.calls.filter(([op]) => op.operation === 'food.apply')).toHaveLength(1);
@@ -92,4 +161,36 @@ it('rejects a proposal whose before values differ from the loaded entry', async 
   transport.mockImplementation(async (op, signal) => { const result = await actual(op, signal); return result.ok && 'proposal' in result ? { ...result, proposal: { ...result.proposal, before: { ...result.proposal.before, grams: 500 } } } : result; });
   await controller.propose(150, transport);
   expect(controller.snapshot()).toMatchObject({ proposal: null, error: 'failed' });
+});
+it('rejects a proposal that is not bound to the loaded version', async () => {
+  const { controller, transport } = fixture(); await selected(controller, transport);
+  const actual = transport.getMockImplementation()!;
+  transport.mockImplementation(async (op, signal) => { const result = await actual(op, signal); return result.ok && 'proposal' in result ? { ...result, proposal: { ...result.proposal, expectedVersion: '2' } } : result; });
+  await controller.propose(150, transport);
+  expect(controller.snapshot()).toMatchObject({ proposal: null, receipt: null, error: 'failed' });
+  expect(transport.mock.calls.filter(([op]) => op.operation === 'food.apply')).toHaveLength(0);
+});
+it('does not announce success until the receipt is followed by exact canonical readback', async () => {
+  const { controller, transport } = fixture(); await selected(controller, transport); await controller.propose(150, transport);
+  const actual = transport.getMockImplementation()!;
+  let staleRead = true;
+  transport.mockImplementation(async (op, signal) => {
+    const result = await actual(op, signal);
+    if (op.operation === 'food.read' && staleRead && result.ok && 'snapshot' in result && result.snapshot.version === '2') {
+      staleRead = false;
+      return { ...result, snapshot: { ...result.snapshot, calories: 500 } };
+    }
+    return result;
+  });
+  function Harness() { const state = React.useSyncExternalStore(controller.subscribe, controller.snapshot); return <I18nProvider defaultLang="en"><FoodQuantityPanel controller={controller} state={state} transport={transport} /></I18nProvider>; }
+  render(<Harness />);
+  fireEvent.click(screen.getByRole('button', { name: 'Confirm quantity change' }));
+  await screen.findByText('Quantity saved. Refreshing the current entry is still pending.');
+  expect(controller.snapshot()).toMatchObject({ receipt: { status: 'applied' }, error: 'uncertain', uncertain: false });
+  expect(screen.queryByText('Quantity saved. Current entry refreshed.')).toBeNull();
+  expect(screen.getByText('Quantity saved. Refreshing the current entry is still pending.')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Close saved change' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Check saved change' }));
+  expect(await screen.findByText('Quantity saved. Current entry refreshed.')).toBeTruthy();
+  expect(transport.mock.calls.filter(([op]) => op.operation === 'food.apply')).toHaveLength(1);
 });

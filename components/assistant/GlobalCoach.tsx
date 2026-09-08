@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { Send, Sparkles, X } from 'lucide-react';
@@ -47,17 +47,28 @@ import { WorkoutSetPanel } from './WorkoutSetPanel';
 import { requestWorkoutSet } from './workout-set-client';
 import { acceptedWorkoutSetIntent } from './workout-set-intent';
 import { COACH_WORKOUT_SET_REFRESH } from './workout-events';
+import { acceptedFoodQuantityIntent } from './food-intent';
 
 const HistoryPanel = dynamic(() => import('./HistoryPanel').then(module => module.HistoryPanel));
+const foodControllers = new Map<string, FoodQuantityController>();
+const foodControllerFor = (scope: string) => {
+  const current = foodControllers.get(scope);
+  if (current) return current;
+  const controller = new FoodQuantityController();
+  foodControllers.set(scope, controller);
+  return controller;
+};
 
 export type CoachContextSlot = (props: { identity: string; controller: PreferenceController; state: PreferenceState; conversationId: string; turnId: string; surface: CoachSurfaceName; response: CoachConversationResponse; transport: PreferenceTransport }) => ReactNode;
 export type CoachVoiceSlot = (props: { conversationId: string; onUse: (text: string) => boolean; onSend?: (result: Extract<CoachVoiceResult, { ok: true }>, text: string) => Promise<'sent' | 'ambiguous' | 'failed'> }) => ReactNode;
 type Props = { identity: string; subjectId?: string; professional?: boolean; example?: ConversationTransport; preferenceTransport?: PreferenceTransport; memoryTransport?: MemoryTransport; dietTransport?: DietTransport; progressTransport?: ProgressTransport; foodTransport?:FoodTransport; photoFoodTransport?:PhotoFoodTransport; workoutSetTransport?:WorkoutSetTransport; historyTransport?: HistoryTransport; contextSlot?: CoachContextSlot; voiceSlot?: CoachVoiceSlot; voiceTranscriptionTransport?: VoiceTranscriptionTransport; reviewedVoiceTransport?: ReviewedVoiceTransport; workspaceHint?: CoachContextHint['workspace'] };
 export default function GlobalCoach(props: Props) {
   const [workoutSet] = useState(() => new WorkoutSetController());
-  return <CoachSurface key={`${props.identity}:${props.subjectId ?? props.identity}:${props.professional ? 'professional' : 'self'}`} {...props} workoutSetController={workoutSet} />;
+  const foodScope = `${props.identity}:${props.subjectId ?? props.identity}`;
+  const food = useMemo(() => foodControllerFor(foodScope), [foodScope]);
+  return <CoachSurface key={`${foodScope}:${props.professional ? 'professional' : 'self'}`} {...props} foodController={food} workoutSetController={workoutSet} />;
 }
-function CoachSurface({ identity, subjectId, professional = false, example, preferenceTransport, memoryTransport, dietTransport, progressTransport, foodTransport, photoFoodTransport, workoutSetTransport, historyTransport, contextSlot, voiceSlot, voiceTranscriptionTransport, reviewedVoiceTransport, workspaceHint, workoutSetController }: Props & { workoutSetController: WorkoutSetController }) {
+function CoachSurface({ identity, subjectId, professional = false, example, preferenceTransport, memoryTransport, dietTransport, progressTransport, foodTransport, photoFoodTransport, workoutSetTransport, historyTransport, contextSlot, voiceSlot, voiceTranscriptionTransport, reviewedVoiceTransport, workspaceHint, foodController: food, workoutSetController }: Props & { foodController: FoodQuantityController; workoutSetController: WorkoutSetController }) {
   const { t } = useGlobalCoachI18n();
   const path = usePathname();
   const surface = coachSurface(path);
@@ -65,7 +76,6 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   const selection = acceptedScreenSelection(publishedSelection, path, identity, subjectId);
   const [controller] = useState(() => new ConversationController());
   const [voice] = useState(() => new VoiceController());
-  const [food] = useState(() => new FoodQuantityController());
   const foodState = useSyncExternalStore(food.subscribe, food.snapshot, food.snapshot);
   const [photoFood] = useState(() => new PhotoFoodController());
   const photoFoodState = useSyncExternalStore(photoFood.subscribe, photoFood.snapshot, photoFood.snapshot);
@@ -92,6 +102,8 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   const workoutSetSelf = !subjectId || subjectId === identity;
   const workoutSetBlocked = workoutSetSelf && (workoutSetState.pending || Boolean(workoutSetState.proposal) || workoutSetState.uncertain || Boolean(workoutSetState.receipt && workoutSetState.error));
   const activeFoodTransport=foodTransport??requestFoodQuantity;
+  const foodBlocked = foodState.pending || Boolean(foodState.proposal) || foodState.uncertain || Boolean(foodState.receipt && foodState.error);
+  const coachActionBlocked = workoutSetBlocked || foodBlocked;
   const [open, setOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [includeScreen, setIncludeScreen] = useState(true);
@@ -111,7 +123,6 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   useEffect(() => () => preferences.reset(), [preferences]);
   useEffect(() => () => attachments.reset(), [attachments]);
   useEffect(() => () => voice.reset(), [voice]);
-  useEffect(() => () => food.reset(), [food]);
   useEffect(() => () => photoFood.reset(), [photoFood]);
   useEffect(() => () => memory.reset(), [memory]);
   useEffect(() => () => diet.reset(), [diet]);
@@ -149,7 +160,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   }, [open, state.turns, state.pending]);
   const close = () => { controller.cancel(); preferences.cancel(); attachments.cancel(); voice.reset(); food.cancel(); photoFood.cancel(); memory.cancel(); diet.cancel(); progress.cancel(); workoutSetController.cancel(); setOpen(false); launcher.current?.focus(); };
   const currentContext = (): CoachContextHint => ({ surface, includeScreen, ...(includeScreen && selection ? selection.anatomy ? { anatomy: selection.anatomy } : { entity: selection.entity } : {}), ...(includeScreen && workspaceHint ? { workspace: workspaceHint } : {}), ...(subjectId ? { clientId: subjectId } : {}) });
-  const send = () => !voiceActive && !missingProfessionalSubject && !workoutSetBlocked && controller.send(currentContext(), async (request, signal) => {
+  const send = () => !voiceActive && !missingProfessionalSubject && !coachActionBlocked && controller.send(currentContext(), async (request, signal) => {
     const response = await (example ?? requestConversation)(request, signal);
     if (subjectId && subjectId !== identity && response.ok) {
       const snapshot = response.snapshot as (typeof response.snapshot & { scopeKey?: string });
@@ -164,7 +175,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
     return create(requestId, title, signal);
   } : undefined);
   const sendVoice = async (result: Extract<CoachVoiceResult, { ok: true }>, text: string): Promise<'sent' | 'ambiguous' | 'failed'> => {
-    if (voiceActive || state.pending || workoutSetBlocked || missingProfessionalSubject || subjectId && subjectId !== identity) return 'failed';
+    if (voiceActive || state.pending || coachActionBlocked || missingProfessionalSubject || subjectId && subjectId !== identity) return 'failed';
     controller.setDraft(text);
     let outcome: 'sent' | 'ambiguous' | 'failed' = 'failed';
     const transport = reviewedVoiceTransport ?? (!example && process.env.NEXT_PUBLIC_COACH_VOICE_REVIEW_ENABLED === '1' ? requestReviewedVoiceTurn : undefined);
@@ -193,6 +204,11 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
     if (intent) void workoutSetController.activate(intent.id, state.conversationId, intent.target.reps, activeWorkoutSetTransport);
   }, [activeWorkoutSetTransport, identity, latestResponse, latestTurn, state.conversationId, subjectId, surface, workoutSetController]);
   useEffect(() => {
+    if (!latestResponse || !latestTurn || subjectId && subjectId !== identity) return;
+    const intent = acceptedFoodQuantityIntent(latestResponse, identity, state.conversationId, latestTurn.request.turnId, surface);
+    if (intent) void food.activate(intent.id, state.conversationId, intent.target.previousGrams, intent.target.grams, activeFoodTransport, intent.target.entryHintId, latestResponse.snapshot?.window.end);
+  }, [activeFoodTransport, food, identity, latestResponse, latestTurn, state.conversationId, subjectId, surface]);
+  useEffect(() => {
     const refresh = workoutSetState.refresh;
     if (!workoutSetSelf || !refresh || !workoutSetState.receipt || workoutSetState.pending || workoutSetState.error) return;
     window.dispatchEvent(new CustomEvent(COACH_WORKOUT_SET_REFRESH, { detail: { actorId: identity, ...refresh } }));
@@ -212,20 +228,20 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
         followLatest.current = node.scrollHeight - node.scrollTop - node.clientHeight < 64;
         if (followLatest.current) setShowLatest(false);
       }}>
-        {foodState.entryId && <FoodQuantityPanel key={foodState.entryId} controller={food} state={foodState} transport={activeFoodTransport} />}
+        {(foodState.intentId || foodState.entryId) && <FoodQuantityPanel key={foodState.intentId ?? foodState.entryId} controller={food} state={foodState} transport={activeFoodTransport} />}
         {workoutSetSelf && workoutSetState.intentId && <WorkoutSetPanel controller={workoutSetController} state={workoutSetState} transport={activeWorkoutSetTransport} />}
         {photoFoodState.attachmentId&&<PhotoFoodPanel controller={photoFood} state={photoFoodState} transport={photoFoodTransport??requestPhotoFood} onReceipt={entryId=>food.select(entryId,state.conversationId,activeFoodTransport)}/>}
-        {historyEnabled && <button type="button" disabled={workoutSetBlocked} onClick={() => {
-          voice.reset(); attachments.reset(); preferences.moveConversation(); food.reset(); memory.reset();
+        {historyEnabled && <button type="button" disabled={coachActionBlocked} onClick={() => {
+          voice.reset(); attachments.reset(); preferences.moveConversation(); food.moveConversation(); memory.reset();
           workoutSetController.moveConversation(); controller.startNew(); photoFood.moveConversation(controller.snapshot().conversationId); diet.moveConversation(controller.snapshot().conversationId); progress.moveConversation(controller.snapshot().conversationId); setHistoryOpen(false); input.current?.focus();
         }}>{t('global_coach.new_chat')}</button>}
         {historyEnabled && <details open={historyOpen} className={styles.profile} onToggle={event => setHistoryOpen(event.currentTarget.open)}><summary>{t('global_coach.saved_chats')}</summary>{historyOpen && <HistoryPanel transport={historyTransport ?? requestHistory} onInvalidate={threadId => {
           if (controller.snapshot().conversationId !== threadId) return;
-          if (workoutSetBlocked) return;
-          voice.reset(); attachments.reset(); preferences.moveConversation(); food.reset(); memory.reset(); workoutSetController.moveConversation(); controller.startNew(); photoFood.moveConversation(controller.snapshot().conversationId); diet.moveConversation(controller.snapshot().conversationId); progress.moveConversation(controller.snapshot().conversationId);
+          if (coachActionBlocked) return;
+          voice.reset(); attachments.reset(); preferences.moveConversation(); food.moveConversation(); memory.reset(); workoutSetController.moveConversation(); controller.startNew(); photoFood.moveConversation(controller.snapshot().conversationId); diet.moveConversation(controller.snapshot().conversationId); progress.moveConversation(controller.snapshot().conversationId);
         }} onResume={page => {
-          if (workoutSetBlocked) return;
-          voice.reset(); attachments.reset(); preferences.moveConversation(); food.reset(); memory.reset();
+          if (coachActionBlocked) return;
+          voice.reset(); attachments.reset(); preferences.moveConversation(); food.moveConversation(); memory.reset();
           workoutSetController.moveConversation(); controller.restore(page.thread.id, page.messages); photoFood.moveConversation(controller.snapshot().conversationId); diet.moveConversation(controller.snapshot().conversationId); progress.moveConversation(controller.snapshot().conversationId); setHistoryOpen(false); input.current?.focus();
         }} />}</details>}
         {dietEnabled && <details className={styles.profile} onToggle={event => { if (event.currentTarget.open) { voice.reset(); if (!dietState.profileId) diet.select(identity, state.conversationId, dietTransport ?? requestDiet); else if (!dietState.profile) void diet.read(dietTransport ?? requestDiet); } }}>
@@ -258,17 +274,17 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
       </div>
       {showLatest && <button type="button" className="min-h-11 px-4 text-sm" onClick={() => { followLatest.current = true; setShowLatest(false); log.current?.scrollTo({ top: log.current.scrollHeight }); }}>{t('global_coach.latest')}</button>}
       <form className={styles.composer} onSubmit={event => { event.preventDefault(); void send(); }}>
-        <AttachmentPicker controller={attachments} state={attachmentState} conversationId={state.conversationId} transport={!example && latestResponse?.uploads?.images ? requestAttachment : undefined} disabled={state.pending || workoutSetBlocked} />
-        {photoFoodEnabled&&attachmentState.items.filter(item=>item.state==='available'&&item.reference&&latestResponse?.attachments.some(reference=>reference.id===item.reference!.id&&reference.status==='available')).map(item=><button key={`food-${item.key}`} type="button" className={styles.contextToggle} disabled={photoFoodState.pending || workoutSetBlocked} onClick={()=>void photoFood.select(item.reference!.id,state.conversationId,photoFoodTransport??requestPhotoFood)}>{t('global_coach.photo_food_open')}</button>)}
-        <VoiceCapture key={state.conversationId} controller={voice} state={voiceState} disabled={state.pending || attachmentState.pending || workoutSetBlocked} conversationId={state.conversationId} transcribe={subjectId && subjectId !== identity ? undefined : voiceTranscriptionTransport} onUse={text => {
-          if (voiceActive || state.pending || workoutSetBlocked) return false;
+        <AttachmentPicker controller={attachments} state={attachmentState} conversationId={state.conversationId} transport={!example && latestResponse?.uploads?.images ? requestAttachment : undefined} disabled={state.pending || coachActionBlocked} />
+        {photoFoodEnabled&&attachmentState.items.filter(item=>item.state==='available'&&item.reference&&latestResponse?.attachments.some(reference=>reference.id===item.reference!.id&&reference.status==='available')).map(item=><button key={`food-${item.key}`} type="button" className={styles.contextToggle} disabled={photoFoodState.pending || coachActionBlocked} onClick={()=>void photoFood.select(item.reference!.id,state.conversationId,photoFoodTransport??requestPhotoFood)}>{t('global_coach.photo_food_open')}</button>)}
+        <VoiceCapture key={state.conversationId} controller={voice} state={voiceState} disabled={state.pending || attachmentState.pending || coachActionBlocked} conversationId={state.conversationId} transcribe={subjectId && subjectId !== identity ? undefined : voiceTranscriptionTransport} onUse={text => {
+          if (voiceActive || state.pending || coachActionBlocked) return false;
           const current = controller.snapshot().draft;
           const combined = current.trim() ? `${current}\n${text}` : text;
           if (combined.length > 2000) return false;
           controller.setDraft(combined); return true;
         }} onSend={reviewedVoiceTransport || !example && process.env.NEXT_PUBLIC_COACH_VOICE_REVIEW_ENABLED === '1' ? sendVoice : undefined} />
         {voiceSlot?.({ conversationId: state.conversationId, onUse: text => {
-          if (voiceActive || state.pending || workoutSetBlocked) return false;
+          if (voiceActive || state.pending || coachActionBlocked) return false;
           const current = controller.snapshot().draft;
           const combined = current.trim() ? `${current}\n${text}` : text;
           if (combined.length > 2000) return false;
@@ -278,8 +294,8 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
         {includeScreen && selection && <button type="button" className={styles.contextToggle} onClick={() => setIncludeScreen(false)} aria-label={`${t('global_coach.remove_selection')}: ${selection.label}`}><span>{selection.label}</span><X size={16} aria-hidden="true" /></button>}
         <label className={styles.contextToggle}><input type="checkbox" checked={includeScreen} onChange={event => setIncludeScreen(event.target.checked)} />{t('global_coach.include')}<span>{t(`global_coach.${surface}`)}</span></label>
         <label className="sr-only" htmlFor="global-coach-question">{t('global_coach.question')}</label>
-        <textarea id="global-coach-question" ref={input} disabled={workoutSetBlocked} maxLength={2000} rows={3} value={state.draft} onChange={event => controller.setDraft(event.target.value)} placeholder={t('global_coach.placeholder')} />
-        <div className={styles.actions}><span>{state.draft.length}/2000</span>{state.pending ? <button type="button" onClick={() => controller.cancel()}>{t('global_coach.cancel')}</button> : <button type="submit" disabled={missingProfessionalSubject || state.recoveryRequired || !state.draft.trim() || attachmentState.pending || voiceActive || workoutSetBlocked}><Send size={17} aria-hidden="true" />{t('global_coach.send')}</button>}</div>
+        <textarea id="global-coach-question" ref={input} disabled={coachActionBlocked} maxLength={2000} rows={3} value={state.draft} onChange={event => controller.setDraft(event.target.value)} placeholder={t('global_coach.placeholder')} />
+        <div className={styles.actions}><span>{state.draft.length}/2000</span>{state.pending ? <button type="button" onClick={() => controller.cancel()}>{t('global_coach.cancel')}</button> : <button type="submit" disabled={missingProfessionalSubject || state.recoveryRequired || !state.draft.trim() || attachmentState.pending || voiceActive || coachActionBlocked}><Send size={17} aria-hidden="true" />{t('global_coach.send')}</button>}</div>
       </form>
     </section>}
   </div>;

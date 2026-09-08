@@ -23,7 +23,7 @@ function canonical(value:unknown):string {
   return JSON.stringify(value);
 }
 function digest(value:unknown){return createHash('sha256').update(canonical(value)).digest('hex');}
-function values(row:FoodLogRow){return foodEntryValuesSchema.parse({loggedDate:row.loggedDate,foodName:row.foodName,grams:row.qtyG===null?null:Number(row.qtyG),quantity:row.quantity,calories:row.calories,proteinG:row.proteinG,carbsG:row.carbsG,fatG:row.fatG,fiberG:row.fiberG,sugarG:row.sugarG});}
+function values(row:FoodLogRow){return foodEntryValuesSchema.parse({loggedDate:row.loggedDate,foodName:row.foodName,foodId:row.foodId,source:row.source,sourceId:row.sourceId,grams:row.qtyG===null?null:Number(row.qtyG),quantity:row.quantity,calories:row.calories,proteinG:row.proteinG,carbsG:row.carbsG,fatG:row.fatG,fiberG:row.fiberG,sugarG:row.sugarG});}
 async function authorize(tx:Transaction,scope:Scope) {
   scope.signal.throwIfAborted();
   const found=await tx.execute(sql`SELECT actor.id FROM public.profiles actor
@@ -71,11 +71,23 @@ export function createFoodQuantityService(database:Database):FoodQuantityService
           }
           if(operation.operation==='food.receipt')return fail('not_found');
         }
-        const [existing]=await tx.select().from(foodLog).where(and(eq(foodLog.id,operation.entryId),eq(foodLog.userId,scope.subjectId))).limit(1).for('update');
+        let entryId:string;
+        if(operation.operation==='food.resolve') {
+          const candidates=await tx.execute<{id:string}>(operation.entryHintId
+            ? sql`SELECT id FROM public.food_log WHERE id=${operation.entryHintId}::uuid AND user_id=${scope.subjectId}::uuid AND qty_g=${operation.expectedPreviousGrams}::numeric LIMIT 2 FOR UPDATE`
+            : operation.loggedDateHint
+              ? sql`SELECT id FROM public.food_log WHERE user_id=${scope.subjectId}::uuid AND logged_date=${operation.loggedDateHint}::date AND qty_g=${operation.expectedPreviousGrams}::numeric ORDER BY created_at DESC NULLS FIRST LIMIT 2 FOR UPDATE`
+              : sql`SELECT id FROM public.food_log WHERE user_id=${scope.subjectId}::uuid AND qty_g=${operation.expectedPreviousGrams}::numeric ORDER BY created_at DESC NULLS FIRST LIMIT 2 FOR UPDATE`);
+          if(!candidates.rows.length)throw new Rejected('not_found');
+          if(candidates.rows.length!==1)throw new Rejected('ambiguous_selection');
+          entryId=candidates.rows[0].id;
+        } else entryId=operation.entryId;
+        const [existing]=await tx.select().from(foodLog).where(and(eq(foodLog.id,entryId),eq(foodLog.userId,scope.subjectId))).limit(1).for('update');
         if(!existing)throw new Rejected('not_found');
-        const currentVersion=await version(tx,operation.entryId);
+        const currentVersion=await version(tx,entryId);
         const before=values(existing);
-        if(operation.operation==='food.read') {scope.signal.throwIfAborted();return {version:'coach-assistant.v2',storage:'database',ok:true,snapshot:{...before,entryId:operation.entryId,version:currentVersion}} as FoodQuantityResult;}
+        if(operation.operation==='food.resolve'&&before.grams!==operation.expectedPreviousGrams)throw new Rejected('version_conflict');
+        if(operation.operation==='food.read'||operation.operation==='food.resolve') {scope.signal.throwIfAborted();return {version:'coach-assistant.v2',storage:'database',ok:true,snapshot:{...before,entryId,version:currentVersion}} as FoodQuantityResult;}
         // Hold the canonical nutrient source stable through preview/write/receipt.
         if(existing.foodId)await tx.execute(sql`SELECT id FROM public.foods WHERE id=${existing.foodId}::uuid FOR SHARE`);
         if(operation.operation==='food.propose') {
@@ -86,7 +98,7 @@ export function createFoodQuantityService(database:Database):FoodQuantityService
           const expectedEdit=await deriveFoodLogEdit(tx,existing,operation.after);
           const after=values({...existing,...expectedEdit});
           const clock=await tx.execute<{expires:string}>(sql`SELECT (clock_timestamp()+interval '5 minutes')::text AS expires`);
-          const proposal:FoodQuantityProposal={id:randomUUID(),hash:'',action,resource:{kind:'food_entry',id:operation.entryId,version:currentVersion},before,after,precondition:currentVersion,expiresAt:new Date(clock.rows[0].expires).toISOString(),reviewRequired:true};
+          const proposal:FoodQuantityProposal={id:randomUUID(),hash:'',action,resource:{kind:'food_entry',id:operation.entryId,version:currentVersion},before,after,expectedVersion:currentVersion,precondition:currentVersion,expiresAt:new Date(clock.rows[0].expires).toISOString(),reviewRequired:true};
           const envelope={proposal,expectedEdit,foodId:existing.foodId};
           proposal.hash=digest({actor:scope.actorId,subject:scope.subjectId,organization:scope.organizationId,conversation:operation.conversationId,envelope});
           if(new TextEncoder().encode(JSON.stringify(envelope)).length>4096)throw new Rejected('invalid_input');
@@ -101,9 +113,10 @@ export function createFoodQuantityService(database:Database):FoodQuantityService
         const envelope=envelopeSchema.parse(stored.envelope);const proposal=envelope.proposal;
         if(proposal.resource.id!==operation.entryId||proposal.id!==operation.proposalId||stored.request_hash!==operation.hash||proposal.hash!==operation.hash)throw new Rejected('invalid_input');
         if(stored.expired)throw new Rejected('expired');
-        if(currentVersion!==operation.resourceVersion||stored.resource_version!==currentVersion||proposal.resource.version!==currentVersion||proposal.precondition!==currentVersion||canonical(proposal.before)!==canonical(before)||envelope.foodId!==existing.foodId)throw new Rejected('version_conflict');
+        if(currentVersion!==operation.resourceVersion||stored.resource_version!==currentVersion||proposal.resource.version!==currentVersion||proposal.expectedVersion!==currentVersion||proposal.precondition!==currentVersion||canonical(proposal.before)!==canonical(before)||envelope.foodId!==existing.foodId)throw new Rejected('version_conflict');
         const claimedHash=digest({actor:scope.actorId,subject:scope.subjectId,organization:scope.organizationId,conversation:operation.conversationId,envelope:{...envelope,proposal:{...proposal,hash:''}}});
         if(claimedHash!==proposal.hash)throw new Rejected('invalid_input');
+        await authorize(tx,scope);
         scope.signal.throwIfAborted();
         const updated=await applyFoodLogEdit({ctx:{db:tx},existing,input:parseFoodQuantityChange({grams:proposal.after.grams}),ownerUserId:scope.subjectId,correctedBy:scope.actorId,expectedEdit:envelope.expectedEdit as FoodEditValues,transactional:true});
         if(canonical(values(updated.updated))!==canonical(proposal.after))throw new Rejected('version_conflict');

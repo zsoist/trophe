@@ -217,6 +217,7 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
         offlineConversationProvider:candidate?deps.candidateEvaluation!.transport:undefined!,
         isolatedActionsEnabled:!durable&&deps.env.COACH_ASSISTANT_ISOLATED_ACTIONS_ENABLED==='1',
         workoutSetIntentsEnabled:deps.env.COACH_ASSISTANT_WORKOUT_SET_ACTIONS_ENABLED==='1'&&Boolean(deps.createWorkoutSetService),
+        foodQuantityIntentsEnabled:deps.env.COACH_ASSISTANT_FOOD_ACTIONS_ENABLED==='1'&&Boolean(deps.createFoodService),
         actorId:synthetic?'synthetic-client':guard.userId,
         repository,
         now:synthetic?new Date('2026-09-07T03:30:00Z'):(deps.now?.()??new Date()),

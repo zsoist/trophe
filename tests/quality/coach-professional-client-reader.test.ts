@@ -47,3 +47,20 @@ it('accepts only the bounded latest-set correction intent shape', () => {
   expect(() => readConversationResponse({ ...value, actionIntents: [{ ...actionIntent, target: { ...actionIntent.target, reps: 10.5 } }] })).toThrow('invalid_output');
   expect(() => readConversationResponse({ ...value, actionIntents: [{ ...actionIntent, resource: { kind: 'workout_set' } }] })).toThrow('invalid_output');
 });
+
+it('accepts only a bounded Food quantity correction intent', () => {
+  const value = response();
+  value.snapshot.actorRole = 'client';
+  value.snapshot.access = 'self';
+  value.snapshot.surface = 'food';
+  const actionIntent = {
+    id: 'e'.repeat(64), action: 'food.quantity.update', source: 'provider_tool', subjectId: value.snapshot.subjectId,
+    scopeKey: value.snapshot.scopeKey, surface: 'food', target: {
+      selection: 'authorized_food_entry', entryHintId: crypto.randomUUID(), previousGrams: 250, grams: 150,
+    }, reviewRequired: true,
+  };
+  expect(readConversationResponse({ ...value, actionIntents: [actionIntent] }).actionIntents).toHaveLength(1);
+  expect(readConversationResponse({ ...value, actionIntents: [{ ...actionIntent, target: { ...actionIntent.target, entryHintId: null } }] }).actionIntents).toHaveLength(1);
+  expect(() => readConversationResponse({ ...value, actionIntents: [{ ...actionIntent, target: { ...actionIntent.target, previousGrams: 150 } }] })).toThrow('invalid_output');
+  expect(() => readConversationResponse({ ...value, actionIntents: [{ ...actionIntent, target: { ...actionIntent.target, entryHintId: 'latest' } }] })).toThrow('invalid_output');
+});

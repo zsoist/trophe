@@ -21,6 +21,19 @@ function validActionIntent(value: unknown): boolean {
       && Boolean(target) && exactKeys(target!, ['selection', 'reps'])
       && target!.selection === 'latest_open_session_set' && Number.isInteger(target!.reps) && Number(target!.reps) > 0;
   }
+  if (item.action === 'food.quantity.update') {
+    const entryHintId = target?.entryHintId;
+    const positiveGrams = (value: unknown) => typeof value === 'number' && Number.isFinite(value) && value > 0 && value <= 10_000;
+    return exactKeys(item, ['id', 'action', 'source', 'subjectId', 'scopeKey', 'surface', 'target', 'reviewRequired'])
+      && typeof item.id === 'string' && /^[a-f0-9]{64}$/.test(item.id)
+      && item.source === 'provider_tool' && typeof item.subjectId === 'string'
+      && typeof item.scopeKey === 'string' && /^[a-f0-9]{64}$/.test(item.scopeKey)
+      && coachSurfaces.includes(String(item.surface)) && item.reviewRequired === true
+      && Boolean(target) && exactKeys(target!, ['selection', 'entryHintId', 'previousGrams', 'grams'])
+      && target!.selection === 'authorized_food_entry'
+      && (entryHintId === null || typeof entryHintId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(entryHintId))
+      && positiveGrams(target!.previousGrams) && positiveGrams(target!.grams) && target!.previousGrams !== target!.grams;
+  }
   const resource = item.resource as Record<string, unknown> | undefined;
   return exactKeys(item, ['id', 'action', 'source', 'subjectId', 'scopeKey', 'surface', 'resource', 'target', 'reviewRequired'])
     && typeof item.id === 'string' && /^[a-f0-9]{64}$/.test(item.id)
