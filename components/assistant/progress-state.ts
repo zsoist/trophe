@@ -20,7 +20,12 @@ export class ProgressController {
   private clearDeadline() { if (this.deadline !== null) clearTimeout(this.deadline); this.deadline = null; }
   reset() { this.clearDeadline(); this.generation++; this.active?.abort(); this.active = null; this.action = null; this.deferredConversationId = null; this.publish(empty()); }
   select(subjectId: string, conversationId: string) { if (this.action && !this.state.receipt) return false; this.reset(); this.conversationId = conversationId; this.publish({ ...empty(), subjectId }); return true; }
-  moveConversation(conversationId: string) { if (this.action && !this.state.receipt) { this.deferredConversationId = conversationId; return false; } this.conversationId = conversationId; this.deferredConversationId = null; return true; }
+  moveConversation(conversationId: string) {
+    if (this.action && !this.state.receipt) { this.deferredConversationId = conversationId; return false; }
+    this.conversationId = conversationId; this.deferredConversationId = null;
+    if (this.state.proposal && !this.state.receipt) this.publish({ ...this.state, proposal: null, error: null });
+    return true;
+  }
   cancel() { if (!this.active) return; this.clearDeadline(); this.generation++; this.active.abort(); this.active = null; this.publish({ ...this.state, pending: false, uncertain: Boolean(this.action && !this.state.receipt), error: this.action ? 'uncertain' : null }); }
   private header() { return { version: 'coach-assistant.v2' as const, conversationId: this.conversationId, turnId: crypto.randomUUID(), clientId: this.state.subjectId! }; }
   async read(transport: ProgressTransport, days: 30 | 90 | 365 = this.state.days) { if (!this.state.subjectId || this.state.pending || this.action) return; this.publish({ ...this.state, days }); await this.execute({ ...this.header(), operation: 'progress.read', days }, transport); }

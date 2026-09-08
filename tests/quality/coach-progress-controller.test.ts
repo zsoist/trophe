@@ -33,6 +33,20 @@ function fixture() {
 }
 
 describe('ProgressController', () => {
+  it('discards an unconfirmed proposal before adopting a new conversation', async () => {
+    const f = fixture(); const controller = new ProgressController(); const firstConversation = crypto.randomUUID(); const nextConversation = crypto.randomUUID();
+    controller.select(subjectId, firstConversation); await controller.read(f.transport, 90); await controller.propose(after, f.transport);
+
+    expect(controller.snapshot().proposal).not.toBeNull();
+    expect(controller.moveConversation(nextConversation)).toBe(true);
+    expect(controller.snapshot()).toMatchObject({ proposal: null, pending: false, uncertain: false, error: null });
+
+    await controller.apply(f.transport);
+    expect(f.operations.filter(item => item.operation === 'measurement.apply')).toHaveLength(0);
+    await controller.propose(after, f.transport);
+    expect(f.operations.at(-1)).toMatchObject({ operation: 'measurement.propose', conversationId: nextConversation });
+  });
+
   it('reviews exact explicit values, stays uncertain after lost response, and recovers without another apply', async () => {
     const f = fixture(); const controller = new ProgressController(); const conversationId = crypto.randomUUID();
     controller.select(subjectId, conversationId); await controller.read(f.transport, 90);
