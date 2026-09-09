@@ -40,6 +40,43 @@ it('keeps the same conversation and editable draft across real Food and Workout 
   expect(transport.mock.calls[1][0].context?.surface).toBe('food');
   expect(transport.mock.calls[1][0].history).toHaveLength(2);
 });
+it('keeps one conversation while rebinding each Food, Workout and Progress turn to its active surface', async () => {
+  HTMLElement.prototype.scrollTo = vi.fn();
+  const transport = vi.fn(async (request: CoachConversationRequest) => response(request));
+  route.path = '/dashboard/log';
+  const view = render(mounted(transport));
+  fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
+  for (const [path, message] of [
+    ['/dashboard/log', 'What is recorded for lunch?'],
+    ['/dashboard/workout', 'What workout is planned?'],
+    ['/dashboard/progress', 'What progress is recorded?'],
+  ] as const) {
+    route.path = path;
+    view.rerender(mounted(transport));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Your question' }), { target: { value: message } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
+    await act(async () => {});
+  }
+  expect(transport.mock.calls.map(([request]) => request.context?.surface)).toEqual(['food', 'workout', 'progress']);
+  expect(new Set(transport.mock.calls.map(([request]) => request.conversationId))).toHaveProperty('size', 1);
+  expect(transport.mock.calls[2][0].history).toHaveLength(4);
+});
+it('renders the server supplied limitation even when the response has no evidence rows', async () => {
+  HTMLElement.prototype.scrollTo = vi.fn();
+  const limitation = 'No Food records were found for the selected day; this does not prove that nothing was consumed.';
+  const transport = vi.fn(async (request: CoachConversationRequest): Promise<CoachConversationResponse> => {
+    const base = response(request, 'No records found for this day.');
+    return { ...base, output: { ...base.output!, limitations: [limitation] } };
+  });
+  const view = render(mounted(transport));
+  fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
+  fireEvent.change(screen.getByRole('textbox', { name: 'Your question' }), { target: { value: 'What did I eat today?' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
+  await screen.findByText('No records found for this day.');
+  fireEvent.click(screen.getByText('Evidence and limits'));
+  expect(screen.getByText(limitation)).toBeTruthy();
+  view.unmount();
+});
 it('detaches screen context and aborts a late response when the subject changes on the same mounted shell', async () => {
   let settle!: (value: CoachConversationResponse) => void;
   const transport = vi.fn((_request: CoachConversationRequest, _signal: AbortSignal) => new Promise<CoachConversationResponse>(resolve => { settle = resolve; }));

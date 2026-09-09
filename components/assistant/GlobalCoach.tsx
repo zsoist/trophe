@@ -310,7 +310,11 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
             <p>{turn.response.output.answer}</p>
             {speechByTurn[turn.request.turnId] && <VoiceAnswerPlayback descriptor={speechByTurn[turn.request.turnId]} text={turn.response.output.answer} />}
             {!example && turn.response.mode === 'offline' && <p className={styles.context}>{t('global_coach.offline')}</p>}
-            {turn.response.evidence.length > 0 && <details><summary>{t('global_coach.sources')}</summary>{turn.response.evidence.map(item => <p key={item.id}>{item.statement}</p>)}{turn.response.output.limitations.length > 0 && <p className={styles.context}>{t('global_coach.limits')}</p>}</details>}
+            {(turn.response.evidence.length > 0 || turn.response.output.limitations.length > 0) && <details>
+              <summary>{t('global_coach.response_basis')}</summary>
+              {turn.response.evidence.map(item => <p key={item.id}>{item.statement}</p>)}
+              {turn.response.output.limitations.map((limitation, index) => <p className={styles.context} key={`${turn.request.turnId}-limitation-${index}`}>{limitation}</p>)}
+            </details>}
           </div>}
         </article>)}
         {state.pending && <p role="status">{t('global_coach.pending')}</p>}

@@ -273,6 +273,7 @@ export const globalCoachTranslations: Record<string, { en: string; es: string; e
   'global_coach.include': { en: 'Include this screen', es: 'Incluir esta pantalla', el: 'Συμπερίληψη αυτής της οθόνης' },
   'global_coach.detached': { en: 'Screen context off', es: 'Sin contexto de pantalla', el: 'Χωρίς πλαίσιο οθόνης' },
   'global_coach.sources': { en: 'Records used', es: 'Registros consultados', el: 'Καταγραφές που χρησιμοποιήθηκαν' },
+  'global_coach.response_basis': { en: 'Evidence and limits', es: 'Evidencia y límites', el: 'Στοιχεία και περιορισμοί' },
   'global_coach.food': { en: 'Food', es: 'Alimentación', el: 'Διατροφή' },
   'global_coach.workout': { en: 'Workout', es: 'Entrenamiento', el: 'Προπόνηση' },
   'global_coach.home': { en: 'Home', es: 'Inicio', el: 'Αρχική' },
