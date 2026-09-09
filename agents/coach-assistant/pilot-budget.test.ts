@@ -1,5 +1,7 @@
 import { describe,it,expect,vi } from 'vitest';
 import { COACH_ATTEMPT_RESERVATION_NANO_USD as amount, PHOTO_ATTEMPT_RESERVATION_NANO_USD, STT_ATTEMPT_RESERVATION_NANO_USD, decidePilotBudgetCommand, executePilotBudgetCommand, reserveCoachPilotAttempt, pricePilotUsageNanoUsd, pilotRecordActiveCharge, type PilotAttemptBinding, type PilotAttemptRecord, type PilotBudgetCommand, type PilotBudgetStore } from './pilot-budget';
+import {HAIKU_MODEL,TRANSCRIPTION_MODEL} from '@/agents/router/policies';
+import {PHOTO_PILOT_PRICING_VERSION} from '@/agents/router/pricing';
 const uuid=(n:number)=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const day='2026-09-08';
 const binding=(n=1):PilotAttemptBinding=>({pilotId:uuid(1),actorId:uuid(2),attemptId:uuid(n+10),agentRunId:uuid(n+20),turnId:uuid(3),model:'gpt-5.6-luna',pricingVersion:'gpt-5.6-luna-standard-2026-09-08',requestHash:'a'.repeat(64),reservedNanoUsd:amount});
@@ -24,10 +26,10 @@ describe('pilot budget pure core and injected persistent port',()=>{
   it('prices and validates the existing photo and transcription models in the same binding contract',()=>{
     expect(PHOTO_ATTEMPT_RESERVATION_NANO_USD).toBe(80_000_000);
     expect(STT_ATTEMPT_RESERVATION_NANO_USD).toBe(30_000_000);
-    expect(pricePilotUsageNanoUsd(usage,'claude-haiku-4-5-20251001')).toBe(1_845_000);
-    expect(pricePilotUsageNanoUsd({...usage,cacheReadTokens:0,cacheWriteTokens:0,reasoningTokens:0},'gpt-4o-mini-transcribe')).toBe(2_250_000);
-    const photo={...binding(),model:'claude-haiku-4-5-20251001' as const,pricingVersion:'claude-haiku-4-5-20251001-standard-2026-09-09' as const,reservedNanoUsd:PHOTO_ATTEMPT_RESERVATION_NANO_USD};
-    expect(decidePilotBudgetCommand({pilotId:photo.pilotId,budgetDay:day,capNanoUsd:PHOTO_ATTEMPT_RESERVATION_NANO_USD,chargedNanoUsd:0,turnAttemptCount:0,accountingBlocked:false},{operation:'reserve',binding:photo})).toMatchObject({ok:true,record:{binding:{model:'claude-haiku-4-5-20251001'}}});
+    expect(pricePilotUsageNanoUsd(usage,HAIKU_MODEL)).toBe(1_845_000);
+    expect(pricePilotUsageNanoUsd({...usage,cacheReadTokens:0,cacheWriteTokens:0,reasoningTokens:0},TRANSCRIPTION_MODEL)).toBe(2_250_000);
+    const photo={...binding(),model:HAIKU_MODEL,pricingVersion:PHOTO_PILOT_PRICING_VERSION,reservedNanoUsd:PHOTO_ATTEMPT_RESERVATION_NANO_USD};
+    expect(decidePilotBudgetCommand({pilotId:photo.pilotId,budgetDay:day,capNanoUsd:PHOTO_ATTEMPT_RESERVATION_NANO_USD,chargedNanoUsd:0,turnAttemptCount:0,accountingBlocked:false},{operation:'reserve',binding:photo})).toMatchObject({ok:true,record:{binding:{model:HAIKU_MODEL}}});
   });
   it('accounts aggregate pending charges and limits new attempts while preserving idempotent reserves',async()=>{
     const {store,command,rows}=fixture(amount);

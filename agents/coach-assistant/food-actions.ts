@@ -18,12 +18,13 @@ export const foodEntryValuesSchema=z.object({loggedDate:z.string().date(),foodNa
 export const foodQuantityProposalSchema=z.object({id:z.string().uuid(),hash:z.string().regex(/^[a-f0-9]{64}$/),action:z.literal('food.quantity.update'),resource:z.object({kind:z.literal('food_entry'),id:z.string().uuid(),version}).strict(),before:foodEntryValuesSchema,after:foodEntryValuesSchema,expectedVersion:version,precondition:version,expiresAt:z.string().datetime({offset:true}),reviewRequired:z.literal(true)}).strict();
 const receipt=z.object({id:z.string().uuid(),actionId:z.string().uuid(),proposalId:z.string().uuid(),status:z.enum(['applied','rejected','uncertain']),resourceVersion:version.nullable(),recordedAt:z.string().datetime({offset:true})}).strict();
 const refresh=z.object({entryId:z.string().uuid(),loggedDate:z.string().date(),previousVersion:version,version,strategy:z.literal('refetch')}).strict();
+const change=z.object({beforeGrams:z.number().positive().max(10000),afterGrams:z.number().positive().max(10000)}).strict().refine(value=>value.beforeGrams!==value.afterGrams);
 const resultBase={version:z.literal('coach-assistant.v2'),storage:z.literal('database')};
 export const foodQuantityResultSchema=z.union([
   z.object({...resultBase,ok:z.literal(false),error:z.enum(['invalid_input','forbidden','not_found','ambiguous_selection','version_conflict','expired','idempotency_conflict','cancelled','uncertain'])}).strict(),
   z.object({...resultBase,ok:z.literal(true),snapshot:foodEntryValuesSchema.extend({entryId:z.string().uuid(),version})}).strict(),
   z.object({...resultBase,ok:z.literal(true),proposal:foodQuantityProposalSchema}).strict(),
-  z.object({...resultBase,ok:z.literal(true),receipt,refresh:refresh.optional()}).strict(),
+  z.object({...resultBase,ok:z.literal(true),receipt,refresh:refresh.optional(),change:change.optional()}).strict(),
 ]);
 
 /** The AG3 Food transaction service implements this port over the shared ledger. No calculation or mutation

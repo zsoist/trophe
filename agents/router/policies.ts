@@ -57,8 +57,9 @@ export interface RoutingPolicy {
   promptVersion: string;
 }
 
-const LUNA_MODEL = 'gpt-5.6-luna';
-const HAIKU_MODEL = 'claude-haiku-4-5-20251001';
+export const LUNA_MODEL = 'gpt-5.6-luna' as const;
+export const HAIKU_MODEL = 'claude-haiku-4-5-20251001' as const;
+export const TRANSCRIPTION_MODEL = 'gpt-4o-mini-transcribe' as const;
 const DEEPSEEK_FACTORY_MODEL = 'deepseek-v4-flash';
 
 export const taskPolicies: Record<TaskName, RoutingPolicy> = {
@@ -157,7 +158,7 @@ export const taskPolicies: Record<TaskName, RoutingPolicy> = {
   },
   transcribe: {
     provider: 'openai',
-    model: 'gpt-4o-mini-transcribe',
+    model: TRANSCRIPTION_MODEL,
     costClass: 'cheap',
     latencyClass: 'fast',
     maxTokens: 0,

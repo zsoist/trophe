@@ -7,6 +7,7 @@ import { createServerRepository } from '@/agents/coach-assistant/server-reposito
 import { transcribeCoachAudio, type OfflineCoachTranscriber } from '@/agents/coach-assistant/voice';
 import type { CoachRepository } from '@/agents/coach-assistant/repository';
 import {createHash} from 'node:crypto';
+import {TRANSCRIPTION_MODEL} from '@/agents/router/policies';
 
 export const runtime = 'nodejs';
 
@@ -64,7 +65,7 @@ export async function PUT(request: NextRequest) {
       const audioDigest=createHash('sha256').update(Buffer.from(await input.file.arrayBuffer())).digest('hex');
       return runGovernedPilotModality({pilotId:runtime.pilotId,actorId:guard.userId,turnId:metadata.turnId,identityParts:[runtime.pilotId,guard.userId,metadata.conversationId,metadata.turnId,audioDigest],task:'transcribe',store:runtime.store,signal:input.signal,run:async()=>{
         const generated=await invokeOpenAiTranscription(input);
-        return {...generated,selectedPolicy:{provider:'openai',model:'gpt-4o-mini-transcribe',promptVersion:'transcribe-v1'},isFallback:false};
+        return {...generated,selectedPolicy:{provider:'openai',model:TRANSCRIPTION_MODEL,promptVersion:'transcribe-v1'},isFallback:false};
       }});
     };
   }

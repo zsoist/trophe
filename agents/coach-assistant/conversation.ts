@@ -81,8 +81,12 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
       response.evidence = result.evidence.filter(f=>evidenceMatchesScope(f.source,domain));
       if(options.foodChange&&domain==='food') {
         const change=options.foodChange;
-        const changeEvidence={id:'food.change.currentQuantity',source:'nutrition' as const,sourceIds:[change.entryId,change.receiptId],window:windowFor(intent,authorized.timezone,options.now),completeness:'complete' as const,statement:`The confirmed Food quantity is ${change.grams} g. This is the canonical refetched state after the applied receipt.`,value:change.grams,unit:'g'};
-        response.evidence=[changeEvidence,...response.evidence.filter(item=>item.id!==changeEvidence.id)].slice(0,24);
+        const sourceIds=[change.entryId,change.receiptId],window=windowFor(intent,authorized.timezone,options.now);
+        const changeEvidence=[
+          {id:'food.change.previousQuantity',source:'nutrition' as const,sourceIds,window,completeness:'complete' as const,statement:`The previous confirmed Food quantity was ${change.previousGrams} g.`,value:change.previousGrams,unit:'g'},
+          {id:'food.change.currentQuantity',source:'nutrition' as const,sourceIds,window,completeness:'complete' as const,statement:`The confirmed Food quantity is ${change.grams} g. This is the canonical refetched state after the applied receipt.`,value:change.grams,unit:'g'},
+        ];
+        const ids=new Set(changeEvidence.map(item=>item.id));response.evidence=[...changeEvidence,...response.evidence.filter(item=>!ids.has(item.id))].slice(0,24);
       }
       const medical = result.output?.escalation.required && ['urgent_symptoms','medical_question','medical_context'].includes(result.output.escalation.reason ?? '');
       const capabilities: CoachCapability[] = [

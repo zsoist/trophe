@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { COACH_PILOT_BUDGET_USD, COACH_PRICING, COACH_PRICING_VERSION } from './economics';
+import {HAIKU_MODEL,LUNA_MODEL,TRANSCRIPTION_MODEL} from '@/agents/router/policies';
+import {PHOTO_PILOT_PRICING_VERSION} from '@/agents/router/pricing';
 
 export const USD_IN_NANODOLLARS=1_000_000_000;
 /** Worst supported input tier is cache write; output already includes reasoning. */
@@ -12,9 +14,9 @@ const bindingBase={
   requestHash:z.string().regex(/^[a-f0-9]{64}$/),
 };
 export const pilotAttemptBindingSchema=z.discriminatedUnion('model',[
-  z.object({...bindingBase,model:z.literal('gpt-5.6-luna'),pricingVersion:z.literal(COACH_PRICING_VERSION),reservedNanoUsd:z.literal(COACH_ATTEMPT_RESERVATION_NANO_USD)}).strict(),
-  z.object({...bindingBase,model:z.literal('gpt-4o-mini-transcribe'),pricingVersion:z.literal('gpt-4o-mini-transcribe-2026-09-09'),reservedNanoUsd:z.literal(STT_ATTEMPT_RESERVATION_NANO_USD)}).strict(),
-  z.object({...bindingBase,model:z.literal('claude-haiku-4-5-20251001'),pricingVersion:z.literal('claude-haiku-4-5-20251001-standard-2026-09-09'),reservedNanoUsd:z.literal(PHOTO_ATTEMPT_RESERVATION_NANO_USD)}).strict(),
+  z.object({...bindingBase,model:z.literal(LUNA_MODEL),pricingVersion:z.literal(COACH_PRICING_VERSION),reservedNanoUsd:z.literal(COACH_ATTEMPT_RESERVATION_NANO_USD)}).strict(),
+  z.object({...bindingBase,model:z.literal(TRANSCRIPTION_MODEL),pricingVersion:z.literal('gpt-4o-mini-transcribe-2026-09-09'),reservedNanoUsd:z.literal(STT_ATTEMPT_RESERVATION_NANO_USD)}).strict(),
+  z.object({...bindingBase,model:z.literal(HAIKU_MODEL),pricingVersion:z.literal(PHOTO_PILOT_PRICING_VERSION),reservedNanoUsd:z.literal(PHOTO_ATTEMPT_RESERVATION_NANO_USD)}).strict(),
 ]);
 export type PilotAttemptBinding=z.infer<typeof pilotAttemptBindingSchema>;
 const usageSchema=z.object({inputTokens:nano,outputTokens:nano,cacheReadTokens:nano,cacheWriteTokens:nano,reasoningTokens:nano}).strict();
@@ -31,7 +33,7 @@ export const providerFailureDiagnosticSchema=z.object({
 }).strict();
 export type ProviderFailureDiagnostic=z.infer<typeof providerFailureDiagnosticSchema>;
 const providerSuccessSchema=z.object({
-  responseModel:z.enum(['gpt-5.6-luna','gpt-4o-mini-transcribe','claude-haiku-4-5-20251001']),
+  responseModel:z.enum([LUNA_MODEL,TRANSCRIPTION_MODEL,HAIKU_MODEL]),
   requestId:z.string().regex(/^req_[A-Za-z0-9_-]{1,116}$/).nullable(),
 }).strict();
 export type ProviderSuccessDiagnostic=z.infer<typeof providerSuccessSchema>;
@@ -51,16 +53,16 @@ export type PilotBudgetError='budget_blocked'|'invalid_input'|'not_found'|'idemp
 export type PilotBudgetDecision={ok:false;error:PilotBudgetError}|{ok:true;record:PilotAttemptRecord;write:'none'|'insert'|'update';chargeDeltaNanoUsd:number;dispatchGranted:boolean};
 
 /** Exact integer accounting. Unknown/invalid usage is not zero consumption. */
-export function pricePilotUsageNanoUsd(raw:unknown,model:PilotAttemptBinding['model']='gpt-5.6-luna'):number|null {
+export function pricePilotUsageNanoUsd(raw:unknown,model:PilotAttemptBinding['model']=LUNA_MODEL):number|null {
   const parsed=usageSchema.safeParse(raw);
   if(!parsed.success)return null;
   const u=parsed.data;
   // This tariff is short-context only. Do not price an anomalous long input cheaply.
   if(u.inputTokens>272_000)return null;
   if(u.cacheReadTokens+u.cacheWriteTokens>u.inputTokens||u.reasoningTokens>u.outputTokens||u.inputTokens+u.outputTokens===0)return null;
-  if(model==='gpt-4o-mini-transcribe'&&(u.cacheReadTokens!==0||u.cacheWriteTokens!==0||u.reasoningTokens!==0))return null;
-  const rates=model==='gpt-5.6-luna'?{input:COACH_PRICING.input,read:COACH_PRICING.read,write:COACH_PRICING.write,output:COACH_PRICING.output}
-    :model==='gpt-4o-mini-transcribe'?{input:1.25,read:1.25,write:1.25,output:5}
+  if(model===TRANSCRIPTION_MODEL&&(u.cacheReadTokens!==0||u.cacheWriteTokens!==0||u.reasoningTokens!==0))return null;
+  const rates=model===LUNA_MODEL?{input:COACH_PRICING.input,read:COACH_PRICING.read,write:COACH_PRICING.write,output:COACH_PRICING.output}
+    :model===TRANSCRIPTION_MODEL?{input:1.25,read:1.25,write:1.25,output:5}
     :{input:1,read:.1,write:1.25,output:5};
   const amount=(u.inputTokens-u.cacheReadTokens-u.cacheWriteTokens)*Math.round(rates.input*1000)+u.cacheReadTokens*Math.round(rates.read*1000)+u.cacheWriteTokens*Math.round(rates.write*1000)+u.outputTokens*Math.round(rates.output*1000);
   return Number.isSafeInteger(amount)?amount:null;

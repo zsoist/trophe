@@ -262,9 +262,10 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
           operation:'food.receipt',entryId:foodReceiptHint.entryId,actionId:foodReceiptHint.actionId,
         },repository,liveFoodService,controller.signal);
         if(recovered.ok&&'receipt'in recovered&&recovered.receipt.status==='applied'&&recovered.receipt.actionId===foodReceiptHint.actionId
-          &&recovered.refresh?.entryId===foodSelection.snapshot.entryId&&recovered.refresh.version===foodSelection.snapshot.version) {
+          &&recovered.refresh?.entryId===foodSelection.snapshot.entryId&&recovered.refresh.version===foodSelection.snapshot.version
+          &&recovered.change?.afterGrams===foodSelection.snapshot.grams) {
           foodChange={entryId:foodSelection.snapshot.entryId,receiptId:recovered.receipt.id,actionId:recovered.receipt.actionId,
-            grams:foodSelection.snapshot.grams,version:foodSelection.snapshot.version,loggedDate:foodSelection.snapshot.loggedDate};
+            previousGrams:recovered.change.beforeGrams,grams:foodSelection.snapshot.grams,version:foodSelection.snapshot.version,loggedDate:foodSelection.snapshot.loggedDate};
         }
       }
       const durableChat=conversational&&deps.env.COACH_ASSISTANT_CHAT_HISTORY_ENABLED==='1';

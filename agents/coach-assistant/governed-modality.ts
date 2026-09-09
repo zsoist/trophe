@@ -1,12 +1,14 @@
 import {createHash} from 'node:crypto';
 import type {AiUsage} from '@/agents/runtime';
 import {executePilotBudgetCommand,PHOTO_ATTEMPT_RESERVATION_NANO_USD,pricePilotUsageNanoUsd,reserveCoachPilotAttempt,STT_ATTEMPT_RESERVATION_NANO_USD,type PilotAttemptBinding,type PilotBudgetStore,type PilotUsage,type ProviderFailureDiagnostic} from './pilot-budget';
+import {HAIKU_MODEL,TRANSCRIPTION_MODEL} from '@/agents/router/policies';
+import {PHOTO_PILOT_PRICING_VERSION} from '@/agents/router/pricing';
 
 type ModalityTask='photo_analyze'|'transcribe';
 type TaskContract={provider:'anthropic'|'openai';model:PilotAttemptBinding['model'];promptVersion:string;pricingVersion:PilotAttemptBinding['pricingVersion'];reservationNanoUsd:number};
 const contracts:Record<ModalityTask,TaskContract>={
- photo_analyze:{provider:'anthropic',model:'claude-haiku-4-5-20251001',promptVersion:'photo-analyze-v1',pricingVersion:'claude-haiku-4-5-20251001-standard-2026-09-09',reservationNanoUsd:PHOTO_ATTEMPT_RESERVATION_NANO_USD},
- transcribe:{provider:'openai',model:'gpt-4o-mini-transcribe',promptVersion:'transcribe-v1',pricingVersion:'gpt-4o-mini-transcribe-2026-09-09',reservationNanoUsd:STT_ATTEMPT_RESERVATION_NANO_USD},
+ photo_analyze:{provider:'anthropic',model:HAIKU_MODEL,promptVersion:'photo-analyze-v1',pricingVersion:PHOTO_PILOT_PRICING_VERSION,reservationNanoUsd:PHOTO_ATTEMPT_RESERVATION_NANO_USD},
+ transcribe:{provider:'openai',model:TRANSCRIPTION_MODEL,promptVersion:'transcribe-v1',pricingVersion:'gpt-4o-mini-transcribe-2026-09-09',reservationNanoUsd:STT_ATTEMPT_RESERVATION_NANO_USD},
 };
 type GovernedResult={selectedPolicy:{provider:string;model:string;promptVersion:string};isFallback:boolean;usage:AiUsage;rawStatus:number;latencyMs:number;requestId?:string;providerGenerationId?:string;output:unknown};
 const digest=(value:unknown)=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -20,9 +22,9 @@ async function persistAfterDispatch(command:Parameters<typeof executePilotBudget
 export async function runGovernedPilotModality<Result extends GovernedResult>(input:{pilotId:string;actorId:string;turnId:string;identityParts:string[];task:ModalityTask;store:PilotBudgetStore;signal:AbortSignal;run:()=>Promise<Result>}):Promise<Result>{
  const contract=contracts[input.task];
  const common={pilotId:input.pilotId,actorId:input.actorId,turnId:input.turnId,attemptId:stableId([...input.identityParts,input.task,'attempt']),agentRunId:stableId([...input.identityParts,input.task,'budget-run']),requestHash:digest({task:input.task,identityParts:input.identityParts})};
- const binding:PilotAttemptBinding=contract.model==='gpt-4o-mini-transcribe'
+ const binding:PilotAttemptBinding=contract.model===TRANSCRIPTION_MODEL
   ?{...common,model:contract.model,pricingVersion:'gpt-4o-mini-transcribe-2026-09-09',reservedNanoUsd:STT_ATTEMPT_RESERVATION_NANO_USD}
-  :{...common,model:'claude-haiku-4-5-20251001',pricingVersion:'claude-haiku-4-5-20251001-standard-2026-09-09',reservedNanoUsd:PHOTO_ATTEMPT_RESERVATION_NANO_USD};
+  :{...common,model:HAIKU_MODEL,pricingVersion:PHOTO_PILOT_PRICING_VERSION,reservedNanoUsd:PHOTO_ATTEMPT_RESERVATION_NANO_USD};
  const reserve=await reserveCoachPilotAttempt(binding,input.store,input.signal);if(!reserve.ok)throw new Error('budget_blocked');
  const claim=await executePilotBudgetCommand({operation:'claim_dispatch',binding},input.store,input.signal);if(!claim.ok||!claim.dispatchGranted)throw new Error('budget_blocked');
  try{

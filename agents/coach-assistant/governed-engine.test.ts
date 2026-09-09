@@ -190,13 +190,13 @@ describe('governed LIVE-01 app engine', () => {
     const followUp={...request,message:'¿Qué cambió?',context:{surface:'food' as const,includeScreen:true,entity:{kind:'meal' as const,id:selectedEntry},foodReceipt:{entryId:selectedEntry,actionId}}};
     const transport=vi.fn<GovernedCoachTransport>(async input=>{
       const payload=JSON.parse(input.prompt) as {evidence:Array<{id:string}>};
-      expect(payload.evidence[0]?.id).toBe('food.change.currentQuantity');
-      return {requestId:'req_live02_followup',responseModel:'gpt-5.6-luna',output:{answer:'El recibo permite consultar el estado actual.',followUp:null,evidenceRefs:['food.change.currentQuantity'],entityRefs:[],facts:[{kind:'record_fact',evidenceId:'food.change.currentQuantity'}],generalExplanationRefs:[],limitations:[],escalation:false,actionIntent:null},usage:{inputTokens:900,outputTokens:120,reasoningTokens:40},latencyMs:3,rawStatus:200};
+      expect(payload.evidence.slice(0,2).map(item=>item.id)).toEqual(['food.change.previousQuantity','food.change.currentQuantity']);
+      return {requestId:'req_live02_followup',responseModel:'gpt-5.6-luna',output:{answer:'Cambió de 250 g a 150 g.',followUp:null,evidenceRefs:['food.change.previousQuantity','food.change.currentQuantity'],entityRefs:[],facts:[{kind:'record_fact',evidenceId:'food.change.previousQuantity'},{kind:'record_fact',evidenceId:'food.change.currentQuantity'}],generalExplanationRefs:[],limitations:[],escalation:false,actionIntent:null},usage:{inputTokens:900,outputTokens:120,reasoningTokens:40},latencyMs:3,rawStatus:200};
     });
     const engine=createGovernedCoachEngineBinding({env:env(),actorId:id(1),persistentStore:test.store,transport});
     const snapshot={entryId:selectedEntry,version:'2',loggedDate:'2026-09-08',foodName:'Rice',foodId:null,source:'manual',sourceId:'live02',grams:150,quantity:1,calories:186,proteinG:3.9,carbsG:38.4,fatG:1.5,fiberG:2.7,sugarG:0.5};
     const execute=vi.fn(async({operation}:{operation:{operation:string}})=>operation.operation==='food.receipt'
-      ?{version:'coach-assistant.v2',storage:'database',ok:true,receipt:{id:receiptId,actionId,proposalId,status:'applied',resourceVersion:'2',recordedAt:'2026-09-09T12:18:23Z'},refresh:{entryId:selectedEntry,loggedDate:'2026-09-08',previousVersion:'1',version:'2',strategy:'refetch'}}
+      ?{version:'coach-assistant.v2',storage:'database',ok:true,receipt:{id:receiptId,actionId,proposalId,status:'applied',resourceVersion:'2',recordedAt:'2026-09-09T12:18:23Z'},refresh:{entryId:selectedEntry,loggedDate:'2026-09-08',previousVersion:'1',version:'2',strategy:'refetch'},change:{beforeGrams:250,afterGrams:150}}
       :{version:'coach-assistant.v2',storage:'database',ok:true,snapshot});
     const response=await handleCoachRequest(new Request('https://private.invalid/api/coach-assistant',{method:'POST',body:JSON.stringify(followUp)}),{
       env:env(),guard:async()=>({userId:id(1)}),createRepository:repository,createGovernedEngine:async()=>engine,
@@ -204,7 +204,8 @@ describe('governed LIVE-01 app engine', () => {
     });
     const body=await response.json();
     expect(response.status).toBe(200);expect(body.actionIntents).toEqual([]);expect(body.proposals).toEqual([]);expect(body.receipts).toEqual([]);
-    expect(body.output.answer).toContain('The confirmed Food quantity is 150 g.');
+    expect(body.output.answer).toContain('The previous confirmed Food quantity was 250 g.');expect(body.output.answer).toContain('The confirmed Food quantity is 150 g.');
+    expect(body.output.answer).not.toContain('Cambió de 250 g a 150 g.');
     expect(execute.mock.calls.map(([value])=>(value as {operation:{operation:string}}).operation.operation)).toEqual(['food.resolve','food.receipt']);
   });
 

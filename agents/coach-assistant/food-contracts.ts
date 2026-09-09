@@ -24,5 +24,5 @@ export type FoodQuantityResult={version:'coach-assistant.v2';storage:'database'}
   {ok:false;error:'invalid_input'|'forbidden'|'not_found'|'ambiguous_selection'|'version_conflict'|'expired'|'idempotency_conflict'|'cancelled'|'uncertain'}|
   {ok:true;snapshot:FoodEntrySnapshot}|
   {ok:true;proposal:FoodQuantityProposal}|
-  {ok:true;receipt:CoachReceipt;refresh?:FoodQuantityRefresh}
+  {ok:true;receipt:CoachReceipt;refresh?:FoodQuantityRefresh;change?:{beforeGrams:number;afterGrams:number}}
 );

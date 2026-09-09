@@ -54,7 +54,7 @@ const foodDestinationIntentSchema=z.object({action:z.literal('food.quantity.upda
 export type ConversationFoodSelection=
   | {status:'resolved';snapshot:{entryId:string;loggedDate:string;grams:number;version:string}}
   | {status:'unavailable';reason:'not_found'|'ambiguous_selection'|'version_conflict'|'incompatible_surface'};
-export interface ConversationFoodChange {entryId:string;receiptId:string;actionId:string;grams:number;version:string;loggedDate:string}
+export interface ConversationFoodChange {entryId:string;receiptId:string;actionId:string;previousGrams:number;grams:number;version:string;loggedDate:string}
 export const openConversationSchema=z.object({
   answer:z.string().trim().min(1).max(1800),
   evidenceRefs:z.array(z.string().max(100)).max(24),
@@ -247,6 +247,10 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
     boundedOutput={...output,...(clarification?{actionIntent:null}:{}),answer:response.snapshot?.language.startsWith('es')
       ?clarification?'Selecciona la comida correcta o actualiza la pantalla y vuelve a indicar la cantidad.':'Puedo preparar esa corrección de cantidad para que la revises.'
       :clarification?'Select the correct food entry or refresh the screen, then state the quantity again.':'I can prepare that quantity correction for review.',followUp:null};
+  }
+  const receiptFactIds=['food.change.previousQuantity','food.change.currentQuantity'];
+  if(receiptFactIds.some(id=>boundedOutput.evidenceRefs.includes(id))&&receiptFactIds.every(id=>facts.some(fact=>fact.id===id))){
+    boundedOutput={...boundedOutput,answer:response.snapshot?.language.startsWith('es')?'El cambio aplicado aparece en los hechos verificados del recibo.':'The applied change appears in the verified receipt facts.',followUp:null,evidenceRefs:receiptFactIds,facts:receiptFactIds.map(evidenceId=>({kind:'record_fact' as const,evidenceId})),actionIntent:null};
   }
   // Questions and suggestions can also contain unsupported presuppositions.
   // Every prose field requires the independent offline oracle; no grammar bypass.
