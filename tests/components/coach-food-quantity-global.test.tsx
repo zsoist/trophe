@@ -15,7 +15,7 @@ const requestFoodQuantityMock = vi.hoisted(() => vi.fn());
 vi.mock('@/components/assistant/client', () => ({ requestConversation: requestConversationMock }));
 vi.mock('@/components/assistant/food-client', () => ({ requestFoodQuantity: requestFoodQuantityMock }));
 Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() });
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.resetAllMocks(); });
 
 it('withdraws an unconfirmed Food proposal when Ask Trophē closes without creating an action', async () => {
   const actorId = '10101010-1010-4010-8010-101010101010';
@@ -43,6 +43,57 @@ it('withdraws an unconfirmed Food proposal when Ask Trophē closes without creat
   fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
   expect(screen.queryByRole('button', { name: 'Confirm quantity change' })).toBeNull();
   expect(foodMock.mock.calls.filter(([operation]) => operation.operation === 'food.apply')).toHaveLength(0);
+  if (priorFlag === undefined) delete process.env.NEXT_PUBLIC_COACH_FOOD_ACTIONS_ENABLED;
+  else process.env.NEXT_PUBLIC_COACH_FOOD_ACTIONS_ENABLED = priorFlag;
+});
+
+it('withdraws an unconfirmed Food proposal through an explicit chat message', async () => {
+  const actorId = '11111111-aaaa-4111-8111-111111111111';
+  const entryId = '22222222-bbbb-4222-8222-222222222222';
+  const scopeKey = '7'.repeat(64);
+  const before = { loggedDate: '2026-09-09', foodName: 'Arroz', foodId: null, source: 'natural_language', sourceId: 'turn:withdraw', grams: 250, quantity: 1, calories: 500, proteinG: 10, carbsG: 100, fatG: 5, fiberG: 2, sugarG: 1 };
+  const conversation = vi.fn(async (request: CoachConversationRequest): Promise<CoachConversationResponse> => ({
+    version: 'coach-assistant.v2', conversationId: request.conversationId, turnId: request.turnId, ok: true,
+    mode: 'model', dataSource: 'authorized_records',
+    snapshot: {
+      id: crypto.randomUUID(), capturedAt: '2026-09-09T12:00:00Z', subjectId: actorId, organizationId: crypto.randomUUID(),
+      actorRole: 'client', access: 'self', scopeKey, surface: 'food', screenIncluded: true, language: 'es',
+      units: { weight: 'kg', energy: 'kcal', protein: 'g' }, window: { start: '2026-09-09', end: '2026-09-09', days: 1, timezone: 'UTC' },
+      capabilities: [{ key: 'actions', status: 'available', reason: 'reviewable_food_quantity_intent' }],
+    },
+    output: { answer: 'No guardé el cambio.', evidenceRefs: [], limitations: [], suggestions: [], escalation: { required: false, reason: null, draft: null } },
+    evidence: [], proposals: [], receipts: [], attachments: [], actionIntents: [],
+    telemetry: { model: null, provider: null, promptVersion: 'test', modelCalls: 0, dataReads: 0, tokensIn: 0, tokensOut: 0, reasoningTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, latencyMs: 1, costUsd: 0, pricingVersion: 'test' },
+  }));
+  const foodMock = vi.fn(async (operation: Record<string, unknown>) => {
+    if (operation.operation === 'food.read') return { version: 'coach-assistant.v2', storage: 'database', ok: true, snapshot: { ...before, entryId, version: '1' } };
+    if (operation.operation === 'food.propose') return { version: 'coach-assistant.v2', storage: 'database', ok: true, proposal: {
+      id: '33333333-cccc-4333-8333-333333333333', hash: '8'.repeat(64), action: 'food.quantity.update', resource: { kind: 'food_entry', id: entryId, version: '1' }, before,
+      after: { ...before, grams: 120, calories: 240, proteinG: 4.8, carbsG: 48, fatG: 2.4, fiberG: 0.96, sugarG: 0.48 },
+      expectedVersion: '1', precondition: '1', expiresAt: '2099-09-09T12:00:00Z', reviewRequired: true,
+    } };
+    return { version: 'coach-assistant.v2', storage: 'database', ok: false, error: 'invalid_input' };
+  });
+  const priorFlag = process.env.NEXT_PUBLIC_COACH_FOOD_ACTIONS_ENABLED;
+  process.env.NEXT_PUBLIC_COACH_FOOD_ACTIONS_ENABLED = '1';
+  requestConversationMock.mockImplementationOnce(conversation);
+  requestFoodQuantityMock.mockImplementation(foodMock);
+  render(<I18nProvider defaultLang="en"><GlobalCoach identity={actorId} /></I18nProvider>);
+  window.dispatchEvent(new CustomEvent('trophe:coach-food-select', { detail: { actorId, entryId } }));
+  await screen.findByText('Current entry · 250 g · 500 kcal');
+  fireEvent.change(screen.getByLabelText('Grams'), { target: { value: '120' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Review quantity change' }));
+  expect(await screen.findByRole('button', { name: 'Confirm quantity change' })).toBeTruthy();
+  const question = screen.getByRole('textbox', { name: 'Your question' });
+  expect(question.hasAttribute('disabled')).toBe(false);
+  fireEvent.change(question, { target: { value: 'No cambies nada' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
+  await screen.findByText('No guardé el cambio.');
+  expect(screen.queryByRole('button', { name: 'Confirm quantity change' })).toBeNull();
+  expect(foodMock.mock.calls.filter(([operation]) => operation.operation === 'food.apply')).toHaveLength(0);
+  window.dispatchEvent(new CustomEvent('trophe:coach-food-select', { detail: { actorId, entryId } }));
+  await waitFor(() => expect(foodMock.mock.calls.filter(([operation]) => operation.operation === 'food.read')).toHaveLength(2));
+  expect(screen.queryByRole('button', { name: 'Confirm quantity change' })).toBeNull();
   if (priorFlag === undefined) delete process.env.NEXT_PUBLIC_COACH_FOOD_ACTIONS_ENABLED;
   else process.env.NEXT_PUBLIC_COACH_FOOD_ACTIONS_ENABLED = priorFlag;
 });
@@ -134,7 +185,8 @@ it('turns an explicit Food correction into review, receipt, canonical readback a
   expect(foodMock.mock.calls[0][0]).toMatchObject({ operation: 'food.resolve', entryHintId: entryId, expectedPreviousGrams: 250 });
   expect(foodMock.mock.calls[0][0]).not.toHaveProperty('loggedDateHint');
   expect(screen.getByRole('table').textContent).toContain('250150');
-  expect(screen.getByRole('textbox', { name: 'Your question' }).hasAttribute('disabled')).toBe(true);
+  expect(screen.getByRole('textbox', { name: 'Your question' }).hasAttribute('disabled')).toBe(false);
+  expect(screen.getByRole('button', { name: 'Send question' }).hasAttribute('disabled')).toBe(true);
   expect(refresh).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole('button', { name: 'Confirm quantity change' }));
   expect(await screen.findByText('Quantity saved. Current entry refreshed.')).toBeTruthy();

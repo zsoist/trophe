@@ -75,6 +75,30 @@ const messageControllerFor = (scope: string) => {
 export type CoachContextSlot = (props: { identity: string; controller: PreferenceController; state: PreferenceState; conversationId: string; turnId: string; surface: CoachSurfaceName; response: CoachConversationResponse; transport: PreferenceTransport }) => ReactNode;
 export type CoachVoiceSlot = (props: { conversationId: string; onUse: (text: string) => boolean; onSend?: (result: Extract<CoachVoiceResult, { ok: true }>, text: string) => Promise<'sent' | 'ambiguous' | 'failed'> }) => ReactNode;
 type Props = { identity: string; subjectId?: string; professional?: boolean; example?: ConversationTransport; preferenceTransport?: PreferenceTransport; memoryTransport?: MemoryTransport; dietTransport?: DietTransport; progressTransport?: ProgressTransport; foodTransport?:FoodTransport; photoFoodTransport?:PhotoFoodTransport; workoutSetTransport?:WorkoutSetTransport; messageTransport?:MessageTransport; historyTransport?: HistoryTransport; contextSlot?: CoachContextSlot; voiceSlot?: CoachVoiceSlot; voiceTranscriptionTransport?: VoiceTranscriptionTransport; reviewedVoiceTransport?: ReviewedVoiceTransport; workspaceHint?: CoachContextHint['workspace'] };
+
+const FOOD_PROPOSAL_WITHDRAWALS = new Set([
+  "don't save",
+  'do not save',
+  'forget it',
+  'leave it unchanged',
+  'cancel this change',
+  'discard this change',
+  'no lo guardes',
+  'no guardes esto',
+  'olvidalo',
+  'no cambies nada',
+  'dejalo como estaba',
+  'cancela este cambio',
+  'descarta este cambio',
+  'μην το αποθηκευσεις',
+  'ακυρωσε αυτη την αλλαγη',
+]);
+
+function isFoodProposalWithdrawal(message: string) {
+  const normalized = message.trim().toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[.!?]+$/g, '').trim();
+  return FOOD_PROPOSAL_WITHDRAWALS.has(normalized);
+}
+
 export default function GlobalCoach(props: Props) {
   const [workoutSet] = useState(() => new WorkoutSetController());
   const foodScope = `${props.identity}:${props.subjectId ?? props.identity}`;
@@ -122,6 +146,9 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   const foodBlocked = foodState.pending || Boolean(foodState.proposal) || foodState.uncertain || Boolean(foodState.receipt && foodState.error);
   const messageBlocked = messageEnabled && (messageState.pending || Boolean(messageState.proposal) || messageState.uncertain || Boolean(messageState.receipt && messageState.error));
   const coachActionBlocked = workoutSetBlocked || foodBlocked || messageBlocked;
+  const foodProposalWithdrawal = Boolean(foodState.proposal) && isFoodProposalWithdrawal(state.draft);
+  const composerInputBlocked = workoutSetBlocked || messageBlocked || foodState.pending || foodState.uncertain || Boolean(foodState.receipt && foodState.error);
+  const composerSubmitBlocked = composerInputBlocked || Boolean(foodState.proposal) && !foodProposalWithdrawal;
   const [open, setOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [includeScreen, setIncludeScreen] = useState(true);
@@ -189,20 +216,24 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
       : {};
     return { surface, includeScreen, ...contextualSelection, ...foodReceipt, ...(includeScreen && workspaceHint ? { workspace: workspaceHint } : {}), ...(subjectId ? { clientId: subjectId } : {}) };
   };
-  const send = () => !voiceActive && !missingProfessionalSubject && !coachActionBlocked && controller.send(currentContext(), async (request, signal) => {
-    const response = await (example ?? requestConversation)(request, signal);
-    if (subjectId && subjectId !== identity && response.ok) {
-      const snapshot = response.snapshot as (typeof response.snapshot & { scopeKey?: string });
-      if (!snapshot || snapshot.subjectId !== subjectId || typeof snapshot.scopeKey !== 'string' || !snapshot.scopeKey
-        || serverScope.current && serverScope.current !== snapshot.scopeKey) throw new Error('scope_mismatch');
-      serverScope.current = snapshot.scopeKey;
-    }
-    return response;
-  }, attachments.references(), historyEnabled ? (requestId, title, signal) => {
-    const create = (historyTransport ?? requestHistory).create;
-    if (!create) return Promise.reject(new Error('history_unavailable'));
-    return create(requestId, title, signal);
-  } : undefined);
+  const send = () => {
+    if (voiceActive || missingProfessionalSubject || composerSubmitBlocked) return;
+    if (foodProposalWithdrawal) food.discard();
+    return controller.send(currentContext(), async (request, signal) => {
+      const response = await (example ?? requestConversation)(request, signal);
+      if (subjectId && subjectId !== identity && response.ok) {
+        const snapshot = response.snapshot as (typeof response.snapshot & { scopeKey?: string });
+        if (!snapshot || snapshot.subjectId !== subjectId || typeof snapshot.scopeKey !== 'string' || !snapshot.scopeKey
+          || serverScope.current && serverScope.current !== snapshot.scopeKey) throw new Error('scope_mismatch');
+        serverScope.current = snapshot.scopeKey;
+      }
+      return response;
+    }, attachments.references(), historyEnabled ? (requestId, title, signal) => {
+      const create = (historyTransport ?? requestHistory).create;
+      if (!create) return Promise.reject(new Error('history_unavailable'));
+      return create(requestId, title, signal);
+    } : undefined);
+  };
   const sendVoice = async (result: Extract<CoachVoiceResult, { ok: true }>, text: string): Promise<'sent' | 'ambiguous' | 'failed'> => {
     if (voiceActive || state.pending || coachActionBlocked || missingProfessionalSubject || subjectId && subjectId !== identity) return 'failed';
     controller.setDraft(text);
@@ -345,8 +376,8 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
         {includeScreen && selection && <button type="button" className={styles.contextToggle} onClick={() => setIncludeScreen(false)} aria-label={`${t('global_coach.remove_selection')}: ${selection.label}`}><span>{selection.label}</span><X size={16} aria-hidden="true" /></button>}
         <label className={styles.contextToggle}><input type="checkbox" checked={includeScreen} onChange={event => setIncludeScreen(event.target.checked)} />{t('global_coach.include')}<span>{t(`global_coach.${surface}`)}</span></label>
         <label className="sr-only" htmlFor="global-coach-question">{t('global_coach.question')}</label>
-        <textarea id="global-coach-question" ref={input} disabled={coachActionBlocked} maxLength={2000} rows={3} value={state.draft} onChange={event => controller.setDraft(event.target.value)} placeholder={t('global_coach.placeholder')} />
-        <div className={styles.actions}><span>{state.draft.length}/2000</span>{state.pending ? <button type="button" onClick={() => controller.cancel()}>{t('global_coach.cancel')}</button> : <button type="submit" disabled={missingProfessionalSubject || state.recoveryRequired || !state.draft.trim() || attachmentState.pending || voiceActive || coachActionBlocked}><Send size={17} aria-hidden="true" />{t('global_coach.send')}</button>}</div>
+        <textarea id="global-coach-question" ref={input} disabled={composerInputBlocked} maxLength={2000} rows={3} value={state.draft} onChange={event => controller.setDraft(event.target.value)} placeholder={t('global_coach.placeholder')} />
+        <div className={styles.actions}><span>{state.draft.length}/2000</span>{state.pending ? <button type="button" onClick={() => controller.cancel()}>{t('global_coach.cancel')}</button> : <button type="submit" disabled={missingProfessionalSubject || state.recoveryRequired || !state.draft.trim() || attachmentState.pending || voiceActive || composerSubmitBlocked}><Send size={17} aria-hidden="true" />{t('global_coach.send')}</button>}</div>
       </form>
     </section>}
   </div>;
