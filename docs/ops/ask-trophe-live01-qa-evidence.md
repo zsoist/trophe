@@ -5,7 +5,8 @@ Captured 2026-09-08 and reconciled 2026-09-09 for branch
 `a5db89ef850d195d2d2c0037bee6a08f3b447d00`; the reviewed Luna transport
 candidate is SHA `f51e3dd97cca5b476cfb81e691567b72537509ca`. The branch
 includes the LIVE-01 route, durable budget authority, redacted provider-failure
-persistence, and the compatibility corrections described below.
+persistence, closed output-rejection diagnostics, and the compatibility
+corrections described below.
 
 ## Destination and isolation
 
@@ -57,9 +58,10 @@ chain succeeded.
 - allowed actor count: `1`
 - daily hard cap: `3000000000` nano-USD (USD 3.00)
 - initial operating target: `500000000` nano-USD (USD 0.50)
-- charged after the three authorized provider attempts: `13200000` nano-USD
-  (USD 0.0132)
-- attempts: `3`
+- charged after four authorized provider attempts: `13827500` nano-USD
+  (USD 0.0138275): three unresolved USD 0.0044 holds plus one settled
+  USD 0.0006275 charge
+- attempts: `4`
 - accounting blocked: `false`
 
 Direct reads as `anon` and `authenticated` both returned permission denied.
@@ -93,17 +95,18 @@ The following ten variables exist specifically for Preview branch
 
 The database URL and actor allowlist are Vercel Secrets. The existing Preview
 OpenAI key was reused without reading its value. The latest provider-tested
-Preview is deployment `dpl_2AFFtLnrETJxJDYf6fof2UWbveXk`, URL
-`https://trophe-25fzl000w-2p6y54z6w9-4465s-projects.vercel.app`, for SHA
-`afacb5c3b4aa70893d2e0c5433deb58ed7666dd5`. The reviewed Responses transport
-candidate has not yet been deployed or sent to the provider.
+Preview is deployment `dpl_4X2aKetvcrtHaLZcYztQkV5n8sr9`, URL
+`https://trophe-jc8uwa3ed-2p6y54z6w9-4465s-projects.vercel.app`, for SHA
+`51286a8c620f23bde465e22cc7cd838925d0057b`. That deployment contains the
+reviewed Responses transport.
 
 ## Authorized provider attempts
 
-Three separately authorized, single-attempt requests reached OpenAI through the
-governed QA route. None was retried or fell back to another provider.
-All three stopped before token usage and retained the full USD 0.0044 reservation
-per attempt as `unknown`.
+Four separately authorized, single-attempt requests reached OpenAI through the
+governed QA route. None was retried or fell back to another provider. The first
+three stopped before token usage and retained the full USD 0.0044 reservation
+per attempt as `unknown`. The fourth returned measured usage and settled its
+reservation to the measured USD 0.0006275 cost.
 
 The first attempt predated durable provider diagnostics. Its final immutable
 artifact is
@@ -181,11 +184,42 @@ calls, incomplete output, invalid JSON, and schema-invalid arguments. AG4
 approved this exact candidate for code integration. This is OFFLINE evidence;
 it does not yet prove provider success.
 
+The fourth attempt ran from reviewed SHA
+`51286a8c620f23bde465e22cc7cd838925d0057b` and deployment
+`dpl_4X2aKetvcrtHaLZcYztQkV5n8sr9`. The Responses transport reached Luna and
+returned measured usage, then the application rejected the generated candidate
+as `invalid_output` before exposing text or creating an action:
+
+- conversation: `211f69ef-a3c4-44c7-89ab-5d5690a42ed8`
+- turn: `841e11a5-611c-421d-972e-3fcf19eddaec`
+- attempt: `3b15e065-c7fa-46f6-82c0-3b3d7d51ad02`
+- agent run: `28ce15b9-7cfe-4a67-8134-f3ba0fe38137`
+- application HTTP status: `503`; application error: `invalid_output`
+- model calls: `1`; retries/fallbacks: `0/0`
+- input/output/reasoning tokens: `1211/276/130`
+- cache read/write tokens: `0/1082`
+- measured cost: `627500` nano-USD (USD `0.0006275`)
+- ledger state: `settled`; accounting alert: `false`
+- intent/proposal/receipt counts: `0/0/0`
+
+The provider response body, returned model, provider request id, and exact
+post-generation rejection stage were not retained. The run therefore proves
+the corrected Responses transport and measured accounting, but not the Food
+correction behavior. Its final immutable artifact is
+`control/ag3/live01-qa-smoke4-211f69ef-a3c4-44c7-89ab-5d5690a42ed8.final.v1.json`,
+SHA-256
+`b2b58a6f9b45e5a95bcb7e196be68dac517ccd76e55c406e47f74df05a54f66e`.
+Its manifest is
+`control/ag3/live01-qa-smoke4-211f69ef-a3c4-44c7-89ab-5d5690a42ed8.manifest.json`,
+SHA-256
+`ea7d892f273f85b55a726339adc343df3a471caf90d5405ef4e0cb5b9bf8a4de`.
+Both files parse as JSON and preserve only bounded evidence.
+
 The Food entry remains at `250 g`, revision `1`; durable proposal and receipt
-counts remain zero. Daniel authorized one fourth single-attempt QA smoke through
-the coordinator, conditional on AG4 PASS, a Ready deployment of the corrected
-wire contract, and reconciliation of the third reservation. Those conditions
-do not authorize a fifth attempt or any production action.
+counts remain zero. The next observable slice adds a closed rejection-stage
+code to server logs without retaining candidate text, provider output, or user
+data. That diagnostic changes no public API, model policy, action authority, or
+budget behavior.
 
 Future provider failures may also retain `error.param` when it exactly matches
 the closed request-field allowlist. Arbitrary paths and provider messages remain
