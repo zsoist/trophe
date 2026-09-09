@@ -58,10 +58,10 @@ chain succeeded.
 - allowed actor count: `1`
 - daily hard cap: `3000000000` nano-USD (USD 3.00)
 - initial operating target: `500000000` nano-USD (USD 0.50)
-- charged after four authorized provider attempts: `13827500` nano-USD
-  (USD 0.0138275): three unresolved USD 0.0044 holds plus one settled
-  USD 0.0006275 charge
-- attempts: `4`
+- charged after five authorized provider attempts: `14188140` nano-USD
+  (USD 0.01418814): three unresolved USD 0.0044 holds plus two settled
+  charges totaling USD 0.00098814
+- attempts: `5`
 - accounting blocked: `false`
 
 Direct reads as `anon` and `authenticated` both returned permission denied.
@@ -95,18 +95,18 @@ The following ten variables exist specifically for Preview branch
 
 The database URL and actor allowlist are Vercel Secrets. The existing Preview
 OpenAI key was reused without reading its value. The latest provider-tested
-Preview is deployment `dpl_4X2aKetvcrtHaLZcYztQkV5n8sr9`, URL
-`https://trophe-jc8uwa3ed-2p6y54z6w9-4465s-projects.vercel.app`, for SHA
-`51286a8c620f23bde465e22cc7cd838925d0057b`. That deployment contains the
-reviewed Responses transport.
+Preview is deployment `dpl_5aGvovpAwaoeV7J4zy9oYZZv5piL`, URL
+`https://trophe-5xlqi844u-2p6y54z6w9-4465s-projects.vercel.app`, for SHA
+`c412d8a1834b51d36a73d6c279dfaf5646d4fc8c`. That deployment contains the
+reviewed Responses transport and closed output-rejection diagnostics.
 
 ## Authorized provider attempts
 
-Four separately authorized, single-attempt requests reached OpenAI through the
+Five separately authorized, single-attempt requests reached OpenAI through the
 governed QA route. None was retried or fell back to another provider. The first
 three stopped before token usage and retained the full USD 0.0044 reservation
-per attempt as `unknown`. The fourth returned measured usage and settled its
-reservation to the measured USD 0.0006275 cost.
+per attempt as `unknown`. The fourth and fifth returned measured usage and
+settled their reservations to measured cost.
 
 The first attempt predated durable provider diagnostics. Its final immutable
 artifact is
@@ -215,11 +215,42 @@ SHA-256
 `ea7d892f273f85b55a726339adc343df3a471caf90d5405ef4e0cb5b9bf8a4de`.
 Both files parse as JSON and preserve only bounded evidence.
 
+The fifth attempt ran from reviewed SHA
+`c412d8a1834b51d36a73d6c279dfaf5646d4fc8c` and deployment
+`dpl_5aGvovpAwaoeV7J4zy9oYZZv5piL`. It proved that the closed diagnostic works:
+the candidate was rejected specifically at `numeric_prose`, with no candidate
+text retained in logs or artifacts.
+
+- conversation: `5b1f926b-ea09-43b3-8e92-8ced8752be2f`
+- turn: `83e51e12-36c5-4b26-b06d-8f08a8e73016`
+- attempt: `f13efcbc-bb15-4042-919f-786dbc250105`
+- agent run: `0a2008cc-a144-4db0-80fc-e3ee06728c74`
+- application HTTP status: `503`; application error: `invalid_output`
+- closed rejection stage: `numeric_prose`
+- model calls: `1`; retries/fallbacks: `0/0`
+- input/output/reasoning tokens: `1211/261/130`
+- cache read/write tokens: `1082/0`
+- measured cost: `360640` nano-USD (USD `0.00036064`)
+- ledger state: `settled`; accounting alert: `false`
+- intent/proposal/receipt counts: `0/0/0`
+
+Its final immutable artifact is
+`control/ag3/live01-qa-smoke5-5b1f926b-ea09-43b3-8e92-8ced8752be2f.final.v1.json`,
+SHA-256
+`640f238f0586210390cd1f02d14e55d2577c934fbe2b6546714cdb41b35e89cf`.
+Its manifest is
+`control/ag3/live01-qa-smoke5-5b1f926b-ea09-43b3-8e92-8ced8752be2f.manifest.json`,
+SHA-256
+`c990e197d2ef1264b9b9a5fc7d517d9d77c92338632c9e89471a056251a1730f`.
+Both files parse as JSON and preserve only bounded evidence.
+
 The Food entry remains at `250 g`, revision `1`; durable proposal and receipt
-counts remain zero. The next observable slice adds a closed rejection-stage
-code to server logs without retaining candidate text, provider output, or user
-data. That diagnostic changes no public API, model policy, action authority, or
-budget behavior.
+counts remain zero. The corrective slice keeps Luna responsible for selecting
+the typed Food action and validates its old/new quantities against the exact
+server-bound target. Only for that valid action path, user-facing answer and
+follow-up copy become deterministic before the numeric-prose guard. General
+answers, evidence references, the independent review gate, explicit user
+confirmation, writer authority, and receipt behavior remain unchanged.
 
 Future provider failures may also retain `error.param` when it exactly matches
 the closed request-field allowlist. Arbitrary paths and provider messages remain
