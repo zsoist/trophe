@@ -1,10 +1,11 @@
 # Ask Trophē LIVE-01 QA evidence
 
-Captured 2026-09-08 for branch `codex/ag1-live01-integration`. The reviewed
-strict-schema implementation is SHA
-`a5db89ef850d195d2d2c0037bee6a08f3b447d00`. The branch includes the LIVE-01
-route, durable budget authority, redacted provider-failure persistence, and the
-compatibility correction described below.
+Captured 2026-09-08 and reconciled 2026-09-09 for branch
+`codex/ag1-live01-integration`. The reviewed strict-schema implementation is SHA
+`a5db89ef850d195d2d2c0037bee6a08f3b447d00`; the reviewed Luna transport
+candidate is SHA `f51e3dd97cca5b476cfb81e691567b72537509ca`. The branch
+includes the LIVE-01 route, durable budget authority, redacted provider-failure
+persistence, and the compatibility corrections described below.
 
 ## Destination and isolation
 
@@ -56,9 +57,9 @@ chain succeeded.
 - allowed actor count: `1`
 - daily hard cap: `3000000000` nano-USD (USD 3.00)
 - initial operating target: `500000000` nano-USD (USD 0.50)
-- charged after the two authorized provider attempts: `8800000` nano-USD
-  (USD 0.0088)
-- attempts: `2`
+- charged after the three authorized provider attempts: `13200000` nano-USD
+  (USD 0.0132)
+- attempts: `3`
 - accounting blocked: `false`
 
 Direct reads as `anon` and `authenticated` both returned permission denied.
@@ -91,17 +92,18 @@ The following ten variables exist specifically for Preview branch
 - `NEXT_PUBLIC_COACH_FOOD_ACTIONS_ENABLED`
 
 The database URL and actor allowlist are Vercel Secrets. The existing Preview
-OpenAI key was reused without reading its value. The current corrected Preview
-is deployment `dpl_EMemakXg3xrM9ecKTGxCcsD9imUk`, URL
-`https://trophe-71rgcn5l5-2p6y54z6w9-4465s-projects.vercel.app`. It is a
-code-readiness deployment; no provider request has been made from it.
+OpenAI key was reused without reading its value. The latest provider-tested
+Preview is deployment `dpl_2AFFtLnrETJxJDYf6fof2UWbveXk`, URL
+`https://trophe-25fzl000w-2p6y54z6w9-4465s-projects.vercel.app`, for SHA
+`afacb5c3b4aa70893d2e0c5433deb58ed7666dd5`. The reviewed Responses transport
+candidate has not yet been deployed or sent to the provider.
 
 ## Authorized provider attempts
 
-Two separately authorized, single-attempt requests reached OpenAI through the
-governed QA route. Neither request was retried or fell back to another provider.
-Both stopped before token usage and retained the full USD 0.0044 reservation as
-`unknown`.
+Three separately authorized, single-attempt requests reached OpenAI through the
+governed QA route. None was retried or fell back to another provider.
+All three stopped before token usage and retained the full USD 0.0044 reservation
+per attempt as `unknown`.
 
 The first attempt predated durable provider diagnostics. Its final immutable
 artifact is
@@ -134,9 +136,45 @@ keeps `actionIntent` nullable, and leaves the runtime Zod validator and review
 authority unchanged. Sixty-seven focused tests, typecheck, focused ESLint, and
 the full CI workflow passed. AG4 approved the integrated correction for review.
 
+The third attempt ran from reviewed SHA
+`afacb5c3b4aa70893d2e0c5433deb58ed7666dd5` and deployment
+`dpl_2AFFtLnrETJxJDYf6fof2UWbveXk`. It persisted this bounded diagnostic:
+
+- conversation: `bcc41000-0e28-4952-85aa-b9debff923f5`
+- turn: `2ff1ba24-10c9-4505-884f-311319cf5e9b`
+- attempt: `96b71731-97b1-4f49-842d-c00be4062787`
+- agent run: `cc91d3e0-6a41-48ec-80a3-8883468f1fba`
+- application HTTP status: `503`
+- provider HTTP status: `400`
+- provider type: `invalid_request_error`
+- rejected parameter: `reasoning_effort`
+- provider request id: `req_d2e84946cd544708b477e1d3cabcc1ba`
+- model calls: `1`; retries/fallbacks: `0/0`
+- usage: absent; input/output/reasoning tokens: `0/0/0`
+- intent/proposal/receipt counts: `0/0/0`
+
+This response established that the deployed Chat Completions wire contract was
+rejected before generation. It did not prove that the model, strict schema, or
+Food action semantics were invalid. The provider message was not retained and
+the closed diagnostic allowlist stored only the parameter name.
+
+SHA `f51e3dd97cca5b476cfb81e691567b72537509ca` routes only exact
+`gpt-5.6-luna` structured calls through the OpenAI Responses endpoint. It keeps
+the frozen `low` reasoning policy, the 2,000-token bound, one transport attempt,
+`store: false`, the stable prompt-cache key, the forced strict function, the
+existing Zod validator, abort behavior, paid-attempt debit, and error
+redaction. Other OpenAI models and Mistral remain on Chat Completions. The
+Responses parser requires one completed named function call, permits only
+opaque reasoning siblings, and rejects text, refusals, missing or multiple
+calls, incomplete output, invalid JSON, and schema-invalid arguments. AG4
+approved this exact candidate for code integration. This is OFFLINE evidence;
+it does not yet prove provider success.
+
 The Food entry remains at `250 g`, revision `1`; durable proposal and receipt
-counts remain zero. A new paid provider attempt requires a new explicit
-authorization.
+counts remain zero. Daniel authorized one fourth single-attempt QA smoke through
+the coordinator, conditional on AG4 PASS, a Ready deployment of the corrected
+wire contract, and reconciliation of the third reservation. Those conditions
+do not authorize a fifth attempt or any production action.
 
 Future provider failures may also retain `error.param` when it exactly matches
 the closed request-field allowlist. Arbitrary paths and provider messages remain
