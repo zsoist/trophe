@@ -17,6 +17,36 @@ vi.mock('@/components/assistant/food-client', () => ({ requestFoodQuantity: requ
 Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() });
 afterEach(cleanup);
 
+it('withdraws an unconfirmed Food proposal when Ask Trophē closes without creating an action', async () => {
+  const actorId = '10101010-1010-4010-8010-101010101010';
+  const entryId = '20202020-2020-4020-8020-202020202020';
+  const before = { loggedDate: '2026-09-09', foodName: 'Arroz', foodId: null, source: 'natural_language', sourceId: 'turn:close', grams: 250, quantity: 1, calories: 500, proteinG: 10, carbsG: 100, fatG: 5, fiberG: 2, sugarG: 1 };
+  const foodMock = vi.fn(async (operation: Record<string, unknown>) => {
+    if (operation.operation === 'food.read') return { version: 'coach-assistant.v2', storage: 'database', ok: true, snapshot: { ...before, entryId, version: '1' } };
+    if (operation.operation === 'food.propose') return { version: 'coach-assistant.v2', storage: 'database', ok: true, proposal: {
+      id: '30303030-3030-4030-8030-303030303030', hash: '3'.repeat(64), action: 'food.quantity.update', resource: { kind: 'food_entry', id: entryId, version: '1' }, before,
+      after: { ...before, grams: 150, calories: 300, proteinG: 6, carbsG: 60, fatG: 3, fiberG: 1.2, sugarG: 0.6 },
+      expectedVersion: '1', precondition: '1', expiresAt: '2099-09-09T12:00:00Z', reviewRequired: true,
+    } };
+    return { version: 'coach-assistant.v2', storage: 'database', ok: false, error: 'invalid_input' };
+  });
+  requestFoodQuantityMock.mockImplementation(foodMock);
+  const priorFlag = process.env.NEXT_PUBLIC_COACH_FOOD_ACTIONS_ENABLED;
+  process.env.NEXT_PUBLIC_COACH_FOOD_ACTIONS_ENABLED = '1';
+  render(<I18nProvider defaultLang="en"><GlobalCoach identity={actorId} /></I18nProvider>);
+  window.dispatchEvent(new CustomEvent('trophe:coach-food-select', { detail: { actorId, entryId } }));
+  await screen.findByText('Current entry · 250 g · 500 kcal');
+  fireEvent.change(screen.getByLabelText('Grams'), { target: { value: '150' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Review quantity change' }));
+  expect(await screen.findByRole('button', { name: 'Confirm quantity change' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Close Ask Trophē' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
+  expect(screen.queryByRole('button', { name: 'Confirm quantity change' })).toBeNull();
+  expect(foodMock.mock.calls.filter(([operation]) => operation.operation === 'food.apply')).toHaveLength(0);
+  if (priorFlag === undefined) delete process.env.NEXT_PUBLIC_COACH_FOOD_ACTIONS_ENABLED;
+  else process.env.NEXT_PUBLIC_COACH_FOOD_ACTIONS_ENABLED = priorFlag;
+});
+
 it('keeps the authorized contextual Food selection when the model omits its entry hint', async () => {
   const actorId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
   const entryId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
