@@ -1,12 +1,13 @@
 # Ask Trophē LIVE-01 QA evidence
 
 Captured 2026-09-08 and reconciled 2026-09-09 for branch
-`codex/ag1-live01-integration`. The reviewed strict-schema implementation is SHA
-`a5db89ef850d195d2d2c0037bee6a08f3b447d00`; the reviewed Luna transport
-candidate is SHA `f51e3dd97cca5b476cfb81e691567b72537509ca`. The branch
-includes the LIVE-01 route, durable budget authority, redacted provider-failure
-persistence, closed output-rejection diagnostics, and the compatibility
-corrections described below.
+`codex/ag1-live01-integration`. The mounted journey fixes are SHAs
+`f654052fe5eb4f23d733bf63552a23f7089f05b4`,
+`f0fc4052692a6447dc4f9f6d347e8f71238b625b`, and
+`e47db1f74bbe8860b6a5f8c5d617a942f2b1a4f4`. The branch includes the
+LIVE-01 route, durable budget authority, redacted provider-failure persistence,
+closed output-rejection diagnostics, and the contextual Food corrections
+described below.
 
 ## Destination and isolation
 
@@ -58,10 +59,10 @@ chain succeeded.
 - allowed actor count: `1`
 - daily hard cap: `3000000000` nano-USD (USD 3.00)
 - initial operating target: `500000000` nano-USD (USD 0.50)
-- charged after six authorized provider attempts: `14475580` nano-USD
-  (USD 0.01447558): three unresolved USD 0.0044 holds plus three settled
-  charges totaling USD 0.00127558
-- attempts: `6`
+- charged after ten authorized provider attempts: `16345420` nano-USD
+  (USD 0.01634542): three unresolved USD 0.0044 holds plus seven settled
+  charges totaling USD 0.00314542
+- attempts: `10`
 - accounting blocked: `false`
 
 Direct reads as `anon` and `authenticated` both returned permission denied.
@@ -79,7 +80,7 @@ the browser has no ledger access.
 
 ## Vercel Preview binding
 
-The following ten variables exist specifically for Preview branch
+The following eleven variables exist specifically for Preview branch
 `codex/ag1-live01-integration`:
 
 - `DATABASE_URL`
@@ -92,22 +93,22 @@ The following ten variables exist specifically for Preview branch
 - `COACH_ASSISTANT_DATA_SOURCE`
 - `COACH_ASSISTANT_FOOD_ACTIONS_ENABLED`
 - `NEXT_PUBLIC_COACH_FOOD_ACTIONS_ENABLED`
+- `NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED`
 
 The database URL and actor allowlist are Vercel Secrets. The existing Preview
-OpenAI key was reused without reading its value. The latest provider-tested
-Preview is deployment `dpl_5aGvovpAwaoeV7J4zy9oYZZv5piL`, URL
-`https://trophe-alupf55n4-2p6y54z6w9-4465s-projects.vercel.app`, for SHA
-`77dd45b19f782923bff124c097380fe504d62ec9`. The deployment id is
-`dpl_EnzvXhxtQsiRBX9F9qiKn7tA8oMp`. It contains the reviewed Responses
-transport, closed output-rejection diagnostics, and deterministic Food action
-review copy.
+OpenAI key was reused without reading its value. The mounted provider-tested
+Preview is deployment `dpl_77bqzk44ysqVZKaqetxhVJ2aZ6y9`, URL
+`https://trophe-8k36fdyjc-2p6y54z6w9-4465s-projects.vercel.app`, for SHA
+`e47db1f74bbe8860b6a5f8c5d617a942f2b1a4f4`. It contains the reviewed
+Responses transport, deterministic Food action review copy, and the three
+context-binding corrections used by the mounted journey.
 
 ## Authorized provider attempts
 
-Six separately authorized, single-attempt requests reached OpenAI through the
+Ten separately authorized, single-attempt requests reached OpenAI through the
 governed QA route. None was retried or fell back to another provider. The first
 three stopped before token usage and retained the full USD 0.0044 reservation
-per attempt as `unknown`. The fourth through sixth returned measured usage and
+per attempt as `unknown`. The fourth through tenth returned measured usage and
 settled their reservations to measured cost.
 
 The first attempt predated durable provider diagnostics. Its final immutable
@@ -283,6 +284,138 @@ Its manifest is
 `control/ag3/live01-qa-smoke6-aac8bdad-84e7-42ae-8832-275c22144a12.manifest.json`,
 SHA-256
 `39e79998322311e41b144aaeaea19a3f6ea2ff489f928f36ffbd61181210c1f6`.
+
+## Mounted Food journey, attempts seven through ten
+
+A second fixed QA entry exercised the real Food screen and the mounted global
+Ask Trophē panel:
+
+- entry: `00000000-0000-4000-8000-000000000151`
+- date and meal: `2026-09-08`, Lunch
+- label: `Arroz integral cocido · LIVE-01 APP7`
+- starting state: `250 g`, `310 kcal`, resource version `1`
+- requested correction: `Fueron 150 gramos, no 250`
+
+Attempt seven returned a valid Luna Food action intent but omitted the optional
+entry hint. The mounted UI then combined that intent with the snapshot window
+end date instead of the already-authorized entry selected on the Food screen.
+Resolution returned `not_found`; no proposal, receipt, or Food mutation was
+created. Its settled provider record is:
+
+- turn: `fcca6b67-0e1b-456e-9822-828f2641eaaa`
+- attempt: `beda3c95-3237-43c8-9a6d-13cab09152f9`
+- agent run: `af89c810-bb21-4bf8-8c5a-54d01a9d439a`
+- provider request: `req_8fd50abecdcf4740bf2090c602762e64`
+- input/output/reasoning tokens: `1233/238/127`
+- cache read/write tokens: `0/1104`
+- measured cost: `587400` nano-USD
+
+SHA `f654052fe5eb4f23d733bf63552a23f7089f05b4` preserves the selected,
+authenticated Food entry when the valid provider intent omits its optional
+entry hint and the selected grams match the provider's stated previous grams.
+The focused regression proves that a different or stale quantity is not
+silently adopted.
+
+Attempt eight exercised that correction. Luna completed and settled, but the
+candidate was rejected at the closed `numeric_prose` gate. The provider request
+still lacked the selected meal as structured screen context, so the model had
+to infer the target from prose. No proposal, receipt, or Food mutation was
+created.
+
+- turn: `a6fd9843-cbb6-43e7-bb22-cb0b89703bfd`
+- attempt: `fa441e82-da7f-4ec8-a3b6-fe830074d992`
+- agent run: `e458c6fc-bc25-4d81-a4c0-3d5a889525c8`
+- provider request: `req_01544fd8f84c4e3a9b047aba56c5173b`
+- input/output/reasoning tokens: `1233/321/175`
+- cache read/write tokens: `1104/0`
+- measured cost: `433080` nano-USD
+
+SHA `f0fc4052692a6447dc4f9f6d347e8f71238b625b` sends the already-authorized
+Food selection as the current `meal` entity when screen context is enabled.
+This adds the missing selection identity to the provider request without
+granting the model writer authority.
+
+Attempt nine returned a valid Luna intent. Food resolution received both the
+correct entry id and the unrelated snapshot window end date. The service
+correctly found the entry by id, then failed closed because the returned entry
+date did not match the redundant date hint. No proposal, receipt, or Food
+mutation was created.
+
+- turn: `4fe89aea-4beb-4b39-b9bd-b1a92d0c47d3`
+- attempt: `ed225f26-1cfe-4afa-b0c2-ce41632a176d`
+- agent run: `aec7c978-a981-41d3-8518-1bea4bdefebc`
+- provider request: `req_a2a76e399970466386139a121efa9aa7`
+- input/output/reasoning tokens: `1233/361/204`
+- cache read/write tokens: `1104/0`
+- measured cost: `481080` nano-USD
+
+SHA `e47db1f74bbe8860b6a5f8c5d617a942f2b1a4f4` gives the exact selected
+entry id precedence and omits the date hint when that identity is available.
+The regression suite locks this request envelope and the pre-existing
+fail-closed behavior for ambiguous or stale selections.
+
+Attempt ten then completed the mounted inference and review boundary on that
+exact SHA. The Food page selection was visible before the single send. Luna
+returned one valid review-required action intent, `food.resolve` returned 200,
+and `food.propose` returned 200. The mounted panel displayed the deterministic
+answer and a before/after table for grams, calories, protein, carbohydrates,
+fat, fiber, and sugar.
+
+- conversation: `90b04e22-1402-4b64-ab4f-cf2450f64390`
+- turn: `9dfe3244-98bc-446b-9d52-60de486b2d63`
+- attempt: `ff192410-e113-4ab3-bf0e-9b8cb9cbd33b`
+- agent run: `1fc0e0e9-9c1b-4af0-94e8-786b95816e2d`
+- provider request: `req_d8de28ff43854d6ebfbe54a4db66b4da`
+- input/output/reasoning tokens: `1233/267/120`
+- cache read/write tokens: `1104/0`
+- measured cost: `368280` nano-USD
+- proposal: `cc3f4025-5554-4490-8d81-0897cbd0b601`
+- proposal hash:
+  `30b37c9340acdf9e676222fdfe8b1da0db6da7a71c4a49f8bd4b00dbb12fc3f0`
+- proposed change: `250 g` to `150 g`, resource version `1`
+- writer activity before review: zero receipts and Food unchanged at `250 g`
+
+The browser automation process restarted after the proposal screenshot and
+before the confirmation click. The proposal expired at
+`2026-09-09T06:56:59.885Z` without a receipt or mutation. It was not replayed,
+extended, or represented as a completed end-to-end journey.
+
+The writer boundary was then exercised separately from the same mounted
+deployment without another provider request. The user-visible entry action
+opened Ask Trophē, loaded the exact `250 g` entry, created a fresh before/after
+review for `150 g`, and required an explicit click on `Confirm quantity change`.
+That click produced one apply response, one read response, one durable receipt,
+and a mounted Food refetch:
+
+- manual review conversation: `9bdfae95-eca4-4b14-9157-c5af10675634`
+- proposal: `040d9841-f3c5-4863-9810-fd69c5b5be26`
+- confirmed action: `904af74d-649f-435b-b6c7-7cd73740bc30`
+- receipt: `a815886a-3a33-401a-8436-fd4d778dca5b`, status `applied`
+- persisted result: `150 g`, `186 kcal`, `3.9 g` protein, `38.4 g`
+  carbohydrates, `1.5 g` fat, `2.7 g` fiber, `0.5 g` sugar
+- resource version: `1` to `2`
+- mounted Lunch total: `496` to `372` kcal after refetch
+- additional provider calls: `0`; ledger remains at `10` attempts
+
+This split evidence proves the mounted model-to-proposal path and the mounted
+review-to-write-to-readback path. It does not claim that attempt ten itself was
+confirmed after the browser restart.
+
+- mounted attempt-ten proposal screenshot:
+  `control/ag1/live01-mounted-app10-proposal.final.v1.png`, SHA-256
+  `8d315a97fe89788299adcc7a1a272896432f7f035de87b74ed01a8973f96b608`
+- mounted manual review screenshot:
+  `control/ag1/live01-mounted-manual-review.final.v1.png`, SHA-256
+  `5fe2864f3364687a363fb804d6ed5f05791bb38cdfb0d913550ea8588683b527`
+- mounted receipt and Food readback screenshot:
+  `control/ag1/live01-mounted-confirm-readback.final.v1.png`, SHA-256
+  `68a502452bff4d8349d645b3d93317e115076f9a52445dd2a9cf5aa50d8492e7`
+- bounded evidence:
+  `control/ag1/live01-mounted-food-closure.final.v1.json`, SHA-256
+  `a8a0df37223363debbdd45e17c38926bce356c1f4900af22344d0e79d12a0d9e`
+- manifest:
+  `control/ag1/live01-mounted-food-closure.manifest.json`, SHA-256
+  `8037811b36dd94e135e63365572e00505fdba9913a5ab74e577e0312883e2b83`
 
 ## Visible QA readback
 
