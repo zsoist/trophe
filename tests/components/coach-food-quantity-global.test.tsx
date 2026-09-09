@@ -47,9 +47,10 @@ it('withdraws an unconfirmed Food proposal when Ask Trophē closes without creat
   else process.env.NEXT_PUBLIC_COACH_FOOD_ACTIONS_ENABLED = priorFlag;
 });
 
-it('withdraws an unconfirmed Food proposal through an explicit chat message', async () => {
-  const actorId = '11111111-aaaa-4111-8111-111111111111';
-  const entryId = '22222222-bbbb-4222-8222-222222222222';
+it.each([
+  ['natural withdrawal', '11111111-aaaa-4111-8111-111111111111', '22222222-bbbb-4222-8222-222222222222', 'Olvídalo, no cambies nada'],
+  ['corrected referent', '44444444-dddd-4444-8444-444444444444', '55555555-eeee-4555-8555-555555555555', 'No, me refería a otra comida'],
+])('invalidates an unconfirmed Food proposal before a new chat turn: %s', async (_case, actorId, entryId, message) => {
   const scopeKey = '7'.repeat(64);
   const before = { loggedDate: '2026-09-09', foodName: 'Arroz', foodId: null, source: 'natural_language', sourceId: 'turn:withdraw', grams: 250, quantity: 1, calories: 500, proteinG: 10, carbsG: 100, fatG: 5, fiberG: 2, sugarG: 1 };
   const conversation = vi.fn(async (request: CoachConversationRequest): Promise<CoachConversationResponse> => ({
@@ -86,7 +87,7 @@ it('withdraws an unconfirmed Food proposal through an explicit chat message', as
   expect(await screen.findByRole('button', { name: 'Confirm quantity change' })).toBeTruthy();
   const question = screen.getByRole('textbox', { name: 'Your question' });
   expect(question.hasAttribute('disabled')).toBe(false);
-  fireEvent.change(question, { target: { value: 'No cambies nada' } });
+  fireEvent.change(question, { target: { value: message } });
   fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
   await screen.findByText('No guardé el cambio.');
   expect(screen.queryByRole('button', { name: 'Confirm quantity change' })).toBeNull();

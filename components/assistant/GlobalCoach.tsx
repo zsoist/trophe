@@ -76,29 +76,6 @@ export type CoachContextSlot = (props: { identity: string; controller: Preferenc
 export type CoachVoiceSlot = (props: { conversationId: string; onUse: (text: string) => boolean; onSend?: (result: Extract<CoachVoiceResult, { ok: true }>, text: string) => Promise<'sent' | 'ambiguous' | 'failed'> }) => ReactNode;
 type Props = { identity: string; subjectId?: string; professional?: boolean; example?: ConversationTransport; preferenceTransport?: PreferenceTransport; memoryTransport?: MemoryTransport; dietTransport?: DietTransport; progressTransport?: ProgressTransport; foodTransport?:FoodTransport; photoFoodTransport?:PhotoFoodTransport; workoutSetTransport?:WorkoutSetTransport; messageTransport?:MessageTransport; historyTransport?: HistoryTransport; contextSlot?: CoachContextSlot; voiceSlot?: CoachVoiceSlot; voiceTranscriptionTransport?: VoiceTranscriptionTransport; reviewedVoiceTransport?: ReviewedVoiceTransport; workspaceHint?: CoachContextHint['workspace'] };
 
-const FOOD_PROPOSAL_WITHDRAWALS = new Set([
-  "don't save",
-  'do not save',
-  'forget it',
-  'leave it unchanged',
-  'cancel this change',
-  'discard this change',
-  'no lo guardes',
-  'no guardes esto',
-  'olvidalo',
-  'no cambies nada',
-  'dejalo como estaba',
-  'cancela este cambio',
-  'descarta este cambio',
-  'μην το αποθηκευσεις',
-  'ακυρωσε αυτη την αλλαγη',
-]);
-
-function isFoodProposalWithdrawal(message: string) {
-  const normalized = message.trim().toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[.!?]+$/g, '').trim();
-  return FOOD_PROPOSAL_WITHDRAWALS.has(normalized);
-}
-
 export default function GlobalCoach(props: Props) {
   const [workoutSet] = useState(() => new WorkoutSetController());
   const foodScope = `${props.identity}:${props.subjectId ?? props.identity}`;
@@ -146,9 +123,8 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   const foodBlocked = foodState.pending || Boolean(foodState.proposal) || foodState.uncertain || Boolean(foodState.receipt && foodState.error);
   const messageBlocked = messageEnabled && (messageState.pending || Boolean(messageState.proposal) || messageState.uncertain || Boolean(messageState.receipt && messageState.error));
   const coachActionBlocked = workoutSetBlocked || foodBlocked || messageBlocked;
-  const foodProposalWithdrawal = Boolean(foodState.proposal) && isFoodProposalWithdrawal(state.draft);
   const composerInputBlocked = workoutSetBlocked || messageBlocked || foodState.pending || foodState.uncertain || Boolean(foodState.receipt && foodState.error);
-  const composerSubmitBlocked = composerInputBlocked || Boolean(foodState.proposal) && !foodProposalWithdrawal;
+  const composerSubmitBlocked = composerInputBlocked;
   const [open, setOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [includeScreen, setIncludeScreen] = useState(true);
@@ -218,7 +194,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   };
   const send = () => {
     if (voiceActive || missingProfessionalSubject || composerSubmitBlocked) return;
-    if (foodProposalWithdrawal) food.discard();
+    if (foodState.proposal) food.discard();
     return controller.send(currentContext(), async (request, signal) => {
       const response = await (example ?? requestConversation)(request, signal);
       if (subjectId && subjectId !== identity && response.ok) {
