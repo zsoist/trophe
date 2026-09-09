@@ -82,7 +82,7 @@ export function createGovernedCoachTransport(input:{
         throw new Error('model_pricing_unverified');
       }
       trace.pricedUsageNanoUsd=pricePilotUsageNanoUsd(trace.usage);
-      const settled=await executePilotBudgetCommand({operation:'settle',binding,usage:trace.usage},input.store,request.signal);
+      const settled=await executePilotBudgetCommand({operation:'settle',binding,usage:trace.usage,providerSuccess:{responseModel:trace.returnedModel,requestId:trace.requestId}},input.store,request.signal);
       if(!settled.ok||settled.record.state!=='settled'){trace.state='unknown';trace.error='accounting_uncertain';throw new Error('accounting_uncertain');}
       trace.state='settled';return generated;
     } catch (error) {

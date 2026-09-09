@@ -40,6 +40,7 @@ describe('measured pilot runner with an explicitly injected transport and store'
     expect(report.actualProviderCalls).toBe(0);expect(report.injectedProviderCalls).toBe(1);
     expect(report.measuredUsageCostUsd).toBeNull();expect(report.simulatedUsageCostUsd).toBeCloseTo(0.00044);
     expect(report.cases[0].requestIds).toEqual(['req_injected_fixture']);expect(report.maximumReservedCostUsd).toBeCloseTo(0.0088);
+    expect([...deps.records.values()][0]).toMatchObject({state:'settled',providerSuccess:{responseModel:'gpt-5.6-luna',requestId:'req_injected_fixture'}});
     expect(report.allStructuralChecksPassed).toBe(true);expect(report.releaseApproved).toBe(false);
     expect(report.cases[0].reviewText).toBeUndefined();expect(report.cases[0].outputHash).toMatch(/^[a-f0-9]{64}$/);
   });

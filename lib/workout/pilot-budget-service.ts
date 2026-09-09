@@ -83,7 +83,7 @@ export function createPilotBudgetStore(database: typeof db, actorId: string): Pi
             await transaction.execute(sql`INSERT INTO public.agent_runs(id,generation_id,user_id,organization_id,task_name,provider,model,status,metadata,estimated_cost_usd)
               VALUES (${binding.agentRunId}::uuid,${binding.agentRunId}::uuid,${actorId}::uuid,${config.organization_id}::uuid,'coach_pilot','openai',${binding.model},${status},${metadata}::jsonb,${binding.reservedNanoUsd / 1e9})`);
           } else {
-            await transaction.execute(sql`UPDATE public.agent_runs SET metadata=jsonb_set(metadata,'{coachPilot}',${JSON.stringify(record)}::jsonb),
+            await transaction.execute(sql`UPDATE public.agent_runs SET metadata=jsonb_set(metadata,'{coachPilot}',${JSON.stringify(record)}::jsonb),request_id=${record.providerSuccess?.requestId??null},
               status=${status},estimated_cost_usd=${record.state === 'released' ? 0 : binding.reservedNanoUsd / 1e9},error_message=${record.state === 'released' ? 'pilot_cancelled_before_dispatch' : null},actual_cost_usd=${record.state === 'settled' ? record.chargedNanoUsd / 1e9 : null}
               WHERE id=${binding.agentRunId}::uuid`);
           }

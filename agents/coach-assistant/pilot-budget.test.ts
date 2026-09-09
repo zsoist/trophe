@@ -51,6 +51,24 @@ describe('pilot budget pure core and injected persistent port',()=>{
     expect(await executePilotBudgetCommand({operation:'settle',binding:binding(),usage},store,signal)).toMatchObject({ok:true,write:'none'});
     expect(await executePilotBudgetCommand({operation:'settle',binding:binding(),usage:{...usage,outputTokens:201}},store,signal)).toMatchObject({error:'idempotency_conflict'});
   });
+  it('persists only the allowlisted success model and request identifier on settlement',async()=>{
+    const {store,command}=fixture();const signal=new AbortController().signal;
+    await executePilotBudgetCommand(command('reserve'),store,signal);await executePilotBudgetCommand(command('claim_dispatch'),store,signal);
+    const settled=await executePilotBudgetCommand({operation:'settle',binding:binding(),usage,providerSuccess:{responseModel:'gpt-5.6-luna',requestId:'req_success_123'}},store,signal);
+    expect(settled).toMatchObject({ok:true,record:{state:'settled',providerSuccess:{responseModel:'gpt-5.6-luna',requestId:'req_success_123'}}});
+    expect(await executePilotBudgetCommand({operation:'settle',binding:binding(),usage,providerSuccess:{responseModel:'gpt-5.6-luna',requestId:'req_success_123'}},store,signal)).toMatchObject({ok:true,write:'none'});
+    expect(await executePilotBudgetCommand({operation:'settle',binding:binding(),usage,providerSuccess:{responseModel:'gpt-5.6-luna',requestId:'req_success_456'}},store,signal)).toMatchObject({error:'idempotency_conflict'});
+    expect(await executePilotBudgetCommand({operation:'settle',binding:binding(),usage},store,signal)).toMatchObject({error:'idempotency_conflict'});
+    expect(await executePilotBudgetCommand({operation:'settle',binding:binding(),usage,providerSuccess:{responseModel:'gpt-5.6-luna',requestId:'customer-secret'}},store,signal)).toMatchObject({error:'invalid_input'});
+  });
+  it('does not backfill success provenance into a historical settled row',async()=>{
+    const {store,command}=fixture();const signal=new AbortController().signal;
+    await executePilotBudgetCommand(command('reserve'),store,signal);await executePilotBudgetCommand(command('claim_dispatch'),store,signal);
+    await executePilotBudgetCommand({operation:'settle',binding:binding(),usage},store,signal);
+    const replay=await executePilotBudgetCommand({operation:'settle',binding:binding(),usage},store,signal);
+    expect(replay).toMatchObject({ok:true,write:'none'});if(replay.ok)expect(replay.record.providerSuccess).toBeUndefined();
+    expect(await executePilotBudgetCommand({operation:'settle',binding:binding(),usage,providerSuccess:{responseModel:'gpt-5.6-luna',requestId:'req_historical_guess'}},store,signal)).toMatchObject({error:'idempotency_conflict'});
+  });
   it('releases only unstarted reservations and enforces two reservations per turn',async()=>{
     const {store,command}=fixture(amount*10);const signal=new AbortController().signal;
     for(const b of [binding(),binding(2)]) {await executePilotBudgetCommand(command('reserve',b),store,signal);expect(await executePilotBudgetCommand(command('release_unstarted',b),store,signal)).toMatchObject({ok:true,record:{state:'released',chargedNanoUsd:0}});}
