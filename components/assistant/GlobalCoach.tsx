@@ -57,7 +57,8 @@ import { COACH_MESSAGE_REFRESH } from './message-events';
 
 const HistoryPanel = dynamic(() => import('./HistoryPanel').then(module => module.HistoryPanel));
 const conversationControllers = new Map<string, ConversationController>();
-const openCoachScopes = new Set<string>();
+const openCoachScopes = new Map<string, string>();
+const mountedCoachScopes = new Map<string, number>();
 const conversationControllerFor = (scope: string) => {
   const current = conversationControllers.get(scope);
   if (current) return current;
@@ -83,11 +84,16 @@ const messageControllerFor = (scope: string) => {
   return controller;
 };
 
-/** Clears in-memory private state when authentication moves away from an actor. */
-export function resetGlobalCoachSession(scope: string) {
+function resetGlobalCoachConversationSession(scope: string) {
   conversationControllers.get(scope)?.identify(null);
   conversationControllers.delete(scope);
   openCoachScopes.delete(scope);
+  mountedCoachScopes.delete(scope);
+}
+
+/** Clears all in-memory private state when authentication moves away from an actor or subject. */
+export function resetGlobalCoachSession(scope: string) {
+  resetGlobalCoachConversationSession(scope);
   foodControllers.get(scope)?.reset();
   foodControllers.delete(scope);
   messageControllers.get(scope)?.reset();
@@ -96,9 +102,21 @@ export function resetGlobalCoachSession(scope: string) {
 
 export function resetGlobalCoachSessionsForActor(actorId: string) {
   const prefix = `${actorId}:`;
-  for (const scope of conversationControllers.keys()) {
+  const scopes = new Set([...conversationControllers.keys(), ...foodControllers.keys(), ...messageControllers.keys()]);
+  for (const scope of scopes) {
     if (scope.startsWith(prefix)) resetGlobalCoachSession(scope);
   }
+}
+
+function retainGlobalCoachSession(scope: string) {
+  mountedCoachScopes.set(scope, (mountedCoachScopes.get(scope) ?? 0) + 1);
+  return () => {
+    const remaining = Math.max(0, (mountedCoachScopes.get(scope) ?? 1) - 1);
+    mountedCoachScopes.set(scope, remaining);
+    queueMicrotask(() => {
+      if (mountedCoachScopes.get(scope) === 0) resetGlobalCoachConversationSession(scope);
+    });
+  };
 }
 
 export type CoachContextSlot = (props: { identity: string; controller: PreferenceController; state: PreferenceState; conversationId: string; turnId: string; surface: CoachSurfaceName; response: CoachConversationResponse; transport: PreferenceTransport }) => ReactNode;
@@ -112,9 +130,10 @@ export default function GlobalCoach(props: Props) {
   const controller = useMemo(() => conversationControllerFor(foodScope), [foodScope]);
   const food = useMemo(() => foodControllerFor(foodScope), [foodScope]);
   const message = useMemo(() => messageControllerFor(foodScope), [foodScope]);
+  useEffect(() => retainGlobalCoachSession(foodScope), [foodScope]);
   useEffect(() => {
     if (previousScope.current === foodScope) return;
-    resetGlobalCoachSession(previousScope.current);
+    resetGlobalCoachConversationSession(previousScope.current);
     previousScope.current = foodScope;
   }, [foodScope]);
   return <CoachSurface key={`${foodScope}:${props.professional ? 'professional' : 'self'}`} {...props} sessionScope={foodScope} conversationController={controller} foodController={food} workoutSetController={workoutSet} messageController={message} />;
@@ -162,12 +181,23 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   const coachActionBlocked = workoutSetBlocked || foodBlocked || messageBlocked;
   const composerInputBlocked = workoutSetBlocked || messageBlocked || foodState.pending || foodState.uncertain || Boolean(foodState.receipt && foodState.error);
   const composerSubmitBlocked = composerInputBlocked;
-  const [open, setOpenState] = useState(() => openCoachScopes.has(sessionScope));
+  const [open, setOpenState] = useState(() => {
+    const priorPath = openCoachScopes.get(sessionScope);
+    if (!priorPath || priorPath === path) {
+      openCoachScopes.delete(sessionScope);
+      return false;
+    }
+    openCoachScopes.set(sessionScope, path);
+    return true;
+  });
   const setOpen = useCallback((next: boolean) => {
-    if (next) openCoachScopes.add(sessionScope);
+    if (next) openCoachScopes.set(sessionScope, path);
     else openCoachScopes.delete(sessionScope);
     setOpenState(next);
-  }, [sessionScope]);
+  }, [path, sessionScope]);
+  useEffect(() => {
+    if (open) openCoachScopes.set(sessionScope, path);
+  }, [open, path, sessionScope]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [includeScreen, setIncludeScreen] = useState(true);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
