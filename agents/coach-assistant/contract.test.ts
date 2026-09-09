@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { requestSchema } from './schema';
-import { authorizeSubject,conversationScope,scopeConversationInput, windowFor } from './context';
+import { authorizeSubject,conversationScope,scopeConversationInput, windowFor, windowForConversation } from './context';
 
 describe('coach request authority', () => {
   it('accepts only the documented request fields', () => {
@@ -33,5 +33,14 @@ describe('coach request authority', () => {
     expect(windowFor('week', 'America/Bogota', new Date('2026-09-07T03:30:00Z'))).toMatchObject({ start: '2026-08-31', end: '2026-09-06', days: 7 });
     expect(windowFor('week', 'America/New_York', new Date('2026-03-09T03:30:00Z'))).toMatchObject({ start: '2026-03-02', end: '2026-03-08' });
     expect(() => windowFor('today', 'Invalid/Zone', new Date())).toThrow('invalid_timezone');
+  });
+  it('uses the visible Food date only for an included Food screen and Food domain',()=>{
+    const input={version:'coach-assistant.v2' as const,conversationId:'00000000-0000-4000-8000-000000000001',turnId:'00000000-0000-4000-8000-000000000002',message:'What food is recorded?',context:{surface:'food' as const,includeScreen:true,screenDate:'2026-09-10'}};
+    const now=new Date('2026-09-09T18:00:00Z');
+    expect(windowForConversation(input,'week','food','America/Bogota',now)).toEqual({start:'2026-09-10',end:'2026-09-10',days:1,timezone:'America/Bogota'});
+    expect(windowForConversation(input,'week','workout','America/Bogota',now)).toEqual(windowFor('week','America/Bogota',now));
+    expect(windowForConversation({...input,context:{...input.context,includeScreen:false}},'week','food','America/Bogota',now)).toEqual(windowFor('week','America/Bogota',now));
+    expect(windowForConversation({...input,context:{...input.context,surface:'progress'}},'week','food','America/Bogota',now)).toEqual(windowFor('week','America/Bogota',now));
+    expect(windowForConversation({...input,context:{surface:'food',includeScreen:true}},'week','food','America/Bogota',now)).toEqual(windowFor('week','America/Bogota',now));
   });
 });

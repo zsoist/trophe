@@ -49,6 +49,23 @@ export function windowFor(intent: CoachIntent, timezone: string, now: Date): Coa
   return { start: localDateStr(date), end, days, timezone };
 }
 
+/** A visible date is an untrusted hint. It narrows only an included Food screen
+ * whose deterministically selected domain is Food; authorization still supplies
+ * the subject and timezone. */
+export function windowForConversation(
+  input: CoachConversationRequest,
+  intent: CoachIntent,
+  domain: 'food' | 'workout' | 'progress' | 'both',
+  timezone: string,
+  now: Date,
+): CoachWindow {
+  const context=input.context;
+  if(context?.includeScreen&&context.surface==='food'&&domain==='food'&&context.screenDate){
+    return {start:context.screenDate,end:context.screenDate,days:1,timezone};
+  }
+  return windowFor(intent,timezone,now);
+}
+
 export function weekdayFor(date: string): number {
   const [y, m, d] = date.split('-').map(Number);
   return new Date(y, m - 1, d, 12).getDay();

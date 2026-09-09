@@ -13,7 +13,7 @@ import type { CoachCapability, CoachConversationResponse, CoachErrorCode } from 
 import { conversationRequestSchema } from './schema';
 import { run } from './index';
 import type { RunOptions } from './index';
-import { conversationScope, scopeConversationInput, windowFor } from './context';
+import { conversationScope, scopeConversationInput, windowForConversation } from './context';
 import { workoutPreferencesSchema } from '@/lib/workout/preferences';
 import { COACH_PRICING_VERSION } from './economics';
 import { COACH_PROMPT_VERSION } from './prompt.v3';
@@ -58,9 +58,10 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
         return fresh;
       }};
       if(options.capabilityRegistry&&options.mode==='model'&&!Object.values(medicalBoundary(scopedInput.message)).some(Boolean)){
-        response.snapshot={id:randomUUID(),capturedAt:options.now.toISOString(),subjectId:subject,organizationId:authorized.organizationId,...scope,surface:scopedInput.context?.includeScreen?scopedInput.context.surface:null,screenIncluded:!!scopedInput.context?.includeScreen,language:authorized.language,units:{weight:'kg',energy:'kcal',protein:'g'},window:windowFor(selectConversationScope(scopedInput).intent,authorized.timezone,options.now),capabilities:[]};
-        response.output={answer:'',evidenceRefs:[],limitations:['capability_turn_no_aggregate_reads'],suggestions:[],escalation:{required:false,reason:null,draft:null}};
         const selectorInput=options.filterMemoryHistory?.(scopedInput)??{...scopedInput,history:scopedInput.history?.filter(item=>item.role==='user'&&item.kind!=='memory_summary')};
+        const selectedScope=selectConversationScope(selectorInput);
+        response.snapshot={id:randomUUID(),capturedAt:options.now.toISOString(),subjectId:subject,organizationId:authorized.organizationId,...scope,surface:scopedInput.context?.includeScreen?scopedInput.context.surface:null,screenIncluded:!!scopedInput.context?.includeScreen,language:authorized.language,units:{weight:'kg',energy:'kcal',protein:'g'},window:windowForConversation(scopedInput,selectedScope.intent,selectedScope.domain,authorized.timezone,options.now),capabilities:[]};
+        response.output={answer:'',evidenceRefs:[],limitations:['capability_turn_no_aggregate_reads'],suggestions:[],escalation:{required:false,reason:null,draft:null}};
         await prepareConversationCapability(selectorInput,response,options.offlineConversationProvider!,options.capabilityRegistry,authorizedRepository,authorized,controller.signal);
         if(response.capabilityResult?.tool!=='none'){
           await generateOpenConversation(selectorInput,response,options.offlineConversationProvider!,controller.signal,options.offlineInterpretationReview,options.offlineCandidateEvaluation,options.isolatedFixtureBoundary,false,false,options.governedPilotBoundary,options.candidateActionsEnabled);
@@ -70,8 +71,9 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
       const selection=createSelectionContext(authorizedRepository,scopedInput.context,authorized);
       const repository=selection.repository;
       const {intent,surface,exerciseId,domain}=selectConversationScope(options.filterMemoryHistory?.(scopedInput)??scopedInput);
+      const selectedWindow=windowForConversation(scopedInput,intent,domain,authorized.timezone,options.now);
       const result = await run({message:scopedInput.message,intent,clientId:scopedInput.context?.clientId,exerciseId}, {
-        ...options, mode:'offline', repository, signal:controller.signal, deadlineMs:Math.max(1,budget-(performance.now()-start)),
+        ...options, mode:'offline', repository, window:selectedWindow, signal:controller.signal, deadlineMs:Math.max(1,budget-(performance.now()-start)),
       });
       controller.signal.throwIfAborted();
       const priorTelemetry=response.telemetry;response.telemetry={...result.telemetry};
@@ -81,7 +83,7 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
       response.evidence = result.evidence.filter(f=>evidenceMatchesScope(f.source,domain));
       if(options.foodChange&&domain==='food') {
         const change=options.foodChange;
-        const sourceIds=[change.entryId,change.receiptId],window=windowFor(intent,authorized.timezone,options.now);
+        const sourceIds=[change.entryId,change.receiptId],window=selectedWindow;
         const changeEvidence=[
           {id:'food.change.previousQuantity',source:'nutrition' as const,sourceIds,window,completeness:'complete' as const,statement:`The previous confirmed Food quantity was ${change.previousGrams} g.`,value:change.previousGrams,unit:'g'},
           {id:'food.change.currentQuantity',source:'nutrition' as const,sourceIds,window,completeness:'complete' as const,statement:`The confirmed Food quantity is ${change.grams} g. This is the canonical refetched state after the applied receipt.`,value:change.grams,unit:'g'},
@@ -95,7 +97,7 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
         ...(['model','profile','memory','images','voice','actions','progress'] as const).map(key=>({key,status:'not_connected' as const,reason:key==='model'?'paid_provider_disabled':'service_not_connected'})),
         ...disconnectedSurfaceCapabilities(),
       ];
-      response.snapshot = {id:randomUUID(),capturedAt:options.now.toISOString(),subjectId:authorized.subjectId,organizationId:authorized.organizationId,...scope,surface,screenIncluded:surface!==null,language:authorized.language,units:{weight:'kg',energy:'kcal',protein:'g'},window:windowFor(intent,authorized.timezone,options.now),capabilities};
+      response.snapshot = {id:randomUUID(),capturedAt:options.now.toISOString(),subjectId:authorized.subjectId,organizationId:authorized.organizationId,...scope,surface,screenIncluded:surface!==null,language:authorized.language,units:{weight:'kg',energy:'kcal',protein:'g'},window:selectedWindow,capabilities};
       response.snapshot.selection=selection.snapshot();
       if(response.snapshot.selection){const screen=capabilities.find(c=>c.key==='screen_entity')!;screen.status='available';screen.reason='server_resolved_selection';}
       response.attachments = (scopedInput.attachments ?? []).map(item=>({...item,status:'not_connected'}));
