@@ -202,6 +202,7 @@ export const globalCoachTranslations: Record<string, { en: string; es: string; e
   "global_coach.photos": {"en": "Photos", "es": "Fotos", "el": "Φωτογραφίες"},
   "global_coach.photos_select": {"en": "Choose photos", "es": "Elegir fotos", "el": "Επιλογή φωτογραφιών"},
   "global_coach.photos_upload_only": {"en": "Private upload is available. Image analysis is not connected.", "es": "La carga privada está disponible. El análisis de imágenes no está conectado.", "el": "Η ιδιωτική μεταφόρτωση είναι διαθέσιμη. Η ανάλυση εικόνων δεν είναι συνδεδεμένη."},
+  "global_coach.photos_analysis": {"en": "Private upload and reviewed image analysis are available.", "es": "La carga privada y el análisis de imágenes con revisión están disponibles.", "el": "Η ιδιωτική μεταφόρτωση και η αναθεωρημένη ανάλυση εικόνων είναι διαθέσιμες."},
   "global_coach.photos_local": {"en": "Local preview only. Upload and image analysis are not connected here.", "es": "Solo vista local. La carga y el análisis de imágenes no están conectados aquí.", "el": "Μόνο τοπική προεπισκόπηση. Η μεταφόρτωση και η ανάλυση εικόνων δεν είναι συνδεδεμένες εδώ."},
   "global_coach.photos_limits": {"en": "Up to 3 JPEG, PNG or WebP images. 5 MiB each, 15 MiB total, 16 MP.", "es": "Hasta 3 imágenes JPEG, PNG o WebP. 5 MiB cada una, 15 MiB en total, 16 MP.", "el": "Έως 3 εικόνες JPEG, PNG ή WebP. 5 MiB ανά εικόνα, 15 MiB συνολικά, 16 MP."},
   "global_coach.photo_selected": {"en": "Selected locally", "es": "Seleccionada localmente", "el": "Επιλεγμένη τοπικά"},

@@ -5,8 +5,8 @@ import { AttachmentController, type AttachmentState, type AttachmentTransport } 
 import { useGlobalCoachI18n } from './useGlobalCoachI18n';
 import styles from './GlobalCoach.module.css';
 
-export function AttachmentPicker({ controller, state, conversationId, transport, disabled }: {
-  controller: AttachmentController; state: AttachmentState; conversationId: string; transport?: AttachmentTransport; disabled: boolean;
+export function AttachmentPicker({ controller, state, conversationId, transport, analysisEnabled = false, disabled }: {
+  controller: AttachmentController; state: AttachmentState; conversationId: string; transport?: AttachmentTransport; analysisEnabled?: boolean; disabled: boolean;
 }) {
   const { t } = useGlobalCoachI18n();
   const input = useRef<HTMLInputElement>(null);
@@ -14,7 +14,7 @@ export function AttachmentPicker({ controller, state, conversationId, transport,
   const selected = state.items.find(item => item.key === review?.key);
   return <details className={styles.attachments}>
     <summary><ImagePlus size={17} aria-hidden="true" />{t('global_coach.photos')}{state.items.length > 0 && ` · ${state.items.length}/3`}</summary>
-    <p>{t(transport ? 'global_coach.photos_upload_only' : 'global_coach.photos_local')}</p>
+    <p>{t(transport ? analysisEnabled ? 'global_coach.photos_analysis' : 'global_coach.photos_upload_only' : 'global_coach.photos_local')}</p>
     <p>{t('global_coach.photos_limits')}</p>
     <input hidden ref={input} type="file" accept="image/jpeg,image/png,image/webp" multiple aria-label={t('global_coach.photos_select')} disabled={disabled || state.pending} onChange={event => { void controller.select(Array.from(event.target.files ?? [])); event.target.value = ''; }} />
     <button type="button" disabled={disabled || state.pending || state.items.length >= 3} onClick={() => input.current?.click()}>{t('global_coach.photos_select')}</button>

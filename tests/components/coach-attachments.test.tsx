@@ -40,6 +40,13 @@ it('requires review before upload and removal, and labels upload separately from
   expect(port.operation).toHaveBeenLastCalledWith(expect.objectContaining({ operation: 'attachment.remove', attachmentId: id, reviewed: true }), expect.any(AbortSignal));
 });
 
+it('labels reviewed analysis when the governed photo flow is enabled', () => {
+  const controller = new AttachmentController(), port = transport();
+  render(<I18nProvider defaultLang="en"><AttachmentPicker controller={controller} state={controller.snapshot()} conversationId={conversation} transport={port} analysisEnabled disabled={false} /></I18nProvider>);
+  fireEvent.click(screen.getByText('Photos'));
+  expect(screen.getByText('Private upload and reviewed image analysis are available.')).toBeTruthy();
+});
+
 it('queries an uncertain upload using its original reservation without preparing or uploading twice', async () => {
   const controller = new AttachmentController(), port = transport();
   port.upload = vi.fn(async () => { throw new Error('Lost after upload'); });
