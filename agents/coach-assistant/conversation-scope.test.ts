@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { selectConversationScope } from './conversation-scope';
+import { evidenceMatchesScope, selectConversationScope } from './conversation-scope';
 import type { CoachConversationRequest } from './contracts';
 const base:CoachConversationRequest={version:'coach-assistant.v2',conversationId:'fixture',turnId:'fixture',message:'',context:{surface:'food',includeScreen:true},history:[{role:'user',text:'Show my workout today'}]};
 describe('explicit conversation domain precedence',()=>{
@@ -11,5 +11,10 @@ describe('explicit conversation domain precedence',()=>{
   });
   it('uses prior domain only for a follow-up without a new explicit domain',()=>{
     expect(selectConversationScope({...base,message:'What about today?'}).domain).toBe('workout');
+  });
+  it('keeps Progress as its own context instead of inheriting Food or Workout history',()=>{
+    const selected=selectConversationScope({...base,message:'¿Y aquí?',context:{surface:'progress',includeScreen:true},history:[{role:'user',text:'Muéstrame la comida'},{role:'assistant',text:'Revisa tus datos'},{role:'user',text:'Ahora el entrenamiento'}]});
+    expect(selected.domain).toBe('progress');
+    expect(['nutrition','workout','plan','exercise'].some(source=>evidenceMatchesScope(source as 'nutrition'|'workout'|'plan'|'exercise',selected.domain))).toBe(false);
   });
 });

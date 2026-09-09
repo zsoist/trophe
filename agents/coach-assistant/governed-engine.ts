@@ -16,6 +16,8 @@ type EngineOptions = RunOptions & {
   isolatedActionsEnabled?: boolean;
   workoutSetIntentsEnabled?: boolean;
   foodQuantityIntentsEnabled?: boolean;
+  foodSelection?: import('./open-conversation').ConversationFoodSelection;
+  foodChange?: import('./open-conversation').ConversationFoodChange;
 };
 
 export interface GovernedCoachEngineBinding {

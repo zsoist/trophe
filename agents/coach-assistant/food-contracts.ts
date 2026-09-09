@@ -11,7 +11,7 @@ export interface FoodQuantityProposal {
 }
 interface FoodOperationBase {version:'coach-assistant.v2';conversationId:string;turnId:string;clientId?:string}
 export type FoodQuantityOperation=FoodOperationBase&(
-  {operation:'food.resolve';entryHintId?:string;loggedDateHint?:string;expectedPreviousGrams:number}|
+  {operation:'food.resolve';entryHintId?:string;loggedDateHint?:string;expectedPreviousGrams?:number}|
   ({entryId:string}&(
     {operation:'food.read'}|
     {operation:'food.propose';resourceVersion:string;after:{grams:number}}|

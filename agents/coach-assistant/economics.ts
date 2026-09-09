@@ -10,6 +10,10 @@ export const COACH_PILOT_BUDGET_USD = 3;
 export const COACH_PILOT_OPERATING_TARGET_USD = 2.70;
 export const COACH_PILOT_FIRST_SMOKE_MAX_USD = 0.50;
 export const COACH_PILOT_TIME_ZONE = 'America/Bogota';
+/** LIVE-02 adds at most thirty shared provider admissions after the sealed LIVE-01 eleven. */
+export const COACH_LIVE02_HISTORICAL_ATTEMPTS = 11;
+export const COACH_LIVE02_ADDITIONAL_INVOCATION_LIMIT = 30;
+export const COACH_LIVE02_TOTAL_INVOCATION_CEILING = COACH_LIVE02_HISTORICAL_ATTEMPTS + COACH_LIVE02_ADDITIONAL_INVOCATION_LIMIT;
 
 export function priceCoachUsage(usage: AiUsage): number | null {
   const { inputTokens: input, outputTokens: output } = usage;

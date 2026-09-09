@@ -7,6 +7,25 @@ import { COACH_PRICING_VERSION } from '@/agents/coach-assistant/economics';
 const actor = randomUUID();
 const binding = (): PilotAttemptBinding => ({ actorId: actor, pilotId: randomUUID(), attemptId: randomUUID(), agentRunId: randomUUID(), turnId: randomUUID(), model: 'gpt-5.6-luna', pricingVersion: COACH_PRICING_VERSION, requestHash: 'a'.repeat(64), reservedNanoUsd: reserve });
 describe('persistent budget writer fail-closed boundaries', () => {
+  it('atomically refuses a thirty-first LIVE-02 invocation after the historical eleven', async () => {
+    const input = binding(), organizationId = randomUUID();
+    const rows = Array.from({ length: 41 }, () => {
+      const rowBinding = { ...binding(), pilotId: input.pilotId };
+      return {
+        id: rowBinding.agentRunId, user_id: actor, organization_id: organizationId, model: rowBinding.model,
+        record: { binding: rowBinding, admissionDay: '2026-09-09', state: 'released', chargedNanoUsd: 0, usage: null, accountingAlert: false },
+      };
+    });
+    const execute = vi.fn()
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ organization_id: organizationId, cap_nano_usd: '3000000000', operating_target_nano_usd: '500000000', budget_day: '2026-09-09', server_budget_day: '2026-09-09', charged_nano_usd: '0', attempt_count: 41, accounting_blocked: false, allowed: true }] })
+      .mockResolvedValueOnce({ rows: [{ id: actor }] })
+      .mockResolvedValueOnce({ rows });
+    const transaction = vi.fn(async work => work({ execute }));
+    const result = await createPilotBudgetStore({ transaction } as unknown as typeof db, actor).execute({ operation: 'reserve', binding: input }, new AbortController().signal);
+    expect(result).toEqual({ storage: 'database', ok: false, error: 'budget_blocked' });
+    expect(JSON.stringify(execute.mock.calls)).not.toContain('INSERT INTO public.agent_runs');
+  });
   it('never queries when the command actor differs from the authenticated caller or the request was cancelled', async () => {
     const transaction = vi.fn();
     const store = createPilotBudgetStore({ transaction } as unknown as typeof db, actor);

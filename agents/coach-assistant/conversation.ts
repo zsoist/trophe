@@ -5,7 +5,7 @@ import { parseFoodPreferences } from '@/lib/food/preferences';
 import { createSelectionContext } from './selection-context';
 import { isIsolatedEngineBoundary, type IsolatedEngineBoundary } from './isolated-engine-boundary';
 import { isGovernedPilotBoundary, type GovernedPilotBoundary } from './governed-engine-boundary';
-import { generateOpenConversation, OpenConversationOutputError, type OfflineConversationProvider, type OfflineInterpretationReview } from './open-conversation';
+import { generateOpenConversation, OpenConversationOutputError, type ConversationFoodChange, type ConversationFoodSelection, type OfflineConversationProvider, type OfflineInterpretationReview } from './open-conversation';
 import { createHash, randomUUID } from 'node:crypto';
 import { selectConversationScope, evidenceMatchesScope } from './conversation-scope';
 import { COACH_CONVERSATION_VERSION } from './contracts';
@@ -23,7 +23,7 @@ const disconnectedSurfaceCapabilities = (): CoachCapability[] =>
     .map(key => ({ key, status: 'not_connected', reason: `${key}_service_not_connected` }));
 
 /** History is a hint for a window/domain, never a source of facts or authority. */
-export async function runConversation(raw: unknown, options: RunOptions & { capabilityRegistry?:CoachCapabilityRegistry; isolatedActionsEnabled?:boolean; workoutSetIntentsEnabled?:boolean; foodQuantityIntentsEnabled?:boolean; offlineConversationProvider?:OfflineConversationProvider; offlineInterpretationReview?:OfflineInterpretationReview; offlineCandidateEvaluation?:boolean; isolatedFixtureBoundary?:IsolatedEngineBoundary; governedPilotBoundary?:GovernedPilotBoundary; candidateActionsEnabled?:boolean; filterMemoryHistory?:(input:import('./contracts').CoachConversationRequest)=>import('./contracts').CoachConversationRequest }): Promise<CoachConversationResponse> {
+export async function runConversation(raw: unknown, options: RunOptions & { capabilityRegistry?:CoachCapabilityRegistry; isolatedActionsEnabled?:boolean; workoutSetIntentsEnabled?:boolean; foodQuantityIntentsEnabled?:boolean; foodSelection?:ConversationFoodSelection; foodChange?:ConversationFoodChange; offlineConversationProvider?:OfflineConversationProvider; offlineInterpretationReview?:OfflineInterpretationReview; offlineCandidateEvaluation?:boolean; isolatedFixtureBoundary?:IsolatedEngineBoundary; governedPilotBoundary?:GovernedPilotBoundary; candidateActionsEnabled?:boolean; filterMemoryHistory?:(input:import('./contracts').CoachConversationRequest)=>import('./contracts').CoachConversationRequest }): Promise<CoachConversationResponse> {
   const start = performance.now();
   const parsed = conversationRequestSchema.safeParse(raw);
   const response: CoachConversationResponse = {
@@ -79,6 +79,11 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
       if(response.telemetry.dataReads>4)throw new Error('context_limit');
       if(!result.ok) { response.error=result.error; return; }
       response.evidence = result.evidence.filter(f=>evidenceMatchesScope(f.source,domain));
+      if(options.foodChange&&domain==='food') {
+        const change=options.foodChange;
+        const changeEvidence={id:'food.change.currentQuantity',source:'nutrition' as const,sourceIds:[change.entryId,change.receiptId],window:windowFor(intent,authorized.timezone,options.now),completeness:'complete' as const,statement:`The confirmed Food quantity is ${change.grams} g. This is the canonical refetched state after the applied receipt.`,value:change.grams,unit:'g'};
+        response.evidence=[changeEvidence,...response.evidence.filter(item=>item.id!==changeEvidence.id)].slice(0,24);
+      }
       const medical = result.output?.escalation.required && ['urgent_symptoms','medical_question','medical_context'].includes(result.output.escalation.reason ?? '');
       const capabilities: CoachCapability[] = [
         ...(['food_records','workout_records','active_plan'] as const).map(key=>({key,status:result.evidence.some(f=>key==='food_records'?f.source==='nutrition':key==='active_plan'?f.source==='plan':f.source==='workout')?'available' as const:'unknown' as const,reason:result.evidence.some(f=>key==='food_records'?f.source==='nutrition':key==='active_plan'?f.source==='plan':f.source==='workout')?'authorized_records':'no_supported_records'})),
@@ -124,7 +129,7 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
         }
       }
       if(options.mode==='model'&&!medical) {
-        await generateOpenConversation(options.filterMemoryHistory?.(scopedInput)??scopedInput,response,options.offlineConversationProvider!,controller.signal,options.offlineInterpretationReview,options.offlineCandidateEvaluation,options.isolatedFixtureBoundary,options.workoutSetIntentsEnabled,options.foodQuantityIntentsEnabled,options.governedPilotBoundary,options.candidateActionsEnabled);
+        await generateOpenConversation(options.filterMemoryHistory?.(scopedInput)??scopedInput,response,options.offlineConversationProvider!,controller.signal,options.offlineInterpretationReview,options.offlineCandidateEvaluation,options.isolatedFixtureBoundary,options.workoutSetIntentsEnabled,options.foodQuantityIntentsEnabled,options.governedPilotBoundary,options.candidateActionsEnabled,options.foodSelection);
         await repository.authorize(options.actorId,subject,controller.signal);
         controller.signal.throwIfAborted();
       }

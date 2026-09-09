@@ -4,7 +4,7 @@ import {
   decidePilotBudgetCommand, pilotAttemptRecordSchema, pilotBudgetCommandSchema, pilotRecordActiveCharge,
   type PilotAttemptRecord, type PilotBudgetResult, type PilotBudgetStore,
 } from '@/agents/coach-assistant/pilot-budget';
-import { COACH_PILOT_BUDGET_USD, COACH_PILOT_TIME_ZONE } from '@/agents/coach-assistant/economics';
+import { COACH_LIVE02_TOTAL_INVOCATION_CEILING, COACH_PILOT_BUDGET_USD, COACH_PILOT_TIME_ZONE } from '@/agents/coach-assistant/economics';
 
 const fail = (error: 'budget_blocked' | 'invalid_input' | 'idempotency_conflict' | 'uncertain' | 'cancelled'): PilotBudgetResult => ({ storage: 'database', ok: false, error });
 const integer = (value: string | number) => {
@@ -68,6 +68,7 @@ export function createPilotBudgetStore(database: typeof db, actorId: string): Pi
             await transaction.execute(sql`UPDATE private.coach_pilot_budgets SET budget_day=${config.server_budget_day}::date,charged_nano_usd=${total}::bigint WHERE id=${binding.pilotId}::uuid`);
           }
           if (!existing && rows.rows.length === 4096) return fail('budget_blocked');
+          if (!existing && command.operation === 'reserve' && config.attempt_count >= COACH_LIVE02_TOTAL_INVOCATION_CEILING) return fail('budget_blocked');
           const admissionCap=Math.min(integer(config.cap_nano_usd),integer(config.operating_target_nano_usd),COACH_PILOT_BUDGET_USD*1e9);
           const decision = decidePilotBudgetCommand({ pilotId: binding.pilotId, budgetDay:config.server_budget_day, capNanoUsd: admissionCap, chargedNanoUsd: Number(total), turnAttemptCount, accountingBlocked, existing }, command);
           if (!decision.ok || decision.write === 'none') { signal.throwIfAborted(); return { ...decision, storage: 'database' }; }

@@ -7,6 +7,7 @@ import { handleCoachRequest } from './handler';
 import { fixtureRepository } from './fixtures';
 import type { GovernedCoachTransport } from './governed-transport';
 import { defaultWorkoutPreferences } from '@/lib/workout/preferences';
+import { parseFoodQuantityChange } from '@/lib/food/log-edit-service';
 import { ASK_TROPHE_SHARED_PILOT_ID } from '@/lib/workout/shared-pilot-budget';
 
 const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
@@ -165,6 +166,46 @@ describe('governed LIVE-01 app engine', () => {
     expect(conflicting.status).toBe(503);
     expect((await conflicting.json()).error.code).toBe('budget_blocked');
     expect(factory).toHaveBeenCalledTimes(1);
+  });
+
+  it('resolves the selected Food entry on the server before offering a natural one-amount intent to Luna', async () => {
+    const test = fixture();
+    const selectedEntry=id(52);
+    const natural={...request,message:'Déjalo en 150 g',context:{surface:'food' as const,includeScreen:true,entity:{kind:'meal' as const,id:selectedEntry}}};
+    const engine=createGovernedCoachEngineBinding({env:env(),actorId:id(1),persistentStore:test.store,transport:test.transport});
+    const execute=vi.fn().mockResolvedValue({version:'coach-assistant.v2',storage:'database',ok:true,snapshot:{entryId:selectedEntry,version:'1',loggedDate:'2026-09-08',foodName:'Rice',foodId:null,source:'manual',sourceId:'live02',grams:250,quantity:1,calories:310,proteinG:6.5,carbsG:64,fatG:2.5,fiberG:4.5,sugarG:0.8}});
+    const response=await handleCoachRequest(new Request('https://private.invalid/api/coach-assistant',{method:'POST',body:JSON.stringify(natural)}),{
+      env:env(),guard:async()=>({userId:id(1)}),createRepository:repository,createGovernedEngine:async()=>engine,
+      createFoodService:async()=>({parseQuantityChange:parseFoodQuantityChange,execute}),now:()=>test.options.now,
+    });
+    const body=await response.json();
+    expect(response.status).toBe(200);
+    expect(execute).toHaveBeenCalledWith(expect.objectContaining({operation:expect.objectContaining({operation:'food.resolve',entryHintId:selectedEntry})}));
+    expect(body.actionIntents).toEqual([expect.objectContaining({target:{selection:'authorized_food_entry',entryHintId:selectedEntry,previousGrams:250,grams:150}})]);
+    expect(test.transport.mock.calls[0][0].system).toContain('actionsAvailable is the complete allowlist');
+  });
+
+  it('grounds a Food follow-up only in a revalidated receipt and canonical refetch', async () => {
+    const test=fixture(),selectedEntry=id(53),actionId=id(54),proposalId=id(55),receiptId=id(56);
+    const followUp={...request,message:'¿Qué cambió?',context:{surface:'food' as const,includeScreen:true,entity:{kind:'meal' as const,id:selectedEntry},foodReceipt:{entryId:selectedEntry,actionId}}};
+    const transport=vi.fn<GovernedCoachTransport>(async input=>{
+      const payload=JSON.parse(input.prompt) as {evidence:Array<{id:string}>};
+      expect(payload.evidence[0]?.id).toBe('food.change.currentQuantity');
+      return {requestId:'req_live02_followup',responseModel:'gpt-5.6-luna',output:{answer:'El recibo permite consultar el estado actual.',followUp:null,evidenceRefs:['food.change.currentQuantity'],entityRefs:[],facts:[{kind:'record_fact',evidenceId:'food.change.currentQuantity'}],generalExplanationRefs:[],limitations:[],escalation:false,actionIntent:null},usage:{inputTokens:900,outputTokens:120,reasoningTokens:40},latencyMs:3,rawStatus:200};
+    });
+    const engine=createGovernedCoachEngineBinding({env:env(),actorId:id(1),persistentStore:test.store,transport});
+    const snapshot={entryId:selectedEntry,version:'2',loggedDate:'2026-09-08',foodName:'Rice',foodId:null,source:'manual',sourceId:'live02',grams:150,quantity:1,calories:186,proteinG:3.9,carbsG:38.4,fatG:1.5,fiberG:2.7,sugarG:0.5};
+    const execute=vi.fn(async({operation}:{operation:{operation:string}})=>operation.operation==='food.receipt'
+      ?{version:'coach-assistant.v2',storage:'database',ok:true,receipt:{id:receiptId,actionId,proposalId,status:'applied',resourceVersion:'2',recordedAt:'2026-09-09T12:18:23Z'},refresh:{entryId:selectedEntry,loggedDate:'2026-09-08',previousVersion:'1',version:'2',strategy:'refetch'}}
+      :{version:'coach-assistant.v2',storage:'database',ok:true,snapshot});
+    const response=await handleCoachRequest(new Request('https://private.invalid/api/coach-assistant',{method:'POST',body:JSON.stringify(followUp)}),{
+      env:env(),guard:async()=>({userId:id(1)}),createRepository:repository,createGovernedEngine:async()=>engine,
+      createFoodService:async()=>({parseQuantityChange:parseFoodQuantityChange,execute} as never),now:()=>test.options.now,
+    });
+    const body=await response.json();
+    expect(response.status).toBe(200);expect(body.actionIntents).toEqual([]);expect(body.proposals).toEqual([]);expect(body.receipts).toEqual([]);
+    expect(body.output.answer).toContain('The confirmed Food quantity is 150 g.');
+    expect(execute.mock.calls.map(([value])=>(value as {operation:{operation:string}}).operation.operation)).toEqual(['food.resolve','food.receipt']);
   });
 
   it('stops the authenticated route before provider dispatch when the durable authority reaches its smoke target', async () => {

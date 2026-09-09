@@ -56,6 +56,10 @@ describe('concrete Food transaction service through an injected SQL transaction'
     const f=fixture();expect(await f.execute({version:base.version,conversationId:base.conversationId,turnId:base.turnId,operation:'food.resolve',entryHintId:entry,expectedPreviousGrams:250})).toMatchObject({ok:true,snapshot:{entryId:entry,grams:250,source:'natural_language'}});
     f.candidates([{id:entry},{id:id(9)}]);expect(await f.execute({version:base.version,conversationId:base.conversationId,turnId:base.turnId,operation:'food.resolve',expectedPreviousGrams:250})).toMatchObject({ok:false,error:'ambiguous_selection'});
   });
+  it('resolves an exact selected entry and returns its authoritative current quantity without a prior hint',async()=>{
+    const f=fixture();
+    expect(await f.execute({version:base.version,conversationId:base.conversationId,turnId:base.turnId,operation:'food.resolve',entryHintId:entry})).toMatchObject({ok:true,snapshot:{entryId:entry,grams:250,version:'1'}});
+  });
   it('rolls back the shared update when receipt insertion fails in the test transaction',async()=>{
     const f=fixture();const proposed=await f.execute({...base,operation:'food.propose',resourceVersion:'1',after:{grams:150}}) as {proposal:{id:string;hash:string}};
     f.failReceipt();

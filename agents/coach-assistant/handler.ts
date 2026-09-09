@@ -19,6 +19,7 @@ import { createCoachCapabilityRegistry } from './capability-registry';
 import { executeDurablePreferenceAction, withDurablePreferenceRead, type DurableCoachProfileService } from './durable-actions';
 import { run } from './index';
 import { runConversation } from './conversation';
+import type { ConversationFoodChange, ConversationFoodSelection } from './open-conversation';
 import { isolatedActionsBroker } from './isolated-actions';
 import { requestSchema, conversationRequestSchema } from './schema';
 import { fixtureRepository } from './fixtures';
@@ -235,6 +236,37 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
       if(live&&synthetic)return fail('budget_blocked',503);
       const governedEngine=live?await deps.createGovernedEngine?.(guard.userId):undefined;
       if(live&&!governedEngine)return fail('budget_blocked',503);
+      let foodSelection:ConversationFoodSelection|undefined;
+      let foodChange:ConversationFoodChange|undefined;
+      let liveFoodService:FoodQuantityService|undefined;
+      const conversationInput=conversational?parsed.data as import('./contracts').CoachConversationRequest:undefined;
+      const selectedMeal=conversationInput?.context?.includeScreen===true&&conversationInput.context.entity?.kind==='meal'
+        ?conversationInput.context.entity:undefined;
+      if(live&&selectedMeal&&deps.env.COACH_ASSISTANT_FOOD_ACTIONS_ENABLED==='1'&&deps.createFoodService) {
+        if(conversationInput!.context!.surface!=='food')foodSelection={status:'unavailable',reason:'incompatible_surface'};
+        else {
+          liveFoodService=await deps.createFoodService();
+          const resolved=await executeFoodQuantityAction(guard.userId,{
+            version:'coach-assistant.v2',conversationId:conversationInput!.conversationId,turnId:conversationInput!.turnId,
+            operation:'food.resolve',entryHintId:selectedMeal.id,
+          },repository,liveFoodService,controller.signal);
+          foodSelection=resolved.ok&&'snapshot'in resolved&&resolved.snapshot.grams!==null
+            ?{status:'resolved',snapshot:{entryId:resolved.snapshot.entryId,loggedDate:resolved.snapshot.loggedDate,grams:resolved.snapshot.grams,version:resolved.snapshot.version}}
+            :{status:'unavailable',reason:resolved.ok?'version_conflict':['not_found','ambiguous_selection','version_conflict'].includes(resolved.error)?resolved.error as 'not_found'|'ambiguous_selection'|'version_conflict':'version_conflict'};
+        }
+      }
+      const foodReceiptHint=conversationInput?.context?.foodReceipt;
+      if(live&&foodReceiptHint&&foodSelection?.status==='resolved'&&foodReceiptHint.entryId===foodSelection.snapshot.entryId&&liveFoodService) {
+        const recovered=await executeFoodQuantityAction(guard.userId,{
+          version:'coach-assistant.v2',conversationId:conversationInput!.conversationId,turnId:conversationInput!.turnId,
+          operation:'food.receipt',entryId:foodReceiptHint.entryId,actionId:foodReceiptHint.actionId,
+        },repository,liveFoodService,controller.signal);
+        if(recovered.ok&&'receipt'in recovered&&recovered.receipt.status==='applied'&&recovered.receipt.actionId===foodReceiptHint.actionId
+          &&recovered.refresh?.entryId===foodSelection.snapshot.entryId&&recovered.refresh.version===foodSelection.snapshot.version) {
+          foodChange={entryId:foodSelection.snapshot.entryId,receiptId:recovered.receipt.id,actionId:recovered.receipt.actionId,
+            grams:foodSelection.snapshot.grams,version:foodSelection.snapshot.version,loggedDate:foodSelection.snapshot.loggedDate};
+        }
+      }
       const durableChat=conversational&&deps.env.COACH_ASSISTANT_CHAT_HISTORY_ENABLED==='1';
       if(durableChat&&(synthetic||candidate||!deps.createChatService))return fail('provider_unavailable',503);
       const runOptions={
@@ -244,6 +276,8 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
         isolatedActionsEnabled:!durable&&deps.env.COACH_ASSISTANT_ISOLATED_ACTIONS_ENABLED==='1',
         workoutSetIntentsEnabled:deps.env.COACH_ASSISTANT_WORKOUT_SET_ACTIONS_ENABLED==='1'&&Boolean(deps.createWorkoutSetService),
         foodQuantityIntentsEnabled:deps.env.COACH_ASSISTANT_FOOD_ACTIONS_ENABLED==='1'&&Boolean(deps.createFoodService),
+        foodSelection,
+        foodChange,
         actorId:synthetic?'synthetic-client':guard.userId,
         repository,
         now:synthetic?new Date('2026-09-07T03:30:00Z'):(deps.now?.()??new Date()),

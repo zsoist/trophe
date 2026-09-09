@@ -74,7 +74,9 @@ export function createFoodQuantityService(database:Database):FoodQuantityService
         let entryId:string;
         if(operation.operation==='food.resolve') {
           const candidates=await tx.execute<{id:string}>(operation.entryHintId
-            ? sql`SELECT id FROM public.food_log WHERE id=${operation.entryHintId}::uuid AND user_id=${scope.subjectId}::uuid AND qty_g=${operation.expectedPreviousGrams}::numeric LIMIT 2 FOR UPDATE`
+            ? operation.expectedPreviousGrams===undefined
+              ? sql`SELECT id FROM public.food_log WHERE id=${operation.entryHintId}::uuid AND user_id=${scope.subjectId}::uuid LIMIT 2 FOR UPDATE`
+              : sql`SELECT id FROM public.food_log WHERE id=${operation.entryHintId}::uuid AND user_id=${scope.subjectId}::uuid AND qty_g=${operation.expectedPreviousGrams}::numeric LIMIT 2 FOR UPDATE`
             : operation.loggedDateHint
               ? sql`SELECT id FROM public.food_log WHERE user_id=${scope.subjectId}::uuid AND logged_date=${operation.loggedDateHint}::date AND qty_g=${operation.expectedPreviousGrams}::numeric ORDER BY created_at DESC NULLS FIRST LIMIT 2 FOR UPDATE`
               : sql`SELECT id FROM public.food_log WHERE user_id=${scope.subjectId}::uuid AND qty_g=${operation.expectedPreviousGrams}::numeric ORDER BY created_at DESC NULLS FIRST LIMIT 2 FOR UPDATE`);
@@ -86,7 +88,7 @@ export function createFoodQuantityService(database:Database):FoodQuantityService
         if(!existing)throw new Rejected('not_found');
         const currentVersion=await version(tx,entryId);
         const before=values(existing);
-        if(operation.operation==='food.resolve'&&before.grams!==operation.expectedPreviousGrams)throw new Rejected('version_conflict');
+        if(operation.operation==='food.resolve'&&operation.expectedPreviousGrams!==undefined&&before.grams!==operation.expectedPreviousGrams)throw new Rejected('version_conflict');
         if(operation.operation==='food.read'||operation.operation==='food.resolve') {scope.signal.throwIfAborted();return {version:'coach-assistant.v2',storage:'database',ok:true,snapshot:{...before,entryId,version:currentVersion}} as FoodQuantityResult;}
         // Hold the canonical nutrient source stable through preview/write/receipt.
         if(existing.foodId)await tx.execute(sql`SELECT id FROM public.foods WHERE id=${existing.foodId}::uuid FOR SHARE`);

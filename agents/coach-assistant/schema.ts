@@ -39,6 +39,7 @@ export const conversationRequestSchema = z.object({
     includeScreen: z.boolean(),
     clientId: z.string().uuid().optional(),
     entity: z.object({ kind: z.enum(['meal', 'recipe', 'session', 'plan', 'exercise']), id: z.string().uuid(),version:z.string().regex(/^[a-f0-9]{64}$/).optional() }).strict().optional(),
+    foodReceipt:z.object({entryId:z.string().uuid(),actionId:z.string().uuid()}).strict().optional(),
     anatomy:z.object({group:z.enum(COACH_ANATOMY_GROUP_IDS),subgroup:z.string().min(1).max(80).optional(),legRegion:z.enum(['all','upper','lower']).optional(),version:z.string().regex(/^[a-f0-9]{64}$/).optional()}).strict().optional(),
     workspace:z.object({kind:z.literal('draft'),version:z.string().regex(/^[a-f0-9]{64}$/)}).strict().optional(),
   }).strict().optional(),

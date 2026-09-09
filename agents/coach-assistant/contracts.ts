@@ -69,6 +69,8 @@ export interface CoachContextHint {
   includeScreen: boolean;
   clientId?: string;
   entity?: { kind: 'meal' | 'recipe' | 'session' | 'plan' | 'exercise'; id: string; version?:string };
+  /** Untrusted continuity hint. The server revalidates receipt and refetched entry. */
+  foodReceipt?: { entryId:string;actionId:string };
   /** Untrusted local binding hint. The client must compare it with the live workspace again. */
   workspace?: { kind: 'draft'; version: string };
   anatomy?: import('./selection-contracts').CoachAnatomyHint;

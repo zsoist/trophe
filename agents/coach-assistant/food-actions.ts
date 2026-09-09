@@ -7,7 +7,8 @@ const common={version:z.literal('coach-assistant.v2'),conversationId:z.string().
 const base={...common,entryId:z.string().uuid()};
 /** Structural envelope only: the shared Food service validates the quantity domain. */
 export const foodQuantityOperationSchema=z.discriminatedUnion('operation',[
-  z.object({...common,operation:z.literal('food.resolve'),entryHintId:z.string().uuid().optional(),loggedDateHint:z.string().date().optional(),expectedPreviousGrams:z.number().positive().max(10000)}).strict(),
+  z.object({...common,operation:z.literal('food.resolve'),entryHintId:z.string().uuid().optional(),loggedDateHint:z.string().date().optional(),expectedPreviousGrams:z.number().positive().max(10000).optional()}).strict()
+    .refine(value=>Boolean(value.entryHintId)||value.expectedPreviousGrams!==undefined),
   z.object({...base,operation:z.literal('food.read')}).strict(),
   z.object({...base,operation:z.literal('food.propose'),resourceVersion:version,after:z.object({grams:z.number().finite()}).strict()}).strict(),
   z.object({...base,operation:z.literal('food.apply'),proposalId:z.string().uuid(),hash:z.string().regex(/^[a-f0-9]{64}$/),actionId:z.string().uuid(),resourceVersion:version,reviewed:z.literal(true)}).strict(),
@@ -67,7 +68,7 @@ export async function executeFoodQuantityAction(actorId:string,raw:unknown,repos
     const result=validated.data;
     if(!result.ok)return result;
     if(operation.operation==='food.resolve') {
-      return 'snapshot' in result&&(!operation.entryHintId||result.snapshot.entryId===operation.entryHintId)&&(!operation.loggedDateHint||result.snapshot.loggedDate===operation.loggedDateHint)&&result.snapshot.grams===operation.expectedPreviousGrams?result:fail('uncertain');
+      return 'snapshot' in result&&(!operation.entryHintId||result.snapshot.entryId===operation.entryHintId)&&(!operation.loggedDateHint||result.snapshot.loggedDate===operation.loggedDateHint)&&(operation.expectedPreviousGrams===undefined||result.snapshot.grams===operation.expectedPreviousGrams)?result:fail('uncertain');
     }
     if(operation.operation==='food.read') {
       return 'snapshot' in result&&result.snapshot.entryId===operation.entryId?result:fail('uncertain');
