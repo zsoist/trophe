@@ -187,12 +187,12 @@ export async function invokeOpenAiStructured<T>(input: {
   const body = JSON.stringify(useResponsesApi ? {
     model: input.model,
     input: [
-      { role: 'developer', content: [{ type: 'input_text', text: input.system, prompt_cache_breakpoint: { mode: 'explicit' } }] },
+      { role: 'developer', content: [{ type: 'input_text', text: input.system }] },
       { role: 'user', content: [{ type: 'input_text', text: input.prompt }] },
     ],
     max_output_tokens: input.maxTokens,
     reasoning: { effort: input.reasoningEffort ?? 'none' },
-    prompt_cache_key: promptCacheKey(input), prompt_cache_options: { mode: 'explicit' },
+    prompt_cache_key: promptCacheKey(input),
     tools: [{ type: 'function', name: input.toolName, description: input.description, parameters: input.schema, ...(input.strict ? { strict: true } : {}) }],
     tool_choice: { type: 'function', name: input.toolName },
     ...(input.store === false ? { store: false } : {}),
@@ -241,7 +241,7 @@ export async function invokeOpenAiStructured<T>(input: {
       message?: { tool_calls?: Array<{ function?: { name?: string; arguments?: string } }> };
     }>;
     status?: string;
-    output?: Array<{ type?: string; name?: string; arguments?: string }>;
+    output?: Array<{ type?: string; status?: string; name?: string; arguments?: string }>;
     usage?: {
       prompt_tokens?: number;
       completion_tokens?: number;
@@ -294,6 +294,7 @@ export async function invokeOpenAiStructured<T>(input: {
   }
   if (!response) throw new Error('OpenAI request failed before receiving a response');
   if (!response.ok) throw apiError(response, data.error);
+  if (useResponsesApi && data.status === 'failed' && data.error) throw apiError(response,data.error);
 
   const usage: AiUsage = {
     inputTokens: data.usage?.input_tokens ?? data.usage?.prompt_tokens ?? 0,
@@ -315,7 +316,9 @@ export async function invokeOpenAiStructured<T>(input: {
 
   const choice = data.choices?.[0];
   const toolCall = choice?.message?.tool_calls?.find((call) => call.function?.name === input.toolName);
-  const responseCall = data.output?.length === 1 && data.output[0].type === 'function_call' && data.output[0].name === input.toolName ? data.output[0] : undefined;
+  const responseItems=data.output??[],responseCalls=responseItems.filter(item=>item.type==='function_call');
+  const responseCall=responseCalls.length===1&&responseItems.every(item=>item.type==='reasoning'||item.type==='function_call')
+    &&responseCalls[0].status==='completed'&&responseCalls[0].name===input.toolName&&typeof responseCalls[0].arguments==='string'&&responseCalls[0].arguments.trim()?responseCalls[0]:undefined;
   const rawArguments = useResponsesApi ? responseCall?.arguments : toolCall?.function?.arguments;
   if (!rawArguments) throw malformedResponse('OpenAI structured response missing tool call');
   if (useResponsesApi ? data.status !== 'completed' : choice?.finish_reason !== 'tool_calls') {
