@@ -35,6 +35,7 @@ import {
 } from '@/lib/display-prefs';
 import DailyMacroStrip from '@/components/nutrition/DailyMacroStrip';
 import { summarizeSugar } from '@/lib/nutrition/daily-summary';
+import { useCoachScreenDate } from '@/components/assistant/screen-date';
 
 const DEFAULT_MEAL_SLOTS: MealSlot[] = [
   { id: 'breakfast', mealType: 'breakfast', label: 'Breakfast', icon: 'i-sun', order: 0 },
@@ -303,6 +304,7 @@ export default function FoodLogPage() {
   const [todayLog, setTodayLog] = useState<FoodLogEntry[]>([]);
   const today = localToday();
   const [selectedDate, setSelectedDate] = useState(today);
+  useCoachScreenDate(selectedDate);
   const selectedDateRef = useRef(today);
   const [skippedSlots, setSkippedSlots] = useState<Set<string>>(() => loadStoredSet(`trophe_skipped_${today}`));
   const [lockedSlots, setLockedSlots] = useState<Set<string>>(() => loadStoredSet(`trophe_locked_${today}`));

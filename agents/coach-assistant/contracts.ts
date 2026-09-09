@@ -67,6 +67,8 @@ export type CoachActorRole = 'client' | 'coach' | 'admin' | 'super_admin';
 export interface CoachContextHint {
   surface: CoachSurface;
   includeScreen: boolean;
+  /** Untrusted visible-day hint. The server converts it to an authorized query window. */
+  screenDate?: string;
   clientId?: string;
   entity?: { kind: 'meal' | 'recipe' | 'session' | 'plan' | 'exercise'; id: string; version?:string };
   /** Untrusted continuity hint. The server revalidates receipt and refetched entry. */

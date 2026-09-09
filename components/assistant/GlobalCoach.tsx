@@ -6,6 +6,7 @@ import { Send, Sparkles, X } from 'lucide-react';
 import { ConversationController, coachSurface, type ConversationTransport } from './conversation-state';
 import { requestConversation } from './client';
 import { acceptedScreenSelection, subscribeScreenSelection, screenSelectionSnapshot, emptyScreenSelection } from './screen-selection';
+import { acceptedScreenDate, subscribeScreenDate, screenDateSnapshot, emptyScreenDate } from './screen-date';
 import { useGlobalCoachI18n } from './useGlobalCoachI18n';
 import styles from './GlobalCoach.module.css';
 import { requestAttachment } from './attachment-client';
@@ -89,6 +90,8 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   const surface = coachSurface(path);
   const publishedSelection = useSyncExternalStore(subscribeScreenSelection, screenSelectionSnapshot, emptyScreenSelection);
   const selection = acceptedScreenSelection(publishedSelection, path, identity, subjectId);
+  const publishedDate=useSyncExternalStore(subscribeScreenDate,screenDateSnapshot,emptyScreenDate);
+  const screenDate=surface==='food'?acceptedScreenDate(publishedDate,path):null;
   const [controller] = useState(() => new ConversationController());
   const [voice] = useState(() => new VoiceController());
   const foodState = useSyncExternalStore(food.subscribe, food.snapshot, food.snapshot);
@@ -190,7 +193,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
     const foodReceipt = includeScreen && surface === 'food' && foodState.receipt?.status === 'applied' && foodState.entry
       ? { foodReceipt: { entryId: foodState.entry.entryId, actionId: foodState.receipt.actionId } }
       : {};
-    return { surface, includeScreen, ...contextualSelection, ...foodReceipt, ...(includeScreen && workspaceHint ? { workspace: workspaceHint } : {}), ...(subjectId ? { clientId: subjectId } : {}) };
+    return { surface, includeScreen, ...(includeScreen&&screenDate?{screenDate}:{}), ...contextualSelection, ...foodReceipt, ...(includeScreen && workspaceHint ? { workspace: workspaceHint } : {}), ...(subjectId ? { clientId: subjectId } : {}) };
   };
   const send = () => {
     if (voiceActive || missingProfessionalSubject || composerSubmitBlocked) return;
