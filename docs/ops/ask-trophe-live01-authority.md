@@ -1,19 +1,30 @@
 # Ask Trophē LIVE-01 shared authority
 
-Status: prepared only. No hosted DDL, pilot row, feature flag, or paid provider call has been applied.
+Status: provisioned in the isolated `Trophe-QA` project. Hosted QA DDL, the
+single synthetic actor, the fixed pilot row, and branch-scoped Preview flags are
+applied. No production DDL or production data copy was performed. The paid
+provider smoke remains reserved for AG3.
 
 ## Fixed destination
 
-- Application: protected Vercel Preview for project `zsoist/trophe`.
-- Database currently bound to that Preview: Supabase project ref `iwbpzwmidzvpiofnqexd`.
+- Application: protected Vercel Preview for project `zsoist/trophe`, branch
+  `codex/ag1-live01-integration` only.
+- QA data plane: Supabase project `Trophe-QA`, ref `nhawdvqqxscwxbpngaql`.
+- Production remains project ref `iwbpzwmidzvpiofnqexd`; this rollout does not
+  change its schema, data, Auth, Storage, or global Vercel bindings.
 - Authority: exactly one row in `private.coach_pilot_budgets` with code-owned id `a857fa8d-2bb8-4a7e-a190-5f8f1cf66229` and `scope_key = 'ask-trophe-shared'`.
 - Runtime identity: the authenticated actor id must also appear in the server-only Preview allowlist. No request value can select the pilot id or actor id.
 
-Because the named Supabase project is the production data plane, applying the migration or provisioning the row is a separate operator-gated production DDL decision. A merged migration file does not grant permission to run it.
+The branch-specific Vercel bindings override the existing global Preview values
+only for this branch. The QA Auth actor and QA Storage endpoint use the same QA
+project ref. A merged migration file still does not grant permission to run it
+against production.
 
 ## One private application binding
 
-The operator must add or verify `OPENAI_API_KEY` in the Vercel project `zsoist/trophe`, scoped to **Preview only**. The one private action is interactive so the value never appears in shell history:
+The existing `OPENAI_API_KEY` binding is available to Preview. Its value was not
+read or copied. All LIVE-01 flags, database, Auth, and public Supabase values are
+additionally scoped to `codex/ag1-live01-integration`.
 
 ```sh
 vercel env add OPENAI_API_KEY preview --project trophe --scope 2p6y54z6w9-4465s-projects --sensitive
@@ -31,9 +42,15 @@ The pilot remains closed unless all server-side Preview variables are present:
 Client Food confirmation also requires the existing `NEXT_PUBLIC_COACH_FOOD_ACTIONS_ENABLED=1`; it does not authorize provider spend.
 Removing every UUID from `allowed_actor_ids` is the database-level kill switch and blocks all actors.
 
-## Operator-gated database package
+## QA database package
 
-Before applying any DDL, capture an encrypted schema backup outside the repository and record its checksum in the operator ticket:
+The empty QA project was created specifically for this slice, so no production
+backup or copy was used. The exact repository migration chain through `0086` and
+the two isolated Food dependencies were applied there. The immutable receipt is
+recorded in `docs/ops/ask-trophe-live01-qa-evidence.md`.
+
+For any future production operation, first capture an encrypted schema backup
+outside the repository and record its checksum in the operator ticket:
 
 ```sh
 supabase db dump --linked --schema public,private --file /encrypted/operator/path/trophe-live01-pre-ddl.sql
