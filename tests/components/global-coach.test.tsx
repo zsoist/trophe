@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest';
 import { I18nProvider } from '@/lib/i18n';
 import GlobalCoach, { resetGlobalCoachSessionsForActor } from '@/components/assistant/GlobalCoach';
-import { ConversationController, coachSurface } from '@/components/assistant/conversation-state';
+import { ConversationController, coachSurface, type ConversationTransport } from '@/components/assistant/conversation-state';
 import type { CoachConversationRequest, CoachConversationResponse } from '@/agents/coach-assistant/contracts';
 import { publishScreenDate } from '@/components/assistant/screen-date';
 const route = vi.hoisted(() => ({ path: '/dashboard/workout' }));
@@ -82,7 +82,7 @@ it('captures the selected Food calendar day only for the matching included scree
 it('keeps the open conversation when dashboard navigation swaps the route-owned coach mount', async () => {
   HTMLElement.prototype.scrollTo = vi.fn();
   const identity = 'route-mount-actor';
-  const transport = vi.fn(async (request: CoachConversationRequest) => response(request, `Answer for ${request.context?.surface}`));
+  const transport = vi.fn<ConversationTransport>(async request => response(request, `Answer for ${request.context?.surface}`));
   route.path = '/dashboard/log';
   publishScreenDate({ path: route.path, date: '2026-09-10' });
   const food = render(mounted(transport, identity));
@@ -136,7 +136,7 @@ it('renders the server supplied limitation even when the response has no evidenc
 });
 it('detaches screen context and aborts a late response when the subject changes on the same mounted shell', async () => {
   let settle!: (value: CoachConversationResponse) => void;
-  const transport = vi.fn(() => new Promise<CoachConversationResponse>(resolve => { settle = resolve; }));
+  const transport = vi.fn<ConversationTransport>((_request, _signal) => new Promise<CoachConversationResponse>(resolve => { settle = resolve; }));
   const view = render(mounted(transport, 'A', 'client-1'));
   fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
   fireEvent.click(screen.getByRole('checkbox'));
