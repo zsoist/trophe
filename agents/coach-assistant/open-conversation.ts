@@ -10,6 +10,37 @@ import type { CoachConversationRequest, CoachConversationResponse, CoachEvidence
 import { COACH_CONVERSATIONAL_PROMPT_VERSION, COACH_CONVERSATIONAL_SYSTEM_PROMPT } from './prompt.v4';
 import { createHash } from 'node:crypto';
 
+export type OpenConversationOutputRejection =
+  | 'schema_validation'
+  | 'provider_status'
+  | 'evidence_reference'
+  | 'fact_reference'
+  | 'interpretation_review_missing'
+  | 'numeric_prose'
+  | 'physiological_claim'
+  | 'execution_claim'
+  | 'interpretation_review_rejected'
+  | 'draft_target_mismatch'
+  | 'set_target_mismatch'
+  | 'food_target_mismatch'
+  | 'candidate_universal_claim'
+  | 'candidate_sensitive_claim'
+  | 'candidate_personal_claim'
+  | 'curated_reference';
+
+export class OpenConversationOutputError extends Error {
+  readonly diagnosticCode: OpenConversationOutputRejection;
+  constructor(diagnosticCode: OpenConversationOutputRejection) {
+    super('invalid_output');
+    this.name = 'OpenConversationOutputError';
+    this.diagnosticCode = diagnosticCode;
+  }
+}
+
+const rejectOutput = (code: OpenConversationOutputRejection): never => {
+  throw new OpenConversationOutputError(code);
+};
+
 /** Same existing structured-provider input, injected only for synthetic evaluation. */
 export type OfflineConversationProvider=(input:Parameters<typeof invokeStructuredProvider>[0])=>Promise<ProviderResult<unknown>>;
 /** Explicit offline evaluation gate, supplied by an independent fixture oracle.
@@ -165,29 +196,30 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
     ? {...generated.output,actionIntent:null}
     : generated.output;
   const parsed=validator.safeParse(generatedOutput);
-  if(!parsed.success||generated.rawStatus<200||generated.rawStatus>=300)throw new Error('invalid_output');
-  const output=parsed.data;
-  if(output.evidenceRefs.some(id=>!facts.some(f=>f.id===id))||output.entityRefs.some(alias=>!entities.some(e=>e.alias===alias&&e.evidenceRefs.some(id=>output.evidenceRefs.includes(id)))))throw new Error('invalid_output');
-  if(output.facts.some(fragment=>!facts.some(f=>f.id===fragment.evidenceId&&output.evidenceRefs.includes(f.id))))throw new Error('invalid_output');
+  if(!parsed.success)rejectOutput('schema_validation');
+  if(generated.rawStatus<200||generated.rawStatus>=300)rejectOutput('provider_status');
+  const output=parsed.data!;
+  if(output.evidenceRefs.some(id=>!facts.some(f=>f.id===id))||output.entityRefs.some(alias=>!entities.some(e=>e.alias===alias&&e.evidenceRefs.some(id=>output.evidenceRefs.includes(id)))))rejectOutput('evidence_reference');
+  if(output.facts.some(fragment=>!facts.some(f=>f.id===fragment.evidenceId&&output.evidenceRefs.includes(f.id))))rejectOutput('fact_reference');
   // Questions and suggestions can also contain unsupported presuppositions.
   // Every prose field requires the independent offline oracle; no grammar bypass.
-  if(!candidateEvaluation&&!reviewInterpretation)throw new Error('invalid_output');
+  if(!candidateEvaluation&&!reviewInterpretation)rejectOutput('interpretation_review_missing');
   const prose=[output.answer,output.followUp??'',...output.limitations].join('\n');
   // Quantified record claims are rendered ONLY as full canonical statements.
   // A bag of valid values cannot establish which metric a number describes.
-  if(/\d|\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|hundred|thousand|cero|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|cien|mil)\b/i.test(prose))throw new Error('invalid_output');
+  if(/\d|\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|hundred|thousand|cero|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|cien|mil)\b/i.test(prose))rejectOutput('numeric_prose');
   // Ref existence cannot authorize physiological or causal assertions in prose.
   // Such discussion requires a separate qualified evidence/evaluation path.
-  if(/\b(?:activation|activacion|fatigue|fatiga|metabolism|metabolismo|hypertrophy|hipertrofia|caloric deficit|deficit calorico|caused|causado|proves|demuestra)\b/i.test(output.answer.normalize('NFKD').replace(/\p{M}/gu,'')))throw new Error('invalid_output');
-  if(/https?:\/\/|\b(?:i have|i've|i)\s+(?:already\s+)?(?:saved|updated|changed|sent|approved|deleted|booked|confirmed)|\b(?:he|hemos|ya)\s+(?:guardado|actualizado|cambiado|enviado|aprobado|eliminado|confirmado)|\b(?:guard[eé]|actualic[eé]|envi[eé]|elimin[eé])\b/i.test(prose))throw new Error('invalid_output');
+  if(/\b(?:activation|activacion|fatigue|fatiga|metabolism|metabolismo|hypertrophy|hipertrofia|caloric deficit|deficit calorico|caused|causado|proves|demuestra)\b/i.test(output.answer.normalize('NFKD').replace(/\p{M}/gu,'')))rejectOutput('physiological_claim');
+  if(/https?:\/\/|\b(?:i have|i've|i)\s+(?:already\s+)?(?:saved|updated|changed|sent|approved|deleted|booked|confirmed)|\b(?:he|hemos|ya)\s+(?:guardado|actualizado|cambiado|enviado|aprobado|eliminado|confirmado)|\b(?:guard[eé]|actualic[eé]|envi[eé]|elimin[eé])\b/i.test(prose))rejectOutput('execution_claim');
   if(!candidateEvaluation) {
     const review=await reviewInterpretation!({answer:output.answer,followUp:output.followUp,limitations:[...output.limitations],evidenceRefs:[...output.evidenceRefs],evidence:structuredClone(facts),signal});
     signal.throwIfAborted();
-    if(review.approved!==true)throw new Error('invalid_output');
+    if(review.approved!==true)rejectOutput('interpretation_review_rejected');
   }
   if(!candidateEvaluation||candidateActionReview) {
     if(output.actionIntent?.action==='draft.update'&&draftIntentAvailable&&boundDraftTarget&&response.snapshot&&input.context?.workspace) {
-      if(output.actionIntent.target.durationMinutes!==boundDraftTarget.durationMinutes||output.actionIntent.target.equipment[0]!==boundDraftTarget.equipment[0])throw new Error('invalid_output');
+      if(output.actionIntent.target.durationMinutes!==boundDraftTarget.durationMinutes||output.actionIntent.target.equipment[0]!==boundDraftTarget.equipment[0])rejectOutput('draft_target_mismatch');
       const target={durationMinutes:output.actionIntent.target.durationMinutes,equipment:['dumbbells'] as ['dumbbells']};
       const resource={kind:'draft' as const,id:response.snapshot.subjectId,version:input.context.workspace.version};
       const id=createHash('sha256').update(JSON.stringify({turnId:input.turnId,scopeKey:response.snapshot.scopeKey,resource,target})).digest('hex');
@@ -196,7 +228,7 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
       if(actions){actions.status='available';actions.reason='reviewable_draft_intent';}
     }
     if(output.actionIntent?.action==='workout.set.reps.update'&&setIntentAvailable&&boundSetTarget&&response.snapshot&&setSurface) {
-      if(output.actionIntent.target.reps!==boundSetTarget.reps)throw new Error('invalid_output');
+      if(output.actionIntent.target.reps!==boundSetTarget.reps)rejectOutput('set_target_mismatch');
       const target={selection:'latest_open_session_set' as const,reps:boundSetTarget.reps};
       const id=createHash('sha256').update(JSON.stringify({turnId:input.turnId,scopeKey:response.snapshot.scopeKey,action:'workout.set.reps.update',target})).digest('hex');
       response.actionIntents=[{id,action:'workout.set.reps.update',source:'provider_tool',subjectId:response.snapshot.subjectId,scopeKey:response.snapshot.scopeKey,surface:setSurface,target,reviewRequired:true}];
@@ -204,7 +236,7 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
       if(actions){actions.status='available';actions.reason='reviewable_workout_set_intent';}
     }
     if(output.actionIntent?.action==='food.quantity.update'&&foodIntentAvailable&&boundFoodTarget&&response.snapshot&&setSurface) {
-      if(output.actionIntent.target.grams!==boundFoodTarget.grams||output.actionIntent.target.previousGrams!==boundFoodTarget.previousGrams)throw new Error('invalid_output');
+      if(output.actionIntent.target.grams!==boundFoodTarget.grams||output.actionIntent.target.previousGrams!==boundFoodTarget.previousGrams)rejectOutput('food_target_mismatch');
       const target={selection:'authorized_food_entry' as const,entryHintId,previousGrams:boundFoodTarget.previousGrams,grams:boundFoodTarget.grams};
       const id=createHash('sha256').update(JSON.stringify({turnId:input.turnId,scopeKey:response.snapshot.scopeKey,action:'food.quantity.update',target})).digest('hex');
       response.actionIntents=[{id,action:'food.quantity.update',source:'provider_tool',subjectId:response.snapshot.subjectId,scopeKey:response.snapshot.scopeKey,surface:setSurface,target,reviewRequired:true}];
@@ -217,15 +249,15 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
     // Universal quantifiers and execution/completion predicates are account facts,
     // not contextual interpretation. Only canonical evidence may state them.
     // Curated general explanations are a separate renderer and are not scanned here.
-    if(/\b(?:every|all|always|never|entire|fully|exactly|each|cada|todos|todas|siempre|nunca|ningun|ninguna|totalmente|completed|performed|fulfilled|finished|prescribed|completion|completad\w*|realizad\w*|cumplid\w*|finalizad\w*|prescrit\w*)\b/i.test(normalized))throw new Error('invalid_output');
+    if(/\b(?:every|all|always|never|entire|fully|exactly|each|cada|todos|todas|siempre|nunca|ningun|ninguna|totalmente|completed|performed|fulfilled|finished|prescribed|completion|completad\w*|realizad\w*|cumplid\w*|finalizad\w*|prescrit\w*)\b/i.test(normalized))rejectOutput('candidate_universal_claim');
     // Conservative release-candidate guards; independent tests, not a truth proof.
     // Apply to follow-ups too: interrogative syntax can hide the same assertion.
-    if(/\b(?:saved|updated|sent|approved|deleted|booked|confirmed|guardad\w*|actualizad\w*|enviad\w*|aprobad\w*|eliminad\w*|confirmad\w*|heart|muscles?|stronger|healthier|blood|insulin|corazon|muscul\w*|salud\w*|hormon\w*|skipped|skipping|omitid\w*)\b/i.test(normalized))throw new Error('invalid_output');
-    if(/\byou (?:are|were|have|did|completed|ate|trained)\b|\byour\b[^.!?]*\b(?:is|are|was|were|has|have|show|indicate|prove)\b|\btus?\b[^.!?]*\b(?:es|son|fue|fueron|demuestra\w*|indica\w*)\b/i.test(normalized))throw new Error('invalid_output');
+    if(/\b(?:saved|updated|sent|approved|deleted|booked|confirmed|guardad\w*|actualizad\w*|enviad\w*|aprobad\w*|eliminad\w*|confirmad\w*|heart|muscles?|stronger|healthier|blood|insulin|corazon|muscul\w*|salud\w*|hormon\w*|skipped|skipping|omitid\w*)\b/i.test(normalized))rejectOutput('candidate_sensitive_claim');
+    if(/\byou (?:are|were|have|did|completed|ate|trained)\b|\byour\b[^.!?]*\b(?:is|are|was|were|has|have|show|indicate|prove)\b|\btus?\b[^.!?]*\b(?:es|son|fue|fueron|demuestra\w*|indica\w*)\b/i.test(normalized))rejectOutput('candidate_personal_claim');
     const candidateOutput={...output};
     delete candidateOutput.actionIntent;
     const candidate=candidateConversationSchema.omit({actionIntent:true}).parse(candidateOutput);
-    if(candidate.generalExplanationRefs.some(id=>!curated.includes(id)))throw new Error('invalid_output');
+    if(candidate.generalExplanationRefs.some(id=>!curated.includes(id)))rejectOutput('curated_reference');
     const language=/[¿¡]|\b(?:que|como|podria|comida|semana)\b/i.test(input.message.normalize('NFKD').replace(/\p{M}/gu,''))||response.snapshot?.language.startsWith('es')?'es':'en';
     response.explanations=[...new Set(candidate.generalExplanationRefs)].map(id=>({kind:'curated_general',id,text:GENERAL_EXPLANATIONS[id][language],source:GENERAL_EXPLANATION_VERSION}));
   }

@@ -5,7 +5,7 @@ import { parseFoodPreferences } from '@/lib/food/preferences';
 import { createSelectionContext } from './selection-context';
 import { isIsolatedEngineBoundary, type IsolatedEngineBoundary } from './isolated-engine-boundary';
 import { isGovernedPilotBoundary, type GovernedPilotBoundary } from './governed-engine-boundary';
-import { generateOpenConversation, type OfflineConversationProvider, type OfflineInterpretationReview } from './open-conversation';
+import { generateOpenConversation, OpenConversationOutputError, type OfflineConversationProvider, type OfflineInterpretationReview } from './open-conversation';
 import { createHash, randomUUID } from 'node:crypto';
 import { selectConversationScope, evidenceMatchesScope } from './conversation-scope';
 import { COACH_CONVERSATION_VERSION } from './contracts';
@@ -136,6 +136,7 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
       if(controller.signal.aborted)boundary();
     })]);
   } catch(error) {
+    if(error instanceof OpenConversationOutputError)console.warn(JSON.stringify({event:'coach_conversation_output_rejected',code:error.diagnosticCode}));
     const allowed = ['invalid_input','forbidden','unauthenticated','invalid_timezone','budget_blocked','context_limit','invalid_output','provider_unavailable'];
     const code: CoachErrorCode = controller.signal.aborted ? options.signal.aborted?'cancelled':'deadline' : error instanceof Error && allowed.includes(error.message)?error.message as CoachErrorCode:'query_failed';
     response.error={code,retryable:code==='query_failed'||code==='deadline'||code==='provider_unavailable'};

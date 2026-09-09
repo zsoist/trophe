@@ -43,6 +43,18 @@ describe('open v2 conversation with explicit synthetic provider',()=>{
     expect(result.error?.code).toBe('invalid_output');expect(result.output).toBeUndefined();expect(result.evidence).toEqual([]);
     expect(transport).toHaveBeenCalledTimes(1);
   });
+  it('emits only a closed rejection stage while preserving the public invalid_output contract',async()=>{
+    const warning=vi.spyOn(console,'warn').mockImplementation(()=>undefined);
+    const privateOutput='SENSITIVE_MODEL_OUTPUT 150 gramos';
+    const transport=provider(output=>({...output,answer:privateOutput}));
+    const result=await runConversation(request,{...options(),offlineConversationProvider:transport});
+    expect(result.error?.code).toBe('invalid_output');
+    expect(result.output).toBeUndefined();expect(transport).toHaveBeenCalledOnce();
+    expect(warning).toHaveBeenCalledOnce();
+    const diagnostic=String(warning.mock.calls[0]?.[0]);
+    expect(JSON.parse(diagnostic)).toEqual({event:'coach_conversation_output_rejected',code:'numeric_prose'});
+    expect(diagnostic).not.toContain(privateOutput);expect(diagnostic).not.toContain('150 gramos');
+  });
   it('renders quantified claims only as canonical typed facts and enforces the total output budget including reasoning',async()=>{
     const exact=provider((output,payload)=>{
       const fact=(payload.evidence as Array<{id:string;value:number|string;unit:string|null}>).find(f=>typeof f.value==='number')!;
