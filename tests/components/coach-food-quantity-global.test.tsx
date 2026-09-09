@@ -107,7 +107,7 @@ it('turns an explicit Food correction into review, receipt, canonical readback a
     },
     output: { answer: 'Encontré el registro. Revisa el cambio.', evidenceRefs: [], limitations: [], suggestions: [], escalation: { required: false, reason: null, draft: null } },
     evidence: [], proposals: [], receipts: [], attachments: [],
-    actionIntents: [{ id: 'b'.repeat(64), action: 'food.quantity.update', source: 'provider_tool', subjectId: actorId, scopeKey, surface: 'food', target: { selection: 'authorized_food_entry', entryHintId: entryId, previousGrams: 250, grams: 150 }, reviewRequired: true }] as never[],
+    actionIntents: request.message === '¿Qué cambió?' ? [] : [{ id: 'b'.repeat(64), action: 'food.quantity.update', source: 'provider_tool', subjectId: actorId, scopeKey, surface: 'food', target: { selection: 'authorized_food_entry', entryHintId: entryId, previousGrams: 250, grams: 150 }, reviewRequired: true }] as never[],
     telemetry: { model: null, provider: null, promptVersion: 'test', modelCalls: 0, dataReads: 0, tokensIn: 0, tokensOut: 0, reasoningTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, latencyMs: 1, costUsd: 0, pricingVersion: 'test' },
   }));
   const before = { loggedDate: '2026-09-08', foodName: 'Arroz', foodId: null, source: 'natural_language', sourceId: 'turn:fixture', grams: 250, quantity: 1, calories: 500, proteinG: 10, carbsG: 100, fatG: 5, fiberG: 2, sugarG: 1 };
@@ -141,6 +141,13 @@ it('turns an explicit Food correction into review, receipt, canonical readback a
   expect(foodMock.mock.calls.map(([operation]) => operation.operation)).toEqual(['food.resolve', 'food.propose', 'food.apply', 'food.read']);
   expect(refresh).toHaveBeenCalledTimes(1);
   expect((refresh.mock.calls[0][0] as CustomEvent).detail).toEqual({ actorId, entryId });
+  fireEvent.change(screen.getByRole('textbox', { name: 'Your question' }), { target: { value: '¿Qué cambió?' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
+  await waitFor(() => expect(conversation).toHaveBeenCalledTimes(2));
+  expect(conversation.mock.calls[1][0].context).toMatchObject({
+    surface: 'food', includeScreen: true, entity: { kind: 'meal', id: entryId },
+    foodReceipt: { entryId, actionId: expect.any(String) },
+  });
   window.removeEventListener(COACH_FOOD_REFRESH, refresh);
 });
 

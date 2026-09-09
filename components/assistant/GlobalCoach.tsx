@@ -184,7 +184,10 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
       : includeScreen && surface === 'food' && foodState.entry
         ? { entity: { kind: 'meal' as const, id: foodState.entry.entryId } }
         : {};
-    return { surface, includeScreen, ...contextualSelection, ...(includeScreen && workspaceHint ? { workspace: workspaceHint } : {}), ...(subjectId ? { clientId: subjectId } : {}) };
+    const foodReceipt = includeScreen && surface === 'food' && foodState.receipt?.status === 'applied' && foodState.entry
+      ? { foodReceipt: { entryId: foodState.entry.entryId, actionId: foodState.receipt.actionId } }
+      : {};
+    return { surface, includeScreen, ...contextualSelection, ...foodReceipt, ...(includeScreen && workspaceHint ? { workspace: workspaceHint } : {}), ...(subjectId ? { clientId: subjectId } : {}) };
   };
   const send = () => !voiceActive && !missingProfessionalSubject && !coachActionBlocked && controller.send(currentContext(), async (request, signal) => {
     const response = await (example ?? requestConversation)(request, signal);
