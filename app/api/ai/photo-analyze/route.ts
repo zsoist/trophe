@@ -10,6 +10,7 @@ import { safeErrorMetadata } from '@/lib/security/safe-error-log';
 import { groundKnownDishComponents } from '@/lib/food/photo-grounding';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import {createHash} from 'node:crypto';
 
 interface PhotoAnalyzeRequest {
   imageBase64: string;
@@ -117,7 +118,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await executeAiTask({
+    const execute=()=>executeAiTask({
       task: 'photo_analyze',
       prompt: PHOTO_ANALYZE_PROMPT,
       context: { userId: guard.userId, requestId: request.headers.get('x-request-id') ?? undefined },
@@ -150,6 +151,19 @@ export async function POST(request: NextRequest) {
         },
       }),
     });
+    const pilotActor=(process.env.COACH_ASSISTANT_PREVIEW_USER_IDS??'').split(',').map(value=>value.trim()).includes(guard.userId);
+    const livePilot=process.env.VERCEL_ENV==='preview'&&process.env.COACH_ASSISTANT_LIVE_PILOT_ENABLED==='1'&&process.env.TROPHE_ALLOW_PAID_AI==='1'&&pilotActor;
+    let result:Awaited<ReturnType<typeof execute>>;
+    if(livePilot){
+      const conversationId=request.headers.get('x-coach-conversation-id')??'',turnId=request.headers.get('x-coach-turn-id')??'';
+      const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if(!uuid.test(conversationId)||!uuid.test(turnId))return NextResponse.json({error:'Photo analysis context is invalid'},{status:400});
+      const [{db},{createPilotBudgetStore},{createSharedPilotBudgetRuntime},{runGovernedPilotModality}]=await Promise.all([import('@/db/client'),import('@/lib/workout/pilot-budget-service'),import('@/lib/workout/shared-pilot-budget'),import('@/agents/coach-assistant/governed-modality')]);
+      const runtime=createSharedPilotBudgetRuntime(process.env,guard.userId,createPilotBudgetStore(db,guard.userId));
+      if(!runtime.ok)return NextResponse.json({error:'Photo analysis is temporarily unavailable — please try again.'},{status:503});
+      const imageDigest=createHash('sha256').update(imageBase64).digest('hex');
+      result=await runGovernedPilotModality({pilotId:runtime.pilotId,actorId:guard.userId,turnId,identityParts:[runtime.pilotId,guard.userId,conversationId,turnId,imageDigest],task:'photo_analyze',store:runtime.store,signal:request.signal,run:execute});
+    }else result=await execute();
     const data = result.output as {
       content?: Array<{ type?: string; name?: string; input?: { dish_name?: unknown; foods?: unknown } }>;
     };
@@ -196,6 +210,9 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('[photo-analyze] unhandled error', safeErrorMetadata(error));
+    if(error instanceof Error&&['budget_blocked','provider_unavailable'].includes(error.message))return NextResponse.json(
+      {error:'Photo analysis is temporarily unavailable — please try again.'},{status:503},
+    );
     return NextResponse.json(
       { error: 'Failed to analyze photo' },
       { status: 500 },

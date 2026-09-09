@@ -4,12 +4,18 @@ import { COACH_PILOT_BUDGET_USD, COACH_PRICING, COACH_PRICING_VERSION } from './
 export const USD_IN_NANODOLLARS=1_000_000_000;
 /** Worst supported input tier is cache write; output already includes reasoning. */
 export const COACH_ATTEMPT_RESERVATION_NANO_USD=8000*Math.round(Math.max(COACH_PRICING.input,COACH_PRICING.read,COACH_PRICING.write)*1000)+2000*Math.round(COACH_PRICING.output*1000);
+export const STT_ATTEMPT_RESERVATION_NANO_USD=30_000_000;
+export const PHOTO_ATTEMPT_RESERVATION_NANO_USD=80_000_000;
 const nano=z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
-export const pilotAttemptBindingSchema=z.object({
+const bindingBase={
   pilotId:z.string().uuid(),actorId:z.string().uuid(),attemptId:z.string().uuid(),agentRunId:z.string().uuid(),turnId:z.string().uuid(),
-  model:z.literal('gpt-5.6-luna'),pricingVersion:z.literal(COACH_PRICING_VERSION),requestHash:z.string().regex(/^[a-f0-9]{64}$/),
-  reservedNanoUsd:z.literal(COACH_ATTEMPT_RESERVATION_NANO_USD),
-}).strict();
+  requestHash:z.string().regex(/^[a-f0-9]{64}$/),
+};
+export const pilotAttemptBindingSchema=z.discriminatedUnion('model',[
+  z.object({...bindingBase,model:z.literal('gpt-5.6-luna'),pricingVersion:z.literal(COACH_PRICING_VERSION),reservedNanoUsd:z.literal(COACH_ATTEMPT_RESERVATION_NANO_USD)}).strict(),
+  z.object({...bindingBase,model:z.literal('gpt-4o-mini-transcribe'),pricingVersion:z.literal('gpt-4o-mini-transcribe-2026-09-09'),reservedNanoUsd:z.literal(STT_ATTEMPT_RESERVATION_NANO_USD)}).strict(),
+  z.object({...bindingBase,model:z.literal('claude-haiku-4-5-20251001'),pricingVersion:z.literal('claude-haiku-4-5-20251001-standard-2026-09-09'),reservedNanoUsd:z.literal(PHOTO_ATTEMPT_RESERVATION_NANO_USD)}).strict(),
+]);
 export type PilotAttemptBinding=z.infer<typeof pilotAttemptBindingSchema>;
 const usageSchema=z.object({inputTokens:nano,outputTokens:nano,cacheReadTokens:nano,cacheWriteTokens:nano,reasoningTokens:nano}).strict();
 export type PilotUsage=z.infer<typeof usageSchema>;
@@ -25,7 +31,7 @@ export const providerFailureDiagnosticSchema=z.object({
 }).strict();
 export type ProviderFailureDiagnostic=z.infer<typeof providerFailureDiagnosticSchema>;
 const providerSuccessSchema=z.object({
-  responseModel:z.literal('gpt-5.6-luna'),
+  responseModel:z.enum(['gpt-5.6-luna','gpt-4o-mini-transcribe','claude-haiku-4-5-20251001']),
   requestId:z.string().regex(/^req_[A-Za-z0-9_-]{1,116}$/).nullable(),
 }).strict();
 export type ProviderSuccessDiagnostic=z.infer<typeof providerSuccessSchema>;
@@ -39,25 +45,29 @@ export type PilotBudgetCommand=z.infer<typeof pilotBudgetCommandSchema>;
 export const pilotAttemptRecordSchema=z.object({
   binding:pilotAttemptBindingSchema,admissionDay:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),state:z.enum(['reserved','dispatched','unknown','settled','released']),chargedNanoUsd:nano,usage:usageSchema.nullable(),accountingAlert:z.boolean(),unpricedModel:z.string().min(1).nullable().optional(),providerFailure:providerFailureDiagnosticSchema.optional(),
   providerSuccess:providerSuccessSchema.optional(),
-}).strict().refine(record=>record.unpricedModel===undefined||(record.state==='unknown'&&record.accountingAlert&&record.usage!==null)).refine(record=>record.providerFailure===undefined||record.state==='unknown').refine(record=>record.providerSuccess===undefined||record.state==='settled'&&record.providerSuccess.responseModel===record.binding.model).refine(record=>record.state==='settled'?record.unpricedModel===undefined&&record.usage!==null&&pricePilotUsageNanoUsd(record.usage)===record.chargedNanoUsd&&record.accountingAlert===(record.chargedNanoUsd>record.binding.reservedNanoUsd):record.state==='unknown'?record.chargedNanoUsd===record.binding.reservedNanoUsd&&(record.usage===null||record.accountingAlert&&(record.unpricedModel!==undefined||pricePilotUsageNanoUsd(record.usage)===null)):record.usage===null&&!record.accountingAlert&&record.chargedNanoUsd===(record.state==='released'?0:record.binding.reservedNanoUsd));
+}).strict().refine(record=>record.unpricedModel===undefined||(record.state==='unknown'&&record.accountingAlert&&record.usage!==null)).refine(record=>record.providerFailure===undefined||record.state==='unknown').refine(record=>record.providerSuccess===undefined||record.state==='settled'&&record.providerSuccess.responseModel===record.binding.model).refine(record=>record.state==='settled'?record.unpricedModel===undefined&&record.usage!==null&&pricePilotUsageNanoUsd(record.usage,record.binding.model)===record.chargedNanoUsd&&record.accountingAlert===(record.chargedNanoUsd>record.binding.reservedNanoUsd):record.state==='unknown'?record.chargedNanoUsd===record.binding.reservedNanoUsd&&(record.usage===null||record.accountingAlert&&(record.unpricedModel!==undefined||pricePilotUsageNanoUsd(record.usage,record.binding.model)===null)):record.usage===null&&!record.accountingAlert&&record.chargedNanoUsd===(record.state==='released'?0:record.binding.reservedNanoUsd));
 export type PilotAttemptRecord=z.infer<typeof pilotAttemptRecordSchema>;
 export type PilotBudgetError='budget_blocked'|'invalid_input'|'not_found'|'idempotency_conflict'|'invalid_transition'|'uncertain'|'cancelled';
 export type PilotBudgetDecision={ok:false;error:PilotBudgetError}|{ok:true;record:PilotAttemptRecord;write:'none'|'insert'|'update';chargeDeltaNanoUsd:number;dispatchGranted:boolean};
 
 /** Exact integer accounting. Unknown/invalid usage is not zero consumption. */
-export function pricePilotUsageNanoUsd(raw:unknown):number|null {
+export function pricePilotUsageNanoUsd(raw:unknown,model:PilotAttemptBinding['model']='gpt-5.6-luna'):number|null {
   const parsed=usageSchema.safeParse(raw);
   if(!parsed.success)return null;
   const u=parsed.data;
   // This tariff is short-context only. Do not price an anomalous long input cheaply.
   if(u.inputTokens>272_000)return null;
   if(u.cacheReadTokens+u.cacheWriteTokens>u.inputTokens||u.reasoningTokens>u.outputTokens||u.inputTokens+u.outputTokens===0)return null;
-  const amount=(u.inputTokens-u.cacheReadTokens-u.cacheWriteTokens)*Math.round(COACH_PRICING.input*1000)+u.cacheReadTokens*Math.round(COACH_PRICING.read*1000)+u.cacheWriteTokens*Math.round(COACH_PRICING.write*1000)+u.outputTokens*Math.round(COACH_PRICING.output*1000);
+  if(model==='gpt-4o-mini-transcribe'&&(u.cacheReadTokens!==0||u.cacheWriteTokens!==0||u.reasoningTokens!==0))return null;
+  const rates=model==='gpt-5.6-luna'?{input:COACH_PRICING.input,read:COACH_PRICING.read,write:COACH_PRICING.write,output:COACH_PRICING.output}
+    :model==='gpt-4o-mini-transcribe'?{input:1.25,read:1.25,write:1.25,output:5}
+    :{input:1,read:.1,write:1.25,output:5};
+  const amount=(u.inputTokens-u.cacheReadTokens-u.cacheWriteTokens)*Math.round(rates.input*1000)+u.cacheReadTokens*Math.round(rates.read*1000)+u.cacheWriteTokens*Math.round(rates.write*1000)+u.outputTokens*Math.round(rates.output*1000);
   return Number.isSafeInteger(amount)?amount:null;
 }
 const failure=(error:PilotBudgetError):PilotBudgetDecision=>({ok:false,error});
 export function samePilotBinding(a:PilotAttemptBinding,b:PilotAttemptBinding):boolean {
-  return (Object.keys(pilotAttemptBindingSchema.shape) as Array<keyof PilotAttemptBinding>).every(key=>a[key]===b[key]);
+  return ['pilotId','actorId','attemptId','agentRunId','turnId','model','pricingVersion','requestHash','reservedNanoUsd'].every(key=>a[key as keyof PilotAttemptBinding]===b[key as keyof PilotAttemptBinding]);
 }
 
 /** Pure decision core for a persistent transaction owned by AG1.
@@ -132,7 +142,7 @@ export function decidePilotBudgetCommand(snapshot:{pilotId:string;budgetDay:stri
       return unchanged();
     }
     if(previous.state!=='dispatched'&&previous.state!=='unknown')return failure('invalid_transition');
-    const amount=pricePilotUsageNanoUsd(command.usage);
+    const amount=pricePilotUsageNanoUsd(command.usage,command.binding.model);
     if(amount===null)return update('unknown',previous.chargedNanoUsd,command.usage,false,true);
     // Bill measured usage even if it exceeded the reservation: never hide an overrun.
     const settled=update('settled',amount,command.usage,false,amount>previous.binding.reservedNanoUsd);

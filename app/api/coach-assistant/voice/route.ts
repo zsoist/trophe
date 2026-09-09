@@ -6,6 +6,7 @@ import { runReviewedVoiceTurn } from '@/agents/coach-assistant/voice-turn';
 import { createServerRepository } from '@/agents/coach-assistant/server-repository';
 import { transcribeCoachAudio, type OfflineCoachTranscriber } from '@/agents/coach-assistant/voice';
 import type { CoachRepository } from '@/agents/coach-assistant/repository';
+import {createHash} from 'node:crypto';
 
 export const runtime = 'nodejs';
 
@@ -19,11 +20,12 @@ type Input = {
 
 const reply = (body: unknown, status: number) => Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
 
-/** CI-only transcript fixture. It validates the captured container and issues a
- * real review token, but never invokes a speech provider. */
+/** CI fixture or explicitly gated Preview STT. Both issue the same review token;
+ * only the live path dispatches, after shared durable admission. */
 export async function PUT(request: NextRequest) {
-  if (process.env.COACH_ASSISTANT_ENABLED !== '1' || process.env.COACH_ASSISTANT_VOICE_FIXTURE_ENABLED !== '1'
-    || process.env.CI !== 'true' || process.env.GITHUB_ACTIONS !== 'true' || process.env.VERCEL_ENV === 'production') {
+  const fixture=process.env.COACH_ASSISTANT_VOICE_FIXTURE_ENABLED==='1'&&process.env.CI==='true'&&process.env.GITHUB_ACTIONS==='true';
+  const live=process.env.COACH_ASSISTANT_VOICE_LIVE_ENABLED==='1'&&process.env.COACH_ASSISTANT_LIVE_PILOT_ENABLED==='1'&&process.env.TROPHE_ALLOW_PAID_AI==='1'&&process.env.VERCEL_ENV==='preview';
+  if (process.env.COACH_ASSISTANT_ENABLED !== '1' || (!fixture&&!live) || process.env.VERCEL_ENV === 'production') {
     return reply({ ok: false, status: 'error', error: 'not_connected' }, 404);
   }
   const { guardAiRoute } = await import('@/lib/security/api-guard');
@@ -47,12 +49,26 @@ export async function PUT(request: NextRequest) {
   }
   const { pool } = await import('@/db/client');
   const authorized = createServerRepository(pool);
-  const repository: CoachRepository = { ...authorized, dataSource: 'synthetic' };
-  const offlineTranscriber: OfflineCoachTranscriber = async input => ({
-    output: { text: 'Help me understand my workout today.', languages: [input.locale] },
-    usage: { inputTokens: 0, outputTokens: 0, actualCostUsd: 0 }, rawStatus: 200, latencyMs: 0,
-  });
-  const result = await transcribeCoachAudio(file, metadata, { actorId: guard.userId, repository, signal: request.signal, offlineTranscriber });
+  const repository: CoachRepository = fixture?{ ...authorized, dataSource: 'synthetic' }:authorized;
+  let transcriptSource:'synthetic_fixture'|'provider_transcript'='synthetic_fixture';
+  let offlineTranscriber:OfflineCoachTranscriber;
+  if(fixture)offlineTranscriber=async input=>({output:{text:'Help me understand my workout today.',languages:[input.locale]},usage:{inputTokens:0,outputTokens:0,actualCostUsd:0},rawStatus:200,latencyMs:0});
+  else {
+    const [{db},{createPilotBudgetStore},{createSharedPilotBudgetRuntime},{runGovernedPilotModality},{invokeOpenAiTranscription}]=await Promise.all([
+      import('@/db/client'),import('@/lib/workout/pilot-budget-service'),import('@/lib/workout/shared-pilot-budget'),import('@/agents/coach-assistant/governed-modality'),import('@/agents/runtime/providers/openai-transcription'),
+    ]);
+    const runtime=createSharedPilotBudgetRuntime(process.env,guard.userId,createPilotBudgetStore(db,guard.userId));
+    if(!runtime.ok)return reply({ok:false,status:'not_connected',error:'budget_blocked'},503);
+    transcriptSource='provider_transcript';
+    offlineTranscriber=async input=>{
+      const audioDigest=createHash('sha256').update(Buffer.from(await input.file.arrayBuffer())).digest('hex');
+      return runGovernedPilotModality({pilotId:runtime.pilotId,actorId:guard.userId,turnId:metadata.turnId,identityParts:[runtime.pilotId,guard.userId,metadata.conversationId,metadata.turnId,audioDigest],task:'transcribe',store:runtime.store,signal:input.signal,run:async()=>{
+        const generated=await invokeOpenAiTranscription(input);
+        return {...generated,selectedPolicy:{provider:'openai',model:'gpt-4o-mini-transcribe',promptVersion:'transcribe-v1'},isFallback:false};
+      }});
+    };
+  }
+  const result = await transcribeCoachAudio(file, metadata, { actorId: guard.userId, repository, signal: request.signal, offlineTranscriber,transcriptSource });
   return reply(result, result.ok ? 200 : result.error === 'forbidden' ? 403 : ['invalid_audio', 'invalid_input', 'invalid_output'].includes(result.error) ? 400 : 503);
 }
 
@@ -77,11 +93,18 @@ export async function POST(request: NextRequest) {
   const { pool } = await import('@/db/client');
   const repository = createServerRepository(pool);
   try {
+    const live=process.env.COACH_ASSISTANT_VOICE_LIVE_ENABLED==='1'&&process.env.COACH_ASSISTANT_LIVE_PILOT_ENABLED==='1'&&process.env.TROPHE_ALLOW_PAID_AI==='1'&&process.env.VERCEL_ENV==='preview';
+    let pipeline:{run:(reviewedRequest:CoachConversationRequest,signal:AbortSignal)=>ReturnType<typeof runConversation>};
+    if(live){
+      const [{db},{invokeStructuredProvider},{createPilotBudgetStore},{createGovernedCoachEngineBinding}]=await Promise.all([import('@/db/client'),import('@/agents/runtime/providers/structured'),import('@/lib/workout/pilot-budget-service'),import('@/agents/coach-assistant/governed-engine')]);
+      const engine=createGovernedCoachEngineBinding({env:process.env,actorId:guard.userId,persistentStore:createPilotBudgetStore(db,guard.userId),transport:invokeStructuredProvider});
+      pipeline={run:(reviewedRequest,signal)=>engine.run(reviewedRequest,{actorId:guard.userId,repository,signal,now:new Date(),mode:'model'})};
+    }else pipeline={run:(reviewedRequest,signal)=>runConversation(reviewedRequest,{actorId:guard.userId,repository,signal,now:new Date(),mode:'offline'})};
     const result = await runReviewedVoiceTurn(input, {
       actorId: guard.userId,
       repository,
       signal: request.signal,
-      pipeline: { run: (reviewedRequest, signal) => runConversation(reviewedRequest, { actorId: guard.userId, repository, signal, now: new Date(), mode: 'offline' }) },
+      pipeline,
     });
     return reply(result, result.ok ? 200 : result.error === 'forbidden' ? 403 : result.error === 'invalid_input' ? 400 : result.error === 'ambiguous_number' ? 409 : 503);
   } catch {
