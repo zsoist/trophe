@@ -58,10 +58,10 @@ chain succeeded.
 - allowed actor count: `1`
 - daily hard cap: `3000000000` nano-USD (USD 3.00)
 - initial operating target: `500000000` nano-USD (USD 0.50)
-- charged after five authorized provider attempts: `14188140` nano-USD
-  (USD 0.01418814): three unresolved USD 0.0044 holds plus two settled
-  charges totaling USD 0.00098814
-- attempts: `5`
+- charged after six authorized provider attempts: `14475580` nano-USD
+  (USD 0.01447558): three unresolved USD 0.0044 holds plus three settled
+  charges totaling USD 0.00127558
+- attempts: `6`
 - accounting blocked: `false`
 
 Direct reads as `anon` and `authenticated` both returned permission denied.
@@ -96,16 +96,18 @@ The following ten variables exist specifically for Preview branch
 The database URL and actor allowlist are Vercel Secrets. The existing Preview
 OpenAI key was reused without reading its value. The latest provider-tested
 Preview is deployment `dpl_5aGvovpAwaoeV7J4zy9oYZZv5piL`, URL
-`https://trophe-5xlqi844u-2p6y54z6w9-4465s-projects.vercel.app`, for SHA
-`c412d8a1834b51d36a73d6c279dfaf5646d4fc8c`. That deployment contains the
-reviewed Responses transport and closed output-rejection diagnostics.
+`https://trophe-alupf55n4-2p6y54z6w9-4465s-projects.vercel.app`, for SHA
+`77dd45b19f782923bff124c097380fe504d62ec9`. The deployment id is
+`dpl_EnzvXhxtQsiRBX9F9qiKn7tA8oMp`. It contains the reviewed Responses
+transport, closed output-rejection diagnostics, and deterministic Food action
+review copy.
 
 ## Authorized provider attempts
 
-Five separately authorized, single-attempt requests reached OpenAI through the
+Six separately authorized, single-attempt requests reached OpenAI through the
 governed QA route. None was retried or fell back to another provider. The first
 three stopped before token usage and retained the full USD 0.0044 reservation
-per attempt as `unknown`. The fourth and fifth returned measured usage and
+per attempt as `unknown`. The fourth through sixth returned measured usage and
 settled their reservations to measured cost.
 
 The first attempt predated durable provider diagnostics. Its final immutable
@@ -244,18 +246,82 @@ SHA-256
 `c990e197d2ef1264b9b9a5fc7d517d9d77c92338632c9e89471a056251a1730f`.
 Both files parse as JSON and preserve only bounded evidence.
 
-The Food entry remains at `250 g`, revision `1`; durable proposal and receipt
-counts remain zero. The corrective slice keeps Luna responsible for selecting
+Before the sixth attempt, the Food entry remained at `250 g`, revision `1`, and
+durable proposal and receipt counts remained zero. The corrective slice keeps Luna responsible for selecting
 the typed Food action and validates its old/new quantities against the exact
 server-bound target. Only for that valid action path, user-facing answer and
 follow-up copy become deterministic before the numeric-prose guard. General
 answers, evidence references, the independent review gate, explicit user
 confirmation, writer authority, and receipt behavior remain unchanged.
 
+The sixth attempt ran from reviewed SHA
+`77dd45b19f782923bff124c097380fe504d62ec9` and deployment
+`dpl_EnzvXhxtQsiRBX9F9qiKn7tA8oMp`. It completed the intended Food vertical:
+
+- conversation: `aac8bdad-84e7-42ae-8832-275c22144a12`
+- turn: `ef4bf8f8-a233-4037-81c3-be2d5b6d0cec`
+- attempt: `bfa975c8-ca67-4b32-97ec-32062dfb3001`
+- agent run: `915e7667-d27d-4f7f-8798-ea8f9c33fbb5`
+- application HTTP status: `200`
+- one Luna call selected the exact review-required `250 g` to `150 g` Food
+  intent; retries/fallbacks: `0/0`
+- input/output/reasoning tokens: `1211/200/90`
+- cache read/write tokens: `1082/0`
+- measured cost: `287440` nano-USD (USD `0.00028744`)
+- ledger state: `settled`; accounting alert: `false`
+- proposal: `eb765857-eae9-42cc-a19e-5351638cd3f6`, resource version `1`
+- confirmed action: `180742be-3940-41a7-b100-31fa82e6833f`
+- receipt: `2e1208cc-74a4-439c-82bf-86ae3058a438`, status `applied`
+- refetch: Food `150 g`, resource version `2`; receipt recovery returned the
+  same receipt and did not apply the action again
+
+Its final immutable artifact is
+`control/ag3/live01-qa-smoke6-aac8bdad-84e7-42ae-8832-275c22144a12.final.v1.json`,
+SHA-256
+`1d1733ed09efd0d16640ec4ed125e2e2b405c0eb60ac78102d203e9027407f23`.
+Its manifest is
+`control/ag3/live01-qa-smoke6-aac8bdad-84e7-42ae-8832-275c22144a12.manifest.json`,
+SHA-256
+`39e79998322311e41b144aaeaea19a3f6ea2ff489f928f36ffbd61181210c1f6`.
+
+## Visible QA readback
+
+An authenticated browser opened the exact Preview, selected 2026-09-08,
+expanded Lunch, and opened the entry detail without saving. The mounted Food
+UI displayed `Arroz integral cocido · LIVE-01 QA`, `150 g`, and the recomputed
+nutrition (`186 kcal`, `3.9 g` protein, `38.4 g` carbs, `1.5 g` fat, `0.5 g`
+sugar). The browser performed zero mutations and zero provider calls.
+
+- screenshot:
+  `control/ag1/live01-qa-food-150g-readback.final.v1.png`, SHA-256
+  `7ac2ec9e2ef5d08ed3c487a58486870617c016f4127bf36bb4df41abffc8998d`
+- bounded UI evidence:
+  `control/ag1/live01-qa-food-150g-readback.final.v1.json`, SHA-256
+  `a923d63b2fcb225e41eb7883300ab5ed08488e95d8569f5287c43413849c935e`
+- manifest:
+  `control/ag1/live01-qa-food-150g-readback.manifest.json`, SHA-256
+  `7eb336a7e07db99fe9304cee53b6f1dbb38bdb5458153a65b6ecba51f3c19ccc`
+
+The screenshot proves the mounted application readback at `150 g`. The
+provider turn, proposal, confirmation, writer, receipt, and idempotent recovery
+were exercised by the governed HTTP runner and reconciled in the database; the
+current UI does not expose the receipt id or resource version and this capture
+must not be presented as a complete on-screen Ask Trophē journey.
+
 Future provider failures may also retain `error.param` when it exactly matches
 the closed request-field allowlist. Arbitrary paths and provider messages remain
 discarded. This cannot reconstruct the missing parameter from either historical
 attempt.
+
+SHA `a35880acf835276c47608d130a5d941d46ce5da4` adds bounded success
+provenance for future settled attempts: the verified exact Luna response model
+and an allowlisted `req_...` request id are persisted with the ledger record,
+and the request id is copied to the existing `agent_runs.request_id` column.
+Idempotent settlement accepts only the same usage and the same success identity;
+mismatched, omitted-after-present, or backfilled historical identity fails
+closed. The sixth attempt predates this persistence and remains explicitly
+inconclusive for returned model and provider request id; neither value was
+backfilled or inferred.
 
 ## Open advisories
 
