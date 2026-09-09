@@ -34,6 +34,19 @@ export const candidateConversationSchema=openConversationSchema.extend({
   generalExplanationRefs:z.array(z.enum(['records_are_partial_view','planned_is_not_completed','nutrition_log_is_not_intake'])).max(3),
 });
 
+/** OpenAI strict function schemas require every declared property in `required`.
+ * `actionIntent` already accepts null, so require the key on the wire while the
+ * Zod validator remains backward-compatible with older injected fixtures.
+ */
+export function strictOpenConversationJsonSchema(validator:z.ZodType):Record<string,unknown> {
+  const schema=z.toJSONSchema(validator) as Record<string,unknown>;
+  const properties=schema.properties;
+  if(!properties||typeof properties!=='object'||!Object.prototype.hasOwnProperty.call(properties,'actionIntent'))throw new Error('invalid_output_schema');
+  const required=Array.isArray(schema.required)?schema.required.filter((value):value is string=>typeof value==='string'):[];
+  schema.required=[...new Set([...required,'actionIntent'])];
+  return schema;
+}
+
 /** Binds only explicit numeric/equipment slots. This does not classify general intent. */
 function explicitDraftTarget(message:string):{durationMinutes:number;equipment:['dumbbells']}|null {
   const text=message.normalize('NFKD').replace(/\p{M}/gu,'').toLowerCase();
@@ -115,7 +128,7 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
       : candidateConversationSchema
     : availableIntentSchemas.length===1?openConversationSchema.extend({actionIntent:availableIntentSchemas[0].nullable().optional()}):openConversationSchema;
   const promptVersion=candidateEvaluation?COACH_CANDIDATE_PROMPT_VERSION:COACH_CONVERSATIONAL_PROMPT_VERSION;
-  const schema=z.toJSONSchema(validator);
+  const schema=strictOpenConversationJsonSchema(validator);
   // UTF-8 bytes bound tokens conservatively, including schema/system overhead.
   let historyTrimmed=false;
   while(new TextEncoder().encode(system+prompt+JSON.stringify(schema)).length>7500&&payload.history.length) {

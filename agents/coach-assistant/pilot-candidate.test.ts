@@ -27,6 +27,8 @@ describe('actual guarded candidate composition, synthetic transports only',()=>{
    const result=await coachConversationPilotCandidate.run({version:'coach-assistant.v2',conversationId:id(1),turnId:id(i+2),message,history:[...history]},options);
    expect(result.error,`turn ${i}`).toBeUndefined();expect(result.ok).toBe(true);expect(result.proposals).toEqual([]);expect(result.receipts).toEqual([]);expect(result.output?.suggestions).toEqual(['What would make this review useful?']);
    const payload=JSON.parse(provider.mock.calls[i][0].prompt);
+   const wireSchema=provider.mock.calls[i][0].schema,wireProperties=wireSchema.properties as Record<string,unknown>;
+   expect(new Set(wireSchema.required as string[])).toEqual(new Set(Object.keys(wireProperties)));
    expect(payload.message).toBe(message);expect(payload.memories.map((m:{text:string})=>m.text)).toEqual(i===0?['Prefer vegetables']:i===1?['Prefer fish']:[]);
    expect(payload.actionsAvailable).toBe(false);expect(payload.history.length).toBeLessThanOrEqual(i*2);if(i>0)expect(payload.history.some((h:{role:string;text:string})=>h.role==='user'&&h.text===history[history.length-2].text)).toBe(true);
    expect(payload.evidence.length).toBeGreaterThan(0);
