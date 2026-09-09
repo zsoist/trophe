@@ -178,7 +178,14 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
     else setShowLatest(true);
   }, [open, state.turns, state.pending]);
   const close = () => { controller.cancel(); preferences.cancel(); attachments.cancel(); voice.reset(); food.cancel(); photoFood.cancel(); memory.cancel(); diet.cancel(); progress.cancel(); workoutSetController.cancel(); messageController.cancel(); setOpen(false); launcher.current?.focus(); };
-  const currentContext = (): CoachContextHint => ({ surface, includeScreen, ...(includeScreen && selection ? selection.anatomy ? { anatomy: selection.anatomy } : { entity: selection.entity } : {}), ...(includeScreen && workspaceHint ? { workspace: workspaceHint } : {}), ...(subjectId ? { clientId: subjectId } : {}) });
+  const currentContext = (): CoachContextHint => {
+    const contextualSelection = includeScreen && selection
+      ? selection.anatomy ? { anatomy: selection.anatomy } : { entity: selection.entity }
+      : includeScreen && surface === 'food' && foodState.entry
+        ? { entity: { kind: 'meal' as const, id: foodState.entry.entryId } }
+        : {};
+    return { surface, includeScreen, ...contextualSelection, ...(includeScreen && workspaceHint ? { workspace: workspaceHint } : {}), ...(subjectId ? { clientId: subjectId } : {}) };
+  };
   const send = () => !voiceActive && !missingProfessionalSubject && !coachActionBlocked && controller.send(currentContext(), async (request, signal) => {
     const response = await (example ?? requestConversation)(request, signal);
     if (subjectId && subjectId !== identity && response.ok) {

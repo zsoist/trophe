@@ -49,6 +49,10 @@ it('keeps the authorized contextual Food selection when the model omits its entr
   await waitFor(() => expect(foodMock).toHaveBeenCalledWith(expect.objectContaining({ operation: 'food.read', entryId }), expect.any(AbortSignal)));
   fireEvent.change(screen.getByRole('textbox', { name: 'Your question' }), { target: { value: 'Fueron 150 gramos, no 250' } });
   fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
+  await waitFor(() => expect(requestConversationMock).toHaveBeenCalledTimes(1));
+  expect(requestConversationMock.mock.calls[0][0].context).toMatchObject({
+    surface: 'food', includeScreen: true, entity: { kind: 'meal', id: entryId },
+  });
   await waitFor(() => expect(foodMock).toHaveBeenCalledWith(expect.objectContaining({ operation: 'food.resolve' }), expect.any(AbortSignal)));
   const resolve = foodMock.mock.calls.find(([operation]) => operation.operation === 'food.resolve')?.[0];
   expect(resolve).toMatchObject({ entryHintId: entryId, expectedPreviousGrams: 250 });
