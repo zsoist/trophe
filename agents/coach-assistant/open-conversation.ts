@@ -201,42 +201,50 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
   const output=parsed.data!;
   if(output.evidenceRefs.some(id=>!facts.some(f=>f.id===id))||output.entityRefs.some(alias=>!entities.some(e=>e.alias===alias&&e.evidenceRefs.some(id=>output.evidenceRefs.includes(id)))))rejectOutput('evidence_reference');
   if(output.facts.some(fragment=>!facts.some(f=>f.id===fragment.evidenceId&&output.evidenceRefs.includes(f.id))))rejectOutput('fact_reference');
+  let boundedOutput=output;
+  if(output.actionIntent?.action==='food.quantity.update'&&foodIntentAvailable&&boundFoodTarget) {
+    if(output.actionIntent.target.grams!==boundFoodTarget.grams||output.actionIntent.target.previousGrams!==boundFoodTarget.previousGrams)rejectOutput('food_target_mismatch');
+    // For this mutation path the model selects only the typed intent. User-facing
+    // prose is deterministic, so model-written quantities or claims cannot escape.
+    boundedOutput={...output,answer:response.snapshot?.language.startsWith('es')
+      ?'Puedo preparar esa corrección de cantidad para que la revises.'
+      :'I can prepare that quantity correction for review.',followUp:null};
+  }
   // Questions and suggestions can also contain unsupported presuppositions.
   // Every prose field requires the independent offline oracle; no grammar bypass.
   if(!candidateEvaluation&&!reviewInterpretation)rejectOutput('interpretation_review_missing');
-  const prose=[output.answer,output.followUp??'',...output.limitations].join('\n');
+  const prose=[boundedOutput.answer,boundedOutput.followUp??'',...boundedOutput.limitations].join('\n');
   // Quantified record claims are rendered ONLY as full canonical statements.
   // A bag of valid values cannot establish which metric a number describes.
   if(/\d|\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|hundred|thousand|cero|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|cien|mil)\b/i.test(prose))rejectOutput('numeric_prose');
   // Ref existence cannot authorize physiological or causal assertions in prose.
   // Such discussion requires a separate qualified evidence/evaluation path.
-  if(/\b(?:activation|activacion|fatigue|fatiga|metabolism|metabolismo|hypertrophy|hipertrofia|caloric deficit|deficit calorico|caused|causado|proves|demuestra)\b/i.test(output.answer.normalize('NFKD').replace(/\p{M}/gu,'')))rejectOutput('physiological_claim');
+  if(/\b(?:activation|activacion|fatigue|fatiga|metabolism|metabolismo|hypertrophy|hipertrofia|caloric deficit|deficit calorico|caused|causado|proves|demuestra)\b/i.test(boundedOutput.answer.normalize('NFKD').replace(/\p{M}/gu,'')))rejectOutput('physiological_claim');
   if(/https?:\/\/|\b(?:i have|i've|i)\s+(?:already\s+)?(?:saved|updated|changed|sent|approved|deleted|booked|confirmed)|\b(?:he|hemos|ya)\s+(?:guardado|actualizado|cambiado|enviado|aprobado|eliminado|confirmado)|\b(?:guard[eé]|actualic[eé]|envi[eé]|elimin[eé])\b/i.test(prose))rejectOutput('execution_claim');
   if(!candidateEvaluation) {
-    const review=await reviewInterpretation!({answer:output.answer,followUp:output.followUp,limitations:[...output.limitations],evidenceRefs:[...output.evidenceRefs],evidence:structuredClone(facts),signal});
+    const review=await reviewInterpretation!({answer:boundedOutput.answer,followUp:boundedOutput.followUp,limitations:[...boundedOutput.limitations],evidenceRefs:[...boundedOutput.evidenceRefs],evidence:structuredClone(facts),signal});
     signal.throwIfAborted();
     if(review.approved!==true)rejectOutput('interpretation_review_rejected');
   }
   if(!candidateEvaluation||candidateActionReview) {
-    if(output.actionIntent?.action==='draft.update'&&draftIntentAvailable&&boundDraftTarget&&response.snapshot&&input.context?.workspace) {
-      if(output.actionIntent.target.durationMinutes!==boundDraftTarget.durationMinutes||output.actionIntent.target.equipment[0]!==boundDraftTarget.equipment[0])rejectOutput('draft_target_mismatch');
-      const target={durationMinutes:output.actionIntent.target.durationMinutes,equipment:['dumbbells'] as ['dumbbells']};
+    if(boundedOutput.actionIntent?.action==='draft.update'&&draftIntentAvailable&&boundDraftTarget&&response.snapshot&&input.context?.workspace) {
+      if(boundedOutput.actionIntent.target.durationMinutes!==boundDraftTarget.durationMinutes||boundedOutput.actionIntent.target.equipment[0]!==boundDraftTarget.equipment[0])rejectOutput('draft_target_mismatch');
+      const target={durationMinutes:boundedOutput.actionIntent.target.durationMinutes,equipment:['dumbbells'] as ['dumbbells']};
       const resource={kind:'draft' as const,id:response.snapshot.subjectId,version:input.context.workspace.version};
       const id=createHash('sha256').update(JSON.stringify({turnId:input.turnId,scopeKey:response.snapshot.scopeKey,resource,target})).digest('hex');
       response.actionIntents=[{id,action:'draft.update',source:'provider_tool',subjectId:response.snapshot.subjectId,scopeKey:response.snapshot.scopeKey,surface:draftSurface!,resource,target,reviewRequired:true}];
       const actions=response.snapshot.capabilities.find(capability=>capability.key==='actions');
       if(actions){actions.status='available';actions.reason='reviewable_draft_intent';}
     }
-    if(output.actionIntent?.action==='workout.set.reps.update'&&setIntentAvailable&&boundSetTarget&&response.snapshot&&setSurface) {
-      if(output.actionIntent.target.reps!==boundSetTarget.reps)rejectOutput('set_target_mismatch');
+    if(boundedOutput.actionIntent?.action==='workout.set.reps.update'&&setIntentAvailable&&boundSetTarget&&response.snapshot&&setSurface) {
+      if(boundedOutput.actionIntent.target.reps!==boundSetTarget.reps)rejectOutput('set_target_mismatch');
       const target={selection:'latest_open_session_set' as const,reps:boundSetTarget.reps};
       const id=createHash('sha256').update(JSON.stringify({turnId:input.turnId,scopeKey:response.snapshot.scopeKey,action:'workout.set.reps.update',target})).digest('hex');
       response.actionIntents=[{id,action:'workout.set.reps.update',source:'provider_tool',subjectId:response.snapshot.subjectId,scopeKey:response.snapshot.scopeKey,surface:setSurface,target,reviewRequired:true}];
       const actions=response.snapshot.capabilities.find(capability=>capability.key==='actions');
       if(actions){actions.status='available';actions.reason='reviewable_workout_set_intent';}
     }
-    if(output.actionIntent?.action==='food.quantity.update'&&foodIntentAvailable&&boundFoodTarget&&response.snapshot&&setSurface) {
-      if(output.actionIntent.target.grams!==boundFoodTarget.grams||output.actionIntent.target.previousGrams!==boundFoodTarget.previousGrams)rejectOutput('food_target_mismatch');
+    if(boundedOutput.actionIntent?.action==='food.quantity.update'&&foodIntentAvailable&&boundFoodTarget&&response.snapshot&&setSurface) {
       const target={selection:'authorized_food_entry' as const,entryHintId,previousGrams:boundFoodTarget.previousGrams,grams:boundFoodTarget.grams};
       const id=createHash('sha256').update(JSON.stringify({turnId:input.turnId,scopeKey:response.snapshot.scopeKey,action:'food.quantity.update',target})).digest('hex');
       response.actionIntents=[{id,action:'food.quantity.update',source:'provider_tool',subjectId:response.snapshot.subjectId,scopeKey:response.snapshot.scopeKey,surface:setSurface,target,reviewRequired:true}];
@@ -254,17 +262,17 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
     // Apply to follow-ups too: interrogative syntax can hide the same assertion.
     if(/\b(?:saved|updated|sent|approved|deleted|booked|confirmed|guardad\w*|actualizad\w*|enviad\w*|aprobad\w*|eliminad\w*|confirmad\w*|heart|muscles?|stronger|healthier|blood|insulin|corazon|muscul\w*|salud\w*|hormon\w*|skipped|skipping|omitid\w*)\b/i.test(normalized))rejectOutput('candidate_sensitive_claim');
     if(/\byou (?:are|were|have|did|completed|ate|trained)\b|\byour\b[^.!?]*\b(?:is|are|was|were|has|have|show|indicate|prove)\b|\btus?\b[^.!?]*\b(?:es|son|fue|fueron|demuestra\w*|indica\w*)\b/i.test(normalized))rejectOutput('candidate_personal_claim');
-    const candidateOutput={...output};
+    const candidateOutput={...boundedOutput};
     delete candidateOutput.actionIntent;
     const candidate=candidateConversationSchema.omit({actionIntent:true}).parse(candidateOutput);
     if(candidate.generalExplanationRefs.some(id=>!curated.includes(id)))rejectOutput('curated_reference');
     const language=/[¿¡]|\b(?:que|como|podria|comida|semana)\b/i.test(input.message.normalize('NFKD').replace(/\p{M}/gu,''))||response.snapshot?.language.startsWith('es')?'es':'en';
     response.explanations=[...new Set(candidate.generalExplanationRefs)].map(id=>({kind:'curated_general',id,text:GENERAL_EXPLANATIONS[id][language],source:GENERAL_EXPLANATION_VERSION}));
   }
-  const canonicalFacts=[...new Set(output.facts.map(fragment=>fragment.evidenceId))].map(id=>facts.find(f=>f.id===id)!.statement);
-  response.output={answer:`${response.dataSource==='synthetic'?'Synthetic provider fixture evaluation.':'Isolated transport fixture evaluation using authorized records.'} ${candidateEvaluation?'Unapproved conversational candidate':'Offline oracle-reviewed interpretation'}: ${output.answer}${canonicalFacts.length?'\nRecorded facts:\n'+canonicalFacts.join('\n'):''}`,evidenceRefs:output.evidenceRefs,
-    limitations:[...(response.output?.limitations??[]).filter(value=>value!=='open_ended_interpretation_not_connected'),'offline_transport_not_live_model_quality','prose_semantics_require_independent_evaluation',...output.limitations],
-    suggestions:output.followUp?[output.followUp]:[],escalation:{required:output.escalation,reason:output.escalation?'coach_review':null,draft:null}};
+  const canonicalFacts=[...new Set(boundedOutput.facts.map(fragment=>fragment.evidenceId))].map(id=>facts.find(f=>f.id===id)!.statement);
+  response.output={answer:`${response.dataSource==='synthetic'?'Synthetic provider fixture evaluation.':'Isolated transport fixture evaluation using authorized records.'} ${candidateEvaluation?'Unapproved conversational candidate':'Offline oracle-reviewed interpretation'}: ${boundedOutput.answer}${canonicalFacts.length?'\nRecorded facts:\n'+canonicalFacts.join('\n'):''}`,evidenceRefs:boundedOutput.evidenceRefs,
+    limitations:[...(response.output?.limitations??[]).filter(value=>value!=='open_ended_interpretation_not_connected'),'offline_transport_not_live_model_quality','prose_semantics_require_independent_evaluation',...boundedOutput.limitations],
+    suggestions:boundedOutput.followUp?[boundedOutput.followUp]:[],escalation:{required:boundedOutput.escalation,reason:boundedOutput.escalation?'coach_review':null,draft:null}};
   const model=response.snapshot?.capabilities.find(c=>c.key==='model');
   if(model){model.status='not_connected';model.reason=response.dataSource==='synthetic'?'synthetic_injected_provider_only':'isolated_authorized_records_fixture_transport';}
 }

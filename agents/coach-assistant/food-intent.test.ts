@@ -14,7 +14,14 @@ describe('provider-selected food quantity correction intent',()=>{
  it('binds the explicit old and new grams without proposing or mutating',async()=>{
   const result=await run('Fueron 150 gramos, no 250',{grams:150,previousGrams:250});
   expect(result.ok).toBe(true);expect(result.proposals).toEqual([]);expect(result.receipts).toEqual([]);
-  expect(result.actionIntents).toEqual([{id:expect.stringMatching(/^[a-f0-9]{64}$/),action:'food.quantity.update',source:'provider_tool',subjectId:'synthetic-client',scopeKey:result.snapshot?.scopeKey,surface:'food',target:{selection:'authorized_food_entry',entryHintId:null,previousGrams:250,grams:150},reviewRequired:true}]);
+ expect(result.actionIntents).toEqual([{id:expect.stringMatching(/^[a-f0-9]{64}$/),action:'food.quantity.update',source:'provider_tool',subjectId:'synthetic-client',scopeKey:result.snapshot?.scopeKey,surface:'food',target:{selection:'authorized_food_entry',entryHintId:null,previousGrams:250,grams:150},reviewRequired:true}]);
+ });
+ it('discards model prose for a bound Food mutation intent and renders deterministic review copy',async()=>{
+  const unsafeProvider=provider({action:'food.quantity.update',target:{grams:150,previousGrams:250}});
+  vi.mocked(unsafeProvider).mockImplementationOnce(async input=>({output:{...output,answer:'Cambié 250 gramos a 150 gramos y mejoré tu metabolismo.',evidenceRefs:(JSON.parse(input.prompt) as {evidence:Array<{id:string}>}).evidence.map(item=>item.id),actionIntent:{action:'food.quantity.update',target:{grams:150,previousGrams:250}}},usage:{inputTokens:300,outputTokens:80,reasoningTokens:10},latencyMs:1,rawStatus:200}));
+  const result=await runConversation(request('Fueron 150 gramos, no 250'),{actorId:'synthetic-client',repository:fixtureRepository({nutrition:[],workouts:[],plans:[]}),mode:'model',now:new Date('2026-09-08T12:00:00Z'),signal:new AbortController().signal,offlineConversationProvider:unsafeProvider,offlineInterpretationReview:async candidate=>{expect(candidate.answer).toBe('I can prepare that quantity correction for review.');return {approved:true};},foodQuantityIntentsEnabled:true});
+  expect(result.ok).toBe(true);expect(result.output?.answer).not.toContain('250');expect(result.output?.answer).not.toContain('150');expect(result.output?.answer).not.toContain('metabolismo');
+  expect(result.actionIntents).toHaveLength(1);expect(result.proposals).toEqual([]);expect(result.receipts).toEqual([]);
  });
  it.each(['Fueron 150 o 180 gramos, no 250','Fueron ciento cincuenta gramos, no 250','Fueron 150 gramos'])('does not expose an ambiguous or incomplete correction: %s',async message=>{
   const result=await run(message,{grams:150,previousGrams:250});expect(result.ok).toBe(true);expect(result.actionIntents).toEqual([]);
