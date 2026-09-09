@@ -56,6 +56,7 @@ it('keeps the authorized contextual Food selection when the model omits its entr
   await waitFor(() => expect(foodMock).toHaveBeenCalledWith(expect.objectContaining({ operation: 'food.resolve' }), expect.any(AbortSignal)));
   const resolve = foodMock.mock.calls.find(([operation]) => operation.operation === 'food.resolve')?.[0];
   expect(resolve).toMatchObject({ entryHintId: entryId, expectedPreviousGrams: 250 });
+  expect(resolve).not.toHaveProperty('loggedDateHint');
   if (priorFlag === undefined) delete process.env.NEXT_PUBLIC_COACH_FOOD_ACTIONS_ENABLED;
   else process.env.NEXT_PUBLIC_COACH_FOOD_ACTIONS_ENABLED = priorFlag;
 });
@@ -100,7 +101,8 @@ it('turns an explicit Food correction into review, receipt, canonical readback a
   fireEvent.change(screen.getByRole('textbox', { name: 'Your question' }), { target: { value: 'Fueron 150 gramos, no 250' } });
   fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
   expect(await screen.findByRole('button', { name: 'Confirm quantity change' })).toBeTruthy();
-  expect(foodMock.mock.calls[0][0]).toMatchObject({ operation: 'food.resolve', entryHintId: entryId, loggedDateHint: '2026-09-08', expectedPreviousGrams: 250 });
+  expect(foodMock.mock.calls[0][0]).toMatchObject({ operation: 'food.resolve', entryHintId: entryId, expectedPreviousGrams: 250 });
+  expect(foodMock.mock.calls[0][0]).not.toHaveProperty('loggedDateHint');
   expect(screen.getByRole('table').textContent).toContain('250150');
   expect(screen.getByRole('textbox', { name: 'Your question' }).hasAttribute('disabled')).toBe(true);
   expect(refresh).not.toHaveBeenCalled();

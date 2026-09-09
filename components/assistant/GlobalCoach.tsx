@@ -235,7 +235,8 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
     if (intent) {
       const selectedEntryId = intent.target.entryHintId
         ?? (foodState.entry?.grams === intent.target.previousGrams ? foodState.entry.entryId : null);
-      void food.activate(intent.id, state.conversationId, intent.target.previousGrams, intent.target.grams, activeFoodTransport, selectedEntryId, latestResponse.snapshot?.window.end);
+      const loggedDateHint = selectedEntryId ? null : latestResponse.snapshot?.window.end;
+      void food.activate(intent.id, state.conversationId, intent.target.previousGrams, intent.target.grams, activeFoodTransport, selectedEntryId, loggedDateHint);
     }
   }, [activeFoodTransport, food, foodState.entry, identity, latestResponse, latestTurn, state.conversationId, subjectId, surface]);
   useEffect(() => {
