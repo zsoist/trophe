@@ -16,7 +16,7 @@ function fixture() {
   let proposal: FoodQuantityProposal;
   let saved: FoodQuantityResult;
   const transport = vi.fn<FoodTransport>(async operation => {
-    if (operation.operation === 'food.read') return { ...base, snapshot: current };
+    if (operation.operation === 'food.read' || operation.operation === 'food.resolve') return { ...base, snapshot: current };
     if (operation.operation === 'food.propose') {
       proposal = { id: id(), hash: 'a'.repeat(64), action: 'food.quantity.update', resource: { id: entryId, kind: 'food_entry', version: '1' }, before: values,
         after: { ...values, grams: 150, calories: 300, proteinG: 6, carbsG: 60, fatG: 3, fiberG: 1.2, sugarG: 0.6 }, expectedVersion: '1', precondition: '1', expiresAt: new Date(Date.now() + 300000).toISOString(), reviewRequired: true };
@@ -61,6 +61,20 @@ it('retains the same action through a lost response and blocks another entry unt
   const lookup = transport.mock.calls.find(([op]) => op.operation === 'food.receipt')![0] as Extract<FoodQuantityOperation, { operation: 'food.receipt' }>;
   expect(lookup.actionId).toBe(apply.actionId); expect(controller.snapshot().entry?.version).toBe('2');
   expect(transport.mock.calls.filter(([op]) => op.operation === 'food.apply')).toHaveLength(1);
+});
+it('does not reactivate a dismissed model intent after the same entry is selected again', async () => {
+  const { controller, transport } = fixture();
+  const intentId = 'e'.repeat(64);
+  expect(await controller.activate(intentId, conversationId, 250, 150, transport, entryId)).toBe(true);
+  expect(controller.snapshot().proposal).not.toBeNull();
+
+  controller.discard();
+  expect(controller.snapshot().proposal).toBeNull();
+  expect(controller.select(entryId, conversationId, transport)).toBe(true);
+  await Promise.resolve();
+  expect(await controller.activate(intentId, conversationId, 250, 150, transport, entryId)).toBe(false);
+  expect(controller.snapshot().proposal).toBeNull();
+  expect(transport.mock.calls.filter(([op]) => op.operation === 'food.propose')).toHaveLength(1);
 });
 it('keeps an unresolved action in its original conversation when receipt status is still unknown', async () => {
   const { controller, transport } = fixture(); await selected(controller, transport); await controller.propose(150, transport);
