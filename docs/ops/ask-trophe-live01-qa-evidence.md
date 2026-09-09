@@ -153,6 +153,17 @@ The third attempt ran from reviewed SHA
 - usage: absent; input/output/reasoning tokens: `0/0/0`
 - intent/proposal/receipt counts: `0/0/0`
 
+Its final immutable artifact is
+`control/ag3/live01-qa-smoke3-bcc41000-0e28-4952-85aa-b9debff923f5.final.v1.json`,
+SHA-256
+`1812b5ab463a92ac2a1ad8cb3ba9111920ede5bdc063ea9b6f2356e91dfa668e`.
+Its manifest is
+`control/ag3/live01-qa-smoke3-bcc41000-0e28-4952-85aa-b9debff923f5.manifest.json`,
+SHA-256
+`f8238145d574dcb9f7f41351bda8bc398bdc0c51ee5a16a8e5df0351508111a4`.
+The manifest marks the earlier mutable capture as superseded. Both files parse
+as JSON and passed a local credential-marker scan.
+
 This response established that the deployed Chat Completions wire contract was
 rejected before generation. It did not prove that the model, strict schema, or
 Food action semantics were invalid. The provider message was not retained and
