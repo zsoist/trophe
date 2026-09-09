@@ -1,9 +1,10 @@
 # Ask Trophē LIVE-01 QA evidence
 
-Captured 2026-09-08 for branch `codex/ag1-live01-integration`. The application
-implementation was reviewed at SHA
-`bdaa150e63500b451c01e9a3678b7762e114a308`; this receipt is its
-documentation-only successor.
+Captured 2026-09-08 for branch `codex/ag1-live01-integration`. The current
+reviewed implementation is SHA
+`a5db89ef850d195d2d2c0037bee6a08f3b447d00`. It includes the LIVE-01 route,
+durable budget authority, redacted provider-failure persistence, and the
+strict-schema compatibility correction described below.
 
 ## Destination and isolation
 
@@ -55,8 +56,9 @@ chain succeeded.
 - allowed actor count: `1`
 - daily hard cap: `3000000000` nano-USD (USD 3.00)
 - initial operating target: `500000000` nano-USD (USD 0.50)
-- charged: `0`
-- attempts: `0`
+- charged after the two authorized provider attempts: `8800000` nano-USD
+  (USD 0.0088)
+- attempts: `2`
 - accounting blocked: `false`
 
 Direct reads as `anon` and `authenticated` both returned permission denied.
@@ -89,8 +91,52 @@ The following ten variables exist specifically for Preview branch
 - `NEXT_PUBLIC_COACH_FOOD_ACTIONS_ENABLED`
 
 The database URL and actor allowlist are Vercel Secrets. The existing Preview
-OpenAI key was reused without reading its value. AG3 must use the deployment
-created after these bindings for the single paid smoke.
+OpenAI key was reused without reading its value. The current corrected Preview
+is deployment `dpl_EMemakXg3xrM9ecKTGxCcsD9imUk`, URL
+`https://trophe-71rgcn5l5-2p6y54z6w9-4465s-projects.vercel.app`. It is a
+code-readiness deployment; no provider request has been made from it.
+
+## Authorized provider attempts
+
+Two separately authorized, single-attempt requests reached OpenAI through the
+governed QA route. Neither request was retried or fell back to another provider.
+Both stopped before token usage and retained the full USD 0.0044 reservation as
+`unknown`.
+
+The first attempt predated durable provider diagnostics. Its final immutable
+artifact is
+`control/ag3/live01-qa-smoke-84781575-662a-431e-8d70-8a2952f6a4e7.final.v1.json`,
+SHA-256
+`c20ea28d4539674f6b7fc1d7d7f7c360158e90dc3108a10c4395852b51a4f270`.
+Its provider cause remains permanently unresolved.
+
+The second attempt ran from reviewed SHA
+`385d546f7c09e5c6eb221be124f57bf1aeb65df4` and deployment
+`dpl_C8CwC7vpMmejPb2Yy8idJ1D6J1du`. It persisted this bounded diagnostic:
+
+- attempt: `7a415559-6583-4426-a7b8-5905d4322d67`
+- agent run: `a53f0d48-4ae6-41ac-8973-33c9f6d9c642`
+- HTTP status: `400`
+- provider type: `invalid_request_error`
+- request id: `req_a69eb3d8929d4b26a8e86879d91d5249`
+- usage: absent; intent/proposal/receipt counts: `0/0/0`
+
+Its final immutable artifact is
+`control/ag3/live01-qa-retry-28af2046-cba1-4dba-87c8-345939616c9a.final.v1.json`,
+SHA-256
+`ce5fe9a9d7fa821903d901732c0f71884e8bb3ceb8335eb375ce9334e537bb1d`.
+
+Offline inspection reproduced the invalid strict function schema: the declared
+nullable `actionIntent` property was omitted from the root `required` list.
+OpenAI strict function schemas require every declared object property to be
+required. SHA `a5db89ef850d195d2d2c0037bee6a08f3b447d00` corrects only that wire schema,
+keeps `actionIntent` nullable, and leaves the runtime Zod validator and review
+authority unchanged. Sixty-seven focused tests, typecheck, focused ESLint, and
+the full CI workflow passed. AG4 approved the integrated correction for review.
+
+The Food entry remains at `250 g`, revision `1`; durable proposal and receipt
+counts remain zero. A new paid provider attempt requires a new explicit
+authorization.
 
 ## Open advisories
 
