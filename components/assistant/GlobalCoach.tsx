@@ -225,8 +225,12 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   useEffect(() => {
     if (!latestResponse || !latestTurn || subjectId && subjectId !== identity) return;
     const intent = acceptedFoodQuantityIntent(latestResponse, identity, state.conversationId, latestTurn.request.turnId, surface);
-    if (intent) void food.activate(intent.id, state.conversationId, intent.target.previousGrams, intent.target.grams, activeFoodTransport, intent.target.entryHintId, latestResponse.snapshot?.window.end);
-  }, [activeFoodTransport, food, identity, latestResponse, latestTurn, state.conversationId, subjectId, surface]);
+    if (intent) {
+      const selectedEntryId = intent.target.entryHintId
+        ?? (foodState.entry?.grams === intent.target.previousGrams ? foodState.entry.entryId : null);
+      void food.activate(intent.id, state.conversationId, intent.target.previousGrams, intent.target.grams, activeFoodTransport, selectedEntryId, latestResponse.snapshot?.window.end);
+    }
+  }, [activeFoodTransport, food, foodState.entry, identity, latestResponse, latestTurn, state.conversationId, subjectId, surface]);
   useEffect(() => {
     if (!messageEnabled || !latestResponse || !latestTurn || subjectId && subjectId !== identity) return;
     const proposal = acceptedMessageProposal(latestResponse, identity, state.conversationId, latestTurn.request.turnId);

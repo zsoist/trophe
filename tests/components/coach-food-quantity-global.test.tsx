@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import React from 'react';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import GlobalCoach from '@/components/assistant/GlobalCoach';
 import { I18nProvider } from '@/lib/i18n';
@@ -10,8 +10,51 @@ import type { FoodTransport } from '@/components/assistant/food-state';
 import { COACH_FOOD_REFRESH } from '@/components/assistant/food-events';
 
 vi.mock('next/navigation', () => ({ usePathname: () => '/dashboard/log' }));
+const requestConversationMock = vi.hoisted(() => vi.fn());
+const requestFoodQuantityMock = vi.hoisted(() => vi.fn());
+vi.mock('@/components/assistant/client', () => ({ requestConversation: requestConversationMock }));
+vi.mock('@/components/assistant/food-client', () => ({ requestFoodQuantity: requestFoodQuantityMock }));
 Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() });
 afterEach(cleanup);
+
+it('keeps the authorized contextual Food selection when the model omits its entry hint', async () => {
+  const actorId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const entryId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+  const scopeKey = '1'.repeat(64);
+  const before = { loggedDate: '2026-09-08', foodName: 'Arroz', foodId: null, source: 'natural_language', sourceId: 'turn:contextual', grams: 250, quantity: 1, calories: 500, proteinG: 10, carbsG: 100, fatG: 5, fiberG: 2, sugarG: 1 };
+  requestConversationMock.mockImplementationOnce(async (request: CoachConversationRequest) => ({
+    version: 'coach-assistant.v2', conversationId: request.conversationId, turnId: request.turnId, ok: true,
+    mode: 'model', dataSource: 'authorized_records',
+    snapshot: {
+      id: crypto.randomUUID(), capturedAt: '2026-09-09T12:00:00Z', subjectId: actorId, organizationId: crypto.randomUUID(),
+      actorRole: 'client', access: 'self', scopeKey, surface: 'food', screenIncluded: true, language: 'es',
+      units: { weight: 'kg', energy: 'kcal', protein: 'g' }, window: { start: '2026-09-09', end: '2026-09-09', days: 1, timezone: 'UTC' },
+      capabilities: [{ key: 'actions', status: 'available', reason: 'reviewable_food_quantity_intent' }],
+    },
+    output: { answer: 'Revisa el cambio.', evidenceRefs: [], limitations: [], suggestions: [], escalation: { required: false, reason: null, draft: null } },
+    evidence: [], proposals: [], receipts: [], attachments: [],
+    actionIntents: [{ id: '2'.repeat(64), action: 'food.quantity.update', source: 'provider_tool', subjectId: actorId, scopeKey, surface: 'food', target: { selection: 'authorized_food_entry', entryHintId: null, previousGrams: 250, grams: 150 }, reviewRequired: true }],
+    telemetry: { model: 'gpt-5.6-luna', provider: 'openai', promptVersion: 'test', modelCalls: 1, dataReads: 0, tokensIn: 1, tokensOut: 1, reasoningTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, latencyMs: 1, costUsd: 0, pricingVersion: 'test' },
+  }));
+  const foodMock = vi.fn(async (operation: Record<string, unknown>) => {
+    if (operation.operation === 'food.read') return { version: 'coach-assistant.v2', storage: 'database', ok: true, snapshot: { ...before, entryId, version: '1' } };
+    if (operation.operation === 'food.resolve') return { version: 'coach-assistant.v2', storage: 'database', ok: false, error: operation.entryHintId === entryId ? 'test_expected_proposal' : 'not_found' };
+    return { version: 'coach-assistant.v2', storage: 'database', ok: false, error: 'invalid_input' };
+  });
+  requestFoodQuantityMock.mockImplementation(foodMock);
+  const priorFlag = process.env.NEXT_PUBLIC_COACH_FOOD_ACTIONS_ENABLED;
+  process.env.NEXT_PUBLIC_COACH_FOOD_ACTIONS_ENABLED = '1';
+  render(<I18nProvider defaultLang="en"><GlobalCoach identity={actorId} foodTransport={foodMock as unknown as FoodTransport} /></I18nProvider>);
+  window.dispatchEvent(new CustomEvent('trophe:coach-food-select', { detail: { actorId, entryId } }));
+  await waitFor(() => expect(foodMock).toHaveBeenCalledWith(expect.objectContaining({ operation: 'food.read', entryId }), expect.any(AbortSignal)));
+  fireEvent.change(screen.getByRole('textbox', { name: 'Your question' }), { target: { value: 'Fueron 150 gramos, no 250' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
+  await waitFor(() => expect(foodMock).toHaveBeenCalledWith(expect.objectContaining({ operation: 'food.resolve' }), expect.any(AbortSignal)));
+  const resolve = foodMock.mock.calls.find(([operation]) => operation.operation === 'food.resolve')?.[0];
+  expect(resolve).toMatchObject({ entryHintId: entryId, expectedPreviousGrams: 250 });
+  if (priorFlag === undefined) delete process.env.NEXT_PUBLIC_COACH_FOOD_ACTIONS_ENABLED;
+  else process.env.NEXT_PUBLIC_COACH_FOOD_ACTIONS_ENABLED = priorFlag;
+});
 
 it('turns an explicit Food correction into review, receipt, canonical readback and visible refresh', async () => {
   const actorId = '11111111-1111-4111-8111-111111111111';
