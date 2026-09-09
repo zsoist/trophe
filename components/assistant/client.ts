@@ -98,7 +98,9 @@ export function readConversationResponse(value: unknown): CoachConversationRespo
   if (row.uploads !== undefined) {
     const upload = row.uploads as Record<string, unknown>;
     const limits = upload?.limits as Record<string, unknown> | undefined;
-    if (!upload || upload.images !== true || upload.storage !== 'isolated_ephemeral' || upload.analysis !== 'not_connected' || !limits
+    if (!upload || upload.images !== true || !['isolated_ephemeral', 'private_storage'].includes(String(upload.storage))
+      || !['not_connected', 'validated_photo_analysis'].includes(String(upload.analysis))
+      || (upload.storage === 'isolated_ephemeral' && upload.analysis !== 'not_connected') || !limits
       || Object.entries(COACH_IMAGE_LIMITS).some(([key, value]) => limits[key] !== value)) throw new Error('invalid_upload_capability');
   }
   return value as CoachConversationResponse;

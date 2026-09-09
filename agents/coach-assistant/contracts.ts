@@ -187,7 +187,7 @@ export interface CoachConversationResponse {
   receipts: CoachReceipt[];
   attachments: CoachAttachmentRef[];
   explanations?: Array<{kind:'curated_general';id:string;text:string;source:'coach-general.v1'}>;
-  uploads?: { images: true; storage: 'isolated_ephemeral'; analysis: 'not_connected'; limits: typeof COACH_IMAGE_LIMITS };
+  uploads?: { images: true; storage: 'isolated_ephemeral' | 'private_storage'; analysis: 'not_connected' | 'validated_photo_analysis'; limits: typeof COACH_IMAGE_LIMITS };
   telemetry: CoachTelemetry;
 }
 
@@ -278,14 +278,14 @@ export interface CoachActionResult {
 export const COACH_IMAGE_LIMITS = { count:3, fileBytes:5*1024*1024, totalBytes:15*1024*1024, pixels:16000000 } as const;
 export type CoachImageMime = 'image/jpeg' | 'image/png' | 'image/webp';
 export type CoachAttachmentOperation = {version:typeof COACH_CONVERSATION_VERSION;conversationId:string} & (
-  {operation:'attachment.prepare';mime:CoachImageMime;bytes:number} |
+  {operation:'attachment.prepare';requestId?:string;mime:CoachImageMime;bytes:number} |
   {operation:'attachment.status';attachmentId:string} |
   {operation:'attachment.remove';attachmentId:string;reviewed:true}
 );
 export interface CoachAttachmentResult {
   version:typeof COACH_CONVERSATION_VERSION;
   ok:boolean;
-  storage:'isolated_ephemeral';
+  storage:'isolated_ephemeral'|'private_storage';
   analysis:'not_connected';
   attachment?:CoachAttachmentRef;
   state?:'prepared'|'uploading'|'available'|'removed';

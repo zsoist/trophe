@@ -7,6 +7,7 @@ import { AttachmentPicker } from '@/components/assistant/AttachmentPicker';
 import { ConversationController } from '@/components/assistant/conversation-state';
 import { I18nProvider } from '@/lib/i18n';
 import type { CoachAttachmentResult, CoachConversationResponse } from '@/agents/coach-assistant/contracts';
+import { readAttachmentResult } from '@/components/assistant/attachment-client';
 const conversation = '00000000-0000-4000-8000-000000000001';
 const id = '00000000-0000-4000-8000-000000000002';
 const base = { version: 'coach-assistant.v2', ok: true, storage: 'isolated_ephemeral', analysis: 'not_connected' } as const;
@@ -53,6 +54,22 @@ it('queries an uncertain upload using its original reservation without preparing
   expect(controller.references()).toEqual([ready.attachment]);
   controller.reconcile([{ id, kind: 'image', status: 'unauthorized' }]);
   expect(controller.references()).toEqual([]);
+});
+
+it('reuses the same prepare request identity after a lost preparation response', async () => {
+  const controller = new AttachmentController(), port = transport();
+  vi.mocked(port.operation).mockRejectedValueOnce(new Error('Lost prepare response'));
+  await controller.select([file()]); const key = controller.snapshot().items[0].key;
+  await controller.upload(key, conversation, port);
+  await controller.upload(key, conversation, port);
+  const prepares = vi.mocked(port.operation).mock.calls.map(call => call[0]).filter(input => input.operation === 'attachment.prepare');
+  expect(prepares).toHaveLength(2);
+  expect(prepares[0].requestId).toMatch(/^[0-9a-f-]{36}$/);
+  expect(prepares[1].requestId).toBe(prepares[0].requestId);
+});
+
+it('accepts the private-storage attachment envelope without relabeling analysis', () => {
+  expect(readAttachmentResult({ ...ready, storage: 'private_storage' })).toMatchObject({ ok: true, storage: 'private_storage', analysis: 'not_connected' });
 });
 
 it('drops late uploads and object URLs on identity reset', async () => {

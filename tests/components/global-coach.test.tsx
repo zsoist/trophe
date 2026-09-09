@@ -136,7 +136,11 @@ it('renders the server supplied limitation even when the response has no evidenc
 });
 it('detaches screen context and aborts a late response when the subject changes on the same mounted shell', async () => {
   let settle!: (value: CoachConversationResponse) => void;
-  const transport = vi.fn<ConversationTransport>((_request, _signal) => new Promise<CoachConversationResponse>(resolve => { settle = resolve; }));
+  const transport = vi.fn<ConversationTransport>((request, signal) => {
+    void request;
+    void signal;
+    return new Promise<CoachConversationResponse>(resolve => { settle = resolve; });
+  });
   const view = render(mounted(transport, 'A', 'client-1'));
   fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
   fireEvent.click(screen.getByRole('checkbox'));

@@ -7,7 +7,7 @@ export interface AttachmentTransport {
 }
 export interface SelectedImage {
   key: string; file: File; url: string; state: 'selected' | 'uploading' | 'available' | 'uncertain' | 'retryable';
-  reference?: CoachAttachmentRef; token?: string;
+  requestId: string; reference?: CoachAttachmentRef; token?: string;
 }
 export interface AttachmentState { items: SelectedImage[]; pending: boolean; error: 'limit' | 'type' | 'failed' | null }
 const empty = (): AttachmentState => ({ items: [], pending: false, error: null });
@@ -34,7 +34,7 @@ export class AttachmentController {
     try {
       for (const file of files) await preflightImage(file, controller.signal);
       if (generation !== this.generation || controller.signal.aborted) return;
-      this.publish({ ...this.state, items: [...this.state.items, ...files.map(file => ({ key: crypto.randomUUID(), file, url: URL.createObjectURL(file), state: 'selected' as const }))] });
+      this.publish({ ...this.state, items: [...this.state.items, ...files.map(file => ({ key: crypto.randomUUID(), requestId: crypto.randomUUID(), file, url: URL.createObjectURL(file), state: 'selected' as const }))] });
     } catch (error) {
       if (generation === this.generation) this.publish({ ...this.state, error: error instanceof Error && error.message === 'limit' ? 'limit' : 'type' });
     } finally { clearTimeout(timer); if (generation === this.generation) { this.active = null; this.publish({ ...this.state, pending: false }); } }
@@ -65,7 +65,7 @@ export class AttachmentController {
     await this.run(key, async (signal, valid) => {
       let reference = item.reference, token = item.token;
       if (!reference || !token) {
-        const prepared = await transport.operation({ version: 'coach-assistant.v2', operation: 'attachment.prepare', conversationId, mime: item.file.type as CoachImageMime, bytes: item.file.size }, signal);
+        const prepared = await transport.operation({ version: 'coach-assistant.v2', operation: 'attachment.prepare', conversationId, requestId: item.requestId, mime: item.file.type as CoachImageMime, bytes: item.file.size }, signal);
         if (!valid()) return;
         if (!prepared.ok || !prepared.attachment || !prepared.uploadToken) throw new Error('prepare_failed');
         reference = prepared.attachment; token = prepared.uploadToken;

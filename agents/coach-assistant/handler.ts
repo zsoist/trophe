@@ -3,6 +3,7 @@ import { executeProgressAction, type ProgressService } from './progress-actions'
 import { runDurableChatTurn } from './chat-turn';
 import { executeCoachChatAction } from './chat-actions';
 import type { createCoachChatService } from './chat-service';
+import type { createPrivateAttachmentService } from './attachments-service';
 import { executeFoodPreferenceAction, type FoodPreferenceService } from './food-preference-actions';
 import { createPersistentMemoryTurn } from './memory-turn';
 import { executePersistentMemoryAction } from './memory-actions';
@@ -36,8 +37,9 @@ interface HandlerDependencies {
   createFoodPreferenceService?:()=>FoodPreferenceService|Promise<FoodPreferenceService>;
   createMemoryService?:()=>PersistentMemoryService|Promise<PersistentMemoryService>;
   createChatService?:()=>ReturnType<typeof createCoachChatService>|Promise<ReturnType<typeof createCoachChatService>>;
+  createAttachmentService?:()=>ReturnType<typeof createPrivateAttachmentService>|Promise<ReturnType<typeof createPrivateAttachmentService>>;
   createFoodService?:()=>FoodQuantityService|Promise<FoodQuantityService>;
-  createPhotoFoodService?:(operation:unknown)=>PhotoFoodService|Promise<PhotoFoodService>;
+  createPhotoFoodService?:(operation:unknown,actorId:string)=>PhotoFoodService|Promise<PhotoFoodService>;
   createProgressService?:()=>ProgressService|Promise<ProgressService>;
   createWorkoutSetService?:()=>WorkoutSetService|Promise<WorkoutSetService>;
   createMessageService?:()=>CoachMessageService|Promise<CoachMessageService>;
@@ -108,13 +110,19 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
       const allowed=(deps.env.COACH_ASSISTANT_PREVIEW_USER_IDS??'').split(',').map(s=>s.trim()).filter(Boolean);
       if(!allowed.includes(guard.userId))return fail('forbidden',403);
       if(request.method==='PUT') {
-        if(deps.env.COACH_ASSISTANT_ISOLATED_ATTACHMENTS_ENABLED!=='1')return fail('disabled',404);
+        const privateAttachments=deps.env.COACH_ASSISTANT_PRIVATE_ATTACHMENTS_ENABLED==='1';
+        if(!privateAttachments&&deps.env.COACH_ASSISTANT_ISOLATED_ATTACHMENTS_ENABLED!=='1')return fail('disabled',404);
+        if(privateAttachments&&!deps.createAttachmentService)return fail('provider_unavailable',503);
         const repository=await deps.createRepository();
         const initial=await repository.authorize(guard.userId,guard.userId,controller.signal);
         if(initial.actorId!==guard.userId||initial.subjectId!==guard.userId)return fail('forbidden',403);
-        const authorize=async()=>{const fresh=await repository.authorize(guard.userId,guard.userId,controller.signal);if(JSON.stringify(fresh)!==JSON.stringify(initial))throw new Error('forbidden');};
         controller.signal.throwIfAborted();
         const bytes=await readBytes(request,controller.signal,COACH_IMAGE_LIMITS.fileBytes);
+        if(privateAttachments){
+          const result=await (await deps.createAttachmentService!()).upload({actorId:guard.userId,subjectId:guard.userId,organizationId:initial.organizationId,conversationId:request.headers.get('x-coach-conversation-id')??'',attachmentId:request.headers.get('x-coach-attachment-id')??''},request.headers.get('x-coach-upload-token')??'',bytes,controller.signal);
+          return json(result,result.ok?200:result.error==='forbidden'?403:result.error==='invalid_input'?400:result.error==='not_found'?404:result.error==='expired'?410:result.error==='uncertain'||result.error==='cancelled'?503:409);
+        }
+        const authorize=async()=>{const fresh=await repository.authorize(guard.userId,guard.userId,controller.signal);if(JSON.stringify(fresh)!==JSON.stringify(initial))throw new Error('forbidden');};
         const {isolatedAttachmentStore}=await import('./isolated-attachments');
         const result=await isolatedAttachmentStore.upload(`${guard.userId}:${initial.organizationId}`,request.headers.get('x-coach-conversation-id')??'',request.headers.get('x-coach-attachment-id')??'',request.headers.get('x-coach-upload-token')??'',bytes,controller.signal,authorize);
         return json(result,result.ok?200:result.error==='forbidden'?403:result.error==='busy'?409:400);
@@ -127,9 +135,15 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
         return json(result,result.ok?200:result.error==='forbidden'?403:result.error==='invalid_input'?400:result.error==='not_found'?404:result.error==='not_connected'||result.error==='uncertain'||result.error==='cancelled'?503:409);
       }
       if(raw && typeof raw==='object' && 'operation' in raw && typeof raw.operation==='string' && raw.operation.startsWith('attachment.')) {
-        if(deps.env.COACH_ASSISTANT_ISOLATED_ATTACHMENTS_ENABLED!=='1')return fail('disabled',404);
+        const privateAttachments=deps.env.COACH_ASSISTANT_PRIVATE_ATTACHMENTS_ENABLED==='1';
+        if(!privateAttachments&&deps.env.COACH_ASSISTANT_ISOLATED_ATTACHMENTS_ENABLED!=='1')return fail('disabled',404);
+        if(privateAttachments&&!deps.createAttachmentService)return fail('provider_unavailable',503);
         const context=await (await deps.createRepository()).authorize(guard.userId,guard.userId,controller.signal);
         if(context.actorId!==guard.userId||context.subjectId!==guard.userId)return fail('forbidden',403);
+        if(privateAttachments){
+          const result=await (await deps.createAttachmentService!()).operation({actorId:guard.userId,subjectId:guard.userId,organizationId:context.organizationId},raw,controller.signal);
+          return json(result,result.ok?200:result.error==='forbidden'?403:result.error==='invalid_input'?400:result.error==='expired'?410:result.error==='not_found'?404:result.error==='uncertain'||result.error==='cancelled'?503:409);
+        }
         const {isolatedAttachmentStore}=await import('./isolated-attachments');
         controller.signal.throwIfAborted();
         const result=isolatedAttachmentStore.operation(`${guard.userId}:${context.organizationId}`,raw);
@@ -144,7 +158,7 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
       if(raw && typeof raw==='object' && 'operation' in raw && typeof raw.operation==='string' && raw.operation.startsWith('photo.food.')) {
         if(deps.env.COACH_ASSISTANT_PHOTO_FOOD_ACTIONS_ENABLED!=='1')return fail('disabled',404);
         if(!deps.createPhotoFoodService)return fail('provider_unavailable',503);
-        const result=await executePhotoFoodAction(guard.userId,raw,await deps.createRepository(),await deps.createPhotoFoodService(raw),controller.signal);
+        const result=await executePhotoFoodAction(guard.userId,raw,await deps.createRepository(),await deps.createPhotoFoodService(raw,guard.userId),controller.signal);
         return json(result,result.ok?200:result.error==='forbidden'?403:result.error==='invalid_input'?400:result.error==='expired'?410:result.error==='not_found'?404:result.error==='not_connected'||result.error==='uncertain'||result.error==='cancelled'?503:409);
       }
       if(raw && typeof raw==='object' && 'operation' in raw && typeof raw.operation==='string' && raw.operation.startsWith('diet.')) {
@@ -296,7 +310,14 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
         const progress=result.snapshot.capabilities.find(capability=>capability.key==='progress');
         if(progress){progress.status='available';progress.reason='reviewed_self_measurements';}
       }
-      if(result.version==='coach-assistant.v2'&&result.ok&&result.snapshot&&deps.env.COACH_ASSISTANT_ISOLATED_ATTACHMENTS_ENABLED==='1'&&result.snapshot.subjectId===guard.userId&&result.dataSource==='authorized_records') {
+      if(result.version==='coach-assistant.v2'&&result.ok&&result.snapshot&&deps.env.COACH_ASSISTANT_PRIVATE_ATTACHMENTS_ENABLED==='1'&&deps.createAttachmentService&&result.snapshot.subjectId===guard.userId&&result.dataSource==='authorized_records') {
+        const attachments=await deps.createAttachmentService();
+        result.attachments=await Promise.all(result.attachments.map(async attachment=>{
+          const resolved=await attachments.operation({actorId:guard.userId,subjectId:guard.userId,organizationId:result.snapshot!.organizationId},{version:'coach-assistant.v2',operation:'attachment.status',conversationId:result.conversationId,attachmentId:attachment.id},controller.signal);
+          return {...attachment,status:resolved.ok?(resolved.attachment?.status??'unknown'):'unauthorized'};
+        }));
+        result.uploads={images:true,storage:'private_storage',analysis:deps.env.COACH_ASSISTANT_PHOTO_FOOD_ACTIONS_ENABLED==='1'&&Boolean(deps.createPhotoFoodService)?'validated_photo_analysis':'not_connected',limits:{...COACH_IMAGE_LIMITS}};
+      } else if(result.version==='coach-assistant.v2'&&result.ok&&result.snapshot&&deps.env.COACH_ASSISTANT_ISOLATED_ATTACHMENTS_ENABLED==='1'&&result.snapshot.subjectId===guard.userId&&result.dataSource==='authorized_records') {
         const {isolatedAttachmentStore}=await import('./isolated-attachments');
         result.attachments=result.attachments.map(attachment=>{
           const resolved=isolatedAttachmentStore.operation(`${guard.userId}:${result.snapshot!.organizationId}`,{version:'coach-assistant.v2',operation:'attachment.status',conversationId:result.conversationId,attachmentId:attachment.id});
