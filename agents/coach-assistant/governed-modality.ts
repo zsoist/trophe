@@ -19,7 +19,7 @@ async function persistAfterDispatch(command:Parameters<typeof executePilotBudget
 
 /** One shared-ledger admission around one existing modality runtime. The caller
  * supplies a server-derived identity and the existing task invocation. */
-export async function runGovernedPilotModality<Result extends GovernedResult>(input:{pilotId:string;actorId:string;turnId:string;identityParts:string[];task:ModalityTask;store:PilotBudgetStore;signal:AbortSignal;run:()=>Promise<Result>}):Promise<Result>{
+export async function runGovernedPilotModality<Result extends GovernedResult>(input:{pilotId:string;actorId:string;turnId:string;identityParts:string[];task:ModalityTask;store:PilotBudgetStore;signal:AbortSignal;run:(binding:Readonly<PilotAttemptBinding>)=>Promise<Result>}):Promise<Result>{
  const contract=contracts[input.task];
  const common={pilotId:input.pilotId,actorId:input.actorId,turnId:input.turnId,attemptId:stableId([...input.identityParts,input.task,'attempt']),agentRunId:stableId([...input.identityParts,input.task,'budget-run']),requestHash:digest({task:input.task,identityParts:input.identityParts})};
  const binding:PilotAttemptBinding=contract.model===TRANSCRIPTION_MODEL
@@ -28,7 +28,7 @@ export async function runGovernedPilotModality<Result extends GovernedResult>(in
  const reserve=await reserveCoachPilotAttempt(binding,input.store,input.signal);if(!reserve.ok)throw new Error('budget_blocked');
  const claim=await executePilotBudgetCommand({operation:'claim_dispatch',binding},input.store,input.signal);if(!claim.ok||!claim.dispatchGranted)throw new Error('budget_blocked');
  try{
-  const result=await input.run(),usage=usageOf(result.usage);
+  const result=await input.run(Object.freeze(structuredClone(binding))),usage=usageOf(result.usage);
   if(result.selectedPolicy.provider!==contract.provider||result.selectedPolicy.model!==contract.model||result.selectedPolicy.promptVersion!==contract.promptVersion||result.isFallback||result.rawStatus<200||result.rawStatus>=300||pricePilotUsageNanoUsd(usage,binding.model)===null)throw new Error('invalid_modality_result');
   const settled=await persistAfterDispatch({operation:'settle',binding,usage,providerSuccess:{responseModel:binding.model,requestId:result.requestId??null}},input.store);
   if(!settled.ok||settled.record.state!=='settled')throw new Error('accounting_uncertain');

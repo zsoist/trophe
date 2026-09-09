@@ -9,12 +9,16 @@ const scopeSchema=z.object({actorId:uuid,subjectId:uuid,organizationId:uuid,conv
 export type AttachmentStorageScope=z.infer<typeof scopeSchema>;
 export const attachmentObjectPath=(raw:AttachmentStorageScope)=>{const s=scopeSchema.parse(raw);if(s.actorId!==s.subjectId)throw new Error('forbidden');return `${s.organizationId}/${s.subjectId}/${s.conversationId}/${s.attachmentId}.jpg`;};
 const hash=(bytes:Uint8Array)=>createHash('sha256').update(bytes).digest('hex');
-/** Existing Supabase SDK, isolated endpoint only. Never creates a bucket or reads env.
+const QA_STORAGE_PROJECT_REF='nhawdvqqxscwxbpngaql';
+/** Existing Supabase SDK, limited to loopback or the explicit private QA project
+ * in a preview deployment. Never creates a bucket or reads env.
  * Injected fetch tests exercise SDK requests; they are not a real Storage server.
  */
-export function createPrivateCoachImageStorage(config:{url:string;serviceKey:string;bucket:string;fetchImpl?:typeof fetch}){
+export function createPrivateCoachImageStorage(config:{url:string;serviceKey:string;bucket:string;fetchImpl?:typeof fetch;deploymentEnvironment?:string}){
  const endpoint=new URL(config.url);
- if(endpoint.protocol!=='http:'||!['127.0.0.1','localhost','[::1]'].includes(endpoint.hostname)||endpoint.username||endpoint.password||endpoint.search||endpoint.hash||endpoint.pathname!=='/'||!/^coach-attachments-[a-z0-9-]+$/.test(config.bucket)||!config.serviceKey)throw new Error('invalid_isolated_storage_config');
+ const loopback=endpoint.protocol==='http:'&&['127.0.0.1','localhost','[::1]'].includes(endpoint.hostname);
+ const qaPreview=endpoint.origin===`https://${QA_STORAGE_PROJECT_REF}.supabase.co`&&config.deploymentEnvironment==='preview';
+ if((!loopback&&!qaPreview)||endpoint.username||endpoint.password||endpoint.search||endpoint.hash||endpoint.pathname!=='/'||!/^coach-attachments-[a-z0-9-]+$/.test(config.bucket)||!config.serviceKey)throw new Error('invalid_isolated_storage_config');
  const clientFor=(signal:AbortSignal)=>createClient(endpoint.origin,config.serviceKey,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},global:{fetch:(input,init)=>{const inherited=init?.signal??(input instanceof Request?input.signal:undefined);return (config.fetchImpl??fetch)(input,{...init,signal:inherited?AbortSignal.any([signal,inherited]):signal});}}});
  async function privateBucket(signal:AbortSignal){
   signal.throwIfAborted();const result=await clientFor(signal).storage.getBucket(config.bucket);signal.throwIfAborted();
