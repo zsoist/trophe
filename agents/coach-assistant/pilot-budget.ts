@@ -17,7 +17,7 @@ const providerDiagnostic=z.enum(['invalid_request_error','authentication_error',
 const providerErrorSchema=z.object({
   code:providerDiagnostic.optional(),type:providerDiagnostic.optional(),
   requestId:z.string().regex(/^req_[A-Za-z0-9_-]{1,116}$/).optional(),
-  param:z.enum(['model','messages','max_completion_tokens','reasoning_effort','prompt_cache_key','prompt_cache_options','tools','tool_choice','store','tools[0].function.parameters','tools[0].function.parameters.required']).optional(),
+  param:z.enum(['model','messages','input','instructions','max_completion_tokens','max_output_tokens','reasoning_effort','reasoning','reasoning.effort','prompt_cache_key','prompt_cache_options','tools','tool_choice','store','tools[0].function.parameters','tools[0].function.parameters.required']).optional(),
 }).strict().refine(value=>value.code!==undefined||value.type!==undefined||value.requestId!==undefined||value.param!==undefined);
 export const providerFailureDiagnosticSchema=z.object({
   category:z.enum(['auth','access','billing','rate_limit','network','timeout','provider','schema','unknown']),

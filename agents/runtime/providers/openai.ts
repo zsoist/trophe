@@ -8,6 +8,7 @@ import {
 import { debitPaidTransportAttempt } from '../../../scripts/safety/require-paid-ai-approval';
 
 const OPENAI_CHAT_COMPLETIONS_URL = 'https://api.openai.com/v1/chat/completions';
+const OPENAI_RESPONSES_URL = 'https://api.openai.com/v1/responses';
 const MISTRAL_CHAT_COMPLETIONS_URL = 'https://api.mistral.ai/v1/chat/completions';
 const MAX_ATTEMPTS = 3;
 const MAX_RETRY_DELAY_MS = 8_000;
@@ -159,9 +160,10 @@ export async function invokeOpenAiStructured<T>(input: {
   beforeTransportAttempt?: (endpoint: string) => unknown;
 }): Promise<ProviderResult<T>> {
   const isMistralCompatible = /^mistral(?:-|$)/.test(input.model);
+  const useResponsesApi = input.model === 'gpt-5.6-luna';
   const endpoint = isMistralCompatible
     ? MISTRAL_CHAT_COMPLETIONS_URL
-    : OPENAI_CHAT_COMPLETIONS_URL;
+    : useResponsesApi ? OPENAI_RESPONSES_URL : OPENAI_CHAT_COMPLETIONS_URL;
   const accessMode = assertPaidProviderAccess({
     provider: 'openai',
     transportWasInjected: input.fetchImpl != null,
@@ -182,7 +184,19 @@ export async function invokeOpenAiStructured<T>(input: {
 
   const startedAt = Date.now();
   const supportsExplicitPromptCache = /^gpt-5\.6(?:-|$)/.test(input.model);
-  const body = JSON.stringify({
+  const body = JSON.stringify(useResponsesApi ? {
+    model: input.model,
+    input: [
+      { role: 'developer', content: [{ type: 'input_text', text: input.system, prompt_cache_breakpoint: { mode: 'explicit' } }] },
+      { role: 'user', content: [{ type: 'input_text', text: input.prompt }] },
+    ],
+    max_output_tokens: input.maxTokens,
+    reasoning: { effort: input.reasoningEffort ?? 'none' },
+    prompt_cache_key: promptCacheKey(input), prompt_cache_options: { mode: 'explicit' },
+    tools: [{ type: 'function', name: input.toolName, description: input.description, parameters: input.schema, ...(input.strict ? { strict: true } : {}) }],
+    tool_choice: { type: 'function', name: input.toolName },
+    ...(input.store === false ? { store: false } : {}),
+  } : {
     model: input.model,
     messages: [
       supportsExplicitPromptCache
@@ -226,11 +240,17 @@ export async function invokeOpenAiStructured<T>(input: {
       finish_reason?: string;
       message?: { tool_calls?: Array<{ function?: { name?: string; arguments?: string } }> };
     }>;
+    status?: string;
+    output?: Array<{ type?: string; name?: string; arguments?: string }>;
     usage?: {
       prompt_tokens?: number;
       completion_tokens?: number;
       prompt_tokens_details?: { cached_tokens?: number; cache_write_tokens?: number };
       completion_tokens_details?: { reasoning_tokens?: number };
+      input_tokens?: number;
+      output_tokens?: number;
+      input_tokens_details?: { cached_tokens?: number; cache_write_tokens?: number };
+      output_tokens_details?: { reasoning_tokens?: number };
     };
     error?: OpenAiErrorBody;
   };
@@ -276,11 +296,11 @@ export async function invokeOpenAiStructured<T>(input: {
   if (!response.ok) throw apiError(response, data.error);
 
   const usage: AiUsage = {
-    inputTokens: data.usage?.prompt_tokens ?? 0,
-    outputTokens: data.usage?.completion_tokens ?? 0,
-    cacheReadTokens: data.usage?.prompt_tokens_details?.cached_tokens ?? 0,
-    cacheWriteTokens: data.usage?.prompt_tokens_details?.cache_write_tokens ?? 0,
-    reasoningTokens: data.usage?.completion_tokens_details?.reasoning_tokens ?? 0,
+    inputTokens: data.usage?.input_tokens ?? data.usage?.prompt_tokens ?? 0,
+    outputTokens: data.usage?.output_tokens ?? data.usage?.completion_tokens ?? 0,
+    cacheReadTokens: data.usage?.input_tokens_details?.cached_tokens ?? data.usage?.prompt_tokens_details?.cached_tokens ?? 0,
+    cacheWriteTokens: data.usage?.input_tokens_details?.cache_write_tokens ?? data.usage?.prompt_tokens_details?.cache_write_tokens ?? 0,
+    reasoningTokens: data.usage?.output_tokens_details?.reasoning_tokens ?? data.usage?.completion_tokens_details?.reasoning_tokens ?? 0,
   };
   const malformedResponse = (message: string) => new OpenAiApiError({
     message,
@@ -294,13 +314,12 @@ export async function invokeOpenAiStructured<T>(input: {
   });
 
   const choice = data.choices?.[0];
-  const toolCall = choice?.message?.tool_calls?.find(
-    (call) => call.function?.name === input.toolName,
-  );
-  const rawArguments = toolCall?.function?.arguments;
+  const toolCall = choice?.message?.tool_calls?.find((call) => call.function?.name === input.toolName);
+  const responseCall = data.output?.length === 1 && data.output[0].type === 'function_call' && data.output[0].name === input.toolName ? data.output[0] : undefined;
+  const rawArguments = useResponsesApi ? responseCall?.arguments : toolCall?.function?.arguments;
   if (!rawArguments) throw malformedResponse('OpenAI structured response missing tool call');
-  if (choice?.finish_reason !== 'tool_calls') {
-    throw malformedResponse(`OpenAI structured response ended with ${choice?.finish_reason ?? 'unknown reason'}`);
+  if (useResponsesApi ? data.status !== 'completed' : choice?.finish_reason !== 'tool_calls') {
+    throw malformedResponse(`OpenAI structured response ended with ${useResponsesApi ? data.status ?? 'unknown status' : choice?.finish_reason ?? 'unknown reason'}`);
   }
 
   let parsedArguments: unknown;

@@ -30,7 +30,7 @@ const KNOWN_PROVIDER_DIAGNOSTICS = new Set([
   'TypeError',
 ]);
 const REQUEST_ID_PATTERN = /^req_[A-Za-z0-9_-]{1,116}$/;
-const KNOWN_PROVIDER_PARAMS = new Set(['model','messages','max_completion_tokens','reasoning_effort','prompt_cache_key','prompt_cache_options','tools','tool_choice','store','tools[0].function.parameters','tools[0].function.parameters.required']);
+const KNOWN_PROVIDER_PARAMS = new Set(['model','messages','input','instructions','max_completion_tokens','max_output_tokens','reasoning_effort','reasoning','reasoning.effort','prompt_cache_key','prompt_cache_options','tools','tool_choice','store','tools[0].function.parameters','tools[0].function.parameters.required']);
 const PROVIDER_GENERATION_ID_PATTERN = /^(?:msg|resp)_[A-Za-z0-9_-]{1,116}$/;
 
 interface ProviderErrorMetadata {
