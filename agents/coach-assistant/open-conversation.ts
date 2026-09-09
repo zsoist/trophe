@@ -257,7 +257,7 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
   // the numeric-prose guard closed and render this narrow result from server
   // state instead of releasing provider-authored quantities or dates.
   const foodRecords=response.snapshot?.capabilities.find(capability=>capability.key==='food_records');
-  if(facts.length===0&&!boundedOutput.actionIntent&&!capabilitySelected
+  if(facts.length===0&&foodBinding.kind==='none'&&!boundedOutput.actionIntent&&!capabilitySelected
     &&response.snapshot?.surface==='food'&&foodRecords?.status==='unknown'&&foodRecords.reason==='no_supported_records'){
     boundedOutput={...boundedOutput,
       answer:response.snapshot?.language.startsWith('es')
