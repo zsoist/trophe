@@ -1,6 +1,6 @@
 # Ask Trophē LIVE-01 QA evidence
 
-Captured 2026-09-08 and reconciled 2026-09-09 for branch
+Captured 2026-09-08 through 2026-09-09 and reconciled 2026-09-09 for branch
 `codex/ag1-live01-integration`. The mounted journey fixes are SHAs
 `f654052fe5eb4f23d733bf63552a23f7089f05b4`,
 `f0fc4052692a6447dc4f9f6d347e8f71238b625b`, and
@@ -22,7 +22,8 @@ described below.
   `nhawdvqqxscwxbpngaql`. Auth and Storage returned HTTP 200.
 - Auth contains exactly one matching synthetic LIVE-01 actor. The application
   relation set contains one profile, one client profile, one organization
-  membership, and one fixed Food entry. No production user data was copied.
+  membership, and three isolated synthetic Food entries used by the governed
+  correction slices. No production user data was copied.
 - QA has zero scheduled cron jobs. The migration-created job was removed before
   the environment was exposed.
 
@@ -59,10 +60,10 @@ chain succeeded.
 - allowed actor count: `1`
 - daily hard cap: `3000000000` nano-USD (USD 3.00)
 - initial operating target: `500000000` nano-USD (USD 0.50)
-- charged after ten authorized provider attempts: `16345420` nano-USD
-  (USD 0.01634542): three unresolved USD 0.0044 holds plus seven settled
-  charges totaling USD 0.00314542
-- attempts: `10`
+- charged after eleven authorized provider attempts: `16911920` nano-USD
+  (USD 0.01691192): three unresolved USD 0.0044 holds plus eight settled
+  charges totaling USD 0.00371192
+- attempts: `11`
 - accounting blocked: `false`
 
 Direct reads as `anon` and `authenticated` both returned permission denied.
@@ -96,20 +97,21 @@ The following eleven variables exist specifically for Preview branch
 - `NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED`
 
 The database URL and actor allowlist are Vercel Secrets. The existing Preview
-OpenAI key was reused without reading its value. The mounted provider-tested
-Preview is deployment `dpl_77bqzk44ysqVZKaqetxhVJ2aZ6y9`, URL
-`https://trophe-8k36fdyjc-2p6y54z6w9-4465s-projects.vercel.app`, for SHA
+OpenAI key was reused without reading its value. The final mounted journey ran
+on exact-head deployment `dpl_9vED1BXnpCMTawjQ5aX3Cn7Tb3VN`, URL
+`https://trophe-91kn9rvdf-2p6y54z6w9-4465s-projects.vercel.app`, for branch
+HEAD `7a0b0d67a31f9c436c5dadcaceb721eb415dce24` and functional SHA
 `e47db1f74bbe8860b6a5f8c5d617a942f2b1a4f4`. It contains the reviewed
 Responses transport, deterministic Food action review copy, and the three
 context-binding corrections used by the mounted journey.
 
 ## Authorized provider attempts
 
-Ten separately authorized, single-attempt requests reached OpenAI through the
-governed QA route. None was retried or fell back to another provider. The first
-three stopped before token usage and retained the full USD 0.0044 reservation
-per attempt as `unknown`. The fourth through tenth returned measured usage and
-settled their reservations to measured cost.
+Eleven separately authorized, single-attempt requests reached OpenAI through
+the governed QA route. None was retried or fell back to another provider. The
+first three stopped before token usage and retained the full USD 0.0044
+reservation per attempt as `unknown`. The fourth through eleventh returned
+measured usage and settled their reservations to measured cost.
 
 The first attempt predated durable provider diagnostics. Its final immutable
 artifact is
@@ -416,6 +418,86 @@ confirmed after the browser restart.
 - manifest:
   `control/ag1/live01-mounted-food-closure.manifest.json`, SHA-256
   `8037811b36dd94e135e63365572e00505fdba9913a5ab74e577e0312883e2b83`
+
+## Continuous mounted Food journey, attempt eleven
+
+A third unique QA entry was created for the coordinator-authorized final
+journey. Production remained untouched.
+
+- entry: `00000000-0000-4000-8000-000000000152`
+- date and meal: `2026-09-08`, Lunch
+- label: `Arroz integral cocido · LIVE-01 APP11`
+- starting state: `250 g`, `310 kcal`, resource version `1`
+- requested correction: `Fueron 150 gramos, no 250`
+
+Immediately before the single send, the database showed the fixture at its
+starting state, zero proposals, zero receipts, and a ledger at ten attempts
+without an accounting block. One `gpt-5.6-luna` request at frozen `low`
+reasoning returned a valid review-required Food action. The mounted panel
+displayed the deterministic before/after table. The exact proposal was
+confirmed in the same uninterrupted browser process before its five-minute
+expiry. The writer produced one durable receipt, the application refetched the
+entry, and the mounted Food screen changed Lunch from `682` to `558` kcal.
+
+- conversation: `f545ce83-b6b7-42cf-a4e6-fb1f19b14fa0`
+- turn: `f26bc418-5dca-4ee4-b854-9cd81857dd80`
+- attempt: `b282f3af-3860-4f6a-9ed0-28bf367ea432`
+- agent run: `fb542df7-c5f7-4da5-a68f-cd910d09b53f`
+- provider request: `req_a33d745c19824e7a82939d9157af85f1`
+- model calls: `1`; retries/fallbacks: `0/0`
+- input/output/reasoning tokens: `1255/216/100`
+- cache read/write tokens: `0/1126`
+- measured cost: `566500` nano-USD (USD `0.0005665`)
+- ledger state: `settled`; accounting alert: `false`
+- proposal: `da517c74-48f8-4b38-b97c-1a92f24fd75a`
+- proposal hash:
+  `1d75ea249f56d8fa19d1c64b5808b2d47043da55d4ad76c0fa80c7c26b708be0`
+- proposal created: `2026-09-09T12:18:02.881730Z`
+- proposal expiry: `2026-09-09T12:23:02.896Z`
+- confirmed action: `b8feb2d3-7f30-42e9-82c3-74803f1b01cc`
+- receipt: `6a2417a9-980c-48d9-8d8e-2a5716aada20`, status `applied`
+- persisted result: `150 g`, `186 kcal`, `3.9 g` protein, `38.4 g`
+  carbohydrates, `1.5 g` fat, `2.7 g` fiber, `0.5 g` sugar
+- resource version: `1` to `2`; refresh strategy: `refetch`
+- final ledger: `11` attempts, `16911920` nano-USD charged,
+  accounting blocked `false`
+
+This attempt closes the earlier split-boundary limitation with one observable
+mounted journey from selected entry through Luna proposal, explicit
+confirmation, durable receipt, refetch, and visible final state.
+
+- composer and initial-state screenshot:
+  `control/ag1/live01-app11-composer-before-send.final.v1.png`, SHA-256
+  `7e30d11c76c102f196870fbbb745c0e7b158a59b3a69412740f1a2a1331492f0`
+- proposal screenshot:
+  `control/ag1/live01-app11-proposal-before-confirm.final.v1.png`, SHA-256
+  `e42d9cadec49ef54d1368a348e7cf347d7fc0b6f28694a608429d267cf18a8ba`
+- confirmed mounted readback screenshot:
+  `control/ag1/live01-app11-confirmed-readback.final.v1.png`, SHA-256
+  `f9f91bbe517d35ef1c055eb1da2f2ea2fcc122b047ff267dd73b393406998b83`
+- bounded evidence:
+  `control/ag1/live01-app11-continuous-journey.final.v1.json`, SHA-256
+  `f518f55d0d75a44c0794df8b9af42b1c92a125d8cda3a11c9e759650f4b96544`
+- manifest:
+  `control/ag1/live01-app11-continuous-journey.manifest.json`, SHA-256
+  `7c0447dcff00a33653b5f115db08ecfa848d572e4381d6e50cb50e5b68ca04d7`
+
+AG3 independently reconciled the immutable evidence without a provider call or
+QA/production mutation and returned PASS:
+
+- reconciliation:
+  `control/ag3/live01-app11-continuous-journey.reconciliation.final.v1.json`,
+  SHA-256
+  `3cc3405106bd206b824af59dad95c9d2b17728a816c75c86bc2e21f49a746040`
+- reconciliation manifest:
+  `control/ag3/live01-app11-continuous-journey.reconciliation.manifest.json`,
+  SHA-256
+  `10a54195305c30accf9be0781fae93d098826cb1d365f7adedd8173e6406fe22`
+
+AG4 returned PASS with no blocking findings and marked PR #137 review-ready
+after this documentation-only seal. Its non-blocking limit is that the mounted
+browser evidence covers desktop QA, not a physical mobile device or other
+product domains.
 
 ## Visible QA readback
 
