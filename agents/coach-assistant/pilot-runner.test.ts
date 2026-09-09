@@ -77,12 +77,43 @@ describe('measured pilot runner with an explicitly injected transport and store'
     expect(report.simulatedUsageCostUsd).toBeCloseTo(0.00044);expect([...deps.records.values()][0].state).toBe('settled');
   });
   it('retains unknown charges after provider failure and never retries automatically',async()=>{
-    const deps=fixture();deps.transport.mockRejectedValue(new Error('private provider detail'));
+    const deps=fixture();const warning=vi.spyOn(console,'warn').mockImplementation(()=>{});
+    deps.transport.mockRejectedValue(Object.assign(new Error('private provider detail'),{status:403,code:'insufficient_permissions',type:'invalid_request_error',requestId:'req_safe_123',usage:{inputTokens:12,outputTokens:0},latencyMs:17}));
     const report=await runCoachPilotEvaluation(input,deps);
     expect(report.ok).toBe(true);if(!report.ok)throw new Error('report expected');
     expect(report.cases[0].accounting).toBe('unknown');expect(report.simulatedUsageCostUsd).toBeNull();
-    expect(deps.transport).toHaveBeenCalledTimes(1);expect([...deps.records.values()][0]).toMatchObject({state:'unknown',chargedNanoUsd:4_400_000});
+    expect(report.cases[0]).toMatchObject({requestIds:['req_safe_123'],usage:{inputTokens:12,outputTokens:0},transportLatencyMs:17});
+    expect(deps.transport).toHaveBeenCalledTimes(1);expect([...deps.records.values()][0]).toMatchObject({state:'unknown',chargedNanoUsd:4_400_000,providerFailure:{category:'access',rawStatus:403,providerError:{code:'insufficient_permissions',type:'invalid_request_error',requestId:'req_safe_123'},hasUsage:true}});
     expect(JSON.stringify(report)).not.toContain('private provider');
+    expect(warning).toHaveBeenCalledOnce();const diagnostic=JSON.parse(String(warning.mock.calls[0][0]));
+    expect(diagnostic).toMatchObject({event:'coach_pilot_provider_failure',provider:'openai',requestedModel:'gpt-5.6-luna',category:'access',rawStatus:403,providerError:{code:'insufficient_permissions',type:'invalid_request_error',requestId:'req_safe_123'},hasUsage:true,latencyMs:17});
+    expect(JSON.stringify(diagnostic)).not.toContain('private provider');warning.mockRestore();
+  });
+  it('persists only allowlisted diagnostics while retaining an unknown reservation',async()=>{
+    const deps=fixture();const warning=vi.spyOn(console,'warn').mockImplementation(()=>{});
+    deps.transport.mockRejectedValue(Object.assign(new Error('sk-private message'),{status:401,code:'private_customer_code',type:'private_type',requestId:'customer-secret',extra:'private payload'}));
+    const report=await runCoachPilotEvaluation(input,deps);if(!report.ok)throw new Error('report expected');
+    const record=[...deps.records.values()][0];
+    expect(record).toMatchObject({state:'unknown',chargedNanoUsd:4_400_000,providerFailure:{category:'auth',rawStatus:401,hasUsage:false}});
+    expect(record.providerFailure?.providerError).toBeUndefined();expect(report.cases[0].requestIds).toEqual([]);
+    expect(JSON.stringify({record,report,warning:warning.mock.calls})).not.toMatch(/private_customer|private_type|customer-secret|sk-private|private payload/);
+    expect(deps.transport).toHaveBeenCalledTimes(1);warning.mockRestore();
+  });
+  it.each([
+    ['auth',{status:401,code:'invalid_api_key'}],
+    ['access',{status:403,code:'insufficient_permissions'}],
+    ['access',{status:404,code:'model_not_found'}],
+    ['billing',{status:429,code:'insufficient_quota'}],
+    ['rate_limit',{status:429,code:'rate_limit_exceeded'}],
+    ['network',{cause:{code:'ENOTFOUND'}}],
+    ['timeout',{cause:{code:'UND_ERR_CONNECT_TIMEOUT'}}],
+  ] as const)('classifies %s failures without retrying or releasing the reservation',async(category,fields)=>{
+    const deps=fixture();const warning=vi.spyOn(console,'warn').mockImplementation(()=>{});
+    deps.transport.mockRejectedValue(Object.assign(new Error('private provider detail'),fields));
+    const report=await runCoachPilotEvaluation(input,deps);if(!report.ok)throw new Error('report expected');
+    expect([...deps.records.values()][0]).toMatchObject({state:'unknown',chargedNanoUsd:4_400_000,providerFailure:{category,hasUsage:false}});
+    expect(deps.transport).toHaveBeenCalledTimes(1);expect(JSON.stringify({report,warning:warning.mock.calls})).not.toContain('private provider detail');
+    warning.mockRestore();
   });
   it('reuses stable attempt identity on restart and refuses redispatch without inventing zero historical cost',async()=>{
     const deps=fixture();await runCoachPilotEvaluation(input,deps);deps.transport.mockClear();

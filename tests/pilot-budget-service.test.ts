@@ -28,4 +28,25 @@ describe('persistent budget writer fail-closed boundaries', () => {
     const result = await createPilotBudgetStore({ transaction } as unknown as typeof db, actor).execute({ operation: 'claim_dispatch', binding: binding() }, new AbortController().signal);
     expect(result).toEqual({ storage: 'database', ok: false, error: 'uncertain' });
   });
+  it('writes the redacted provider failure into the canonical durable coachPilot record', async () => {
+    const input = binding(), organizationId = randomUUID();
+    const existing = { binding: input, admissionDay: '2026-09-08', state: 'dispatched' as const, chargedNanoUsd: reserve, usage: null, accountingAlert: false };
+    const execute = vi.fn()
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ organization_id: organizationId, cap_nano_usd: String(20 * reserve), operating_target_nano_usd: String(20 * reserve), budget_day: '2026-09-08', server_budget_day: '2026-09-08', charged_nano_usd: String(reserve), attempt_count: 1, accounting_blocked: false, allowed: true }] })
+      .mockResolvedValueOnce({ rows: [{ id: actor }] })
+      .mockResolvedValueOnce({ rows: [{ id: input.agentRunId, user_id: actor, organization_id: organizationId, model: input.model, record: existing }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+    const transaction = vi.fn(async work => work({ execute }));
+    const result = await createPilotBudgetStore({ transaction } as unknown as typeof db, actor).execute({
+      operation: 'mark_unknown', binding: input,
+      failure: { category: 'access', rawStatus: 404, providerError: { code: 'model_not_found', requestId: 'req_safe_404' }, hasUsage: false },
+    }, new AbortController().signal);
+    expect(result).toMatchObject({ ok: true, storage: 'database', record: { state: 'unknown', chargedNanoUsd: reserve, providerFailure: { category: 'access', rawStatus: 404, providerError: { code: 'model_not_found', requestId: 'req_safe_404' }, hasUsage: false } } });
+    const durableUpdate = JSON.stringify(execute.mock.calls[4]?.[0]);
+    expect(durableUpdate).toContain('providerFailure');
+    expect(durableUpdate).toContain('model_not_found');
+    expect(durableUpdate).not.toMatch(/error_message.*model_not_found|private provider|response body|prompt|api.?key/i);
+  });
 });

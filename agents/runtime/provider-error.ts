@@ -19,6 +19,15 @@ const KNOWN_PROVIDER_DIAGNOSTICS = new Set([
   'invalid_api_key',
   'rate_limit_exceeded',
   'server_error',
+  'model_not_found',
+  'insufficient_quota',
+  'billing_not_active',
+  'ETIMEDOUT',
+  'ECONNRESET',
+  'ENOTFOUND',
+  'UND_ERR_CONNECT_TIMEOUT',
+  'TimeoutError',
+  'TypeError',
 ]);
 const REQUEST_ID_PATTERN = /^req_[A-Za-z0-9_-]{1,116}$/;
 const PROVIDER_GENERATION_ID_PATTERN = /^(?:msg|resp)_[A-Za-z0-9_-]{1,116}$/;
@@ -46,6 +55,15 @@ function safeProviderGenerationId(value: unknown): string | undefined {
   return typeof value === 'string' && PROVIDER_GENERATION_ID_PATTERN.test(value) ? value : undefined;
 }
 
+function ownDataProperty(value: object, key: PropertyKey): unknown {
+  try {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    return descriptor && 'value' in descriptor ? descriptor.value : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function nonNegativeInteger(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0
     ? value
@@ -54,14 +72,13 @@ function nonNegativeInteger(value: unknown): number | undefined {
 
 function providerFailureUsage(value: unknown): AiUsage | undefined {
   if (!value || typeof value !== 'object') return undefined;
-  const candidate = value as Record<string, unknown>;
-  const inputTokens = nonNegativeInteger(candidate.inputTokens);
-  const outputTokens = nonNegativeInteger(candidate.outputTokens);
+  const inputTokens = nonNegativeInteger(ownDataProperty(value, 'inputTokens'));
+  const outputTokens = nonNegativeInteger(ownDataProperty(value, 'outputTokens'));
   if (inputTokens == null && outputTokens == null) return undefined;
 
-  const cacheReadTokens = nonNegativeInteger(candidate.cacheReadTokens);
-  const cacheWriteTokens = nonNegativeInteger(candidate.cacheWriteTokens);
-  const reasoningTokens = nonNegativeInteger(candidate.reasoningTokens);
+  const cacheReadTokens = nonNegativeInteger(ownDataProperty(value, 'cacheReadTokens'));
+  const cacheWriteTokens = nonNegativeInteger(ownDataProperty(value, 'cacheWriteTokens'));
+  const reasoningTokens = nonNegativeInteger(ownDataProperty(value, 'reasoningTokens'));
   return {
     inputTokens: inputTokens ?? 0,
     outputTokens: outputTokens ?? 0,
@@ -84,17 +101,18 @@ export function providerErrorTelemetry(error: unknown): {
 } {
   if (!error || typeof error !== 'object') return { rawStatus: 0 };
 
-  const candidate = error as Record<string, unknown>;
-  const status = candidate.status;
+  const status = ownDataProperty(error, 'status');
   const rawStatus = typeof status === 'number' && Number.isInteger(status) && status >= 100 && status <= 599
     ? status
     : 0;
-  const code = knownDiagnostic(candidate.code);
-  const type = knownDiagnostic(candidate.type);
-  const requestId = safeRequestId(candidate.requestId);
-  const usage = providerFailureUsage(candidate.usage);
-  const latencyMs = nonNegativeInteger(candidate.latencyMs);
-  const providerGenerationId = safeProviderGenerationId(candidate.providerGenerationId);
+  const cause = ownDataProperty(error, 'cause');
+  const causeCode = cause && typeof cause === 'object' ? knownDiagnostic(ownDataProperty(cause, 'code')) : undefined;
+  const code = knownDiagnostic(ownDataProperty(error, 'code')) ?? causeCode;
+  const type = knownDiagnostic(ownDataProperty(error, 'type')) ?? knownDiagnostic(ownDataProperty(error, 'name'));
+  const requestId = safeRequestId(ownDataProperty(error, 'requestId'));
+  const usage = providerFailureUsage(ownDataProperty(error, 'usage'));
+  const latencyMs = nonNegativeInteger(ownDataProperty(error, 'latencyMs'));
+  const providerGenerationId = safeProviderGenerationId(ownDataProperty(error, 'providerGenerationId'));
   const providerError = {
     ...(code ? { code } : {}),
     ...(type ? { type } : {}),

@@ -97,6 +97,13 @@ Failed receipt/row writes roll back the charge and row together. Unknown consump
 is retained; measured overrun is charged. A manual cap reduction blocks dispatch.
 No automatic day-boundary reset or unknown-expiry release is allowed.
 
+Provider failures persist a strict diagnostic under `metadata.coachPilot.providerFailure`:
+category, numeric HTTP status when known, allowlisted provider code/type/request ID,
+and whether usage was present. Free-form messages, response bodies, prompts, keys and
+arbitrary provider fields are never stored. The attempt remains `unknown` at its full
+reservation and is never retried automatically. Older rows without this optional
+diagnostic remain valid.
+
 The test Map is explicitly a serialized injected port: it proves core and adapter
 behavior, not SQL exclusion, crash durability, auth or production spend. The
 disposable loopback PostgreSQL suite now passes concurrency, restart, rollback,
