@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { foodDateTimePattern } from './food-datetime';
 import type { CoachRepository } from './repository';
 import type { FoodQuantityOperation, FoodQuantityResult } from './food-contracts';
 
@@ -16,8 +15,8 @@ export const foodQuantityOperationSchema=z.discriminatedUnion('operation',[
   z.object({...base,operation:z.literal('food.receipt'),actionId:z.string().uuid()}).strict(),
 ]);
 export const foodEntryValuesSchema=z.object({loggedDate:z.string().date(),foodName:z.string().min(1).max(200),foodId:z.string().uuid().nullable(),source:z.string().min(1).max(80).nullable(),sourceId:z.string().min(1).max(500).nullable(),grams:z.number().positive().nullable(),quantity:z.number().nonnegative(),calories:z.number().nonnegative(),proteinG:z.number().nonnegative(),carbsG:z.number().nonnegative(),fatG:z.number().nonnegative(),fiberG:z.number().nonnegative().nullable(),sugarG:z.number().nonnegative().nullable()}).strict();
-export const foodQuantityProposalSchema=z.object({id:z.string().uuid(),hash:z.string().regex(/^[a-f0-9]{64}$/),action:z.literal('food.quantity.update'),resource:z.object({kind:z.literal('food_entry'),id:z.string().uuid(),version}).strict(),before:foodEntryValuesSchema,after:foodEntryValuesSchema,expectedVersion:version,precondition:version,expiresAt:z.string().regex(foodDateTimePattern),reviewRequired:z.literal(true)}).strict();
-const receipt=z.object({id:z.string().uuid(),actionId:z.string().uuid(),proposalId:z.string().uuid(),status:z.enum(['applied','rejected','uncertain']),resourceVersion:version.nullable(),recordedAt:z.string().regex(foodDateTimePattern)}).strict();
+export const foodQuantityProposalSchema=z.object({id:z.string().uuid(),hash:z.string().regex(/^[a-f0-9]{64}$/),action:z.literal('food.quantity.update'),resource:z.object({kind:z.literal('food_entry'),id:z.string().uuid(),version}).strict(),before:foodEntryValuesSchema,after:foodEntryValuesSchema,expectedVersion:version,precondition:version,expiresAt:z.string().datetime({offset:true}),reviewRequired:z.literal(true)}).strict();
+const receipt=z.object({id:z.string().uuid(),actionId:z.string().uuid(),proposalId:z.string().uuid(),status:z.enum(['applied','rejected','uncertain']),resourceVersion:version.nullable(),recordedAt:z.string().datetime({offset:true})}).strict();
 const refresh=z.object({entryId:z.string().uuid(),loggedDate:z.string().date(),previousVersion:version,version,strategy:z.literal('refetch')}).strict();
 const change=z.object({beforeGrams:z.number().positive().max(10000),afterGrams:z.number().positive().max(10000)}).strict().refine(value=>value.beforeGrams!==value.afterGrams);
 const resultBase={version:z.literal('coach-assistant.v2'),storage:z.literal('database')};
