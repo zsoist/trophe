@@ -44,7 +44,10 @@ export async function POST(request: NextRequest) {
       const { db } = await import('@/db/client');
       const { createCoachChatService } = await import('@/agents/coach-assistant/chat-service');
       const { createCoachChatCleanup } = await import('@/agents/coach-assistant/chat-cleanup');
-      return createCoachChatService(db, createCoachChatCleanup(db));
+      const attachments = process.env.COACH_ASSISTANT_PRIVATE_ATTACHMENTS_ENABLED === '1'
+        ? await import('@/agents/coach-assistant/private-photo-runtime').then(module => module.createPrivateAttachmentRouteService(process.env))
+        : undefined;
+      return createCoachChatService(db, createCoachChatCleanup(db, attachments));
     },
     ...(process.env.COACH_ASSISTANT_PRIVATE_ATTACHMENTS_ENABLED === '1' ? { createAttachmentService: async () => {
       const { createPrivateAttachmentRouteService } = await import('@/agents/coach-assistant/private-photo-runtime');
