@@ -12,6 +12,28 @@ function provider(answer:string,followUp:string|null=null):OfflineConversationPr
   });
 }
 describe('unapproved full conversation release candidate (injected transport, no per-turn oracle)',()=>{
+  it('renders an empty authorized scope deterministically even when the candidate repeats a numeric date',async()=>{
+    const transport=provider('No hay comida registrada el 10 de septiembre.','¿Quieres revisar el 10 de septiembre?');
+    const empty=options();
+    empty.repository=fixtureRepository({nutrition:[],workouts:[],plans:[],exercises:[]});
+    const result=await runConversationCandidate({...base,message:'¿Qué comida está registrada el 10 de septiembre?',context:{surface:'food',includeScreen:true}},{...empty,offlineConversationProvider:transport});
+    expect(result.error).toBeUndefined();
+    expect(result.ok).toBe(true);
+    expect(result.output?.answer).toContain('The available authorized sources contain no records matching this request.');
+    expect(result.output?.answer).not.toContain('10');
+    expect(result.output?.suggestions).toEqual([]);
+    expect(result.evidence).toEqual([]);
+    expect(transport).toHaveBeenCalledOnce();
+  });
+  it('does not apply the Food empty-state renderer to another surface',async()=>{
+    const transport=provider('No hay entrenamiento registrado el 10 de septiembre.');
+    const empty=options();
+    empty.repository=fixtureRepository({nutrition:[],workouts:[],plans:[],exercises:[]});
+    const result=await runConversationCandidate({...base,message:'¿Qué entrenamiento está registrado el 10 de septiembre?',context:{surface:'workout',includeScreen:true}},{...empty,offlineConversationProvider:transport});
+    expect(result.error?.code).toBe('invalid_output');
+    expect(result.output).toBeUndefined();
+    expect(transport).toHaveBeenCalledOnce();
+  });
   it.each([
     ['How should I interpret my food records this week?','A log offers a starting point for review rather than a complete picture of daily life. Checking whether entries represent the usual routine can help frame the next discussion.','What was hardest to record consistently?'],
     ['¿Y cómo podría organizarlo mejor?','Organizar la revisión alrededor de los momentos difíciles puede ayudar a formular una pregunta concreta. La explicación general debe mantenerse separada de los datos anotados.','¿Qué momento te resulta más difícil de organizar?'],

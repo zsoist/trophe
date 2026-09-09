@@ -252,6 +252,19 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
   if(receiptFactIds.some(id=>boundedOutput.evidenceRefs.includes(id))&&receiptFactIds.every(id=>facts.some(fact=>fact.id===id))){
     boundedOutput={...boundedOutput,answer:response.snapshot?.language.startsWith('es')?'El cambio aplicado aparece en los hechos verificados del recibo.':'The applied change appears in the verified receipt facts.',followUp:null,evidenceRefs:receiptFactIds,facts:receiptFactIds.map(evidenceId=>({kind:'record_fact' as const,evidenceId})),actionIntent:null};
   }
+  // An empty authorized read is itself a useful outcome, but the model may
+  // repeat a numeric date from the question in otherwise harmless prose. Keep
+  // the numeric-prose guard closed and render this narrow result from server
+  // state instead of releasing provider-authored quantities or dates.
+  const foodRecords=response.snapshot?.capabilities.find(capability=>capability.key==='food_records');
+  if(facts.length===0&&!boundedOutput.actionIntent&&!capabilitySelected
+    &&response.snapshot?.surface==='food'&&foodRecords?.status==='unknown'&&foodRecords.reason==='no_supported_records'){
+    boundedOutput={...boundedOutput,
+      answer:response.snapshot?.language.startsWith('es')
+        ?'Las fuentes autorizadas disponibles no contienen registros compatibles con esta consulta.'
+        :'The available authorized sources contain no records matching this request.',
+      followUp:null,evidenceRefs:[],entityRefs:[],facts:[],limitations:['insufficient_evidence']};
+  }
   // Questions and suggestions can also contain unsupported presuppositions.
   // Every prose field requires the independent offline oracle; no grammar bypass.
   if(!candidateEvaluation&&!reviewInterpretation)rejectOutput('interpretation_review_missing');
