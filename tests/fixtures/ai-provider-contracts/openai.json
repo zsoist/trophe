@@ -14,8 +14,9 @@
         "status": 200,
         "body": {
           "id": "resp_offline_success",
-          "choices": [{ "finish_reason": "tool_calls", "message": { "tool_calls": [{ "function": { "name": "submit_result", "arguments": "{\"value\":\"ok\"}" } }] } }],
-          "usage": { "prompt_tokens": 120, "completion_tokens": 24 }
+          "status": "completed",
+          "output": [{ "type": "reasoning", "summary": [] }, { "type": "function_call", "status": "completed", "name": "submit_result", "arguments": "{\"value\":\"ok\"}" }],
+          "usage": { "input_tokens": 120, "output_tokens": 24 }
         }
       }]
     },
@@ -32,12 +33,13 @@
         "status": 200,
         "body": {
           "id": "resp_offline_cache",
-          "choices": [{ "finish_reason": "tool_calls", "message": { "tool_calls": [{ "function": { "name": "submit_result", "arguments": "{\"value\":\"cached\"}" } }] } }],
+          "status": "completed",
+          "output": [{ "type": "reasoning", "summary": [] }, { "type": "function_call", "status": "completed", "name": "submit_result", "arguments": "{\"value\":\"cached\"}" }],
           "usage": {
-            "prompt_tokens": 200,
-            "completion_tokens": 20,
-            "prompt_tokens_details": { "cached_tokens": 80, "cache_write_tokens": 40 },
-            "completion_tokens_details": { "reasoning_tokens": 3 }
+            "input_tokens": 200,
+            "output_tokens": 20,
+            "input_tokens_details": { "cached_tokens": 80, "cache_write_tokens": 40 },
+            "output_tokens_details": { "reasoning_tokens": 3 }
           }
         }
       }]
@@ -73,8 +75,9 @@
           "status": 200,
           "body": {
             "id": "resp_offline_retry",
-            "choices": [{ "finish_reason": "tool_calls", "message": { "tool_calls": [{ "function": { "name": "submit_result", "arguments": "{\"value\":\"retry-ok\"}" } }] } }],
-            "usage": { "prompt_tokens": 90, "completion_tokens": 12 }
+            "status": "completed",
+            "output": [{ "type": "reasoning", "summary": [] }, { "type": "function_call", "status": "completed", "name": "submit_result", "arguments": "{\"value\":\"retry-ok\"}" }],
+            "usage": { "input_tokens": 90, "output_tokens": 12 }
           }
         }
       ]
@@ -95,8 +98,9 @@
           "status": 200,
           "body": {
             "id": "resp_offline_503_retry",
-            "choices": [{ "finish_reason": "tool_calls", "message": { "tool_calls": [{ "function": { "name": "submit_result", "arguments": "{\"value\":\"recovered\"}" } }] } }],
-            "usage": { "prompt_tokens": 95, "completion_tokens": 13 }
+            "status": "completed",
+            "output": [{ "type": "reasoning", "summary": [] }, { "type": "function_call", "status": "completed", "name": "submit_result", "arguments": "{\"value\":\"recovered\"}" }],
+            "usage": { "input_tokens": 95, "output_tokens": 13 }
           }
         }
       ]
@@ -129,7 +133,7 @@
       "expectedFallbackUsed": false,
       "expectedSuccess": false,
       "maxAttempts": 1,
-      "steps": [{ "kind": "response", "status": 200, "body": { "id": "resp_missing_tool", "choices": [{ "finish_reason": "stop", "message": {} }], "usage": { "prompt_tokens": 20, "completion_tokens": 2 } } }]
+      "steps": [{ "kind": "response", "status": 200, "body": { "id": "resp_missing_tool", "status": "completed", "output": [], "usage": { "input_tokens": 20, "output_tokens": 2 } } }]
     },
     {
       "id": "openai_schema_failure",
@@ -144,8 +148,9 @@
         "status": 200,
         "body": {
           "id": "resp_schema_failure",
-          "choices": [{ "finish_reason": "tool_calls", "message": { "tool_calls": [{ "function": { "name": "submit_result", "arguments": "{\"value\":7}" } }] } }],
-          "usage": { "prompt_tokens": 30, "completion_tokens": 3 }
+          "status": "completed",
+          "output": [{ "type": "function_call", "status": "completed", "name": "submit_result", "arguments": "{\"value\":7}" }],
+          "usage": { "input_tokens": 30, "output_tokens": 3 }
         }
       }]
     },

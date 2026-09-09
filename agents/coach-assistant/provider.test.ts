@@ -8,11 +8,11 @@ describe('isolated Luna configuration and accounting', () => {
     let body: Record<string, unknown> = {};
     const result = await invokeOfflineCoachModel({system:'Rules',prompt:'Synthetic facts',signal:new AbortController().signal,effort,
       fetchImpl:async (_url, init)=>{ body=JSON.parse(String(init?.body)); return new Response(JSON.stringify({
-        id:'offline-generation',choices:[{finish_reason:'tool_calls',message:{tool_calls:[{function:{name:'select_coach_evidence',arguments:JSON.stringify({factIds:[],suggestionCodes:[],escalate:false})}}]}}],
-        usage:{prompt_tokens:2000,completion_tokens:500,prompt_tokens_details:{cached_tokens:1000,cache_write_tokens:500},completion_tokens_details:{reasoning_tokens:300}},
+        id:'offline-generation',status:'completed',output:[{type:'reasoning',summary:[]},{type:'function_call',status:'completed',name:'select_coach_evidence',arguments:JSON.stringify({factIds:[],suggestionCodes:[],escalate:false})}],
+        usage:{input_tokens:2000,output_tokens:500,input_tokens_details:{cached_tokens:1000,cache_write_tokens:500},output_tokens_details:{reasoning_tokens:300}},
       }),{status:200,headers:{'x-request-id':'req_offline_fixture'}}); } });
-    expect(body.reasoning_effort).toBe(effort);
-    expect(body.max_completion_tokens).toBe(2000);
+    expect(body.reasoning).toEqual({ effort });
+    expect(body.max_output_tokens).toBe(2000);
     expect(body.store).toBe(false);
     expect(result.requestId).toBe('req_offline_fixture');
     expect(priceCoachUsage(result.usage)).toBeCloseTo(.000845,10);
