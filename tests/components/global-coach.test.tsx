@@ -3,7 +3,7 @@ import React from 'react';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { I18nProvider } from '@/lib/i18n';
-import GlobalCoach from '@/components/assistant/GlobalCoach';
+import GlobalCoach, { resetGlobalCoachSessionsForActor } from '@/components/assistant/GlobalCoach';
 import { ConversationController, coachSurface } from '@/components/assistant/conversation-state';
 import type { CoachConversationRequest, CoachConversationResponse } from '@/agents/coach-assistant/contracts';
 import { publishScreenDate } from '@/components/assistant/screen-date';
@@ -14,7 +14,7 @@ const response = (request: CoachConversationRequest, text = 'Recorded summary'):
   output: { answer: text, evidenceRefs: [], limitations: [], suggestions: [], escalation: { required: false, reason: null, draft: null } }, evidence: [], proposals: [], receipts: [], attachments: [],
   telemetry: { model: null, provider: null, promptVersion: 'test', modelCalls: 0, dataReads: 0, tokensIn: 0, tokensOut: 0, reasoningTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, latencyMs: 0, costUsd: 0, pricingVersion: 'test' },
 });
-afterEach(() => { cleanup(); publishScreenDate(null)(); vi.useRealTimers(); route.path = '/dashboard/workout'; });
+afterEach(() => { cleanup(); resetGlobalCoachSessionsForActor('A'); resetGlobalCoachSessionsForActor('route-mount-actor'); publishScreenDate(null)(); vi.useRealTimers(); route.path = '/dashboard/workout'; });
 function mounted(transport: (request: CoachConversationRequest, signal: AbortSignal) => Promise<CoachConversationResponse>, identity = 'A', subjectId?: string) {
   return <I18nProvider defaultLang="en"><GlobalCoach identity={identity} subjectId={subjectId} example={transport} /></I18nProvider>;
 }
@@ -78,6 +78,45 @@ it('captures the selected Food calendar day only for the matching included scree
   fireEvent.click(screen.getByRole('button',{name:'Send question'}));
   await act(async()=>{});
   expect(transport.mock.calls[1][0].context).not.toHaveProperty('screenDate');
+});
+it('keeps the open conversation when dashboard navigation swaps the route-owned coach mount', async () => {
+  HTMLElement.prototype.scrollTo = vi.fn();
+  const identity = 'route-mount-actor';
+  const transport = vi.fn(async (request: CoachConversationRequest) => response(request, `Answer for ${request.context?.surface}`));
+  route.path = '/dashboard/log';
+  publishScreenDate({ path: route.path, date: '2026-09-10' });
+  const food = render(mounted(transport, identity));
+  fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
+  fireEvent.change(screen.getByRole('textbox', { name: 'Your question' }), { target: { value: 'What food is recorded?' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
+  await screen.findByText('Answer for food');
+  food.unmount();
+
+  route.path = '/dashboard/workout';
+  const workout = render(mounted(transport, identity));
+  expect(screen.getByRole('button', { name: 'Ask Trophē' }).getAttribute('aria-expanded')).toBe('true');
+  expect(screen.getByText('Answer for food')).toBeTruthy();
+  fireEvent.change(screen.getByRole('textbox', { name: 'Your question' }), { target: { value: 'What workout is recorded?' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
+  await screen.findByText('Answer for workout');
+  expect(transport.mock.calls[1][0].conversationId).toBe(transport.mock.calls[0][0].conversationId);
+  expect(transport.mock.calls[1][0].history).toHaveLength(2);
+  expect(transport.mock.calls[1][0].context).toMatchObject({ surface: 'workout', includeScreen: true });
+  expect(transport.mock.calls[1][0].context).not.toHaveProperty('screenDate');
+  workout.unmount();
+
+  route.path = '/dashboard/progress';
+  const progress = render(mounted(transport, identity));
+  expect(screen.getByRole('button', { name: 'Ask Trophē' }).getAttribute('aria-expanded')).toBe('true');
+  expect(screen.getByText('Answer for workout')).toBeTruthy();
+  fireEvent.change(screen.getByRole('textbox', { name: 'Your question' }), { target: { value: 'What progress is recorded?' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
+  await screen.findByText('Answer for progress');
+  expect(transport.mock.calls[2][0].conversationId).toBe(transport.mock.calls[0][0].conversationId);
+  expect(transport.mock.calls[2][0].history).toHaveLength(4);
+  expect(transport.mock.calls[2][0].context).toMatchObject({ surface: 'progress', includeScreen: true });
+  expect(transport.mock.calls[2][0].context).not.toHaveProperty('screenDate');
+  progress.unmount();
 });
 it('renders the server supplied limitation even when the response has no evidence rows', async () => {
   HTMLElement.prototype.scrollTo = vi.fn();

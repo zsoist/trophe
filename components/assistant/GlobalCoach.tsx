@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { Send, Sparkles, X } from 'lucide-react';
@@ -56,6 +56,16 @@ import { acceptedMessageProposal } from './message-capability';
 import { COACH_MESSAGE_REFRESH } from './message-events';
 
 const HistoryPanel = dynamic(() => import('./HistoryPanel').then(module => module.HistoryPanel));
+const conversationControllers = new Map<string, ConversationController>();
+const openCoachScopes = new Set<string>();
+const conversationControllerFor = (scope: string) => {
+  const current = conversationControllers.get(scope);
+  if (current) return current;
+  const controller = new ConversationController();
+  controller.identify(scope);
+  conversationControllers.set(scope, controller);
+  return controller;
+};
 const foodControllers = new Map<string, FoodQuantityController>();
 const foodControllerFor = (scope: string) => {
   const current = foodControllers.get(scope);
@@ -73,6 +83,24 @@ const messageControllerFor = (scope: string) => {
   return controller;
 };
 
+/** Clears in-memory private state when authentication moves away from an actor. */
+export function resetGlobalCoachSession(scope: string) {
+  conversationControllers.get(scope)?.identify(null);
+  conversationControllers.delete(scope);
+  openCoachScopes.delete(scope);
+  foodControllers.get(scope)?.reset();
+  foodControllers.delete(scope);
+  messageControllers.get(scope)?.reset();
+  messageControllers.delete(scope);
+}
+
+export function resetGlobalCoachSessionsForActor(actorId: string) {
+  const prefix = `${actorId}:`;
+  for (const scope of conversationControllers.keys()) {
+    if (scope.startsWith(prefix)) resetGlobalCoachSession(scope);
+  }
+}
+
 export type CoachContextSlot = (props: { identity: string; controller: PreferenceController; state: PreferenceState; conversationId: string; turnId: string; surface: CoachSurfaceName; response: CoachConversationResponse; transport: PreferenceTransport }) => ReactNode;
 export type CoachVoiceSlot = (props: { conversationId: string; onUse: (text: string) => boolean; onSend?: (result: Extract<CoachVoiceResult, { ok: true }>, text: string) => Promise<'sent' | 'ambiguous' | 'failed'> }) => ReactNode;
 type Props = { identity: string; subjectId?: string; professional?: boolean; example?: ConversationTransport; preferenceTransport?: PreferenceTransport; memoryTransport?: MemoryTransport; dietTransport?: DietTransport; progressTransport?: ProgressTransport; foodTransport?:FoodTransport; photoFoodTransport?:PhotoFoodTransport; workoutSetTransport?:WorkoutSetTransport; messageTransport?:MessageTransport; historyTransport?: HistoryTransport; contextSlot?: CoachContextSlot; voiceSlot?: CoachVoiceSlot; voiceTranscriptionTransport?: VoiceTranscriptionTransport; reviewedVoiceTransport?: ReviewedVoiceTransport; workspaceHint?: CoachContextHint['workspace'] };
@@ -80,11 +108,18 @@ type Props = { identity: string; subjectId?: string; professional?: boolean; exa
 export default function GlobalCoach(props: Props) {
   const [workoutSet] = useState(() => new WorkoutSetController());
   const foodScope = `${props.identity}:${props.subjectId ?? props.identity}`;
+  const previousScope = useRef(foodScope);
+  const controller = useMemo(() => conversationControllerFor(foodScope), [foodScope]);
   const food = useMemo(() => foodControllerFor(foodScope), [foodScope]);
   const message = useMemo(() => messageControllerFor(foodScope), [foodScope]);
-  return <CoachSurface key={`${foodScope}:${props.professional ? 'professional' : 'self'}`} {...props} foodController={food} workoutSetController={workoutSet} messageController={message} />;
+  useEffect(() => {
+    if (previousScope.current === foodScope) return;
+    resetGlobalCoachSession(previousScope.current);
+    previousScope.current = foodScope;
+  }, [foodScope]);
+  return <CoachSurface key={`${foodScope}:${props.professional ? 'professional' : 'self'}`} {...props} sessionScope={foodScope} conversationController={controller} foodController={food} workoutSetController={workoutSet} messageController={message} />;
 }
-function CoachSurface({ identity, subjectId, professional = false, example, preferenceTransport, memoryTransport, dietTransport, progressTransport, foodTransport, photoFoodTransport, workoutSetTransport, messageTransport, historyTransport, contextSlot, voiceSlot, voiceTranscriptionTransport, reviewedVoiceTransport, workspaceHint, foodController: food, workoutSetController, messageController }: Props & { foodController: FoodQuantityController; workoutSetController: WorkoutSetController; messageController: MessageController }) {
+function CoachSurface({ identity, subjectId, professional = false, example, preferenceTransport, memoryTransport, dietTransport, progressTransport, foodTransport, photoFoodTransport, workoutSetTransport, messageTransport, historyTransport, contextSlot, voiceSlot, voiceTranscriptionTransport, reviewedVoiceTransport, workspaceHint, sessionScope, conversationController: controller, foodController: food, workoutSetController, messageController }: Props & { sessionScope: string; conversationController: ConversationController; foodController: FoodQuantityController; workoutSetController: WorkoutSetController; messageController: MessageController }) {
   const { t } = useGlobalCoachI18n();
   const path = usePathname();
   const surface = coachSurface(path);
@@ -92,7 +127,6 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   const selection = acceptedScreenSelection(publishedSelection, path, identity, subjectId);
   const publishedDate=useSyncExternalStore(subscribeScreenDate,screenDateSnapshot,emptyScreenDate);
   const screenDate=surface==='food'?acceptedScreenDate(publishedDate,path):null;
-  const [controller] = useState(() => new ConversationController());
   const [voice] = useState(() => new VoiceController());
   const foodState = useSyncExternalStore(food.subscribe, food.snapshot, food.snapshot);
   const [photoFood] = useState(() => new PhotoFoodController());
@@ -128,7 +162,12 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   const coachActionBlocked = workoutSetBlocked || foodBlocked || messageBlocked;
   const composerInputBlocked = workoutSetBlocked || messageBlocked || foodState.pending || foodState.uncertain || Boolean(foodState.receipt && foodState.error);
   const composerSubmitBlocked = composerInputBlocked;
-  const [open, setOpen] = useState(false);
+  const [open, setOpenState] = useState(() => openCoachScopes.has(sessionScope));
+  const setOpen = useCallback((next: boolean) => {
+    if (next) openCoachScopes.add(sessionScope);
+    else openCoachScopes.delete(sessionScope);
+    setOpenState(next);
+  }, [sessionScope]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [includeScreen, setIncludeScreen] = useState(true);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
@@ -139,11 +178,9 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   const followLatest = useRef(true);
   const [showLatest, setShowLatest] = useState(false);
   const [speechByTurn, setSpeechByTurn] = useState<Record<string, CoachSpeechDescriptor>>({});
-  const scope = `${identity}:${subjectId ?? identity}`;
   const professionalMode = professional || Boolean(subjectId && subjectId !== identity);
   const missingProfessionalSubject = professionalMode && !subjectId;
   const serverScope = useRef<string | null>(null);
-  useEffect(() => { controller.identify(scope); return () => controller.identify(null); }, [controller, scope]);
   useEffect(() => () => preferences.reset(), [preferences]);
   useEffect(() => () => attachments.reset(), [attachments]);
   useEffect(() => () => voice.reset(), [voice]);
@@ -163,7 +200,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
     };
     window.addEventListener(COACH_FOOD_SELECT, select);
     return () => window.removeEventListener(COACH_FOOD_SELECT, select);
-  }, [example, food, identity, state.conversationId, subjectId, voice]);
+  }, [example, food, identity, setOpen, state.conversationId, subjectId, voice]);
   useEffect(() => {
     if (!foodState.receipt || foodState.pending || foodState.error || !foodState.entry) return;
     window.dispatchEvent(new CustomEvent(COACH_FOOD_REFRESH, { detail: { actorId: identity, entryId: foodState.entry.entryId } }));
