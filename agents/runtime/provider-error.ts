@@ -30,6 +30,7 @@ const KNOWN_PROVIDER_DIAGNOSTICS = new Set([
   'TypeError',
 ]);
 const REQUEST_ID_PATTERN = /^req_[A-Za-z0-9_-]{1,116}$/;
+const KNOWN_PROVIDER_PARAMS = new Set(['model','messages','max_completion_tokens','reasoning_effort','prompt_cache_key','prompt_cache_options','tools','tool_choice','store','tools[0].function.parameters','tools[0].function.parameters.required']);
 const PROVIDER_GENERATION_ID_PATTERN = /^(?:msg|resp)_[A-Za-z0-9_-]{1,116}$/;
 
 interface ProviderErrorMetadata {
@@ -37,6 +38,7 @@ interface ProviderErrorMetadata {
     code?: string;
     type?: string;
     requestId?: string;
+    param?: string;
   };
 }
 
@@ -110,6 +112,8 @@ export function providerErrorTelemetry(error: unknown): {
   const code = knownDiagnostic(ownDataProperty(error, 'code')) ?? causeCode;
   const type = knownDiagnostic(ownDataProperty(error, 'type')) ?? knownDiagnostic(ownDataProperty(error, 'name'));
   const requestId = safeRequestId(ownDataProperty(error, 'requestId'));
+  const rawParam = ownDataProperty(error, 'param');
+  const param = typeof rawParam === 'string' && KNOWN_PROVIDER_PARAMS.has(rawParam) ? rawParam : undefined;
   const usage = providerFailureUsage(ownDataProperty(error, 'usage'));
   const latencyMs = nonNegativeInteger(ownDataProperty(error, 'latencyMs'));
   const providerGenerationId = safeProviderGenerationId(ownDataProperty(error, 'providerGenerationId'));
@@ -117,11 +121,12 @@ export function providerErrorTelemetry(error: unknown): {
     ...(code ? { code } : {}),
     ...(type ? { type } : {}),
     ...(requestId ? { requestId } : {}),
+    ...(param ? { param } : {}),
   };
 
   return {
     rawStatus,
-    ...(providerError.code || providerError.type || providerError.requestId
+    ...(providerError.code || providerError.type || providerError.requestId || providerError.param
       ? { metadata: { providerError } }
       : {}),
     ...(usage ? { usage } : {}),

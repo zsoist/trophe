@@ -17,12 +17,14 @@ type OpenAiErrorBody = {
   message?: string;
   code?: string;
   type?: string;
+  param?: string;
 };
 
 export class OpenAiApiError extends Error {
   readonly status: number;
   readonly code?: string;
   readonly type?: string;
+  readonly param?: string;
   readonly requestId?: string;
   readonly usage?: AiUsage;
   readonly latencyMs?: number;
@@ -33,6 +35,7 @@ export class OpenAiApiError extends Error {
     status: number;
     code?: string;
     type?: string;
+    param?: string;
     requestId?: string;
     usage?: AiUsage;
     latencyMs?: number;
@@ -43,6 +46,7 @@ export class OpenAiApiError extends Error {
     this.status = input.status;
     this.code = input.code;
     this.type = input.type;
+    this.param = input.param;
     this.requestId = input.requestId;
     this.usage = input.usage;
     this.latencyMs = input.latencyMs;
@@ -130,6 +134,7 @@ function apiError(response: Response, error: OpenAiErrorBody | undefined): OpenA
     status: response.status,
     code: error?.code,
     type: error?.type,
+    param: error?.param,
     requestId: response.headers.get('x-request-id') ?? undefined,
   });
 }

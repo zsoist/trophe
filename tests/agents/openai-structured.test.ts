@@ -257,6 +257,7 @@ describe('invokeOpenAiStructured', () => {
         message: 'You have insufficient permissions for this operation.',
         code: 'insufficient_permissions',
         type: 'invalid_request_error',
+        param: 'tools[0].function.parameters.required',
       },
     }), {
       status: 403,
@@ -274,6 +275,7 @@ describe('invokeOpenAiStructured', () => {
       status: 403,
       code: 'insufficient_permissions',
       type: 'invalid_request_error',
+      param: 'tools[0].function.parameters.required',
       requestId: 'req_luna_123',
     } satisfies Partial<OpenAiApiError>);
     expect(fetchMock).toHaveBeenCalledOnce();

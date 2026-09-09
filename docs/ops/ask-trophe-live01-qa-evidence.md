@@ -1,10 +1,10 @@
 # Ask Trophē LIVE-01 QA evidence
 
-Captured 2026-09-08 for branch `codex/ag1-live01-integration`. The current
-reviewed implementation is SHA
-`a5db89ef850d195d2d2c0037bee6a08f3b447d00`. It includes the LIVE-01 route,
-durable budget authority, redacted provider-failure persistence, and the
-strict-schema compatibility correction described below.
+Captured 2026-09-08 for branch `codex/ag1-live01-integration`. The reviewed
+strict-schema implementation is SHA
+`a5db89ef850d195d2d2c0037bee6a08f3b447d00`. The branch includes the LIVE-01
+route, durable budget authority, redacted provider-failure persistence, and the
+compatibility correction described below.
 
 ## Destination and isolation
 
@@ -137,6 +137,11 @@ the full CI workflow passed. AG4 approved the integrated correction for review.
 The Food entry remains at `250 g`, revision `1`; durable proposal and receipt
 counts remain zero. A new paid provider attempt requires a new explicit
 authorization.
+
+Future provider failures may also retain `error.param` when it exactly matches
+the closed request-field allowlist. Arbitrary paths and provider messages remain
+discarded. This cannot reconstruct the missing parameter from either historical
+attempt.
 
 ## Open advisories
 
