@@ -56,8 +56,27 @@ import { acceptedMessageProposal } from './message-capability';
 import { COACH_MESSAGE_REFRESH } from './message-events';
 
 const HistoryPanel = dynamic(() => import('./HistoryPanel').then(module => module.HistoryPanel));
-const conversationControllers = new Map<string, ConversationController>();
-const openCoachScopes = new Map<string, string>();
+type GlobalCoachSessionRegistry = {
+  conversationControllers: Map<string, ConversationController>;
+  openCoachScopes: Map<string, string>;
+  foodControllers: Map<string, FoodQuantityController>;
+  messageControllers: Map<string, MessageController>;
+};
+declare global {
+  interface Window { __tropheGlobalCoachSessionV1?: GlobalCoachSessionRegistry }
+}
+const createGlobalCoachSessionRegistry = (): GlobalCoachSessionRegistry => ({
+  conversationControllers: new Map(),
+  openCoachScopes: new Map(),
+  foodControllers: new Map(),
+  messageControllers: new Map(),
+});
+// Food and Workout load the coach through separate client chunks. The browser
+// registry gives both chunks one private, tab-local session owner.
+const globalCoachSession = typeof window === 'undefined'
+  ? createGlobalCoachSessionRegistry()
+  : (window.__tropheGlobalCoachSessionV1 ??= createGlobalCoachSessionRegistry());
+const { conversationControllers, openCoachScopes, foodControllers, messageControllers } = globalCoachSession;
 const conversationControllerFor = (scope: string) => {
   const current = conversationControllers.get(scope);
   if (current) return current;
@@ -66,7 +85,6 @@ const conversationControllerFor = (scope: string) => {
   conversationControllers.set(scope, controller);
   return controller;
 };
-const foodControllers = new Map<string, FoodQuantityController>();
 const foodControllerFor = (scope: string) => {
   const current = foodControllers.get(scope);
   if (current) return current;
@@ -74,7 +92,6 @@ const foodControllerFor = (scope: string) => {
   foodControllers.set(scope, controller);
   return controller;
 };
-const messageControllers = new Map<string, MessageController>();
 const messageControllerFor = (scope: string) => {
   const current = messageControllers.get(scope);
   if (current) return current;
