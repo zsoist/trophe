@@ -42,12 +42,16 @@ async function main() {
   assert.equal((await pool.query('SELECT private.coach_chat_contract_version() AS version')).rows[0].version, 'coach-assistant.chat.v1');
   pass('exact_migration_replay_postflight');
 
-  // Leave the disposable database at its pre-0087 shape so the established
-  // isolated lifecycle tests can continue to own and remove their fixtures.
-  await pool.query(rollback);
-  await pool.query(preflight);
-  assert.equal((await pool.query("SELECT to_regclass('private.coach_action_proposals') AS relation")).rows[0].relation, null);
-  pass('baseline_restored_for_isolated_contract_tests');
+  if (process.env.COACH_LIVE02_LEAVE_VERSIONED_INSTALLED === '1') {
+    pass('versioned_contracts_retained_for_following_tests');
+  } else {
+    // Leave the disposable database at its pre-0087 shape so the established
+    // isolated lifecycle tests can continue to own and remove their fixtures.
+    await pool.query(rollback);
+    await pool.query(preflight);
+    assert.equal((await pool.query("SELECT to_regclass('private.coach_action_proposals') AS relation")).rows[0].relation, null);
+    pass('baseline_restored_for_isolated_contract_tests');
+  }
 }
 
 main().catch(error => {

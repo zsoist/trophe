@@ -65,6 +65,10 @@ function requireId(value) {
 export async function executeCoachWeek({ status, env, actors, service }) {
   assertCi();
   assertTargets(status);
+  const migration = spawnSync(process.execPath, ['--import', 'tsx', 'scripts/test/coach-live02-migration-sql.ts'], {
+    stdio: 'inherit', env: { ...env, DATABASE_URL: status.DB_URL, COACH_LIVE02_LEAVE_VERSIONED_INSTALLED: '1' },
+  });
+  if (migration.error || migration.status !== 0) throw new Error('Coach LIVE-02 versioned migration rehearsal failed');
   const clientId = requireId(actors?.clientId);
   const coachId = requireId(actors?.coachId);
   const orgId = requireId(env.E2E_TEST_ORG_ID);
