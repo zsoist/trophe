@@ -1,12 +1,6 @@
--- Destructive rollback rehearsal for a disposable database only.
--- Production rollback is: disable the affected release gates, preserve records,
--- and restore the pre-migration backup through the authorized release process.
-DO $$ BEGIN
-  IF current_setting('trophe.disposable_migration_rehearsal', true) IS DISTINCT FROM '1' THEN
-    RAISE EXCEPTION 'disposable_migration_rehearsal_required';
-  END IF;
-END $$;
-
+-- Test fixture loaded only by the loopback-validated disposable CI runner.
+-- This is intentionally absent from db/release: production rollback disables
+-- release gates, preserves records, and uses the authorized backup restore.
 BEGIN;
 DROP POLICY coach_chat_namespace_guard ON public.agent_conversation;
 DROP TRIGGER coach_chat_content_immutable ON public.agent_conversation;

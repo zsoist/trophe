@@ -15,7 +15,7 @@ async function main() {
   const preflight = await readFile('db/release/0087_ask_trophe_live02_contracts.preflight.sql', 'utf8');
   const migration = await readFile('drizzle/0087_ask_trophe_live02_contracts.sql', 'utf8');
   const postflight = await readFile('db/release/0087_ask_trophe_live02_contracts.postflight.sql', 'utf8');
-  const rollback = await readFile('db/release/0087_ask_trophe_live02_contracts.disposable-rollback.sql', 'utf8');
+  const rollback = await readFile('scripts/test/fixtures/0087_ask_trophe_live02_contracts.rollback.sql', 'utf8');
   const sourceManifest = (await readFile('db/release/0087_ask_trophe_live02_contracts.sources', 'utf8')).trim().split('\n');
   const sourceSql: string[] = [];
   for (const line of sourceManifest) {
@@ -32,11 +32,10 @@ async function main() {
   assert.equal((await pool.query('SELECT private.coach_chat_contract_version() AS version')).rows[0].version, 'coach-assistant.chat.v1');
   pass('journal_bootstrap_postflight');
 
-  await pool.query("SET trophe.disposable_migration_rehearsal = '1'");
   await pool.query(rollback);
   await pool.query(preflight);
   assert.equal((await pool.query("SELECT to_regclass('private.coach_action_proposals') AS relation")).rows[0].relation, null);
-  pass('guarded_disposable_rollback_and_preflight');
+  pass('loopback_disposable_rollback_and_preflight');
 
   await pool.query(migration);
   await pool.query(postflight);

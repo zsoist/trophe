@@ -42,6 +42,34 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'private') THEN
     RAISE EXCEPTION '0087 prerequisite schema missing: private';
   END IF;
+  IF to_regclass('private.coach_pilot_budgets') IS NULL THEN
+    RAISE EXCEPTION '0087 prerequisite missing: 0086 shared pilot budget authority';
+  END IF;
+  IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid = 'private.coach_pilot_budgets'::regclass) THEN
+    RAISE EXCEPTION '0087 prerequisite RLS missing: private.coach_pilot_budgets';
+  END IF;
+  IF has_table_privilege('anon', 'private.coach_pilot_budgets', 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+    OR has_table_privilege('authenticated', 'private.coach_pilot_budgets', 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') THEN
+    RAISE EXCEPTION '0087 prerequisite exposes pilot budget authority to an application role';
+  END IF;
+  IF NOT has_table_privilege('service_role', 'private.coach_pilot_budgets', 'SELECT,INSERT,UPDATE,DELETE')
+    OR has_table_privilege('service_role', 'private.coach_pilot_budgets', 'TRUNCATE,REFERENCES,TRIGGER') THEN
+    RAISE EXCEPTION '0087 prerequisite service_role grants differ from 0086';
+  END IF;
+  IF EXISTS (
+    SELECT required.column_name
+    FROM (VALUES
+      ('scope_key'), ('organization_id'), ('allowed_actor_ids'), ('cap_nano_usd'),
+      ('operating_target_nano_usd'), ('budget_day'), ('charged_nano_usd'),
+      ('attempt_count'), ('accounting_blocked')
+    ) AS required(column_name)
+    LEFT JOIN information_schema.columns actual
+      ON actual.table_schema = 'private' AND actual.table_name = 'coach_pilot_budgets'
+      AND actual.column_name = required.column_name
+    WHERE actual.column_name IS NULL
+  ) THEN
+    RAISE EXCEPTION '0087 prerequisite 0086 budget shape incomplete';
+  END IF;
   IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'agent_conversation'
              AND policyname = 'coach_chat_namespace_guard') THEN
     RAISE EXCEPTION '0087 policy collision: coach_chat_namespace_guard';
@@ -70,3 +98,10 @@ BEGIN
 END $$;
 
 SELECT '0087_preflight_ok' AS result;
+
+-- Release operator must separately confirm one fixed row and adequate remaining
+-- capacity. This is evidence only; this file never changes budget authority.
+SELECT scope_key, cap_nano_usd, operating_target_nano_usd, charged_nano_usd,
+       attempt_count, accounting_blocked
+FROM private.coach_pilot_budgets
+WHERE scope_key = 'ask-trophe-shared';
