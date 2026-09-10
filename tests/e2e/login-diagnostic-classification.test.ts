@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { classifyAuthExchangeStatus, classifyLoginUiError, emitLoginDiagnostic } from '../../e2e/helpers/auth';
+import { classifyAuthExchangeStatus, classifyAuthRequestFailure, classifyLoginUiError, emitLoginDiagnostic } from '../../e2e/helpers/auth';
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -14,6 +14,12 @@ describe('redacted login diagnostics', () => {
     expect(classifyLoginUiError('Too many requests')).toBe('rate_limited');
     expect(classifyLoginUiError('Network error')).toBe('network');
     expect(classifyLoginUiError('internal detail')).toBe('other');
+    expect(classifyAuthRequestFailure(null)).toBe('none');
+    expect(classifyAuthRequestFailure('net::ERR_ABORTED')).toBe('aborted');
+    expect(classifyAuthRequestFailure('net::ERR_CONNECTION_REFUSED')).toBe('connection');
+    expect(classifyAuthRequestFailure('request timeout')).toBe('timeout');
+    expect(classifyAuthRequestFailure('net::ERR_NAME_NOT_RESOLVED')).toBe('dns');
+    expect(classifyAuthRequestFailure('opaque failure')).toBe('other');
   });
 
   it('still emits a bounded failure after Playwright closes the page', async () => {
@@ -33,6 +39,8 @@ describe('redacted login diagnostics', () => {
     expect(JSON.parse(String(write.mock.calls[0]?.[0]))).toEqual({
       event: 'coach_login_diagnostic', outcome: 'failed', role: 'coach', authExchangeStatus: 200,
       authExchangeCategory: 'success', pathname: '/login', sessionPresent: true, uiErrorCategory: 'none',
+      authRequestStarted: false, authRequestFailureCategory: 'none',
+      submitDisabledBeforeClick: null, submitDisabledAfterClick: null,
     });
   });
 
