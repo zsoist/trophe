@@ -53,6 +53,13 @@ it('will not offer use of a transcript whose reviewed scope differs from the cur
   expect(screen.getByRole('button', { name: 'Add reviewed text to question' }).hasAttribute('disabled')).toBe(true);
   expect(use).not.toHaveBeenCalled();
 });
+it('identifies a real provider transcript without calling it a synthetic example', () => {
+  const scope = { actorId: 'owner', organizationId: 'org', conversationId: 'conversation-a' };
+  const result: Extract<CoachVoiceResult, { ok: true }> = { version: 'coach-assistant.voice.v1', ok: true, status: 'review_required', scope, turnId: 'turn', transcript: { text: 'Real transcribed words', locale: 'en', languages: ['en'], source: 'provider_transcript', trust: 'untrusted_transcript' }, review: { token: 'provider', expiresAt: new Date(Date.now() + 60_000).toISOString(), editable: true, audioRetention: 'discarded_after_transcription' }, durationMs: 1000 };
+  render(<I18nProvider defaultLang="en"><VoiceTranscriptReview result={result} scope={scope} onUse={vi.fn()} onDiscard={vi.fn()} /></I18nProvider>);
+  expect(screen.getByText('Transcript from your recording. Review it before sending.')).toBeTruthy();
+  expect(screen.queryByText(/Synthetic transcript example/)).toBeNull();
+});
 it('sends reviewed fixture text through the integrated text turn and renders its response', async () => {
   const reviewedImplementation: ReviewedVoiceTransport = async input => {
     const request: CoachConversationRequest = { ...input.request, message: input.editedText };

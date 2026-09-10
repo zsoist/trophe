@@ -43,7 +43,7 @@ export function VoiceCapture({ controller, state, disabled, conversationId, tran
     onSend={onSend ? message => onSend(result, message) : undefined} onDiscard={reset} onRerecord={() => { setResult(null); start(); }} />;
   return <details className={styles.attachments} onToggle={event => { if (!event.currentTarget.open && (active || processing)) reset(); }}>
     <summary><Mic size={17} aria-hidden="true" />{t('global_coach.voice')}</summary>
-    <p>{t('global_coach.voice_local')}</p>
+    <p>{t(transcribe ? 'global_coach.voice_connected' : 'global_coach.voice_local')}</p>
     {state.phase === 'idle' && !processing && <button type="button" disabled={disabled} onClick={start}>{t('global_coach.voice_start')}</button>}
     {active && <div role="status"><p>{t(`global_coach.voice_${state.phase}`, { seconds: Math.floor(state.elapsedMs / 1000) })}</p>
       {state.phase === 'recording' && <button type="button" onClick={() => controller.stop()}><Square size={14} aria-hidden="true" />{t('global_coach.voice_stop')}</button>}
