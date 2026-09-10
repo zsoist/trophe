@@ -76,7 +76,7 @@ export async function PUT(request: NextRequest) {
 
 /** Reviewed text continuation only. Raw audio and provider transcription never enter this route. */
 export async function POST(request: NextRequest) {
-  if (process.env.COACH_ASSISTANT_ENABLED !== '1' || process.env.COACH_ASSISTANT_VOICE_REVIEW_ENABLED !== '1' || process.env.VERCEL_ENV === 'production') {
+  if (process.env.COACH_ASSISTANT_ENABLED !== '1' || process.env.COACH_ASSISTANT_VOICE_REVIEW_ENABLED !== '1' || process.env.COACH_ASSISTANT_CHAT_HISTORY_ENABLED !== '1' || process.env.VERCEL_ENV === 'production') {
     return reply({ ok: false, status: 'error', error: 'not_connected' }, 404);
   }
   const { guardAiRoute } = await import('@/lib/security/api-guard');
@@ -96,14 +96,13 @@ export async function POST(request: NextRequest) {
   const repository = createServerRepository(pool);
   try {
     const live=process.env.COACH_ASSISTANT_VOICE_LIVE_ENABLED==='1'&&process.env.COACH_ASSISTANT_LIVE_PILOT_ENABLED==='1'&&process.env.TROPHE_ALLOW_PAID_AI==='1'&&process.env.VERCEL_ENV==='preview';
-    const durableChat=process.env.COACH_ASSISTANT_CHAT_HISTORY_ENABLED==='1';
-    const chatService=durableChat?await (async()=>{
+    const chatService=await (async()=>{
       const [{db},{createCoachChatService},{createCoachChatCleanup}]=await Promise.all([import('@/db/client'),import('@/agents/coach-assistant/chat-service'),import('@/agents/coach-assistant/chat-cleanup')]);
       const attachments=process.env.COACH_ASSISTANT_PRIVATE_ATTACHMENTS_ENABLED==='1'
         ?await import('@/agents/coach-assistant/private-photo-runtime').then(module=>module.createPrivateAttachmentRouteService(process.env))
         :undefined;
       return createCoachChatService(db,createCoachChatCleanup(db,attachments));
-    })():undefined;
+    })();
     let pipeline:{run:(reviewedRequest:CoachConversationRequest,signal:AbortSignal)=>ReturnType<typeof runConversation>};
     if(live){
       const [{db},{invokeStructuredProvider},{createPilotBudgetStore},{createGovernedCoachEngineBinding}]=await Promise.all([import('@/db/client'),import('@/agents/runtime/providers/structured'),import('@/lib/workout/pilot-budget-service'),import('@/agents/coach-assistant/governed-engine')]);

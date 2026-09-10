@@ -33,7 +33,7 @@ vi.mock('@/components/assistant/GlobalCoach', () => ({
 vi.mock('next/navigation', () => ({ usePathname: () => '/dashboard/log' }));
 
 import AccountCoach from '@/components/assistant/AccountCoach';
-import { requestVoiceTranscript } from '@/components/assistant/voice-client';
+import { requestReviewedVoiceTurn, requestVoiceTranscript } from '@/components/assistant/voice-client';
 
 afterEach(() => {
   cleanup();
@@ -43,6 +43,8 @@ afterEach(() => {
   coach.props.length = 0;
   delete process.env.NEXT_PUBLIC_COACH_VOICE_FIXTURE_ENABLED;
   delete process.env.NEXT_PUBLIC_COACH_VOICE_LIVE_ENABLED;
+  delete process.env.NEXT_PUBLIC_COACH_VOICE_REVIEW_ENABLED;
+  delete process.env.NEXT_PUBLIC_COACH_CHAT_HISTORY_ENABLED;
 });
 
 it('ignores a stale auth callback after a route-owned coach has unmounted', async () => {
@@ -58,10 +60,19 @@ it('ignores a stale auth callback after a route-owned coach has unmounted', asyn
   expect(coach.resetActor).not.toHaveBeenCalled();
 });
 
-it('passes the real transcription transport when the public live flag is enabled', async () => {
+it('passes voice transports only when the public durable-history gate is also enabled', async () => {
   process.env.NEXT_PUBLIC_COACH_VOICE_LIVE_ENABLED = '1';
+  process.env.NEXT_PUBLIC_COACH_VOICE_REVIEW_ENABLED = '1';
+  render(<AccountCoach />);
+  await act(async () => auth.callbacks[0]('SIGNED_IN', { user: { id: 'actor-a' } }));
+
+  expect(coach.props.at(-1)?.voiceTranscriptionTransport).toBeUndefined();
+  expect(coach.props.at(-1)?.reviewedVoiceTransport).toBeUndefined();
+  cleanup(); auth.callbacks.length = 0; coach.props.length = 0;
+  process.env.NEXT_PUBLIC_COACH_CHAT_HISTORY_ENABLED = '1';
   render(<AccountCoach />);
   await act(async () => auth.callbacks[0]('SIGNED_IN', { user: { id: 'actor-a' } }));
 
   expect(coach.props.at(-1)?.voiceTranscriptionTransport).toBe(requestVoiceTranscript);
+  expect(coach.props.at(-1)?.reviewedVoiceTransport).toBe(requestReviewedVoiceTurn);
 });
