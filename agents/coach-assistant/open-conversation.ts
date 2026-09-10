@@ -61,10 +61,8 @@ const physiologicalClaimPattern=/\b(?:activation|activacion|fatigue|fatiga|metab
 const safeCandidatePhysiologicalLimitationPattern=/^(?:(?:the|these|those|available|your)\s+)?(?:records?|logs?|data|entries|evidence)\b(?![^.!?]*\b(?:but|however|yet|although)\b)[^.!?]{0,120}\b(?:do(?:es)?\s+not|cannot|can't)\s+(?:establish|show|prove|demonstrate|measure|indicate|confirm|support|determine|infer)\b[^.!?]{0,160}\b(?:activation|fatigue|metabolism|hypertrophy|caloric deficit)(?:\s+(?:or|nor)\s+(?:activation|fatigue|metabolism|hypertrophy|caloric deficit))*[.!?]?$|^(?:(?:los|estos|esos|tus)\s+)?(?:registros?|datos?|entradas?|evidencia)\b(?![^.!?]*\b(?:pero|aunque|sin embargo)\b)[^.!?]{0,120}\bno\s+(?:establec\w*|muestr\w*|prueb\w*|demuestr\w*|mid\w*|indic\w*|confirm\w*|sustent\w*|determin\w*|permit\w+\s+inferir)\b[^.!?]{0,160}\b(?:activacion|fatiga|metabolismo|hipertrofia|deficit calorico)(?:\s+(?:ni|o)\s+(?:activacion|fatiga|metabolismo|hipertrofia|deficit calorico))*[.!?]?$/i;
 function removeSafeCandidatePhysiologicalLimitations(value:string,enabled:boolean):string {
   if(!enabled)return value;
-  return value.split(/(?<=[.!?])\s+|\n+/).filter(sentence=>{
-    const normalized=sentence.normalize('NFKD').replace(/\p{M}/gu,'').trim();
-    return !physiologicalClaimPattern.test(normalized)||!safeCandidatePhysiologicalLimitationPattern.test(normalized);
-  }).join('\n');
+  const normalized=value.normalize('NFKD').replace(/\p{M}/gu,'').trim();
+  return physiologicalClaimPattern.test(normalized)&&safeCandidatePhysiologicalLimitationPattern.test(normalized)?'':value;
 }
 function proseDiagnostic(
   output: {answer:string;followUp:string|null;limitations:string[]},

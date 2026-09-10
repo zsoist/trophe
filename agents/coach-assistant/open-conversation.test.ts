@@ -122,7 +122,13 @@ describe('open v2 conversation with explicit synthetic provider',()=>{
     expect(result.output?.answer).toContain(`User statement (unverified): ${message}`);
     expect(result.output?.answer).toContain('Recorded facts:');
     expect(result.proposals).toEqual([]);expect(result.actionIntents).toEqual([]);expect(result.receipts).toEqual([]);
-    for(const answer of ['The records establish muscle activation.','The records do not establish muscle activation, but your muscles are stronger.','The records do not establish muscle activation; your heart is healthier.']){
+    for(const answer of [
+      'The records establish muscle activation.',
+      'The records do not establish muscle activation, but your muscles are stronger.',
+      'The records do not establish muscle activation; your heart is healthier.',
+      'The records do not establish muscle activation. You should increase your rest.',
+      'The records do not establish muscle activation. This means your recovery needs improvement.',
+    ]){
       const rejected=await runConversation(voiceRequest,{...options(),offlineCandidateEvaluation:true,offlineConversationProvider:providerFor(answer)});
       expect(rejected.error?.code).toBe('invalid_output');expect(rejected.output).toBeUndefined();
     }
