@@ -77,6 +77,21 @@ describe('open v2 conversation with explicit synthetic provider',()=>{
     expect(result.error?.code).toBe('invalid_output');
     expect(JSON.parse(String(warning.mock.calls[0]?.[0]))).toEqual({event:'coach_conversation_output_rejected',code:'numeric_prose'});
   });
+  it('allows a useful distinction for the reviewed transcript without promoting its quantity to a recorded fact',async()=>{
+    const voiceRequest={...request,message:'I did not lift 15 kilograms today. What is the difference between a workout plan and a workout log?',context:{surface:'workout' as const,includeScreen:true},history:[]};
+    const safeAnswer='A statement in an editable transcript and a recorded training entry are separate sources. A plan describes intended training; a log contains recorded training entries.';
+    const safeProvider:OfflineConversationProvider=vi.fn(async()=>({output:{...prose,answer:safeAnswer,evidenceRefs:[],entityRefs:[],facts:[],followUp:null,limitations:[],escalation:false,actionIntent:null,generalExplanationRefs:[]},usage:{inputTokens:1000,outputTokens:250,reasoningTokens:40},latencyMs:1,rawStatus:200}));
+    const allowed=await runConversation(voiceRequest,{...options(),offlineCandidateEvaluation:true,offlineConversationProvider:safeProvider});
+    expect(allowed.ok).toBe(true);expect(allowed.output?.answer).toContain(safeAnswer);
+    expect(allowed.output?.answer).not.toContain('15');expect(allowed.output?.answer).not.toContain('kilograms');
+    expect(allowed.proposals).toEqual([]);expect(allowed.actionIntents).toEqual([]);expect(allowed.receipts).toEqual([]);
+
+    const warning=vi.spyOn(console,'warn').mockImplementation(()=>undefined);
+    const echoProvider:OfflineConversationProvider=vi.fn(async()=>({output:{...prose,answer:'I did not lift 15 kilograms today.',evidenceRefs:[],entityRefs:[],facts:[],followUp:null,limitations:[],escalation:false,actionIntent:null,generalExplanationRefs:[]},usage:{inputTokens:1000,outputTokens:250,reasoningTokens:40},latencyMs:1,rawStatus:200}));
+    const rejected=await runConversation(voiceRequest,{...options(),offlineCandidateEvaluation:true,offlineConversationProvider:echoProvider});
+    expect(rejected.error?.code).toBe('invalid_output');expect(rejected.output).toBeUndefined();
+    expect(JSON.parse(String(warning.mock.calls[0]?.[0]))).toEqual({event:'coach_conversation_output_rejected',code:'numeric_prose'});
+  });
   it('renders quantified claims only as canonical typed facts and enforces the total output budget including reasoning',async()=>{
     const exact=provider((output,payload)=>{
       const fact=(payload.evidence as Array<{id:string;value:number|string;unit:string|null}>).find(f=>typeof f.value==='number')!;
