@@ -18,10 +18,11 @@ export default function AccountCoach({ professional = false, contextSlot, worksp
     let alive = true;
     let revision = 0;
     const publishIdentity = (next: string | null) => {
+      if (!alive) return;
       const previous = currentIdentity.current;
       if (previous && previous !== next) resetGlobalCoachSessionsForActor(previous);
       currentIdentity.current = next;
-      if (alive) setIdentity(next);
+      setIdentity(next);
     };
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       revision++; publishIdentity(session?.user.id ?? null);
