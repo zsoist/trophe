@@ -40,6 +40,9 @@ export default function AccountCoach({ professional = false, contextSlot, worksp
   }, [identity, subjectId]);
   // The key synchronously discards the old subject's surface and pending response.
   return identity ? <GlobalCoach key={`${identity}:${subjectId ?? identity}`} professional={professional} identity={identity} subjectId={subjectId} contextSlot={contextSlot} workspaceHint={workspaceHint}
-    voiceTranscriptionTransport={coachVoiceTranscriptionEnabled(process.env) ? requestVoiceTranscript : undefined}
+    voiceTranscriptionTransport={coachVoiceTranscriptionEnabled({
+      fixture: process.env.NEXT_PUBLIC_COACH_VOICE_FIXTURE_ENABLED,
+      live: process.env.NEXT_PUBLIC_COACH_VOICE_LIVE_ENABLED,
+    }) ? requestVoiceTranscript : undefined}
     reviewedVoiceTransport={process.env.NEXT_PUBLIC_COACH_VOICE_REVIEW_ENABLED === '1' ? requestReviewedVoiceTurn : undefined} /> : null;
 }

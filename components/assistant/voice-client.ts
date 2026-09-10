@@ -2,9 +2,8 @@ import type { CoachVoiceResult } from '@/agents/coach-assistant/voice-contract';
 import type { ReviewedVoiceTurnResult } from '@/agents/coach-assistant/voice-turn';
 import type { CoachConversationRequest } from '@/agents/coach-assistant/contracts';
 
-export function coachVoiceTranscriptionEnabled(env: Record<string, string | undefined>) {
-  return env.NEXT_PUBLIC_COACH_VOICE_FIXTURE_ENABLED === '1'
-    || env.NEXT_PUBLIC_COACH_VOICE_LIVE_ENABLED === '1';
+export function coachVoiceTranscriptionEnabled(flags: { fixture?: string; live?: string }) {
+  return flags.fixture === '1' || flags.live === '1';
 }
 
 export type VoiceRecording = { blob: Blob; durationMs: number };
