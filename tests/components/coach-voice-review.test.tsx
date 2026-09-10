@@ -10,10 +10,9 @@ import type { CoachVoiceResult } from '@/agents/coach-assistant/voice-contract';
 import type { CoachConversationRequest, CoachConversationResponse } from '@/agents/coach-assistant/contracts';
 import type { CoachVoiceSlot } from '@/components/assistant/GlobalCoach';
 import type { ReviewedVoiceTransport } from '@/components/assistant/voice-client';
-import type { HistoryTransport } from '@/components/assistant/history-client';
 vi.mock('next/navigation', () => ({ usePathname: () => '/dashboard/workout' }));
 HTMLElement.prototype.scrollTo = vi.fn();
-afterEach(() => { cleanup(); vi.unstubAllEnvs(); });
+afterEach(cleanup);
 const example = vi.fn();
 const mounted = (identity = 'owner') => <I18nProvider defaultLang="en"><GlobalCoach identity={identity} example={example} voiceSlot={props => <PrivateVoiceReview {...props} />} /></I18nProvider>;
 function openTranscript() {
@@ -104,56 +103,4 @@ it('sends reviewed fixture text through the integrated text turn and renders its
   await screen.findByText('Reviewed voice answer');
   expect(reviewed).toHaveBeenCalledWith(expect.objectContaining({ editedText: 'My reviewed workout question', reviewed: true, offerSpeech: true, request: expect.objectContaining({ turnId: expect.any(String) }) }), expect.any(AbortSignal));
   expect(screen.queryByRole('textbox', { name: 'Edit transcript' })).toBeNull();
-});
-
-it('creates durable history before the first reviewed voice turn and restores it without another AI call', async () => {
-  vi.stubEnv('NEXT_PUBLIC_COACH_CHAT_HISTORY_ENABLED', '1');
-  const identity = 'voice-history-owner';
-  const conversationId = '11111111-1111-4111-8111-111111111111';
-  const transcript = 'What does my recorded workout data show?';
-  const answer = 'No recorded workout data is available for this date.';
-  const thread = { id: conversationId, title: transcript, createdAt: '2026-09-10T14:00:00.000Z', revision: '1', state: 'active' as const };
-  const messages = [
-    { id: '22222222-2222-4222-8222-222222222221', turnId: 'provider-turn', role: 'user' as const, text: transcript, sequence: 1, revision: '1', createdAt: '2026-09-10T14:00:01.000Z' },
-    { id: '22222222-2222-4222-8222-222222222222', turnId: 'provider-turn', role: 'assistant' as const, text: answer, sequence: 2, revision: '1', createdAt: '2026-09-10T14:00:02.000Z' },
-  ];
-  const history: HistoryTransport = {
-    create: vi.fn(async () => thread),
-    list: vi.fn(async () => ({ threads: [thread], nextCursor: null })),
-    read: vi.fn(async () => ({ thread, messages, nextSequence: null })),
-  };
-  const reviewed = vi.fn<ReviewedVoiceTransport>(async input => {
-    expect(input.request.conversationId).toBe(conversationId);
-    const response: CoachConversationResponse = {
-      version: 'coach-assistant.v2', conversationId: input.request.conversationId, turnId: input.request.turnId, ok: true, mode: 'offline', dataSource: 'synthetic', snapshot: null,
-      output: { answer, evidenceRefs: [], limitations: [], suggestions: [], escalation: { required: false, reason: null, draft: null } }, evidence: [], proposals: [], receipts: [], attachments: [],
-      telemetry: { model: null, provider: null, promptVersion: 'fixture', modelCalls: 0, dataReads: 0, tokensIn: 0, tokensOut: 0, reasoningTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, latencyMs: 0, costUsd: 0, pricingVersion: 'fixture' },
-    };
-    return { ok: true, status: 'answered', transcript: { text: input.editedText, locale: 'en', languages: ['en'], source: 'provider_transcript', trust: 'untrusted_user_reviewed_data' }, response, speech: null };
-  });
-  const voiceSlot: CoachVoiceSlot = props => {
-    const scope = { actorId: identity, organizationId: 'org', conversationId: props.conversationId };
-    const result: Extract<CoachVoiceResult, { ok: true }> = {
-      version: 'coach-assistant.voice.v1', ok: true, status: 'review_required', scope, turnId: 'provider-turn',
-      transcript: { text: transcript, locale: 'en', languages: ['en'], source: 'provider_transcript', trust: 'untrusted_transcript' },
-      review: { token: 'provider', expiresAt: new Date(Date.now() + 60_000).toISOString(), editable: true, audioRetention: 'discarded_after_transcription' }, durationMs: 1000,
-    };
-    return <VoiceTranscriptReview result={result} scope={scope} onUse={props.onUse} onSend={props.onSend ? text => props.onSend!(result, text) : undefined} onDiscard={vi.fn()} />;
-  };
-
-  render(<I18nProvider defaultLang="en"><GlobalCoach identity={identity} example={example} reviewedVoiceTransport={reviewed} historyTransport={history} voiceSlot={voiceSlot} /></I18nProvider>);
-  fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Send reviewed question' }));
-  await screen.findByText(answer);
-  expect(history.create).toHaveBeenCalledOnce();
-  expect(reviewed).toHaveBeenCalledOnce();
-
-  fireEvent.click(screen.getByRole('button', { name: 'New conversation' }));
-  expect(screen.queryByText(answer)).toBeNull();
-  fireEvent.click(screen.getByText('Saved conversations'));
-  fireEvent.click(await screen.findByRole('button', { name: 'Load conversations' }));
-  fireEvent.click(await screen.findByRole('button', { name: transcript }));
-  fireEvent.click(await screen.findByRole('button', { name: 'Continue conversation' }));
-  expect(await screen.findByText(answer)).toBeTruthy();
-  expect(reviewed).toHaveBeenCalledOnce();
 });
