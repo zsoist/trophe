@@ -92,11 +92,13 @@ export async function loginAs(page: Page, role: Role, path = '/login'): Promise<
   }
 }
 
-async function emitLoginDiagnostic(page: Page, role: Role, authExchangeStatus: number | null, outcome: LoginDiagnostic['outcome']) {
+export async function emitLoginDiagnostic(page: Page, role: Role, authExchangeStatus: number | null, outcome: LoginDiagnostic['outcome']) {
   const cookies = await page.context().cookies().catch(() => []);
-  const pathname = new URL(page.url()).pathname;
+  let pathname = '/unknown';
+  try { pathname = new URL(page.url()).pathname; } catch { /* Keep the diagnostic bounded if the page has already closed. */ }
   const alert = page.getByRole('alert');
-  const uiError = pathname.startsWith('/login') && await alert.count()
+  const alertCount = pathname.startsWith('/login') ? await alert.count().catch(() => 0) : 0;
+  const uiError = alertCount
     ? await alert.first().textContent().catch(() => null)
     : null;
   const record: LoginDiagnostic = {
