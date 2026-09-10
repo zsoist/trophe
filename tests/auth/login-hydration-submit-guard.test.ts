@@ -9,4 +9,18 @@ describe('login hydration submit guard', () => {
     expect(source).toContain('queueMicrotask(() => setHydrated(true))');
     expect(source).toContain('disabled={!hydrated || loading}');
   });
+
+  it('waits for client readiness before filling controlled login fields', () => {
+    const source = readFileSync('e2e/helpers/auth.ts', 'utf8');
+    const login = source.slice(source.indexOf('export async function loginAs'), source.indexOf('function safePathname'));
+    const ready = login.indexOf('await expect(submit).toBeEnabled()');
+    const email = login.indexOf("getByPlaceholder('Email').fill(email)");
+    const password = login.indexOf("getByPlaceholder('Password').fill(password)");
+    const click = login.indexOf('await submit.click()');
+
+    expect(ready).toBeGreaterThan(-1);
+    expect(ready).toBeLessThan(email);
+    expect(email).toBeLessThan(password);
+    expect(password).toBeLessThan(click);
+  });
 });

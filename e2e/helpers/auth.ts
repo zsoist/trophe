@@ -124,10 +124,10 @@ export async function loginAs(page: Page, role: Role, path = '/login'): Promise<
     page.on('framenavigated', observeNavigation);
   }
   await page.goto(path);
-  await page.getByPlaceholder('Email').fill(email);
-  await page.getByPlaceholder('Password').fill(password);
   const submit = page.locator('form').getByRole('button', { name: 'Log in' });
   await expect(submit).toBeEnabled();
+  await page.getByPlaceholder('Email').fill(email);
+  await page.getByPlaceholder('Password').fill(password);
   if (diagnostics) submitDisabledBeforeClick = await submit.isDisabled().catch(() => null);
   await submit.click();
   if (diagnostics) submitDisabledAfterClick = await submit.isDisabled().catch(() => null);
