@@ -3,8 +3,9 @@
 LIVE-02 retains the existing Coach Everywhere and AI task runtimes. Text Luna,
 OpenAI transcription, and Anthropic photo analysis reserve against the same
 `ASK_TROPHE_SHARED_PILOT_ID` row before provider dispatch. The transaction-level
-ceiling is 41 admissions: the sealed 11 historical calls plus at most 30 new
-shared invocations.
+authority is the durable shared US$3 daily budget on the America/Bogota calendar
+day. Historical rows, attempt counts, uncertain charges, and accounting blocks
+remain intact and auditable; there is no separate LIVE-02 invocation-count cap.
 
 `runGovernedPilotModality` wraps exactly one existing `photo_analyze` or
 transcription invocation. It reserves the task policy maximum ($0.08 photo,

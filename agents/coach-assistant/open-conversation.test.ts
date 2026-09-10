@@ -38,6 +38,7 @@ describe('open v2 conversation with explicit synthetic provider',()=>{
     (output:typeof prose)=>({...output,answer:'Registraste 99999 calorías.'}),
     (output:typeof prose)=>({...output,answer:'He actualizado tu plan.'}),
     (output:typeof prose)=>({...output,facts:[{kind:'record_fact',evidenceId:'missing-fact'}]}),
+    (output:typeof prose)=>({...output,facts:[{kind:'user_statement',source:'history'}]}),
   ])('rejects unbound references, entities, numbers and claimed mutations without retry',async change=>{
     const transport=provider(change);
     const result=await runConversation(request,{...options(),offlineConversationProvider:transport});
@@ -66,7 +67,7 @@ describe('open v2 conversation with explicit synthetic provider',()=>{
     const result=await runConversation(request,{...options(),offlineCandidateEvaluation:true,offlineConversationProvider:transport});
     expect(result.error?.code).toBe('invalid_output');expect(result.output).toBeUndefined();expect(transport).toHaveBeenCalledOnce();
     const diagnostic=JSON.parse(String(warning.mock.calls[0]?.[0]));
-    expect(diagnostic).toEqual({event:'coach_conversation_output_rejected',code,diagnostic:{schemaVersion:'coach-assistant.output-rejection-diagnostic.v1',outputSchemaVersion:'coach-assistant.candidate-output.v1',promptVersion:'coach-assistant.conversation.v5-candidate.2-live02',rule:code,category,field:'answer',path:'output.answer',position,positionEncoding:code==='candidate_universal_claim'?'nfkd_without_marks':'original',correlation:expect.stringMatching(/^[a-f0-9]{16}$/)}});
+    expect(diagnostic).toEqual({event:'coach_conversation_output_rejected',code,diagnostic:{schemaVersion:'coach-assistant.output-rejection-diagnostic.v1',outputSchemaVersion:'coach-assistant.candidate-output.v1',promptVersion:'coach-assistant.conversation.v5-candidate.3-live02',rule:code,category,field:'answer',path:'output.answer',position,positionEncoding:code==='candidate_universal_claim'?'nfkd_without_marks':'original',correlation:expect.stringMatching(/^[a-f0-9]{16}$/)}});
     expect(JSON.stringify(diagnostic)).not.toContain(answer);expect(JSON.stringify(diagnostic)).not.toContain('kilograms');expect(JSON.stringify(diagnostic)).not.toContain('workout entry');
   });
   it('keeps detailed diagnostics disabled outside Preview even when the flag is set',async()=>{
@@ -92,6 +93,19 @@ describe('open v2 conversation with explicit synthetic provider',()=>{
     const rejected=await runConversation(voiceRequest,{...options(),offlineCandidateEvaluation:true,offlineConversationProvider:echoProvider});
     expect(rejected.error?.code).toBe('invalid_output');expect(rejected.output).toBeUndefined();
     expect(JSON.parse(String(warning.mock.calls[0]?.[0]))).toEqual({event:'coach_conversation_output_rejected',code:'numeric_prose'});
+  });
+  it.each([
+    'I did not lift 15 kilograms today. What is the difference between a workout plan and a workout log?',
+    'Hoy no comí 220 gramos. ¿Cómo debo interpretar un plan frente a un registro?',
+  ])('renders the current user statement as unverified input without turning it into account evidence: %s',async message=>{
+    const voiceRequest={...request,message,context:{surface:'workout' as const,includeScreen:true},history:[]};
+    const transport:OfflineConversationProvider=vi.fn(async()=>({output:{...prose,answer:'The reviewed statement is user-provided context. A plan describes intent, while a log contains recorded entries.',evidenceRefs:[],entityRefs:[],facts:[{kind:'user_statement',source:'current_message'}],followUp:null,limitations:[],escalation:false,actionIntent:null,generalExplanationRefs:[]},usage:{inputTokens:1000,outputTokens:250,reasoningTokens:40},latencyMs:1,rawStatus:200}));
+    const result=await runConversation(voiceRequest,{...options(),offlineCandidateEvaluation:true,offlineConversationProvider:transport});
+    expect(result.error).toBeUndefined();expect(result.ok).toBe(true);expect(result.output?.answer).toContain(`User statement (unverified): ${message}`);
+    expect(result.output?.evidenceRefs).toEqual([]);expect(result.evidence.length).toBeGreaterThan(0);
+    expect(result.proposals).toEqual([]);expect(result.actionIntents).toEqual([]);expect(result.receipts).toEqual([]);
+    const payload=JSON.parse(vi.mocked(transport).mock.calls[0][0].prompt);
+    expect(payload).toMatchObject({message,messageProvenance:{source:'current_user_message',trust:'untrusted_user_data',authority:'statement_only'}});
   });
   it('renders quantified claims only as canonical typed facts and enforces the total output budget including reasoning',async()=>{
     const exact=provider((output,payload)=>{

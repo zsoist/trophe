@@ -94,7 +94,10 @@ export const openConversationSchema=z.object({
   answer:z.string().trim().min(1).max(1800),
   evidenceRefs:z.array(z.string().max(100)).max(24),
   entityRefs:z.array(z.string().regex(/^entity:[1-9]\d*$/)).max(24),
-  facts:z.array(z.object({kind:z.literal('record_fact'),evidenceId:z.string().max(100)}).strict()).max(24),
+  facts:z.array(z.union([
+    z.object({kind:z.literal('record_fact'),evidenceId:z.string().max(100)}).strict(),
+    z.object({kind:z.literal('user_statement'),source:z.literal('current_message')}).strict(),
+  ])).max(24),
   followUp:z.string().trim().min(1).max(400).nullable(),
   limitations:z.array(z.enum(['insufficient_evidence','incomplete_records','professional_review_needed'])).max(3),escalation:z.boolean(),
   actionIntent:z.union([draftActionIntentSchema,setActionIntentSchema,foodActionIntentSchema]).nullable().optional(),
@@ -211,7 +214,7 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
   const foodIntentAvailable=!capabilitySelected&&foodQuantityIntentsEnabled&&actionOutputAllowed&&foodBinding.kind!=='none'&&response.snapshot?.access==='self'&&Boolean(setSurface);
   const foodActionTarget=foodBinding.kind==='none'?null:foodBinding.target;
   const entryHintId=foodSelection?.status==='resolved'?foodSelection.snapshot.entryId:input.context?.includeScreen===true&&input.context.entity?.kind==='meal'?input.context.entity.id:null;
-  const payload={...(candidateEvaluation?{generalExplanations:curated.map(id=>({id,...GENERAL_EXPLANATIONS[id]}))}:{}),message:input.message,history:input.history??[],
+  const payload={...(candidateEvaluation?{generalExplanations:curated.map(id=>({id,...GENERAL_EXPLANATIONS[id]}))}:{}),message:input.message,messageProvenance:{source:'current_user_message',trust:'untrusted_user_data',authority:'statement_only'},history:input.history??[],
     snapshot:response.snapshot?{surface:response.snapshot.surface,language:response.snapshot.language,units:response.snapshot.units,window:response.snapshot.window}:null,
     ...(capabilitySelected?{capabilityResult:response.capabilityResult}:{}),
     foodPreference:response.foodPreference?{preferences:response.foodPreference.preferences,version:response.foodPreference.version,source:'current_profile',meaning:'self_declared_preference_not_allergy_or_medical_instruction'}:null,
@@ -271,7 +274,7 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
   if(generated.rawStatus<200||generated.rawStatus>=300)rejectOutput('provider_status');
   const output=parsed.data!;
   if(output.evidenceRefs.some(id=>!facts.some(f=>f.id===id))||output.entityRefs.some(alias=>!entities.some(e=>e.alias===alias&&e.evidenceRefs.some(id=>output.evidenceRefs.includes(id)))))rejectOutput('evidence_reference');
-  if(output.facts.some(fragment=>!facts.some(f=>f.id===fragment.evidenceId&&output.evidenceRefs.includes(f.id))))rejectOutput('fact_reference');
+  if(output.facts.some(fragment=>fragment.kind==='record_fact'&&!facts.some(f=>f.id===fragment.evidenceId&&output.evidenceRefs.includes(f.id))))rejectOutput('fact_reference');
   let boundedOutput=output;
   if(output.actionIntent?.action==='food.quantity.update'&&foodIntentAvailable) {
     const expected=foodBinding.kind==='target'?foodBinding.target:foodBinding.kind==='clarification'?foodBinding.target:null;
@@ -359,8 +362,9 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
     const language=/[¿¡]|\b(?:que|como|podria|comida|semana)\b/i.test(input.message.normalize('NFKD').replace(/\p{M}/gu,''))||response.snapshot?.language.startsWith('es')?'es':'en';
     response.explanations=[...new Set(candidate.generalExplanationRefs)].map(id=>({kind:'curated_general',id,text:GENERAL_EXPLANATIONS[id][language],source:GENERAL_EXPLANATION_VERSION}));
   }
-  const canonicalFacts=[...new Set(boundedOutput.facts.map(fragment=>fragment.evidenceId))].map(id=>facts.find(f=>f.id===id)!.statement);
-  response.output={answer:`${response.dataSource==='synthetic'?'Synthetic provider fixture evaluation.':'Isolated transport fixture evaluation using authorized records.'} ${candidateEvaluation?'Unapproved conversational candidate':'Offline oracle-reviewed interpretation'}: ${boundedOutput.answer}${canonicalFacts.length?'\nRecorded facts:\n'+canonicalFacts.join('\n'):''}`,evidenceRefs:boundedOutput.evidenceRefs,
+  const canonicalFacts=[...new Set(boundedOutput.facts.filter((fragment):fragment is Extract<(typeof boundedOutput.facts)[number],{kind:'record_fact'}>=>fragment.kind==='record_fact').map(fragment=>fragment.evidenceId))].map(id=>facts.find(f=>f.id===id)!.statement);
+  const currentUserStatement=boundedOutput.facts.some(fragment=>fragment.kind==='user_statement')?input.message:null;
+  response.output={answer:`${response.dataSource==='synthetic'?'Synthetic provider fixture evaluation.':'Isolated transport fixture evaluation using authorized records.'} ${candidateEvaluation?'Unapproved conversational candidate':'Offline oracle-reviewed interpretation'}: ${boundedOutput.answer}${currentUserStatement?'\nUser statement (unverified): '+currentUserStatement:''}${canonicalFacts.length?'\nRecorded facts:\n'+canonicalFacts.join('\n'):''}`,evidenceRefs:boundedOutput.evidenceRefs,
     limitations:[...(response.output?.limitations??[]).filter(value=>value!=='open_ended_interpretation_not_connected'),'offline_transport_not_live_model_quality','prose_semantics_require_independent_evaluation',...boundedOutput.limitations],
     suggestions:boundedOutput.followUp?[boundedOutput.followUp]:[],escalation:{required:boundedOutput.escalation,reason:boundedOutput.escalation?'coach_review':null,draft:null}};
   const model=response.snapshot?.capabilities.find(c=>c.key==='model');
