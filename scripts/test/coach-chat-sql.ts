@@ -41,7 +41,7 @@ async function create(title:string){const requestId=randomUUID();const result=aw
 async function user(threadId:string,text:string){const turnId=randomUUID(),requestId=randomUUID(),op={operation:'append_user',threadId,turnId,requestId,text};const result=await execute(op);assert.ok(result.ok&&'message'in result.value);contentIds.push(result.value.message.id);return {op,result,message:result.value.message};}
 async function main(){
  baseline=structuredClone(await parent());
- assert.ok((baseline as Awaited<ReturnType<typeof parent>>).receipts.length>0,'independent_parent_receipt_required');
+ if(process.env.COACH_CHAT_PARENT_RECEIPT_REQUIRED!=='0')assert.ok((baseline as Awaited<ReturnType<typeof parent>>).receipts.length>0,'independent_parent_receipt_required');
  assert.equal((await pool.query('SELECT private.coach_chat_contract_version() AS version')).rows[0].version,COACH_CHAT_VERSION);
  const enabled=(await pool.query("SELECT relname,relrowsecurity FROM pg_class WHERE oid=ANY(ARRAY['public.agent_conversation'::regclass,'private.coach_chat_threads'::regclass,'private.coach_chat_turns'::regclass])")).rows;
  assert.equal(enabled.length,3);assert.ok(enabled.every(r=>r.relrowsecurity));

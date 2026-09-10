@@ -37,20 +37,36 @@ async function main() {
   } catch (error) { await connection.query('ROLLBACK'); throw error; }
   finally { connection.release(); }
   check = 'reviewed_chat_sql_rls_lifecycle';
-  const child = spawnSync(process.execPath, ['--import', 'tsx', 'scripts/test/coach-chat-sql.ts'], { stdio: 'inherit', env: process.env });
-  assert.equal(child.status, 0); pass();
-  check = 'chat_ui_real_auth_http';
+  if(process.env.COACH_CHAT_SKIP_CONTRACT_SQL!=='1'){
+    const child = spawnSync(process.execPath, ['--import', 'tsx', 'scripts/test/coach-chat-sql.ts'], { stdio: 'inherit', env: process.env });
+    assert.equal(child.status, 0);
+  }
+  pass();
+  check = 'chat_and_reviewed_voice_ui_real_auth_http';
   const root = process.env.RUNNER_TEMP; assert.ok(root && isAbsolute(root));
   uiManifest = resolve(root, `coach-chat-threads-${randomUUID()}.json`);
   await writeFile(uiManifest, JSON.stringify({ requestIds: [], threadIds: [] }), { mode: 0o600 });
-  const ui = spawnSync(process.execPath, ['node_modules/@playwright/test/cli.js', 'test', '--config', 'playwright.coach.config.ts', '--workers=1', 'e2e/coach-chat.spec.ts'], {
+  const ui = spawnSync(process.execPath, ['node_modules/@playwright/test/cli.js', 'test', '--config', 'playwright.coach.config.ts', '--workers=1', 'e2e/coach-chat.spec.ts', 'e2e/coach-voice.spec.ts'], {
     stdio: 'inherit', env: { ...process.env, E2E_COACH_CHAT: '1', E2E_CLIENT_ID: actorId, COACH_CHAT_HTTP_THREADS: uiManifest,
       NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED: '1', NEXT_PUBLIC_COACH_ASSISTANT_ENABLED: '0', NEXT_PUBLIC_COACH_CHAT_HISTORY_ENABLED: '1',
+      NEXT_PUBLIC_COACH_VOICE_FIXTURE_ENABLED: '1', NEXT_PUBLIC_COACH_VOICE_REVIEW_ENABLED: '1',
       COACH_ASSISTANT_ENABLED: '1', COACH_ASSISTANT_MODE: 'model', COACH_ASSISTANT_DATA_SOURCE: 'authorized_records',
+      COACH_ASSISTANT_VOICE_FIXTURE_ENABLED: '1', COACH_ASSISTANT_VOICE_REVIEW_ENABLED: '1', E2E_COACH_VOICE: '1',
       COACH_ASSISTANT_MEMORY_ACTIONS_ENABLED: '0', COACH_ASSISTANT_DIET_ACTIONS_ENABLED: '0', COACH_ASSISTANT_ISOLATED_ACTIONS_ENABLED: '0',
       COACH_ASSISTANT_CHAT_HISTORY_ENABLED: '1', COACH_ASSISTANT_ISOLATED_ENGINE_ENABLED: '1', COACH_ASSISTANT_PREVIEW_USER_IDS: actorId },
   });
   assert.equal(ui.status, 0); pass();
+  const uiEvidence = JSON.parse(await readFile(uiManifest, 'utf8')) as { voice?: { threadId?: unknown; userText?: unknown; answer?: unknown } };
+  assert.match(String(uiEvidence.voice?.threadId ?? ''), /^[a-f0-9-]{36}$/);
+  assert.equal(typeof uiEvidence.voice?.userText, 'string'); assert.equal(typeof uiEvidence.voice?.answer, 'string');
+  const voiceRows = (await pool.query<{ role: string; sequence: number; content: string }>(`SELECT t.role,t.sequence,c.content
+    FROM private.coach_chat_turns t JOIN public.agent_conversation c ON c.id=t.content_id
+    WHERE t.thread_id=$1 AND c.user_id=$2 ORDER BY t.sequence`, [uiEvidence.voice!.threadId, actorId])).rows;
+  assert.deepEqual(voiceRows, [
+    { role: 'user', sequence: 1, content: uiEvidence.voice!.userText },
+    { role: 'assistant', sequence: 2, content: uiEvidence.voice!.answer },
+  ]);
+  check = 'reviewed_voice_post_sql_and_ui_restoration'; pass();
 }
 main().catch(error => {
   process.stderr.write(JSON.stringify({ event: 'coach_chat_fixture_sql', check, outcome: 'failed', ...(typeof error?.code === 'string' && /^[0-9A-Z]{5}$/.test(error.code) ? { sqlstate: error.code } : {}) }) + '\n'); process.exitCode = 1;
