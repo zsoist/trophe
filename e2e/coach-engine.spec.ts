@@ -18,10 +18,6 @@ test('authenticated HTTP engine uses current authorized profile with explicit fi
   try {
     expect((await anonymous.post('/api/coach-assistant', { data: body })).status()).toBe(401);
     await loginAs(page, 'client');
-    if (process.env.E2E_COACH_ENGINE_LOGIN_ONLY === '1') {
-      noPaid();
-      return;
-    }
     const before = (await pool.query('SELECT workout_preferences FROM public.client_profiles WHERE user_id=$1', [actor])).rows[0];
     const ledger = async () => {
       const tables = (await pool.query(`SELECT to_regclass('private.coach_action_proposals')::text AS proposals,
