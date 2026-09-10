@@ -59,6 +59,7 @@ const HistoryPanel = dynamic(() => import('./HistoryPanel').then(module => modul
 const conversationControllers = new Map<string, ConversationController>();
 const openCoachScopes = new Map<string, string>();
 const mountedCoachScopes = new Map<string, number>();
+const COACH_ROUTE_HANDOFF_GRACE_MS = 5_000;
 const conversationControllerFor = (scope: string) => {
   const current = conversationControllers.get(scope);
   if (current) return current;
@@ -113,9 +114,11 @@ function retainGlobalCoachSession(scope: string) {
   return () => {
     const remaining = Math.max(0, (mountedCoachScopes.get(scope) ?? 1) - 1);
     mountedCoachScopes.set(scope, remaining);
-    queueMicrotask(() => {
+    // Workout owns a lazy route-specific mount. Keep the authenticated scope
+    // alive while that mount replaces the dashboard-level one.
+    setTimeout(() => {
       if (mountedCoachScopes.get(scope) === 0) resetGlobalCoachConversationSession(scope);
-    });
+    }, COACH_ROUTE_HANDOFF_GRACE_MS);
   };
 }
 

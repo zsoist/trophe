@@ -118,6 +118,34 @@ it('keeps the open conversation when dashboard navigation swaps the route-owned 
   expect(transport.mock.calls[2][0].context).not.toHaveProperty('screenDate');
   progress.unmount();
 });
+it('keeps route state through the lazy Workout mount gap, then releases an abandoned scope', async () => {
+  vi.useFakeTimers();
+  HTMLElement.prototype.scrollTo = vi.fn();
+  const identity = 'route-mount-actor';
+  const transport = vi.fn<ConversationTransport>(async request => response(request, 'Durable route answer'));
+  route.path = '/dashboard/log';
+  const food = render(mounted(transport, identity));
+  fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
+  fireEvent.change(screen.getByRole('textbox', { name: 'Your question' }), { target: { value: 'Read current records' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
+  await act(async () => {});
+  expect(screen.getByText('Durable route answer')).toBeTruthy();
+  food.unmount();
+
+  await act(async () => { vi.advanceTimersByTime(1_000); });
+  route.path = '/dashboard/workout';
+  const workout = render(mounted(transport, identity));
+  expect(screen.getByRole('button', { name: 'Ask Trophē' }).getAttribute('aria-expanded')).toBe('true');
+  expect(screen.getByText('Durable route answer')).toBeTruthy();
+  workout.unmount();
+
+  await act(async () => { vi.advanceTimersByTime(5_000); });
+  const abandoned = render(mounted(transport, identity));
+  expect(screen.getByRole('button', { name: 'Ask Trophē' }).getAttribute('aria-expanded')).toBe('false');
+  fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
+  expect(screen.queryByText('Durable route answer')).toBeNull();
+  abandoned.unmount();
+});
 it('renders the server supplied limitation even when the response has no evidence rows', async () => {
   HTMLElement.prototype.scrollTo = vi.fn();
   const limitation = 'No Food records were found for the selected day; this does not prove that nothing was consumed.';
