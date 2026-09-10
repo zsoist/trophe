@@ -21,17 +21,22 @@ on:
         required: false
         default: false
         type: boolean
+      coach_engine_only:
+        description: Run only the disposable isolated engine Auth boundary
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}-${{ inputs.coach_login_diagnostic_only && 'coach-login' || inputs.coach_durable_only && 'coach-durable' || inputs.coach_auth_only && 'coach-auth' || 'verify' }}
+  group: ci-${{ github.ref }}-${{ inputs.coach_login_diagnostic_only && 'coach-login' || inputs.coach_engine_only && 'coach-engine' || inputs.coach_durable_only && 'coach-durable' || inputs.coach_auth_only && 'coach-auth' || 'verify' }}
   cancel-in-progress: true
 
 jobs:
   verify:
-    if: ${{ !inputs.coach_auth_only && !inputs.coach_login_diagnostic_only && !inputs.coach_durable_only }}
+    if: ${{ !inputs.coach_auth_only && !inputs.coach_login_diagnostic_only && !inputs.coach_durable_only && !inputs.coach_engine_only }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
@@ -260,7 +265,7 @@ jobs:
           if-no-files-found: ignore
 
   coach-auth:
-    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.coach_auth_only || inputs.coach_login_diagnostic_only || inputs.coach_durable_only) && !github.event.repository.private }}
+    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.coach_auth_only || inputs.coach_login_diagnostic_only || inputs.coach_durable_only || inputs.coach_engine_only) && !github.event.repository.private }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
@@ -276,7 +281,7 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: Reject conflicting manual selectors
-        if: ${{ (inputs.coach_auth_only && inputs.coach_login_diagnostic_only) || (inputs.coach_auth_only && inputs.coach_durable_only) || (inputs.coach_login_diagnostic_only && inputs.coach_durable_only) }}
+        if: ${{ (inputs.coach_auth_only && inputs.coach_login_diagnostic_only) || (inputs.coach_auth_only && inputs.coach_durable_only) || (inputs.coach_auth_only && inputs.coach_engine_only) || (inputs.coach_login_diagnostic_only && inputs.coach_durable_only) || (inputs.coach_login_diagnostic_only && inputs.coach_engine_only) || (inputs.coach_durable_only && inputs.coach_engine_only) }}
         run: |
           echo "::error::Choose exactly one coach workflow selector."
           exit 1
@@ -324,6 +329,11 @@ jobs:
         env:
           E2E_COACH_LOGIN_DIAGNOSTIC: '1'
         run: node scripts/test/run-coach-durable-sql.mjs
+      - name: Verify isolated engine Auth boundary
+        if: ${{ inputs.coach_engine_only }}
+        env:
+          E2E_COACH_LOGIN_DIAGNOSTIC: '1'
+        run: node scripts/test/run-coach-engine-login.mjs
       - name: Record exact scope
         if: always()
         run: |
