@@ -38,7 +38,7 @@ describe('open v2 conversation with explicit synthetic provider',()=>{
     (output:typeof prose)=>({...output,answer:'Registraste 99999 calorías.'}),
     (output:typeof prose)=>({...output,answer:'He actualizado tu plan.'}),
     (output:typeof prose)=>({...output,facts:[{kind:'record_fact',evidenceId:'missing-fact'}]}),
-    (output:typeof prose)=>({...output,facts:[{kind:'user_statement',source:'history'}]}),
+    (output:typeof prose)=>({...output,userStatementRef:'history'}),
   ])('rejects unbound references, entities, numbers and claimed mutations without retry',async change=>{
     const transport=provider(change);
     const result=await runConversation(request,{...options(),offlineConversationProvider:transport});
@@ -99,7 +99,7 @@ describe('open v2 conversation with explicit synthetic provider',()=>{
     'Hoy no comí 220 gramos. ¿Cómo debo interpretar un plan frente a un registro?',
   ])('renders the current user statement as unverified input without turning it into account evidence: %s',async message=>{
     const voiceRequest={...request,message,context:{surface:'workout' as const,includeScreen:true},history:[]};
-    const transport:OfflineConversationProvider=vi.fn(async()=>({output:{...prose,answer:'The reviewed statement is user-provided context. A plan describes intent, while a log contains recorded entries.',evidenceRefs:[],entityRefs:[],facts:[{kind:'user_statement',source:'current_message'}],followUp:null,limitations:[],escalation:false,actionIntent:null,generalExplanationRefs:[]},usage:{inputTokens:1000,outputTokens:250,reasoningTokens:40},latencyMs:1,rawStatus:200}));
+    const transport:OfflineConversationProvider=vi.fn(async()=>({output:{...prose,answer:'The reviewed statement is user-provided context. A plan describes intent, while a log contains recorded entries.',evidenceRefs:[],entityRefs:[],facts:[],userStatementRef:'current_message',followUp:null,limitations:[],escalation:false,actionIntent:null,generalExplanationRefs:[]},usage:{inputTokens:1000,outputTokens:250,reasoningTokens:40},latencyMs:1,rawStatus:200}));
     const result=await runConversation(voiceRequest,{...options(),offlineCandidateEvaluation:true,offlineConversationProvider:transport});
     expect(result.error).toBeUndefined();expect(result.ok).toBe(true);expect(result.output?.answer).toContain(`User statement (unverified): ${message}`);
     expect(result.output?.evidenceRefs).toEqual([]);expect(result.evidence.length).toBeGreaterThan(0);

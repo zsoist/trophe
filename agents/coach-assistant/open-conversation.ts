@@ -94,10 +94,8 @@ export const openConversationSchema=z.object({
   answer:z.string().trim().min(1).max(1800),
   evidenceRefs:z.array(z.string().max(100)).max(24),
   entityRefs:z.array(z.string().regex(/^entity:[1-9]\d*$/)).max(24),
-  facts:z.array(z.union([
-    z.object({kind:z.literal('record_fact'),evidenceId:z.string().max(100)}).strict(),
-    z.object({kind:z.literal('user_statement'),source:z.literal('current_message')}).strict(),
-  ])).max(24),
+  facts:z.array(z.object({kind:z.literal('record_fact'),evidenceId:z.string().max(100)}).strict()).max(24),
+  userStatementRef:z.literal('current_message').nullable().optional(),
   followUp:z.string().trim().min(1).max(400).nullable(),
   limitations:z.array(z.enum(['insufficient_evidence','incomplete_records','professional_review_needed'])).max(3),escalation:z.boolean(),
   actionIntent:z.union([draftActionIntentSchema,setActionIntentSchema,foodActionIntentSchema]).nullable().optional(),
@@ -109,15 +107,16 @@ export const candidateConversationSchema=openConversationSchema.extend({
 });
 
 /** OpenAI strict function schemas require every declared property in `required`.
- * `actionIntent` already accepts null, so require the key on the wire while the
- * Zod validator remains backward-compatible with older injected fixtures.
+ * Nullable optional fields remain backward-compatible with injected fixtures,
+ * while the live structured provider must return them on the wire.
  */
 export function strictOpenConversationJsonSchema(validator:z.ZodType):Record<string,unknown> {
   const schema=z.toJSONSchema(validator) as Record<string,unknown>;
   const properties=schema.properties;
-  if(!properties||typeof properties!=='object'||!Object.prototype.hasOwnProperty.call(properties,'actionIntent'))throw new Error('invalid_output_schema');
+  const nullableFields=['actionIntent','userStatementRef'];
+  if(!properties||typeof properties!=='object'||nullableFields.some(field=>!Object.prototype.hasOwnProperty.call(properties,field)))throw new Error('invalid_output_schema');
   const required=Array.isArray(schema.required)?schema.required.filter((value):value is string=>typeof value==='string'):[];
-  schema.required=[...new Set([...required,'actionIntent'])];
+  schema.required=[...new Set([...required,...nullableFields])];
   return schema;
 }
 
@@ -274,7 +273,7 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
   if(generated.rawStatus<200||generated.rawStatus>=300)rejectOutput('provider_status');
   const output=parsed.data!;
   if(output.evidenceRefs.some(id=>!facts.some(f=>f.id===id))||output.entityRefs.some(alias=>!entities.some(e=>e.alias===alias&&e.evidenceRefs.some(id=>output.evidenceRefs.includes(id)))))rejectOutput('evidence_reference');
-  if(output.facts.some(fragment=>fragment.kind==='record_fact'&&!facts.some(f=>f.id===fragment.evidenceId&&output.evidenceRefs.includes(f.id))))rejectOutput('fact_reference');
+  if(output.facts.some(fragment=>!facts.some(f=>f.id===fragment.evidenceId&&output.evidenceRefs.includes(f.id))))rejectOutput('fact_reference');
   let boundedOutput=output;
   if(output.actionIntent?.action==='food.quantity.update'&&foodIntentAvailable) {
     const expected=foodBinding.kind==='target'?foodBinding.target:foodBinding.kind==='clarification'?foodBinding.target:null;
@@ -362,8 +361,8 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
     const language=/[¿¡]|\b(?:que|como|podria|comida|semana)\b/i.test(input.message.normalize('NFKD').replace(/\p{M}/gu,''))||response.snapshot?.language.startsWith('es')?'es':'en';
     response.explanations=[...new Set(candidate.generalExplanationRefs)].map(id=>({kind:'curated_general',id,text:GENERAL_EXPLANATIONS[id][language],source:GENERAL_EXPLANATION_VERSION}));
   }
-  const canonicalFacts=[...new Set(boundedOutput.facts.filter((fragment):fragment is Extract<(typeof boundedOutput.facts)[number],{kind:'record_fact'}>=>fragment.kind==='record_fact').map(fragment=>fragment.evidenceId))].map(id=>facts.find(f=>f.id===id)!.statement);
-  const currentUserStatement=boundedOutput.facts.some(fragment=>fragment.kind==='user_statement')?input.message:null;
+  const canonicalFacts=[...new Set(boundedOutput.facts.map(fragment=>fragment.evidenceId))].map(id=>facts.find(f=>f.id===id)!.statement);
+  const currentUserStatement=boundedOutput.userStatementRef==='current_message'?input.message:null;
   response.output={answer:`${response.dataSource==='synthetic'?'Synthetic provider fixture evaluation.':'Isolated transport fixture evaluation using authorized records.'} ${candidateEvaluation?'Unapproved conversational candidate':'Offline oracle-reviewed interpretation'}: ${boundedOutput.answer}${currentUserStatement?'\nUser statement (unverified): '+currentUserStatement:''}${canonicalFacts.length?'\nRecorded facts:\n'+canonicalFacts.join('\n'):''}`,evidenceRefs:boundedOutput.evidenceRefs,
     limitations:[...(response.output?.limitations??[]).filter(value=>value!=='open_ended_interpretation_not_connected'),'offline_transport_not_live_model_quality','prose_semantics_require_independent_evaluation',...boundedOutput.limitations],
     suggestions:boundedOutput.followUp?[boundedOutput.followUp]:[],escalation:{required:boundedOutput.escalation,reason:boundedOutput.escalation?'coach_review':null,draft:null}};
