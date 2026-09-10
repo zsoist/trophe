@@ -16,17 +16,22 @@ on:
         required: false
         default: false
         type: boolean
+      coach_durable_only:
+        description: Run only the disposable durable coach transaction gate
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}-${{ inputs.coach_login_diagnostic_only && 'coach-login' || inputs.coach_auth_only && 'coach-auth' || 'verify' }}
+  group: ci-${{ github.ref }}-${{ inputs.coach_login_diagnostic_only && 'coach-login' || inputs.coach_durable_only && 'coach-durable' || inputs.coach_auth_only && 'coach-auth' || 'verify' }}
   cancel-in-progress: true
 
 jobs:
   verify:
-    if: ${{ !inputs.coach_auth_only && !inputs.coach_login_diagnostic_only }}
+    if: ${{ !inputs.coach_auth_only && !inputs.coach_login_diagnostic_only && !inputs.coach_durable_only }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
@@ -255,7 +260,7 @@ jobs:
           if-no-files-found: ignore
 
   coach-auth:
-    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.coach_auth_only || inputs.coach_login_diagnostic_only) && !github.event.repository.private }}
+    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.coach_auth_only || inputs.coach_login_diagnostic_only || inputs.coach_durable_only) && !github.event.repository.private }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
@@ -271,9 +276,9 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: Reject conflicting manual selectors
-        if: ${{ inputs.coach_auth_only && inputs.coach_login_diagnostic_only }}
+        if: ${{ (inputs.coach_auth_only && inputs.coach_login_diagnostic_only) || (inputs.coach_auth_only && inputs.coach_durable_only) || (inputs.coach_login_diagnostic_only && inputs.coach_durable_only) }}
         run: |
-          echo "::error::Choose either coach_auth_only or coach_login_diagnostic_only, not both."
+          echo "::error::Choose exactly one coach workflow selector."
           exit 1
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
@@ -315,7 +320,7 @@ jobs:
           E2E_COACH_LOGIN_DIAGNOSTIC: '1'
         run: node scripts/test/run-coach-auth-e2e.mjs
       - name: Verify isolated durable preference transactions
-        if: ${{ inputs.coach_auth_only }}
+        if: ${{ inputs.coach_auth_only || inputs.coach_durable_only }}
         env:
           E2E_COACH_LOGIN_DIAGNOSTIC: '1'
         run: node scripts/test/run-coach-durable-sql.mjs
