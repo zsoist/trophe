@@ -316,6 +316,8 @@ jobs:
         run: node scripts/test/run-coach-auth-e2e.mjs
       - name: Verify isolated durable preference transactions
         if: ${{ inputs.coach_auth_only }}
+        env:
+          E2E_COACH_LOGIN_DIAGNOSTIC: '1'
         run: node scripts/test/run-coach-durable-sql.mjs
       - name: Record exact scope
         if: always()
