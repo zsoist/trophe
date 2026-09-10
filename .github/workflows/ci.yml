@@ -11,17 +11,22 @@ on:
         required: false
         default: false
         type: boolean
+      coach_login_diagnostic_only:
+        description: Run only the redacted disposable login redirect diagnostic
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}-${{ inputs.coach_auth_only && 'coach-auth' || 'verify' }}
+  group: ci-${{ github.ref }}-${{ inputs.coach_login_diagnostic_only && 'coach-login' || inputs.coach_auth_only && 'coach-auth' || 'verify' }}
   cancel-in-progress: true
 
 jobs:
   verify:
-    if: ${{ !inputs.coach_auth_only }}
+    if: ${{ !inputs.coach_auth_only && !inputs.coach_login_diagnostic_only }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
@@ -250,7 +255,7 @@ jobs:
           if-no-files-found: ignore
 
   coach-auth:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.coach_auth_only && !github.event.repository.private }}
+    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.coach_auth_only || inputs.coach_login_diagnostic_only) && !github.event.repository.private }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
@@ -296,9 +301,14 @@ jobs:
           psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "SELECT pg_get_functiondef('auth.uid()'::regprocedure)" > "$RUNNER_TEMP/auth-uid-after.txt"
           cmp "$RUNNER_TEMP/auth-uid-before.txt" "$RUNNER_TEMP/auth-uid-after.txt"
           psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -c "NOTIFY pgrst, 'reload schema'"
+      - name: Exercise targeted login redirect diagnostic
+        if: ${{ inputs.coach_login_diagnostic_only }}
+        run: node scripts/test/run-coach-login-diagnostic.mjs
       - name: Exercise UI to real Auth, HTTP and bounded SQL at zero model cost
+        if: ${{ inputs.coach_auth_only }}
         run: node scripts/test/run-coach-auth-e2e.mjs
       - name: Verify isolated durable preference transactions
+        if: ${{ inputs.coach_auth_only }}
         run: node scripts/test/run-coach-durable-sql.mjs
       - name: Record exact scope
         if: always()
