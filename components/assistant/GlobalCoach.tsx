@@ -265,6 +265,11 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
       : {};
     return { surface, includeScreen, ...(includeScreen&&screenDate?{screenDate}:{}), ...contextualSelection, ...foodReceipt, ...(includeScreen && workspaceHint ? { workspace: workspaceHint } : {}), ...(subjectId ? { clientId: subjectId } : {}) };
   };
+  const createHistoryThread = historyEnabled ? (requestId: string, title: string, signal: AbortSignal) => {
+    const create = (historyTransport ?? requestHistory).create;
+    if (!create) return Promise.reject(new Error('history_unavailable'));
+    return create(requestId, title, signal);
+  } : undefined;
   const send = () => {
     if (voiceActive || missingProfessionalSubject || composerSubmitBlocked) return;
     if (foodState.proposal) food.discard();
@@ -277,11 +282,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
         serverScope.current = snapshot.scopeKey;
       }
       return response;
-    }, attachments.references(), historyEnabled ? (requestId, title, signal) => {
-      const create = (historyTransport ?? requestHistory).create;
-      if (!create) return Promise.reject(new Error('history_unavailable'));
-      return create(requestId, title, signal);
-    } : undefined);
+    }, attachments.references(), createHistoryThread);
   };
   const sendVoice = async (result: Extract<CoachVoiceResult, { ok: true }>, text: string): Promise<'sent' | 'ambiguous' | 'failed'> => {
     if (voiceActive || state.pending || coachActionBlocked || missingProfessionalSubject || subjectId && subjectId !== identity) return 'failed';
@@ -298,7 +299,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
       const speech = reviewed.speech;
       if (speech) setSpeechByTurn(current => ({ ...current, [request.turnId]: speech }));
       return reviewed.response;
-    }, [], undefined, result.turnId);
+    }, [], createHistoryThread, result.turnId);
     return outcome;
   };
   const latestTurn = state.turns.findLast(turn => turn.response?.ok);
