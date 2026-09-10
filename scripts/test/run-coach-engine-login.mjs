@@ -1,5 +1,4 @@
 import { spawnSync } from 'node:child_process';
-import pg from 'pg';
 import { runLocalAuthenticatedE2E } from './run-local-auth-e2e.mjs';
 import { assertLoopbackDatabaseUrl, assertLoopbackSupabaseUrl } from './local-auth-e2e-core.mjs';
 
@@ -18,12 +17,11 @@ try {
     });
     if (migration.error || migration.status !== 0) throw new Error('live02_migration_sql_failed');
 
-    const pool = new pg.Pool({ connectionString: status.DB_URL, max: 1, connectionTimeoutMillis: 5000, statement_timeout: 5000 });
-    try {
-      await pool.query("INSERT INTO public.organization_members(org_id,user_id,role) VALUES ($1,$2,'client'),($1,$3,'coach') ON CONFLICT(org_id,user_id) DO UPDATE SET role=EXCLUDED.role", [env.E2E_TEST_ORG_ID, actors.clientId, actors.coachId]);
-    } finally {
-      await pool.end();
-    }
+    const bootstrap = spawnSync(process.execPath, ['--import', 'tsx', 'scripts/test/coach-durable-sql.ts', 'bootstrap'], {
+      stdio: 'inherit',
+      env: { ...env, DATABASE_URL: status.DB_URL, COACH_SQL_ACTOR: actors.clientId, COACH_SQL_COACH: actors.coachId, COACH_SQL_ORG: env.E2E_TEST_ORG_ID },
+    });
+    if (bootstrap.error || bootstrap.status !== 0) throw new Error('durable_actor_bootstrap_failed');
 
     const result = spawnSync(process.execPath, ['node_modules/@playwright/test/cli.js', 'test', '--config', 'playwright.coach.config.ts', '--workers=1', 'e2e/coach-engine.spec.ts'], {
       stdio: 'inherit',

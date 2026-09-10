@@ -70,13 +70,20 @@ async function cleanupFixtureAudit() {
 }
 
 async function main() {
+  const bootstrapActor = async () => {
+    await pool.query('UPDATE public.client_profiles SET workout_preferences=$2::jsonb WHERE user_id=$1', [actorId, JSON.stringify(defaultWorkoutPreferences)]);
+    await pool.query("INSERT INTO public.organization_members(org_id,user_id,role) VALUES ($1,$2,'client'),($1,$3,'coach') ON CONFLICT(org_id,user_id) DO UPDATE SET role=EXCLUDED.role", [organizationId, actorId, coachId]);
+  };
+  if (process.argv[2] === 'bootstrap') {
+    await bootstrapActor();
+    check = 'durable_actor_bootstrap'; pass(); return;
+  }
   if (process.argv[2] === 'recover') {
     check = 'receipt_recovery_new_process';
     const result = await execute({ ...header(), operation: 'receipt', actionId: process.env.COACH_SQL_ACTION! });
     assert.equal(result.ok, true); assert.equal(result.receipt?.id, process.env.COACH_SQL_RECEIPT); pass(); return;
   }
-  await pool.query('UPDATE public.client_profiles SET workout_preferences=$2::jsonb WHERE user_id=$1', [actorId, JSON.stringify(defaultWorkoutPreferences)]);
-  await pool.query("INSERT INTO public.organization_members(org_id,user_id,role) VALUES ($1,$2,'client'),($1,$3,'coach') ON CONFLICT(org_id,user_id) DO UPDATE SET role=EXCLUDED.role", [organizationId, actorId, coachId]);
+  await bootstrapActor();
   await pool.query(await readFile('db/isolated/coach-durable-actions.sql', 'utf8')); installed = true;
 
   check = 'concurrent_same_action_one_mutation_receipt';
