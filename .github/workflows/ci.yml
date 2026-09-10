@@ -311,6 +311,8 @@ jobs:
         run: node scripts/test/run-coach-login-diagnostic.mjs
       - name: Exercise UI to real Auth, HTTP and bounded SQL at zero model cost
         if: ${{ inputs.coach_auth_only }}
+        env:
+          E2E_COACH_LOGIN_DIAGNOSTIC: '1'
         run: node scripts/test/run-coach-auth-e2e.mjs
       - name: Verify isolated durable preference transactions
         if: ${{ inputs.coach_auth_only }}
