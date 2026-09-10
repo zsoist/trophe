@@ -118,7 +118,7 @@ it('keeps the open conversation when dashboard navigation swaps the route-owned 
   expect(transport.mock.calls[2][0].context).not.toHaveProperty('screenDate');
   progress.unmount();
 });
-it('keeps route state through the lazy Workout mount gap, then releases an abandoned scope', async () => {
+it('keeps route state through a delayed lazy Workout mount until explicit actor cleanup', async () => {
   vi.useFakeTimers();
   HTMLElement.prototype.scrollTo = vi.fn();
   const identity = 'route-mount-actor';
@@ -132,14 +132,14 @@ it('keeps route state through the lazy Workout mount gap, then releases an aband
   expect(screen.getByText('Durable route answer')).toBeTruthy();
   food.unmount();
 
-  await act(async () => { vi.advanceTimersByTime(1_000); });
+  await act(async () => { vi.advanceTimersByTime(30_000); });
   route.path = '/dashboard/workout';
   const workout = render(mounted(transport, identity));
   expect(screen.getByRole('button', { name: 'Ask Trophē' }).getAttribute('aria-expanded')).toBe('true');
   expect(screen.getByText('Durable route answer')).toBeTruthy();
   workout.unmount();
 
-  await act(async () => { vi.advanceTimersByTime(5_000); });
+  resetGlobalCoachSessionsForActor(identity);
   const abandoned = render(mounted(transport, identity));
   expect(screen.getByRole('button', { name: 'Ask Trophē' }).getAttribute('aria-expanded')).toBe('false');
   fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));

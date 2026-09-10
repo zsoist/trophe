@@ -58,8 +58,6 @@ import { COACH_MESSAGE_REFRESH } from './message-events';
 const HistoryPanel = dynamic(() => import('./HistoryPanel').then(module => module.HistoryPanel));
 const conversationControllers = new Map<string, ConversationController>();
 const openCoachScopes = new Map<string, string>();
-const mountedCoachScopes = new Map<string, number>();
-const COACH_ROUTE_HANDOFF_GRACE_MS = 5_000;
 const conversationControllerFor = (scope: string) => {
   const current = conversationControllers.get(scope);
   if (current) return current;
@@ -89,7 +87,6 @@ function resetGlobalCoachConversationSession(scope: string) {
   conversationControllers.get(scope)?.identify(null);
   conversationControllers.delete(scope);
   openCoachScopes.delete(scope);
-  mountedCoachScopes.delete(scope);
 }
 
 /** Clears all in-memory private state when authentication moves away from an actor or subject. */
@@ -109,19 +106,6 @@ export function resetGlobalCoachSessionsForActor(actorId: string) {
   }
 }
 
-function retainGlobalCoachSession(scope: string) {
-  mountedCoachScopes.set(scope, (mountedCoachScopes.get(scope) ?? 0) + 1);
-  return () => {
-    const remaining = Math.max(0, (mountedCoachScopes.get(scope) ?? 1) - 1);
-    mountedCoachScopes.set(scope, remaining);
-    // Workout owns a lazy route-specific mount. Keep the authenticated scope
-    // alive while that mount replaces the dashboard-level one.
-    setTimeout(() => {
-      if (mountedCoachScopes.get(scope) === 0) resetGlobalCoachConversationSession(scope);
-    }, COACH_ROUTE_HANDOFF_GRACE_MS);
-  };
-}
-
 export type CoachContextSlot = (props: { identity: string; controller: PreferenceController; state: PreferenceState; conversationId: string; turnId: string; surface: CoachSurfaceName; response: CoachConversationResponse; transport: PreferenceTransport }) => ReactNode;
 export type CoachVoiceSlot = (props: { conversationId: string; onUse: (text: string) => boolean; onSend?: (result: Extract<CoachVoiceResult, { ok: true }>, text: string) => Promise<'sent' | 'ambiguous' | 'failed'> }) => ReactNode;
 type Props = { identity: string; subjectId?: string; professional?: boolean; example?: ConversationTransport; preferenceTransport?: PreferenceTransport; memoryTransport?: MemoryTransport; dietTransport?: DietTransport; progressTransport?: ProgressTransport; foodTransport?:FoodTransport; photoFoodTransport?:PhotoFoodTransport; workoutSetTransport?:WorkoutSetTransport; messageTransport?:MessageTransport; historyTransport?: HistoryTransport; contextSlot?: CoachContextSlot; voiceSlot?: CoachVoiceSlot; voiceTranscriptionTransport?: VoiceTranscriptionTransport; reviewedVoiceTransport?: ReviewedVoiceTransport; workspaceHint?: CoachContextHint['workspace'] };
@@ -133,7 +117,6 @@ export default function GlobalCoach(props: Props) {
   const controller = useMemo(() => conversationControllerFor(foodScope), [foodScope]);
   const food = useMemo(() => foodControllerFor(foodScope), [foodScope]);
   const message = useMemo(() => messageControllerFor(foodScope), [foodScope]);
-  useEffect(() => retainGlobalCoachSession(foodScope), [foodScope]);
   useEffect(() => {
     if (previousScope.current === foodScope) return;
     resetGlobalCoachConversationSession(previousScope.current);
