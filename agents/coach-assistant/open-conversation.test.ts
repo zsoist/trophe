@@ -107,6 +107,28 @@ describe('open v2 conversation with explicit synthetic provider',()=>{
     const payload=JSON.parse(vi.mocked(transport).mock.calls[0][0].prompt);
     expect(payload).toMatchObject({message,messageProvenance:{source:'current_user_message',trust:'untrusted_user_data',authority:'statement_only'}});
   });
+  it('allows a strictly negative record limitation but rejects positive or mixed physiology beside the same typed sources',async()=>{
+    const message='I did not lift 15 kilograms today. What does my recorded workout data show?';
+    const voiceRequest={...request,message,context:{surface:'workout' as const,includeScreen:true},history:[]};
+    const providerFor=(answer:string):OfflineConversationProvider=>vi.fn(async input=>{
+      const payload=JSON.parse(input.prompt);const fact=payload.evidence.find((item:{id:string})=>item.id==='workout.completedSessions');
+      return {output:{...prose,answer,evidenceRefs:[fact.id],entityRefs:[],facts:[{kind:'record_fact',evidenceId:fact.id}],userStatementRef:'current_message',followUp:null,limitations:[],escalation:false,actionIntent:null,generalExplanationRefs:[]},usage:{inputTokens:1000,outputTokens:250,reasoningTokens:40},latencyMs:1,rawStatus:200};
+    });
+    const safeDisclaimer='The records do not establish muscle activation.';
+    const transport=providerFor(safeDisclaimer);
+    const result=await runConversation(voiceRequest,{...options(),offlineCandidateEvaluation:true,offlineConversationProvider:transport});
+    expect(result.error).toBeUndefined();expect(result.ok).toBe(true);
+    expect(result.output?.answer).toContain(safeDisclaimer);
+    expect(result.output?.answer).toContain(`User statement (unverified): ${message}`);
+    expect(result.output?.answer).toContain('Recorded facts:');
+    expect(result.proposals).toEqual([]);expect(result.actionIntents).toEqual([]);expect(result.receipts).toEqual([]);
+    for(const answer of ['The records establish muscle activation.','The records do not establish muscle activation, but your muscles are stronger.','The records do not establish muscle activation; your heart is healthier.']){
+      const rejected=await runConversation(voiceRequest,{...options(),offlineCandidateEvaluation:true,offlineConversationProvider:providerFor(answer)});
+      expect(rejected.error?.code).toBe('invalid_output');expect(rejected.output).toBeUndefined();
+    }
+    const ungrounded:OfflineConversationProvider=vi.fn(async()=>({output:{...prose,answer:safeDisclaimer,evidenceRefs:[],entityRefs:[],facts:[],userStatementRef:'current_message',followUp:null,limitations:[],escalation:false,actionIntent:null,generalExplanationRefs:[]},usage:{inputTokens:1000,outputTokens:250,reasoningTokens:40},latencyMs:1,rawStatus:200}));
+    expect((await runConversation(voiceRequest,{...options(),offlineCandidateEvaluation:true,offlineConversationProvider:ungrounded})).error?.code).toBe('invalid_output');
+  });
   it('renders quantified claims only as canonical typed facts and enforces the total output budget including reasoning',async()=>{
     const exact=provider((output,payload)=>{
       const fact=(payload.evidence as Array<{id:string;value:number|string;unit:string|null}>).find(f=>typeof f.value==='number')!;

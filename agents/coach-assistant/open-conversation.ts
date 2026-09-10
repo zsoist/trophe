@@ -32,8 +32,8 @@ export type OpenConversationOutputDiagnostic = {
   schemaVersion: 'coach-assistant.output-rejection-diagnostic.v1';
   outputSchemaVersion: 'coach-assistant.open-output.v1' | 'coach-assistant.candidate-output.v1';
   promptVersion: string;
-  rule: 'numeric_prose' | 'candidate_universal_claim';
-  category: 'numeric_token' | 'universal_or_completion_token';
+  rule: 'numeric_prose' | 'candidate_universal_claim' | 'physiological_claim';
+  category: 'numeric_token' | 'universal_or_completion_token' | 'physiological_token';
   field: 'answer' | 'followUp' | `limitations[${number}]`;
   path: `output.${string}`;
   position: number;
@@ -57,6 +57,15 @@ const rejectOutput = (code: OpenConversationOutputRejection, diagnostic?: OpenCo
 
 const numericProsePattern=/\d|\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|hundred|thousand|cero|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|cien|mil)\b/i;
 const candidateUniversalPattern=/\b(?:every|all|always|never|entire|fully|exactly|each|cada|todos|todas|siempre|nunca|ningun|ninguna|totalmente|completed|performed|fulfilled|finished|prescribed|completion|completad\w*|realizad\w*|cumplid\w*|finalizad\w*|prescrit\w*)\b/i;
+const physiologicalClaimPattern=/\b(?:activation|activacion|fatigue|fatiga|metabolism|metabolismo|hypertrophy|hipertrofia|caloric deficit|deficit calorico|caused|causado|proves|demuestra)\b/i;
+const safeCandidatePhysiologicalLimitationPattern=/^(?:(?:the|these|those|available|your)\s+)?(?:records?|logs?|data|entries|evidence)\b(?![^.!?]*\b(?:but|however|yet|although)\b)[^.!?]{0,120}\b(?:do(?:es)?\s+not|cannot|can't)\s+(?:establish|show|prove|demonstrate|measure|indicate|confirm|support|determine|infer)\b[^.!?]{0,160}\b(?:activation|fatigue|metabolism|hypertrophy|caloric deficit)(?:\s+(?:or|nor)\s+(?:activation|fatigue|metabolism|hypertrophy|caloric deficit))*[.!?]?$|^(?:(?:los|estos|esos|tus)\s+)?(?:registros?|datos?|entradas?|evidencia)\b(?![^.!?]*\b(?:pero|aunque|sin embargo)\b)[^.!?]{0,120}\bno\s+(?:establec\w*|muestr\w*|prueb\w*|demuestr\w*|mid\w*|indic\w*|confirm\w*|sustent\w*|determin\w*|permit\w+\s+inferir)\b[^.!?]{0,160}\b(?:activacion|fatiga|metabolismo|hipertrofia|deficit calorico)(?:\s+(?:ni|o)\s+(?:activacion|fatiga|metabolismo|hipertrofia|deficit calorico))*[.!?]?$/i;
+function removeSafeCandidatePhysiologicalLimitations(value:string,enabled:boolean):string {
+  if(!enabled)return value;
+  return value.split(/(?<=[.!?])\s+|\n+/).filter(sentence=>{
+    const normalized=sentence.normalize('NFKD').replace(/\p{M}/gu,'').trim();
+    return !physiologicalClaimPattern.test(normalized)||!safeCandidatePhysiologicalLimitationPattern.test(normalized);
+  }).join('\n');
+}
 function proseDiagnostic(
   output: {answer:string;followUp:string|null;limitations:string[]},
   pattern: RegExp,
@@ -309,9 +318,12 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
   // Quantified record claims are rendered ONLY as full canonical statements.
   // A bag of valid values cannot establish which metric a number describes.
   if(numericProsePattern.test(prose))rejectOutput('numeric_prose',proseDiagnostic(boundedOutput,numericProsePattern,{rule:'numeric_prose',category:'numeric_token',promptVersion,outputSchemaVersion:candidateEvaluation?'coach-assistant.candidate-output.v1':'coach-assistant.open-output.v1'}));
-  // Ref existence cannot authorize physiological or causal assertions in prose.
-  // Such discussion requires a separate qualified evidence/evaluation path.
-  if(/\b(?:activation|activacion|fatigue|fatiga|metabolism|metabolismo|hypertrophy|hipertrofia|caloric deficit|deficit calorico|caused|causado|proves|demuestra)\b/i.test(boundedOutput.answer.normalize('NFKD').replace(/\p{M}/gu,'')))rejectOutput('physiological_claim');
+  // A candidate may state one narrow denial of what cited records establish.
+  // Positive or mixed physiological prose remains rejected, including when a
+  // user-statement reference is present.
+  const safePhysiologicalLimitations=candidateEvaluation&&boundedOutput.facts.length>0;
+  const physiologicalScan=removeSafeCandidatePhysiologicalLimitations(boundedOutput.answer,safePhysiologicalLimitations).normalize('NFKD').replace(/\p{M}/gu,'');
+  if(physiologicalClaimPattern.test(physiologicalScan))rejectOutput('physiological_claim',proseDiagnostic(boundedOutput,physiologicalClaimPattern,{rule:'physiological_claim',category:'physiological_token',promptVersion,outputSchemaVersion:candidateEvaluation?'coach-assistant.candidate-output.v1':'coach-assistant.open-output.v1'},'nfkd_without_marks'));
   if(/https?:\/\/|\b(?:i have|i've|i)\s+(?:already\s+)?(?:saved|updated|changed|sent|approved|deleted|booked|confirmed)|\b(?:he|hemos|ya)\s+(?:guardado|actualizado|cambiado|enviado|aprobado|eliminado|confirmado)|\b(?:guard[eé]|actualic[eé]|envi[eé]|elimin[eé])\b/i.test(prose))rejectOutput('execution_claim');
   if(!candidateEvaluation) {
     const review=await reviewInterpretation!({answer:boundedOutput.answer,followUp:boundedOutput.followUp,limitations:[...boundedOutput.limitations],evidenceRefs:[...boundedOutput.evidenceRefs],evidence:structuredClone(facts),signal});
@@ -345,7 +357,7 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
     }
   }
   if(candidateEvaluation) {
-    const normalized=prose.normalize('NFKD').replace(/\p{M}/gu,'');
+    const normalized=removeSafeCandidatePhysiologicalLimitations(prose,safePhysiologicalLimitations).normalize('NFKD').replace(/\p{M}/gu,'');
     // Universal quantifiers and execution/completion predicates are account facts,
     // not contextual interpretation. Only canonical evidence may state them.
     // Curated general explanations are a separate renderer and are not scanned here.
