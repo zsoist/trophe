@@ -16,9 +16,11 @@ describe('focused isolated engine Auth workflow', () => {
     expect(runner).toContain("db.hostname !== '127.0.0.1'");
     expect(runner).toContain("api.hostname !== '127.0.0.1'");
     expect(runner).toContain("'e2e/coach-engine.spec.ts'");
+    expect(runner).toContain("E2E_COACH_ENGINE_LOGIN_ONLY: '1'");
     expect(runner).toContain("COACH_ASSISTANT_MODE: 'offline'");
     expect(runner).toContain('AI_RATE_LIMIT_BYPASS_USER_IDS: actors.clientId');
     expect(spec).toContain('const noPaid = await blockPaidRequests(page)');
+    expect(spec.indexOf("await loginAs(page, 'client')")).toBeLessThan(spec.indexOf("process.env.E2E_COACH_ENGINE_LOGIN_ONLY === '1'"));
     expect(spec).toContain('noPaid()');
   });
 });
