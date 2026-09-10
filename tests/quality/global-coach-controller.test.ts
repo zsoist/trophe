@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { ConversationController, coachSurface, professionalCoachSubject, type ConversationTransport } from '@/components/assistant/conversation-state';
 
 it('maps the five professional routes and extracts only explicit client route hints', () => {
@@ -89,6 +89,16 @@ it('creates a durable thread before generation and requires recovery after respo
  expect(generations).toBe(1);
  controller.restore(id, []);
  expect(controller.snapshot().recoveryRequired).toBe(false);
+});
+
+it('prepares one durable conversation before a voice transcript is bound to it', async () => {
+ const controller = new ConversationController(); controller.identify('actor');
+ const durableId = crypto.randomUUID(); const create = vi.fn(async () => ({ id: durableId }));
+ await expect(controller.prepareDurable('Voice conversation', create)).resolves.toBe(durableId);
+ expect(create).toHaveBeenCalledWith(expect.any(String), 'Voice conversation', expect.any(AbortSignal));
+ expect(controller.snapshot()).toMatchObject({ conversationId: durableId, durable: true, pending: false, error: null });
+ await expect(controller.prepareDurable('Ignored title', create)).resolves.toBe(durableId);
+ expect(create).toHaveBeenCalledTimes(1);
 });
 
 it('retains the creation id and title after an uncertain create, without generating', async () => {

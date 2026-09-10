@@ -166,6 +166,7 @@ export const globalCoachTranslations: Record<string, { en: string; es: string; e
   "global_coach.voice_example": {"en": "Try a transcript example", "es": "Probar una transcripción de ejemplo", "el": "Δοκιμή παραδείγματος απομαγνητοφώνησης"},
   "global_coach.voice_example_text": {"en": "Help me understand my workout today.", "es": "Ayúdame a entender mi entrenamiento de hoy.", "el": "Βοήθησέ με να καταλάβω τη σημερινή μου προπόνηση."},
   "global_coach.voice": {"en": "Voice", "es": "Voz", "el": "Φωνή"},
+  "global_coach.voice_thread_title": {"en": "Voice conversation", "es": "Conversación por voz", "el": "Φωνητική συνομιλία"},
   "global_coach.voice_local": {"en": "Record up to 30 seconds for local playback. Transcription and audio upload are not connected.", "es": "Graba hasta 30 segundos para escuchar aquí. La transcripción y la carga de audio no están conectadas.", "el": "Καταγράψτε έως 30 δευτερόλεπτα για τοπική αναπαραγωγή. Η μεταγραφή και η μεταφόρτωση ήχου δεν είναι συνδεδεμένες."},
   "global_coach.voice_connected": {"en": "Record up to 30 seconds. Audio is uploaded only when you create the transcript, then discarded.", "es": "Graba hasta 30 segundos. El audio solo se carga al crear la transcripción y luego se descarta.", "el": "Καταγράψτε έως 30 δευτερόλεπτα. Ο ήχος μεταφορτώνεται μόνο για τη μεταγραφή και μετά απορρίπτεται."},
   "global_coach.voice_start": {"en": "Record audio", "es": "Grabar audio", "el": "Εγγραφή ήχου"},

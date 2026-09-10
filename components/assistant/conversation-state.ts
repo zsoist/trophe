@@ -35,6 +35,26 @@ export class ConversationController {
     return true;
   }
   setDraft(draft: string) { this.publish({ ...this.state, draft: draft.slice(0, 2000) }); }
+  async prepareDurable(title: string, createThread: (requestId: string, title: string, signal: AbortSignal) => Promise<{ id: string }>) {
+    if (this.state.durable) return this.state.conversationId;
+    if (!this.identity || this.active || !title.trim()) return null;
+    const requestId = this.state.conversationId;
+    const controller = new AbortController(); this.active = controller;
+    const generation = ++this.generation;
+    const creationTitle = this.creationTitle ??= title.trim().slice(0, 80);
+    this.publish({ ...this.state, pending: true, error: null });
+    try {
+      const thread = await createThread(requestId, creationTitle, controller.signal);
+      if (generation !== this.generation || controller.signal.aborted) return null;
+      this.publish({ ...this.state, conversationId: thread.id, durable: true, pending: false, error: null });
+      return thread.id;
+    } catch {
+      if (generation === this.generation) this.publish({ ...this.state, pending: false, error: 'failed' });
+      return null;
+    } finally {
+      if (generation === this.generation) this.active = null;
+    }
+  }
   cancel() {
     if (!this.active) return;
     this.generation++; this.active.abort(); this.active = null;

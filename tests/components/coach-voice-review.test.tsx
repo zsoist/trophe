@@ -10,6 +10,7 @@ import type { CoachVoiceResult } from '@/agents/coach-assistant/voice-contract';
 import type { CoachConversationRequest, CoachConversationResponse } from '@/agents/coach-assistant/contracts';
 import type { CoachVoiceSlot } from '@/components/assistant/GlobalCoach';
 import type { ReviewedVoiceTransport } from '@/components/assistant/voice-client';
+import type { HistoryTransport } from '@/components/assistant/history-client';
 vi.mock('next/navigation', () => ({ usePathname: () => '/dashboard/workout' }));
 HTMLElement.prototype.scrollTo = vi.fn();
 afterEach(cleanup);
@@ -103,4 +104,33 @@ it('sends reviewed fixture text through the integrated text turn and renders its
   await screen.findByText('Reviewed voice answer');
   expect(reviewed).toHaveBeenCalledWith(expect.objectContaining({ editedText: 'My reviewed workout question', reviewed: true, offerSpeech: true, request: expect.objectContaining({ turnId: expect.any(String) }) }), expect.any(AbortSignal));
   expect(screen.queryByRole('textbox', { name: 'Edit transcript' })).toBeNull();
+});
+
+it('binds transcription and the reviewed send to a durable chat created before transcription', async () => {
+  const previous = process.env.NEXT_PUBLIC_COACH_CHAT_HISTORY_ENABLED;
+  process.env.NEXT_PUBLIC_COACH_CHAT_HISTORY_ENABLED = '1';
+  const durableId = crypto.randomUUID();
+  const create = vi.fn<NonNullable<HistoryTransport['create']>>(async (_requestId, title) => ({ id: durableId, title, createdAt: new Date().toISOString(), revision: '0', state: 'active' }));
+  const history: HistoryTransport = { create, list: vi.fn(), read: vi.fn() };
+  const reviewed = vi.fn<ReviewedVoiceTransport>(async input => ({
+    ok: true, status: 'answered', transcript: { text: input.editedText, locale: 'en', languages: ['en'], source: 'provider_transcript', trust: 'untrusted_user_reviewed_data' }, speech: null,
+    response: { version: 'coach-assistant.v2', conversationId: input.request.conversationId, turnId: input.request.turnId, ok: true, mode: 'offline', dataSource: 'synthetic', snapshot: null,
+      output: { answer: 'Durable voice answer', evidenceRefs: [], limitations: [], suggestions: [], escalation: { required: false, reason: null, draft: null } }, evidence: [], proposals: [], receipts: [], attachments: [],
+      telemetry: { model: null, provider: null, promptVersion: 'fixture', modelCalls: 0, dataReads: 0, tokensIn: 0, tokensOut: 0, reasoningTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, latencyMs: 0, costUsd: 0, pricingVersion: 'fixture' } }
+  }));
+  const identity = `durable-owner-${crypto.randomUUID()}`;
+  const voiceSlot: CoachVoiceSlot = props => <button type="button" onClick={async () => {
+    const conversationId = await props.prepareConversation?.();
+    if (!conversationId || !props.onSend) return;
+    const result: Extract<CoachVoiceResult, { ok: true }> = { version: 'coach-assistant.voice.v1', ok: true, status: 'review_required', scope: { actorId: identity, organizationId: 'org', conversationId }, turnId: 'provider-turn', transcript: { text: 'Reviewed durable voice', locale: 'en', languages: ['en'], source: 'provider_transcript', trust: 'untrusted_transcript' }, review: { token: 'provider', expiresAt: new Date(Date.now() + 60_000).toISOString(), editable: true, audioRetention: 'discarded_after_transcription' }, durationMs: 1000 };
+    await props.onSend(result, result.transcript.text);
+  }}>Durable voice fixture</button>;
+  try {
+    render(<I18nProvider defaultLang="en"><GlobalCoach identity={identity} example={example} historyTransport={history} reviewedVoiceTransport={reviewed} voiceSlot={voiceSlot} /></I18nProvider>);
+    fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Durable voice fixture' }));
+    await screen.findByText('Durable voice answer');
+    expect(create).toHaveBeenCalledOnce();
+    expect(reviewed).toHaveBeenCalledWith(expect.objectContaining({ request: expect.objectContaining({ conversationId: durableId }) }), expect.any(AbortSignal));
+  } finally { process.env.NEXT_PUBLIC_COACH_CHAT_HISTORY_ENABLED = previous; }
 });

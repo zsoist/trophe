@@ -3,6 +3,7 @@ import type { CoachVoiceResult } from '@/agents/coach-assistant/voice-contract';
 import type { CoachConversationRequest } from '@/agents/coach-assistant/contracts';
 import { runConversation } from '@/agents/coach-assistant/conversation';
 import { runReviewedVoiceTurn } from '@/agents/coach-assistant/voice-turn';
+import { runReviewedVoiceConversation } from '@/agents/coach-assistant/voice-pipeline';
 import { createServerRepository } from '@/agents/coach-assistant/server-repository';
 import { transcribeCoachAudio, type OfflineCoachTranscriber } from '@/agents/coach-assistant/voice';
 import type { CoachRepository } from '@/agents/coach-assistant/repository';
@@ -95,12 +96,20 @@ export async function POST(request: NextRequest) {
   const repository = createServerRepository(pool);
   try {
     const live=process.env.COACH_ASSISTANT_VOICE_LIVE_ENABLED==='1'&&process.env.COACH_ASSISTANT_LIVE_PILOT_ENABLED==='1'&&process.env.TROPHE_ALLOW_PAID_AI==='1'&&process.env.VERCEL_ENV==='preview';
+    const durableChat=process.env.COACH_ASSISTANT_CHAT_HISTORY_ENABLED==='1';
+    const chatService=durableChat?await (async()=>{
+      const [{db},{createCoachChatService},{createCoachChatCleanup}]=await Promise.all([import('@/db/client'),import('@/agents/coach-assistant/chat-service'),import('@/agents/coach-assistant/chat-cleanup')]);
+      const attachments=process.env.COACH_ASSISTANT_PRIVATE_ATTACHMENTS_ENABLED==='1'
+        ?await import('@/agents/coach-assistant/private-photo-runtime').then(module=>module.createPrivateAttachmentRouteService(process.env))
+        :undefined;
+      return createCoachChatService(db,createCoachChatCleanup(db,attachments));
+    })():undefined;
     let pipeline:{run:(reviewedRequest:CoachConversationRequest,signal:AbortSignal)=>ReturnType<typeof runConversation>};
     if(live){
       const [{db},{invokeStructuredProvider},{createPilotBudgetStore},{createGovernedCoachEngineBinding}]=await Promise.all([import('@/db/client'),import('@/agents/runtime/providers/structured'),import('@/lib/workout/pilot-budget-service'),import('@/agents/coach-assistant/governed-engine')]);
       const engine=createGovernedCoachEngineBinding({env:process.env,actorId:guard.userId,persistentStore:createPilotBudgetStore(db,guard.userId),transport:invokeStructuredProvider});
-      pipeline={run:(reviewedRequest,signal)=>engine.run(reviewedRequest,{actorId:guard.userId,repository,signal,now:new Date(),mode:'model'})};
-    }else pipeline={run:(reviewedRequest,signal)=>runConversation(reviewedRequest,{actorId:guard.userId,repository,signal,now:new Date(),mode:'offline'})};
+      pipeline={run:(reviewedRequest,signal)=>runReviewedVoiceConversation(reviewedRequest,{actorId:guard.userId,repository,signal,now:new Date(),mode:'model'},{chatService,governedEngine:engine})};
+    }else pipeline={run:(reviewedRequest,signal)=>runReviewedVoiceConversation(reviewedRequest,{actorId:guard.userId,repository,signal,now:new Date(),mode:'offline'},{chatService})};
     const result = await runReviewedVoiceTurn(input, {
       actorId: guard.userId,
       repository,

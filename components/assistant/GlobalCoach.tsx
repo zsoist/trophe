@@ -124,7 +124,7 @@ export function resetGlobalCoachSessionsForActor(actorId: string) {
 }
 
 export type CoachContextSlot = (props: { identity: string; controller: PreferenceController; state: PreferenceState; conversationId: string; turnId: string; surface: CoachSurfaceName; response: CoachConversationResponse; transport: PreferenceTransport }) => ReactNode;
-export type CoachVoiceSlot = (props: { conversationId: string; onUse: (text: string) => boolean; onSend?: (result: Extract<CoachVoiceResult, { ok: true }>, text: string) => Promise<'sent' | 'ambiguous' | 'failed'> }) => ReactNode;
+export type CoachVoiceSlot = (props: { conversationId: string; prepareConversation?: () => Promise<string | null>; onUse: (text: string) => boolean; onSend?: (result: Extract<CoachVoiceResult, { ok: true }>, text: string) => Promise<'sent' | 'ambiguous' | 'failed'> }) => ReactNode;
 type Props = { identity: string; subjectId?: string; professional?: boolean; example?: ConversationTransport; preferenceTransport?: PreferenceTransport; memoryTransport?: MemoryTransport; dietTransport?: DietTransport; progressTransport?: ProgressTransport; foodTransport?:FoodTransport; photoFoodTransport?:PhotoFoodTransport; workoutSetTransport?:WorkoutSetTransport; messageTransport?:MessageTransport; historyTransport?: HistoryTransport; contextSlot?: CoachContextSlot; voiceSlot?: CoachVoiceSlot; voiceTranscriptionTransport?: VoiceTranscriptionTransport; reviewedVoiceTransport?: ReviewedVoiceTransport; workspaceHint?: CoachContextHint['workspace'] };
 
 export default function GlobalCoach(props: Props) {
@@ -163,6 +163,11 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   const [memory] = useState(() => new MemoryController(state.conversationId));
   const memoryState = useSyncExternalStore(memory.subscribe, memory.snapshot, memory.snapshot);
   const historyEnabled = process.env.NEXT_PUBLIC_COACH_CHAT_HISTORY_ENABLED === '1' && (!example || Boolean(historyTransport)) && (!subjectId || subjectId === identity);
+  const prepareVoiceConversation = historyEnabled ? () => {
+    const create = (historyTransport ?? requestHistory).create;
+    if (!create) return Promise.resolve(null);
+    return controller.prepareDurable(t('global_coach.voice_thread_title'), (requestId, title, signal) => create(requestId, title, signal));
+  } : undefined;
   const memoryEnabled = process.env.NEXT_PUBLIC_COACH_MEMORY_ACTIONS_ENABLED === '1' && (!historyEnabled || state.durable) && (!example || Boolean(memoryTransport)) && (!subjectId || subjectId === identity);
   const [diet] = useState(() => new DietController());
   const dietState = useSyncExternalStore(diet.subscribe, diet.snapshot, diet.snapshot);
@@ -407,14 +412,14 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
       <form className={styles.composer} onSubmit={event => { event.preventDefault(); void send(); }}>
         <AttachmentPicker controller={attachments} state={attachmentState} conversationId={state.conversationId} transport={!example && latestResponse?.uploads?.images ? requestAttachment : undefined} analysisEnabled={photoFoodEnabled} disabled={state.pending || coachActionBlocked} />
         {photoFoodEnabled&&attachmentState.items.filter(item=>item.state==='available'&&item.reference&&latestResponse?.attachments.some(reference=>reference.id===item.reference!.id&&reference.status==='available')).map(item=><button key={`food-${item.key}`} type="button" className={styles.contextToggle} disabled={photoFoodState.pending || coachActionBlocked} onClick={()=>void photoFood.select(item.reference!.id,state.conversationId,photoFoodTransport??requestPhotoFood)}>{t('global_coach.photo_food_open')}</button>)}
-        <VoiceCapture key={state.conversationId} controller={voice} state={voiceState} disabled={state.pending || attachmentState.pending || coachActionBlocked} conversationId={state.conversationId} transcribe={subjectId && subjectId !== identity ? undefined : voiceTranscriptionTransport} onUse={text => {
+        <VoiceCapture key={state.conversationId} controller={voice} state={voiceState} disabled={state.pending || attachmentState.pending || coachActionBlocked} conversationId={state.conversationId} transcribe={subjectId && subjectId !== identity ? undefined : voiceTranscriptionTransport} prepareConversation={voiceTranscriptionTransport ? prepareVoiceConversation : undefined} onUse={text => {
           if (voiceActive || state.pending || coachActionBlocked) return false;
           const current = controller.snapshot().draft;
           const combined = current.trim() ? `${current}\n${text}` : text;
           if (combined.length > 2000) return false;
           controller.setDraft(combined); return true;
         }} onSend={reviewedVoiceTransport || !example && process.env.NEXT_PUBLIC_COACH_VOICE_REVIEW_ENABLED === '1' ? sendVoice : undefined} />
-        {voiceSlot?.({ conversationId: state.conversationId, onUse: text => {
+        {voiceSlot?.({ conversationId: state.conversationId, prepareConversation: prepareVoiceConversation, onUse: text => {
           if (voiceActive || state.pending || coachActionBlocked) return false;
           const current = controller.snapshot().draft;
           const combined = current.trim() ? `${current}\n${text}` : text;
