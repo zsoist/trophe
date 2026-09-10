@@ -610,6 +610,13 @@
       "when": 1788907813843,
       "tag": "0086_coach_pilot_budget_authority",
       "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1789045200000,
+      "tag": "0087_ask_trophe_live02_contracts",
+      "breakpoints": true
     }
   ]
 }
