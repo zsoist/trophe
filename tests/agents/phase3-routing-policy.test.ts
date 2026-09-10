@@ -50,6 +50,16 @@ describe('Phase 3 routing policy', () => {
     }
   });
 
+  it('gives photo analysis a bounded 35-second primary window with no fallback', () => {
+    expect(taskPolicies.photo_analyze).toMatchObject({
+      provider: 'anthropic',
+      model: 'claude-haiku-4-5-20251001',
+      timeoutMs: 35_000,
+      promptVersion: 'photo-analyze-v1',
+    });
+    expect(taskFallbacks.photo_analyze).toBeUndefined();
+  });
+
   it('exposes the exact production policy object to food-parse simulators', () => {
     expect(foodParseSimulatorPolicy).toBe(taskPolicies.food_parse);
   });

@@ -748,6 +748,56 @@ describe('executeAiTask integration contract', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it('allows photo analysis to complete after 32 seconds within its bounded window', async () => {
+    vi.useFakeTimers();
+    const invoke = vi.fn(() => new Promise<typeof fallbackSuccess>((resolve) => {
+      setTimeout(() => resolve(fallbackSuccess), 32_000);
+    }));
+    const observed = observeOutcome(executeAiTask({
+      task: 'photo_analyze',
+      prompt: 'analyze this meal photo',
+      invoke,
+    }));
+
+    await vi.advanceTimersByTimeAsync(31_999);
+    expect(observed.current).toBeUndefined();
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(observed.current?.status).toBe('resolved');
+    expect(invoke).toHaveBeenCalledOnce();
+    expect(persistence.completeGeneration).toHaveBeenCalledOnce();
+    expect(persistence.failGeneration).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('aborts photo analysis once after 35 seconds without fallback or completion writes', async () => {
+    vi.useFakeTimers();
+    let abortCount = 0;
+    const providerError = new Error('photo provider aborted');
+    const invoke = vi.fn(({ signal }: { signal: AbortSignal }) => new Promise<never>((_resolve, reject) => {
+      signal.addEventListener('abort', () => {
+        abortCount++;
+        reject(providerError);
+      }, { once: true });
+    }));
+    const observed = observeOutcome(executeAiTask({
+      task: 'photo_analyze',
+      prompt: 'analyze this meal photo',
+      invoke,
+    }));
+
+    await vi.advanceTimersByTimeAsync(34_999);
+    expect(observed.current).toBeUndefined();
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(observed.current).toEqual({ status: 'rejected', error: providerError });
+    expect(abortCount).toBe(1);
+    expect(invoke).toHaveBeenCalledOnce();
+    expect(persistence.completeGeneration).not.toHaveBeenCalled();
+    expect(persistence.failGeneration).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it('does not start fallback when the primary timeout consumes the end-to-end deadline', async () => {
     vi.useFakeTimers();
     const primaryError = new Error('primary timed out');
