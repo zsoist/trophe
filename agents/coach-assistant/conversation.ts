@@ -147,7 +147,12 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
       if(controller.signal.aborted)boundary();
     })]);
   } catch(error) {
-    if(error instanceof OpenConversationOutputError)console.warn(JSON.stringify({event:'coach_conversation_output_rejected',code:error.diagnosticCode}));
+    if(error instanceof OpenConversationOutputError){
+      const qaDiagnostic=process.env.COACH_ASSISTANT_OUTPUT_DIAGNOSTICS_ENABLED==='1'&&process.env.VERCEL_ENV==='preview'&&error.diagnostic
+        ?{...error.diagnostic,correlation:createHash('sha256').update(`${response.conversationId}:${response.turnId}`).digest('hex').slice(0,16)}
+        :undefined;
+      console.warn(JSON.stringify({event:'coach_conversation_output_rejected',code:error.diagnosticCode,...(qaDiagnostic?{diagnostic:qaDiagnostic}:{})}));
+    }
     const allowed = ['invalid_input','forbidden','unauthenticated','invalid_timezone','budget_blocked','context_limit','invalid_output','provider_unavailable'];
     const code: CoachErrorCode = controller.signal.aborted ? options.signal.aborted?'cancelled':'deadline' : error instanceof Error && allowed.includes(error.message)?error.message as CoachErrorCode:'query_failed';
     response.error={code,retryable:code==='query_failed'||code==='deadline'||code==='provider_unavailable'};

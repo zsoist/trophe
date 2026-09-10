@@ -28,18 +28,53 @@ export type OpenConversationOutputRejection =
   | 'candidate_personal_claim'
   | 'curated_reference';
 
+export type OpenConversationOutputDiagnostic = {
+  schemaVersion: 'coach-assistant.output-rejection-diagnostic.v1';
+  outputSchemaVersion: 'coach-assistant.open-output.v1' | 'coach-assistant.candidate-output.v1';
+  promptVersion: string;
+  rule: 'numeric_prose' | 'candidate_universal_claim';
+  category: 'numeric_token' | 'universal_or_completion_token';
+  field: 'answer' | 'followUp' | `limitations[${number}]`;
+  path: `output.${string}`;
+  position: number;
+  positionEncoding: 'original' | 'nfkd_without_marks';
+};
+
 export class OpenConversationOutputError extends Error {
   readonly diagnosticCode: OpenConversationOutputRejection;
-  constructor(diagnosticCode: OpenConversationOutputRejection) {
+  readonly diagnostic?: OpenConversationOutputDiagnostic;
+  constructor(diagnosticCode: OpenConversationOutputRejection, diagnostic?: OpenConversationOutputDiagnostic) {
     super('invalid_output');
     this.name = 'OpenConversationOutputError';
     this.diagnosticCode = diagnosticCode;
+    this.diagnostic = diagnostic;
   }
 }
 
-const rejectOutput = (code: OpenConversationOutputRejection): never => {
-  throw new OpenConversationOutputError(code);
+const rejectOutput = (code: OpenConversationOutputRejection, diagnostic?: OpenConversationOutputDiagnostic): never => {
+  throw new OpenConversationOutputError(code, diagnostic);
 };
+
+const numericProsePattern=/\d|\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|hundred|thousand|cero|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|cien|mil)\b/i;
+const candidateUniversalPattern=/\b(?:every|all|always|never|entire|fully|exactly|each|cada|todos|todas|siempre|nunca|ningun|ninguna|totalmente|completed|performed|fulfilled|finished|prescribed|completion|completad\w*|realizad\w*|cumplid\w*|finalizad\w*|prescrit\w*)\b/i;
+function proseDiagnostic(
+  output: {answer:string;followUp:string|null;limitations:string[]},
+  pattern: RegExp,
+  input: Pick<OpenConversationOutputDiagnostic,'rule'|'category'|'promptVersion'|'outputSchemaVersion'>,
+  positionEncoding: OpenConversationOutputDiagnostic['positionEncoding']='original',
+): OpenConversationOutputDiagnostic|undefined {
+  const fields: Array<{field:OpenConversationOutputDiagnostic['field'];path:OpenConversationOutputDiagnostic['path'];value:string}>=[
+    {field:'answer',path:'output.answer',value:output.answer},
+    ...(output.followUp===null?[]:[{field:'followUp' as const,path:'output.followUp' as const,value:output.followUp}]),
+    ...output.limitations.map((value,index)=>({field:`limitations[${index}]` as const,path:`output.limitations.${index}` as const,value})),
+  ];
+  for(const item of fields){
+    const value=positionEncoding==='nfkd_without_marks'?item.value.normalize('NFKD').replace(/\p{M}/gu,''):item.value;
+    const match=value.match(pattern);
+    if(match?.index!==undefined)return {schemaVersion:'coach-assistant.output-rejection-diagnostic.v1',...input,field:item.field,path:item.path,position:match.index,positionEncoding};
+  }
+  return undefined;
+}
 
 /** Same existing structured-provider input, injected only for synthetic evaluation. */
 export type OfflineConversationProvider=(input:Parameters<typeof invokeStructuredProvider>[0])=>Promise<ProviderResult<unknown>>;
@@ -271,7 +306,7 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
   const prose=[boundedOutput.answer,boundedOutput.followUp??'',...boundedOutput.limitations].join('\n');
   // Quantified record claims are rendered ONLY as full canonical statements.
   // A bag of valid values cannot establish which metric a number describes.
-  if(/\d|\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|hundred|thousand|cero|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|cien|mil)\b/i.test(prose))rejectOutput('numeric_prose');
+  if(numericProsePattern.test(prose))rejectOutput('numeric_prose',proseDiagnostic(boundedOutput,numericProsePattern,{rule:'numeric_prose',category:'numeric_token',promptVersion,outputSchemaVersion:candidateEvaluation?'coach-assistant.candidate-output.v1':'coach-assistant.open-output.v1'}));
   // Ref existence cannot authorize physiological or causal assertions in prose.
   // Such discussion requires a separate qualified evidence/evaluation path.
   if(/\b(?:activation|activacion|fatigue|fatiga|metabolism|metabolismo|hypertrophy|hipertrofia|caloric deficit|deficit calorico|caused|causado|proves|demuestra)\b/i.test(boundedOutput.answer.normalize('NFKD').replace(/\p{M}/gu,'')))rejectOutput('physiological_claim');
@@ -312,7 +347,7 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
     // Universal quantifiers and execution/completion predicates are account facts,
     // not contextual interpretation. Only canonical evidence may state them.
     // Curated general explanations are a separate renderer and are not scanned here.
-    if(/\b(?:every|all|always|never|entire|fully|exactly|each|cada|todos|todas|siempre|nunca|ningun|ninguna|totalmente|completed|performed|fulfilled|finished|prescribed|completion|completad\w*|realizad\w*|cumplid\w*|finalizad\w*|prescrit\w*)\b/i.test(normalized))rejectOutput('candidate_universal_claim');
+    if(candidateUniversalPattern.test(normalized))rejectOutput('candidate_universal_claim',proseDiagnostic(boundedOutput,candidateUniversalPattern,{rule:'candidate_universal_claim',category:'universal_or_completion_token',promptVersion,outputSchemaVersion:'coach-assistant.candidate-output.v1'},'nfkd_without_marks'));
     // Conservative release-candidate guards; independent tests, not a truth proof.
     // Apply to follow-ups too: interrogative syntax can hide the same assertion.
     if(/\b(?:saved|updated|sent|approved|deleted|booked|confirmed|guardad\w*|actualizad\w*|enviad\w*|aprobad\w*|eliminad\w*|confirmad\w*|heart|muscles?|stronger|healthier|blood|insulin|corazon|muscul\w*|salud\w*|hormon\w*|skipped|skipping|omitid\w*)\b/i.test(normalized))rejectOutput('candidate_sensitive_claim');

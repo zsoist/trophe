@@ -1,10 +1,11 @@
-import { describe,it,expect,vi } from 'vitest';
+import { afterEach,describe,it,expect,vi } from 'vitest';
 import { runConversation } from './conversation';
 import { fixtureRepository } from './fixtures';
 import type { OfflineConversationProvider } from './open-conversation';
 const request={version:'coach-assistant.v2',conversationId:'a2c5ec63-6f35-4671-b4f1-6644ca9d739c',turnId:'aac3a82e-898c-4907-b9b9-75133bb6d27f',message:'¿Y cómo podría organizarlo mejor?',history:[{role:'user',text:'Quiero entender mis comidas de esta semana.'},{role:'assistant',text:'Podemos revisar lo registrado.'}]};
 const options=()=>({mode:'model' as const,actorId:'synthetic-client',repository:fixtureRepository(),signal:new AbortController().signal,now:new Date('2026-09-07T03:30:00Z'),offlineInterpretationReview:async(candidate:{answer:string;followUp:string|null})=>({approved:candidate.answer===prose.answer&&candidate.followUp===prose.followUp})});
 const prose={answer:'Podrías revisar si las comidas registradas representan tu rutina antes de decidir qué organizar.',evidenceRefs:[] as string[],entityRefs:[] as string[],facts:[] as Array<{kind:string;evidenceId:string}>,followUp:'¿Qué parte te cuesta más al elegir qué comer o encontrar tiempo para prepararlo?',limitations:[],escalation:false};
+afterEach(()=>{delete process.env.COACH_ASSISTANT_OUTPUT_DIAGNOSTICS_ENABLED;delete process.env.VERCEL_ENV;vi.restoreAllMocks();});
 function provider(change?:(output:typeof prose,payload:Record<string,unknown>)=>unknown):OfflineConversationProvider {
   return vi.fn(async input=>{
     const payload=JSON.parse(input.prompt);
@@ -54,6 +55,27 @@ describe('open v2 conversation with explicit synthetic provider',()=>{
     const diagnostic=String(warning.mock.calls[0]?.[0]);
     expect(JSON.parse(diagnostic)).toEqual({event:'coach_conversation_output_rejected',code:'numeric_prose'});
     expect(diagnostic).not.toContain(privateOutput);expect(diagnostic).not.toContain('150 gramos');
+  });
+  it.each([
+    {answer:'Recorded quantity 15 kilograms.',code:'numeric_prose',category:'numeric_token',position:18},
+    {answer:'Every workout entry is available.',code:'candidate_universal_claim',category:'universal_or_completion_token',position:0},
+  ] as const)('emits a typed $code diagnostic in explicitly flagged Preview without retaining prose',async({answer,code,category,position})=>{
+    process.env.COACH_ASSISTANT_OUTPUT_DIAGNOSTICS_ENABLED='1';process.env.VERCEL_ENV='preview';
+    const warning=vi.spyOn(console,'warn').mockImplementation(()=>undefined);
+    const transport=provider(output=>({...output,answer,generalExplanationRefs:[]}));
+    const result=await runConversation(request,{...options(),offlineCandidateEvaluation:true,offlineConversationProvider:transport});
+    expect(result.error?.code).toBe('invalid_output');expect(result.output).toBeUndefined();expect(transport).toHaveBeenCalledOnce();
+    const diagnostic=JSON.parse(String(warning.mock.calls[0]?.[0]));
+    expect(diagnostic).toEqual({event:'coach_conversation_output_rejected',code,diagnostic:{schemaVersion:'coach-assistant.output-rejection-diagnostic.v1',outputSchemaVersion:'coach-assistant.candidate-output.v1',promptVersion:'coach-assistant.conversation.v5-candidate.2-live02',rule:code,category,field:'answer',path:'output.answer',position,positionEncoding:code==='candidate_universal_claim'?'nfkd_without_marks':'original',correlation:expect.stringMatching(/^[a-f0-9]{16}$/)}});
+    expect(JSON.stringify(diagnostic)).not.toContain(answer);expect(JSON.stringify(diagnostic)).not.toContain('kilograms');expect(JSON.stringify(diagnostic)).not.toContain('workout entry');
+  });
+  it('keeps detailed diagnostics disabled outside Preview even when the flag is set',async()=>{
+    process.env.COACH_ASSISTANT_OUTPUT_DIAGNOSTICS_ENABLED='1';process.env.VERCEL_ENV='production';
+    const warning=vi.spyOn(console,'warn').mockImplementation(()=>undefined);
+    const transport=provider(output=>({...output,answer:'Recorded quantity 15 kilograms.',generalExplanationRefs:[]}));
+    const result=await runConversation(request,{...options(),offlineCandidateEvaluation:true,offlineConversationProvider:transport});
+    expect(result.error?.code).toBe('invalid_output');
+    expect(JSON.parse(String(warning.mock.calls[0]?.[0]))).toEqual({event:'coach_conversation_output_rejected',code:'numeric_prose'});
   });
   it('renders quantified claims only as canonical typed facts and enforces the total output budget including reasoning',async()=>{
     const exact=provider((output,payload)=>{
