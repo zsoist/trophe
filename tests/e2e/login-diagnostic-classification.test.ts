@@ -20,19 +20,32 @@ describe('redacted login diagnostics', () => {
     const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     const page = {
       context: () => ({ cookies: () => Promise.reject(new Error('closed')) }),
-      url: () => 'http://127.0.0.1:3000/login',
+      url: () => { throw new Error('closed'); },
       getByRole: () => ({
         count: () => Promise.reject(new Error('closed')),
         first: () => ({ textContent: () => Promise.reject(new Error('closed')) }),
       }),
     } as unknown as Page;
 
-    await emitLoginDiagnostic(page, 'coach', null, 'failed');
+    await emitLoginDiagnostic(page, 'coach', 200, 'failed', { pathname: '/login', sessionPresent: true });
 
     expect(write).toHaveBeenCalledOnce();
     expect(JSON.parse(String(write.mock.calls[0]?.[0]))).toEqual({
-      event: 'coach_login_diagnostic', outcome: 'failed', role: 'coach', authExchangeStatus: null,
-      authExchangeCategory: 'none', pathname: '/login', sessionPresent: false, uiErrorCategory: 'none',
+      event: 'coach_login_diagnostic', outcome: 'failed', role: 'coach', authExchangeStatus: 200,
+      authExchangeCategory: 'success', pathname: '/login', sessionPresent: true, uiErrorCategory: 'none',
     });
+  });
+
+  it('reports unavailable session state as null instead of false', async () => {
+    const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    const page = {
+      context: () => ({ cookies: () => Promise.reject(new Error('closed')) }),
+      url: () => { throw new Error('closed'); },
+      getByRole: () => ({ count: () => Promise.reject(new Error('closed')) }),
+    } as unknown as Page;
+
+    await emitLoginDiagnostic(page, 'coach', null, 'failed');
+
+    expect(JSON.parse(String(write.mock.calls[0]?.[0])).sessionPresent).toBeNull();
   });
 });

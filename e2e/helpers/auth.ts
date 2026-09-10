@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type Frame, type Page } from '@playwright/test';
 
 export type Role = 'client' | 'coach' | 'admin';
 export type ThemeMode = 'light' | 'dark';
@@ -10,7 +10,7 @@ type LoginDiagnostic = {
   authExchangeStatus: number | null;
   authExchangeCategory: 'none' | 'success' | 'rate_limited' | 'client_error' | 'server_error' | 'other';
   pathname: string;
-  sessionPresent: boolean;
+  sessionPresent: boolean | null;
   uiErrorCategory: 'none' | 'invalid_credentials' | 'rate_limited' | 'network' | 'other';
 };
 
@@ -72,30 +72,75 @@ export async function loginAs(page: Page, role: Role, path = '/login'): Promise<
   if (!email || !password) throw new Error(`Missing disposable local ${role} E2E credentials`);
   const diagnostics = process.env.E2E_COACH_LOGIN_DIAGNOSTIC === '1';
   let authExchangeStatus: number | null = null;
+  const lastKnown: { pathname: string; sessionPresent: boolean | null } = {
+    pathname: readPagePathname(page), sessionPresent: null,
+  };
+  const observeSession = async () => {
+    const cookies = await page.context().cookies().catch(() => null);
+    if (cookies) lastKnown.sessionPresent = cookies.some(cookie => cookie.name.includes('auth-token'));
+  };
   const observeAuth = (response: { url(): string; status(): number }) => {
     const url = new URL(response.url());
-    if (url.pathname.endsWith('/auth/v1/token')) authExchangeStatus = response.status();
+    if (url.pathname.endsWith('/auth/v1/token')) {
+      authExchangeStatus = response.status();
+      void observeSession();
+    }
   };
-  if (diagnostics) page.on('response', observeAuth);
+  const observeNavigation = (frame: Frame) => {
+    if (frame === page.mainFrame()) {
+      lastKnown.pathname = safePathname(frame.url());
+      void observeSession();
+    }
+  };
+  if (diagnostics) {
+    page.on('response', observeAuth);
+    page.on('framenavigated', observeNavigation);
+  }
   await page.goto(path);
   await page.getByPlaceholder('Email').fill(email);
   await page.getByPlaceholder('Password').fill(password);
   await page.locator('form').getByRole('button', { name: 'Log in' }).click();
   try {
     await page.waitForURL((url) => !url.pathname.startsWith('/login'));
-    if (diagnostics) await emitLoginDiagnostic(page, role, authExchangeStatus, 'passed');
+    if (diagnostics) {
+      lastKnown.pathname = readPagePathname(page, lastKnown.pathname);
+      await observeSession();
+      await emitLoginDiagnostic(page, role, authExchangeStatus, 'passed', lastKnown);
+    }
   } catch (error) {
-    if (diagnostics) await emitLoginDiagnostic(page, role, authExchangeStatus, 'failed');
+    if (diagnostics) await emitLoginDiagnostic(page, role, authExchangeStatus, 'failed', lastKnown);
     throw error;
   } finally {
-    if (diagnostics) page.off('response', observeAuth);
+    if (diagnostics) {
+      page.off('response', observeAuth);
+      page.off('framenavigated', observeNavigation);
+    }
   }
 }
 
-export async function emitLoginDiagnostic(page: Page, role: Role, authExchangeStatus: number | null, outcome: LoginDiagnostic['outcome']) {
-  const cookies = await page.context().cookies().catch(() => []);
-  let pathname = '/unknown';
-  try { pathname = new URL(page.url()).pathname; } catch { /* Keep the diagnostic bounded if the page has already closed. */ }
+function safePathname(value: string): string {
+  try { return new URL(value).pathname; } catch { return '/unknown'; }
+}
+
+function readPagePathname(page: Page, fallback = '/unknown'): string {
+  try {
+    const pathname = safePathname(page.url());
+    return pathname === '/unknown' ? fallback : pathname;
+  } catch { return fallback; }
+}
+
+export async function emitLoginDiagnostic(
+  page: Page,
+  role: Role,
+  authExchangeStatus: number | null,
+  outcome: LoginDiagnostic['outcome'],
+  lastKnown: { pathname: string; sessionPresent: boolean | null } = { pathname: '/unknown', sessionPresent: null },
+) {
+  const cookies = await page.context().cookies().catch(() => null);
+  const pathname = readPagePathname(page, lastKnown.pathname);
+  const sessionPresent = cookies === null
+    ? lastKnown.sessionPresent
+    : cookies.some(cookie => cookie.name.includes('auth-token'));
   const alert = page.getByRole('alert');
   const alertCount = pathname.startsWith('/login') ? await alert.count().catch(() => 0) : 0;
   const uiError = alertCount
@@ -105,7 +150,7 @@ export async function emitLoginDiagnostic(page: Page, role: Role, authExchangeSt
     event: 'coach_login_diagnostic', outcome, role, authExchangeStatus,
     authExchangeCategory: classifyAuthExchangeStatus(authExchangeStatus),
     pathname,
-    sessionPresent: cookies.some(cookie => cookie.name.includes('auth-token')),
+    sessionPresent,
     uiErrorCategory: classifyLoginUiError(uiError),
   };
   process.stdout.write(`${JSON.stringify(record)}\n`);
