@@ -54,7 +54,7 @@ describe('Phase 3 routing policy', () => {
     expect(taskPolicies.photo_analyze).toMatchObject({
       provider: 'anthropic',
       model: 'claude-haiku-4-5-20251001',
-      timeoutMs: 40_000,
+      timeoutMs: 35_000,
       promptVersion: 'photo-analyze-v1',
     });
     expect(taskFallbacks.photo_analyze).toBeUndefined();
