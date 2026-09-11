@@ -21,6 +21,13 @@ import { executeAiTask } from '@/agents/runtime/execute';
 import { classifyAiError, isFallbackEligible } from '@/agents/runtime/error-classification';
 import { taskPolicies } from '@/agents/router/policies';
 import { estimateUsageCost } from '@/agents/runtime/cost';
+import {
+  decidePilotBudgetCommand,
+  type PilotAttemptRecord,
+  type PilotBudgetCommand,
+  type PilotBudgetStore,
+} from '@/agents/coach-assistant/pilot-budget';
+import { runGovernedPilotModality } from '@/agents/coach-assistant/governed-modality';
 
 function typedProviderError(
   label: string,
@@ -795,6 +802,108 @@ describe('executeAiTask integration contract', () => {
     expect(invoke).toHaveBeenCalledOnce();
     expect(persistence.completeGeneration).not.toHaveBeenCalled();
     expect(persistence.failGeneration).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('preserves a timed-out photo reservation as unknown before the 45 second request boundary', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const rows = new Map<string, PilotAttemptRecord>();
+    const phases: Array<{ phase: string; atMs: number }> = [];
+    const request = new AbortController();
+    const outerTimer = setTimeout(
+      () => request.abort(new Error('request deadline')),
+      45_000,
+    );
+    const store: PilotBudgetStore = {
+      execute: vi.fn(async (command: PilotBudgetCommand, signal: AbortSignal) => {
+        phases.push({ phase: `${command.operation}:start`, atMs: Date.now() });
+        const delayMs = command.operation === 'reserve'
+          ? 200
+          : command.operation === 'claim_dispatch'
+            ? 300
+            : 4_000;
+        await new Promise<void>((resolve, reject) => {
+          const timer = setTimeout(resolve, delayMs);
+          signal.addEventListener('abort', () => {
+            clearTimeout(timer);
+            reject(signal.reason);
+          }, { once: true });
+        });
+        const existing = rows.get(command.binding.attemptId);
+        const decision = decidePilotBudgetCommand({
+          pilotId: '00000000-0000-4000-8000-000000000001',
+          budgetDay: '2026-09-11',
+          capNanoUsd: 500_000_000,
+          chargedNanoUsd: [...rows.values()].reduce((sum, row) => sum + row.chargedNanoUsd, 0),
+          turnAttemptCount: [...rows.values()].filter(
+            row => row.binding.turnId === command.binding.turnId,
+          ).length,
+          accountingBlocked: false,
+          existing,
+        }, command);
+        if (decision.ok && decision.write !== 'none') {
+          rows.set(command.binding.attemptId, structuredClone(decision.record));
+        }
+        phases.push({ phase: `${command.operation}:end`, atMs: Date.now() });
+        return { storage: 'database' as const, ...decision };
+      }),
+    };
+    let providerAbortCount = 0;
+    const invoke = vi.fn(({ signal }: { signal: AbortSignal }) => new Promise<never>((_resolve, reject) => {
+      signal.addEventListener('abort', () => {
+        providerAbortCount++;
+        reject(new Error('photo provider aborted'));
+      }, { once: true });
+    }));
+    const observed = observeOutcome(runGovernedPilotModality({
+      pilotId: '00000000-0000-4000-8000-000000000001',
+      actorId: '00000000-0000-4000-8000-000000000002',
+      turnId: '00000000-0000-4000-8000-000000000003',
+      identityParts: ['photo', '00000000-0000-4000-8000-000000000004'],
+      task: 'photo_analyze',
+      store,
+      signal: request.signal,
+      run: () => executeAiTask({
+        task: 'photo_analyze',
+        prompt: 'analyze this meal photo',
+        invoke: args => invoke({ ...args, signal: AbortSignal.any([args.signal, request.signal]) }),
+      }),
+    }));
+
+    await vi.advanceTimersByTimeAsync(35_499);
+    expect(observed.current).toBeUndefined();
+    expect(phases).toContainEqual({ phase: 'claim_dispatch:end', atMs: 500 });
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(providerAbortCount).toBe(1);
+    expect(phases).toContainEqual({ phase: 'mark_unknown:start', atMs: 35_500 });
+
+    await vi.advanceTimersByTimeAsync(3_999);
+    expect(observed.current).toBeUndefined();
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(observed.current?.status).toBe('rejected');
+    if (observed.current?.status === 'rejected') {
+      expect(observed.current.error).toMatchObject({ message: 'provider_unavailable' });
+    }
+    expect(phases).toEqual([
+      { phase: 'reserve:start', atMs: 0 },
+      { phase: 'reserve:end', atMs: 200 },
+      { phase: 'claim_dispatch:start', atMs: 200 },
+      { phase: 'claim_dispatch:end', atMs: 500 },
+      { phase: 'mark_unknown:start', atMs: 35_500 },
+      { phase: 'mark_unknown:end', atMs: 39_500 },
+    ]);
+    expect(request.signal.aborted).toBe(false);
+    expect(invoke).toHaveBeenCalledOnce();
+    expect([...rows.values()]).toEqual([
+      expect.objectContaining({ state: 'unknown', chargedNanoUsd: 80_000_000 }),
+    ]);
+    const accountingSignal = vi.mocked(store.execute).mock.calls[2]?.[1];
+    expect(accountingSignal).not.toBe(request.signal);
+    expect(accountingSignal?.aborted).toBe(false);
+    clearTimeout(outerTimer);
     expect(vi.getTimerCount()).toBe(0);
   });
 
