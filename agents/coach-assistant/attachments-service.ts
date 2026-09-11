@@ -18,11 +18,13 @@ export type PrivateAttachmentResult=Omit<CoachAttachmentResult,'storage'|'error'
 const common={version:'coach-assistant.v2',storage:'private_storage',analysis:'not_connected'} as const;
 class Rejected extends Error {constructor(readonly code:PrivateAttachmentResult['error']){super(code);}}
 const fail=(error:PrivateAttachmentResult['error']):PrivateAttachmentResult=>({...common,ok:false,error});
-function reportPreviewFailure(operation:string,error:unknown){
+function reportPreviewFailure(operation:string,stage:string,error:unknown){
  if(process.env.VERCEL_ENV!=='preview'||process.env.COACH_ASSISTANT_OUTPUT_DIAGNOSTICS_ENABLED!=='1')return;
  const diagnostic=error instanceof Rejected?error.code:error instanceof z.ZodError?'stored_row_contract':error instanceof Error&&['storage_unavailable','idempotency_conflict','invalid_input','forbidden'].includes(error.message)?error.message:'unexpected';
- const sqlstate=typeof error==='object'&&error!==null&&'code' in error&&typeof error.code==='string'&&/^[0-9A-Z]{5}$/.test(error.code)?error.code:undefined;
- console.warn(JSON.stringify({event:'coach_attachment_operation_failed',operation,diagnostic,...(sqlstate?{sqlstate}:{})}));
+ const cause=typeof error==='object'&&error!==null&&'cause' in error&&typeof error.cause==='object'&&error.cause!==null?error.cause:undefined;
+ const code=typeof error==='object'&&error!==null&&'code' in error?error.code:cause&&'code' in cause?cause.code:undefined;
+ const sqlstate=typeof code==='string'&&/^[0-9A-Z]{5}$/.test(code)?code:undefined;
+ console.warn(JSON.stringify({event:'coach_attachment_operation_failed',operation,stage,diagnostic,...(sqlstate?{sqlstate}:{})}));
 }
 const digest=(bytes:Uint8Array|string)=>createHash('sha256').update(bytes).digest('hex');
 const metadata=z.object({mime:z.literal('image/jpeg'),bytes:z.number().int().positive().max(COACH_IMAGE_LIMITS.fileBytes),width:z.number().int().positive(),height:z.number().int().positive()}).strict().refine(value=>value.width*value.height<=COACH_IMAGE_LIMITS.pixels);
@@ -52,12 +54,16 @@ export function createPrivateAttachmentService(database:typeof db,storage:Privat
  return {
   async operation(rawScope:Scope,raw:unknown,signal:AbortSignal):Promise<PrivateAttachmentResult>{
    const parsed=operationSchema.safeParse(raw),scopeParsed=scopeSchema.safeParse(rawScope);if(!parsed.success||!scopeParsed.success)return fail('invalid_input');const op=parsed.data,scope=scopeParsed.data;if(scope.actorId!==scope.subjectId)return fail('forbidden');if(signal.aborted)return fail('cancelled');
+   let stage='authorize';
    try{return await database.transaction(async tx=>{
     await tx.execute(sql`SET LOCAL statement_timeout='15000ms'`);await authorize(tx,scope,signal);
     if(op.operation==='attachment.prepare'){
+     stage='capacity_lock';
      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`coach-attachments:${storage.bucket}`},0))`);
+     stage='expired_select';
      const expired=await tx.execute(sql`SELECT *,expires_at::text,expires_at<=clock_timestamp() AS expired FROM private.coach_attachment_uploads WHERE bucket=${storage.bucket} AND actor_id=${scope.actorId}::uuid AND subject_id=${scope.subjectId}::uuid AND organization_id=${scope.organizationId}::uuid AND state<>'removed' AND expires_at<=clock_timestamp() ORDER BY expires_at,id LIMIT 6 FOR UPDATE SKIP LOCKED`);
-     for(const raw of expired.rows){const stale=parsedRow(raw);await storage.remove(storageScope(stale),signal);await authorize(tx,scope,signal);await tx.execute(sql`UPDATE private.coach_attachment_uploads SET state='removed',metadata=NULL WHERE id=${stale.id}::uuid`);}
+     for(const raw of expired.rows){stage='expired_parse';const stale=parsedRow(raw);stage='expired_storage_remove';await storage.remove(storageScope(stale),signal);stage='expired_reauthorize';await authorize(tx,scope,signal);stage='expired_mark_removed';await tx.execute(sql`UPDATE private.coach_attachment_uploads SET state='removed',metadata=NULL WHERE id=${stale.id}::uuid`);}
+     stage='idempotency_read';
      const requestId=op.requestId??randomUUID();const prior=await tx.execute(sql`SELECT *,expires_at::text,expires_at<=clock_timestamp() AS expired FROM private.coach_attachment_uploads WHERE actor_id=${scope.actorId}::uuid AND request_id=${requestId}::uuid FOR UPDATE`);
      if(prior.rows.length){const row=parsedRow(prior.rows[0]);if(row.subject_id!==scope.subjectId||row.organization_id!==scope.organizationId||row.conversation_id!==op.conversationId||row.mime!==op.mime||row.input_bytes!==op.bytes)throw new Rejected('idempotency_conflict');if(row.expired||row.state==='removed')throw new Rejected('expired');if(digest(token(row))!==row.upload_token_hash)throw new Rejected('uncertain');if(row.state==='available')await storage.assertStored(storageScope(row),row.normalized_digest!,signal,()=>authorize(tx,scope,signal));return {...view(row),uploadToken:token(row)};}
      // Reserve the full normalized-file cap until actual deletion, even expired.
@@ -84,7 +90,7 @@ export function createPrivateAttachmentService(database:typeof db,storage:Privat
      const remaining=await tx.execute<{seconds:number}>(sql`SELECT floor(extract(epoch FROM (expires_at-clock_timestamp())))::int AS seconds FROM private.coach_attachment_uploads WHERE id=${row.id}::uuid`);if(read.expiresIn>remaining.rows[0].seconds)throw new Rejected('expired');return {...view(row),read};
     }
     signal.throwIfAborted();return view(row);
-   });}catch(error){reportPreviewFailure(op.operation,error);return failure(error);}
+   });}catch(error){reportPreviewFailure(op.operation,stage,error);return failure(error);}
   },
   async upload(rawScope:AttachmentStorageScope,providedToken:string,bytes:Uint8Array,signal:AbortSignal):Promise<PrivateAttachmentResult>{
    const scopeParsed=scopeSchema.safeParse({actorId:rawScope.actorId,subjectId:rawScope.subjectId,organizationId:rawScope.organizationId});if(!scopeParsed.success||!uuid.safeParse(rawScope.conversationId).success||!uuid.safeParse(rawScope.attachmentId).success||!/^[a-f0-9]{64}$/.test(providedToken))return fail('invalid_input');const scope=scopeParsed.data;if(scope.actorId!==scope.subjectId)return fail('forbidden');if(signal.aborted)return fail('cancelled');
