@@ -231,7 +231,7 @@ it('detaches screen context and aborts a late response when the subject changes 
   });
   const view = render(mounted(transport, 'A', 'client-1'));
   fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
-  fireEvent.click(screen.getByRole('checkbox'));
+  fireEvent.click(screen.getByRole('button', { name: 'Remove screen selection: Workout' }));
   fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Private question' } });
   fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
   expect(transport.mock.calls[0][0].context?.includeScreen).toBe(false);

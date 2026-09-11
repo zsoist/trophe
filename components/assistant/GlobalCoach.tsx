@@ -276,14 +276,17 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
     if (followLatest.current && !window.getSelection()?.toString()) log.current?.scrollTo({ top: log.current.scrollHeight });
     else setShowLatest(true);
   }, [open, state.turns, state.pending]);
-  const close = () => { controller.cancel(); preferences.cancel(); attachments.cancel(); voice.reset(); food.discard(); food.cancel(); photoFood.cancel(); memory.cancel(); diet.cancel(); progress.cancel(); workoutSetController.cancel(); messageController.cancel(); setOpen(false); window.setTimeout(() => launcher.current?.focus(), 0); };
+  const close = () => { controller.cancel(); preferences.cancel(); attachments.cancel(); voice.reset(); food.discard(); food.cancel(); photoFood.cancel(); memory.cancel(); diet.cancel(); progress.cancel(); workoutSetController.cancel(); messageController.cancel(); setOpen(false); };
   useEffect(() => {
     if (!open || !panel.current || !backdrop.current) return;
     const overlayNodes = new Set([panel.current, backdrop.current]);
     const background = Array.from(document.body.children).filter((node): node is HTMLElement => node instanceof HTMLElement && !overlayNodes.has(node));
     const previous = background.map(node => ({ node, inert: node.hasAttribute('inert') }));
     background.forEach(node => node.setAttribute('inert', ''));
-    return () => previous.forEach(({ node, inert }) => inert ? node.setAttribute('inert', '') : node.removeAttribute('inert'));
+    return () => {
+      previous.forEach(({ node, inert }) => inert ? node.setAttribute('inert', '') : node.removeAttribute('inert'));
+      if (launcher.current?.isConnected) launcher.current.focus();
+    };
   }, [open]);
   const handleDialogKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key === 'Escape') { event.stopPropagation(); close(); return; }
