@@ -649,6 +649,11 @@ describe('executeAiTask integration contract', () => {
     if (observed.current?.status === 'rejected') {
       expect(classifyAiError(observed.current.error)).toBe('timeout');
       expect(providerErrorTelemetry(observed.current.error).timeoutPhase).toBe('post_provider');
+      expect(providerErrorTelemetry(observed.current.error)).toMatchObject({
+        rawStatus: 200,
+        usage: { inputTokens: 10, outputTokens: 5 },
+        latencyMs: 50,
+      });
     }
     expect(invoke).toHaveBeenCalledOnce();
     expect(persistence.completeGeneration).toHaveBeenCalledOnce();
@@ -687,6 +692,76 @@ describe('executeAiTask integration contract', () => {
     }
     expect(persistence.completeGeneration).toHaveBeenCalledOnce();
     expect(persistence.failGeneration).not.toHaveBeenCalled();
+  });
+
+  it('settles known provider usage when post-provider persistence exceeds the deadline', async () => {
+    vi.useFakeTimers();
+    persistence.completeGeneration.mockImplementationOnce(() => new Promise<never>(() => undefined));
+    const rows = new Map<string, PilotAttemptRecord>();
+    const operations: string[] = [];
+    const store: PilotBudgetStore = {
+      execute: vi.fn(async (command: PilotBudgetCommand) => {
+        operations.push(command.operation);
+        const existing = rows.get(command.binding.attemptId);
+        const decision = decidePilotBudgetCommand({
+          pilotId: command.binding.pilotId,
+          budgetDay: '2026-09-11',
+          capNanoUsd: 500_000_000,
+          chargedNanoUsd: [...rows.values()].reduce((sum, row) => sum + row.chargedNanoUsd, 0),
+          turnAttemptCount: [...rows.values()].filter(
+            row => row.binding.turnId === command.binding.turnId,
+          ).length,
+          accountingBlocked: false,
+          existing,
+        }, command);
+        if (decision.ok && decision.write !== 'none') {
+          rows.set(command.binding.attemptId, structuredClone(decision.record));
+        }
+        return { storage: 'database' as const, ...decision };
+      }),
+    };
+    const observed = observeOutcome(runGovernedPilotModality({
+      pilotId: '00000000-0000-4000-8000-000000000001',
+      actorId: '00000000-0000-4000-8000-000000000002',
+      turnId: '00000000-0000-4000-8000-000000000003',
+      identityParts: ['photo', '00000000-0000-4000-8000-000000000004'],
+      task: 'photo_analyze',
+      store,
+      signal: new AbortController().signal,
+      run: () => executeAiTask({
+        task: 'photo_analyze',
+        prompt: 'analyze this meal photo',
+        invoke: vi.fn(async () => ({
+          output: { foods: [] },
+          usage: { inputTokens: 10, outputTokens: 5 },
+          latencyMs: 50,
+          rawStatus: 200,
+          providerGenerationId: 'msg_known_usage',
+        })),
+      }),
+    }));
+
+    await vi.advanceTimersByTimeAsync(35_000);
+
+    expect(observed.current).toEqual({
+      status: 'rejected',
+      error: expect.objectContaining({ message: 'provider_unavailable' }),
+    });
+    expect(operations).toEqual(['reserve', 'claim_dispatch', 'settle']);
+    expect([...rows.values()]).toEqual([
+      expect.objectContaining({
+        state: 'settled',
+        chargedNanoUsd: 35_000,
+        usage: {
+          inputTokens: 10,
+          outputTokens: 5,
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
+          reasoningTokens: 0,
+        },
+      }),
+    ]);
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it('does not return success when completion persistence crosses the monotonic deadline', async () => {

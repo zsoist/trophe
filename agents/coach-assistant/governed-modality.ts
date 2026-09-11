@@ -38,5 +38,18 @@ export async function runGovernedPilotModality<Result extends GovernedResult>(in
   const settled=await persistAfterDispatch({operation:'settle',binding,usage,providerSuccess:{responseModel:binding.model,requestId:result.requestId??null}},input.store);
   if(!settled.ok||settled.record.state!=='settled')throw new Error('accounting_uncertain');
   return result;
- }catch(error){await persistAfterDispatch({operation:'mark_unknown',binding,failure:failureOf(error)},input.store);throw new Error('provider_unavailable');}
+ }catch(error){
+  const knownUsage=providerErrorTelemetry(error).usage;
+  if(knownUsage){
+   const usage=usageOf(knownUsage);
+   if(pricePilotUsageNanoUsd(usage,binding.model)!==null){
+    // Settle measured provider consumption without treating the failed product
+    // request as a successful observation or reconstructing its output.
+    const settled=await persistAfterDispatch({operation:'settle',binding,usage},input.store);
+    if(settled.ok&&settled.record.state==='settled')throw new Error('provider_unavailable');
+   }
+  }
+  await persistAfterDispatch({operation:'mark_unknown',binding,failure:failureOf(error)},input.store);
+  throw new Error('provider_unavailable');
+ }
 }

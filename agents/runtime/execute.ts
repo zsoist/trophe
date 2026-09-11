@@ -282,6 +282,24 @@ async function attemptInvoke<T>(
           enumerable: false,
           configurable: true,
         });
+        if (providerResult) {
+          const knownProviderFields: Array<[string, unknown]> = [
+            ['usage', providerResult.usage],
+            ['latencyMs', providerResult.latencyMs],
+            ['status', providerResult.rawStatus],
+            ['providerGenerationId', providerResult.providerGenerationId],
+            ['requestId', providerResult.requestId],
+          ];
+          for (const [field, value] of knownProviderFields) {
+            if (value !== undefined) {
+              Object.defineProperty(surfacedError, field, {
+                value,
+                enumerable: false,
+                configurable: true,
+              });
+            }
+          }
+        }
       }
     }
     throw surfacedError;

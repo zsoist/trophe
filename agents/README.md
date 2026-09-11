@@ -201,6 +201,12 @@ prompts, keys, and arbitrary error messages are not persistence or telemetry
 fields. Structured OpenAI and Anthropic calls require the selected tool output
 and validate it with Zod before returning.
 
+Langfuse flushing is best-effort and never sits between a validated provider
+result and authoritative `agent_runs` completion. If later persistence exceeds
+the runtime deadline, the timeout retains already-known usage, status, latency,
+and provider identifiers for exact pilot accounting while the product response
+still fails closed.
+
 In non-production environments, a live paid-provider transport is denied
 unless `TROPHE_ALLOW_PAID_AI=1` is set exactly. Tests and offline evaluations
 must inject their transport; an injected transport is the only normal
