@@ -19,6 +19,7 @@ vi.mock('@/agents/observability/langfuse', () => observability);
 
 import { executeAiTask } from '@/agents/runtime/execute';
 import { classifyAiError, isFallbackEligible } from '@/agents/runtime/error-classification';
+import { providerErrorTelemetry } from '@/agents/runtime/provider-error';
 import { taskPolicies } from '@/agents/router/policies';
 import { estimateUsageCost } from '@/agents/runtime/cost';
 import {
@@ -615,6 +616,7 @@ describe('executeAiTask integration contract', () => {
     expect(observed.current?.status).toBe('rejected');
     if (observed.current?.status === 'rejected') {
       expect(classifyAiError(observed.current.error)).toBe('timeout');
+      expect(providerErrorTelemetry(observed.current.error).timeoutPhase).toBe('pre_provider');
     }
     expect(persistence.createGeneration).toHaveBeenCalledOnce();
     expect(persistence.failGeneration).not.toHaveBeenCalled();
@@ -646,6 +648,7 @@ describe('executeAiTask integration contract', () => {
     expect(observed.current?.status).toBe('rejected');
     if (observed.current?.status === 'rejected') {
       expect(classifyAiError(observed.current.error)).toBe('timeout');
+      expect(providerErrorTelemetry(observed.current.error).timeoutPhase).toBe('post_provider');
     }
     expect(invoke).toHaveBeenCalledOnce();
     expect(persistence.completeGeneration).toHaveBeenCalledOnce();
@@ -917,6 +920,7 @@ describe('executeAiTask integration contract', () => {
         chargedNanoUsd: 80_000_000,
         providerFailure: {
           category: 'timeout',
+          phase: 'provider_pending',
           rawStatus: 200,
           providerError: {
             requestId: 'req_photo_headers',
@@ -1150,6 +1154,7 @@ describe('executeAiTask integration contract', () => {
     if (settled.status === 'rejected') {
       expect(settled.error).not.toBe(primaryError);
       expect(classifyAiError(settled.error)).toBe('timeout');
+      expect(providerErrorTelemetry(settled.error).timeoutPhase).toBe('provider_pending');
     }
     expect(invoke).toHaveBeenCalledOnce();
     expect(persistence.createGeneration).toHaveBeenCalledOnce();

@@ -29,8 +29,9 @@ const providerErrorSchema=z.object({
 }).strict().refine(value=>value.code!==undefined||value.type!==undefined||value.requestId!==undefined||value.param!==undefined);
 export const providerFailureDiagnosticSchema=z.object({
   category:z.enum(['auth','access','billing','rate_limit','network','timeout','provider','schema','unknown']),
+  phase:z.enum(['pre_provider','provider_pending','post_provider']).optional(),
   rawStatus:z.number().int().min(0).max(599),providerError:providerErrorSchema.optional(),hasUsage:z.boolean(),
-}).strict();
+}).strict().refine(value=>value.phase===undefined||value.category==='timeout');
 export type ProviderFailureDiagnostic=z.infer<typeof providerFailureDiagnosticSchema>;
 const providerSuccessSchema=z.object({
   responseModel:z.enum([LUNA_MODEL,TRANSCRIPTION_MODEL,HAIKU_MODEL]),

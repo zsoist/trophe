@@ -99,10 +99,12 @@ No automatic day-boundary reset or unknown-expiry release is allowed.
 
 Provider failures persist a strict diagnostic under `metadata.coachPilot.providerFailure`:
 category, numeric HTTP status when known, allowlisted provider code/type/request ID,
-and whether usage was present. Free-form messages, response bodies, prompts, keys and
-arbitrary provider fields are never stored. The attempt remains `unknown` at its full
-reservation and is never retried automatically. Older rows without this optional
-diagnostic remain valid.
+whether usage was present, and an optional timeout phase (`pre_provider`,
+`provider_pending`, or `post_provider`). The phase records runtime progress only;
+`provider_pending` does not prove that a network request reached the provider.
+Free-form messages, response bodies, prompts, keys and arbitrary provider fields are
+never stored. The attempt remains `unknown` at its full reservation and is never
+retried automatically. Older rows without this optional diagnostic remain valid.
 
 The test Map is explicitly a serialized injected port: it proves core and adapter
 behavior, not SQL exclusion, crash durability, auth or production spend. The

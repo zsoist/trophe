@@ -1,6 +1,9 @@
 import type { AiUsage } from './types';
 
 const MAX_PROVIDER_DIAGNOSTIC_LENGTH = 120;
+export const AI_TIMEOUT_PHASES = ['pre_provider', 'provider_pending', 'post_provider'] as const;
+export type AiTimeoutPhase = typeof AI_TIMEOUT_PHASES[number];
+const AI_TIMEOUT_PHASE_SET = new Set<string>(AI_TIMEOUT_PHASES);
 const KNOWN_PROVIDER_DIAGNOSTICS = new Set([
   'invalid_request_error',
   'authentication_error',
@@ -57,6 +60,12 @@ function safeProviderGenerationId(value: unknown): string | undefined {
   return typeof value === 'string' && PROVIDER_GENERATION_ID_PATTERN.test(value) ? value : undefined;
 }
 
+function safeTimeoutPhase(value: unknown): AiTimeoutPhase | undefined {
+  return typeof value === 'string' && AI_TIMEOUT_PHASE_SET.has(value)
+    ? value as AiTimeoutPhase
+    : undefined;
+}
+
 function ownDataProperty(value: object, key: PropertyKey): unknown {
   try {
     const descriptor = Object.getOwnPropertyDescriptor(value, key);
@@ -96,6 +105,7 @@ function providerFailureUsage(value: unknown): AiUsage | undefined {
  */
 export function providerErrorTelemetry(error: unknown): {
   rawStatus: number;
+  timeoutPhase?: AiTimeoutPhase;
   metadata?: ProviderErrorMetadata;
   usage?: AiUsage;
   latencyMs?: number;
@@ -117,6 +127,7 @@ export function providerErrorTelemetry(error: unknown): {
   const usage = providerFailureUsage(ownDataProperty(error, 'usage'));
   const latencyMs = nonNegativeInteger(ownDataProperty(error, 'latencyMs'));
   const providerGenerationId = safeProviderGenerationId(ownDataProperty(error, 'providerGenerationId'));
+  const timeoutPhase = safeTimeoutPhase(ownDataProperty(error, '_timeoutPhase'));
   const providerError = {
     ...(code ? { code } : {}),
     ...(type ? { type } : {}),
@@ -126,6 +137,7 @@ export function providerErrorTelemetry(error: unknown): {
 
   return {
     rawStatus,
+    ...(timeoutPhase ? { timeoutPhase } : {}),
     ...(providerError.code || providerError.type || providerError.requestId || providerError.param
       ? { metadata: { providerError } }
       : {}),

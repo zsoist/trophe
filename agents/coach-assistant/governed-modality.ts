@@ -18,7 +18,7 @@ const usageOf=(usage:AiUsage):PilotUsage=>({inputTokens:usage.inputTokens,output
 function failureOf(error:unknown):ProviderFailureDiagnostic {
  const timeout=Boolean(error&&typeof error==='object'&&'_isTimeout'in error&&(error as {_isTimeout?:unknown})._isTimeout);
  const telemetry=providerErrorTelemetry(error),providerError=telemetry.metadata?.providerError;
- return providerFailureDiagnosticSchema.parse({category:timeout?'timeout':'unknown',rawStatus:telemetry.rawStatus,...(providerError?{providerError}:{}),hasUsage:telemetry.usage!==undefined});
+ return providerFailureDiagnosticSchema.parse({category:timeout?'timeout':'unknown',...(timeout&&telemetry.timeoutPhase?{phase:telemetry.timeoutPhase}:{}),rawStatus:telemetry.rawStatus,...(providerError?{providerError}:{}),hasUsage:telemetry.usage!==undefined});
 }
 async function persistAfterDispatch(command:Parameters<typeof executePilotBudgetCommand>[0],store:PilotBudgetStore){const controller=new AbortController(),timer=setTimeout(()=>controller.abort(new Error('accounting_deadline')),5000);try{return await executePilotBudgetCommand(command,store,controller.signal);}finally{clearTimeout(timer);}}
 

@@ -51,6 +51,19 @@ describe('providerErrorTelemetry', () => {
     expect(providerErrorTelemetry(new Error('offline'))).toEqual({ rawStatus: 0 });
   });
 
+  it('extracts only an allowlisted timeout phase from an own data property', () => {
+    const error = new Error('deadline');
+    Object.defineProperty(error, '_timeoutPhase', { value: 'provider_pending' });
+
+    expect(providerErrorTelemetry(error)).toEqual({
+      rawStatus: 0,
+      timeoutPhase: 'provider_pending',
+    });
+    expect(providerErrorTelemetry(Object.assign(new Error('deadline'), {
+      _timeoutPhase: 'private-provider-step',
+    }))).toEqual({ rawStatus: 0 });
+  });
+
   it('keeps network and billing classifications allowlisted while dropping arbitrary fields', () => {
     expect(providerErrorTelemetry({ status: 429, code: 'insufficient_quota', requestId: 'req_quota_1' })).toMatchObject({
       rawStatus: 429, metadata: { providerError: { code: 'insufficient_quota', requestId: 'req_quota_1' } },

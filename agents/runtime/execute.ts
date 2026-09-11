@@ -7,6 +7,7 @@ import { estimateUsageCost } from './cost';
 import { classifyAiError, isFallbackEligible } from './error-classification';
 import { assertWithinOrganizationBudget, resolveOrganizationId } from './org-budget';
 import { completeGeneration, createGeneration, failGeneration } from './persistence';
+import type { AiTimeoutPhase } from './provider-error';
 import type { RoutingPolicy } from '@/agents/router/policies';
 import type { ExecuteAiTaskInput, ExecuteAiTaskResult, ProviderResult } from './types';
 
@@ -162,6 +163,7 @@ async function attemptInvoke<T>(
   let providerStarted = false;
   let providerRejected = false;
   let providerError: unknown;
+  let providerResult: ProviderResult<T> | undefined;
 
   try {
     await runBeforeAbort(attemptBoundary, () => createGeneration({
@@ -174,7 +176,6 @@ async function attemptInvoke<T>(
     }));
     generationCreated = true;
 
-    let providerResult: ProviderResult<T> | undefined;
     await runBeforeAbort(attemptBoundary, () => traced({
       task: input.task,
       model: policy.model,
@@ -259,15 +260,25 @@ async function attemptInvoke<T>(
         }
       }
     }
-    if (generationCreated && surfacedError instanceof Error) {
-      Object.defineProperty(surfacedError, '_generationId', {
+    if (surfacedError instanceof Error) {
+      if (generationCreated) Object.defineProperty(surfacedError, '_generationId', {
         value: generationId,
         enumerable: false,
         configurable: true,
       });
       if (signal.aborted) {
+        const timeoutPhase: AiTimeoutPhase = !providerStarted
+          ? 'pre_provider'
+          : providerResult === undefined
+            ? 'provider_pending'
+            : 'post_provider';
         Object.defineProperty(surfacedError, '_isTimeout', {
           value: true,
+          enumerable: false,
+          configurable: true,
+        });
+        Object.defineProperty(surfacedError, '_timeoutPhase', {
+          value: timeoutPhase,
           enumerable: false,
           configurable: true,
         });
