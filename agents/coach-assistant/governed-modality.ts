@@ -1,8 +1,9 @@
 import {createHash} from 'node:crypto';
 import type {AiUsage} from '@/agents/runtime';
-import {executePilotBudgetCommand,PHOTO_ATTEMPT_RESERVATION_NANO_USD,pricePilotUsageNanoUsd,reserveCoachPilotAttempt,STT_ATTEMPT_RESERVATION_NANO_USD,type PilotAttemptBinding,type PilotBudgetStore,type PilotUsage,type ProviderFailureDiagnostic} from './pilot-budget';
+import {executePilotBudgetCommand,PHOTO_ATTEMPT_RESERVATION_NANO_USD,pricePilotUsageNanoUsd,providerFailureDiagnosticSchema,reserveCoachPilotAttempt,STT_ATTEMPT_RESERVATION_NANO_USD,type PilotAttemptBinding,type PilotBudgetStore,type PilotUsage,type ProviderFailureDiagnostic} from './pilot-budget';
 import {HAIKU_MODEL,TRANSCRIPTION_MODEL} from '@/agents/router/policies';
 import {PHOTO_PILOT_PRICING_VERSION} from '@/agents/router/pricing';
+import {providerErrorTelemetry} from '@/agents/runtime/provider-error';
 
 type ModalityTask='photo_analyze'|'transcribe';
 type TaskContract={provider:'anthropic'|'openai';model:PilotAttemptBinding['model'];promptVersion:string;pricingVersion:PilotAttemptBinding['pricingVersion'];reservationNanoUsd:number};
@@ -14,7 +15,11 @@ type GovernedResult={selectedPolicy:{provider:string;model:string;promptVersion:
 const digest=(value:unknown)=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 function stableId(parts:string[]):string {const bytes=Buffer.from(digest(parts).slice(0,32),'hex');bytes[6]=(bytes[6]&15)|64;bytes[8]=(bytes[8]&63)|128;const hex=bytes.toString('hex');return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;}
 const usageOf=(usage:AiUsage):PilotUsage=>({inputTokens:usage.inputTokens,outputTokens:usage.outputTokens,cacheReadTokens:usage.cacheReadTokens??0,cacheWriteTokens:usage.cacheWriteTokens??0,reasoningTokens:usage.reasoningTokens??0});
-function failureOf(error:unknown):ProviderFailureDiagnostic {const timeout=Boolean(error&&typeof error==='object'&&'_isTimeout'in error&&(error as {_isTimeout?:unknown})._isTimeout);return {category:timeout?'timeout':'unknown',rawStatus:0,hasUsage:false};}
+function failureOf(error:unknown):ProviderFailureDiagnostic {
+ const timeout=Boolean(error&&typeof error==='object'&&'_isTimeout'in error&&(error as {_isTimeout?:unknown})._isTimeout);
+ const telemetry=providerErrorTelemetry(error),providerError=telemetry.metadata?.providerError;
+ return providerFailureDiagnosticSchema.parse({category:timeout?'timeout':'unknown',rawStatus:telemetry.rawStatus,...(providerError?{providerError}:{}),hasUsage:telemetry.usage!==undefined});
+}
 async function persistAfterDispatch(command:Parameters<typeof executePilotBudgetCommand>[0],store:PilotBudgetStore){const controller=new AbortController(),timer=setTimeout(()=>controller.abort(new Error('accounting_deadline')),5000);try{return await executePilotBudgetCommand(command,store,controller.signal);}finally{clearTimeout(timer);}}
 
 /** One shared-ledger admission around one existing modality runtime. The caller

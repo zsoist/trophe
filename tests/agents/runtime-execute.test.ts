@@ -28,6 +28,7 @@ import {
   type PilotBudgetStore,
 } from '@/agents/coach-assistant/pilot-budget';
 import { runGovernedPilotModality } from '@/agents/coach-assistant/governed-modality';
+import { invokeAnthropicJson } from '@/agents/runtime/providers/anthropic';
 
 function typedProviderError(
   label: string,
@@ -850,11 +851,24 @@ describe('executeAiTask integration contract', () => {
       }),
     };
     let providerAbortCount = 0;
-    const invoke = vi.fn(({ signal }: { signal: AbortSignal }) => new Promise<never>((_resolve, reject) => {
-      signal.addEventListener('abort', () => {
-        providerAbortCount++;
-        reject(new Error('photo provider aborted'));
-      }, { once: true });
+    const fetchImpl = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      const signal = init?.signal as AbortSignal;
+      return new Response(new ReadableStream<Uint8Array>({
+        start(controller) {
+          signal.addEventListener('abort', () => {
+            providerAbortCount++;
+            controller.error(new Error('photo response body aborted'));
+          }, { once: true });
+        },
+      }), {
+        status: 200,
+        headers: { 'request-id': 'req_photo_headers' },
+      });
+    }) as unknown as typeof fetch;
+    const invoke = vi.fn(({ signal }: { signal: AbortSignal }) => invokeAnthropicJson({
+      body: { model: 'claude-haiku-4-5-20251001', max_tokens: 2_048 },
+      signal,
+      fetchImpl,
     }));
     const observed = observeOutcome(runGovernedPilotModality({
       pilotId: '00000000-0000-4000-8000-000000000001',
@@ -898,7 +912,18 @@ describe('executeAiTask integration contract', () => {
     expect(request.signal.aborted).toBe(false);
     expect(invoke).toHaveBeenCalledOnce();
     expect([...rows.values()]).toEqual([
-      expect.objectContaining({ state: 'unknown', chargedNanoUsd: 80_000_000 }),
+      expect.objectContaining({
+        state: 'unknown',
+        chargedNanoUsd: 80_000_000,
+        providerFailure: {
+          category: 'timeout',
+          rawStatus: 200,
+          providerError: {
+            requestId: 'req_photo_headers',
+          },
+          hasUsage: false,
+        },
+      }),
     ]);
     const accountingSignal = vi.mocked(store.execute).mock.calls[2]?.[1];
     expect(accountingSignal).not.toBe(request.signal);
