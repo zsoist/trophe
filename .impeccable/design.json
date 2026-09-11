@@ -1,153 +1,425 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-24T18:16:58Z",
+  "generatedAt": "2026-09-11T20:27:16Z",
   "title": "Design System: Personal Best",
   "extensions": {
     "colorMeta": {
       "performance-canvas": {
         "role": "neutral",
         "displayName": "Obsidian Canvas",
-        "tonalRamp": ["oklch(15% 0.008 145)", "oklch(25% 0.008 145)", "oklch(35% 0.008 145)", "oklch(45% 0.008 145)", "oklch(58% 0.008 145)", "oklch(70% 0.008 145)", "oklch(83% 0.008 145)", "oklch(95% 0.008 145)"]
+        "tonalRamp": [
+          "oklch(15% 0.008 145)",
+          "oklch(25% 0.008 145)",
+          "oklch(35% 0.008 145)",
+          "oklch(45% 0.008 145)",
+          "oklch(58% 0.008 145)",
+          "oklch(70% 0.008 145)",
+          "oklch(83% 0.008 145)",
+          "oklch(95% 0.008 145)"
+        ]
       },
       "performance-surface": {
         "role": "neutral",
         "displayName": "Graphite Surface",
-        "tonalRamp": ["oklch(15% 0.008 145)", "oklch(25% 0.008 145)", "oklch(35% 0.008 145)", "oklch(45% 0.008 145)", "oklch(58% 0.008 145)", "oklch(70% 0.008 145)", "oklch(83% 0.008 145)", "oklch(95% 0.008 145)"]
+        "tonalRamp": [
+          "oklch(15% 0.008 145)",
+          "oklch(25% 0.008 145)",
+          "oklch(35% 0.008 145)",
+          "oklch(45% 0.008 145)",
+          "oklch(58% 0.008 145)",
+          "oklch(70% 0.008 145)",
+          "oklch(83% 0.008 145)",
+          "oklch(95% 0.008 145)"
+        ]
       },
       "performance-surface-raised": {
         "role": "neutral",
         "displayName": "Raised Graphite",
-        "tonalRamp": ["oklch(15% 0.008 145)", "oklch(25% 0.008 145)", "oklch(35% 0.008 145)", "oklch(45% 0.008 145)", "oklch(58% 0.008 145)", "oklch(70% 0.008 145)", "oklch(83% 0.008 145)", "oklch(95% 0.008 145)"]
+        "tonalRamp": [
+          "oklch(15% 0.008 145)",
+          "oklch(25% 0.008 145)",
+          "oklch(35% 0.008 145)",
+          "oklch(45% 0.008 145)",
+          "oklch(58% 0.008 145)",
+          "oklch(70% 0.008 145)",
+          "oklch(83% 0.008 145)",
+          "oklch(95% 0.008 145)"
+        ]
       },
       "performance-rail": {
         "role": "neutral",
         "displayName": "Dark Performance Rail",
-        "tonalRamp": ["oklch(15% 0.008 145)", "oklch(25% 0.008 145)", "oklch(35% 0.008 145)", "oklch(45% 0.008 145)", "oklch(58% 0.008 145)", "oklch(70% 0.008 145)", "oklch(83% 0.008 145)", "oklch(95% 0.008 145)"]
+        "tonalRamp": [
+          "oklch(15% 0.008 145)",
+          "oklch(25% 0.008 145)",
+          "oklch(35% 0.008 145)",
+          "oklch(45% 0.008 145)",
+          "oklch(58% 0.008 145)",
+          "oklch(70% 0.008 145)",
+          "oklch(83% 0.008 145)",
+          "oklch(95% 0.008 145)"
+        ]
       },
       "performance-ink": {
         "role": "neutral",
         "displayName": "Evidence Ink",
-        "tonalRamp": ["oklch(15% 0.008 145)", "oklch(25% 0.008 145)", "oklch(35% 0.008 145)", "oklch(45% 0.008 145)", "oklch(58% 0.008 145)", "oklch(70% 0.008 145)", "oklch(83% 0.008 145)", "oklch(95% 0.008 145)"]
+        "tonalRamp": [
+          "oklch(15% 0.008 145)",
+          "oklch(25% 0.008 145)",
+          "oklch(35% 0.008 145)",
+          "oklch(45% 0.008 145)",
+          "oklch(58% 0.008 145)",
+          "oklch(70% 0.008 145)",
+          "oklch(83% 0.008 145)",
+          "oklch(95% 0.008 145)"
+        ]
       },
       "performance-muted": {
         "role": "neutral",
         "displayName": "Muted Evidence",
-        "tonalRamp": ["oklch(15% 0.008 145)", "oklch(25% 0.008 145)", "oklch(35% 0.008 145)", "oklch(45% 0.008 145)", "oklch(58% 0.008 145)", "oklch(70% 0.008 145)", "oklch(83% 0.008 145)", "oklch(95% 0.008 145)"]
+        "tonalRamp": [
+          "oklch(15% 0.008 145)",
+          "oklch(25% 0.008 145)",
+          "oklch(35% 0.008 145)",
+          "oklch(45% 0.008 145)",
+          "oklch(58% 0.008 145)",
+          "oklch(70% 0.008 145)",
+          "oklch(83% 0.008 145)",
+          "oklch(95% 0.008 145)"
+        ]
       },
       "performance-gold": {
         "role": "primary",
         "displayName": "Trophē Gold",
-        "tonalRamp": ["oklch(15% 0.08 80)", "oklch(25% 0.10 80)", "oklch(35% 0.12 80)", "oklch(45% 0.14 80)", "oklch(58% 0.15 80)", "oklch(70% 0.14 80)", "oklch(83% 0.10 80)", "oklch(95% 0.04 80)"]
+        "tonalRamp": [
+          "oklch(15% 0.08 80)",
+          "oklch(25% 0.10 80)",
+          "oklch(35% 0.12 80)",
+          "oklch(45% 0.14 80)",
+          "oklch(58% 0.15 80)",
+          "oklch(70% 0.14 80)",
+          "oklch(83% 0.10 80)",
+          "oklch(95% 0.04 80)"
+        ]
       },
       "performance-coral": {
         "role": "secondary",
         "displayName": "Protein Coral",
-        "tonalRamp": ["oklch(15% 0.10 15)", "oklch(25% 0.14 15)", "oklch(35% 0.17 15)", "oklch(45% 0.19 15)", "oklch(58% 0.20 15)", "oklch(70% 0.17 15)", "oklch(83% 0.11 15)", "oklch(95% 0.04 15)"]
+        "tonalRamp": [
+          "oklch(15% 0.10 15)",
+          "oklch(25% 0.14 15)",
+          "oklch(35% 0.17 15)",
+          "oklch(45% 0.19 15)",
+          "oklch(58% 0.20 15)",
+          "oklch(70% 0.17 15)",
+          "oklch(83% 0.11 15)",
+          "oklch(95% 0.04 15)"
+        ]
       },
       "performance-lime": {
         "role": "secondary",
         "displayName": "Strength Lime",
-        "tonalRamp": ["oklch(15% 0.08 125)", "oklch(25% 0.12 125)", "oklch(35% 0.16 125)", "oklch(45% 0.19 125)", "oklch(58% 0.21 125)", "oklch(70% 0.19 125)", "oklch(83% 0.13 125)", "oklch(95% 0.05 125)"]
+        "tonalRamp": [
+          "oklch(15% 0.08 125)",
+          "oklch(25% 0.12 125)",
+          "oklch(35% 0.16 125)",
+          "oklch(45% 0.19 125)",
+          "oklch(58% 0.21 125)",
+          "oklch(70% 0.19 125)",
+          "oklch(83% 0.13 125)",
+          "oklch(95% 0.05 125)"
+        ]
       },
       "performance-cyan": {
         "role": "secondary",
         "displayName": "Evidence Cyan",
-        "tonalRamp": ["oklch(15% 0.07 210)", "oklch(25% 0.10 210)", "oklch(35% 0.13 210)", "oklch(45% 0.15 210)", "oklch(58% 0.16 210)", "oklch(70% 0.14 210)", "oklch(83% 0.10 210)", "oklch(95% 0.04 210)"]
+        "tonalRamp": [
+          "oklch(15% 0.07 210)",
+          "oklch(25% 0.10 210)",
+          "oklch(35% 0.13 210)",
+          "oklch(45% 0.15 210)",
+          "oklch(58% 0.16 210)",
+          "oklch(70% 0.14 210)",
+          "oklch(83% 0.10 210)",
+          "oklch(95% 0.04 210)"
+        ]
       },
       "performance-orange": {
         "role": "tertiary",
         "displayName": "Evidence Orange",
-        "tonalRamp": ["oklch(15% 0.09 50)", "oklch(25% 0.13 50)", "oklch(35% 0.16 50)", "oklch(45% 0.18 50)", "oklch(58% 0.19 50)", "oklch(70% 0.17 50)", "oklch(83% 0.11 50)", "oklch(95% 0.04 50)"]
+        "tonalRamp": [
+          "oklch(15% 0.09 50)",
+          "oklch(25% 0.13 50)",
+          "oklch(35% 0.16 50)",
+          "oklch(45% 0.18 50)",
+          "oklch(58% 0.19 50)",
+          "oklch(70% 0.17 50)",
+          "oklch(83% 0.11 50)",
+          "oklch(95% 0.04 50)"
+        ]
       },
       "performance-violet": {
         "role": "tertiary",
         "displayName": "Fat Violet",
-        "tonalRamp": ["oklch(15% 0.08 300)", "oklch(25% 0.11 300)", "oklch(35% 0.14 300)", "oklch(45% 0.16 300)", "oklch(58% 0.17 300)", "oklch(70% 0.15 300)", "oklch(83% 0.10 300)", "oklch(95% 0.04 300)"]
+        "tonalRamp": [
+          "oklch(15% 0.08 300)",
+          "oklch(25% 0.11 300)",
+          "oklch(35% 0.14 300)",
+          "oklch(45% 0.16 300)",
+          "oklch(58% 0.17 300)",
+          "oklch(70% 0.15 300)",
+          "oklch(83% 0.10 300)",
+          "oklch(95% 0.04 300)"
+        ]
       },
       "performance-canvas-light": {
         "role": "neutral",
         "displayName": "Warm Paper Canvas",
-        "tonalRamp": ["oklch(15% 0.02 85)", "oklch(25% 0.025 85)", "oklch(35% 0.03 85)", "oklch(45% 0.032 85)", "oklch(58% 0.03 85)", "oklch(70% 0.025 85)", "oklch(83% 0.018 85)", "oklch(95% 0.012 85)"]
+        "tonalRamp": [
+          "oklch(15% 0.02 85)",
+          "oklch(25% 0.025 85)",
+          "oklch(35% 0.03 85)",
+          "oklch(45% 0.032 85)",
+          "oklch(58% 0.03 85)",
+          "oklch(70% 0.025 85)",
+          "oklch(83% 0.018 85)",
+          "oklch(95% 0.012 85)"
+        ]
       },
       "performance-surface-light": {
         "role": "neutral",
         "displayName": "Paper Surface",
-        "tonalRamp": ["oklch(15% 0.02 85)", "oklch(25% 0.025 85)", "oklch(35% 0.03 85)", "oklch(45% 0.032 85)", "oklch(58% 0.03 85)", "oklch(70% 0.025 85)", "oklch(83% 0.018 85)", "oklch(95% 0.012 85)"]
+        "tonalRamp": [
+          "oklch(15% 0.02 85)",
+          "oklch(25% 0.025 85)",
+          "oklch(35% 0.03 85)",
+          "oklch(45% 0.032 85)",
+          "oklch(58% 0.03 85)",
+          "oklch(70% 0.025 85)",
+          "oklch(83% 0.018 85)",
+          "oklch(95% 0.012 85)"
+        ]
       },
       "performance-surface-raised-light": {
         "role": "neutral",
         "displayName": "Raised Paper",
-        "tonalRamp": ["oklch(15% 0.02 85)", "oklch(25% 0.025 85)", "oklch(35% 0.03 85)", "oklch(45% 0.032 85)", "oklch(58% 0.03 85)", "oklch(70% 0.025 85)", "oklch(83% 0.018 85)", "oklch(95% 0.012 85)"]
+        "tonalRamp": [
+          "oklch(15% 0.02 85)",
+          "oklch(25% 0.025 85)",
+          "oklch(35% 0.03 85)",
+          "oklch(45% 0.032 85)",
+          "oklch(58% 0.03 85)",
+          "oklch(70% 0.025 85)",
+          "oklch(83% 0.018 85)",
+          "oklch(95% 0.012 85)"
+        ]
       },
       "performance-rail-light": {
         "role": "neutral",
         "displayName": "Light Performance Rail",
-        "tonalRamp": ["oklch(15% 0.02 85)", "oklch(25% 0.025 85)", "oklch(35% 0.03 85)", "oklch(45% 0.032 85)", "oklch(58% 0.03 85)", "oklch(70% 0.025 85)", "oklch(83% 0.018 85)", "oklch(95% 0.012 85)"]
+        "tonalRamp": [
+          "oklch(15% 0.02 85)",
+          "oklch(25% 0.025 85)",
+          "oklch(35% 0.03 85)",
+          "oklch(45% 0.032 85)",
+          "oklch(58% 0.03 85)",
+          "oklch(70% 0.025 85)",
+          "oklch(83% 0.018 85)",
+          "oklch(95% 0.012 85)"
+        ]
       },
       "performance-ink-light": {
         "role": "neutral",
         "displayName": "Dark Evidence Ink",
-        "tonalRamp": ["oklch(15% 0.012 70)", "oklch(25% 0.012 70)", "oklch(35% 0.012 70)", "oklch(45% 0.012 70)", "oklch(58% 0.012 70)", "oklch(70% 0.012 70)", "oklch(83% 0.010 70)", "oklch(95% 0.006 70)"]
+        "tonalRamp": [
+          "oklch(15% 0.012 70)",
+          "oklch(25% 0.012 70)",
+          "oklch(35% 0.012 70)",
+          "oklch(45% 0.012 70)",
+          "oklch(58% 0.012 70)",
+          "oklch(70% 0.012 70)",
+          "oklch(83% 0.010 70)",
+          "oklch(95% 0.006 70)"
+        ]
       },
       "performance-muted-light": {
         "role": "neutral",
         "displayName": "Muted Dark Evidence",
-        "tonalRamp": ["oklch(15% 0.012 70)", "oklch(25% 0.012 70)", "oklch(35% 0.012 70)", "oklch(45% 0.012 70)", "oklch(58% 0.012 70)", "oklch(70% 0.012 70)", "oklch(83% 0.010 70)", "oklch(95% 0.006 70)"]
+        "tonalRamp": [
+          "oklch(15% 0.012 70)",
+          "oklch(25% 0.012 70)",
+          "oklch(35% 0.012 70)",
+          "oklch(45% 0.012 70)",
+          "oklch(58% 0.012 70)",
+          "oklch(70% 0.012 70)",
+          "oklch(83% 0.010 70)",
+          "oklch(95% 0.006 70)"
+        ]
       },
       "performance-gold-light": {
         "role": "primary",
         "displayName": "Accessible Trophē Gold",
-        "tonalRamp": ["oklch(15% 0.08 80)", "oklch(25% 0.10 80)", "oklch(35% 0.12 80)", "oklch(45% 0.14 80)", "oklch(58% 0.15 80)", "oklch(70% 0.14 80)", "oklch(83% 0.10 80)", "oklch(95% 0.04 80)"]
+        "tonalRamp": [
+          "oklch(15% 0.08 80)",
+          "oklch(25% 0.10 80)",
+          "oklch(35% 0.12 80)",
+          "oklch(45% 0.14 80)",
+          "oklch(58% 0.15 80)",
+          "oklch(70% 0.14 80)",
+          "oklch(83% 0.10 80)",
+          "oklch(95% 0.04 80)"
+        ]
       },
       "performance-coral-light": {
         "role": "secondary",
         "displayName": "Accessible Protein Coral",
-        "tonalRamp": ["oklch(15% 0.10 15)", "oklch(25% 0.14 15)", "oklch(35% 0.17 15)", "oklch(45% 0.19 15)", "oklch(58% 0.20 15)", "oklch(70% 0.17 15)", "oklch(83% 0.11 15)", "oklch(95% 0.04 15)"]
+        "tonalRamp": [
+          "oklch(15% 0.10 15)",
+          "oklch(25% 0.14 15)",
+          "oklch(35% 0.17 15)",
+          "oklch(45% 0.19 15)",
+          "oklch(58% 0.20 15)",
+          "oklch(70% 0.17 15)",
+          "oklch(83% 0.11 15)",
+          "oklch(95% 0.04 15)"
+        ]
       },
       "performance-lime-light": {
         "role": "secondary",
         "displayName": "Accessible Strength Lime",
-        "tonalRamp": ["oklch(15% 0.08 125)", "oklch(25% 0.12 125)", "oklch(35% 0.16 125)", "oklch(45% 0.19 125)", "oklch(58% 0.21 125)", "oklch(70% 0.19 125)", "oklch(83% 0.13 125)", "oklch(95% 0.05 125)"]
+        "tonalRamp": [
+          "oklch(15% 0.08 125)",
+          "oklch(25% 0.12 125)",
+          "oklch(35% 0.16 125)",
+          "oklch(45% 0.19 125)",
+          "oklch(58% 0.21 125)",
+          "oklch(70% 0.19 125)",
+          "oklch(83% 0.13 125)",
+          "oklch(95% 0.05 125)"
+        ]
       },
       "performance-cyan-light": {
         "role": "secondary",
         "displayName": "Accessible Evidence Cyan",
-        "tonalRamp": ["oklch(15% 0.07 210)", "oklch(25% 0.10 210)", "oklch(35% 0.13 210)", "oklch(45% 0.15 210)", "oklch(58% 0.16 210)", "oklch(70% 0.14 210)", "oklch(83% 0.10 210)", "oklch(95% 0.04 210)"]
+        "tonalRamp": [
+          "oklch(15% 0.07 210)",
+          "oklch(25% 0.10 210)",
+          "oklch(35% 0.13 210)",
+          "oklch(45% 0.15 210)",
+          "oklch(58% 0.16 210)",
+          "oklch(70% 0.14 210)",
+          "oklch(83% 0.10 210)",
+          "oklch(95% 0.04 210)"
+        ]
       },
       "performance-orange-light": {
         "role": "tertiary",
         "displayName": "Accessible Evidence Orange",
-        "tonalRamp": ["oklch(15% 0.09 50)", "oklch(25% 0.13 50)", "oklch(35% 0.16 50)", "oklch(45% 0.18 50)", "oklch(58% 0.19 50)", "oklch(70% 0.17 50)", "oklch(83% 0.11 50)", "oklch(95% 0.04 50)"]
+        "tonalRamp": [
+          "oklch(15% 0.09 50)",
+          "oklch(25% 0.13 50)",
+          "oklch(35% 0.16 50)",
+          "oklch(45% 0.18 50)",
+          "oklch(58% 0.19 50)",
+          "oklch(70% 0.17 50)",
+          "oklch(83% 0.11 50)",
+          "oklch(95% 0.04 50)"
+        ]
       },
       "performance-violet-light": {
         "role": "tertiary",
         "displayName": "Accessible Fat Violet",
-        "tonalRamp": ["oklch(15% 0.08 300)", "oklch(25% 0.11 300)", "oklch(35% 0.14 300)", "oklch(45% 0.16 300)", "oklch(58% 0.17 300)", "oklch(70% 0.15 300)", "oklch(83% 0.10 300)", "oklch(95% 0.04 300)"]
+        "tonalRamp": [
+          "oklch(15% 0.08 300)",
+          "oklch(25% 0.11 300)",
+          "oklch(35% 0.14 300)",
+          "oklch(45% 0.16 300)",
+          "oklch(58% 0.17 300)",
+          "oklch(70% 0.15 300)",
+          "oklch(83% 0.10 300)",
+          "oklch(95% 0.04 300)"
+        ]
       }
     },
     "typographyMeta": {
-      "display": { "displayName": "Brand Display", "purpose": "Italic Latin brand-scale copy and numerals only." },
-      "headline": { "displayName": "Performance Headline", "purpose": "Compact section and page headings." },
-      "title": { "displayName": "Evidence Title", "purpose": "Rows, cards, and exercise names." },
-      "body": { "displayName": "Coaching Body", "purpose": "Instructions, notes, and conversational status copy." },
-      "label": { "displayName": "Timing Label", "purpose": "Uppercase eyebrows, metrics, and tabular evidence." }
+      "display": {
+        "displayName": "Brand Display",
+        "purpose": "Italic Latin brand-scale copy and numerals only."
+      },
+      "headline": {
+        "displayName": "Performance Headline",
+        "purpose": "Compact section and page headings."
+      },
+      "title": {
+        "displayName": "Evidence Title",
+        "purpose": "Rows, cards, and exercise names."
+      },
+      "body": {
+        "displayName": "Coaching Body",
+        "purpose": "Instructions, notes, and conversational status copy."
+      },
+      "label": {
+        "displayName": "Timing Label",
+        "purpose": "Uppercase eyebrows, metrics, and tabular evidence."
+      }
     },
     "shadows": [
-      { "name": "low", "value": "0 1px 2px rgba(0, 0, 0, 0.4)", "purpose": "Tight grounding for small raised controls in dark mode." },
-      { "name": "medium", "value": "0 8px 24px -8px rgba(0, 0, 0, 0.5)", "purpose": "Floating navigation and raised performance surfaces." },
-      { "name": "high", "value": "0 16px 48px -12px rgba(0, 0, 0, 0.6)", "purpose": "Modals, menus, and overlay hierarchy." },
-      { "name": "gold-action", "value": "0 4px 16px rgba(212, 168, 83, 0.3)", "purpose": "Primary-action hover feedback only." }
+      {
+        "name": "low",
+        "value": "0 1px 2px rgba(0, 0, 0, 0.4)",
+        "purpose": "Tight grounding for small raised controls in dark mode."
+      },
+      {
+        "name": "medium",
+        "value": "0 8px 24px -8px rgba(0, 0, 0, 0.5)",
+        "purpose": "Floating navigation and raised performance surfaces."
+      },
+      {
+        "name": "high",
+        "value": "0 16px 48px -12px rgba(0, 0, 0, 0.6)",
+        "purpose": "Modals, menus, and overlay hierarchy."
+      },
+      {
+        "name": "gold-action",
+        "value": "0 4px 16px rgba(212, 168, 83, 0.3)",
+        "purpose": "Primary-action hover feedback only."
+      }
     ],
     "motion": [
-      { "name": "route-lateral", "value": "240ms cubic-bezier(0.22, 1, 0.36, 1)", "purpose": "Directional client-route movement with subtle opacity and scale." },
-      { "name": "movement-image", "value": "280ms cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Small anatomical-image zoom on hover-capable devices." },
-      { "name": "disclosure", "value": "180ms ease-out", "purpose": "Chevron rotation and compact disclosure state." },
-      { "name": "reduced-motion", "value": "0ms", "purpose": "Removes route and control animation when reduced motion is requested." }
+      {
+        "name": "route-lateral",
+        "value": "240ms cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "Directional client-route movement with subtle opacity and scale."
+      },
+      {
+        "name": "movement-image",
+        "value": "280ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Small anatomical-image zoom on hover-capable devices."
+      },
+      {
+        "name": "disclosure",
+        "value": "180ms ease-out",
+        "purpose": "Chevron rotation and compact disclosure state."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "0ms",
+        "purpose": "Removes route and control animation when reduced motion is requested."
+      }
     ],
     "breakpoints": [
-      { "name": "compact", "value": "360px" },
-      { "name": "centered-nav", "value": "640px" },
-      { "name": "desktop-flow", "value": "1024px" }
+      {
+        "name": "compact",
+        "value": "360px"
+      },
+      {
+        "name": "centered-nav",
+        "value": "640px"
+      },
+      {
+        "name": "desktop-flow",
+        "value": "1024px"
+      }
     ]
   },
   "components": [
@@ -184,12 +456,12 @@
       "css": ".ds-result-row { display: flex; min-height: 72px; align-items: center; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--performance-rail, rgba(245,247,242,.14)); background: var(--performance-surface, #151717); box-shadow: inset 3px 0 0 var(--performance-cyan, #42D7FF); color: var(--performance-ink, #F5F7F2); font-family: Inter, system-ui, sans-serif; } .ds-result-copy { min-width: 0; flex: 1; } .ds-result-copy strong, .ds-result-copy span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .ds-result-copy strong { font-size: 15px; line-height: 1.25; } .ds-result-copy span { margin-top: 3px; color: var(--performance-muted, #A9AEAA); font-size: 12px; } .ds-result-metric { color: var(--performance-ink, #F5F7F2); font: 500 12px/1.2 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }"
     },
     {
-      "name": "Strength Workout Mode",
+      "name": "Workout Muscle Atlas",
       "kind": "card",
-      "refersTo": "workout-mode-card",
-      "description": "The visual training-intent entry built from anatomical imagery and lime illumination.",
-      "html": "<button class=\"ds-workout-mode\" type=\"button\"><svg class=\"ds-anatomy\" viewBox=\"0 0 120 150\" aria-hidden=\"true\"><circle cx=\"60\" cy=\"24\" r=\"13\"/><path d=\"M43 42 Q60 34 77 42 L83 84 73 92 69 137 56 137 52 96 48 137 35 137 39 91 30 82Z\"/></svg><span class=\"ds-workout-scrim\"></span><span class=\"ds-workout-copy\"><strong>Strength</strong><small>Weights · sets · PRs</small></span></button>",
-      "css": ".ds-workout-mode { position: relative; width: 100%; min-height: 168px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--performance-lime, #B7F10A) 28%, transparent); border-radius: 16px; background: radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--performance-lime, #B7F10A) 25%, transparent), #050606 62%); color: var(--performance-lime, #B7F10A); cursor: pointer; text-align: left; isolation: isolate; } .ds-anatomy { position: absolute; inset: 2px 25% 0; width: 50%; height: 96%; fill: #2B3330; stroke: color-mix(in srgb, var(--performance-cyan, #42D7FF) 75%, white); stroke-width: 2; transition: transform 280ms cubic-bezier(.16,1,.3,1); } .ds-workout-scrim { position: absolute; inset: 0; background: linear-gradient(180deg, transparent 24%, rgba(2,3,3,.9) 100%); } .ds-workout-copy { position: absolute; right: 14px; bottom: 14px; left: 14px; } .ds-workout-copy strong, .ds-workout-copy small { display: block; } .ds-workout-copy strong { font: 700 17px/1.15 Inter, system-ui, sans-serif; letter-spacing: -.025em; } .ds-workout-copy small { margin-top: 4px; color: rgba(255,255,255,.76); font: 400 11px/1.25 Inter, system-ui, sans-serif; } .ds-workout-mode:hover .ds-anatomy { transform: scale(1.035); } .ds-workout-mode:focus-visible { outline: 2px solid var(--focus-ring, #E8C078); outline-offset: 2px; } .ds-workout-mode:active { filter: brightness(.94); }"
+      "refersTo": "workout-muscle-atlas",
+      "description": "Workout Home's compact anatomical target: neutral body context, explicit muscle roles, front/back orientation, and one review action.",
+      "html": "<section class=\"ds-atlas\" aria-labelledby=\"ds-atlas-title\"><header><span>MUSCLE ATLAS</span><h3 id=\"ds-atlas-title\">Today's target</h3><p>Bench press · 4 working sets</p></header><div class=\"ds-atlas-grid\"><div class=\"ds-atlas-plate\"><div class=\"ds-atlas-toggle\" aria-label=\"Anatomy view\"><button type=\"button\" aria-pressed=\"true\">Front</button><button type=\"button\" aria-pressed=\"false\">Back</button></div><svg viewBox=\"0 0 120 190\" role=\"img\" aria-label=\"Front anatomy with chest primary, triceps and anterior deltoid secondary\"><circle class=\"ds-atlas-context\" cx=\"60\" cy=\"20\" r=\"12\"/><path class=\"ds-atlas-context\" d=\"M43 38 Q60 31 77 38 L85 90 73 99 69 176 56 176 52 107 48 176 35 176 39 99 27 90Z\"/><path class=\"ds-atlas-primary\" d=\"M43 43 Q51 37 59 42 L58 66 Q49 67 40 58Z M61 42 Q69 37 77 43 L80 58 Q71 67 62 66Z\"/><path class=\"ds-atlas-secondary\" d=\"M34 42 Q40 37 45 40 L40 58 33 53Z M75 40 Q81 37 86 42 L87 53 80 58Z\"/><path class=\"ds-atlas-stabilizer\" d=\"M39 64 Q45 76 43 88 M81 64 Q75 76 77 88\"/></svg></div><div class=\"ds-atlas-evidence\"><button type=\"button\"><i class=\"ds-role ds-role-primary\"></i><span><strong>Chest</strong><small>Primary</small></span></button><button type=\"button\"><i class=\"ds-role ds-role-secondary\"></i><span><strong>Arms & shoulders</strong><small>Secondary</small></span></button><button type=\"button\"><i class=\"ds-role ds-role-stabilizer\"></i><span><strong>Rotator cuff</strong><small>Stabilizer</small></span></button><button class=\"ds-atlas-action\" type=\"button\">Review workout</button></div></div></section>",
+      "css": ".ds-atlas { overflow: hidden; border: 1px solid var(--performance-rail, rgba(245,247,242,.14)); border-radius: 18px; background: var(--performance-surface, #151717); color: var(--performance-ink, #F5F7F2); font-family: Inter, system-ui, sans-serif; } .ds-atlas header { padding: 14px 16px 12px; border-bottom: 1px solid var(--performance-rail, rgba(245,247,242,.14)); } .ds-atlas header span { color: var(--performance-muted, #A9AEAA); font: 500 10px/1.2 \"JetBrains Mono\", ui-monospace, monospace; letter-spacing: .12em; } .ds-atlas h3 { margin: 5px 0 0; font-size: 18px; letter-spacing: -.02em; } .ds-atlas header p { margin: 4px 0 0; color: var(--performance-muted, #A9AEAA); font-size: 12px; } .ds-atlas-grid { display: grid; grid-template-columns: minmax(0,1.15fr) minmax(132px,.85fr); } .ds-atlas-plate { position: relative; min-height: 236px; background: #101212; } .ds-atlas-plate svg { display: block; width: 100%; height: 236px; padding: 34px 12px 8px; } .ds-atlas-toggle { position: absolute; z-index: 1; top: 10px; right: 10px; display: flex; overflow: hidden; border: 1px solid rgba(245,247,242,.18); border-radius: 10px; } .ds-atlas-toggle button { min-height: 32px; padding: 0 11px; border: 0; background: transparent; color: #A9AEAA; } .ds-atlas-toggle button[aria-pressed=\"true\"] { background: #252828; color: #F5F7F2; } .ds-atlas-context { fill: #747A76; stroke: #919793; stroke-width: 1; } .ds-atlas-primary { fill: var(--performance-coral, #FF6573); stroke: #151717; stroke-width: 1; } .ds-atlas-secondary { fill: var(--performance-cyan, #42D7FF); opacity: .72; stroke: #F5F7F2; stroke-width: .7; } .ds-atlas-stabilizer { fill: none; stroke: var(--performance-lime, #B7F10A); stroke-width: 2; stroke-dasharray: 3 2; } .ds-atlas-evidence { display: flex; flex-direction: column; border-left: 1px solid var(--performance-rail, rgba(245,247,242,.14)); } .ds-atlas-evidence button { display: flex; min-height: 51px; align-items: center; gap: 9px; padding: 9px 11px; border: 0; border-bottom: 1px solid var(--performance-rail, rgba(245,247,242,.14)); background: transparent; color: inherit; text-align: left; } .ds-atlas-evidence span, .ds-atlas-evidence strong, .ds-atlas-evidence small { display: block; min-width: 0; } .ds-atlas-evidence strong { font-size: 12px; } .ds-atlas-evidence small { margin-top: 2px; color: var(--performance-muted, #A9AEAA); font-size: 10px; text-transform: uppercase; } .ds-role { width: 10px; height: 10px; flex: none; border: 1px solid currentColor; border-radius: 50%; } .ds-role-primary { color: var(--performance-coral, #FF6573); background: currentColor; } .ds-role-secondary { color: var(--performance-cyan, #42D7FF); background: repeating-linear-gradient(135deg,currentColor 0 2px,transparent 2px 4px); } .ds-role-stabilizer { color: var(--performance-lime, #B7F10A); } .ds-atlas-evidence .ds-atlas-action { min-height: 50px; margin: auto 10px 10px; justify-content: center; border: 0; border-radius: 11px; background: var(--performance-gold, #D4A853); color: #070806; font-weight: 700; } .ds-atlas button { cursor: pointer; } .ds-atlas button:focus-visible { outline: 2px solid #E8C078; outline-offset: -2px; } @media (max-width: 420px) { .ds-atlas-grid { grid-template-columns: minmax(0,1fr) 142px; } }"
     },
     {
       "name": "Session Exercise Identity",
@@ -226,31 +498,62 @@
   ],
   "narrative": {
     "northStar": "Personal Best",
-    "overview": "Personal Best is a compact athlete evidence board inspired by race timing boards, split sheets, and premium coaching dossiers; it refuses generic glass-card SaaS. Its visual thesis is dense but calm: the interface reads as a sequence of measured facts, coach cues, and clear next actions, organized by disciplined rails instead of ornamental containers.\n\nThe material world is obsidian/graphite; Trophē gold for identity and primary actions; lime, cyan, coral, violet as performance channels; disciplined rails; tabular/mono evidence; anatomical workout imagery. In use, Nik opens a compact coach-led day, reads honest nutrition evidence, enters a visual progressive workout flow, and can reach a clearly identified private coach conversation.",
+    "overview": "Personal Best is a compact athlete evidence board inspired by race timing boards, split sheets, and premium coaching dossiers; it refuses generic glass-card SaaS. Its visual thesis is dense but calm: the interface reads as a sequence of measured facts, coach cues, and clear next actions, organized by disciplined rails instead of ornamental containers.\n\nThe material world is obsidian/graphite in dark mode and warm paper with white evidence surfaces in light mode; both themes keep the same hierarchy rather than becoming separate visual systems. Trophē gold carries identity and primary actions; lime, cyan, coral, violet, and orange remain performance channels; disciplined rails, tabular/mono evidence, and anatomical workout imagery make the data legible. In use, Nik opens a compact coach-led day, reads honest nutrition evidence, enters an explicit plan → review → live workout flow, and can reach a clearly identified private coach conversation.",
     "keyCharacteristics": [
       "Compact, coach-led information hierarchy.",
       "Evidence rows and split-sheet dividers with tabular metrics.",
-      "Anatomical workout imagery anchored in black fields.",
+      "Anatomical workout imagery contained on quiet neutral plates, never cropped or obscured.",
       "Theme-aware contrast with identical hierarchy in light and dark.",
+      "Explicit planning, review, live, paused, and completed workout states.",
       "A stable floating five-slot navigation rail."
     ],
     "rules": [
-      { "name": "The Channel Integrity Rule", "body": "Gold identifies Trophē and primary intent; lime, cyan, coral, violet, and orange encode performance meaning and are never sprayed across unrelated decoration.", "section": "colors" },
-      { "name": "The Evidence Type Rule", "body": "Measurements, ratios, dates, and channel values use the mono voice with tabular numerals; conversational coaching copy remains in Inter.", "section": "typography" },
-      { "name": "The Evidence-First Rule", "body": "Identity, greeting, plan, honest nutrition evidence, training intent, and coach access appear in that reading order; visual density must never hide the next useful fact.", "section": "layout" },
-      { "name": "The Rail-Before-Shadow Rule", "body": "Use tonal separation and a disciplined one-pixel rail before adding elevation; shadows indicate floating context, not generic card decoration.", "section": "elevation" }
+      {
+        "name": "The Channel Integrity Rule",
+        "body": "Gold identifies Trophē, selected controls, personal records, active navigation, and decisive actions. In the anatomical atlas, coral fill means primary muscle, cyan hatching/fill means secondary muscle, and a lime outline means stabilizer; lime also identifies verified technique, while orange identifies warnings and honest media fallbacks. Violet remains an analytical channel. These colors are never sprayed across unrelated decoration, and their meaning is always repeated in text or pattern.",
+        "section": "colors"
+      },
+      {
+        "name": "The Evidence Type Rule",
+        "body": "Measurements, ratios, dates, and channel values use the mono voice with tabular numerals; conversational coaching copy remains in Inter.",
+        "section": "typography"
+      },
+      {
+        "name": "The Evidence-First Rule",
+        "body": "Identity, greeting, plan, honest nutrition evidence, training intent, and coach access appear in that reading order; visual density must never hide the next useful fact.",
+        "section": "layout"
+      },
+      {
+        "name": "The Compose, Don’t Stretch Rule",
+        "body": "Narrow layouts remain a single task-led reading order; wide layouts may pair anatomy or split evidence into primary and supporting columns, but never become a sprawling control dashboard.",
+        "section": "layout"
+      },
+      {
+        "name": "The Rail-Before-Shadow Rule",
+        "body": "Use tonal separation and a disciplined one-pixel rail before adding elevation; shadows indicate floating context, not generic card decoration.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Session Boundary Rule",
+        "body": "Adding, editing, or reviewing exercises never starts a timer or creates a live workout. Only the explicit Start workout action crosses into Live, and finishing remains a confirmed action.",
+        "section": "components"
+      }
     ],
     "dos": [
       "Do keep the finish premium, fast, legible in light/dark, user-friendly, non-generic, production credible.",
       "Do state unavailable or incomplete evidence honestly instead of fabricating a complete metric.",
       "Do use anatomical workout imagery to make training intent immediately scannable.",
       "Do preserve 44px minimum touch targets, visible focus, safe areas, and reduced-motion behavior.",
+      "Do keep the readiness rail, target atlas, and next action together in the first useful Workout Home view.",
+      "Do prioritize the active set inputs and Complete set action before technique media on phone layouts.",
       "Do keep gold rare enough to preserve identity and action priority."
     ],
     "donts": [
       "Don't turn the client app into generic glass-card SaaS.",
       "Don't use performance channels as interchangeable decoration or allow them to compete with Trophē gold.",
       "Don't widen compact client flows into sprawling desktop dashboards.",
+      "Don't collapse planning, reviewed draft, and live session into one ambiguous state or start a session as a side effect of adding an exercise.",
+      "Don't let sticky controls, dialogs, or evidence disappear beneath the centered bottom navigation.",
       "Don't hide the coach's identity or blur the distinction between private conversation and generic messaging.",
       "Don't replace evidence rails and tabular values with soft ornamental cards or vague summaries."
     ]
