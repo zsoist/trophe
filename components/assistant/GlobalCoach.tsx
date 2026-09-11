@@ -288,7 +288,10 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   const handleDialogKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key === 'Escape') { event.stopPropagation(); close(); return; }
     if (event.key !== 'Tab' || !panel.current) return;
-    const focusable = Array.from(panel.current.querySelectorAll<HTMLElement>('button:not(:disabled), summary, textarea:not(:disabled), input:not(:disabled):not([hidden]), select:not(:disabled), [tabindex]:not([tabindex="-1"])'));
+    const focusable = Array.from(panel.current.querySelectorAll<HTMLElement>('button:not(:disabled), summary, textarea:not(:disabled), input:not(:disabled):not([hidden]), select:not(:disabled), [tabindex]:not([tabindex="-1"])')).filter(node => {
+      const closedDisclosure = node.closest('details:not([open])');
+      return !closedDisclosure || closedDisclosure.firstElementChild === node;
+    });
     if (!focusable.length) return;
     const first = focusable[0]; const last = focusable[focusable.length - 1];
     if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }

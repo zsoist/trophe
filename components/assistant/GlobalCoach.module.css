@@ -102,8 +102,8 @@
 .actions span { color: var(--text-secondary); font-size: .75rem; font-variant-numeric: tabular-nums; }
 .actions button { display: flex; min-height: 44px; align-items: center; gap: .5rem; padding: .65rem .85rem; border-radius: 12px; background: var(--gold-300); color: var(--text-on-accent, #171512); font-size: .875rem; font-weight: 600; }
 .root button:disabled { cursor: not-allowed; opacity: .48; }
-.launcher:focus-visible, .root button:focus-visible, .root textarea:focus-visible, .root input:focus-visible, .root summary:focus-visible { outline: 2px solid var(--gold-300); outline-offset: 2px; }
-@media (hover: hover) and (pointer: fine) { .root button:hover:not(:disabled), .root summary:hover { background-color: color-mix(in srgb, var(--gold-300) 9%, transparent); } }
+.launcher:focus-visible, .panel button:focus-visible, .panel textarea:focus-visible, .panel input:focus-visible, .panel summary:focus-visible { outline: 2px solid var(--gold-300); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) { .panel button:hover:not(:disabled), .panel summary:hover { background-color: color-mix(in srgb, var(--gold-300) 9%, transparent); } }
 @media (min-width: 768px) { .panel { right: 1.25rem; left: auto; bottom: calc(1.25rem + var(--coach-keyboard-inset, 0px)); width: min(42rem, calc(100vw - 2.5rem)); height: min(var(--coach-panel-height, 76dvh), 44rem); } }
 @media (prefers-reduced-motion: reduce) { .panel { animation: none; } }
 @media (prefers-reduced-transparency: reduce) { .launcher, .panel, .menuBody, .compactAttachments .attachmentPopover, .compactVoice .voiceBody { background: var(--bg-primary); backdrop-filter: none; } .backdrop { background: rgba(0,0,0,.5); } }

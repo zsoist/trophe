@@ -29,12 +29,15 @@ it('opens a compact conversation overlay with progressive media and history cont
   expect(screen.queryByText(/Record up to 30 seconds/)).toBeNull();
   expect(screen.getByRole('button', { name: 'Remove screen selection: Workout' })).toBeTruthy();
 
-  fireEvent.click(screen.getByLabelText('Saved conversations'));
-  expect(screen.getByRole('button', { name: 'New conversation' })).toBeTruthy();
+  const menu = screen.getByLabelText('Saved conversations');
+  const voice = screen.getByLabelText('Voice');
+  voice.focus();
+  fireEvent.keyDown(voice, { key: 'Tab' });
+  expect(document.activeElement).toBe(menu);
+  menu.focus();
+  fireEvent.keyDown(menu, { key: 'Tab', shiftKey: true });
+  expect(document.activeElement).toBe(voice);
 
-  fireEvent.change(screen.getByRole('textbox', { name: 'Your question' }), { target: { value: 'How should I train today?' } });
-  const send = screen.getByRole('button', { name: 'Send question' });
-  send.focus();
-  fireEvent.keyDown(send, { key: 'Tab' });
-  expect(document.activeElement).toBe(screen.getByLabelText('Saved conversations'));
+  fireEvent.click(menu);
+  expect(screen.getByRole('button', { name: 'New conversation' })).toBeTruthy();
 });
