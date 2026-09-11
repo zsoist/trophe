@@ -5,8 +5,8 @@ import { AttachmentController, type AttachmentState, type AttachmentTransport } 
 import { useGlobalCoachI18n } from './useGlobalCoachI18n';
 import styles from './GlobalCoach.module.css';
 
-export function AttachmentPicker({ controller, state, conversationId, transport, analysisEnabled = false, disabled }: {
-  controller: AttachmentController; state: AttachmentState; conversationId: string; transport?: AttachmentTransport; analysisEnabled?: boolean; disabled: boolean;
+export function AttachmentPicker({ controller, state, conversationId, transport, analysisEnabled = false, prepareConversation, disabled }: {
+  controller: AttachmentController; state: AttachmentState; conversationId: string; transport?: AttachmentTransport; analysisEnabled?: boolean; prepareConversation?: () => Promise<string | null>; disabled: boolean;
 }) {
   const { t } = useGlobalCoachI18n();
   const input = useRef<HTMLInputElement>(null);
@@ -39,7 +39,10 @@ export function AttachmentPicker({ controller, state, conversationId, transport,
         <button type="button" onClick={() => setReview(null)} disabled={state.pending}>{t('general.cancel')}</button>
         <button type="button" disabled={state.pending || disabled} onClick={() => {
           if (review.operation === 'remove') void controller.remove(selected.key, conversationId, transport);
-          else if (transport) void controller.upload(selected.key, conversationId, transport);
+          else if (transport) void (async () => {
+            const durableConversationId = prepareConversation ? await prepareConversation() : conversationId;
+            if (durableConversationId) await controller.upload(selected.key, durableConversationId, transport);
+          })();
           setReview(null);
         }}>{t('global_coach.confirm_change')}</button>
       </div>

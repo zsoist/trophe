@@ -53,13 +53,19 @@ describe('durable Photo Food observation adapter with injected SQL/runtime',()=>
    if(sql.includes('SET LOCAL')||sql.includes('pg_advisory_xact_lock'))return {rows:[]};throw Error(`unexpected ${sql}`);
   }};
   const database={$client:{},transaction:async(work:(value:typeof tx)=>Promise<unknown>)=>{const before=structuredClone(active);try{return await work(tx);}catch(error){active=before;throw error;}}} as unknown as Parameters<typeof createDatabasePhotoFoodObservationAdapter>[0];
-  return {adapter:createDatabasePhotoFoodObservationAdapter(database),tx,database,statements,state:()=>active,settle:()=>{ledger='settled';},unknown:()=>{ledger='unknown';},revokeRestore:()=>{authorized=true;threadRevoked=true;},revoke:()=>{authorized=false;},remove:()=>{attachment=false;},expire:()=>{expired=true;},missingGeneration:()=>{generation=false;},failInsert:()=>{receiptFails=true;}};
+  return {adapter:createDatabasePhotoFoodObservationAdapter(database),tx,database,statements,state:()=>active,settle:()=>{ledger='settled';},unknown:()=>{ledger='unknown';},missingThread:()=>{threadRevoked=true;},revokeRestore:()=>{authorized=true;threadRevoked=true;},revoke:()=>{authorized=false;},remove:()=>{attachment=false;},expire:()=>{expired=true;},missingGeneration:()=>{generation=false;},failInsert:()=>{receiptFails=true;}};
  }
  async function proof(generation=5){executeAiTask.mockResolvedValueOnce(taskResult(generation));return (await runVerifiedPhotoFoodAnalysis(scope,{digest:imageDigest,bytes:imageBytes},{pilotBinding:binding(20+generation),invoke:vi.fn()})).proof;}
  it('rejects revoke/restore during provider execution before an observation exists',async()=>{
   const f=fixture();const adapter=createDatabasePhotoFoodObservationAdapter(f.database,{readNormalized:async()=>imageBytes.slice()});
   executeAiTask.mockImplementationOnce(async()=>{expect(f.state()).toBeNull();f.revokeRestore();return taskResult();});
   await expect(adapter.analyzeAndRecord(scope,{pilotBinding:binding(),invoke:vi.fn()},new AbortController().signal)).rejects.toThrow('forbidden');expect(f.state()).toBeNull();
+ });
+ it('rejects an unsaved conversation before reading private bytes or dispatching the provider',async()=>{
+  const f=fixture();f.missingThread();const storage={readNormalized:vi.fn()};
+  const adapter=createDatabasePhotoFoodObservationAdapter(f.database,storage);
+  await expect(adapter.analyzeAndRecord(scope,{pilotBinding:binding(),invoke:vi.fn()},new AbortController().signal)).rejects.toThrow('forbidden');
+  expect(storage.readNormalized).not.toHaveBeenCalled();expect(executeAiTask).not.toHaveBeenCalled();
  });
  it('records normalized output only after current auth, attachment and durable generation evidence',async()=>{
   const f=fixture(),p=await proof();const recorded=await f.adapter.record(scope,p,new AbortController().signal);expect(recorded).toMatchObject({...scope,source:'validated_photo_analysis',imageDigest,foods:[{name:'Rice'}]});expect(f.state()).toMatchObject({actor_id:scope.actorId,attachment_id:scope.attachmentId,generation_id:id(5),active:true});expect(f.statements.join('\n')).not.toContain('http');

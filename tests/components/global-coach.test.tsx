@@ -9,9 +9,11 @@ import type { CoachConversationRequest, CoachConversationResponse } from '@/agen
 import type { PhotoFoodResult } from '@/agents/coach-assistant/photo-food-contracts';
 import { publishScreenDate } from '@/components/assistant/screen-date';
 import type { PhotoFoodTransport } from '@/components/assistant/photo-food-client';
+import type { HistoryTransport } from '@/components/assistant/history-client';
 const route = vi.hoisted(() => ({ path: '/dashboard/workout' }));
 vi.mock('next/navigation', () => ({ usePathname: () => route.path }));
 const originalPhotoFoodFlag = process.env.NEXT_PUBLIC_COACH_PHOTO_FOOD_ACTIONS_ENABLED;
+const originalHistoryFlag = process.env.NEXT_PUBLIC_COACH_CHAT_HISTORY_ENABLED;
 const response = (request: CoachConversationRequest, text = 'Recorded summary'): CoachConversationResponse => ({
   version: 'coach-assistant.v2', conversationId: request.conversationId, turnId: request.turnId, ok: true, mode: 'offline', dataSource: 'synthetic', snapshot: null,
   output: { answer: text, evidenceRefs: [], limitations: [], suggestions: [], escalation: { required: false, reason: null, draft: null } }, evidence: [], proposals: [], receipts: [], attachments: [],
@@ -27,6 +29,8 @@ afterEach(() => {
   route.path = '/dashboard/workout';
   if (originalPhotoFoodFlag === undefined) delete process.env.NEXT_PUBLIC_COACH_PHOTO_FOOD_ACTIONS_ENABLED;
   else process.env.NEXT_PUBLIC_COACH_PHOTO_FOOD_ACTIONS_ENABLED = originalPhotoFoodFlag;
+  if (originalHistoryFlag === undefined) delete process.env.NEXT_PUBLIC_COACH_CHAT_HISTORY_ENABLED;
+  else process.env.NEXT_PUBLIC_COACH_CHAT_HISTORY_ENABLED = originalHistoryFlag;
 });
 function mounted(transport: (request: CoachConversationRequest, signal: AbortSignal) => Promise<CoachConversationResponse>, identity = 'A', subjectId?: string) {
   return <I18nProvider defaultLang="en"><GlobalCoach identity={identity} subjectId={subjectId} example={transport} /></I18nProvider>;
@@ -56,6 +60,7 @@ it('keeps the same conversation and editable draft across real Food and Workout 
 });
 it('offers reviewed food analysis immediately after a private upload without another chat turn', async () => {
   const attachmentId = '00000000-0000-4000-8000-000000000002';
+  const durableConversationId = '00000000-0000-4000-8000-000000000003';
   const attachment = { id: attachmentId, kind: 'image' as const, status: 'available' as const };
   const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => new Response(JSON.stringify(init?.method === 'PUT'
     ? { version: 'coach-assistant.v2', storage: 'private_storage', analysis: 'not_connected', ok: true, state: 'available', attachment }
@@ -70,11 +75,14 @@ it('offers reviewed food analysis immediately after a private upload without ano
     },
     } satisfies PhotoFoodResult;
   });
+  const createThread = vi.fn<NonNullable<HistoryTransport['create']>>(async (_requestId, title) => ({ id: durableConversationId, title, createdAt: '2026-09-11T12:00:00.000Z', revision: '0', state: 'active' }));
+  const historyTransport: HistoryTransport = { create: createThread, list: vi.fn(), read: vi.fn() };
   process.env.NEXT_PUBLIC_COACH_PHOTO_FOOD_ACTIONS_ENABLED = '1';
+  process.env.NEXT_PUBLIC_COACH_CHAT_HISTORY_ENABLED = '1';
   vi.stubGlobal('fetch', fetchMock);
   URL.createObjectURL = vi.fn(() => 'blob:food-photo');
   URL.revokeObjectURL = vi.fn();
-  const view = render(<I18nProvider defaultLang="en"><GlobalCoach identity="A" photoFoodTransport={photoFoodTransport} /></I18nProvider>);
+  const view = render(<I18nProvider defaultLang="en"><GlobalCoach identity="A" photoFoodTransport={photoFoodTransport} historyTransport={historyTransport} /></I18nProvider>);
   fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
   fireEvent.click(screen.getByText('Photos'));
   const bytes = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a7n8AAAAASUVORK5CYII='), character => character.charCodeAt(0));
@@ -85,8 +93,10 @@ it('offers reviewed food analysis immediately after a private upload without ano
   fireEvent.click(screen.getByRole('button', { name: 'Review food in photo' }));
   await screen.findByRole('button', { name: /Fixture rice/ });
   expect(fetchMock).toHaveBeenCalledTimes(2);
+  expect(createThread).toHaveBeenCalledTimes(1);
+  expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({ operation: 'attachment.prepare', conversationId: durableConversationId });
   expect(photoFoodTransport).toHaveBeenCalledTimes(1);
-  expect(photoFoodTransport.mock.calls[0][0]).toMatchObject({ operation: 'photo.food.read', attachmentId });
+  expect(photoFoodTransport.mock.calls[0][0]).toMatchObject({ operation: 'photo.food.read', attachmentId, conversationId: durableConversationId });
   expect(screen.queryByText('Recorded summary')).toBeNull();
   view.unmount();
 });

@@ -168,6 +168,11 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
     if (!create) return Promise.resolve(null);
     return controller.prepareDurable(t('global_coach.voice_thread_title'), (requestId, title, signal) => create(requestId, title, signal));
   } : undefined;
+  const preparePhotoConversation = historyEnabled ? () => {
+    const create = (historyTransport ?? requestHistory).create;
+    if (!create) return Promise.resolve(null);
+    return controller.prepareDurable(t('global_coach.photo_food_title'), (requestId, title, signal) => create(requestId, title, signal));
+  } : undefined;
   const memoryEnabled = process.env.NEXT_PUBLIC_COACH_MEMORY_ACTIONS_ENABLED === '1' && (!historyEnabled || state.durable) && (!example || Boolean(memoryTransport)) && (!subjectId || subjectId === identity);
   const [diet] = useState(() => new DietController());
   const dietState = useSyncExternalStore(diet.subscribe, diet.snapshot, diet.snapshot);
@@ -410,7 +415,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
       </div>
       {showLatest && <button type="button" className="min-h-11 px-4 text-sm" onClick={() => { followLatest.current = true; setShowLatest(false); log.current?.scrollTo({ top: log.current.scrollHeight }); }}>{t('global_coach.latest')}</button>}
       <form className={styles.composer} onSubmit={event => { event.preventDefault(); void send(); }}>
-        <AttachmentPicker controller={attachments} state={attachmentState} conversationId={state.conversationId} transport={!example && (photoFoodEnabled || latestResponse?.uploads?.images) ? requestAttachment : undefined} analysisEnabled={photoFoodEnabled} disabled={state.pending || coachActionBlocked} />
+        <AttachmentPicker controller={attachments} state={attachmentState} conversationId={state.conversationId} transport={!example && (photoFoodEnabled && (state.durable || Boolean(preparePhotoConversation)) || latestResponse?.uploads?.images) ? requestAttachment : undefined} analysisEnabled={photoFoodEnabled} prepareConversation={photoFoodEnabled && !state.durable ? preparePhotoConversation : undefined} disabled={state.pending || coachActionBlocked} />
         {photoFoodEnabled && attachmentState.items.filter(item => item.state === 'available' && item.reference?.status === 'available').map(item => <button key={`food-${item.key}`} type="button" className={styles.contextToggle} disabled={photoFoodState.pending || coachActionBlocked} onClick={() => void photoFood.select(item.reference!.id, state.conversationId, photoFoodTransport ?? requestPhotoFood)}>{t('global_coach.photo_food_open')}</button>)}
         <VoiceCapture key={state.conversationId} controller={voice} state={voiceState} disabled={state.pending || attachmentState.pending || coachActionBlocked} conversationId={state.conversationId} transcribe={subjectId && subjectId !== identity ? undefined : voiceTranscriptionTransport} prepareConversation={voiceTranscriptionTransport ? prepareVoiceConversation : undefined} onUse={text => {
           if (voiceActive || state.pending || coachActionBlocked) return false;
