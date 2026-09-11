@@ -18,6 +18,12 @@ export type PrivateAttachmentResult=Omit<CoachAttachmentResult,'storage'|'error'
 const common={version:'coach-assistant.v2',storage:'private_storage',analysis:'not_connected'} as const;
 class Rejected extends Error {constructor(readonly code:PrivateAttachmentResult['error']){super(code);}}
 const fail=(error:PrivateAttachmentResult['error']):PrivateAttachmentResult=>({...common,ok:false,error});
+function reportPreviewFailure(operation:string,error:unknown){
+ if(process.env.VERCEL_ENV!=='preview'||process.env.COACH_ASSISTANT_OUTPUT_DIAGNOSTICS_ENABLED!=='1')return;
+ const diagnostic=error instanceof Rejected?error.code:error instanceof z.ZodError?'stored_row_contract':error instanceof Error&&['storage_unavailable','idempotency_conflict','invalid_input','forbidden'].includes(error.message)?error.message:'unexpected';
+ const sqlstate=typeof error==='object'&&error!==null&&'code' in error&&typeof error.code==='string'&&/^[0-9A-Z]{5}$/.test(error.code)?error.code:undefined;
+ console.warn(JSON.stringify({event:'coach_attachment_operation_failed',operation,diagnostic,...(sqlstate?{sqlstate}:{})}));
+}
 const digest=(bytes:Uint8Array|string)=>createHash('sha256').update(bytes).digest('hex');
 const metadata=z.object({mime:z.literal('image/jpeg'),bytes:z.number().int().positive().max(COACH_IMAGE_LIMITS.fileBytes),width:z.number().int().positive(),height:z.number().int().positive()}).strict().refine(value=>value.width*value.height<=COACH_IMAGE_LIMITS.pixels);
 const rowSchema=z.object({id:uuid,actor_id:uuid,subject_id:uuid,organization_id:uuid,conversation_id:uuid,request_id:uuid,bucket:z.string(),object_path:z.string(),mime:z.enum(['image/jpeg','image/png','image/webp']),input_bytes:z.number().int().positive().max(COACH_IMAGE_LIMITS.fileBytes),upload_token_hash:z.string().regex(/^[a-f0-9]{64}$/),state:z.enum(['prepared','available','removed']),source_digest:z.string().regex(/^[a-f0-9]{64}$/).nullable(),normalized_digest:z.string().regex(/^[a-f0-9]{64}$/).nullable(),metadata:metadata.nullable(),expires_at:z.string().refine(value=>Number.isFinite(Date.parse(value))),expired:z.boolean()}).refine(row=>row.state!=='available'||row.source_digest!==null&&row.normalized_digest!==null&&row.metadata!==null);
@@ -78,7 +84,7 @@ export function createPrivateAttachmentService(database:typeof db,storage:Privat
      const remaining=await tx.execute<{seconds:number}>(sql`SELECT floor(extract(epoch FROM (expires_at-clock_timestamp())))::int AS seconds FROM private.coach_attachment_uploads WHERE id=${row.id}::uuid`);if(read.expiresIn>remaining.rows[0].seconds)throw new Rejected('expired');return {...view(row),read};
     }
     signal.throwIfAborted();return view(row);
-   });}catch(error){return failure(error);}
+   });}catch(error){reportPreviewFailure(op.operation,error);return failure(error);}
   },
   async upload(rawScope:AttachmentStorageScope,providedToken:string,bytes:Uint8Array,signal:AbortSignal):Promise<PrivateAttachmentResult>{
    const scopeParsed=scopeSchema.safeParse({actorId:rawScope.actorId,subjectId:rawScope.subjectId,organizationId:rawScope.organizationId});if(!scopeParsed.success||!uuid.safeParse(rawScope.conversationId).success||!uuid.safeParse(rawScope.attachmentId).success||!/^[a-f0-9]{64}$/.test(providedToken))return fail('invalid_input');const scope=scopeParsed.data;if(scope.actorId!==scope.subjectId)return fail('forbidden');if(signal.aborted)return fail('cancelled');
