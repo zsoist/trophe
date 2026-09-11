@@ -14,11 +14,12 @@ function fixture(){
  const storage:PrivateCoachImageStorage={bucket:'coach-attachments-test',readNormalized:vi.fn(async()=>new Uint8Array([1,2,3])),assertStored:vi.fn(async s=>{if(!objects.has(attachmentObjectPath(s)))throw new Error('storage_unavailable');}),put:vi.fn<PrivateCoachImageStorage['put']>(async(s,bytes,_mime,_signal,authorize)=>{await authorize();const path=attachmentObjectPath(s);objects.add(path);return {path,sourceDigest:hash(bytes),normalizedDigest:hash(bytes),metadata:{mime:'image/jpeg',bytes:3,width:1,height:1}};}),remove:vi.fn(async s=>{if(failDelete)throw new Error('lost delete');objects.delete(attachmentObjectPath(s));}),signedRead:vi.fn(async(_s,expiresIn)=>({url:'http://127.0.0.1/signed',expiresIn}))};
  const tx={execute:async(query:Parameters<PgDialect['sqlToQuery']>[0])=>{
   const {sql,params:p}=new PgDialect().sqlToQuery(query);
+  if(sql.includes('ORDER BY expires_at,id'))throw Object.assign(new Error('ambiguous column reference'),{code:'42702'});
   if(sql.includes('FROM public.profiles actor'))return {rows:revoked?[]:[{id:scope.actorId}]};
   if(sql.includes('AS total,count(*)'))return {rows:[{total:String(Object.values(rows).filter(r=>r.state!=='removed').length),owned:String(Object.values(rows).filter(r=>r.state!=='removed'&&r.actor_id===p[0]&&r.subject_id===p[1]&&r.organization_id===p[2]&&r.conversation_id===p[3]).length)}]};
   if(sql.includes("interval '15 minutes'"))return {rows:[{expires:'2026-09-07T12:15:00Z'}]};
   if(sql.includes('INSERT INTO private.coach_attachment_uploads')){rows[String(p[0])]={id:p[0],actor_id:p[1],subject_id:p[2],organization_id:p[3],conversation_id:p[4],request_id:p[5],bucket:p[6],object_path:p[7],mime:p[8],input_bytes:p[9],upload_token_hash:p[10],expires_at:p[11],state:'prepared',source_digest:null,normalized_digest:null,metadata:null,expired:false};return {rows:[]};}
-  if(sql.includes('SELECT *,expires_at')){
+  if(sql.includes('SELECT *,expires_at')||sql.includes('SELECT uploads.*,uploads.expires_at')){
    if(sql.includes('request_id='))return {rows:Object.values(rows).filter(r=>r.actor_id===p[0]&&r.request_id===p[1])};
    if(sql.includes('SKIP LOCKED'))return {rows:Object.values(rows).filter(r=>r.bucket===p[0]&&r.state!=='removed'&&r.expired&&(!sql.includes('actor_id=')||r.actor_id===p[1]&&r.subject_id===p[2]&&r.organization_id===p[3]))};
    const r=rows[String(p[0])];return {rows:r&&r.actor_id===p[1]&&r.subject_id===p[2]&&r.organization_id===p[3]&&r.conversation_id===p[4]?[r]:[]};
