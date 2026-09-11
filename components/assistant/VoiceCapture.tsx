@@ -7,7 +7,7 @@ import type { CoachVoiceResult } from '@/agents/coach-assistant/voice-contract';
 import type { VoiceTranscriptionTransport } from './voice-client';
 import { VoiceTranscriptReview } from './VoiceTranscriptReview';
 import styles from './GlobalCoach.module.css';
-export function VoiceCapture({ controller, state, disabled, conversationId, transcribe, prepareConversation, onUse, onSend }: {
+export function VoiceCapture({ controller, state, disabled, conversationId, transcribe, prepareConversation, onUse, onSend, compact = false }: {
   controller: VoiceController;
   state: VoiceState;
   disabled: boolean;
@@ -16,6 +16,7 @@ export function VoiceCapture({ controller, state, disabled, conversationId, tran
   prepareConversation?: () => Promise<string | null>;
   onUse?: (message: string) => boolean;
   onSend?: (result: Extract<CoachVoiceResult, { ok: true }>, message: string) => Promise<'sent' | 'ambiguous' | 'failed'>;
+  compact?: boolean;
 }) {
   const { t, lang } = useGlobalCoachI18n();
   const active = ['requesting', 'recording', 'stopping'].includes(state.phase);
@@ -44,11 +45,14 @@ export function VoiceCapture({ controller, state, disabled, conversationId, tran
     } catch { if (!request.signal.aborted) setFlowError(true); }
     finally { if (processingRequest.current === request) processingRequest.current = null; if (!request.signal.aborted) setProcessing(false); }
   };
-  if (result && conversationId && onUse) return <VoiceTranscriptReview result={result} scope={{ ...result.scope, conversationId }} onUse={onUse}
-    onSend={onSend ? message => onSend(result, message) : undefined} onDiscard={reset} onRerecord={() => { setResult(null); start(); }} />;
-  return <details className={styles.attachments} onToggle={event => { if (!event.currentTarget.open && (active || processing)) reset(); }}>
-    <summary><Mic size={17} aria-hidden="true" />{t('global_coach.voice')}</summary>
-    <p>{t(transcribe ? 'global_coach.voice_connected' : 'global_coach.voice_local')}</p>
+  if (result && conversationId && onUse) {
+    const review = <VoiceTranscriptReview result={result} scope={{ ...result.scope, conversationId }} onUse={onUse}
+      onSend={onSend ? message => onSend(result, message) : undefined} onDiscard={reset} onRerecord={() => { setResult(null); start(); }} />;
+    return compact ? <div className={styles.compactVoiceReview}>{review}</div> : review;
+  }
+  return <details className={`${styles.attachments} ${compact ? styles.compactVoice : ''}`} onToggle={event => { if (!event.currentTarget.open && (active || processing)) reset(); }}>
+    <summary aria-label={t('global_coach.voice')}><Mic size={19} aria-hidden="true" /><span className={compact ? 'sr-only' : undefined}>{t('global_coach.voice')}</span></summary>
+    {!compact && <p>{t(transcribe ? 'global_coach.voice_connected' : 'global_coach.voice_local')}</p>}
     {state.phase === 'idle' && !processing && <button type="button" disabled={disabled} onClick={() => void start()}>{t('global_coach.voice_start')}</button>}
     {active && <div role="status"><p>{t(`global_coach.voice_${state.phase}`, { seconds: Math.floor(state.elapsedMs / 1000) })}</p>
       {state.phase === 'recording' && <button type="button" onClick={() => controller.stop()}><Square size={14} aria-hidden="true" />{t('global_coach.voice_stop')}</button>}

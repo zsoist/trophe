@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { createPortal } from 'react-dom';
-import { Send, Sparkles, X } from 'lucide-react';
+import { History, Menu, Send, Sparkles, Square, X } from 'lucide-react';
 import { ConversationController, coachSurface, type ConversationTransport } from './conversation-state';
 import { requestConversation } from './client';
 import { acceptedScreenSelection, subscribeScreenSelection, screenSelectionSnapshot, emptyScreenSelection } from './screen-selection';
@@ -214,7 +214,6 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   const [historyOpen, setHistoryOpen] = useState(false);
   const [includeScreen, setIncludeScreen] = useState(true);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
-  const [panelTop, setPanelTop] = useState(64);
   const launcher = useRef<HTMLButtonElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   const log = useRef<HTMLDivElement>(null);
@@ -250,13 +249,6 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   }, [foodState.receipt, foodState.pending, foodState.error, foodState.entry, identity]);
   useEffect(()=>{if(!photoFoodState.receipt||!photoFoodState.refreshEntryId||foodState.pending||foodState.error||foodState.entry?.entryId!==photoFoodState.refreshEntryId)return;window.dispatchEvent(new CustomEvent(COACH_FOOD_REFRESH,{detail:{actorId:identity,entryId:photoFoodState.refreshEntryId}}));},[foodState.entry,foodState.error,foodState.pending,identity,photoFoodState.receipt,photoFoodState.refreshEntryId]);
   useEffect(() => { setAnchor(document.getElementById('global-coach-anchor')); }, []);
-  useEffect(() => {
-    if (!open) return;
-    const header = anchor?.closest('header');
-    const measure = () => setPanelTop(Math.max(64, header?.getBoundingClientRect().bottom ?? 64));
-    measure(); window.addEventListener('resize', measure); window.addEventListener('scroll', measure, { passive: true });
-    return () => { window.removeEventListener('resize', measure); window.removeEventListener('scroll', measure); };
-  }, [anchor, open]);
   useEffect(() => { if (open) input.current?.focus(); }, [open]);
   useEffect(() => {
     if (!open) return;
@@ -349,13 +341,44 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
       || refresh.clientId !== identity || refresh.coachId !== receipt.coachId) return;
     window.dispatchEvent(new CustomEvent(COACH_MESSAGE_REFRESH, { detail: { ...refresh, messageId: receipt.messageId } }));
   }, [identity, messageEnabled, messageState.error, messageState.pending, messageState.receipt, messageState.refresh]);
+  const startNewConversation = () => {
+    voice.reset(); attachments.reset(); preferences.moveConversation(); food.moveConversation(); memory.reset();
+    workoutSetController.moveConversation(); controller.startNew(); messageController.moveConversation(controller.snapshot().conversationId);
+    photoFood.moveConversation(controller.snapshot().conversationId); diet.moveConversation(controller.snapshot().conversationId);
+    progress.moveConversation(controller.snapshot().conversationId); setHistoryOpen(false); input.current?.focus();
+  };
   const launch = <button ref={launcher} type="button" className={styles.launcher} aria-expanded={open} aria-controls="global-coach" onClick={() => open ? close() : setOpen(true)}>
       <Sparkles size={19} aria-hidden="true" />{t('global_coach.open')}
     </button>;
   return <div className={styles.root}>
     {anchor ? createPortal(launch, anchor) : launch}
-    {open && <section id="global-coach" className={styles.panel} style={{ top: panelTop }} aria-labelledby="global-coach-title" onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); close(); } }}>
-      <header className={styles.header}><div><h2 id="global-coach-title">{t('global_coach.title')}</h2><p>{t(example ? 'global_coach.example' : 'global_coach.identity')}</p>{subjectId && subjectId !== identity && <p className={styles.subject}>{t('global_coach.professional_subject', { subject: subjectId.slice(0, 8) })}</p>}</div><button type="button" onClick={close} aria-label={t('global_coach.close')}><X size={22} /></button></header>
+    {open && <>
+      <button type="button" className={styles.backdrop} onClick={close} aria-hidden="true" tabIndex={-1} />
+      <section id="global-coach" className={styles.panel} role="dialog" aria-modal="false" aria-labelledby="global-coach-title" onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); close(); } }}>
+      <header className={styles.header}>
+        <div className={styles.identity}><span className={styles.mark}><Sparkles size={17} aria-hidden="true" /></span><div><h2 id="global-coach-title">{t('global_coach.title')}</h2><p>{t(example ? 'global_coach.example' : 'global_coach.identity')}</p>{subjectId && subjectId !== identity && <p className={styles.subject}>{t('global_coach.professional_subject', { subject: subjectId.slice(0, 8) })}</p>}</div></div>
+        <div className={styles.headerActions}>
+          <details className={styles.headerMenu}>
+            <summary aria-label={t('global_coach.saved_chats')}><Menu size={20} aria-hidden="true" /></summary>
+            <div className={styles.menuBody}>
+              {historyEnabled && <button type="button" disabled={coachActionBlocked} onClick={startNewConversation}><Sparkles size={16} aria-hidden="true" />{t('global_coach.new_chat')}</button>}
+              {historyEnabled && <details open={historyOpen} className={styles.profile} onToggle={event => setHistoryOpen(event.currentTarget.open)}><summary><History size={16} aria-hidden="true" />{t('global_coach.saved_chats')}</summary>{historyOpen && <HistoryPanel transport={historyTransport ?? requestHistory} onInvalidate={threadId => {
+                if (controller.snapshot().conversationId !== threadId || coachActionBlocked) return;
+                startNewConversation();
+              }} onResume={page => {
+                if (coachActionBlocked) return;
+                voice.reset(); attachments.reset(); preferences.moveConversation(); food.moveConversation(); memory.reset(); workoutSetController.moveConversation();
+                controller.restore(page.thread.id, page.messages); messageController.moveConversation(controller.snapshot().conversationId); photoFood.moveConversation(controller.snapshot().conversationId);
+                diet.moveConversation(controller.snapshot().conversationId); progress.moveConversation(controller.snapshot().conversationId); setHistoryOpen(false); input.current?.focus();
+              }} />}</details>}
+              {dietEnabled && <details className={styles.profile} onToggle={event => { if (event.currentTarget.open) { voice.reset(); if (!dietState.profileId) diet.select(identity, state.conversationId, dietTransport ?? requestDiet); else if (!dietState.profile) void diet.read(dietTransport ?? requestDiet); } }}><summary>{t('global_coach.diet_title')}</summary><DietPanel controller={diet} state={dietState} transport={dietTransport ?? requestDiet} /></details>}
+              {progressEnabled && <details className={styles.profile} onToggle={event => { if (event.currentTarget.open) { voice.reset(); if (!progressState.subjectId) progress.select(identity, state.conversationId); if (!progress.snapshot().snapshot) void progress.read(progressTransport ?? requestProgress); } }}><summary>{t('global_coach.progress_title')}</summary><ProgressPanel controller={progress} state={progressState} transport={progressTransport ?? requestProgress} onSaved={() => window.dispatchEvent(new CustomEvent(COACH_PROGRESS_REFRESH, { detail: { actorId: identity } }))} /></details>}
+              {memoryEnabled && <details className={styles.profile} onToggle={event => { if (event.currentTarget.open) { voice.reset(); if (!memoryState.loaded) void memory.read(memoryTransport ?? requestMemory); } }}><summary>{t('global_coach.memory')}</summary><MemoryPanel controller={memory} state={memoryState} transport={memoryTransport ?? requestMemory} /></details>}
+            </div>
+          </details>
+          <button type="button" className={styles.iconButton} onClick={close} aria-label={t('global_coach.close')}><X size={20} /></button>
+        </div>
+      </header>
       {professionalMode && <p className={styles.professionalNotice}>{t(missingProfessionalSubject ? 'global_coach.professional_select_subject' : 'global_coach.professional_notice')}</p>}
       {professionalCapability && <p className={styles.capabilityStatus}>{t(`global_coach.${surface}`)} · {t(`global_coach.capability_${professionalCapability.status}`)}</p>}
       {latestResponse && latestTurn && <ContextCards response={latestResponse} conversationId={state.conversationId} subjectId={subjectId} hideMemories={memoryEnabled} onExpand={() => voice.reset()} controller={preferences} state={preferenceState} transport={preferenceTransport ?? requestPreference}>{contextSlot?.({ identity, controller: preferences, state: preferenceState, conversationId: state.conversationId, turnId: latestTurn.request.turnId, surface, response: latestResponse, transport: preferenceTransport ?? requestPreference })}</ContextCards>}
@@ -368,31 +391,6 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
         {workoutSetSelf && workoutSetState.intentId && <WorkoutSetPanel controller={workoutSetController} state={workoutSetState} transport={activeWorkoutSetTransport} />}
         {messageEnabled && messageState.intentId && <MessagePanel controller={messageController} state={messageState} transport={activeMessageTransport} />}
         {photoFoodState.attachmentId&&<PhotoFoodPanel controller={photoFood} state={photoFoodState} transport={photoFoodTransport??requestPhotoFood} onReceipt={entryId=>food.select(entryId,state.conversationId,activeFoodTransport)}/>}
-        {historyEnabled && <button type="button" disabled={coachActionBlocked} onClick={() => {
-          voice.reset(); attachments.reset(); preferences.moveConversation(); food.moveConversation(); memory.reset();
-          workoutSetController.moveConversation(); controller.startNew(); messageController.moveConversation(controller.snapshot().conversationId); photoFood.moveConversation(controller.snapshot().conversationId); diet.moveConversation(controller.snapshot().conversationId); progress.moveConversation(controller.snapshot().conversationId); setHistoryOpen(false); input.current?.focus();
-        }}>{t('global_coach.new_chat')}</button>}
-        {historyEnabled && <details open={historyOpen} className={styles.profile} onToggle={event => setHistoryOpen(event.currentTarget.open)}><summary>{t('global_coach.saved_chats')}</summary>{historyOpen && <HistoryPanel transport={historyTransport ?? requestHistory} onInvalidate={threadId => {
-          if (controller.snapshot().conversationId !== threadId) return;
-          if (coachActionBlocked) return;
-          voice.reset(); attachments.reset(); preferences.moveConversation(); food.moveConversation(); memory.reset(); workoutSetController.moveConversation(); controller.startNew(); messageController.moveConversation(controller.snapshot().conversationId); photoFood.moveConversation(controller.snapshot().conversationId); diet.moveConversation(controller.snapshot().conversationId); progress.moveConversation(controller.snapshot().conversationId);
-        }} onResume={page => {
-          if (coachActionBlocked) return;
-          voice.reset(); attachments.reset(); preferences.moveConversation(); food.moveConversation(); memory.reset();
-          workoutSetController.moveConversation(); controller.restore(page.thread.id, page.messages); messageController.moveConversation(controller.snapshot().conversationId); photoFood.moveConversation(controller.snapshot().conversationId); diet.moveConversation(controller.snapshot().conversationId); progress.moveConversation(controller.snapshot().conversationId); setHistoryOpen(false); input.current?.focus();
-        }} />}</details>}
-        {dietEnabled && <details className={styles.profile} onToggle={event => { if (event.currentTarget.open) { voice.reset(); if (!dietState.profileId) diet.select(identity, state.conversationId, dietTransport ?? requestDiet); else if (!dietState.profile) void diet.read(dietTransport ?? requestDiet); } }}>
-          <summary>{t('global_coach.diet_title')}</summary>
-          <DietPanel controller={diet} state={dietState} transport={dietTransport ?? requestDiet} />
-        </details>}
-        {progressEnabled && <details className={styles.profile} onToggle={event => { if (event.currentTarget.open) { voice.reset(); if (!progressState.subjectId) progress.select(identity, state.conversationId); if (!progress.snapshot().snapshot) void progress.read(progressTransport ?? requestProgress); } }}>
-          <summary>{t('global_coach.progress_title')}</summary>
-          <ProgressPanel controller={progress} state={progressState} transport={progressTransport ?? requestProgress} onSaved={() => window.dispatchEvent(new CustomEvent(COACH_PROGRESS_REFRESH, { detail: { actorId: identity } }))} />
-        </details>}
-        {memoryEnabled && <details className={styles.profile} onToggle={event => { if (event.currentTarget.open) { voice.reset(); if (!memoryState.loaded) void memory.read(memoryTransport ?? requestMemory); } }}>
-          <summary>{t('global_coach.memory')}</summary>
-          <MemoryPanel controller={memory} state={memoryState} transport={memoryTransport ?? requestMemory} />
-        </details>}
         {!state.turns.length && !state.restored.length && <p className={styles.intro}>{t('global_coach.intro')}</p>}
         {state.restored.map(item => <article className={styles.turn} key={item.id}><p className={styles.context}>{t('global_coach.saved_message')} · {t(item.role === 'user' ? 'global_coach.you' : 'global_coach.title')}</p><p style={{ whiteSpace: 'pre-wrap' }}>{item.text}</p></article>)}
         {state.turns.map(turn => <article className={styles.turn} key={turn.request.turnId}>
@@ -415,9 +413,14 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
       </div>
       {showLatest && <button type="button" className="min-h-11 px-4 text-sm" onClick={() => { followLatest.current = true; setShowLatest(false); log.current?.scrollTo({ top: log.current.scrollHeight }); }}>{t('global_coach.latest')}</button>}
       <form className={styles.composer} onSubmit={event => { event.preventDefault(); void send(); }}>
-        <AttachmentPicker controller={attachments} state={attachmentState} conversationId={state.conversationId} transport={!example && (photoFoodEnabled && (state.durable || Boolean(preparePhotoConversation)) || latestResponse?.uploads?.images) ? requestAttachment : undefined} analysisEnabled={photoFoodEnabled} prepareConversation={photoFoodEnabled && !state.durable ? preparePhotoConversation : undefined} disabled={state.pending || coachActionBlocked} />
+        <AttachmentPicker compact controller={attachments} state={attachmentState} conversationId={state.conversationId} transport={!example && (photoFoodEnabled && (state.durable || Boolean(preparePhotoConversation)) || latestResponse?.uploads?.images) ? requestAttachment : undefined} analysisEnabled={photoFoodEnabled} prepareConversation={photoFoodEnabled && !state.durable ? preparePhotoConversation : undefined} disabled={state.pending || coachActionBlocked} />
         {photoFoodEnabled && attachmentState.items.filter(item => item.state === 'available' && item.reference?.status === 'available').map(item => <button key={`food-${item.key}`} type="button" className={styles.contextToggle} disabled={photoFoodState.pending || coachActionBlocked} onClick={() => void photoFood.select(item.reference!.id, state.conversationId, photoFoodTransport ?? requestPhotoFood)}>{t('global_coach.photo_food_open')}</button>)}
-        <VoiceCapture key={state.conversationId} controller={voice} state={voiceState} disabled={state.pending || attachmentState.pending || coachActionBlocked} conversationId={state.conversationId} transcribe={subjectId && subjectId !== identity ? undefined : voiceTranscriptionTransport} prepareConversation={voiceTranscriptionTransport ? prepareVoiceConversation : undefined} onUse={text => {
+        {includeScreen && <button type="button" className={styles.contextChip} onClick={() => setIncludeScreen(false)} aria-label={`${t('global_coach.remove_selection')}: ${selection?.label ?? t(`global_coach.${surface}`)}`}><span>{selection?.label ?? t(`global_coach.${surface}`)}</span><X size={14} aria-hidden="true" /></button>}
+        <div className={styles.composeRail}>
+        {!includeScreen && <button type="button" className={styles.restoreContext} onClick={() => setIncludeScreen(true)} aria-label={t('global_coach.include')}><Sparkles size={16} aria-hidden="true" /></button>}
+        <label className="sr-only" htmlFor="global-coach-question">{t('global_coach.question')}</label>
+        <textarea id="global-coach-question" ref={input} disabled={composerInputBlocked} maxLength={2000} rows={1} value={state.draft} onChange={event => { controller.setDraft(event.target.value); event.currentTarget.style.height = 'auto'; event.currentTarget.style.height = `${Math.min(event.currentTarget.scrollHeight, 112)}px`; }} placeholder={t('global_coach.placeholder')} />
+        <VoiceCapture compact key={state.conversationId} controller={voice} state={voiceState} disabled={state.pending || attachmentState.pending || coachActionBlocked} conversationId={state.conversationId} transcribe={subjectId && subjectId !== identity ? undefined : voiceTranscriptionTransport} prepareConversation={voiceTranscriptionTransport ? prepareVoiceConversation : undefined} onUse={text => {
           if (voiceActive || state.pending || coachActionBlocked) return false;
           const current = controller.snapshot().draft;
           const combined = current.trim() ? `${current}\n${text}` : text;
@@ -432,12 +435,9 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
           controller.setDraft(combined);
           return true;
         }, onSend: reviewedVoiceTransport || !example && process.env.NEXT_PUBLIC_COACH_VOICE_REVIEW_ENABLED === '1' ? sendVoice : undefined })}
-        {includeScreen && selection && <button type="button" className={styles.contextToggle} onClick={() => setIncludeScreen(false)} aria-label={`${t('global_coach.remove_selection')}: ${selection.label}`}><span>{selection.label}</span><X size={16} aria-hidden="true" /></button>}
-        <label className={styles.contextToggle}><input type="checkbox" checked={includeScreen} onChange={event => setIncludeScreen(event.target.checked)} />{t('global_coach.include')}<span>{t(`global_coach.${surface}`)}</span></label>
-        <label className="sr-only" htmlFor="global-coach-question">{t('global_coach.question')}</label>
-        <textarea id="global-coach-question" ref={input} disabled={composerInputBlocked} maxLength={2000} rows={3} value={state.draft} onChange={event => controller.setDraft(event.target.value)} placeholder={t('global_coach.placeholder')} />
-        <div className={styles.actions}><span>{state.draft.length}/2000</span>{state.pending ? <button type="button" onClick={() => controller.cancel()}>{t('global_coach.cancel')}</button> : <button type="submit" disabled={missingProfessionalSubject || state.recoveryRequired || !state.draft.trim() || attachmentState.pending || voiceActive || composerSubmitBlocked}><Send size={17} aria-hidden="true" />{t('global_coach.send')}</button>}</div>
+        <button type={state.pending ? 'button' : 'submit'} className={styles.sendButton} onClick={state.pending ? () => controller.cancel() : undefined} disabled={!state.pending && (missingProfessionalSubject || state.recoveryRequired || !state.draft.trim() || attachmentState.pending || voiceActive || composerSubmitBlocked)} aria-label={t(state.pending ? 'global_coach.cancel' : 'global_coach.send')}>{state.pending ? <Square size={15} aria-hidden="true" /> : <Send size={17} aria-hidden="true" />}</button>
+        </div>
       </form>
-    </section>}
+    </section></>}
   </div>;
 }

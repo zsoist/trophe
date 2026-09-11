@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-11T20:27:16Z",
+  "generatedAt": "2026-09-11T22:34:43Z",
   "title": "Design System: Personal Best",
   "extensions": {
     "colorMeta": {
@@ -494,6 +494,14 @@
       "description": "The stable five-slot client navigation with a gold active rail.",
       "html": "<nav class=\"ds-bottom-nav\" aria-label=\"Primary\"><a class=\"ds-nav-item ds-nav-active\" href=\"#\" aria-current=\"page\"><span class=\"ds-active-rail\"></span><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"m3 11 9-8 9 8v9a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z\"/></svg><span>Home</span></a><a class=\"ds-nav-item\" href=\"#\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M4 4h16v16H4z\"/><path d=\"M4 16h16\"/></svg><span>Log</span></a><a class=\"ds-nav-item\" href=\"#\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M6 7v10M3 9v6m15-8v10m3-8v6M6 12h12\"/></svg><span>Workout</span></a><a class=\"ds-nav-item\" href=\"#\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M3 20h18M5 16l4-5 4 3 6-8\"/></svg><span>Progress</span></a><a class=\"ds-nav-item\" href=\"#\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 21a8 8 0 0 1 16 0\"/></svg><span>Me</span></a></nav>",
       "css": ".ds-bottom-nav { display: flex; min-height: 56px; overflow: hidden; border: 1px solid var(--border-default, #333333); border-radius: 24px; background: color-mix(in srgb, var(--surface-overlay, #1A1A1A) 95%, transparent); box-shadow: var(--shadow-medium, 0 8px 24px -8px rgba(0,0,0,.5)); color: var(--performance-muted, #A9AEAA); font-family: Inter, system-ui, sans-serif; backdrop-filter: blur(12px); } .ds-nav-item { position: relative; display: flex; min-height: 56px; min-width: 0; flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border-radius: 12px; color: var(--performance-muted, #A9AEAA); font-size: 10px; font-weight: 500; letter-spacing: .05em; text-decoration: none; text-transform: uppercase; transition: color 150ms ease, background 150ms ease; } .ds-nav-item svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; opacity: .75; } .ds-nav-item:hover { background: var(--surface-hover, #222222); color: var(--content-secondary, #D6D3D1); } .ds-nav-item:focus-visible { outline: 2px solid var(--focus-ring, #E8C078); outline-offset: -3px; } .ds-nav-active { background: var(--surface-active, #2A2A2A); color: var(--performance-gold, #D4A853); } .ds-nav-active svg { opacity: 1; } .ds-active-rail { position: absolute; top: 0; width: 36px; height: 2px; border-radius: 999px; background: var(--performance-gold, #D4A853); }"
+    },
+    {
+      "name": "Ask Trophē Overlay",
+      "kind": "custom",
+      "refersTo": "ask-trophe-overlay",
+      "description": "A conversation-first glass overlay that preserves the current screen, context, history, reviewed actions, media, and voice without shifting the client layout.",
+      "html": "<section class=\"ds-ask-overlay\" role=\"dialog\" aria-labelledby=\"ask-title\"><header><span aria-hidden=\"true\">✦</span><h2 id=\"ask-title\">Ask Trophē</h2><button type=\"button\" aria-label=\"Close\"></button></header><div role=\"log\"></div><button class=\"ds-context-chip\" type=\"button\">Workout <span aria-hidden=\"true\">×</span></button><form><button type=\"button\" aria-label=\"Add photo\"></button><textarea aria-label=\"Your question\" rows=\"1\"></textarea><button type=\"button\" aria-label=\"Voice\"></button><button type=\"submit\" aria-label=\"Send\"></button></form></section>",
+      "css": ".ds-ask-overlay { position: fixed; inset-inline: 10px; bottom: max(10px, env(safe-area-inset-bottom)); display: flex; height: min(72dvh, 44rem); max-width: 42rem; margin-inline: auto; flex-direction: column; overflow: hidden; border: 1px solid var(--performance-rail); border-radius: 20px; background: color-mix(in srgb, var(--performance-canvas) 82%, transparent); box-shadow: var(--shadow-high); backdrop-filter: blur(30px) saturate(145%); } .ds-ask-overlay form { display:flex; align-items:flex-end; min-height:50px; gap:4px; padding:4px; border:1px solid var(--performance-rail); border-radius:16px; background:var(--performance-surface); } .ds-ask-overlay textarea { min-width:0; flex:1; resize:none; border:0; background:transparent; color:var(--performance-ink); font:400 16px/1.35 Inter,system-ui,sans-serif; } .ds-ask-overlay button { min-width:44px; min-height:44px; } @media (prefers-reduced-transparency: reduce) { .ds-ask-overlay { background:var(--performance-canvas); backdrop-filter:none; } }"
     }
   ],
   "narrative": {
@@ -536,6 +544,11 @@
       {
         "name": "The Session Boundary Rule",
         "body": "Adding, editing, or reviewing exercises never starts a timer or creates a live workout. Only the explicit Start workout action crosses into Live, and finishing remains a confirmed action.",
+        "section": "components"
+      },
+      {
+        "name": "The Context Continuity Rule",
+        "body": "Ask Trophē opens over the current surface. The screen context is a removable chip; media, voice, history, and account capabilities appear only after the user opens their control. The conversation and composer remain primary at every viewport.",
         "section": "components"
       }
     ],

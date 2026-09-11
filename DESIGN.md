@@ -121,6 +121,11 @@ components:
     backgroundColor: "{colors.performance-canvas}"
     textColor: "{colors.performance-ink}"
     height: "68px"
+  ask-trophe-overlay:
+    backgroundColor: "{colors.performance-canvas}"
+    textColor: "{colors.performance-ink}"
+    rounded: "20px"
+    maxWidth: "42rem"
   navigation-bottom:
     backgroundColor: "{colors.performance-surface-raised}"
     textColor: "{colors.performance-muted}"
@@ -297,6 +302,12 @@ Workout transitions use the restrained 220ms performance easing for route and at
 ### Coach Conversation Header
 
 The conversation starts with a sticky, clearly identified coach header: a back target, gold-tinted monogram, coach name, shield icon, and the literal status “Private coach line.” This identity remains visible above the message thread and composer.
+
+### Ask Trophē Overlay
+
+Ask Trophē opens over the current client surface without navigating away or shifting the desktop layout. The compact glass layer is functional depth: it keeps the current screen legible behind a conversation-first panel and falls back to an opaque performance surface when blur is unavailable or reduced transparency is requested. The conversation and its reviewed action cards own the flexible space.
+
+The composer follows a single familiar rail: attachment and camera access on the left, a growing 16px text field, voice, then one circular send/stop action. Current screen context appears as one removable chip above the rail; removing it exposes a small restore action. Photos, recording controls, history, memory, diet, and progress remain progressive disclosures and never become permanent sections competing with the thread. On mobile the overlay clears safe areas and follows the dynamic viewport so the composer remains above the keyboard; Escape and the visible close target restore focus to the launcher.
 
 ## Do's and Don'ts
 

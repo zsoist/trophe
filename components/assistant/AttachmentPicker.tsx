@@ -1,23 +1,29 @@
 'use client';
 import { useRef, useState } from 'react';
-import { ImagePlus } from 'lucide-react';
+import { Camera, ImagePlus, Plus, X } from 'lucide-react';
 import { AttachmentController, type AttachmentState, type AttachmentTransport } from './attachment-state';
 import { useGlobalCoachI18n } from './useGlobalCoachI18n';
 import styles from './GlobalCoach.module.css';
 
-export function AttachmentPicker({ controller, state, conversationId, transport, analysisEnabled = false, prepareConversation, disabled }: {
+export function AttachmentPicker({ controller, state, conversationId, transport, analysisEnabled = false, prepareConversation, disabled, compact = false }: {
   controller: AttachmentController; state: AttachmentState; conversationId: string; transport?: AttachmentTransport; analysisEnabled?: boolean; prepareConversation?: () => Promise<string | null>; disabled: boolean;
+  compact?: boolean;
 }) {
   const { t } = useGlobalCoachI18n();
   const input = useRef<HTMLInputElement>(null);
+  const cameraInput = useRef<HTMLInputElement>(null);
   const [review, setReview] = useState<{ key: string; operation: 'upload' | 'remove' } | null>(null);
   const selected = state.items.find(item => item.key === review?.key);
-  return <details className={styles.attachments}>
-    <summary><ImagePlus size={17} aria-hidden="true" />{t('global_coach.photos')}{state.items.length > 0 && ` · ${state.items.length}/3`}</summary>
-    <p>{t(transport ? analysisEnabled ? 'global_coach.photos_analysis' : 'global_coach.photos_upload_only' : 'global_coach.photos_local')}</p>
-    <p>{t('global_coach.photos_limits')}</p>
+  return <details className={`${styles.attachments} ${compact ? styles.compactAttachments : ''}`}>
+    <summary aria-label={t('global_coach.photos')}><span className={styles.compactOnly}><Plus size={20} aria-hidden="true" /></span><span className={styles.expandedOnly}><ImagePlus size={17} aria-hidden="true" />{t('global_coach.photos')}{state.items.length > 0 && ` · ${state.items.length}/3`}</span></summary>
+    {!compact && <><p>{t(transport ? analysisEnabled ? 'global_coach.photos_analysis' : 'global_coach.photos_upload_only' : 'global_coach.photos_local')}</p><p>{t('global_coach.photos_limits')}</p></>}
     <input hidden ref={input} type="file" accept="image/jpeg,image/png,image/webp" multiple aria-label={t('global_coach.photos_select')} disabled={disabled || state.pending} onChange={event => { void controller.select(Array.from(event.target.files ?? [])); event.target.value = ''; }} />
-    <button type="button" disabled={disabled || state.pending || state.items.length >= 3} onClick={() => input.current?.click()}>{t('global_coach.photos_select')}</button>
+    <input hidden ref={cameraInput} type="file" accept="image/*" capture="environment" aria-label={t('global_coach.camera')} disabled={disabled || state.pending} onChange={event => { void controller.select(Array.from(event.target.files ?? [])); event.target.value = ''; }} />
+    <div className={styles.attachmentPopover}>
+    <div className={styles.attachmentChoices}>
+      <button type="button" disabled={disabled || state.pending || state.items.length >= 3} onClick={() => input.current?.click()}><ImagePlus size={17} aria-hidden="true" />{t('global_coach.photos_select')}</button>
+      <button type="button" disabled={disabled || state.pending || state.items.length >= 3} onClick={() => cameraInput.current?.click()}><Camera size={17} aria-hidden="true" />{t('global_coach.camera')}</button>
+    </div>
     <ul>
       {state.items.map(item => <li key={item.key}>
         {/* User-selected object URL, retained only for this subject and explicitly revoked on removal/reset. */}
@@ -27,7 +33,7 @@ export function AttachmentPicker({ controller, state, conversationId, transport,
           <div className={styles.memoryActions}>
             {transport && (item.state === 'selected' || item.state === 'retryable') && <button type="button" disabled={state.pending || disabled} onClick={() => setReview({ key: item.key, operation: 'upload' })}>{t('global_coach.photo_review_upload')}</button>}
             {transport && item.state === 'uncertain' && <button type="button" disabled={state.pending || disabled} onClick={() => void controller.check(item.key, conversationId, transport)}>{t('global_coach.photo_check')}</button>}
-            <button type="button" disabled={state.pending || disabled} onClick={() => setReview({ key: item.key, operation: 'remove' })}>{t('global_coach.photo_remove')}</button>
+            <button type="button" disabled={state.pending || disabled} onClick={() => setReview({ key: item.key, operation: 'remove' })} aria-label={`${t('global_coach.photo_remove')}: ${item.file.name}`}>{compact ? <X size={16} aria-hidden="true" /> : t('global_coach.photo_remove')}</button>
           </div>
         </div>
       </li>)}
@@ -49,5 +55,6 @@ export function AttachmentPicker({ controller, state, conversationId, transport,
     </section>}
     {state.pending && <button type="button" onClick={() => controller.cancel()}>{t('global_coach.cancel')}</button>}
     {state.error && <p role="status">{t(`global_coach.photo_error_${state.error}`)}</p>}
+    </div>
   </details>;
 }
