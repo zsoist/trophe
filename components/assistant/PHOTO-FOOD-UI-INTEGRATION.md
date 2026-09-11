@@ -1,8 +1,9 @@
 # Photo Food UI integration
 
-`NEXT_PUBLIC_COACH_PHOTO_FOOD_ACTIONS_ENABLED=1` exposes review only for an
-available attachment that the current saved conversation returned. The browser
-does not analyze an image. It reads an already authorized server observation,
+`NEXT_PUBLIC_COACH_PHOTO_FOOD_ACTIONS_ENABLED=1` exposes private upload without
+requiring a preceding chat turn, then exposes review only for an available
+attachment reference returned for the current conversation. The browser does
+not analyze an image. It reads an already authorized server observation,
 labels offline fixtures, asks the user to choose an item and enter explicit
 grams/date/meal, then renders the canonical proposal before confirmation.
 
