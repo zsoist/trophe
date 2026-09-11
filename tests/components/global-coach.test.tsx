@@ -78,7 +78,7 @@ it('offers reviewed food analysis immediately after a private upload without ano
   const createThread = vi.fn<NonNullable<HistoryTransport['create']>>(async (_requestId, title) => ({ id: durableConversationId, title, createdAt: '2026-09-11T12:00:00.000Z', revision: '0', state: 'active' }));
   const historyTransport: HistoryTransport = { create: createThread, list: vi.fn(), read: vi.fn() };
   process.env.NEXT_PUBLIC_COACH_PHOTO_FOOD_ACTIONS_ENABLED = '1';
-  process.env.NEXT_PUBLIC_COACH_CHAT_HISTORY_ENABLED = '1';
+  delete process.env.NEXT_PUBLIC_COACH_CHAT_HISTORY_ENABLED;
   vi.stubGlobal('fetch', fetchMock);
   URL.createObjectURL = vi.fn(() => 'blob:food-photo');
   URL.revokeObjectURL = vi.fn();
@@ -94,6 +94,7 @@ it('offers reviewed food analysis immediately after a private upload without ano
   await screen.findByRole('button', { name: /Fixture rice/ });
   expect(fetchMock).toHaveBeenCalledTimes(2);
   expect(createThread).toHaveBeenCalledTimes(1);
+  expect(screen.queryByRole('button', { name: 'Saved conversations' })).toBeNull();
   expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({ operation: 'attachment.prepare', conversationId: durableConversationId });
   expect(photoFoodTransport).toHaveBeenCalledTimes(1);
   expect(photoFoodTransport.mock.calls[0][0]).toMatchObject({ operation: 'photo.food.read', attachmentId, conversationId: durableConversationId });

@@ -20,7 +20,7 @@ function fixture(){
   if(sql.includes('INSERT INTO private.coach_attachment_uploads')){rows[String(p[0])]={id:p[0],actor_id:p[1],subject_id:p[2],organization_id:p[3],conversation_id:p[4],request_id:p[5],bucket:p[6],object_path:p[7],mime:p[8],input_bytes:p[9],upload_token_hash:p[10],expires_at:p[11],state:'prepared',source_digest:null,normalized_digest:null,metadata:null,expired:false};return {rows:[]};}
   if(sql.includes('SELECT *,expires_at')){
    if(sql.includes('request_id='))return {rows:Object.values(rows).filter(r=>r.actor_id===p[0]&&r.request_id===p[1])};
-   if(sql.includes('SKIP LOCKED'))return {rows:Object.values(rows).filter(r=>r.bucket===p[0]&&r.state!=='removed'&&r.expired)};
+   if(sql.includes('SKIP LOCKED'))return {rows:Object.values(rows).filter(r=>r.bucket===p[0]&&r.state!=='removed'&&r.expired&&(!sql.includes('actor_id=')||r.actor_id===p[1]&&r.subject_id===p[2]&&r.organization_id===p[3]))};
    const r=rows[String(p[0])];return {rows:r&&r.actor_id===p[1]&&r.subject_id===p[2]&&r.organization_id===p[3]&&r.conversation_id===p[4]?[r]:[]};
   }
   if(sql.includes('SET source_digest=')){rows[String(p[1])].source_digest=p[0];return {rows:[]};}
@@ -48,6 +48,14 @@ describe('durable private attachment lifecycle',()=>{
   expect(await f.service.upload(s,a.uploadToken!,new Uint8Array([3,2,1]),f.signal)).toMatchObject({error:'idempotency_conflict'});
   f.expire();f.failDelete(true);expect(await f.service.cleanup(f.signal)).toEqual({ok:false,removed:0});expect(f.rows()[s.attachmentId].state).toBe('prepared');
   f.failDelete(false);expect(await f.service.cleanup(f.signal)).toEqual({ok:true,removed:1});expect(f.objects.size).toBe(0);expect(await f.service.cleanup(f.signal)).toEqual({ok:true,removed:0});
+ });
+ it('reclaims only the current client scope expired reservations before applying the capacity limit',async()=>{
+  const f=fixture();const first=await f.service.operation(scope,prepare,f.signal);const firstId=first.attachment!.id;f.expire();
+  const foreignId=id(99),foreignScope={actorId:id(90),subjectId:id(90),organizationId:id(91),conversationId:id(92),attachmentId:foreignId};
+  f.rows()[foreignId]={...f.rows()[firstId],id:foreignId,actor_id:foreignScope.actorId,subject_id:foreignScope.subjectId,organization_id:foreignScope.organizationId,conversation_id:foreignScope.conversationId,object_path:attachmentObjectPath(foreignScope),expired:true};
+  const second=await f.service.operation(scope,{...prepare,requestId:id(5)},f.signal);
+  expect(second).toMatchObject({ok:true,state:'prepared'});expect(f.rows()[firstId].state).toBe('removed');expect(f.rows()[foreignId].state).toBe('prepared');
+  expect(f.storage.remove).toHaveBeenCalledTimes(1);expect(f.storage.remove).toHaveBeenCalledWith(expect.objectContaining({actorId:scope.actorId,attachmentId:firstId}),expect.any(AbortSignal));
  });
  it('uses a signing margin across a clock-second boundary without extending retention',async()=>{
   const f=fixture();const a=await f.service.operation(scope,prepare,f.signal);const s={...scope,conversationId:id(3),attachmentId:a.attachment!.id};await f.service.upload(s,a.uploadToken!,new Uint8Array([1,2,3]),f.signal);

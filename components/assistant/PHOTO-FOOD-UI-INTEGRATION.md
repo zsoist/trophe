@@ -4,7 +4,8 @@
 requiring a preceding chat turn. Confirming the upload first creates the saved
 conversation required by the private Photo authorization boundary, without a
 model call, and uses that durable conversation id for prepare, upload and
-review. Review appears only for an available attachment reference returned for
+review. This thread preparation is independent of whether saved-chat history is
+shown in the UI. Review appears only for an available attachment reference returned for
 that conversation. The browser does not analyze an image. It reads an already authorized server observation,
 labels offline fixtures, asks the user to choose an item and enter explicit
 grams/date/meal, then renders the canonical proposal before confirmation.

@@ -162,13 +162,14 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   const state = useSyncExternalStore(controller.subscribe, controller.snapshot, controller.snapshot);
   const [memory] = useState(() => new MemoryController(state.conversationId));
   const memoryState = useSyncExternalStore(memory.subscribe, memory.snapshot, memory.snapshot);
+  const photoFoodEnabled = process.env.NEXT_PUBLIC_COACH_PHOTO_FOOD_ACTIONS_ENABLED === '1' && (!example || Boolean(photoFoodTransport)) && (!subjectId || subjectId === identity);
   const historyEnabled = process.env.NEXT_PUBLIC_COACH_CHAT_HISTORY_ENABLED === '1' && (!example || Boolean(historyTransport)) && (!subjectId || subjectId === identity);
   const prepareVoiceConversation = historyEnabled ? () => {
     const create = (historyTransport ?? requestHistory).create;
     if (!create) return Promise.resolve(null);
     return controller.prepareDurable(t('global_coach.voice_thread_title'), (requestId, title, signal) => create(requestId, title, signal));
   } : undefined;
-  const preparePhotoConversation = historyEnabled ? () => {
+  const preparePhotoConversation = photoFoodEnabled ? () => {
     const create = (historyTransport ?? requestHistory).create;
     if (!create) return Promise.resolve(null);
     return controller.prepareDurable(t('global_coach.photo_food_title'), (requestId, title, signal) => create(requestId, title, signal));
@@ -180,7 +181,6 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   const [progress] = useState(() => new ProgressController());
   const progressState = useSyncExternalStore(progress.subscribe, progress.snapshot, progress.snapshot);
   const progressEnabled = surface === 'progress' && process.env.NEXT_PUBLIC_COACH_PROGRESS_ACTIONS_ENABLED === '1' && (!example || Boolean(progressTransport)) && (!subjectId || subjectId === identity);
-  const photoFoodEnabled = process.env.NEXT_PUBLIC_COACH_PHOTO_FOOD_ACTIONS_ENABLED === '1' && (!example || Boolean(photoFoodTransport)) && (!subjectId || subjectId === identity);
   const workoutSetState = useSyncExternalStore(workoutSetController.subscribe, workoutSetController.snapshot, workoutSetController.snapshot);
   const messageState = useSyncExternalStore(messageController.subscribe, messageController.snapshot, messageController.snapshot);
   const messageEnabled = (process.env.NEXT_PUBLIC_COACH_MESSAGE_ACTIONS_ENABLED === '1' || Boolean(example && messageTransport)) && (!subjectId || subjectId === identity);
