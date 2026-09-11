@@ -33,7 +33,7 @@ export function AttachmentPicker({ controller, state, conversationId, transport,
           <div className={styles.memoryActions}>
             {transport && (item.state === 'selected' || item.state === 'retryable') && <button type="button" disabled={state.pending || disabled} onClick={() => setReview({ key: item.key, operation: 'upload' })}>{t('global_coach.photo_review_upload')}</button>}
             {transport && item.state === 'uncertain' && <button type="button" disabled={state.pending || disabled} onClick={() => void controller.check(item.key, conversationId, transport)}>{t('global_coach.photo_check')}</button>}
-            <button type="button" disabled={state.pending || disabled} onClick={() => setReview({ key: item.key, operation: 'remove' })} aria-label={`${t('global_coach.photo_remove')}: ${item.file.name}`}>{compact ? <X size={16} aria-hidden="true" /> : t('global_coach.photo_remove')}</button>
+            <button type="button" disabled={state.pending || disabled} onClick={() => setReview({ key: item.key, operation: 'remove' })} aria-label={compact ? `${t('global_coach.photo_remove')}: ${item.file.name}` : undefined}>{compact ? <X size={16} aria-hidden="true" /> : t('global_coach.photo_remove')}</button>
           </div>
         </div>
       </li>)}
