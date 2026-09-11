@@ -2,10 +2,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import type { db } from '@/db/client';
 import { createPilotBudgetStore } from '@/lib/workout/pilot-budget-service';
-import { COACH_ATTEMPT_RESERVATION_NANO_USD as reserve, type PilotAttemptBinding } from '@/agents/coach-assistant/pilot-budget';
+import { COACH_ATTEMPT_RESERVATION_NANO_USD as reserve, PHOTO_ATTEMPT_RESERVATION_NANO_USD, type PilotAttemptBinding } from '@/agents/coach-assistant/pilot-budget';
 import { COACH_PRICING_VERSION } from '@/agents/coach-assistant/economics';
+import { HAIKU_MODEL } from '@/agents/router/policies';
+import { PHOTO_PILOT_PRICING_VERSION } from '@/agents/router/pricing';
 const actor = randomUUID();
 const binding = (): PilotAttemptBinding => ({ actorId: actor, pilotId: randomUUID(), attemptId: randomUUID(), agentRunId: randomUUID(), turnId: randomUUID(), model: 'gpt-5.6-luna', pricingVersion: COACH_PRICING_VERSION, requestHash: 'a'.repeat(64), reservedNanoUsd: reserve });
+const photoBinding = (): PilotAttemptBinding => ({ actorId: actor, pilotId: randomUUID(), attemptId: randomUUID(), agentRunId: randomUUID(), turnId: randomUUID(), model: HAIKU_MODEL, pricingVersion: PHOTO_PILOT_PRICING_VERSION, requestHash: 'b'.repeat(64), reservedNanoUsd: PHOTO_ATTEMPT_RESERVATION_NANO_USD });
 describe('persistent budget writer fail-closed boundaries', () => {
   it('admits beyond the retired LIVE-02 count ceiling when the durable daily budget remains available', async () => {
     const input = binding(), organizationId = randomUUID();
@@ -27,6 +30,20 @@ describe('persistent budget writer fail-closed boundaries', () => {
     const result = await createPilotBudgetStore({ transaction } as unknown as typeof db, actor).execute({ operation: 'reserve', binding: input }, new AbortController().signal);
     expect(result).toMatchObject({ storage: 'database', ok: true, record: { state: 'reserved' } });
     expect(JSON.stringify(execute.mock.calls)).toContain('INSERT INTO public.agent_runs');
+  });
+  it('labels the budget carrier with the provider implied by the governed model', async () => {
+    const input = photoBinding(), organizationId = randomUUID();
+    const execute = vi.fn()
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ organization_id: organizationId, cap_nano_usd: '3000000000', operating_target_nano_usd: '500000000', budget_day: '2026-09-11', server_budget_day: '2026-09-11', charged_nano_usd: '0', attempt_count: 0, accounting_blocked: false, allowed: true }] })
+      .mockResolvedValueOnce({ rows: [{ id: actor }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+    const transaction = vi.fn(async work => work({ execute }));
+    const result = await createPilotBudgetStore({ transaction } as unknown as typeof db, actor).execute({ operation: 'reserve', binding: input }, new AbortController().signal);
+    expect(result).toMatchObject({ storage: 'database', ok: true, record: { state: 'reserved' } });
+    expect(JSON.stringify(execute.mock.calls)).toContain('anthropic');
   });
   it('never queries when the command actor differs from the authenticated caller or the request was cancelled', async () => {
     const transaction = vi.fn();
