@@ -5,16 +5,29 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { I18nProvider } from '@/lib/i18n';
 import GlobalCoach, { resetGlobalCoachSessionsForActor } from '@/components/assistant/GlobalCoach';
 import { ConversationController, coachSurface, type ConversationTransport } from '@/components/assistant/conversation-state';
-import type { CoachConversationRequest, CoachConversationResponse } from '@/agents/coach-assistant/contracts';
+import type { CoachAttachmentResult, CoachConversationRequest, CoachConversationResponse } from '@/agents/coach-assistant/contracts';
+import type { PhotoFoodResult } from '@/agents/coach-assistant/photo-food-contracts';
 import { publishScreenDate } from '@/components/assistant/screen-date';
+import type { AttachmentTransport } from '@/components/assistant/attachment-state';
+import type { PhotoFoodTransport } from '@/components/assistant/photo-food-client';
 const route = vi.hoisted(() => ({ path: '/dashboard/workout' }));
 vi.mock('next/navigation', () => ({ usePathname: () => route.path }));
+const originalPhotoFoodFlag = process.env.NEXT_PUBLIC_COACH_PHOTO_FOOD_ACTIONS_ENABLED;
 const response = (request: CoachConversationRequest, text = 'Recorded summary'): CoachConversationResponse => ({
   version: 'coach-assistant.v2', conversationId: request.conversationId, turnId: request.turnId, ok: true, mode: 'offline', dataSource: 'synthetic', snapshot: null,
   output: { answer: text, evidenceRefs: [], limitations: [], suggestions: [], escalation: { required: false, reason: null, draft: null } }, evidence: [], proposals: [], receipts: [], attachments: [],
   telemetry: { model: null, provider: null, promptVersion: 'test', modelCalls: 0, dataReads: 0, tokensIn: 0, tokensOut: 0, reasoningTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, latencyMs: 0, costUsd: 0, pricingVersion: 'test' },
 });
-afterEach(() => { cleanup(); resetGlobalCoachSessionsForActor('A'); resetGlobalCoachSessionsForActor('route-mount-actor'); publishScreenDate(null)(); vi.useRealTimers(); route.path = '/dashboard/workout'; });
+afterEach(() => {
+  cleanup();
+  resetGlobalCoachSessionsForActor('A');
+  resetGlobalCoachSessionsForActor('route-mount-actor');
+  publishScreenDate(null)();
+  vi.useRealTimers();
+  route.path = '/dashboard/workout';
+  if (originalPhotoFoodFlag === undefined) delete process.env.NEXT_PUBLIC_COACH_PHOTO_FOOD_ACTIONS_ENABLED;
+  else process.env.NEXT_PUBLIC_COACH_PHOTO_FOOD_ACTIONS_ENABLED = originalPhotoFoodFlag;
+});
 function mounted(transport: (request: CoachConversationRequest, signal: AbortSignal) => Promise<CoachConversationResponse>, identity = 'A', subjectId?: string) {
   return <I18nProvider defaultLang="en"><GlobalCoach identity={identity} subjectId={subjectId} example={transport} /></I18nProvider>;
 }
@@ -40,6 +53,45 @@ it('keeps the same conversation and editable draft across real Food and Workout 
   expect(transport.mock.calls[0][0].context?.surface).toBe('workout');
   expect(transport.mock.calls[1][0].context?.surface).toBe('food');
   expect(transport.mock.calls[1][0].history).toHaveLength(2);
+});
+it('offers reviewed food analysis immediately after a private upload without another chat turn', async () => {
+  const attachmentId = '00000000-0000-4000-8000-000000000002';
+  const attachment = { id: attachmentId, kind: 'image' as const, status: 'available' as const };
+  const prepared: CoachAttachmentResult = { version: 'coach-assistant.v2', storage: 'isolated_ephemeral', analysis: 'not_connected', ok: true, state: 'prepared', attachment: { ...attachment, status: 'pending' }, uploadToken: 'a'.repeat(64) };
+  const removed: CoachAttachmentResult = { version: 'coach-assistant.v2', storage: 'isolated_ephemeral', analysis: 'not_connected', ok: true, state: 'removed' };
+  const available: CoachAttachmentResult = { version: 'coach-assistant.v2', storage: 'isolated_ephemeral', analysis: 'not_connected', ok: true, state: 'available', attachment };
+  const attachmentTransport: AttachmentTransport = {
+    operation: vi.fn(async input => input.operation === 'attachment.prepare' ? prepared : removed),
+    upload: vi.fn(async () => available),
+  };
+  const photoFoodTransport = vi.fn<PhotoFoodTransport>(async input => {
+    if (input.operation !== 'photo.food.read') throw new Error('unexpected operation');
+    return {
+      version: 'coach-assistant.v2', storage: 'offline_fixture', ok: true,
+    snapshot: {
+      observationId: crypto.randomUUID(), attachmentId: input.attachmentId, source: 'offline_fixture', trust: 'untrusted_image_data', reviewRequired: true,
+      items: [{ index: 0, version: crypto.randomUUID(), foodName: 'Fixture rice', estimatedGrams: 100, estimatedCalories: 130, confidence: 0.7, accuracyNote: 'Estimate' }],
+    },
+    } satisfies PhotoFoodResult;
+  });
+  process.env.NEXT_PUBLIC_COACH_PHOTO_FOOD_ACTIONS_ENABLED = '1';
+  URL.createObjectURL = vi.fn(() => 'blob:food-photo');
+  URL.revokeObjectURL = vi.fn();
+  const conversationTransport = vi.fn(async (request: CoachConversationRequest) => response(request));
+  const view = render(<I18nProvider defaultLang="en"><GlobalCoach identity="A" example={conversationTransport} attachmentTransport={attachmentTransport} photoFoodTransport={photoFoodTransport} /></I18nProvider>);
+  fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
+  fireEvent.click(screen.getByText('Photos'));
+  const bytes = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a7n8AAAAASUVORK5CYII='), character => character.charCodeAt(0));
+  fireEvent.change(screen.getByLabelText('Choose photos'), { target: { files: [new File([bytes], 'meal.png', { type: 'image/png' })] } });
+  fireEvent.click(await screen.findByRole('button', { name: 'Review upload' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Confirm change' }));
+  expect(await screen.findByText('Uploaded · not analyzed')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Review food in photo' }));
+  await screen.findByRole('button', { name: /Fixture rice/ });
+  expect(photoFoodTransport).toHaveBeenCalledTimes(1);
+  expect(photoFoodTransport.mock.calls[0][0]).toMatchObject({ operation: 'photo.food.read', attachmentId });
+  expect(conversationTransport).not.toHaveBeenCalled();
+  view.unmount();
 });
 it('keeps one conversation while rebinding each Food, Workout and Progress turn to its active surface', async () => {
   HTMLElement.prototype.scrollTo = vi.fn();

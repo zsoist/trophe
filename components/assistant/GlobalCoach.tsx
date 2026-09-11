@@ -10,7 +10,7 @@ import { acceptedScreenDate, subscribeScreenDate, screenDateSnapshot, emptyScree
 import { useGlobalCoachI18n } from './useGlobalCoachI18n';
 import styles from './GlobalCoach.module.css';
 import { requestAttachment } from './attachment-client';
-import { AttachmentController } from './attachment-state';
+import { AttachmentController, type AttachmentTransport } from './attachment-state';
 import { VoiceCapture } from './VoiceCapture';
 import { VoiceController } from './voice-state';
 import { FoodQuantityController, type FoodTransport } from './food-state';
@@ -125,7 +125,7 @@ export function resetGlobalCoachSessionsForActor(actorId: string) {
 
 export type CoachContextSlot = (props: { identity: string; controller: PreferenceController; state: PreferenceState; conversationId: string; turnId: string; surface: CoachSurfaceName; response: CoachConversationResponse; transport: PreferenceTransport }) => ReactNode;
 export type CoachVoiceSlot = (props: { conversationId: string; prepareConversation?: () => Promise<string | null>; onUse: (text: string) => boolean; onSend?: (result: Extract<CoachVoiceResult, { ok: true }>, text: string) => Promise<'sent' | 'ambiguous' | 'failed'> }) => ReactNode;
-type Props = { identity: string; subjectId?: string; professional?: boolean; example?: ConversationTransport; preferenceTransport?: PreferenceTransport; memoryTransport?: MemoryTransport; dietTransport?: DietTransport; progressTransport?: ProgressTransport; foodTransport?:FoodTransport; photoFoodTransport?:PhotoFoodTransport; workoutSetTransport?:WorkoutSetTransport; messageTransport?:MessageTransport; historyTransport?: HistoryTransport; contextSlot?: CoachContextSlot; voiceSlot?: CoachVoiceSlot; voiceTranscriptionTransport?: VoiceTranscriptionTransport; reviewedVoiceTransport?: ReviewedVoiceTransport; workspaceHint?: CoachContextHint['workspace'] };
+type Props = { identity: string; subjectId?: string; professional?: boolean; example?: ConversationTransport; attachmentTransport?: AttachmentTransport; preferenceTransport?: PreferenceTransport; memoryTransport?: MemoryTransport; dietTransport?: DietTransport; progressTransport?: ProgressTransport; foodTransport?:FoodTransport; photoFoodTransport?:PhotoFoodTransport; workoutSetTransport?:WorkoutSetTransport; messageTransport?:MessageTransport; historyTransport?: HistoryTransport; contextSlot?: CoachContextSlot; voiceSlot?: CoachVoiceSlot; voiceTranscriptionTransport?: VoiceTranscriptionTransport; reviewedVoiceTransport?: ReviewedVoiceTransport; workspaceHint?: CoachContextHint['workspace'] };
 
 export default function GlobalCoach(props: Props) {
   const [workoutSet] = useState(() => new WorkoutSetController());
@@ -141,7 +141,7 @@ export default function GlobalCoach(props: Props) {
   }, [foodScope]);
   return <CoachSurface key={`${foodScope}:${props.professional ? 'professional' : 'self'}`} {...props} sessionScope={foodScope} conversationController={controller} foodController={food} workoutSetController={workoutSet} messageController={message} />;
 }
-function CoachSurface({ identity, subjectId, professional = false, example, preferenceTransport, memoryTransport, dietTransport, progressTransport, foodTransport, photoFoodTransport, workoutSetTransport, messageTransport, historyTransport, contextSlot, voiceSlot, voiceTranscriptionTransport, reviewedVoiceTransport, workspaceHint, sessionScope, conversationController: controller, foodController: food, workoutSetController, messageController }: Props & { sessionScope: string; conversationController: ConversationController; foodController: FoodQuantityController; workoutSetController: WorkoutSetController; messageController: MessageController }) {
+function CoachSurface({ identity, subjectId, professional = false, example, attachmentTransport, preferenceTransport, memoryTransport, dietTransport, progressTransport, foodTransport, photoFoodTransport, workoutSetTransport, messageTransport, historyTransport, contextSlot, voiceSlot, voiceTranscriptionTransport, reviewedVoiceTransport, workspaceHint, sessionScope, conversationController: controller, foodController: food, workoutSetController, messageController }: Props & { sessionScope: string; conversationController: ConversationController; foodController: FoodQuantityController; workoutSetController: WorkoutSetController; messageController: MessageController }) {
   const { t } = useGlobalCoachI18n();
   const path = usePathname();
   const surface = coachSurface(path);
@@ -410,8 +410,8 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
       </div>
       {showLatest && <button type="button" className="min-h-11 px-4 text-sm" onClick={() => { followLatest.current = true; setShowLatest(false); log.current?.scrollTo({ top: log.current.scrollHeight }); }}>{t('global_coach.latest')}</button>}
       <form className={styles.composer} onSubmit={event => { event.preventDefault(); void send(); }}>
-        <AttachmentPicker controller={attachments} state={attachmentState} conversationId={state.conversationId} transport={!example && latestResponse?.uploads?.images ? requestAttachment : undefined} analysisEnabled={photoFoodEnabled} disabled={state.pending || coachActionBlocked} />
-        {photoFoodEnabled&&attachmentState.items.filter(item=>item.state==='available'&&item.reference&&latestResponse?.attachments.some(reference=>reference.id===item.reference!.id&&reference.status==='available')).map(item=><button key={`food-${item.key}`} type="button" className={styles.contextToggle} disabled={photoFoodState.pending || coachActionBlocked} onClick={()=>void photoFood.select(item.reference!.id,state.conversationId,photoFoodTransport??requestPhotoFood)}>{t('global_coach.photo_food_open')}</button>)}
+        <AttachmentPicker controller={attachments} state={attachmentState} conversationId={state.conversationId} transport={attachmentTransport ?? (!example && latestResponse?.uploads?.images ? requestAttachment : undefined)} analysisEnabled={photoFoodEnabled} disabled={state.pending || coachActionBlocked} />
+        {photoFoodEnabled && attachmentState.items.filter(item => item.state === 'available' && item.reference?.status === 'available').map(item => <button key={`food-${item.key}`} type="button" className={styles.contextToggle} disabled={photoFoodState.pending || coachActionBlocked} onClick={() => void photoFood.select(item.reference!.id, state.conversationId, photoFoodTransport ?? requestPhotoFood)}>{t('global_coach.photo_food_open')}</button>)}
         <VoiceCapture key={state.conversationId} controller={voice} state={voiceState} disabled={state.pending || attachmentState.pending || coachActionBlocked} conversationId={state.conversationId} transcribe={subjectId && subjectId !== identity ? undefined : voiceTranscriptionTransport} prepareConversation={voiceTranscriptionTransport ? prepareVoiceConversation : undefined} onUse={text => {
           if (voiceActive || state.pending || coachActionBlocked) return false;
           const current = controller.snapshot().draft;
