@@ -500,7 +500,7 @@
       "kind": "custom",
       "refersTo": "ask-trophe-overlay",
       "description": "A conversation-first glass overlay that preserves the current screen, context, history, reviewed actions, media, and voice without shifting the client layout.",
-      "html": "<section class=\"ds-ask-overlay\" role=\"dialog\" aria-labelledby=\"ask-title\"><header><span aria-hidden=\"true\">✦</span><h2 id=\"ask-title\">Ask Trophē</h2><button type=\"button\" aria-label=\"Close\"></button></header><div role=\"log\"></div><button class=\"ds-context-chip\" type=\"button\">Workout <span aria-hidden=\"true\">×</span></button><form><button type=\"button\" aria-label=\"Add photo\"></button><textarea aria-label=\"Your question\" rows=\"1\"></textarea><button type=\"button\" aria-label=\"Voice\"></button><button type=\"submit\" aria-label=\"Send\"></button></form></section>",
+      "html": "<section class=\"ds-ask-overlay\" role=\"dialog\" aria-modal=\"true\" aria-labelledby=\"ask-title\"><header><span aria-hidden=\"true\">✦</span><h2 id=\"ask-title\">Ask Trophē</h2><button type=\"button\" aria-label=\"Close\"></button></header><div role=\"log\"></div><button class=\"ds-context-chip\" type=\"button\">Workout <span aria-hidden=\"true\">×</span></button><form><button type=\"button\" aria-label=\"Add photo\"></button><textarea aria-label=\"Your question\" rows=\"1\"></textarea><button type=\"button\" aria-label=\"Voice\"></button><button type=\"submit\" aria-label=\"Send\"></button></form></section>",
       "css": ".ds-ask-overlay { position: fixed; inset-inline: 10px; bottom: max(10px, env(safe-area-inset-bottom)); display: flex; height: min(72dvh, 44rem); max-width: 42rem; margin-inline: auto; flex-direction: column; overflow: hidden; border: 1px solid var(--performance-rail); border-radius: 20px; background: color-mix(in srgb, var(--performance-canvas) 82%, transparent); box-shadow: var(--shadow-high); backdrop-filter: blur(30px) saturate(145%); } .ds-ask-overlay form { display:flex; align-items:flex-end; min-height:50px; gap:4px; padding:4px; border:1px solid var(--performance-rail); border-radius:16px; background:var(--performance-surface); } .ds-ask-overlay textarea { min-width:0; flex:1; resize:none; border:0; background:transparent; color:var(--performance-ink); font:400 16px/1.35 Inter,system-ui,sans-serif; } .ds-ask-overlay button { min-width:44px; min-height:44px; } @media (prefers-reduced-transparency: reduce) { .ds-ask-overlay { background:var(--performance-canvas); backdrop-filter:none; } }"
     }
   ],
@@ -548,7 +548,7 @@
       },
       {
         "name": "The Context Continuity Rule",
-        "body": "Ask Trophē opens over the current surface. The screen context is a removable chip; media, voice, history, and account capabilities appear only after the user opens their control. The conversation and composer remain primary at every viewport.",
+        "body": "Ask Trophē opens over the current surface. The background is inert and focus remains in the overlay. The screen context is a removable chip; media, voice, history, and account capabilities appear only after the user opens their control. The conversation and composer remain primary at every viewport.",
         "section": "components"
       }
     ],

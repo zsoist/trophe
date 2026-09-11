@@ -1,7 +1,7 @@
 .root { color: var(--text-primary); }
 .launcher { display: flex; gap: .5rem; align-items: center; min-height: 44px; padding: .6rem .85rem; border: 1px solid var(--border-default); border-radius: 12px; background: color-mix(in srgb, var(--bg-primary) 88%, transparent); color: var(--text-primary); font-size: .875rem; font-weight: 650; box-shadow: 0 8px 24px rgba(0,0,0,.12); backdrop-filter: blur(18px) saturate(135%); }
 .backdrop { position: fixed; z-index: 54; inset: 0; width: 100%; height: 100%; border: 0; background: rgba(4,6,5,.24); }
-.panel { position: fixed; z-index: 55; inset-inline: .65rem; bottom: max(.65rem, env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; width: auto; max-width: 42rem; height: min(72dvh, 44rem); margin-inline: auto; overflow: hidden; border: 1px solid color-mix(in srgb, var(--text-primary) 13%, transparent); border-radius: 20px; background: color-mix(in srgb, var(--bg-primary) 82%, transparent); box-shadow: 0 24px 72px rgba(0,0,0,.42); backdrop-filter: blur(30px) saturate(145%); animation: coach-rise 190ms cubic-bezier(.2,.75,.25,1); }
+.panel { position: fixed; z-index: 55; inset-inline: .65rem; bottom: calc(max(.65rem, env(safe-area-inset-bottom, 0px)) + var(--coach-keyboard-inset, 0px)); display: flex; flex-direction: column; width: auto; max-width: 42rem; height: min(var(--coach-panel-height, 72dvh), 44rem); max-height: calc(var(--coach-viewport-height, 100dvh) - 1.3rem); margin-inline: auto; overflow: hidden; border: 1px solid color-mix(in srgb, var(--text-primary) 13%, transparent); border-radius: 20px; background: color-mix(in srgb, var(--bg-primary) 82%, transparent); box-shadow: 0 24px 72px rgba(0,0,0,.42); backdrop-filter: blur(30px) saturate(145%); animation: coach-rise 190ms cubic-bezier(.2,.75,.25,1); }
 @keyframes coach-rise { from { transform: translateY(14px); opacity: .82; } to { transform: translateY(0); opacity: 1; } }
 .header { position: relative; z-index: 4; display: flex; justify-content: space-between; gap: .75rem; align-items: center; min-height: 64px; padding: .65rem .7rem .65rem .9rem; border-bottom: 1px solid color-mix(in srgb, var(--text-primary) 11%, transparent); background: color-mix(in srgb, var(--bg-primary) 68%, transparent); }
 .identity { display: flex; min-width: 0; align-items: center; gap: .65rem; }
@@ -76,7 +76,7 @@
 .fileName { overflow-wrap: anywhere; }
 .compactVoice { position: relative; flex: 0 0 auto; }
 .compactVoice > summary { display: grid; width: 44px; height: 44px; place-items: center; border-radius: 13px; color: var(--text-secondary); }
-.compactVoice > :not(summary) { position: absolute; right: 0; bottom: 50px; width: min(19rem, calc(100vw - 3rem)); padding: .65rem; border: 1px solid var(--border-default); border-radius: 14px; background: color-mix(in srgb, var(--bg-primary) 96%, transparent); box-shadow: 0 16px 48px rgba(0,0,0,.34); }
+.compactVoice .voiceBody { position: absolute; right: 0; bottom: 50px; width: min(19rem, calc(100vw - 3rem)); max-height: min(42dvh, 22rem); overflow: auto; padding: .65rem; border: 1px solid var(--border-default); border-radius: 14px; background: color-mix(in srgb, var(--bg-primary) 96%, transparent); box-shadow: 0 16px 48px rgba(0,0,0,.34); }
 .compactVoiceReview { position: absolute; z-index: 6; right: .7rem; bottom: 4.5rem; left: .7rem; max-height: min(42dvh, 22rem); overflow: auto; padding: .7rem; border: 1px solid var(--border-default); border-radius: 14px; background: color-mix(in srgb, var(--bg-primary) 96%, transparent); box-shadow: 0 16px 48px rgba(0,0,0,.34); }
 .speechControls { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem; margin-top: .65rem; }
 .speechControl { display: inline-flex; min-height: 40px; align-items: center; gap: .4rem; padding: .45rem .65rem; border: 1px solid var(--border-default); border-radius: 10px; color: var(--text-secondary); font-size: .75rem; }
@@ -104,7 +104,7 @@
 .root button:disabled { cursor: not-allowed; opacity: .48; }
 .launcher:focus-visible, .root button:focus-visible, .root textarea:focus-visible, .root input:focus-visible, .root summary:focus-visible { outline: 2px solid var(--gold-300); outline-offset: 2px; }
 @media (hover: hover) and (pointer: fine) { .root button:hover:not(:disabled), .root summary:hover { background-color: color-mix(in srgb, var(--gold-300) 9%, transparent); } }
-@media (min-width: 768px) { .panel { right: 1.25rem; left: auto; bottom: 1.25rem; width: min(42rem, calc(100vw - 2.5rem)); height: min(76dvh, 44rem); } }
+@media (min-width: 768px) { .panel { right: 1.25rem; left: auto; bottom: calc(1.25rem + var(--coach-keyboard-inset, 0px)); width: min(42rem, calc(100vw - 2.5rem)); height: min(var(--coach-panel-height, 76dvh), 44rem); } }
 @media (prefers-reduced-motion: reduce) { .panel { animation: none; } }
-@media (prefers-reduced-transparency: reduce) { .launcher, .panel, .menuBody, .compactAttachments .attachmentPopover, .compactVoice > :not(summary) { background: var(--bg-primary); backdrop-filter: none; } .backdrop { background: rgba(0,0,0,.5); } }
-@supports not (backdrop-filter: blur(1px)) { .launcher, .panel, .menuBody, .compactAttachments .attachmentPopover, .compactVoice > :not(summary) { background: var(--bg-primary); } }
+@media (prefers-reduced-transparency: reduce) { .launcher, .panel, .menuBody, .compactAttachments .attachmentPopover, .compactVoice .voiceBody { background: var(--bg-primary); backdrop-filter: none; } .backdrop { background: rgba(0,0,0,.5); } }
+@supports not (backdrop-filter: blur(1px)) { .launcher, .panel, .menuBody, .compactAttachments .attachmentPopover, .compactVoice .voiceBody { background: var(--bg-primary); } }

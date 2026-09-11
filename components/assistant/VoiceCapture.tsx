@@ -52,6 +52,7 @@ export function VoiceCapture({ controller, state, disabled, conversationId, tran
   }
   return <details className={`${styles.attachments} ${compact ? styles.compactVoice : ''}`} onToggle={event => { if (!event.currentTarget.open && (active || processing)) reset(); }}>
     <summary aria-label={t('global_coach.voice')}><Mic size={19} aria-hidden="true" /><span className={compact ? 'sr-only' : undefined}>{t('global_coach.voice')}</span></summary>
+    <div className={styles.voiceBody}>
     {!compact && <p>{t(transcribe ? 'global_coach.voice_connected' : 'global_coach.voice_local')}</p>}
     {state.phase === 'idle' && !processing && <button type="button" disabled={disabled} onClick={() => void start()}>{t('global_coach.voice_start')}</button>}
     {active && <div role="status"><p>{t(`global_coach.voice_${state.phase}`, { seconds: Math.floor(state.elapsedMs / 1000) })}</p>
@@ -68,5 +69,6 @@ export function VoiceCapture({ controller, state, disabled, conversationId, tran
     </div>}
     {state.error && <p role="status">{t(`global_coach.voice_error_${state.error}`)}</p>}
     {flowError && <p role="alert">{t('global_coach.voice_processing_failed')}</p>}
+    </div>
   </details>;
 }

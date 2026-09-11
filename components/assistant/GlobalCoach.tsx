@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { History, Menu, Send, Sparkles, Square, X } from 'lucide-react';
@@ -214,7 +214,10 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   const [historyOpen, setHistoryOpen] = useState(false);
   const [includeScreen, setIncludeScreen] = useState(true);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const [viewportMetrics, setViewportMetrics] = useState<{ height: number; keyboardInset: number } | null>(null);
   const launcher = useRef<HTMLButtonElement>(null);
+  const panel = useRef<HTMLElement>(null);
+  const backdrop = useRef<HTMLButtonElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   const log = useRef<HTMLDivElement>(null);
   const followLatest = useRef(true);
@@ -249,13 +252,53 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   }, [foodState.receipt, foodState.pending, foodState.error, foodState.entry, identity]);
   useEffect(()=>{if(!photoFoodState.receipt||!photoFoodState.refreshEntryId||foodState.pending||foodState.error||foodState.entry?.entryId!==photoFoodState.refreshEntryId)return;window.dispatchEvent(new CustomEvent(COACH_FOOD_REFRESH,{detail:{actorId:identity,entryId:photoFoodState.refreshEntryId}}));},[foodState.entry,foodState.error,foodState.pending,identity,photoFoodState.receipt,photoFoodState.refreshEntryId]);
   useEffect(() => { setAnchor(document.getElementById('global-coach-anchor')); }, []);
+  useEffect(() => {
+    if (!open) return;
+    const visualViewport = window.visualViewport;
+    const measure = () => {
+      const height = visualViewport?.height ?? window.innerHeight;
+      const keyboardInset = visualViewport ? Math.max(0, window.innerHeight - visualViewport.height - visualViewport.offsetTop) : 0;
+      setViewportMetrics({ height, keyboardInset });
+    };
+    measure();
+    visualViewport?.addEventListener('resize', measure);
+    visualViewport?.addEventListener('scroll', measure);
+    window.addEventListener('resize', measure);
+    return () => {
+      visualViewport?.removeEventListener('resize', measure);
+      visualViewport?.removeEventListener('scroll', measure);
+      window.removeEventListener('resize', measure);
+    };
+  }, [open]);
   useEffect(() => { if (open) input.current?.focus(); }, [open]);
   useEffect(() => {
     if (!open) return;
     if (followLatest.current && !window.getSelection()?.toString()) log.current?.scrollTo({ top: log.current.scrollHeight });
     else setShowLatest(true);
   }, [open, state.turns, state.pending]);
-  const close = () => { controller.cancel(); preferences.cancel(); attachments.cancel(); voice.reset(); food.discard(); food.cancel(); photoFood.cancel(); memory.cancel(); diet.cancel(); progress.cancel(); workoutSetController.cancel(); messageController.cancel(); setOpen(false); launcher.current?.focus(); };
+  const close = () => { controller.cancel(); preferences.cancel(); attachments.cancel(); voice.reset(); food.discard(); food.cancel(); photoFood.cancel(); memory.cancel(); diet.cancel(); progress.cancel(); workoutSetController.cancel(); messageController.cancel(); setOpen(false); window.setTimeout(() => launcher.current?.focus(), 0); };
+  useEffect(() => {
+    if (!open || !panel.current || !backdrop.current) return;
+    const overlayNodes = new Set([panel.current, backdrop.current]);
+    const background = Array.from(document.body.children).filter((node): node is HTMLElement => node instanceof HTMLElement && !overlayNodes.has(node));
+    const previous = background.map(node => ({ node, inert: node.hasAttribute('inert') }));
+    background.forEach(node => node.setAttribute('inert', ''));
+    return () => previous.forEach(({ node, inert }) => inert ? node.setAttribute('inert', '') : node.removeAttribute('inert'));
+  }, [open]);
+  const handleDialogKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    if (event.key === 'Escape') { event.stopPropagation(); close(); return; }
+    if (event.key !== 'Tab' || !panel.current) return;
+    const focusable = Array.from(panel.current.querySelectorAll<HTMLElement>('button:not(:disabled), summary, textarea:not(:disabled), input:not(:disabled):not([hidden]), select:not(:disabled), [tabindex]:not([tabindex="-1"])'));
+    if (!focusable.length) return;
+    const first = focusable[0]; const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  };
+  const panelStyle = viewportMetrics ? {
+    '--coach-viewport-height': `${viewportMetrics.height}px`,
+    '--coach-panel-height': `${Math.min(viewportMetrics.height * .72, 704)}px`,
+    '--coach-keyboard-inset': `${viewportMetrics.keyboardInset}px`,
+  } as CSSProperties : undefined;
   const currentContext = (): CoachContextHint => {
     const contextualSelection = includeScreen && selection
       ? selection.anatomy ? { anatomy: selection.anatomy } : { entity: selection.entity }
@@ -352,9 +395,9 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
     </button>;
   return <div className={styles.root}>
     {anchor ? createPortal(launch, anchor) : launch}
-    {open && <>
-      <button type="button" className={styles.backdrop} onClick={close} aria-hidden="true" tabIndex={-1} />
-      <section id="global-coach" className={styles.panel} role="dialog" aria-modal="false" aria-labelledby="global-coach-title" onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); close(); } }}>
+    {open && createPortal(<>
+      <button ref={backdrop} type="button" className={styles.backdrop} onClick={close} aria-hidden="true" tabIndex={-1} />
+      <section ref={panel} id="global-coach" className={styles.panel} style={panelStyle} role="dialog" aria-modal="true" aria-labelledby="global-coach-title" onKeyDown={handleDialogKeyDown}>
       <header className={styles.header}>
         <div className={styles.identity}><span className={styles.mark}><Sparkles size={17} aria-hidden="true" /></span><div><h2 id="global-coach-title">{t('global_coach.title')}</h2><p>{t(example ? 'global_coach.example' : 'global_coach.identity')}</p>{subjectId && subjectId !== identity && <p className={styles.subject}>{t('global_coach.professional_subject', { subject: subjectId.slice(0, 8) })}</p>}</div></div>
         <div className={styles.headerActions}>
@@ -438,6 +481,6 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
         <button type={state.pending ? 'button' : 'submit'} className={styles.sendButton} onClick={state.pending ? () => controller.cancel() : undefined} disabled={!state.pending && (missingProfessionalSubject || state.recoveryRequired || !state.draft.trim() || attachmentState.pending || voiceActive || composerSubmitBlocked)} aria-label={t(state.pending ? 'global_coach.cancel' : 'global_coach.send')}>{state.pending ? <Square size={15} aria-hidden="true" /> : <Send size={17} aria-hidden="true" />}</button>
         </div>
       </form>
-    </section></>}
+    </section></>, document.body)}
   </div>;
 }
