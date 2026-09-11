@@ -26,7 +26,7 @@ import { join } from 'node:path';
 import type { FoodParseInput, FoodParseOutput, ParsedFoodItem } from '../schemas/food-parse';
 import { safeErrorMetadata } from '../../lib/security/safe-error-log';
 import { enrichWithLocalDB } from './enrich';
-import { lookupFoodBatch, ragPreSearch, formatRagContext, correctFoodName } from './lookup';
+import { lookupFoodBatch, ragPreSearch, formatRagContext, correctFoodName, resolveDirectMetricUnit } from './lookup';
 import type { LookupInput } from './lookup';
 import { decomposeAndLookup, lookupCachedRecipeAsItem } from './decompose';
 import { extractLocalFoodCandidates } from './local-fast-path';
@@ -322,11 +322,14 @@ export function arbitrateDbVsCoT(
     : 0;
   const dbHasAlcoholCalories = !!dbPer100g && dbPer100g.kcal > 20 &&
     (dbPer100g.kcal - dbAtwaterKcal) / dbPer100g.kcal > 0.25;
+  const directMetricUnit = resolveDirectMetricUnit(candidate.unit);
 
-  // Rule 1: Explicit portion + food-specific conversion → trust DB for grams+calories.
+  // Rule 1: Explicit portion + a stored or direct metric conversion → trust the
+  // resolved grams and DB calories. Direct volume retains its declared density
+  // assumption; it is never treated as measured mass.
   // But v6: if LLM per-100g macro ratios significantly diverge from DB, use LLM's
   // macro distribution (the DB might have imported wrong macro ratios).
-  if (isExplicitPortion && hasFoodSpecificConversion) {
+  if (isExplicitPortion && (hasFoodSpecificConversion || directMetricUnit)) {
     // v6 macro ratio correction for Rule 1 (skip for high-confidence branded DB matches)
     if (per100gAvailable && dbPer100g && dbPer100g.kcal > 0 && effectiveDbTrust < 0.85 && !dbHasAlcoholCalories) {
       const llmP100 = candidate.per_100g_protein ?? 0;
@@ -360,7 +363,9 @@ export function arbitrateDbVsCoT(
       fat_g: dbMacros.fat,
       fiber_g: dbMacros.fiber ?? 0,
       sugar_g: Math.round(dbSugarPer100g * dbGrams / 100 * 10) / 10,
-      confidence: 0.95,
+      confidence: directMetricUnit?.basis === 'density_assumption' && !hasFoodSpecificConversion
+        ? dbConfidence
+        : 0.95,
     };
   }
 
