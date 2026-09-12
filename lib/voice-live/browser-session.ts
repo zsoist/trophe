@@ -1,16 +1,18 @@
 import { VoiceLiveController } from './client-lifecycle';
 import { createBrowserLivePlayback } from './browser-playback';
 import { reservationFor } from './delegation-fragments';
-import type { LiveConnectionAdapter, LiveInputMeterPort, LiveMediaStream, LivePeerConnection, LiveTranscriptCursor } from './client-types';
+import type { LiveConnectionAdapter, LiveInputMeterPort, LiveMediaStream, LiveOutputMeterPort, LivePeerConnection, LiveTranscriptCursor } from './client-types';
 
 const endpoint = '/api/coach-assistant/live';
 
 /**
- * Real input-level meter over the browser `WebAudio` analyser. Returns `null` (never a
- * fabricated wave) when a real meter is unavailable, so the UI can show an explicit
- * "no level feedback" state. The detach callback releases the AudioContext and its RAF.
+ * Real RMS meter over the browser `WebAudio` analyser. The analyser taps the stream only
+ * (source -> analyser, nothing routed to `destination`), so it can never create a second
+ * audible path or an echo/feedback loop. Returns `null` (never a fabricated wave) when a
+ * real meter is unavailable, so the UI can show an explicit "no level feedback" state.
+ * The detach callback releases the AudioContext and its RAF.
  */
-export function createBrowserInputMeter(): LiveInputMeterPort {
+function createStreamLevelMeter(): LiveInputMeterPort {
   return {
     attach(stream: LiveMediaStream, onLevel: (level: number | null) => void) {
       const Ctor = (globalThis as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext }).AudioContext
@@ -59,6 +61,19 @@ export function createBrowserInputMeter(): LiveInputMeterPort {
   };
 }
 
+/** Real microphone-input meter (see {@link createStreamLevelMeter}). */
+export function createBrowserInputMeter(): LiveInputMeterPort {
+  return createStreamLevelMeter();
+}
+
+/**
+ * Real remote-output meter. The lifecycle attaches it to the remote WebRTC media track the
+ * playback owner bound (never a synthetic oscillator) and gates it on actual playback status.
+ */
+export function createBrowserOutputMeter(): LiveOutputMeterPort {
+  return createStreamLevelMeter();
+}
+
 export function createBrowserLiveSession(input: {
   audio: HTMLAudioElement;
   prepareConversation(): Promise<string | null>;
@@ -80,7 +95,12 @@ export function createBrowserLiveSession(input: {
   const adapter: LiveConnectionAdapter = {
     async acquireInput() {
       if (!navigator.mediaDevices?.getUserMedia || !globalThis.RTCPeerConnection) throw new Error('unsupported');
-      return navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: false });
+      // Capture defaults tuned for a hands-free coaching conversation: cancel speaker echo,
+      // suppress steady noise, level the far/near mic and keep a single channel for the meter.
+      return navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
+        video: false,
+      });
     },
     createPeerConnection() {
       let userCursor: LiveTranscriptCursor | null = null;
@@ -210,6 +230,7 @@ export function createBrowserLiveSession(input: {
   const controller = new VoiceLiveController({
     adapter, request: { model: 'gpt-live-1', delegation: { type: 'client' } }, playback,
     inputMeter: createBrowserInputMeter(),
+    outputMeter: createBrowserOutputMeter(),
     iceTimeoutMs: 20_000, startTimeoutMs: 20_000,
     delegation: { async delegate(request, signal) {
       // Never execute a suffix after capacity loss: it may have lost a negation.

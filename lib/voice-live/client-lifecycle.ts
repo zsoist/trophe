@@ -21,6 +21,8 @@ import type {
   LiveDelegationRequest,
   LiveInputMeterPort,
   LiveMediaStream,
+  LiveOutputMeterPort,
+  LivePlaybackEvent,
   LivePlaybackPort,
   LivePeerConnection,
   LiveSessionRequest,
@@ -30,6 +32,7 @@ import type {
   LiveUsageReconciler,
   LiveUsageSnapshot,
 } from './client-types';
+import { METER_FRESHNESS_NOTIFY_MS, METER_SAMPLE_TTL_MS } from './client-types';
 import { parseLiveEvent, type LiveEvent } from './client-events';
 import { LiveDelegation, type DelegationResult } from './client-delegation';
 import { LiveUsage, emptyUsage } from './client-usage';
@@ -75,6 +78,14 @@ export interface LiveLifecycleState {
   meterSupported: boolean;
   /** Latest real input amplitude 0..1 from the analyser, or null when unsupported/muted. */
   inputLevel: number | null;
+  /** Epoch ms of the last real input sample backing `inputLevel`; null when none. */
+  inputLevelUpdatedAtMs: number | null;
+  /** True only when a real analyser is attached to the REMOTE output stream. */
+  outputMeterSupported: boolean;
+  /** Latest real output amplitude 0..1 while actually playing, or null when silent/not playing. */
+  outputLevel: number | null;
+  /** Epoch ms of the last real output sample backing `outputLevel`; null when none. */
+  outputLevelUpdatedAtMs: number | null;
   /** Server-admitted deadline (epoch ms), or null when the transport admitted none. */
   admittedDeadlineMs: number | null;
   busy: boolean;
@@ -105,6 +116,12 @@ export interface LiveLifecycleDeps {
   playback?: LivePlaybackPort | null;
   /** Injected real input meter. The controller never fabricates a level without it. */
   inputMeter?: LiveInputMeterPort | null;
+  /**
+   * Injected real output meter, attached to the remote media stream the playback owner
+   * received. Gated on real playback status so a paused/interrupted output is never
+   * reported as sounding. Absent => output levels stay unsupported (never fabricated).
+   */
+  outputMeter?: LiveOutputMeterPort | null;
   timers?: LiveTimers;
   iceTimeoutMs?: number;
   startTimeoutMs?: number;
@@ -129,6 +146,10 @@ const emptyState = (): LiveLifecycleState => ({
   microphoneMuted: false,
   meterSupported: false,
   inputLevel: null,
+  inputLevelUpdatedAtMs: null,
+  outputMeterSupported: false,
+  outputLevel: null,
+  outputLevelUpdatedAtMs: null,
   admittedDeadlineMs: null,
   busy: false,
   activeActions: [],
@@ -137,6 +158,30 @@ const emptyState = (): LiveLifecycleState => ({
   transcript: [],
   usage: emptyUsage(),
   lastCloseReason: null,
+});
+
+/**
+ * One metered level channel (input mic, or remote output). `generation` invalidates
+ * callbacks from a previous attach/session so a stale analyser can never publish into a
+ * newer session. `measuredAtMs` is the freshness hook: a sample older than
+ * `METER_SAMPLE_TTL_MS` is dropped by the watchdog rather than replayed as fresh.
+ */
+interface LevelChannel {
+  supported: boolean;
+  level: number | null;
+  measuredAtMs: number | null;
+  generation: number;
+  detach: (() => void) | null;
+  staleHandle: unknown;
+}
+
+const createLevelChannel = (): LevelChannel => ({
+  supported: false,
+  level: null,
+  measuredAtMs: null,
+  generation: 0,
+  detach: null,
+  staleHandle: null,
 });
 
 export class VoiceLiveController {
@@ -174,14 +219,44 @@ export class VoiceLiveController {
   private channel: LiveDataChannel | null = null;
   private stream: LiveMediaStream | null = null;
   private createAbort: AbortController | null = null;
-  private meterDetach: (() => void) | null = null;
-  private meterLevel: number | null = null;
+  private readonly input = createLevelChannel();
+  private readonly output = createLevelChannel();
+  /** True only while the output owner reports real `playing` status. */
+  private outputAudible = false;
+  private playbackUnsubscribe: (() => void) | null = null;
+  /** Last time subscribers were notified for a freshness-only (identical amplitude) update. */
+  private lastLevelNotifyAtMs = 0;
 
   constructor(deps: LiveLifecycleDeps) {
     this.deps = deps;
     this.timers = deps.timers ?? { setTimeout: (fn, ms) => setTimeout(fn, ms), clearTimeout: handle => clearTimeout(handle as ReturnType<typeof setTimeout>) };
     this.delegation = new LiveDelegation(deps.delegation ?? null);
   }
+
+  /**
+   * Subscribe to the real playback owner once. Idempotent, so a restart after dispose
+   * re-observes without stacking duplicate listeners.
+   */
+  private observePlayback(): void {
+    if (this.playbackUnsubscribe) return;
+    const playback = this.deps.playback;
+    const observe = playback?.observe;
+    if (!playback || typeof observe !== 'function') return;
+    try {
+      this.playbackUnsubscribe = observe.call(playback, event => this.onPlaybackEvent(event)) ?? null;
+    } catch {
+      this.playbackUnsubscribe = null;
+    }
+  }
+
+  private onPlaybackEvent = (event: LivePlaybackEvent): void => {
+    if (this.disposed) return;
+    if (event.type === 'stream') {
+      this.attachOutputMeter(event.stream);
+      return;
+    }
+    this.setOutputAudible(event.status === 'playing');
+  };
 
   snapshot = (): LiveLifecycleState => this.state;
 
@@ -232,6 +307,7 @@ export class VoiceLiveController {
     const epoch = this.epoch;
     this.teardownPorts();
     this.disposed = false;
+    this.observePlayback();
     this.expectedSessionId = null;
     this.createdSessionId = null;
     this.earlyEvents = [];
@@ -368,6 +444,8 @@ export class VoiceLiveController {
     } catch {
       // Playback port failures must not break the interruption state machine.
     }
+    // Even without a status observer, a stopped output is not audible: drop the level now.
+    this.setOutputAudible(false);
     this.publish({ interrupted: true });
   }
 
@@ -399,7 +477,8 @@ export class VoiceLiveController {
       return;
     }
     // When muted the analyser reads silence; report 0 rather than a stale level.
-    this.publish({ microphoneMuted: muted, inputLevel: muted ? 0 : this.meterLevel });
+    this.publish({ microphoneMuted: muted });
+    this.publishLevels();
   }
 
   /** Cancel one delegated backend action. Distinct from `interrupt()`. */
@@ -471,6 +550,16 @@ export class VoiceLiveController {
     this.disposed = true;
     this.delegation.abortAll();
     this.createAbort?.abort();
+    // Drop the playback observer so callbacks from this (old) session can never publish.
+    const unsubscribe = this.playbackUnsubscribe;
+    this.playbackUnsubscribe = null;
+    if (unsubscribe) {
+      try {
+        unsubscribe();
+      } catch {
+        // A broken observer teardown must not block disposal.
+      }
+    }
     this.clearTimers();
     this.teardownPorts();
     this.publish({
@@ -615,10 +704,11 @@ export class VoiceLiveController {
   }
 
   private disableMicrophone(): void {
-    this.detachInputMeter();
+    this.detachChannel('input');
     if (this.stream) stopStream(this.stream);
     this.stream = null;
-    this.publish({ microphoneEnabled: false, microphoneMuted: false, meterSupported: false, inputLevel: null });
+    this.publish({ microphoneEnabled: false, microphoneMuted: false });
+    this.publishLevels();
   }
 
   private fail(code: Exclude<LiveErrorCode, null>): void {
@@ -643,7 +733,13 @@ export class VoiceLiveController {
     // them", never that a complete semantic turn was received from the provider.
     const captions = this.transcript.settle();
     if (captions.some(row => row.status === 'settled')) this.publish({ transcript: captions });
-    this.detachInputMeter();
+    this.detachChannel('input');
+    this.detachChannel('output');
+    this.outputAudible = false;
+    this.output.level = null;
+    // Republish the cleared levels so a disposed/stopped snapshot can never still read as
+    // "speaking" from the last sample.
+    this.publishLevels();
     if (this.stream) stopStream(this.stream);
     this.stream = null;
     const channel = this.channel;
@@ -674,41 +770,150 @@ export class VoiceLiveController {
   }
 
   /**
-   * Attach the injected real analyser to the acquired stream. A missing port, a throwing
-   * implementation, or a `null` detach all surface `meterSupported: false` — the controller
-   * never fabricates a level.
+   * Attach the injected real analyser to the acquired microphone stream. A missing port, a
+   * throwing implementation, or a `null` detach all surface `meterSupported: false` — the
+   * controller never fabricates a level.
    */
   private attachInputMeter(stream: LiveMediaStream): void {
-    this.detachInputMeter();
-    const meter = this.deps.inputMeter;
-    if (!meter) {
-      this.publish({ meterSupported: false, inputLevel: null });
+    this.attachChannel('input', this.deps.inputMeter, stream);
+  }
+
+  /**
+   * Attach the injected real analyser to the REMOTE output stream (or detach when the stream
+   * is gone). The stream comes from the playback owner, so the level reflects the real remote
+   * media; audibility is gated separately by the reported playback status.
+   */
+  private attachOutputMeter(stream: LiveMediaStream | null): void {
+    this.attachChannel('output', stream ? this.deps.outputMeter : null, stream);
+  }
+
+  private attachChannel(kind: 'input' | 'output', meter: LiveInputMeterPort | LiveOutputMeterPort | null | undefined, stream: LiveMediaStream | null): void {
+    const channel = kind === 'input' ? this.input : this.output;
+    this.detachChannel(kind);
+    if (!meter || !stream) {
+      channel.supported = false;
+      this.publishLevels();
       return;
     }
+    const generation = ++channel.generation;
     let detach: (() => void) | null = null;
     try {
-      detach = meter.attach(stream, level => {
-        const bounded = typeof level === 'number' && Number.isFinite(level)
-          ? Math.min(1, Math.max(0, level))
-          : null;
-        this.meterLevel = bounded;
-        this.publish({ inputLevel: this.state.microphoneMuted ? 0 : bounded });
-      });
+      detach = meter.attach(stream, level => this.onMeterSample(kind, level, generation));
     } catch {
       detach = null;
     }
     if (!detach) {
-      this.publish({ meterSupported: false, inputLevel: null });
+      channel.supported = false;
+      channel.level = null;
+      channel.measuredAtMs = null;
+      this.publishLevels();
       return;
     }
-    this.meterDetach = detach;
-    this.publish({ meterSupported: true, inputLevel: this.state.microphoneMuted ? 0 : this.meterLevel });
+    channel.supported = true;
+    channel.detach = detach;
+    this.publishLevels();
   }
 
-  private detachInputMeter(): void {
-    const detach = this.meterDetach;
-    this.meterDetach = null;
-    this.meterLevel = null;
+  /** Apply one measured sample, rejecting callbacks from a detached/old session. */
+  private onMeterSample(kind: 'input' | 'output', level: number | null, generation: number): void {
+    const channel = kind === 'input' ? this.input : this.output;
+    if (this.disposed || channel.generation !== generation || !channel.supported) return;
+    // Output levels are meaningless unless the audio is actually sounding.
+    if (kind === 'output' && !this.outputAudible) return;
+    const bounded = typeof level === 'number' && Number.isFinite(level) ? Math.min(1, Math.max(0, level)) : null;
+    channel.level = bounded;
+    channel.measuredAtMs = bounded === null ? null : Date.now();
+    this.armStaleWatch(kind);
+    this.publishLevels();
+  }
+
+  private setOutputAudible(audible: boolean): void {
+    this.outputAudible = audible;
+    if (!audible) {
+      this.clearStaleWatch('output');
+      this.output.level = null;
+      this.output.measuredAtMs = null;
+    }
+    this.publishLevels();
+  }
+
+  /**
+   * Publish the metered levels. A visible level change notifies immediately. When real samples
+   * keep arriving at the SAME amplitude the timestamps still advance, and subscribers are
+   * notified at a bounded rate (`METER_FRESHNESS_NOTIFY_MS`) so a held snapshot never drifts
+   * past the freshness TTL while samples flow — without turning a 60 fps analyser into 60 React
+   * notifications per second. Timestamps are only ever the real `Date.now()` of a real sample.
+   */
+  private publishLevels(): void {
+    const inputLevel = this.state.microphoneMuted ? 0 : this.input.level;
+    const outputLevel = this.outputAudible ? this.output.level : null;
+    const next = {
+      meterSupported: this.input.supported,
+      inputLevel,
+      inputLevelUpdatedAtMs: this.input.measuredAtMs,
+      outputMeterSupported: this.output.supported,
+      outputLevel,
+      outputLevelUpdatedAtMs: this.outputAudible ? this.output.measuredAtMs : null,
+    };
+    const changed = next.meterSupported !== this.state.meterSupported
+      || next.inputLevel !== this.state.inputLevel
+      || next.outputMeterSupported !== this.state.outputMeterSupported
+      || next.outputLevel !== this.state.outputLevel;
+    if (changed) {
+      this.lastLevelNotifyAtMs = Date.now();
+      this.publish(next);
+      return;
+    }
+    if (next.inputLevelUpdatedAtMs !== this.state.inputLevelUpdatedAtMs
+      || next.outputLevelUpdatedAtMs !== this.state.outputLevelUpdatedAtMs) {
+      this.state = {
+        ...this.state,
+        inputLevelUpdatedAtMs: next.inputLevelUpdatedAtMs,
+        outputLevelUpdatedAtMs: next.outputLevelUpdatedAtMs,
+      };
+      const now = Date.now();
+      if (now - this.lastLevelNotifyAtMs >= METER_FRESHNESS_NOTIFY_MS) {
+        this.lastLevelNotifyAtMs = now;
+        // Empty patch: same visible values, new snapshot identity. Selector-driven React
+        // consumers do not re-render, while a held snapshot reader gets the fresh timestamps.
+        this.publish({});
+      }
+    }
+  }
+
+  private armStaleWatch(kind: 'input' | 'output'): void {
+    const channel = kind === 'input' ? this.input : this.output;
+    this.clearStaleWatch(kind);
+    const generation = channel.generation;
+    const handle = this.timers.setTimeout(() => {
+      if (channel.staleHandle === handle) channel.staleHandle = null;
+      if (this.disposed || channel.generation !== generation) return;
+      if (channel.level === null) return;
+      // No real sample for the TTL (hidden tab / ended media): drop it, never replay it fresh.
+      channel.level = null;
+      channel.measuredAtMs = null;
+      this.publishLevels();
+    }, METER_SAMPLE_TTL_MS);
+    channel.staleHandle = handle;
+  }
+
+  private clearStaleWatch(kind: 'input' | 'output'): void {
+    const channel = kind === 'input' ? this.input : this.output;
+    if (channel.staleHandle === null) return;
+    this.timers.clearTimeout(channel.staleHandle);
+    channel.staleHandle = null;
+  }
+
+  private detachChannel(kind: 'input' | 'output'): void {
+    const channel = kind === 'input' ? this.input : this.output;
+    // Bump the generation so any late callback from the old analyser is ignored.
+    channel.generation += 1;
+    this.clearStaleWatch(kind);
+    const detach = channel.detach;
+    channel.detach = null;
+    channel.supported = false;
+    channel.level = null;
+    channel.measuredAtMs = null;
     if (!detach) return;
     try {
       detach();

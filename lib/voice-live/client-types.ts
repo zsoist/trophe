@@ -150,6 +150,17 @@ export interface LiveUserFragmentBatch {
 }
 
 /**
+ * Real playback status of the output owner. `playing` means audio is actually sounding
+ * (the element's `play()` resolved and it is neither muted nor interrupted); the honest
+ * "speaking" level is gated on this and never inferred from transcript timing.
+ */
+export type LivePlaybackStatus = 'detached' | 'playing' | 'paused' | 'blocked';
+
+export type LivePlaybackEvent =
+  | { type: 'stream'; stream: LiveMediaStream | null }
+  | { type: 'status'; status: LivePlaybackStatus };
+
+/**
  * Local playback owner port. Barge-in (`interrupt`) must stop/mute real output through
  * this port — it is a playback control, NOT a cancellation of backend work.
  */
@@ -158,6 +169,12 @@ export interface LivePlaybackPort {
   stopOutput(): void;
   /** Resume output after the caller clears the interruption. */
   resumeOutput(): void;
+  /**
+   * Optional real playback observer. When implemented, the controller drives output-level
+   * metering from the actual remote media stream + real playback status (never a fabricated
+   * wave) and removes the observer on dispose. Ports that omit it keep the previous behaviour.
+   */
+  observe?(listener: (event: LivePlaybackEvent) => void): () => void;
 }
 
 export interface LiveDelegationOutcome {
@@ -214,6 +231,30 @@ export interface LiveInputMeterPort {
    */
   attach(stream: LiveMediaStream, onLevel: (level: number | null) => void): (() => void) | null;
 }
+
+/**
+ * Injected real OUTPUT-level meter. Same analyser contract as the input meter, attached to
+ * the REMOTE media stream the playback owner received. It must tap the stream only (never
+ * route the analyser back to the audio destination) so it can never create a second audible
+ * path or an echo/feedback loop, and it must report measured RMS only — never a fabrication.
+ */
+export type LiveOutputMeterPort = LiveInputMeterPort;
+
+/**
+ * How long a real measured sample stays usable. A level older than this must be treated as
+ * stale (static wave, no "speaking" claim) instead of being replayed as if it were fresh.
+ */
+export const METER_SAMPLE_TTL_MS = 180 as const;
+
+/**
+ * Minimum gap between subscriber notifications that only refresh meter freshness (i.e. real
+ * samples keep arriving at the same amplitude). Sustained real samples must keep
+ * subscriber-held snapshots fresh, but at a BOUNDED rate rather than one notification per
+ * analyser frame (which would be 60 full React notifications/second for an identical level).
+ * Must stay below `METER_SAMPLE_TTL_MS` so a consumer following the TTL never sees a stale
+ * snapshot while samples are still flowing.
+ */
+export const METER_FRESHNESS_NOTIFY_MS = 90 as const;
 
 export interface LiveUsageSnapshot {
   observedSeconds: number | null;
