@@ -23,9 +23,9 @@ creation service. The new small `insertReviewedPhotoFood` reuses their schema an
 builder to insert one reviewed item in the same transaction as proposal/receipt.
 AG1 may adopt it for native UI separately; this delivery does not change the UI.
 
-The route's `groundKnownDishComponents` can add an assumed ingredient based on a
-named dish. P5 does not call it; a candidate marked needs_confirmation is rejected
-until the observation source resolves it. No template ingredients are fabricated.
+Photo v2 returns only normalized provider components. Neither the native route
+nor P5 completes recipes with assumed ingredients. A candidate marked
+needs_confirmation is rejected until the observation source resolves it.
 
 ## Observation boundary and explicit disconnected state
 
@@ -72,7 +72,8 @@ that callback receives a defensive copy of the verified JPEG bytes.
 
 The exact task result is represented by a process-local WeakMap proof. Output must
 contain one bounded `submit_food_photo_analysis` call under Luna's existing
-`photo-analyze-v1` policy. Invalid candidates are not silently dropped and dish
+`photo-analyze-v2` policy. Historical v1 observations remain readable under the
+same authorization, attachment, generation, and ledger checks. Invalid candidates are not silently dropped and dish
 prior additions requiring confirmation are rejected. Recording accepts only that
 proof, locks the attachment again, checks current scope/digest/expiry and verifies
 the completed `agent_runs` row plus server-authored attachment metadata. A browser
