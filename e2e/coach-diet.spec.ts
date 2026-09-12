@@ -32,6 +32,7 @@ test('diet selection requires exact review and confirmation then recovers its re
   await page.getByRole('button', { name: 'Ask Trophē', exact: true }).click();
   const panel = page.locator('#global-coach');
   const reading = responseFor('diet.read');
+  if (await panel.getByRole('button', { name: 'Saved conversations', exact: true }).getAttribute('aria-expanded') === 'false') await panel.getByRole('button', { name: 'Saved conversations', exact: true }).click();
   await panel.locator('summary').filter({ hasText: 'Diet preference' }).click();
   const read = await reading; expect(read.status()).toBe(200); const initial = await read.json();
   expect(initial.ok).toBe(true); expect(initial.snapshot.profileId).toBe(process.env.COACH_SQL_ACTOR);
@@ -115,6 +116,7 @@ test('committed diet response loss survives a new conversation and recovers by r
   await page.getByRole('button', { name: 'Ask Trophē', exact: true }).click();
   const panel = page.locator('#global-coach');
   const reading = responseFor('diet.read');
+  if (await panel.getByRole('button', { name: 'Saved conversations', exact: true }).getAttribute('aria-expanded') === 'false') await panel.getByRole('button', { name: 'Saved conversations', exact: true }).click();
   await panel.locator('summary').filter({ hasText: 'Diet preference' }).click();
   const read = await reading; expect(read.status()).toBe(200); const initial = await read.json();
   const selector = panel.getByRole('combobox', { name: 'Diet preference', exact: true });
@@ -129,6 +131,8 @@ test('committed diet response loss survives a new conversation and recovers by r
   await expect(panel.getByRole('button', { name: 'Check change status', exact: true })).toBeVisible();
   await expect(panel.getByText('Diet preference saved.', { exact: true })).toHaveCount(0);
   await panel.getByRole('button', { name: 'New conversation', exact: true }).click();
+  if (await panel.getByRole('button', { name: 'Saved conversations', exact: true }).getAttribute('aria-expanded') === 'false') await panel.getByRole('button', { name: 'Saved conversations', exact: true }).click();
+  await panel.locator('summary').filter({ hasText: 'Diet preference' }).click();
   await expect(panel.getByRole('button', { name: 'Check change status', exact: true })).toBeVisible();
   expect(applyCount).toBe(1);
   const checking = responseFor('diet.receipt'), refreshing = responseFor('diet.read');

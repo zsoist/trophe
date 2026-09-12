@@ -45,7 +45,7 @@ const harness = (page: Page) => page.evaluate(() => (window as typeof window & {
 async function setMode(page: Page, mode: VoiceHarness['mode']) { await page.evaluate(value => { (window as typeof window & { __voiceHarness: VoiceHarness }).__voiceHarness.mode = value; }, mode); }
 async function recordAndTranscribe(page: Page) {
   const panel = page.locator('#global-coach');
-  const voice = panel.getByText('Voice', { exact: true });
+  const voice = panel.getByLabel('Voice', { exact: true });
   await voice.click();
   await panel.getByRole('button', { name: 'Record audio', exact: true }).click();
   const stop = panel.getByRole('button', { name: 'Stop recording', exact: true });
@@ -125,12 +125,14 @@ test('governed voice reaches the existing text pipeline with simulated browser m
   await page.reload();
   await page.getByRole('button', { name: 'Ask Trophē', exact: true }).click();
   const restored = page.locator('#global-coach');
-  await restored.locator('summary').filter({ hasText: 'Saved conversations' }).click();
-  await restored.getByRole('button', { name: 'Load conversations', exact: true }).click();
-  await restored.getByRole('button', { name: 'Voice conversation', exact: true }).click();
+  const listing = page.waitForResponse(response => new URL(response.url()).pathname === '/api/coach-assistant' && response.request().postDataJSON()?.operation === 'list');
+  await restored.getByRole('button', { name: 'Saved conversations', exact: true }).click();
+  const listed = await listing; expect(listed.status()).toBe(200);
+  const savedThread = (await listed.json()).value.threads.find((thread: { id: string }) => thread.id === reviewedRequest.request.conversationId);
+  expect(savedThread).toBeTruthy();
+  await restored.locator('button[aria-pressed]').filter({ hasText: savedThread.title }).click();
   await expect(restored.getByText(reviewedRequest.editedText, { exact: true })).toBeVisible();
   await expect(restored.getByText(reviewedBody.response.output.answer, { exact: true })).toBeVisible();
-  await restored.getByRole('button', { name: 'Continue conversation', exact: true }).click();
   await expect(restored.getByText('Saved message · You', { exact: true })).toBeVisible();
   await expect(restored.getByText(reviewedBody.response.output.answer, { exact: true })).toHaveCount(1);
   expect(requests.filter(method => method === 'POST')).toHaveLength(postsAfterAnswer);
@@ -144,7 +146,7 @@ test('governed voice reaches the existing text pipeline with simulated browser m
   await second.panel.getByRole('button', { name: 'Cancel', exact: true }).click();
 
   await setMode(page, 'denied');
-  await second.panel.getByText('Voice', { exact: true }).click();
+  await second.panel.getByLabel('Voice', { exact: true }).click();
   await second.panel.getByRole('button', { name: 'Record audio', exact: true }).click();
   await expect(second.panel.getByRole('status')).toContainText('Microphone permission was denied');
   await expect(second.panel.getByRole('textbox', { name: 'Your question', exact: true })).toBeEnabled();

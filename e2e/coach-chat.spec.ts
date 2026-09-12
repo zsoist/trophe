@@ -102,17 +102,16 @@ test('durable chat creates, reloads and resumes one real Auth/HTTP conversation 
     expect(operations).toHaveLength(beforeClose);
 
     // A page reload removes in-memory state. List/read must reconstruct only
-    // historical text; selecting Continue moves it into the active controller.
+    // historical text; selecting the complete thread resumes it directly.
     await page.reload();
     await page.getByRole('button', { name: 'Ask Trophē', exact: true }).click();
     const reloaded = page.locator('#global-coach');
-    await reloaded.locator('summary').filter({ hasText: 'Saved conversations' }).click();
     const listing = page.waitForResponse(response => response.request().postDataJSON()?.operation === 'list');
-    await reloaded.getByRole('button', { name: 'Load conversations', exact: true }).click();
+    await reloaded.getByRole('button', { name: 'Saved conversations', exact: true }).click();
     expect((await listing).status()).toBe(200);
     const title = firstText.slice(0, 80);
     const reading = page.waitForResponse(response => response.request().postDataJSON()?.operation === 'read');
-    await reloaded.getByRole('button', { name: title, exact: true }).click();
+    await reloaded.locator('button[aria-pressed]').filter({ hasText: title }).click();
     const read = await reading; expect(read.status()).toBe(200); const history = (await read.json()).value;
     expect(history.thread.id).toBe(first.conversationId);
     expect(history.messages.map((message: { role: string; text: string; sequence: number }) => ({ role: message.role, text: message.text, sequence: message.sequence }))).toEqual([
@@ -121,7 +120,6 @@ test('durable chat creates, reloads and resumes one real Auth/HTTP conversation 
     ]);
     await expect(reloaded.locator('article > div').filter({ hasText: firstText }).locator('p').filter({ hasText: firstText }).first()).toBeVisible();
     await expect(reloaded.locator('article > div').filter({ hasText: first.output.answer }).locator('p').filter({ hasText: first.output.answer }).first()).toBeVisible();
-    await reloaded.getByRole('button', { name: 'Continue conversation', exact: true }).click();
     await expect(reloaded.getByText('Saved message · You', { exact: true })).toBeVisible();
     await expect(reloaded.getByText(first.output.answer, { exact: true })).toHaveCount(1);
 
