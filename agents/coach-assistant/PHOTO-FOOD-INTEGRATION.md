@@ -65,7 +65,7 @@ production seam without invoking it during this delivery. Its composed
 `analyzeAndRecord` flow reads the exact normalized JPEG bytes directly from the
 private Storage adapter, verifies their SHA-256 digest, reauthorizes before and
 after Storage access, then invokes the existing `photo_analyze` task once with
-those bytes and the repository's fixed `photo-analyze.v1.md` prompt. It does not
+those bytes and the repository's fixed `photo-analyze.v2.md` prompt. It does not
 accept a URL, base64 image, prompt, task name or normalized foods from a browser.
 The integrating server supplies only the existing provider invocation callback;
 that callback receives a defensive copy of the verified JPEG bytes.
