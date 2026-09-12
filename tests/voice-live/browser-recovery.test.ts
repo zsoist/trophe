@@ -26,6 +26,7 @@ const build = () => createBrowserLiveSession({ audio: { srcObject: null, play: v
 
 it('recovers a lost create response by request identity without a second create POST', async () => {
   const fetcher = vi.fn(async (_url: string, init?: RequestInit) => {
+    if (_url.includes('outstanding=1')) return Response.json({ state: 'absent' });
     if (init?.method === 'POST' && JSON.parse(String(init.body)).operation === 'create') throw new TypeError('response lost');
     return Response.json({ state: 'active', sessionId: 'live_recovered', answerSdp: 'original-answer' });
   });
@@ -36,11 +37,12 @@ it('recovers a lost create response by request identity without a second create 
   const creates = fetcher.mock.calls.filter(([, init]) => init?.method === 'POST' && JSON.parse(String(init.body)).operation === 'create');
   expect(creates).toHaveLength(1);
   const requestId = JSON.parse(String(creates[0][1]?.body)).requestId;
-  expect(fetcher.mock.calls[1][0]).toContain(`requestId=${requestId}`);
+  expect(fetcher.mock.calls.some(([url]) => url.includes(`requestId=${requestId}`))).toBe(true);
 });
 
 it('refuses a new paid create while the previous request is still unresolved', async () => {
   const fetcher = vi.fn(async (_url: string, init?: RequestInit) => {
+    if (_url.includes('outstanding=1')) return Response.json({ state: 'absent' });
     if (init?.method === 'POST') throw new TypeError('response lost');
     return Response.json({ state: 'pending' });
   });
@@ -51,4 +53,30 @@ it('refuses a new paid create while the previous request is still unresolved', a
   await session.controller.startFromGesture();
   expect(session.controller.snapshot().phase).toBe('failed');
   expect(fetcher.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1);
+});
+
+it('a remounted panel recovers and closes a committed lost-response session without another create', async () => {
+  let committed = false;
+  let canRecover = false;
+  const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
+    if (url.includes('outstanding=1')) return Response.json(committed ? { state: 'pending', sessionId: 'live_orphan' } : { state: 'absent' });
+    if (init?.method === 'POST') {
+      const body = JSON.parse(String(init.body));
+      if (body.operation === 'create') { committed = true; throw new TypeError('response lost'); }
+      expect(body).toEqual({ operation: 'close', sessionId: 'live_orphan' });
+      return Response.json({ ok: true });
+    }
+    if (!canRecover) throw new TypeError('network unavailable');
+    return Response.json({ state: 'pending' });
+  });
+  vi.stubGlobal('fetch', fetcher);
+  session = build();
+  await session.controller.startFromGesture();
+  session.dispose();
+  canRecover = true;
+  session = build();
+  await session.controller.startFromGesture();
+  const posts = fetcher.mock.calls.filter(([, init]) => init?.method === 'POST').map(([, init]) => JSON.parse(String(init?.body)));
+  expect(posts.filter(body => body.operation === 'create')).toHaveLength(1);
+  expect(posts.filter(body => body.operation === 'close')).toEqual([{ operation: 'close', sessionId: 'live_orphan' }]);
 });

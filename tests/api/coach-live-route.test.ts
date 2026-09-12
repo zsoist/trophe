@@ -68,3 +68,17 @@ it('does not expose a create receipt to another actor', async () => {
   expect(await response.json()).toEqual({ ok: true, state: 'absent' });
   expect(mocks.open).not.toHaveBeenCalled();
 });
+
+it('outstanding recovery is server scoped and does not expose SDP or another actor', async () => {
+  const owner = '00000000-0000-4000-8000-000000000002';
+  mocks.execute.mockImplementation(async query => {
+    const rendered = new PgDialect().sqlToQuery(query);
+    expect(rendered.sql).toContain('user_id=');
+    expect(rendered.sql).toContain("NOT IN ('settled', 'released')");
+    return { rows: rendered.params.includes(owner) ? [{ receipt: { sessionId: 'live_owned', conversationId: '00000000-0000-4000-8000-000000000004', answerSdp: 'private', deadlineMs: Date.now() + 60000 } }] : [] };
+  });
+  const url = 'http://local/api/coach-assistant/live?outstanding=1';
+  expect(await (await GET(new NextRequest(url))).json()).toEqual({ ok: true, state: 'pending', sessionId: 'live_owned' });
+  mocks.guard.mockResolvedValue({ ok: true, userId: '00000000-0000-4000-8000-000000000099' });
+  expect(await (await GET(new NextRequest(url))).json()).toEqual({ ok: true, state: 'absent' });
+});

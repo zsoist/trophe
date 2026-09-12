@@ -15,7 +15,7 @@ import { createOpenAiLiveSessionTransport } from '@/lib/voice-live/openai-live-t
 import { openLiveSideband } from '@/lib/voice-live/server-sideband';
 import { openLiveSession, consumeProviderEvents } from '@/lib/voice-live/server-session';
 import { LIVE_RATE_CONFIG, LIVE_RUNTIME_MAX_SECONDS } from '@/lib/voice-live/pricing';
-import { liveAttemptId, readLiveRequestReceipt } from '@/lib/voice-live/request-receipt';
+import { liveAttemptId, readLiveRequestReceipt, readOutstandingLiveSession } from '@/lib/voice-live/request-receipt';
 
 export const runtime = 'nodejs';
 // Includes authentication, the 120-second voice window, and independent cleanup.
@@ -46,6 +46,10 @@ export async function GET(request: NextRequest) {
   const guard = await guardAiRoute(request);
   if (!guard.ok) return guard.response;
   if (!enabled() || !sharedPilotRuntimeGate(process.env, guard.userId).ok) return reply({ enabled: false });
+  if (request.nextUrl.searchParams.get('outstanding') === '1') {
+    try { return reply({ ok: true, ...await readOutstandingLiveSession(db, guard.userId) }); }
+    catch { return reply({ ok: false }, 503); }
+  }
   const requestId = request.nextUrl.searchParams.get('requestId');
   if (requestId) {
     if (!z.string().uuid().safeParse(requestId).success) return reply({ ok: false }, 400);
@@ -98,6 +102,7 @@ export async function POST(request: NextRequest) {
     const prior = await readLiveRequestReceipt(db, guard.userId, input.requestId, requestHash);
     if (prior.state === 'active') return reply({ ok: true, ...prior, replayed: true });
     if (prior.state !== 'absent') return reply({ ok: false, error: prior.state === 'conflict' ? 'idempotency_conflict' : 'create_recovery_required', state: prior.state }, prior.state === 'pending' ? 202 : 409);
+    if ((await readOutstandingLiveSession(db, guard.userId)).state !== 'absent') return reply({ ok: false, error: 'create_recovery_required' }, 202);
     const budget = createSharedPilotBudgetRuntime(process.env, guard.userId, createPilotBudgetStore(db, guard.userId));
     if (!budget.ok) return reply({ ok: false, error: 'budget_blocked' }, 503);
     const attemptId = liveAttemptId(guard.userId, input.requestId);

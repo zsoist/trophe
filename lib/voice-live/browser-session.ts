@@ -71,6 +71,16 @@ export function createBrowserLiveSession(input: {
         } else if (prior.state !== 'ended') throw new Error('create_recovery_required');
         unresolvedRequestId = null;
       }
+      // No client identity cache: the authenticated server locates outstanding
+      // sessions even after remount, reload, or an account change.
+      const outstandingResponse = await fetch(`${endpoint}?outstanding=1`, { credentials: 'same-origin', signal });
+      if (!outstandingResponse.ok) throw new Error('recovery_unavailable');
+      const outstanding = await outstandingResponse.json() as { state?: string; sessionId?: string };
+      if (outstanding.state !== 'absent') {
+        if (typeof outstanding.sessionId === 'string') await adapter.closeSession({ sessionId: outstanding.sessionId, reason: 'close_requested', signal });
+        // End this gesture after recovery; never silently create another paid session.
+        throw new Error('create_recovery_required');
+      }
       const conversationId = await input.prepareConversation();
       signal.throwIfAborted();
       if (!conversationId) throw new Error('conversation_unavailable');

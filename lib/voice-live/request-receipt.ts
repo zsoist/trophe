@@ -29,3 +29,15 @@ export async function readLiveRequestReceipt(database: typeof db, actorId: strin
   if (receipt.data.deadlineMs <= Date.now()) return { state: 'pending' };
   return { state: 'active', ...receipt.data };
 }
+
+/** Server-owned recovery survives panel remounts and never crosses actors. */
+export async function readOutstandingLiveSession(database: typeof db, actorId: string): Promise<{ state: 'absent' | 'pending'; sessionId?: string }> {
+  const rows = await database.execute<{ receipt: unknown }>(sql`
+    SELECT metadata->'gptLive' AS receipt FROM public.agent_runs
+    WHERE user_id=${actorId}::uuid AND model='gpt-live-1'
+      AND metadata->'coachPilot'->>'state' NOT IN ('settled', 'released')
+    ORDER BY created_at DESC LIMIT 1`);
+  if (!rows.rows.length) return { state: 'absent' };
+  const receipt = receiptSchema.safeParse(rows.rows[0].receipt);
+  return receipt.success ? { state: 'pending', sessionId: receipt.data.sessionId } : { state: 'pending' };
+}
