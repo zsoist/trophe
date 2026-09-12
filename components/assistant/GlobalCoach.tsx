@@ -39,6 +39,9 @@ import { ProgressPanel } from './ProgressPanel';
 import { requestProgress } from './progress-client';
 import { COACH_PROGRESS_REFRESH } from './progress-events';
 import { PhotoFoodController } from './photo-food-state';
+import type { TextFoodDraft } from '@/agents/coach-assistant/text-food-contract';
+import { TextFoodReview, TextFoodRecoveryNotice } from './TextFoodReview';
+import { requestTextFood, type TextFoodTransport } from './text-food-client';
 import { PhotoFoodPanel } from './PhotoFoodPanel';
 import { requestPhotoFood, type PhotoFoodTransport } from './photo-food-client';
 import type { CoachConversationResponse, CoachContextHint, CoachSurface as CoachSurfaceName } from '@/agents/coach-assistant/contracts';
@@ -131,7 +134,7 @@ export function resetGlobalCoachSessionsForActor(actorId: string) {
 
 export type CoachContextSlot = (props: { identity: string; controller: PreferenceController; state: PreferenceState; conversationId: string; turnId: string; surface: CoachSurfaceName; response: CoachConversationResponse; transport: PreferenceTransport }) => ReactNode;
 export type CoachVoiceSlot = (props: { onQuery: (text: string, signal: AbortSignal) => Promise<string>; conversationId: string; prepareConversation?: () => Promise<string | null>; onUse: (text: string) => boolean; onSend?: (result: Extract<CoachVoiceResult, { ok: true }>, text: string) => Promise<'sent' | 'ambiguous' | 'failed'>; onTranscript?: (row: LiveTranscriptRow) => void }) => ReactNode;
-type Props = { identity: string; subjectId?: string; professional?: boolean; example?: ConversationTransport; preferenceTransport?: PreferenceTransport; memoryTransport?: MemoryTransport; dietTransport?: DietTransport; progressTransport?: ProgressTransport; foodTransport?:FoodTransport; photoFoodTransport?:PhotoFoodTransport; workoutSetTransport?:WorkoutSetTransport; messageTransport?:MessageTransport; historyTransport?: HistoryTransport; contextSlot?: CoachContextSlot; voiceSlot?: CoachVoiceSlot; voiceTranscriptionTransport?: VoiceTranscriptionTransport; reviewedVoiceTransport?: ReviewedVoiceTransport; workspaceHint?: CoachContextHint['workspace'] };
+type Props = { identity: string; subjectId?: string; professional?: boolean; example?: ConversationTransport; preferenceTransport?: PreferenceTransport; memoryTransport?: MemoryTransport; dietTransport?: DietTransport; progressTransport?: ProgressTransport; foodTransport?:FoodTransport; photoFoodTransport?:PhotoFoodTransport; textFoodTransport?:TextFoodTransport; workoutSetTransport?:WorkoutSetTransport; messageTransport?:MessageTransport; historyTransport?: HistoryTransport; contextSlot?: CoachContextSlot; voiceSlot?: CoachVoiceSlot; voiceTranscriptionTransport?: VoiceTranscriptionTransport; reviewedVoiceTransport?: ReviewedVoiceTransport; workspaceHint?: CoachContextHint['workspace'] };
 
 export default function GlobalCoach(props: Props) {
   const [workoutSet] = useState(() => new WorkoutSetController());
@@ -147,7 +150,7 @@ export default function GlobalCoach(props: Props) {
   }, [foodScope]);
   return <CoachSurface key={`${foodScope}:${props.professional ? 'professional' : 'self'}`} {...props} sessionScope={foodScope} conversationController={controller} foodController={food} workoutSetController={workoutSet} messageController={message} />;
 }
-function CoachSurface({ identity, subjectId, professional = false, example, preferenceTransport, memoryTransport, dietTransport, progressTransport, foodTransport, photoFoodTransport, workoutSetTransport, messageTransport, historyTransport, contextSlot, voiceSlot, voiceTranscriptionTransport, reviewedVoiceTransport, workspaceHint, sessionScope, conversationController: controller, foodController: food, workoutSetController, messageController }: Props & { sessionScope: string; conversationController: ConversationController; foodController: FoodQuantityController; workoutSetController: WorkoutSetController; messageController: MessageController }) {
+function CoachSurface({ identity, subjectId, professional = false, example, preferenceTransport, memoryTransport, dietTransport, progressTransport, foodTransport, photoFoodTransport, textFoodTransport, workoutSetTransport, messageTransport, historyTransport, contextSlot, voiceSlot, voiceTranscriptionTransport, reviewedVoiceTransport, workspaceHint, sessionScope, conversationController: controller, foodController: food, workoutSetController, messageController }: Props & { sessionScope: string; conversationController: ConversationController; foodController: FoodQuantityController; workoutSetController: WorkoutSetController; messageController: MessageController }) {
   const { t } = useGlobalCoachI18n();
   const path = usePathname();
   const surface = coachSurface(path);
@@ -157,6 +160,8 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   const screenDate=surface==='food'?acceptedScreenDate(publishedDate,path):null;
   const [voice] = useState(() => new VoiceController());
   const foodState = useSyncExternalStore(food.subscribe, food.snapshot, food.snapshot);
+  const [textFoodDraft,setTextFoodDraft]=useState<{conversationId:string;draft:TextFoodDraft}|null>(null);
+  const [textFoodBlocked,setTextFoodBlocked]=useState(false);
   const [photoFood] = useState(() => new PhotoFoodController());
   const photoFoodState = useSyncExternalStore(photoFood.subscribe, photoFood.snapshot, photoFood.snapshot);
   const voiceState = useSyncExternalStore(voice.subscribe, voice.snapshot, voice.snapshot);
@@ -215,8 +220,8 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   const activeFoodTransport=foodTransport??requestFoodQuantity;
   const foodBlocked = foodState.pending || Boolean(foodState.proposal) || foodState.uncertain || Boolean(foodState.receipt && foodState.error);
   const messageBlocked = messageEnabled && (messageState.pending || Boolean(messageState.proposal) || messageState.uncertain || Boolean(messageState.receipt && messageState.error));
-  const coachActionBlocked = preparingPhotos || workoutSetBlocked || foodBlocked || messageBlocked;
-  const composerInputBlocked = preparingPhotos || workoutSetBlocked || messageBlocked || foodState.pending || foodState.uncertain || Boolean(foodState.receipt && foodState.error);
+  const coachActionBlocked = textFoodBlocked || preparingPhotos || workoutSetBlocked || foodBlocked || messageBlocked;
+  const composerInputBlocked = textFoodBlocked || preparingPhotos || workoutSetBlocked || messageBlocked || foodState.pending || foodState.uncertain || Boolean(foodState.receipt && foodState.error);
   const composerSubmitBlocked = composerInputBlocked;
   const [open, setOpenState] = useState(() => {
     const priorPath = openCoachScopes.get(sessionScope);
@@ -330,7 +335,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
     const read = (historyTransport ?? requestHistory).recover;
     if (open && historyEnabled && state.recoveryRequired && read) void controller.recover(read);
   }, [open, historyEnabled, state.recoveryRequired, controller, historyTransport]);
-  const close = () => { preferences.cancel(); attachments.cancel(); voice.reset(); food.discard(); food.cancel(); photoFood.cancel(); memory.cancel(); diet.cancel(); progress.cancel(); workoutSetController.cancel(); messageController.cancel(); setOpen(false); };
+  const close = () => { if(textFoodBlocked)return; preferences.cancel(); attachments.cancel(); voice.reset(); food.discard(); food.cancel(); photoFood.cancel(); memory.cancel(); diet.cancel(); progress.cancel(); workoutSetController.cancel(); messageController.cancel(); setOpen(false); };
   useEffect(() => {
     if (!open || !panel.current || !backdrop.current) return;
     const overlayNodes = new Set([panel.current, backdrop.current]);
@@ -375,6 +380,11 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
       ? { foodReceipt: { entryId: foodState.entry.entryId, actionId: foodState.receipt.actionId } }
       : {};
     return { surface, includeScreen, ...(includeScreen&&screenDate?{screenDate}:{}), ...contextualSelection, ...foodReceipt, ...(includeScreen && workspaceHint ? { workspace: workspaceHint } : {}), ...(subjectId ? { clientId: subjectId } : {}) };
+  };
+  const receiveTextFood=(response:CoachConversationResponse)=>{
+    const result=response.textFood;
+    if(process.env.NEXT_PUBLIC_COACH_TEXT_FOOD_ACTIONS_ENABLED!=='1'||example&&!textFoodTransport||subjectId&&subjectId!==identity||response.snapshot?.subjectId!==identity||!result?.ok||!('draft'in result))return;
+    setTextFoodDraft({conversationId:response.conversationId,draft:result.draft});setTextFoodBlocked(!result.draft.clarification);
   };
   const send = async () => {
     if (voiceActive || voiceBusy || missingProfessionalSubject || composerSubmitBlocked || preparingPhotosRef.current || controller.snapshot().pending || controller.snapshot().recoveryRequired || !controller.snapshot().draft.trim()) return;
@@ -423,7 +433,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
         response = reviewed.response;
         if (reviewed.speech) setSpeechByTurn(current => ({ ...current, [request.turnId]: reviewed.speech! }));
       } else response = await (example ?? requestConversation)(request, signal);
-      if (response.ok) { setVoiceDraft(null); setVoiceDraftError(false); }
+      if (response.ok) { receiveTextFood(response); setVoiceDraft(null); setVoiceDraftError(false); }
       if (subjectId && subjectId !== identity && response.ok) {
         const snapshot = response.snapshot as (typeof response.snapshot & { scopeKey?: string });
         if (!snapshot || snapshot.subjectId !== subjectId || typeof snapshot.scopeKey !== 'string' || !snapshot.scopeKey
@@ -448,6 +458,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
       void _message;
       const reviewed = await transport({ voice: result, editedText: text, reviewed: true, request: requestTail, offerSpeech: true }, signal);
       if (!reviewed.ok) { outcome = reviewed.error === 'ambiguous_number' ? 'ambiguous' : 'failed'; throw new Error(reviewed.error); }
+      if(reviewed.response.ok)receiveTextFood(reviewed.response);
       outcome = reviewed.response.ok ? 'sent' : 'failed';
       const speech = reviewed.speech;
       if (speech) setSpeechByTurn(current => ({ ...current, [request.turnId]: speech }));
@@ -457,6 +468,8 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   };
   const latestTurn = state.turns.findLast(turn => turn.response?.ok);
   const latestResponse = latestTurn?.response;
+
+
   const professionalCapability = subjectId && subjectId !== identity
     ? latestResponse?.snapshot?.capabilities.find(item => item.key === surface as typeof item.key)
     : undefined;
@@ -556,6 +569,8 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
         followLatest.current = node.scrollHeight - node.scrollTop - node.clientHeight < 64;
         if (followLatest.current) setShowLatest(false);
       }}>
+        {process.env.NEXT_PUBLIC_COACH_TEXT_FOOD_ACTIONS_ENABLED==='1'&&(!example||textFoodTransport)&&(!subjectId||subjectId===identity)&&textFoodDraft?.conversationId!==state.conversationId&&<TextFoodRecoveryNotice key={state.conversationId} conversationId={state.conversationId} transport={textFoodTransport??requestTextFood} onReceipt={receipt=>{for(const entryId of receipt.entryIds)window.dispatchEvent(new CustomEvent(COACH_FOOD_REFRESH,{detail:{actorId:identity,entryId}}));}}/>}
+        {textFoodDraft?.conversationId===state.conversationId&&<TextFoodReview key={`${state.conversationId}:${textFoodDraft.draft.id}`} draft={textFoodDraft.draft} conversationId={state.conversationId} transport={textFoodTransport??requestTextFood} onDismiss={()=>{setTextFoodDraft(null);setTextFoodBlocked(false);}} onReceipt={receipt=>{setTextFoodBlocked(false);for(const entryId of receipt.entryIds)window.dispatchEvent(new CustomEvent(COACH_FOOD_REFRESH,{detail:{actorId:identity,entryId}}));}}/>}
         {(foodState.intentId || foodState.entryId) && <FoodQuantityPanel key={foodState.intentId ?? foodState.entryId} controller={food} state={foodState} transport={activeFoodTransport} />}
         {workoutSetSelf && workoutSetState.intentId && <WorkoutSetPanel controller={workoutSetController} state={workoutSetState} transport={activeWorkoutSetTransport} />}
         {messageEnabled && messageState.intentId && <MessagePanel controller={messageController} state={messageState} transport={activeMessageTransport} />}

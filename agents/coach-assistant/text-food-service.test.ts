@@ -11,6 +11,7 @@ function fixture() {
   type ProposalRow = { id: string; actor: string; subject: string; organization: string; conversation: string; action: string; request_hash: string; resource_version: string; envelope: Record<string, unknown>; expires: string };
   type ReceiptRow = { actor: string; subject: string; organization: string; conversation: string; actionId: string; proposal_id: string; request_hash: string; result: unknown };
   let proposals: ProposalRow[] = [], receipts: ReceiptRow[] = [], foods: Record<string, unknown>[] = [], audits = 0;
+  let cataloguePresent = true; const catalogueLocks: string[] = [];
   let authorized = true, connected = true, expired = false, failReceipt = false, failAudit = false, corrupt = false;
   const controller = new AbortController(), dialect = new PgDialect();
   const parser = vi.fn(async (): Promise<FoodParseOutput> => ({ items: [structuredClone(rice)] }));
@@ -19,6 +20,7 @@ function fixture() {
     async execute(statement: Parameters<PgDialect['sqlToQuery']>[0]) {
       const { sql: query, params: p } = dialect.sqlToQuery(statement);
       const rows = (values: unknown[]) => ({ rows: values });
+      if (query.startsWith('SELECT id FROM public.foods')) { catalogueLocks.push(String(p[0])); return rows(cataloguePresent ? [{ id: p[0] }] : []); }
       if (query.startsWith('SET LOCAL') || query.includes('pg_advisory_xact_lock')) return rows([]);
       if (query.includes('FROM public.profiles') || query.includes('FROM private.coach_chat_threads')) return rows(authorized ? [{ id: id(1) }] : []);
       if (query.includes('FROM pg_constraint')) return rows([{ enabled: connected }]);
@@ -52,6 +54,7 @@ function fixture() {
       if (query.startsWith('INSERT INTO public.audit_log')) { if (failAudit) throw Error('audit unavailable'); audits++; return rows([]); }
       throw Error(`Unexpected fixture query: ${query}`);
     },
+    select() { return { from() { return { where() { return { async limit() { return cataloguePresent ? [{ kcalPer100g: 130, proteinPer100g: 2.7, carbPer100g: 28, fatPer100g: 0.3, fiberPer100g: 0.4, sugarPer100g: 0 }] : []; } }; } }; } }; },
     insert() { return { values(entry: Record<string, unknown>) { return { async returning() { foods.push(structuredClone(entry)); return [{ ...entry, ...(corrupt ? { calories: -1 } : {}) }]; } }; } }; },
   };
   let queue = Promise.resolve();
@@ -70,7 +73,7 @@ function fixture() {
     if (!r.ok || !('proposal' in r)) throw Error(JSON.stringify(r)); return r.proposal;
   }
   const applyOp = (p: TextFoodProposal, actionId = id(6)) => ({ ...base, operation: 'text.food.apply', proposalId: p.id, hash: p.hash, actionId, reviewed: true });
-  return { parser, execute, parse, propose, parseOp, applyOp, state: () => ({ proposals, receipts, foods, audits }), revoke: () => { authorized = false; }, disconnect: () => { connected = false; }, expire: () => { expired = true; }, breakReceipt: () => { failReceipt = true; }, breakAudit: () => { failAudit = true; }, corrupt: () => { corrupt = true; }, abort: () => controller.abort() };
+  return { catalogueLocks, removeCatalogue: () => { cataloguePresent = false; }, parser, execute, parse, propose, parseOp, applyOp, state: () => ({ proposals, receipts, foods, audits }), revoke: () => { authorized = false; }, disconnect: () => { connected = false; }, expire: () => { expired = true; }, breakReceipt: () => { failReceipt = true; }, breakAudit: () => { failAudit = true; }, corrupt: () => { corrupt = true; }, abort: () => controller.abort() };
 }
 describe('actor-bound text Food review service — offline transactions', () => {
   it('parses once, scales a review with native Food rules, and writes only on confirmation', async () => {
@@ -137,6 +140,19 @@ describe('actor-bound text Food review service — offline transactions', () => 
     const f = fixture(); f.parser.mockResolvedValueOnce({ items: [{ ...rice, food_name: ' Rice ', name_localized: 'Arroz' }] });
     const p = await f.propose(); expect(await f.execute(f.applyOp(p))).toMatchObject({ ok: true });
     expect(f.state().foods[0].foodName).toBe('Rice');
+  });
+
+  it('locks catalogue rows during review and apply and refuses a missing reference', async () => {
+    const f = fixture(); f.parser.mockResolvedValueOnce({ items: [{ ...rice, db_food_id: id(20), source: 'local_db' }] });
+    const p = await f.propose(); expect(f.catalogueLocks).toEqual([id(20)]);
+    f.removeCatalogue(); expect(await f.execute(f.applyOp(p))).toMatchObject({ error: 'conflict' });
+    expect(f.catalogueLocks).toEqual([id(20), id(20)]); expect(f.state().foods).toHaveLength(0);
+  });
+  it('does not create a proposal with a missing catalogue reference', async () => {
+    const f = fixture(); f.parser.mockResolvedValueOnce({ items: [{ ...rice, db_food_id: id(20), source: 'local_db' }] });
+    const d = await f.parse(); f.removeCatalogue();
+    expect(await f.execute({ ...base, operation: 'text.food.propose', draftId: d.id, hash: d.hash, after: { loggedDate: '2026-09-12', mealType: 'lunch', items: [{ index: 0, grams: 100 }] } })).toMatchObject({ error: 'conflict' });
+    expect(f.state().foods).toHaveLength(0);
   });
 
 });

@@ -577,7 +577,7 @@ export default function FoodLogPage() {
   }, [loadTodayLog]);
 
   useEffect(() => {
-    if (process.env.NEXT_PUBLIC_COACH_FOOD_ACTIONS_ENABLED !== '1' || !userId) return;
+    if ((process.env.NEXT_PUBLIC_COACH_FOOD_ACTIONS_ENABLED !== '1' && process.env.NEXT_PUBLIC_COACH_TEXT_FOOD_ACTIONS_ENABLED !== '1') || !userId) return;
     const refreshNewEntry = (event: Event) => {
       const selection = readFoodSelection(event);
       if (selection?.actorId === userId && !todayLog.some(entry => entry.id === selection.entryId)) {

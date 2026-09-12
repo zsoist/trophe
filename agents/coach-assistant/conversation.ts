@@ -1,3 +1,4 @@
+import { textFoodIntakeIntent } from './text-food-intent';
 import { renderFoodReferences } from './food-reference';
 import { medicalBoundary } from './medical-boundary';
 import { prepareConversationCapability } from './capability-conversation';
@@ -36,7 +37,7 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
   const controller = new AbortController();
   const abort = () => controller.abort(new Error('cancelled'));
   if(options.signal.aborted) abort(); else options.signal.addEventListener('abort',abort,{once:true});
-  const ceiling=parsed.success&&parsed.data.attachments?.length===1&&parsed.data.attachments[0].kind==='image'?90000:45000;
+  const ceiling=parsed.success&&parsed.data.attachments?.length===1&&parsed.data.attachments[0].kind==='image'?90000:options.resolveTextFoodIntake&&parsed.success&&textFoodIntakeIntent(parsed.data.message)?65000:45000;
   const budget = Math.min(ceiling,Math.max(1,options.deadlineMs ?? ceiling));
   const timer = setTimeout(()=>controller.abort(new Error('deadline')),budget);
   let boundary: (()=>void) | undefined;
@@ -67,6 +68,22 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
         photoObservations=await options.resolvePhotoObservations(scopedInput,controller.signal);
         if(photoObservations.length!==scopedInput.attachments.length)throw new Error('attachment_analysis_failed');
         await authorizedRepository.authorize(options.actorId,subject,controller.signal);controller.signal.throwIfAborted();
+      }
+      if(options.resolveTextFoodIntake&&!scopedInput.attachments?.length&&!Object.values(medicalBoundary(scopedInput.message)).some(Boolean)) {
+        const intake=await options.resolveTextFoodIntake(scopedInput,controller.signal);
+        if(intake){
+          await authorizedRepository.authorize(options.actorId,subject,controller.signal);controller.signal.throwIfAborted();
+          const language=textFoodIntakeIntent(scopedInput.message)?.language??authorized.language;
+          response.snapshot={id:randomUUID(),capturedAt:options.now.toISOString(),subjectId:subject,organizationId:authorized.organizationId,...scope,surface:scopedInput.context?.includeScreen?scopedInput.context.surface:null,screenIncluded:!!scopedInput.context?.includeScreen,language,units:{weight:'kg',energy:'kcal',protein:'g'},window:windowForConversation(scopedInput,'today','food',authorized.timezone,options.now),capabilities:[]};
+          const ready=intake.ok&&'draft'in intake;
+          response.textFood=intake;
+          response.output={answer:language.startsWith('es')
+            ?ready?'Revisa los alimentos, las porciones y la fecha antes de confirmar. Todavía no he registrado esta comida.':'No pude preparar esta comida. Puedes registrarla desde Food; no se guardó ningún alimento.'
+            :ready?'Review the foods, portions and date before confirming. I have not logged this meal yet.':'I could not prepare this meal. You can log it from Food; no food was saved.',evidenceRefs:[],limitations:['text_food_review_required','text_food_usage_in_shared_ledger'],suggestions:[],escalation:{required:false,reason:null,draft:null}};
+          // Native parser usage is settled in the shared ledger, outside the chat
+          // generation transport. Never report this independent work as free.
+          response.telemetry.costUsd=null;response.ok=true;return;
+        }
       }
       diagnosticStage.value='context_preparation';
       if(options.capabilityRegistry&&options.mode==='model'&&!Object.values(medicalBoundary(scopedInput.message)).some(Boolean)){
@@ -163,7 +180,7 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
             ?{...error.diagnostic,correlation:createHash('sha256').update(`${response.conversationId}:${response.turnId}`).digest('hex').slice(0,16)}:undefined;
           console.warn(JSON.stringify({event:'coach_conversation_output_rejected',code:error.diagnosticCode,...(qaDiagnostic?{diagnostic:qaDiagnostic}:{})}));
           response.output=photoReviewOnlyOutput(response.snapshot?.language.startsWith('es')??false);
-          response.actionIntents=[];delete response.explanations;
+          response.actionIntents=[];delete response.explanations;delete response.textFood;
         }
         await repository.authorize(options.actorId,subject,controller.signal);
         controller.signal.throwIfAborted();
@@ -189,7 +206,7 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
       if(category)console.warn(JSON.stringify({event:'coach_conversation_pretransport_failed',code,diagnostic:{stage:diagnosticStage.value,category,correlation:createHash('sha256').update(`${response.conversationId}:${response.turnId}`).digest('hex').slice(0,16)}}));
     }
     response.error={code,retryable:code==='query_failed'||code==='deadline'||code==='provider_unavailable'||code==='attachment_analysis_failed'};
-    response.ok=false;response.snapshot=null;response.evidence=[];response.actionIntents=[];delete response.capabilityResult;delete response.output;delete response.profile;delete response.foodPreference;delete response.memories;delete response.explanations;
+    response.ok=false;response.snapshot=null;response.evidence=[];response.actionIntents=[];delete response.capabilityResult;delete response.output;delete response.profile;delete response.foodPreference;delete response.memories;delete response.explanations;delete response.textFood;
   } finally {
     clearTimeout(timer);options.signal.removeEventListener('abort',abort);
     if(boundary)controller.signal.removeEventListener('abort',boundary);

@@ -66,6 +66,10 @@ export async function POST(request: NextRequest) {
       const { createFoodQuantityService } = await import('@/agents/coach-assistant/food-service');
       return createFoodQuantityService(db);
     },
+    createTextFoodService: async (actorId:string) => {
+      const { createPrivateTextFoodService } = await import('@/agents/coach-assistant/private-text-food-runtime');
+      return createPrivateTextFoodService(process.env, actorId);
+    },
     createPhotoFoodService: async (operation:unknown, actorId:string) => {
       if (process.env.COACH_ASSISTANT_PRIVATE_ATTACHMENTS_ENABLED === '1') {
         const { createGovernedPrivatePhotoFoodService } = await import('@/agents/coach-assistant/private-photo-runtime');

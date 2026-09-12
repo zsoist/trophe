@@ -1,3 +1,4 @@
+import { lockTextFoodCatalogue } from './text-food-catalogue';
 import { createHash, randomUUID } from 'node:crypto';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
@@ -67,6 +68,8 @@ async function load(tx: Tx, s: Scope, id: string): Promise<Envelope> {
 async function reviewedItems(tx: Tx, draft: TextFoodDraft, after: TextFoodProposal['after']) {
   if (draft.clarification) throw new Rejected('clarification_required');
   if (new Set(after.items.map(item => item.index)).size !== after.items.length) throw new Rejected('invalid_input');
+  try { await lockTextFoodCatalogue(tx, after.items.map(portion => draft.items[portion.index]?.db_food_id)); }
+  catch (error) { if (error instanceof Error && error.message === 'food_catalogue_conflict') throw new Rejected('conflict'); throw error; }
   const result: ParsedFoodItem[] = [];
   for (const portion of after.items) {
     const item = draft.items[portion.index];

@@ -9,6 +9,7 @@ import { COACH_PRICING_VERSION } from './economics';
 import { COACH_PROMPT_VERSION, COACH_SYSTEM_PROMPT } from './prompt.v3';
 
 export interface RunOptions extends EvidenceOptions {
+  resolveTextFoodIntake?: (input: import('./contracts').CoachConversationRequest, signal: AbortSignal) => Promise<import('./text-food-contract').TextFoodResult | null>;
   mode: 'offline' | 'model';
   /** Only synthetic evaluation can supply this fixture transport adapter. */
   offlineModel?: (input: { system: string; prompt: string; signal: AbortSignal }) => Promise<ProviderResult<unknown>>;

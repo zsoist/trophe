@@ -1,3 +1,5 @@
+import { textFoodIntakeIntent } from './text-food-intent';
+import { executeTextFoodAction, type TextFoodService } from './text-food-actions';
 import { createFoodPreferenceTurn } from './food-preference-turn';
 import { executeProgressAction, type ProgressService } from './progress-actions';
 import { runDurableChatTurn } from './chat-turn';
@@ -40,6 +42,7 @@ interface HandlerDependencies {
   createChatService?:()=>ReturnType<typeof createCoachChatService>|Promise<ReturnType<typeof createCoachChatService>>;
   createAttachmentService?:()=>ReturnType<typeof createPrivateAttachmentService>|Promise<ReturnType<typeof createPrivateAttachmentService>>;
   createFoodService?:()=>FoodQuantityService|Promise<FoodQuantityService>;
+  createTextFoodService?:(actorId:string)=>TextFoodService|Promise<TextFoodService>;
   createPhotoFoodService?:(operation:unknown,actorId:string)=>PhotoFoodService|Promise<PhotoFoodService>;
   createProgressService?:()=>ProgressService|Promise<ProgressService>;
   createWorkoutSetService?:()=>WorkoutSetService|Promise<WorkoutSetService>;
@@ -156,6 +159,13 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
         if(!deps.createFoodService)return fail('provider_unavailable',503);
         const result=await executeFoodQuantityAction(guard.userId,raw,await deps.createRepository(),await deps.createFoodService(),controller.signal);
         return json(result,result.ok?200:result.error==='forbidden'?403:result.error==='invalid_input'?400:result.error==='expired'?410:result.error==='not_found'?404:result.error==='uncertain'||result.error==='cancelled'?503:409);
+      }
+      if(raw && typeof raw==='object' && 'operation' in raw && typeof raw.operation==='string' && raw.operation.startsWith('text.food.')) {
+        if(deps.env.COACH_ASSISTANT_TEXT_FOOD_ACTIONS_ENABLED!=='1')return fail('disabled',404);
+        if(!deps.createTextFoodService)return fail('provider_unavailable',503);
+        if(raw.operation==='text.food.parse'){requestDeadlineMs=65000;clearTimeout(timer);timer=setTimeout(()=>controller.abort(new Error('deadline')),requestDeadlineMs);}
+        const result=await executeTextFoodAction(guard.userId,raw,await deps.createRepository(),await deps.createTextFoodService(guard.userId),controller.signal);
+        return json(result,result.ok?200:result.error==='forbidden'?403:result.error==='invalid_input'?400:result.error==='expired'?410:result.error==='not_found'?404:result.error==='not_connected'||result.error==='uncertain'?503:409);
       }
       if(raw && typeof raw==='object' && 'operation' in raw && typeof raw.operation==='string' && raw.operation.startsWith('photo.food.')) {
         if(deps.env.COACH_ASSISTANT_PHOTO_FOOD_ACTIONS_ENABLED!=='1')return fail('disabled',404);
@@ -299,7 +309,15 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
           ||result.snapshot.source!=='validated_photo_analysis'||result.snapshot.trust!=='untrusted_image_data'||result.snapshot.reviewRequired!==true)throw new Error('attachment_analysis_failed');
         return [result.snapshot];
       }:undefined;
+      const resolveTextFoodIntake=live&&durableChat&&deps.env.COACH_ASSISTANT_TEXT_FOOD_ACTIONS_ENABLED==='1'&&deps.createTextFoodService
+        ?async(input:import('./contracts').CoachConversationRequest,signal:AbortSignal)=>{
+          if(input.attachments?.length||input.context?.clientId&&input.context.clientId!==guard.userId)return null;
+          const intent=textFoodIntakeIntent(input.message);if(!intent)return null;
+          return executeTextFoodAction(guard.userId,{version:'coach-assistant.v2',operation:'text.food.parse',conversationId:input.conversationId,turnId:input.turnId,requestId:input.turnId,text:intent.text,language:intent.language},repository,await deps.createTextFoodService!(guard.userId),signal);
+        }:undefined;
+      if(resolveTextFoodIntake&&conversationInput&&textFoodIntakeIntent(conversationInput.message)){requestDeadlineMs=65000;clearTimeout(timer);timer=setTimeout(()=>controller.abort(new Error('deadline')),Math.max(1,requestDeadlineMs-(performance.now()-start)));}
       const runOptions={
+        resolveTextFoodIntake,
         capabilityRegistry,
         filterMemoryHistory:historyTurn?.filterHistory,
         offlineConversationProvider:candidate?deps.candidateEvaluation!.transport:undefined!,

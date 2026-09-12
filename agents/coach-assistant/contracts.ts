@@ -187,6 +187,7 @@ export interface CoachConversationResponse {
   receipts: CoachReceipt[];
   attachments: CoachAttachmentRef[];
   explanations?: Array<{kind:'curated_general';id:string;text:string;source:'coach-general.v1'}>;
+  textFood?: import('./text-food-contract').TextFoodResult;
   uploads?: { images: true; storage: 'isolated_ephemeral' | 'private_storage'; analysis: 'not_connected' | 'validated_photo_analysis'; limits: typeof COACH_IMAGE_LIMITS };
   telemetry: CoachTelemetry;
 }

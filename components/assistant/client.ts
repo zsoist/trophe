@@ -1,3 +1,4 @@
+import { textFoodResultSchema } from '@/agents/coach-assistant/text-food-contract';
 import { COACH_IMAGE_LIMITS, type CoachConversationResponse } from '@/agents/coach-assistant/contracts';
 import { readCoachResponse } from '@/components/workout/coach/client';
 import { readCoachMessageResult } from '@/agents/coach-assistant/message-result-reader';
@@ -83,6 +84,7 @@ export function readConversationResponse(value: unknown): CoachConversationRespo
     if (snapshot.capabilities.length > 20 || snapshot.capabilities.some(item => !item || typeof item !== 'object'
       || typeof item.key !== 'string' || !['available', 'unknown', 'unauthorized', 'not_connected'].includes(item.status))) throw new Error('invalid_output');
   }
+  if (row.textFood !== undefined && !textFoodResultSchema.safeParse(row.textFood).success) throw new Error('invalid_output');
   if (row.profile !== undefined) {
     const p = row.profile as Record<string, unknown>;
     if (!p || typeof p !== 'object' || typeof p.language !== 'string' || typeof p.timezone !== 'string' || typeof p.version !== 'string'

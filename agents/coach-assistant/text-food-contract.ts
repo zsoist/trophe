@@ -21,3 +21,11 @@ export type TextFoodProposal=z.infer<typeof textFoodProposalSchema>;
 export type TextFoodScope={actorId:string;subjectId:string;organizationId:string;signal:AbortSignal};
 export type TextFoodReceipt={actionId:string;proposalId:string;hash:string;entryIds:string[];loggedDate:string;recordedAt:string;status:'applied'};
 export type TextFoodResult={ok:false;error:'forbidden'|'invalid_input'|'not_connected'|'not_found'|'expired'|'conflict'|'uncertain'|'clarification_required'}|{ok:true;draft:TextFoodDraft}|{ok:true;proposal:TextFoodProposal}|{ok:true;receipt:TextFoodReceipt;refresh:'refetch'};
+
+export const textFoodReceiptResultSchema = z.object({ok:z.literal(true),receipt:z.object({actionId:uuid,proposalId:uuid,hash,entryIds:z.array(uuid).min(1).max(FOOD_PARSE_MAX_ITEMS),loggedDate:z.iso.date(),recordedAt:z.string().datetime({offset:true}),status:z.literal('applied')}).strict(),refresh:z.literal('refetch')}).strict();
+export const textFoodResultSchema = z.union([
+ z.object({ok:z.literal(false),error:z.enum(['forbidden','invalid_input','not_connected','not_found','expired','conflict','uncertain','clarification_required'])}).strict(),
+ z.object({ok:z.literal(true),draft:textFoodDraftSchema}).strict(),
+ z.object({ok:z.literal(true),proposal:textFoodProposalSchema}).strict(),
+ textFoodReceiptResultSchema,
+]);

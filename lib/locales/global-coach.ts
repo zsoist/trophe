@@ -1,4 +1,9 @@
 export const globalCoachTranslations: Record<string, { en: string; es: string; el: string }> = {
+  'global_coach.text_food_recovery': { en: 'A meal confirmation is awaiting verification. Check its saved result before logging it again.', es: 'Hay una confirmación de comida pendiente de verificar. Consulta el resultado antes de registrarla otra vez.', el: 'Μια επιβεβαίωση γεύματος χρειάζεται έλεγχο. Ελέγξτε το αποθηκευμένο αποτέλεσμα πριν το καταγράψετε ξανά.' },
+  'global_coach.text_food_title': { en: 'Review your meal', es: 'Revisa tu comida', el: 'Ελέγξτε το γεύμα σας' },
+  'global_coach.text_food_estimate': { en: 'Estimated nutrition. Check portions and date; nothing is saved until you confirm.', es: 'Nutrición estimada. Revisa las porciones y la fecha; nada se guarda hasta que confirmes.', el: 'Εκτιμώμενη διατροφή. Ελέγξτε μερίδες και ημερομηνία· τίποτα δεν αποθηκεύεται πριν επιβεβαιώσετε.' },
+  'global_coach.text_food_saved': { en: 'Meal saved. Your food log is refreshing.', es: 'Comida guardada. Estamos actualizando tu registro.', el: 'Το γεύμα αποθηκεύτηκε. Το ημερολόγιο ενημερώνεται.' },
+
   "global_coach.live_title": {"en": "Voice conversation", "es": "Conversación por voz", "el": "Φωνητική συνομιλία"},
   "global_coach.live_ready": {"en": "Up to 2 minutes. Start when you are ready.", "es": "Hasta 2 minutos. Inicia cuando estés listo.", "el": "Έως 2 λεπτά. Ξεκινήστε όταν είστε έτοιμοι."},
   "global_coach.live_listening": {"en": "Microphone on · Listening", "es": "Micrófono activo · Escuchando", "el": "Μικρόφωνο ενεργό · Ακούω"},
