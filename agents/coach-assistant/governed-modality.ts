@@ -34,8 +34,12 @@ export async function runGovernedPilotModality<Result extends GovernedResult>(in
  const claim=await executePilotBudgetCommand({operation:'claim_dispatch',binding},input.store,input.signal);if(!claim.ok||!claim.dispatchGranted)throw new Error('budget_blocked');
  try{
   const result=await input.run(Object.freeze(structuredClone(binding))),usage=usageOf(result.usage);
-  if(result.selectedPolicy.provider!==contract.provider||result.selectedPolicy.model!==contract.model||result.selectedPolicy.promptVersion!==contract.promptVersion||result.isFallback||result.responseModel!==contract.model||result.rawStatus<200||result.rawStatus>=300||pricePilotUsageNanoUsd(usage,binding.model)===null)throw new Error('invalid_modality_result');
-  const settled=await persistAfterDispatch({operation:'settle',binding,usage,providerSuccess:{responseModel:result.responseModel,requestId:result.requestId??null}},input.store);
+  const photoModelVerified=input.task!=='photo_analyze'||result.responseModel===contract.model;
+  if(result.selectedPolicy.provider!==contract.provider||result.selectedPolicy.model!==contract.model||result.selectedPolicy.promptVersion!==contract.promptVersion||result.isFallback||!photoModelVerified||result.rawStatus<200||result.rawStatus>=300||pricePilotUsageNanoUsd(usage,binding.model)===null)throw new Error('invalid_modality_result');
+  // The transcription adapter's established result omits responseModel. Keep
+  // its ledger contract stable; Photo uses the observed Luna model as proof.
+  const ledgerModel=input.task==='photo_analyze'?result.responseModel:binding.model;
+  const settled=await persistAfterDispatch({operation:'settle',binding,usage,providerSuccess:{responseModel:ledgerModel,requestId:result.requestId??null}},input.store);
   if(!settled.ok||settled.record.state!=='settled')throw new Error('accounting_uncertain');
   return result;
  }catch(error){
