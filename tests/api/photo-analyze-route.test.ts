@@ -66,7 +66,7 @@ describe('POST /api/ai/photo-analyze', () => {
     });
   });
 
-  it('uses one governed call and returns a conservative editable Beans row', async () => {
+  it('preserves only provider components without completing a named recipe', async () => {
     const response = await POST(request());
     const body = await response.json();
 
@@ -76,11 +76,7 @@ describe('POST /api/ai/photo-analyze', () => {
       task: 'photo_analyze',
       prompt: expect.stringContaining('Identity uncertainty is separate from portion-weight uncertainty'),
     }));
-    expect(body.foods.find((food: { name: string }) => food.name === 'Beans')).toMatchObject({
-      estimated_grams: 120,
-      estimated_fiber_g: 7.7,
-      needs_confirmation: true,
-    });
+    expect(body.foods).toEqual([rice]);
     expect(mocks.invokePrivatePhotoFoodProvider).not.toHaveBeenCalled();
   });
   it('routes a preview pilot photo through the shared durable modality admission',async()=>{

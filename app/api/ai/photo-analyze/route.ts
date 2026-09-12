@@ -7,7 +7,6 @@ import {
   type PhotoAnalysisFood,
 } from '@/lib/food/photo-analysis';
 import { safeErrorMetadata } from '@/lib/security/safe-error-log';
-import { groundKnownDishComponents } from '@/lib/food/photo-grounding';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {createHash} from 'node:crypto';
@@ -136,13 +135,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const dishName = typeof toolUse?.input?.dish_name === 'string'
-      ? toolUse.input.dish_name
-      : null;
-    const foods = groundKnownDishComponents({ dishName, foods: normalizedFoods });
-
     return NextResponse.json({
-      foods: foods satisfies PhotoAnalysisFood[],
+      foods: normalizedFoods satisfies PhotoAnalysisFood[],
     });
   } catch (error) {
     console.error('[photo-analyze] unhandled error', safeErrorMetadata(error));
