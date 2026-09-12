@@ -2,8 +2,16 @@ import type { CoachChatMessage } from '@/agents/coach-assistant/chat-contract';
 import type { CoachAttachmentRef, CoachContextHint, CoachConversationRequest, CoachConversationResponse, CoachSurface } from '@/agents/coach-assistant/contracts';
 
 export type ConversationTransport = (request: CoachConversationRequest, signal: AbortSignal) => Promise<CoachConversationResponse>;
-export interface ConversationTurn { request: CoachConversationRequest; response?: CoachConversationResponse }
-export interface ConversationState { conversationId: string; draft: string; turns: ConversationTurn[]; restored: CoachChatMessage[]; durable: boolean; recoveryRequired: boolean; pending: boolean; error: 'failed' | 'cancelled' | null }
+export interface ConversationTurn { request: CoachConversationRequest; response?: CoachConversationResponse; recovered?: CoachChatMessage[] }
+export interface ConversationState { conversationId: string; draft: string; turns: ConversationTurn[]; restored: CoachChatMessage[]; durable: boolean; recoveryRequired: boolean; recovering: boolean; pending: boolean; error: 'failed' | 'cancelled' | null }
+
+export interface ConversationRecovery {
+  thread: { id: string };
+  status: 'settled' | 'failed' | 'inflight' | 'unknown' | 'not_found';
+  user: CoachChatMessage | null;
+  assistant: CoachChatMessage | null;
+}
+export type ConversationRecoveryTransport = (threadId: string, turnId: string, signal: AbortSignal) => Promise<ConversationRecovery>;
 
 /** One in-memory conversation per authenticated subject. Navigation never calls send. */
 export class ConversationController {
@@ -13,28 +21,79 @@ export class ConversationController {
   private identity: string | null = null;
   private creationTitle: string | null = null;
   private state: ConversationState = this.empty();
-  private empty(): ConversationState { return { conversationId: crypto.randomUUID(), draft: '', turns: [], restored: [], durable: false, recoveryRequired: false, pending: false, error: null }; }
+  private uncertainThreads = new Map<string, ConversationState>();
+  private empty(): ConversationState { return { conversationId: crypto.randomUUID(), draft: '', turns: [], restored: [], durable: false, recoveryRequired: false, recovering: false, pending: false, error: null }; }
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   snapshot = () => this.state;
-  private publish(next: ConversationState) { this.state = next; this.listeners.forEach(listener => listener()); }
+  private publish(next: ConversationState) {
+    if (next.recoveryRequired) this.uncertainThreads.set(next.conversationId, { ...next, pending: false, recovering: false });
+    else this.uncertainThreads.delete(next.conversationId);
+    this.state = next; this.listeners.forEach(listener => listener()); }
   identify(identity: string | null) {
     if (identity === this.identity) return;
-    this.generation++; this.active?.abort(); this.active = null; this.identity = identity; this.creationTitle = null;
+    this.generation++; this.active?.abort(); this.active = null; this.identity = identity; this.creationTitle = null; this.uncertainThreads.clear();
     this.publish(this.empty());
   }
   startNew() {
     if (!this.identity) return false;
+    this.cancel();
     this.generation++; this.active?.abort(); this.active = null; this.creationTitle = null;
     this.publish(this.empty());
     return true;
   }
   restore(conversationId: string, messages: CoachChatMessage[]) {
-    if (!this.identity || messages.length > 1000) return false;
+    if (!this.identity || messages.length > 1000 || this.state.pending || this.state.recovering || this.state.recoveryRequired && conversationId === this.state.conversationId) return false;
+    const draft = conversationId === this.state.conversationId ? this.state.draft : '';
     this.generation++; this.active?.abort(); this.active = null; this.creationTitle = null;
-    this.publish({ ...this.empty(), conversationId, durable: true, restored: structuredClone(messages) });
+    const uncertain = this.uncertainThreads.get(conversationId);
+    this.publish(uncertain ?? { ...this.empty(), conversationId, draft, durable: true, restored: structuredClone(messages) });
     return true;
   }
+  async recover(read: ConversationRecoveryTransport) {
+    const turn = this.state.turns.at(-1);
+    if (!this.identity || this.active || !this.state.recoveryRequired || !turn) return false;
+    const conversationId = this.state.conversationId, turnId = turn.request.turnId;
+    const request = new AbortController(); this.active = request;
+    const generation = ++this.generation;
+    this.publish({ ...this.state, recovering: true });
+    const timeout = setTimeout(() => request.abort(), 10_000);
+    try {
+      const result = await read(conversationId, turnId, request.signal);
+      if (generation !== this.generation || request.signal.aborted || result.thread.id !== conversationId) return false;
+      if (result.status !== 'settled' && result.status !== 'failed') return false;
+      if (!result.user || result.user.turnId !== turnId || result.user.role !== 'user') return false;
+      if (result.status === 'settled' && (!result.assistant || result.assistant.turnId !== turnId || result.assistant.role !== 'assistant' || result.assistant.sequence <= result.user.sequence)) return false;
+      this.publish({ ...this.state, recoveryRequired: false, error: result.status === 'settled' ? null : 'failed',
+        draft: result.status === 'settled' && this.state.draft.trim() === turn.request.message ? '' : this.state.draft,
+        turns: this.state.turns.map(item => item.request.turnId === turnId && result.status === 'settled' ? { ...item, recovered: [result.user!, result.assistant!] } : item) });
+      return true;
+    } catch { return false; }
+    finally {
+      clearTimeout(timeout);
+      if (generation === this.generation) { this.active = null; this.publish({ ...this.state, recovering: false }); }
+    }
+  }
   setDraft(draft: string) { this.publish({ ...this.state, draft: draft.slice(0, 2000) }); }
+  async prepareDurable(title: string, createThread: (requestId: string, title: string, signal: AbortSignal) => Promise<{ id: string }>) {
+    if (this.state.durable) return this.state.conversationId;
+    if (!this.identity || this.active || !title.trim()) return null;
+    const requestId = this.state.conversationId;
+    const controller = new AbortController(); this.active = controller;
+    const generation = ++this.generation;
+    const creationTitle = this.creationTitle ??= title.trim().slice(0, 80);
+    this.publish({ ...this.state, pending: true, error: null });
+    try {
+      const thread = await createThread(requestId, creationTitle, controller.signal);
+      if (generation !== this.generation || controller.signal.aborted) return null;
+      this.publish({ ...this.state, conversationId: thread.id, durable: true, pending: false, error: null });
+      return thread.id;
+    } catch {
+      if (generation === this.generation) this.publish({ ...this.state, pending: false, error: 'failed' });
+      return null;
+    } finally {
+      if (generation === this.generation) this.active = null;
+    }
+  }
   cancel() {
     if (!this.active) return;
     this.generation++; this.active.abort(); this.active = null;
@@ -42,12 +101,12 @@ export class ConversationController {
   }
   async send(context: CoachContextHint | undefined, transport: ConversationTransport, attachments: CoachAttachmentRef[] = [], createThread?: (requestId: string, title: string, signal: AbortSignal) => Promise<{ id: string }>, requestedTurnId?: string) {
     const message = this.state.draft.trim();
-    if (!this.identity || this.active || this.state.recoveryRequired || !message) return;
+    if (!this.identity || this.active || this.state.recoveryRequired || !message || attachments.length > 1) return;
     const request: CoachConversationRequest = {
       version: 'coach-assistant.v2', conversationId: this.state.conversationId, turnId: requestedTurnId ?? crypto.randomUUID(), message,
       ...(context ? { context: structuredClone(context) } : {}),
-      ...(attachments.length ? { attachments: structuredClone(attachments.slice(0, 3)) } : {}),
-      history: [...this.state.restored.map(item => ({ role: item.role, text: item.text.slice(0, 500) })), ...this.state.turns.filter(turn => turn.response?.ok).flatMap(turn => [
+      ...(attachments.length ? { attachments: structuredClone(attachments) } : {}),
+      history: [...this.state.restored.map(item => ({ role: item.role, text: item.text.slice(0, 500) })), ...this.state.turns.filter(turn => turn.response?.ok || turn.recovered).flatMap(turn => turn.recovered ? turn.recovered.map(item => ({ role: item.role, text: item.text.slice(0, 500) })) : [
         { role: 'user' as const, text: turn.request.message.slice(0, 500) },
         { role: 'assistant' as const, text: (turn.response?.output?.answer ?? '').slice(0, 500), ...(turn.response?.memoryContext?.derivedHistoryToken ? { derivedToken: turn.response.memoryContext.derivedHistoryToken } : {}) },
       ])].slice(-6),
@@ -59,7 +118,7 @@ export class ConversationController {
       if (generation !== this.generation) return;
       this.generation++; controller.abort(); this.active = null;
       this.publish({ ...this.state, pending: false, recoveryRequired: this.state.durable, error: 'failed', draft: this.state.draft || message });
-    }, 45_000);
+    }, attachments.length ? 95_000 : 45_000);
     try {
       if (createThread && !this.state.durable) {
         if (attachments.length) throw new Error('thread_required_before_upload');

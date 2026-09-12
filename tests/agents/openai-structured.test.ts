@@ -8,6 +8,7 @@ import {
 } from '../../scripts/safety/require-paid-ai-approval';
 
 const validator = z.object({ value: z.string() });
+const lunaSuccess = () => ({id:'resp_test',status:'completed',output:[{type:'reasoning',summary:[]},{type:'function_call',status:'completed',name:'submit_result',arguments:'{"value":"ok"}'}]});
 const SENSITIVE_SENTINEL = 'SENSITIVE_SENTINEL_DO_NOT_LOG';
 
 beforeEach(() => {
@@ -45,12 +46,7 @@ describe('invokeOpenAiStructured', () => {
 
   it('propagates injected fetch through the structured dispatcher', async () => {
     const signal = new AbortController().signal;
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
-      choices: [{
-        finish_reason: 'tool_calls',
-        message: { tool_calls: [{ function: { name: 'submit_result', arguments: '{"value":"ok"}' } }] },
-      }],
-    }), { status: 200 }));
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(lunaSuccess()), { status: 200 }));
 
     await expect(invokeStructuredProvider({
       policy: {
@@ -71,15 +67,13 @@ describe('invokeOpenAiStructured', () => {
   it('sends a strict forced function call and validates its arguments', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       id: 'resp_123',
-      choices: [{
-        finish_reason: 'tool_calls',
-        message: { tool_calls: [{ function: { name: 'submit_result', arguments: '{"value":"ok"}' } }] },
-      }],
+      status: 'completed',
+      output: [{ type:'reasoning', summary:[] },{ type: 'function_call', status:'completed', name: 'submit_result', arguments: '{"value":"ok"}' }],
       usage: {
-        prompt_tokens: 120,
-        completion_tokens: 8,
-        prompt_tokens_details: { cached_tokens: 80, cache_write_tokens: 12 },
-        completion_tokens_details: { reasoning_tokens: 0 },
+        input_tokens: 120,
+        output_tokens: 8,
+        input_tokens_details: { cached_tokens: 80, cache_write_tokens: 12 },
+        output_tokens_details: { reasoning_tokens: 0 },
       },
     }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
     const result = await invokeOpenAiStructured({
@@ -93,6 +87,7 @@ describe('invokeOpenAiStructured', () => {
       schema: { type: 'object', properties: { value: { type: 'string' } }, required: ['value'], additionalProperties: false },
       validator,
       strict: true,
+      reasoningEffort: 'low',
       fetchImpl: fetchMock as unknown as typeof fetch,
     });
 
@@ -108,24 +103,24 @@ describe('invokeOpenAiStructured', () => {
     const request = JSON.parse(fetchMock.mock.calls[0][1].body as string);
     expect(request).toMatchObject({
       model: 'gpt-5.6-luna',
-      reasoning_effort: 'none',
-      max_completion_tokens: 256,
-      prompt_cache_options: { mode: 'explicit' },
-      tool_choice: { type: 'function', function: { name: 'submit_result' } },
+      reasoning: { effort: 'low' },
+      max_output_tokens: 256,
+      tool_choice: { type: 'function', name: 'submit_result' },
     });
-    expect(request.messages).toEqual([
+    expect(request.input).toEqual([
       {
-        role: 'system',
+        role: 'developer',
         content: [{
-          type: 'text',
+          type: 'input_text',
           text: 'system',
-          prompt_cache_breakpoint: { mode: 'explicit' },
         }],
       },
-      { role: 'user', content: 'prompt' },
+      { role: 'user', content: [{ type: 'input_text', text: 'prompt' }] },
     ]);
-    expect(request.tools[0].function.strict).toBe(true);
+    expect(request.tools[0]).toMatchObject({type:'function',name:'submit_result',strict:true,parameters:{type:'object'}});
+    expect(fetchMock.mock.calls[0][0]).toBe('https://api.openai.com/v1/responses');
     expect(request.prompt_cache_key).toMatch(/^trophe-structured-[a-f0-9]{32}$/);
+    expect(request).not.toHaveProperty('prompt_cache_options');expect(JSON.stringify(request.input)).not.toContain('prompt_cache_breakpoint');
     expect(fetchMock.mock.calls[0][1]).toMatchObject({
       headers: {
         Authorization: 'Bearer trophe-offline-placeholder',
@@ -133,6 +128,57 @@ describe('invokeOpenAiStructured', () => {
       },
     });
     expect(JSON.stringify(fetchMock.mock.calls)).not.toContain(SENSITIVE_SENTINEL);
+  });
+
+  it('sends a server-bound image as input_image on the Luna Responses request', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(lunaSuccess()), { status: 200 }));
+    await invokeOpenAiStructured({
+      model: 'gpt-5.6-luna', system: 'system', prompt: 'inspect the image', maxTokens: 256,
+      signal: new AbortController().signal, toolName: 'submit_result', description: 'Submit result',
+      schema: { type: 'object' }, validator, strict: true, reasoningEffort: 'low', maxAttempts: 1,
+      image: { bytes: Uint8Array.from([1, 2, 3]), mediaType: 'image/jpeg' },
+      fetchImpl: fetchMock as unknown as typeof fetch,
+    });
+    const request = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    expect(request.input[1].content).toEqual([
+      { type: 'input_text', text: 'inspect the image' },
+      { type: 'input_image', image_url: 'data:image/jpeg;base64,AQID' },
+    ]);
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it('fails closed when an image is supplied to a non-Luna OpenAI adapter', async () => {
+    const fetchMock = vi.fn();
+    await expect(invokeOpenAiStructured({
+      model: 'mistral-small-2603', system: 'system', prompt: 'inspect the image', maxTokens: 256,
+      signal: new AbortController().signal, toolName: 'submit_result', description: 'Submit result',
+      schema: { type: 'object' }, validator, image: { bytes: Uint8Array.from([1]), mediaType: 'image/jpeg' },
+      fetchImpl: fetchMock as unknown as typeof fetch,
+    })).rejects.toThrow('vision_not_supported');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['text output',{status:'completed',output:[{type:'message',content:[]}]}],
+    ['refusal',{status:'completed',output:[{type:'refusal',refusal:'no'}]}],
+    ['missing call',{status:'completed',output:[]}],
+    ['multiple calls',{status:'completed',output:[{type:'function_call',status:'completed',name:'submit_result',arguments:'{"value":"ok"}'},{type:'function_call',status:'completed',name:'submit_result',arguments:'{"value":"ok"}'}]}],
+    ['wrong name',{status:'completed',output:[{type:'function_call',status:'completed',name:'other',arguments:'{"value":"ok"}'}]}],
+    ['incomplete response',{status:'incomplete',output:[{type:'function_call',status:'completed',name:'submit_result',arguments:'{"value":"ok"}'}]}],
+    ['incomplete call',{status:'completed',output:[{type:'function_call',status:'incomplete',name:'submit_result',arguments:'{"value":"ok"}'}]}],
+    ['call plus message',{status:'completed',output:[{type:'function_call',status:'completed',name:'submit_result',arguments:'{"value":"ok"}'},{type:'message',content:[]}]}],
+    ['invalid arguments JSON',{status:'completed',output:[{type:'function_call',status:'completed',name:'submit_result',arguments:'{'}]}],
+    ['arguments failing Zod',{status:'completed',output:[{type:'function_call',status:'completed',name:'submit_result',arguments:'{"other":true}'}]}],
+  ])('rejects Luna Responses %s without a retry',async(_label,responseBody)=>{
+    const fetchMock=vi.fn().mockResolvedValue(new Response(JSON.stringify(responseBody),{status:200,headers:{'x-request-id':'req_response_invalid'}}));
+    await expect(invokeOpenAiStructured({model:'gpt-5.6-luna',system:'system',prompt:'prompt',maxTokens:256,signal:new AbortController().signal,toolName:'submit_result',description:'Submit result',schema:{type:'object'},validator,strict:true,reasoningEffort:'low',maxAttempts:1,fetchImpl:fetchMock as unknown as typeof fetch})).rejects.toMatchObject({code:'invalid_structured_output',requestId:'req_response_invalid'});
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it('surfaces a 200 Responses failed status as a typed provider error',async()=>{
+    const fetchMock=vi.fn().mockResolvedValue(new Response(JSON.stringify({status:'failed',error:{message:'private upstream detail',code:'invalid_request_error',type:'invalid_request_error',param:'reasoning.effort'}}),{status:200,headers:{'x-request-id':'req_response_failed'}}));
+    await expect(invokeOpenAiStructured({model:'gpt-5.6-luna',system:'system',prompt:'prompt',maxTokens:256,signal:new AbortController().signal,toolName:'submit_result',description:'Submit result',schema:{type:'object'},validator,strict:true,reasoningEffort:'low',maxAttempts:1,fetchImpl:fetchMock as unknown as typeof fetch})).rejects.toMatchObject({status:200,code:'invalid_request_error',type:'invalid_request_error',param:'reasoning.effort',requestId:'req_response_failed'});
+    expect(fetchMock).toHaveBeenCalledOnce();
   });
 
   it('owns the Mistral-compatible endpoint and request mapping without a global fetch patch', async () => {
@@ -181,12 +227,7 @@ describe('invokeOpenAiStructured', () => {
   });
 
   it('uses one stable cache key for the same static prompt prefix', async () => {
-    const success = () => new Response(JSON.stringify({
-      choices: [{
-        finish_reason: 'tool_calls',
-        message: { tool_calls: [{ function: { name: 'submit_result', arguments: '{"value":"ok"}' } }] },
-      }],
-    }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    const success = () => new Response(JSON.stringify(lunaSuccess()), { status: 200, headers: { 'Content-Type': 'application/json' } });
     const fetchMock = vi.fn().mockImplementation(success);
     const common = {
       model: 'gpt-5.6-luna',
@@ -257,6 +298,7 @@ describe('invokeOpenAiStructured', () => {
         message: 'You have insufficient permissions for this operation.',
         code: 'insufficient_permissions',
         type: 'invalid_request_error',
+        param: 'tools[0].function.parameters.required',
       },
     }), {
       status: 403,
@@ -274,6 +316,7 @@ describe('invokeOpenAiStructured', () => {
       status: 403,
       code: 'insufficient_permissions',
       type: 'invalid_request_error',
+      param: 'tools[0].function.parameters.required',
       requestId: 'req_luna_123',
     } satisfies Partial<OpenAiApiError>);
     expect(fetchMock).toHaveBeenCalledOnce();
@@ -285,9 +328,7 @@ describe('invokeOpenAiStructured', () => {
       .mockResolvedValueOnce(new Response(JSON.stringify({ error: { message: 'rate limited' } }), {
         status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': '0.001' },
       }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({
-        choices: [{ finish_reason: 'tool_calls', message: { tool_calls: [{ function: { name: 'submit_result', arguments: '{"value":"ok"}' } }] } }],
-      }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+      .mockResolvedValueOnce(new Response(JSON.stringify(lunaSuccess()), { status: 200, headers: { 'Content-Type': 'application/json' } }));
     const pending = invokeOpenAiStructured({
       model: 'gpt-5.6-luna', system: 'system', prompt: 'prompt', maxTokens: 256,
       signal: new AbortController().signal, toolName: 'submit_result', description: 'Submit result',
@@ -306,12 +347,7 @@ describe('invokeOpenAiStructured', () => {
         status: 503,
         headers: { 'Content-Type': 'text/html' },
       }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({
-        choices: [{
-          finish_reason: 'tool_calls',
-          message: { tool_calls: [{ function: { name: 'submit_result', arguments: '{"value":"ok"}' } }] },
-        }],
-      }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+      .mockResolvedValueOnce(new Response(JSON.stringify(lunaSuccess()), { status: 200, headers: { 'Content-Type': 'application/json' } }));
     const pending = invokeOpenAiStructured({
       model: 'gpt-5.6-luna', system: 'system', prompt: 'prompt', maxTokens: 256,
       signal: new AbortController().signal, toolName: 'submit_result', description: 'Submit result',
@@ -330,12 +366,7 @@ describe('invokeOpenAiStructured', () => {
         status,
         headers: { 'Content-Type': 'application/json' },
       }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({
-        choices: [{
-          finish_reason: 'tool_calls',
-          message: { tool_calls: [{ function: { name: 'submit_result', arguments: '{"value":"ok"}' } }] },
-        }],
-      }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+      .mockResolvedValueOnce(new Response(JSON.stringify(lunaSuccess()), { status: 200, headers: { 'Content-Type': 'application/json' } }));
     const pending = invokeOpenAiStructured({
       model: 'gpt-5.6-luna', system: 'system', prompt: 'prompt', maxTokens: 256,
       signal: new AbortController().signal, toolName: 'submit_result', description: 'Submit result',
@@ -351,12 +382,7 @@ describe('invokeOpenAiStructured', () => {
     vi.useFakeTimers();
     const fetchMock = vi.fn()
       .mockRejectedValueOnce(new TypeError('fetch failed'))
-      .mockResolvedValueOnce(new Response(JSON.stringify({
-        choices: [{
-          finish_reason: 'tool_calls',
-          message: { tool_calls: [{ function: { name: 'submit_result', arguments: '{"value":"ok"}' } }] },
-        }],
-      }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+      .mockResolvedValueOnce(new Response(JSON.stringify(lunaSuccess()), { status: 200, headers: { 'Content-Type': 'application/json' } }));
     const pending = invokeOpenAiStructured({
       model: 'gpt-5.6-luna', system: 'system', prompt: 'prompt', maxTokens: 256,
       signal: new AbortController().signal, toolName: 'submit_result', description: 'Submit result',

@@ -133,6 +133,28 @@ function requestIdFrom(response: Response): string | undefined {
   return requestId(response.headers.get('request-id')) ?? requestId(response.headers.get('x-request-id'));
 }
 
+function preserveResponseHeadersOnAbort(signal: AbortSignal, response: Response): () => void {
+  const safeRequestId = requestIdFrom(response);
+  const preserve = () => {
+    const reason = signal.reason;
+    if (!reason || typeof reason !== 'object') return;
+    try {
+      if (Object.getOwnPropertyDescriptor(reason, 'status') === undefined) {
+        Object.defineProperty(reason, 'status', { value: response.status, configurable: true });
+      }
+      if (safeRequestId && Object.getOwnPropertyDescriptor(reason, 'requestId') === undefined) {
+        Object.defineProperty(reason, 'requestId', { value: safeRequestId, configurable: true });
+      }
+    } catch {
+      // Abort reasons can be foreign or non-extensible. Missing diagnostics must
+      // never interfere with cancellation or expose raw response headers.
+    }
+  };
+  if (signal.aborted) preserve();
+  else signal.addEventListener('abort', preserve, { once: true });
+  return () => signal.removeEventListener('abort', preserve);
+}
+
 function providerGenerationIdFrom(data: AnthropicResponseBody): string | undefined {
   return messageId(data.id);
 }
@@ -283,7 +305,13 @@ export async function invokeAnthropicJson<T>(input: {
     body: JSON.stringify(input.body),
     signal: input.signal,
   });
-  const data = await readAnthropicResponse({ response, startedAt, maxTokens: input.body.max_tokens });
+  const stopPreservingHeaders = preserveResponseHeadersOnAbort(input.signal, response);
+  let data: AnthropicResponseBody;
+  try {
+    data = await readAnthropicResponse({ response, startedAt, maxTokens: input.body.max_tokens });
+  } finally {
+    stopPreservingHeaders();
+  }
   const usage = anthropicUsage(data);
   if (!Array.isArray(data.content) || data.content.length === 0 || !usage) {
     throw malformedAnthropicResponse({ response, startedAt, data });

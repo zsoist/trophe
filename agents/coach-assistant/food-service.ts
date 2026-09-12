@@ -67,14 +67,18 @@ export function createFoodQuantityService(database:Database):FoodQuantityService
             if(stored.action!==action||!envelope.success||envelope.data.proposal.resource.id!==operation.entryId||stored.subject_id!==scope.subjectId||stored.organization_id!==scope.organizationId||stored.conversation_id!==operation.conversationId||(operation.operation==='food.apply'&&(stored.proposal_id!==operation.proposalId||stored.request_hash!==operation.hash||stored.resource_version!==operation.resourceVersion)))throw new Rejected('idempotency_conflict');
             const result=foodQuantityResultSchema.safeParse(stored.result);
             if(!result.success||!result.data.ok||!('receipt' in result.data)||result.data.receipt.actionId!==operation.actionId||result.data.receipt.proposalId!==stored.proposal_id)throw new Rejected('uncertain');
-            scope.signal.throwIfAborted();return result.data;
+            const beforeGrams=envelope.data.proposal.before.grams,afterGrams=envelope.data.proposal.after.grams;
+            if(beforeGrams===null||afterGrams===null||beforeGrams===afterGrams)throw new Rejected('uncertain');
+            scope.signal.throwIfAborted();return {...result.data,change:{beforeGrams,afterGrams}};
           }
           if(operation.operation==='food.receipt')return fail('not_found');
         }
         let entryId:string;
         if(operation.operation==='food.resolve') {
           const candidates=await tx.execute<{id:string}>(operation.entryHintId
-            ? sql`SELECT id FROM public.food_log WHERE id=${operation.entryHintId}::uuid AND user_id=${scope.subjectId}::uuid AND qty_g=${operation.expectedPreviousGrams}::numeric LIMIT 2 FOR UPDATE`
+            ? operation.expectedPreviousGrams===undefined
+              ? sql`SELECT id FROM public.food_log WHERE id=${operation.entryHintId}::uuid AND user_id=${scope.subjectId}::uuid LIMIT 2 FOR UPDATE`
+              : sql`SELECT id FROM public.food_log WHERE id=${operation.entryHintId}::uuid AND user_id=${scope.subjectId}::uuid AND qty_g=${operation.expectedPreviousGrams}::numeric LIMIT 2 FOR UPDATE`
             : operation.loggedDateHint
               ? sql`SELECT id FROM public.food_log WHERE user_id=${scope.subjectId}::uuid AND logged_date=${operation.loggedDateHint}::date AND qty_g=${operation.expectedPreviousGrams}::numeric ORDER BY created_at DESC NULLS FIRST LIMIT 2 FOR UPDATE`
               : sql`SELECT id FROM public.food_log WHERE user_id=${scope.subjectId}::uuid AND qty_g=${operation.expectedPreviousGrams}::numeric ORDER BY created_at DESC NULLS FIRST LIMIT 2 FOR UPDATE`);
@@ -86,7 +90,7 @@ export function createFoodQuantityService(database:Database):FoodQuantityService
         if(!existing)throw new Rejected('not_found');
         const currentVersion=await version(tx,entryId);
         const before=values(existing);
-        if(operation.operation==='food.resolve'&&before.grams!==operation.expectedPreviousGrams)throw new Rejected('version_conflict');
+        if(operation.operation==='food.resolve'&&operation.expectedPreviousGrams!==undefined&&before.grams!==operation.expectedPreviousGrams)throw new Rejected('version_conflict');
         if(operation.operation==='food.read'||operation.operation==='food.resolve') {scope.signal.throwIfAborted();return {version:'coach-assistant.v2',storage:'database',ok:true,snapshot:{...before,entryId,version:currentVersion}} as FoodQuantityResult;}
         // Hold the canonical nutrient source stable through preview/write/receipt.
         if(existing.foodId)await tx.execute(sql`SELECT id FROM public.foods WHERE id=${existing.foodId}::uuid FOR SHARE`);
@@ -124,7 +128,8 @@ export function createFoodQuantityService(database:Database):FoodQuantityService
         const clock=await tx.execute<{recorded:string}>(sql`SELECT clock_timestamp()::text AS recorded`);
         const receipt:CoachReceipt={id:randomUUID(),actionId:operation.actionId,proposalId:proposal.id,status:'applied',resourceVersion:nextVersion,recordedAt:new Date(clock.rows[0].recorded).toISOString()};
         const refresh:FoodQuantityRefresh={entryId:operation.entryId,loggedDate:before.loggedDate,previousVersion:currentVersion,version:nextVersion,strategy:'refetch'};
-        const result:FoodQuantityResult={version:'coach-assistant.v2',storage:'database',ok:true,receipt,refresh};
+        if(proposal.before.grams===null||proposal.after.grams===null)throw new Rejected('uncertain');
+        const result:FoodQuantityResult={version:'coach-assistant.v2',storage:'database',ok:true,receipt,refresh,change:{beforeGrams:proposal.before.grams,afterGrams:proposal.after.grams}};
         await tx.execute(sql`INSERT INTO private.coach_action_receipts(id,actor_id,subject_id,organization_id,conversation_id,action_id,proposal_id,request_hash,resource_version,result)
           VALUES (${receipt.id}::uuid,${scope.actorId}::uuid,${scope.subjectId}::uuid,${scope.organizationId}::uuid,${operation.conversationId}::uuid,${operation.actionId}::uuid,${proposal.id}::uuid,${operation.hash},${currentVersion},${JSON.stringify(result)}::jsonb)`);
         await tx.execute(sql`INSERT INTO public.audit_log(actor_id,actor_role,action,table_name,record_id,new_value)

@@ -22,6 +22,13 @@ function fixture(){
  return {storage:createPrivateCoachImageStorage({url:'http://127.0.0.1:54321',serviceKey:'isolated-fixture-key',bucket,fetchImpl}),fetchImpl,objects,public:()=>{publicBucket=true;},afterUpload:(callback:()=>void)=>{afterUpload=callback;}};
 }
 describe('concrete Supabase private image SDK adapter',()=>{
+ it('allows only the explicit private QA project in preview and keeps production/other remote projects closed',()=>{
+  const qa='https://nhawdvqqxscwxbpngaql.supabase.co';
+  expect(()=>createPrivateCoachImageStorage({url:qa,serviceKey:'qa-service-key',bucket,fetchImpl:vi.fn(),deploymentEnvironment:'preview'})).not.toThrow();
+  expect(()=>createPrivateCoachImageStorage({url:qa,serviceKey:'qa-service-key',bucket,fetchImpl:vi.fn(),deploymentEnvironment:'production'})).toThrow('invalid_isolated_storage_config');
+  expect(()=>createPrivateCoachImageStorage({url:`${qa}:444`,serviceKey:'qa-service-key',bucket,fetchImpl:vi.fn(),deploymentEnvironment:'preview'})).toThrow('invalid_isolated_storage_config');
+  expect(()=>createPrivateCoachImageStorage({url:'https://aaaaaaaaaaaaaaaaaaaa.supabase.co',serviceKey:'qa-service-key',bucket,fetchImpl:vi.fn(),deploymentEnvironment:'preview'})).toThrow('invalid_isolated_storage_config');
+ });
  it('normalizes before storage, recovers identical bytes without overwrite, signs bounded reads and removes via API',async()=>{
   const f=fixture();const bytes=await sharp({create:{width:3,height:2,channels:3,background:'red'}}).png().withMetadata({orientation:6}).toBuffer();const signal=new AbortController().signal;const authorize=vi.fn(async()=>{});
   const first=await f.storage.put(scope,bytes,'image/png',signal,authorize);expect(first.path).toBe(attachmentObjectPath(scope));expect(first.metadata.mime).toBe('image/jpeg');

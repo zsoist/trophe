@@ -596,6 +596,34 @@
       "when": 1788526800000,
       "tag": "0084_owner_scoped_live_session_reconciliation",
       "breakpoints": true
+    },
+    {
+      "idx": 85,
+      "version": "7",
+      "when": 1788625788738,
+      "tag": "0085_revoke_workout_table_truncate",
+      "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "7",
+      "when": 1788907813843,
+      "tag": "0086_coach_pilot_budget_authority",
+      "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1789045200000,
+      "tag": "0087_ask_trophe_live02_contracts",
+      "breakpoints": true
+    },
+    {
+      "idx": 88,
+      "version": "7",
+      "when": 1789160400000,
+      "tag": "0088_coach_chat_turn_recovery",
+      "breakpoints": true
     }
   ]
 }

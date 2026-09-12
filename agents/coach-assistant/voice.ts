@@ -3,22 +3,23 @@ import { SUPPORTED_TRANSCRIPTION_LOCALES, transcriptionOutputSchema } from '@/ag
 import type { invokeOpenAiTranscription } from '@/agents/runtime/providers/openai-transcription';
 import { taskPolicies } from '@/agents/router/policies';
 import { normalizeAudioMediaType, readAudioDurationMs } from '@/lib/server/audio-duration';
-import { COACH_AUDIO_LIMITS, type CoachVoiceResult } from './voice-contract';
+import { COACH_AUDIO_LIMITS, type CoachTranscriptSource, type CoachVoiceResult } from './voice-contract';
 import type { CoachRepository } from './repository';
 import {issueVoiceReviewToken} from './voice-review-token';
 
-/** Existing provider signature; only a synthetic fixture callback is accepted here. */
+/** Existing provider signature. Live composition supplies only the shared-ledger wrapper. */
 export type OfflineCoachTranscriber=(input:Parameters<typeof invokeOpenAiTranscription>[0])=>ReturnType<typeof invokeOpenAiTranscription>;
 const metadataSchema=z.object({conversationId:z.string().uuid(),turnId:z.string().uuid(),locale:z.enum(SUPPORTED_TRANSCRIPTION_LOCALES),durationMs:z.number().int().positive().max(COACH_AUDIO_LIMITS.durationMs),clientId:z.string().uuid().optional()}).strict();
 const failure=(error:Extract<CoachVoiceResult,{ok:false}>['error']):CoachVoiceResult=>({version:'coach-assistant.voice.v1',ok:false,status:error==='budget_blocked'?'not_connected':'error',error});
 
-/** Not wired to HTTP or paid STT. Authenticated subject is never taken from audio metadata. */
-export async function transcribeCoachAudio(file:File,raw:unknown,options:{actorId:string;repository:CoachRepository;signal:AbortSignal;offlineTranscriber?:OfflineCoachTranscriber;deadlineMs?:number}):Promise<CoachVoiceResult> {
+/** Validates audio before its injected transcription boundary. Authenticated subject is never taken from audio metadata. */
+export async function transcribeCoachAudio(file:File,raw:unknown,options:{actorId:string;repository:CoachRepository;signal:AbortSignal;offlineTranscriber?:OfflineCoachTranscriber;transcriptSource?:CoachTranscriptSource;deadlineMs?:number}):Promise<CoachVoiceResult> {
   const parsed=metadataSchema.safeParse(raw);
   if(!parsed.success)return failure('invalid_input');
   const input=parsed.data;
   if(input.clientId&&input.clientId!==options.actorId)return failure('forbidden');
-  if(!options.offlineTranscriber||options.repository.dataSource!=='synthetic')return failure('budget_blocked');
+  const source=options.transcriptSource??'synthetic_fixture';
+  if(!options.offlineTranscriber||(source==='synthetic_fixture')!==(options.repository.dataSource==='synthetic'))return failure('budget_blocked');
   const controller=new AbortController();
   const cancel=()=>controller.abort(new Error('cancelled'));
   if(options.signal.aborted)cancel();else options.signal.addEventListener('abort',cancel,{once:true});
@@ -51,7 +52,7 @@ export async function transcribeCoachAudio(file:File,raw:unknown,options:{actorI
       if(!transcript.success||transcript.data.text.length>2000||result.rawStatus<200||result.rawStatus>=300)throw new Error('invalid_output');
       const scope={actorId:context.actorId,organizationId:context.organizationId,conversationId:input.conversationId};
       const review=issueVoiceReviewToken({...scope,turnId:input.turnId,locale:input.locale,transcript:transcript.data.text});
-      return {version:'coach-assistant.voice.v1',ok:true,status:'review_required',scope,turnId:input.turnId,transcript:{...transcript.data,locale:input.locale,source:'synthetic_fixture',trust:'untrusted_transcript'},review:{...review,editable:true,audioRetention:'discarded_after_transcription'},durationMs};
+      return {version:'coach-assistant.voice.v1',ok:true,status:'review_required',scope,turnId:input.turnId,transcript:{...transcript.data,locale:input.locale,source,trust:'untrusted_transcript'},review:{...review,editable:true,audioRetention:'discarded_after_transcription'},durationMs};
     };
     return await Promise.race([work(),new Promise<never>((_,reject)=>{
       boundary=()=>reject(controller.signal.reason);controller.signal.addEventListener('abort',boundary,{once:true});if(controller.signal.aborted)boundary();

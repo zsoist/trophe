@@ -50,4 +50,41 @@ describe('providerErrorTelemetry', () => {
   it('returns empty telemetry for ordinary errors', () => {
     expect(providerErrorTelemetry(new Error('offline'))).toEqual({ rawStatus: 0 });
   });
+
+  it('extracts only an allowlisted timeout phase from an own data property', () => {
+    const error = new Error('deadline');
+    Object.defineProperty(error, '_timeoutPhase', { value: 'provider_pending' });
+
+    expect(providerErrorTelemetry(error)).toEqual({
+      rawStatus: 0,
+      timeoutPhase: 'provider_pending',
+    });
+    expect(providerErrorTelemetry(Object.assign(new Error('deadline'), {
+      _timeoutPhase: 'private-provider-step',
+    }))).toEqual({ rawStatus: 0 });
+  });
+
+  it('keeps network and billing classifications allowlisted while dropping arbitrary fields', () => {
+    expect(providerErrorTelemetry({ status: 429, code: 'insufficient_quota', requestId: 'req_quota_1' })).toMatchObject({
+      rawStatus: 429, metadata: { providerError: { code: 'insufficient_quota', requestId: 'req_quota_1' } },
+    });
+    const redacted = providerErrorTelemetry({ status: 403, code: 'private_code', type: 'private_type', requestId: 'secret', message: 'sk-private' });
+    expect(redacted).toEqual({ rawStatus: 403 });
+    expect(JSON.stringify(redacted)).not.toContain('private');
+    expect(providerErrorTelemetry({ status: 404, code: 'model_not_found', param: 'model' })).toEqual({
+      rawStatus: 404, metadata: { providerError: { code: 'model_not_found', param: 'model' } },
+    });
+    expect(providerErrorTelemetry({ status: 400, type: 'invalid_request_error', param: 'private.path' })).toEqual({rawStatus:400,metadata:{providerError:{type:'invalid_request_error'}}});
+  });
+
+  it('extracts a native network cause without reading messages, getters, or the cause object', () => {
+    const error = Object.assign(new TypeError('sk-private'), { cause: { code: 'UND_ERR_CONNECT_TIMEOUT', detail: 'private cause' } });
+    Object.defineProperty(error, 'requestId', { get: () => { throw new Error('must not read'); } });
+    const telemetry = providerErrorTelemetry(error);
+    expect(telemetry).toEqual({
+      rawStatus: 0,
+      metadata: { providerError: { code: 'UND_ERR_CONNECT_TIMEOUT' } },
+    });
+    expect(JSON.stringify(telemetry)).not.toMatch(/sk-private|private cause/);
+  });
 });

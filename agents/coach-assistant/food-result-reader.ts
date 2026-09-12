@@ -23,12 +23,18 @@ const values={loggedDate:date,foodName:string(1,200),foodId:nullable(uuid),sourc
 const proposal=object({id:uuid,hash:pattern(/^[a-f0-9]{64}$/),action:literal('food.quantity.update'),resource:object({kind:literal('food_entry'),id:uuid,version}),before:object(values),after:object(values),expectedVersion:version,precondition:version,expiresAt:datetime,reviewRequired:literal(true)});
 const receipt=object({id:uuid,actionId:uuid,proposalId:uuid,status:enumeration(['applied','rejected','uncertain']),resourceVersion:nullable(version),recordedAt:datetime});
 const refresh=object({entryId:uuid,loggedDate:date,previousVersion:version,version,strategy:literal('refetch')});
+const change:Check=value=>object({beforeGrams:numeric,afterGrams:numeric})(value)
+ && (value as {beforeGrams:number;afterGrams:number}).beforeGrams>0
+ && (value as {beforeGrams:number;afterGrams:number}).afterGrams>0
+ && (value as {beforeGrams:number;afterGrams:number}).beforeGrams<=10000
+ && (value as {beforeGrams:number;afterGrams:number}).afterGrams<=10000
+ && (value as {beforeGrams:number;afterGrams:number}).beforeGrams!==(value as {beforeGrams:number;afterGrams:number}).afterGrams;
 const base={version:literal('coach-assistant.v2'),storage:literal('database')};
 const variants=[
  object({...base,ok:literal(false),error:enumeration(['invalid_input','forbidden','not_found','ambiguous_selection','version_conflict','expired','idempotency_conflict','cancelled','uncertain'])}),
  object({...base,ok:literal(true),snapshot:object({...values,entryId:uuid,version})}),
  object({...base,ok:literal(true),proposal}),
- object({...base,ok:literal(true),receipt,refresh},['refresh']),
+ object({...base,ok:literal(true),receipt,refresh,change},['refresh','change']),
 ];
 /** Accepts parsed JSON; does not authorize, calculate, mutate or repair a response. */
 export function readFoodQuantityResult(value:unknown):FoodQuantityResult|null {

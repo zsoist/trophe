@@ -48,4 +48,11 @@ describe('food log load consistency', () => {
     expect(source).toContain("t('food.retry')");
     expect(source).toContain('onClick={() => void loadTodayLog()}');
   });
+
+  it('reloads the visible day when a coach receipt introduces a new food entry', () => {
+    expect(source).toContain("window.addEventListener(COACH_FOOD_REFRESH, refreshNewEntry)");
+    expect(source).toContain('selection?.actorId === userId && !todayLog.some(entry => entry.id === selection.entryId)');
+    expect(source).toContain('void loadTodayLog();');
+    expect(source).toContain("window.removeEventListener(COACH_FOOD_REFRESH, refreshNewEntry)");
+  });
 });

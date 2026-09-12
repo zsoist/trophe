@@ -23,7 +23,8 @@ it('opens the visible dietary section using the active self and conversation, th
   const node = (identity: string) => <I18nProvider defaultLang="en"><GlobalCoach identity={identity} example={example} dietTransport={diet} /></I18nProvider>;
   const view = render(node(actor));
   fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
-  fireEvent.click(document.querySelector('#global-coach summary')!);
+  fireEvent.click(screen.getByLabelText('Saved conversations'));
+  fireEvent.click(screen.getByText('Diet preference', { selector: 'summary' }));
   await screen.findByRole('combobox', { name: 'Diet preference' });
   expect(requests).toHaveLength(1); expect(requests[0].profileId).toBe(actor);
   fireEvent.change(document.getElementById('global-coach-question')!, { target: { value: 'My meals' } });
@@ -32,7 +33,8 @@ it('opens the visible dietary section using the active self and conversation, th
   expect(turns[0]).toBe(requests[0].conversationId);
   view.rerender(node(nextActor));
   fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
-  fireEvent.click(document.querySelector('#global-coach summary')!);
+  fireEvent.click(screen.getByLabelText('Saved conversations'));
+  fireEvent.click(screen.getByText('Diet preference', { selector: 'summary' }));
   await screen.findByRole('combobox', { name: 'Diet preference' });
   expect(requests).toHaveLength(2); expect(requests[1].profileId).toBe(nextActor);
   expect(requests[1].conversationId).not.toBe(requests[0].conversationId);
@@ -53,12 +55,14 @@ it('moves diet context without resetting its recovery state when starting anothe
   vi.stubEnv('NEXT_PUBLIC_COACH_DIET_ACTIONS_ENABLED', '1');
   const reset = vi.spyOn(DietController.prototype, 'reset');
   const moveConversation = vi.spyOn(DietController.prototype, 'moveConversation');
-  const history: HistoryTransport = { list: vi.fn(), read: vi.fn() };
+  const history: HistoryTransport = { list: vi.fn(async () => ({ threads: [], nextCursor: null })), read: vi.fn() };
   const actor = crypto.randomUUID();
   const diet: DietTransport = async operation => ({ version: 'coach-assistant.v2', storage: 'database', ok: true, snapshot: { profileId: operation.profileId, version: '0', preferences: { version: 1, dietPattern: null } } });
   render(<I18nProvider defaultLang="en"><GlobalCoach identity={actor} example={vi.fn()} historyTransport={history} dietTransport={diet} /></I18nProvider>);
   fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
-  expect(screen.getAllByText('Diet preference')).toHaveLength(2);
+  expect(screen.queryByText('Diet preference', { selector: 'summary' })).toBeNull();
+  fireEvent.click(screen.getByLabelText('Saved conversations'));
+  expect(screen.getByText('Diet preference', { selector: 'summary' })).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'New conversation' }));
   expect(reset).not.toHaveBeenCalled();
   expect(moveConversation).toHaveBeenCalledOnce();

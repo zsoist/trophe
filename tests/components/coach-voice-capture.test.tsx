@@ -71,6 +71,18 @@ it('labels local capture honestly and provides permission failure recovery witho
   expect(screen.getByText(/Microphone permission was denied/)).toBeTruthy();
   expect(fetch).not.toHaveBeenCalled();
 });
+it('labels governed transcription accurately when a transport is connected', () => {
+  const { controller } = fixture();
+  const transcribe = vi.fn();
+  function Harness() {
+    const state = React.useSyncExternalStore(controller.subscribe, controller.snapshot);
+    return <I18nProvider defaultLang="en"><VoiceCapture controller={controller} state={state} disabled={false} conversationId={crypto.randomUUID()} transcribe={transcribe} /></I18nProvider>;
+  }
+  render(<Harness />); fireEvent.click(screen.getByText('Voice'));
+  expect(screen.getByText(/Audio is uploaded only when you create the transcript, then discarded/)).toBeTruthy();
+  expect(screen.queryByText(/Transcription and audio upload are not connected/)).toBeNull();
+  expect(transcribe).not.toHaveBeenCalled();
+});
 it('stops answer playback before requesting the microphone and again on reset', () => {
   const start = vi.fn((options: typeof callbacks) => { callbacks = options; options.onRequesting(); return { active: true, cancel: vi.fn(), stop: vi.fn() }; });
   const stopPlayback = vi.fn();

@@ -27,6 +27,7 @@ test('memory review, save, correction and deletion use authenticated HTTP with r
   await page.getByRole('button', { name: 'Ask Trophē', exact: true }).click();
   const panel = page.locator('#global-coach');
   const reading = responseFor('memory.read');
+  if (await panel.getByRole('button', { name: 'Saved conversations', exact: true }).getAttribute('aria-expanded') === 'false') await panel.getByRole('button', { name: 'Saved conversations', exact: true }).click();
   await panel.locator('summary').filter({ hasText: 'Remembered context' }).click();
   expect((await reading).status()).toBe(200);
   await panel.getByRole('textbox', { name: 'What would you like to remember?', exact: true }).fill('I prefer short morning sessions.');

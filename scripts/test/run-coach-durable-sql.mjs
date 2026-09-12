@@ -10,6 +10,10 @@ function validateStatus(status) {
 }
 try {
   await runLocalAuthenticatedE2E({ validateStatus, executeWithDisposableRoles: async ({ status, env, actors }) => {
+    const migration = spawnSync(process.execPath, ['--import', 'tsx', 'scripts/test/coach-live02-migration-sql.ts'], {
+      stdio: 'inherit', env: { ...env, DATABASE_URL: status.DB_URL },
+    });
+    if (migration.error || migration.status !== 0) throw new Error('live02_migration_sql_failed');
     const result = spawnSync(process.execPath, ['--import', 'tsx', 'scripts/test/coach-durable-sql.ts'], {
       stdio: 'inherit', env: { ...env, DATABASE_URL: status.DB_URL, COACH_SQL_ACTOR: actors.clientId, COACH_SQL_COACH: actors.coachId, COACH_SQL_ORG: env.E2E_TEST_ORG_ID },
     });

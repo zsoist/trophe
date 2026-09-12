@@ -1,7 +1,48 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type Frame, type Page, type Request } from '@playwright/test';
 
 export type Role = 'client' | 'coach' | 'admin';
 export type ThemeMode = 'light' | 'dark';
+
+type LoginDiagnostic = {
+  event: 'coach_login_diagnostic';
+  outcome: 'passed' | 'failed';
+  role: Role;
+  authExchangeStatus: number | null;
+  authExchangeCategory: 'none' | 'success' | 'rate_limited' | 'client_error' | 'server_error' | 'other';
+  authRequestStarted: boolean;
+  authRequestFailureCategory: 'none' | 'aborted' | 'timeout' | 'connection' | 'dns' | 'other';
+  submitDisabledBeforeClick: boolean | null;
+  submitDisabledAfterClick: boolean | null;
+  pathname: string;
+  sessionPresent: boolean | null;
+  uiErrorCategory: 'none' | 'invalid_credentials' | 'rate_limited' | 'network' | 'other';
+};
+
+export function classifyAuthExchangeStatus(status: number | null): LoginDiagnostic['authExchangeCategory'] {
+  if (status === null) return 'none';
+  if (status >= 200 && status < 300) return 'success';
+  if (status === 429) return 'rate_limited';
+  if (status >= 400 && status < 500) return 'client_error';
+  if (status >= 500) return 'server_error';
+  return 'other';
+}
+
+export function classifyLoginUiError(value: string | null): LoginDiagnostic['uiErrorCategory'] {
+  if (!value) return 'none';
+  if (/invalid.*credential|invalid login/i.test(value)) return 'invalid_credentials';
+  if (/rate|too many|limit/i.test(value)) return 'rate_limited';
+  if (/network|fetch|connect/i.test(value)) return 'network';
+  return 'other';
+}
+
+export function classifyAuthRequestFailure(value: string | null): LoginDiagnostic['authRequestFailureCategory'] {
+  if (!value) return 'none';
+  if (/abort|cancel/i.test(value)) return 'aborted';
+  if (/timed? ?out|timeout/i.test(value)) return 'timeout';
+  if (/connection|refused|reset|closed/i.test(value)) return 'connection';
+  if (/name.*resolv|dns|not_resolved/i.test(value)) return 'dns';
+  return 'other';
+}
 
 const credentials: Record<Role, readonly [string | undefined, string | undefined]> = {
   client: [process.env.E2E_CLIENT_EMAIL, process.env.E2E_CLIENT_PASSWORD],
@@ -42,11 +83,121 @@ export function shouldBlockPaidRequest(
 export async function loginAs(page: Page, role: Role, path = '/login'): Promise<void> {
   const [email, password] = credentials[role];
   if (!email || !password) throw new Error(`Missing disposable local ${role} E2E credentials`);
+  const diagnostics = process.env.E2E_COACH_LOGIN_DIAGNOSTIC === '1';
+  let authExchangeStatus: number | null = null;
+  let authRequestStarted = false;
+  let authRequestFailureCategory: LoginDiagnostic['authRequestFailureCategory'] = 'none';
+  let submitDisabledBeforeClick: boolean | null = null;
+  let submitDisabledAfterClick: boolean | null = null;
+  const lastKnown: { pathname: string; sessionPresent: boolean | null } = {
+    pathname: readPagePathname(page), sessionPresent: null,
+  };
+  const observeSession = async () => {
+    const cookies = await page.context().cookies().catch(() => null);
+    if (cookies) lastKnown.sessionPresent = cookies.some(cookie => cookie.name.includes('auth-token'));
+  };
+  const observeAuth = (response: { url(): string; status(): number }) => {
+    const url = new URL(response.url());
+    if (url.pathname.endsWith('/auth/v1/token')) {
+      authExchangeStatus = response.status();
+      void observeSession();
+    }
+  };
+  const observeAuthRequest = (request: Request) => {
+    if (new URL(request.url()).pathname.endsWith('/auth/v1/token')) authRequestStarted = true;
+  };
+  const observeAuthRequestFailure = (request: Request) => {
+    if (!new URL(request.url()).pathname.endsWith('/auth/v1/token')) return;
+    authRequestStarted = true;
+    authRequestFailureCategory = classifyAuthRequestFailure(request.failure()?.errorText ?? null);
+  };
+  const observeNavigation = (frame: Frame) => {
+    if (frame === page.mainFrame()) {
+      lastKnown.pathname = safePathname(frame.url());
+      void observeSession();
+    }
+  };
+  if (diagnostics) {
+    page.on('response', observeAuth);
+    page.on('request', observeAuthRequest);
+    page.on('requestfailed', observeAuthRequestFailure);
+    page.on('framenavigated', observeNavigation);
+  }
   await page.goto(path);
+  const submit = page.locator('form').getByRole('button', { name: 'Log in' });
+  await expect(submit).toBeEnabled();
   await page.getByPlaceholder('Email').fill(email);
   await page.getByPlaceholder('Password').fill(password);
-  await page.locator('form').getByRole('button', { name: 'Log in' }).click();
-  await page.waitForURL((url) => !url.pathname.startsWith('/login'));
+  if (diagnostics) submitDisabledBeforeClick = await submit.isDisabled().catch(() => null);
+  await submit.click();
+  if (diagnostics) submitDisabledAfterClick = await submit.isDisabled().catch(() => null);
+  try {
+    await page.waitForURL((url) => !url.pathname.startsWith('/login'));
+    if (diagnostics) {
+      lastKnown.pathname = readPagePathname(page, lastKnown.pathname);
+      await observeSession();
+      await emitLoginDiagnostic(page, role, authExchangeStatus, 'passed', lastKnown, {
+        authRequestStarted, authRequestFailureCategory, submitDisabledBeforeClick, submitDisabledAfterClick,
+      });
+    }
+  } catch (error) {
+    if (diagnostics) await emitLoginDiagnostic(page, role, authExchangeStatus, 'failed', lastKnown, {
+      authRequestStarted, authRequestFailureCategory, submitDisabledBeforeClick, submitDisabledAfterClick,
+    });
+    throw error;
+  } finally {
+    if (diagnostics) {
+      page.off('response', observeAuth);
+      page.off('request', observeAuthRequest);
+      page.off('requestfailed', observeAuthRequestFailure);
+      page.off('framenavigated', observeNavigation);
+    }
+  }
+}
+
+function safePathname(value: string): string {
+  try { return new URL(value).pathname; } catch { return '/unknown'; }
+}
+
+function readPagePathname(page: Page, fallback = '/unknown'): string {
+  try {
+    const pathname = safePathname(page.url());
+    return pathname === '/unknown' ? fallback : pathname;
+  } catch { return fallback; }
+}
+
+export async function emitLoginDiagnostic(
+  page: Page,
+  role: Role,
+  authExchangeStatus: number | null,
+  outcome: LoginDiagnostic['outcome'],
+  lastKnown: { pathname: string; sessionPresent: boolean | null } = { pathname: '/unknown', sessionPresent: null },
+  requestState: Pick<LoginDiagnostic, 'authRequestStarted' | 'authRequestFailureCategory' | 'submitDisabledBeforeClick' | 'submitDisabledAfterClick'> = {
+    authRequestStarted: false,
+    authRequestFailureCategory: 'none',
+    submitDisabledBeforeClick: null,
+    submitDisabledAfterClick: null,
+  },
+) {
+  const cookies = await page.context().cookies().catch(() => null);
+  const pathname = readPagePathname(page, lastKnown.pathname);
+  const sessionPresent = cookies === null
+    ? lastKnown.sessionPresent
+    : cookies.some(cookie => cookie.name.includes('auth-token'));
+  const alert = page.getByRole('alert');
+  const alertCount = pathname.startsWith('/login') ? await alert.count().catch(() => 0) : 0;
+  const uiError = alertCount
+    ? await alert.first().textContent().catch(() => null)
+    : null;
+  const record: LoginDiagnostic = {
+    event: 'coach_login_diagnostic', outcome, role, authExchangeStatus,
+    authExchangeCategory: classifyAuthExchangeStatus(authExchangeStatus),
+    ...requestState,
+    pathname,
+    sessionPresent,
+    uiErrorCategory: classifyLoginUiError(uiError),
+  };
+  process.stdout.write(`${JSON.stringify(record)}\n`);
 }
 
 export async function setTheme(page: Page, mode: ThemeMode): Promise<void> {

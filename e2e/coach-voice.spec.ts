@@ -1,4 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { isAbsolute, relative, resolve } from 'node:path';
 import { blockPaidRequests, loginAs } from './helpers/auth';
 import { VALID_SILENT_WEBM } from '../tests/fixtures/voice-audio';
 
@@ -43,11 +45,20 @@ const harness = (page: Page) => page.evaluate(() => (window as typeof window & {
 async function setMode(page: Page, mode: VoiceHarness['mode']) { await page.evaluate(value => { (window as typeof window & { __voiceHarness: VoiceHarness }).__voiceHarness.mode = value; }, mode); }
 async function recordAndTranscribe(page: Page) {
   const panel = page.locator('#global-coach');
-  await panel.getByText('Voice', { exact: true }).click();
+  const voice = panel.getByLabel('Voice', { exact: true });
+  await voice.click();
   await panel.getByRole('button', { name: 'Record audio', exact: true }).click();
-  await expect(panel.getByRole('button', { name: 'Stop recording', exact: true })).toBeVisible();
+  const stop = panel.getByRole('button', { name: 'Stop recording', exact: true });
+  // Preparing the first durable thread changes the conversation key and closes
+  // the disclosure while recording continues. Reopen it to inspect the state.
+  await page.waitForTimeout(500);
+  if (!await stop.isVisible()) {
+    const disclosure = panel.locator('details').filter({ hasText: 'Voice' }).first();
+    await disclosure.evaluate(element => { (element as HTMLDetailsElement).open = true; });
+  }
+  await expect(stop).toBeVisible();
   await page.waitForTimeout(120);
-  await panel.getByRole('button', { name: 'Stop recording', exact: true }).click();
+  await stop.click();
   await expect(panel.getByRole('button', { name: 'Create editable transcript', exact: true })).toBeVisible();
   const transcript = page.waitForResponse(item => new URL(item.url()).pathname === '/api/coach-assistant/voice' && item.request().method() === 'PUT');
   await panel.getByRole('button', { name: 'Create editable transcript', exact: true }).click();
@@ -56,7 +67,30 @@ async function recordAndTranscribe(page: Page) {
 }
 
 test('governed voice reaches the existing text pipeline with simulated browser media only', async ({ page }) => {
+  const manifest = process.env.COACH_CHAT_HTTP_THREADS!, root = process.env.RUNNER_TEMP!;
+  if (!manifest || !root || !isAbsolute(manifest) || !isAbsolute(root)
+    || relative(resolve(root), resolve(manifest)).startsWith('..') || resolve(manifest) === resolve(root)) throw new Error('invalid_manifest');
+  const previous: unknown = JSON.parse(readFileSync(manifest, 'utf8'));
+  const validIds = (value: unknown): value is string[] => Array.isArray(value) && value.length <= 4
+    && value.every(id => typeof id === 'string' && /^[a-f0-9-]{36}$/.test(id));
+  if (!previous || typeof previous !== 'object' || Array.isArray(previous)
+    || !validIds((previous as { requestIds?: unknown }).requestIds) || !validIds((previous as { threadIds?: unknown }).threadIds)) throw new Error('invalid_manifest_contents');
+  const requestIds = new Set((previous as { requestIds: string[] }).requestIds);
+  const threadIds = new Set((previous as { threadIds: string[] }).threadIds);
+  const voiceEvidence: { current?: { threadId: string; userText: string; answer: string } } = {};
+  const persistManifest = () => writeFileSync(manifest, JSON.stringify({ requestIds: [...requestIds], threadIds: [...threadIds], ...(voiceEvidence.current ? { voice: voiceEvidence.current } : {}) }), { mode: 0o600 });
   const noPaid = await blockPaidRequests(page);
+  await page.route('**/api/coach-assistant', async route => {
+    const body = route.request().method() === 'POST' ? route.request().postDataJSON() as Record<string, unknown> : {};
+    if (body.version !== 'coach-assistant.chat.v1' || body.operation !== 'create') { await route.continue(); return; }
+    expect(typeof body.requestId).toBe('string'); requestIds.add(body.requestId as string); persistManifest();
+    const response = await route.fetch({ maxRetries: 0, maxRedirects: 0 });
+    expect(response.status()).toBe(200); const result = await response.json();
+    expect(result).toMatchObject({ storage: 'database', ok: true, value: { thread: { state: 'active' } } });
+    threadIds.add(result.value.thread.id); persistManifest();
+    await route.fulfill({ response, contentType: 'application/json', body: JSON.stringify(result) });
+    await response.dispose();
+  });
   await installSimulatedBrowserPrimitives(page);
   const requests: string[] = [];
   page.on('request', request => { if (new URL(request.url()).pathname === '/api/coach-assistant/voice') requests.push(request.method()); });
@@ -83,6 +117,25 @@ test('governed voice reaches the existing text pipeline with simulated browser m
   await first.panel.getByRole('button', { name: 'Resume voice playback', exact: true }).click();
   await first.panel.getByRole('button', { name: 'Stop voice playback', exact: true }).click();
   expect(await harness(page)).toMatchObject({ speak: 1, pause: 1, resume: 1 });
+  expect(threadIds.has(reviewedRequest.request.conversationId)).toBe(true);
+  voiceEvidence.current = { threadId: reviewedRequest.request.conversationId, userText: reviewedRequest.editedText, answer: reviewedBody.response.output.answer };
+  persistManifest();
+
+  const postsAfterAnswer = requests.filter(method => method === 'POST').length;
+  await page.reload();
+  await page.getByRole('button', { name: 'Ask Trophē', exact: true }).click();
+  const restored = page.locator('#global-coach');
+  const listing = page.waitForResponse(response => new URL(response.url()).pathname === '/api/coach-assistant' && response.request().postDataJSON()?.operation === 'list');
+  await restored.getByRole('button', { name: 'Saved conversations', exact: true }).click();
+  const listed = await listing; expect(listed.status()).toBe(200);
+  const savedThread = (await listed.json()).value.threads.find((thread: { id: string }) => thread.id === reviewedRequest.request.conversationId);
+  expect(savedThread).toBeTruthy();
+  await restored.locator('button[aria-pressed]').filter({ hasText: savedThread.title }).click();
+  await expect(restored.getByText(reviewedRequest.editedText, { exact: true })).toBeVisible();
+  await expect(restored.getByText(reviewedBody.response.output.answer, { exact: true })).toBeVisible();
+  await expect(restored.getByText('Saved message · You', { exact: true })).toBeVisible();
+  await expect(restored.getByText(reviewedBody.response.output.answer, { exact: true })).toHaveCount(1);
+  expect(requests.filter(method => method === 'POST')).toHaveLength(postsAfterAnswer);
 
   const second = await recordAndTranscribe(page);
   await second.panel.getByRole('textbox', { name: 'Edit transcript', exact: true }).fill('Log 15 or 50 g');
@@ -93,7 +146,7 @@ test('governed voice reaches the existing text pipeline with simulated browser m
   await second.panel.getByRole('button', { name: 'Cancel', exact: true }).click();
 
   await setMode(page, 'denied');
-  await second.panel.getByText('Voice', { exact: true }).click();
+  await second.panel.getByLabel('Voice', { exact: true }).click();
   await second.panel.getByRole('button', { name: 'Record audio', exact: true }).click();
   await expect(second.panel.getByRole('status')).toContainText('Microphone permission was denied');
   await expect(second.panel.getByRole('textbox', { name: 'Your question', exact: true })).toBeEnabled();

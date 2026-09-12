@@ -12,14 +12,15 @@ export function selectConversationScope(input: CoachConversationRequest) {
       const foodPattern = /food|meal|nutri|calori|protein|comid|aliment|recip|recet|\b(?:lunch|breakfast|dinner|snack|almuerzo|desayuno|cena|merienda)\b/;
       const workoutPattern = /workout|train|exercise|sets|reps|entren|ejerc|series|plan/;
       // An explicit new topic supersedes history; history only fills omissions.
-      const domainHint = foodPattern.test(text) || workoutPattern.test(text) ? text : hint;
+      const explicitDomain = foodPattern.test(text) || workoutPattern.test(text);
+      const domainHint = explicitDomain ? text : hint;
       const mentionsFood = foodPattern.test(domainHint);
       const mentionsWorkout = workoutPattern.test(domainHint);
       const foodOnly = mentionsFood && !mentionsWorkout || !mentionsFood && !mentionsWorkout && ['food','recipe'].includes(surface ?? '');
       const workoutOnly = mentionsWorkout && !mentionsFood || !mentionsFood && !mentionsWorkout && ['workout','plan','live','library','exercise','atlas'].includes(surface ?? '');
-  return { intent, surface, exerciseId, domain: foodOnly ? 'food' as const : workoutOnly ? 'workout' as const : 'both' as const };
+  return { intent, surface, exerciseId, domain: !explicitDomain&&surface==='progress'?'progress' as const:foodOnly ? 'food' as const : workoutOnly ? 'workout' as const : 'both' as const };
 }
 
-export function evidenceMatchesScope(source: CoachEvidence['source'], domain: 'food' | 'workout' | 'both'): boolean {
-  return domain === 'food' ? source === 'nutrition' : domain === 'workout' ? source !== 'nutrition' : true;
+export function evidenceMatchesScope(source: CoachEvidence['source'], domain: 'food' | 'workout' | 'progress' | 'both'): boolean {
+  return domain === 'progress'?false:domain === 'food' ? source === 'nutrition' : domain === 'workout' ? source !== 'nutrition' : true;
 }

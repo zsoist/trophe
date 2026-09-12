@@ -28,16 +28,16 @@ describe('router.pick()', () => {
     expect(policy.model).toBe('gpt-5.6-luna');
   });
 
-  it('keeps health-context coach insight on Anthropic', () => {
+  it('keeps health-context coach insight in Luna', () => {
     const policy = pick('coach_insight');
-    expect(policy.provider).toBe('anthropic');
-    expect(policy.model).toBe('claude-haiku-4-5-20251001');
+    expect(policy.provider).toBe('openai');
+    expect(policy.model).toBe('gpt-5.6-luna');
     expect(policy.costClass).toBe('cheap');
   });
 
   it('does not let the retired DeepSeek coach override cross the compliance boundary', () => {
     process.env.DEEPSEEK_COACH_MODEL = 'deepseek-v4-pro';
-    expect(pick('coach_insight')).toMatchObject({ provider: 'anthropic', model: 'claude-haiku-4-5-20251001' });
+    expect(pick('coach_insight')).toMatchObject({ provider: 'openai', model: 'gpt-5.6-luna' });
     expect(pick('food_parse')).toMatchObject({ provider: 'openai', model: 'gpt-5.6-luna' });
     delete process.env.DEEPSEEK_COACH_MODEL;
   });
@@ -80,7 +80,7 @@ describe('router.modelFor()', () => {
   });
 
   it('returns model string for coach_insight', () => {
-    expect(modelFor('coach_insight')).toBe('claude-haiku-4-5-20251001');
+    expect(modelFor('coach_insight')).toBe('gpt-5.6-luna');
   });
 });
 
@@ -112,10 +112,10 @@ describe('estimateCostUsd()', () => {
     // 1000 total input = 600 uncached + 300 read + 100 written.
     const cost = estimateCostUsd('gpt-5.6-luna', 1000, 50, 300, 100);
     expect(cost).toBeCloseTo(
-      600 * 1.00 / 1_000_000 +
-      300 * 0.10 / 1_000_000 +
-      100 * 1.25 / 1_000_000 +
-      50 * 6.00 / 1_000_000,
+      600 * 0.20 / 1_000_000 +
+      300 * 0.02 / 1_000_000 +
+      100 * 0.25 / 1_000_000 +
+      50 * 1.20 / 1_000_000,
       8,
     );
   });

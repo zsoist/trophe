@@ -11,7 +11,7 @@ export interface CoachRequest {
 export type CoachMode = 'offline' | 'model';
 export type CoachErrorCode = 'disabled' | 'unauthenticated' | 'forbidden' | 'invalid_input'
   | 'invalid_timezone' | 'query_failed' | 'cancelled' | 'deadline' | 'provider_unavailable'
-  | 'invalid_output' | 'budget_blocked' | 'context_limit' | 'rate_limited';
+  | 'invalid_output' | 'budget_blocked' | 'context_limit' | 'rate_limited' | 'attachment_analysis_failed';
 export interface CoachWindow { start: string; end: string; days: number; timezone: string }
 export interface CoachEvidence {
   id: string;
@@ -67,8 +67,12 @@ export type CoachActorRole = 'client' | 'coach' | 'admin' | 'super_admin';
 export interface CoachContextHint {
   surface: CoachSurface;
   includeScreen: boolean;
+  /** Untrusted visible-day hint. The server converts it to an authorized query window. */
+  screenDate?: string;
   clientId?: string;
   entity?: { kind: 'meal' | 'recipe' | 'session' | 'plan' | 'exercise'; id: string; version?:string };
+  /** Untrusted continuity hint. The server revalidates receipt and refetched entry. */
+  foodReceipt?: { entryId:string;actionId:string };
   /** Untrusted local binding hint. The client must compare it with the live workspace again. */
   workspace?: { kind: 'draft'; version: string };
   anatomy?: import('./selection-contracts').CoachAnatomyHint;
@@ -183,7 +187,7 @@ export interface CoachConversationResponse {
   receipts: CoachReceipt[];
   attachments: CoachAttachmentRef[];
   explanations?: Array<{kind:'curated_general';id:string;text:string;source:'coach-general.v1'}>;
-  uploads?: { images: true; storage: 'isolated_ephemeral'; analysis: 'not_connected'; limits: typeof COACH_IMAGE_LIMITS };
+  uploads?: { images: true; storage: 'isolated_ephemeral' | 'private_storage'; analysis: 'not_connected' | 'validated_photo_analysis'; limits: typeof COACH_IMAGE_LIMITS };
   telemetry: CoachTelemetry;
 }
 
@@ -274,14 +278,14 @@ export interface CoachActionResult {
 export const COACH_IMAGE_LIMITS = { count:3, fileBytes:5*1024*1024, totalBytes:15*1024*1024, pixels:16000000 } as const;
 export type CoachImageMime = 'image/jpeg' | 'image/png' | 'image/webp';
 export type CoachAttachmentOperation = {version:typeof COACH_CONVERSATION_VERSION;conversationId:string} & (
-  {operation:'attachment.prepare';mime:CoachImageMime;bytes:number} |
+  {operation:'attachment.prepare';requestId?:string;mime:CoachImageMime;bytes:number} |
   {operation:'attachment.status';attachmentId:string} |
   {operation:'attachment.remove';attachmentId:string;reviewed:true}
 );
 export interface CoachAttachmentResult {
   version:typeof COACH_CONVERSATION_VERSION;
   ok:boolean;
-  storage:'isolated_ephemeral';
+  storage:'isolated_ephemeral'|'private_storage';
   analysis:'not_connected';
   attachment?:CoachAttachmentRef;
   state?:'prepared'|'uploading'|'available'|'removed';

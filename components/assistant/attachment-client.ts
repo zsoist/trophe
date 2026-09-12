@@ -2,7 +2,8 @@ import type { CoachAttachmentResult } from '@/agents/coach-assistant/contracts';
 import type { AttachmentTransport } from './attachment-state';
 const object = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 export function readAttachmentResult(value: unknown): CoachAttachmentResult {
-  if (!object(value) || value.version !== 'coach-assistant.v2' || typeof value.ok !== 'boolean' || value.storage !== 'isolated_ephemeral' || value.analysis !== 'not_connected') throw new Error('invalid_attachment_result');
+  if (!object(value) || value.version !== 'coach-assistant.v2' || typeof value.ok !== 'boolean'
+    || !['isolated_ephemeral', 'private_storage'].includes(String(value.storage)) || value.analysis !== 'not_connected') throw new Error('invalid_attachment_result');
   if (value.attachment !== undefined && (!object(value.attachment) || typeof value.attachment.id !== 'string' || value.attachment.kind !== 'image' || !['pending', 'available'].includes(String(value.attachment.status)))) throw new Error('invalid_attachment');
   if (value.state !== undefined && !['prepared', 'uploading', 'available', 'removed'].includes(String(value.state))) throw new Error('invalid_attachment_state');
   if (value.uploadToken !== undefined && (typeof value.uploadToken !== 'string' || !/^[a-f0-9]{64}$/.test(value.uploadToken))) throw new Error('invalid_upload_token');

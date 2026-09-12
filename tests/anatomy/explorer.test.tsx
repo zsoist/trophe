@@ -327,5 +327,6 @@ it('publishes the actual muscle selection and clears or normalizes it when chang
   fireEvent.click(screen.getByRole('button', { name: 'Groups' }));
   fireEvent.click(screen.getByRole('button', { name: 'Whole body' }));
   expect(screenSelectionSnapshot()).toBeNull();
-  expect(screen.queryByRole("button", { name: /Remove screen selection:/ })).toBeNull();
+  expect(screen.queryByRole("button", { name: /Remove screen selection: Serratus anterior/ })).toBeNull();
+  expect(screen.getByRole("button", { name: "Remove screen selection: Muscle Atlas" })).toBeTruthy();
 });

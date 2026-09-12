@@ -35,6 +35,8 @@ import {
 } from '@/lib/display-prefs';
 import DailyMacroStrip from '@/components/nutrition/DailyMacroStrip';
 import { summarizeSugar } from '@/lib/nutrition/daily-summary';
+import { useCoachScreenDate } from '@/components/assistant/screen-date';
+import { COACH_FOOD_REFRESH, readFoodSelection } from '@/components/assistant/food-events';
 
 const DEFAULT_MEAL_SLOTS: MealSlot[] = [
   { id: 'breakfast', mealType: 'breakfast', label: 'Breakfast', icon: 'i-sun', order: 0 },
@@ -303,6 +305,7 @@ export default function FoodLogPage() {
   const [todayLog, setTodayLog] = useState<FoodLogEntry[]>([]);
   const today = localToday();
   const [selectedDate, setSelectedDate] = useState(today);
+  useCoachScreenDate(selectedDate);
   const selectedDateRef = useRef(today);
   const [skippedSlots, setSkippedSlots] = useState<Set<string>>(() => loadStoredSet(`trophe_skipped_${today}`));
   const [lockedSlots, setLockedSlots] = useState<Set<string>>(() => loadStoredSet(`trophe_locked_${today}`));
@@ -572,6 +575,18 @@ export default function FoodLogPage() {
     }, 0);
     return () => window.clearTimeout(refreshTimer);
   }, [loadTodayLog]);
+
+  useEffect(() => {
+    if (process.env.NEXT_PUBLIC_COACH_FOOD_ACTIONS_ENABLED !== '1' || !userId) return;
+    const refreshNewEntry = (event: Event) => {
+      const selection = readFoodSelection(event);
+      if (selection?.actorId === userId && !todayLog.some(entry => entry.id === selection.entryId)) {
+        void loadTodayLog();
+      }
+    };
+    window.addEventListener(COACH_FOOD_REFRESH, refreshNewEntry);
+    return () => window.removeEventListener(COACH_FOOD_REFRESH, refreshNewEntry);
+  }, [loadTodayLog, todayLog, userId]);
 
   const [copying, setCopying] = useState(false);
   const [showRecipeModal, setShowRecipeModal] = useState(false);

@@ -65,31 +65,23 @@ describe('Fallback schema compatibility', () => {
     expect(result.success).toBe(true);
   });
 
-  it('food_parse fallback stays inside the compliance lane', () => {
+  it('food_parse has no cross-provider fallback', () => {
     const primary = taskPolicies.food_parse;
     const fallback = taskFallbacks.food_parse;
-    expect(fallback).toBeDefined();
     expect(primary).toMatchObject({ provider: 'openai', model: 'gpt-5.6-luna' });
-    expect(fallback).toMatchObject({ provider: 'anthropic', model: 'claude-haiku-4-5-20251001' });
-    expect(fallback!.timeoutMs).toBeGreaterThan(primary.timeoutMs);
+    expect(fallback).toBeUndefined();
   });
 
-  it('meal_suggest has a defined fallback', () => {
-    expect(taskFallbacks.meal_suggest).toBeDefined();
-    expect(taskFallbacks.meal_suggest!.provider).toBeTruthy();
+  it('meal_suggest has no cross-provider fallback', () => {
+    expect(taskFallbacks.meal_suggest).toBeUndefined();
   });
 
-  it('memory_extract has a defined fallback', () => {
-    expect(taskFallbacks.memory_extract).toBeDefined();
-    expect(taskFallbacks.memory_extract!.provider).toBe('anthropic');
-    expect(taskFallbacks.memory_extract!.model).toBe('claude-haiku-4-5-20251001');
+  it('memory_extract has no cross-provider fallback', () => {
+    expect(taskFallbacks.memory_extract).toBeUndefined();
   });
 
-  it('coach_insight fallback cannot send health context to DeepSeek', () => {
-    expect(taskFallbacks.coach_insight).toMatchObject({
-      provider: 'anthropic',
-      model: 'claude-haiku-4-5-20251001',
-    });
+  it('coach_insight has no cross-provider fallback', () => {
+    expect(taskFallbacks.coach_insight).toBeUndefined();
   });
 
   it('food_parse schema requires all pipeline-critical fields', () => {

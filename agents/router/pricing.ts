@@ -7,6 +7,10 @@ export interface ModelPricing {
 }
 
 export const DEEPSEEK_STRESS_PRICING_VERSION = 'deepseek-v4-2026-07-25';
+/** Luna vision uses the same published token rates as the product text lane. */
+export const PHOTO_PILOT_PRICING_VERSION = 'gpt-5.6-luna-vision-standard-2026-09-08' as const;
+/** Historical Haiku rows remain readable for audit/recovery only. */
+export const LEGACY_PHOTO_PILOT_PRICING_VERSION = 'claude-haiku-4-5-20251001-standard-2026-09-09' as const;
 export const DEEPSEEK_STRESS_INPUT_TOKEN_CEILING = 16_384;
 export const DEEPSEEK_STRESS_OUTPUT_TOKEN_CEILING = 8_192;
 
@@ -37,10 +41,10 @@ export const modelPricing: Record<string, ModelPricing> = {
     outputPerMillion: 5.00,
   },
   'gpt-5.6-luna': {
-    inputPerMillion: 1.00,
-    outputPerMillion: 6.00,
-    cacheReadPerMillion: 0.10,
-    cacheWritePerMillion: 1.25,
+    inputPerMillion: 0.20,
+    outputPerMillion: 1.20,
+    cacheReadPerMillion: 0.02,
+    cacheWritePerMillion: 0.25,
   },
   'deepseek-v4-flash': deepSeekStressPricing['deepseek-v4-flash'],
   'deepseek-v4-pro': deepSeekStressPricing['deepseek-v4-pro'],

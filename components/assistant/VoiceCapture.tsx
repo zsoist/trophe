@@ -7,14 +7,16 @@ import type { CoachVoiceResult } from '@/agents/coach-assistant/voice-contract';
 import type { VoiceTranscriptionTransport } from './voice-client';
 import { VoiceTranscriptReview } from './VoiceTranscriptReview';
 import styles from './GlobalCoach.module.css';
-export function VoiceCapture({ controller, state, disabled, conversationId, transcribe, onUse, onSend }: {
+export function VoiceCapture({ controller, state, disabled, conversationId, transcribe, prepareConversation, onUse, onSend, compact = false }: {
   controller: VoiceController;
   state: VoiceState;
   disabled: boolean;
   conversationId?: string;
   transcribe?: VoiceTranscriptionTransport;
+  prepareConversation?: () => Promise<string | null>;
   onUse?: (message: string) => boolean;
   onSend?: (result: Extract<CoachVoiceResult, { ok: true }>, message: string) => Promise<'sent' | 'ambiguous' | 'failed'>;
+  compact?: boolean;
 }) {
   const { t, lang } = useGlobalCoachI18n();
   const active = ['requesting', 'recording', 'stopping'].includes(state.phase);
@@ -27,7 +29,11 @@ export function VoiceCapture({ controller, state, disabled, conversationId, tran
     processingRequest.current?.abort(); processingRequest.current = null;
     setProcessing(false); setResult(null); setFlowError(false); controller.reset();
   };
-  const start = () => { setResult(null); setFlowError(false); controller.start(); };
+  const start = async () => {
+    setResult(null); setFlowError(false);
+    if (prepareConversation && !await prepareConversation()) { setFlowError(true); return; }
+    controller.start();
+  };
   const processRecording = async () => {
     if (!state.recording || !transcribe || !conversationId || processing) return;
     const request = new AbortController(); processingRequest.current = request; setProcessing(true); setFlowError(false);
@@ -39,12 +45,16 @@ export function VoiceCapture({ controller, state, disabled, conversationId, tran
     } catch { if (!request.signal.aborted) setFlowError(true); }
     finally { if (processingRequest.current === request) processingRequest.current = null; if (!request.signal.aborted) setProcessing(false); }
   };
-  if (result && conversationId && onUse) return <VoiceTranscriptReview result={result} scope={{ ...result.scope, conversationId }} onUse={onUse}
-    onSend={onSend ? message => onSend(result, message) : undefined} onDiscard={reset} onRerecord={() => { setResult(null); start(); }} />;
-  return <details className={styles.attachments} onToggle={event => { if (!event.currentTarget.open && (active || processing)) reset(); }}>
-    <summary><Mic size={17} aria-hidden="true" />{t('global_coach.voice')}</summary>
-    <p>{t('global_coach.voice_local')}</p>
-    {state.phase === 'idle' && !processing && <button type="button" disabled={disabled} onClick={start}>{t('global_coach.voice_start')}</button>}
+  if (result && conversationId && onUse) {
+    const review = <VoiceTranscriptReview result={result} scope={{ ...result.scope, conversationId }} onUse={onUse}
+      onSend={onSend ? message => onSend(result, message) : undefined} onDiscard={reset} onRerecord={() => { setResult(null); start(); }} />;
+    return compact ? <div className={styles.compactVoiceReview}>{review}</div> : review;
+  }
+  return <details data-coach-popover className={`${styles.attachments} ${compact ? styles.compactVoice : ''}`} onToggle={event => { if (!event.currentTarget.open && (active || processing)) reset(); }}>
+    <summary aria-label={t('global_coach.voice')}><Mic size={19} aria-hidden="true" /><span className={compact ? 'sr-only' : undefined}>{t('global_coach.voice')}</span></summary>
+    <div className={styles.voiceBody}>
+    {!compact && <p>{t(transcribe ? 'global_coach.voice_connected' : 'global_coach.voice_local')}</p>}
+    {state.phase === 'idle' && !processing && <button type="button" disabled={disabled} onClick={() => void start()}>{t('global_coach.voice_start')}</button>}
     {active && <div role="status"><p>{t(`global_coach.voice_${state.phase}`, { seconds: Math.floor(state.elapsedMs / 1000) })}</p>
       {state.phase === 'recording' && <button type="button" onClick={() => controller.stop()}><Square size={14} aria-hidden="true" />{t('global_coach.voice_stop')}</button>}
       <button type="button" onClick={reset}>{t('global_coach.voice_cancel')}</button>
@@ -54,10 +64,11 @@ export function VoiceCapture({ controller, state, disabled, conversationId, tran
       <p>{t('global_coach.voice_ready', { seconds: Math.round(state.recording.durationMs / 1000) })}</p>
       <audio controls preload="metadata" src={state.recording.url} aria-label={t('global_coach.voice_playback')} className="w-full" />
       {transcribe && conversationId && <button type="button" disabled={disabled || processing} onClick={() => void processRecording()}>{t('global_coach.voice_transcribe')}</button>}
-      <button type="button" onClick={start}><RotateCcw size={14} aria-hidden="true" />{t('global_coach.voice_rerecord')}</button>
+      <button type="button" onClick={() => void start()}><RotateCcw size={14} aria-hidden="true" />{t('global_coach.voice_rerecord')}</button>
       <button type="button" onClick={reset}>{t('global_coach.voice_discard')}</button>
     </div>}
     {state.error && <p role="status">{t(`global_coach.voice_error_${state.error}`)}</p>}
     {flowError && <p role="alert">{t('global_coach.voice_processing_failed')}</p>}
+    </div>
   </details>;
 }

@@ -23,9 +23,9 @@ creation service. The new small `insertReviewedPhotoFood` reuses their schema an
 builder to insert one reviewed item in the same transaction as proposal/receipt.
 AG1 may adopt it for native UI separately; this delivery does not change the UI.
 
-The route's `groundKnownDishComponents` can add an assumed ingredient based on a
-named dish. P5 does not call it; a candidate marked needs_confirmation is rejected
-until the observation source resolves it. No template ingredients are fabricated.
+Photo v3 returns only normalized provider components. Neither the native route
+nor P5 completes recipes with assumed ingredients. A candidate marked
+needs_confirmation is rejected until the observation source resolves it.
 
 ## Observation boundary and explicit disconnected state
 
@@ -65,14 +65,20 @@ production seam without invoking it during this delivery. Its composed
 `analyzeAndRecord` flow reads the exact normalized JPEG bytes directly from the
 private Storage adapter, verifies their SHA-256 digest, reauthorizes before and
 after Storage access, then invokes the existing `photo_analyze` task once with
-those bytes and the repository's fixed `photo-analyze.v1.md` prompt. It does not
+those bytes and the repository's fixed `photo-analyze.v3.md` prompt. It does not
 accept a URL, base64 image, prompt, task name or normalized foods from a browser.
 The integrating server supplies only the existing provider invocation callback;
 that callback receives a defensive copy of the verified JPEG bytes.
 
 The exact task result is represented by a process-local WeakMap proof. Output must
-contain one bounded `submit_food_photo_analysis` call under Anthropic's existing
-`photo-analyze-v1` policy. Invalid candidates are not silently dropped and dish
+contain one bounded `submit_food_photo_analysis` call under Luna's existing
+`photo-analyze-v3` policy. Historical v1/v2 observations remain readable under the
+same authorization, attachment, generation, and ledger checks. An absent identity
+assessment reads as `unassessed`; it is never upgraded to identified. New proposals
+and applications require `identity_status=identified`, separately from estimated
+portion weight. Uncertain components remain hypotheses for clarification or a
+separate canonical Food entry; changing a name never reuses their estimated macros.
+Previously applied receipts remain recoverable. Invalid candidates are not silently dropped and dish
 prior additions requiring confirmation are rejected. Recording accepts only that
 proof, locks the attachment again, checks current scope/digest/expiry and verifies
 the completed `agent_runs` row plus server-authored attachment metadata. A browser
@@ -183,3 +189,22 @@ refetch/recovery and UI provenance presentation. AG1's current history integrati
 has priority. The slice does not claim full photo-to-product activation or vision
 accuracy. Applied Food entries survive ordinary chat-history removal, consistent
 with the existing history cleanup contract; unapplied drafts are removable there.
+
+## Review availability after companion context limits
+
+The food observation and its explicit portion review do not depend on a successful
+conversational explanation. The UI offers the existing authorized Photo read from
+the submitted turn, including failed companion turns and remounts; the server
+still enforces observation scope, expiry, identity and revision on every action.
+
+The companion keeps complete identity notes and the 7,500-byte bound. General
+record explanations are sent in the selected response language only. If an
+otherwise reviewable photo still exceeds the bound and no other capability is
+selected, a deterministic response makes Photo review available and explicitly
+states that the additional explanation is unavailable. It invokes no companion
+provider and reserves no extra budget. It neither changes nor saves food.
+
+Uncertain and historically unassessed names use neutral component labels in the
+UI, companion payload and summary. Their original observations and complete notes
+remain unchanged. These labels do not resolve identity or make their macros
+eligible for logging. Identified items remain separately selectable and reviewable.

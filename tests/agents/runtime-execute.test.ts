@@ -19,8 +19,17 @@ vi.mock('@/agents/observability/langfuse', () => observability);
 
 import { executeAiTask } from '@/agents/runtime/execute';
 import { classifyAiError, isFallbackEligible } from '@/agents/runtime/error-classification';
+import { providerErrorTelemetry } from '@/agents/runtime/provider-error';
 import { taskPolicies } from '@/agents/router/policies';
 import { estimateUsageCost } from '@/agents/runtime/cost';
+import {
+  decidePilotBudgetCommand,
+  type PilotAttemptRecord,
+  type PilotBudgetCommand,
+  type PilotBudgetStore,
+} from '@/agents/coach-assistant/pilot-budget';
+import { runGovernedPilotModality } from '@/agents/coach-assistant/governed-modality';
+import { invokeAnthropicJson } from '@/agents/runtime/providers/anthropic';
 
 function typedProviderError(
   label: string,
@@ -408,37 +417,22 @@ describe('executeAiTask integration contract', () => {
     [500, undefined],
     [502, undefined],
     [503, undefined],
-  ] as const)('falls back to secondary provider for recoverable status %i', async (status, code) => {
-    // Consumer text fails over from Luna to Haiku without reopening DeepSeek.
-    let callCount = 0;
+  ] as const)('does not fallback for recoverable status %i in the Luna-only lane', async (status, code) => {
+    const primaryError = typedProviderError('provider failure', { status, ...(code ? { code } : {}) });
     const invoke = vi.fn(async ({ policy }: { policy: { provider: string } }) => {
-      callCount++;
-      if (callCount === 1) {
-        expect(policy.provider).toBe('openai');
-        throw typedProviderError('provider failure', { status, ...(code ? { code } : {}) });
-      }
-      expect(policy.provider).toBe('anthropic');
-      return fallbackSuccess;
+      expect(policy.provider).toBe('openai');
+      throw primaryError;
     });
 
-    const result = await executeAiTask({
+    await expect(executeAiTask({
       task: 'meal_suggest',
       prompt: 'suggest a meal',
       invoke,
-    });
+    })).rejects.toBe(primaryError);
 
-    expect(invoke).toHaveBeenCalledTimes(2);
-    expect(result.output).toEqual({ suggestions: ['fallback meal'] });
-    expect(result).toMatchObject({
-      selectedPolicy: { provider: 'anthropic', model: 'claude-haiku-4-5-20251001' },
-      isFallback: true,
-    });
-    // Both primary failure and fallback success should be persisted
-    expect(persistence.failGeneration).toHaveBeenCalledOnce();
-    expect(persistence.completeGeneration).toHaveBeenCalledOnce();
-    expect(persistence.createGeneration).toHaveBeenLastCalledWith(
-      expect.objectContaining({ fallbackFrom: 'gpt-5.6-luna' }),
-    );
+    expect(invoke).toHaveBeenCalledOnce();
+    expect(persistence.createGeneration).toHaveBeenCalledOnce();
+    expect(persistence.completeGeneration).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -522,24 +516,17 @@ describe('executeAiTask integration contract', () => {
     expect(invoke).toHaveBeenCalledOnce();
   });
 
-  it('never invokes fallback more than once', async () => {
-    const fallbackError = typedProviderError('fallback unavailable', { status: 503 });
-    let attempts = 0;
-    const invoke = vi.fn(async () => {
-      attempts++;
-      if (attempts === 1) {
-        throw typedProviderError('primary unavailable', { status: 503 });
-      }
-      throw fallbackError;
-    });
+  it('does not invoke an unavailable fallback more than once', async () => {
+    const primaryError = typedProviderError('primary unavailable', { status: 503 });
+    const invoke = vi.fn(async () => { throw primaryError; });
 
     await expect(executeAiTask({
       task: 'meal_suggest',
       prompt: 'suggest a meal',
       invoke,
-    })).rejects.toBe(fallbackError);
+    })).rejects.toBe(primaryError);
 
-    expect(invoke).toHaveBeenCalledTimes(2);
+    expect(invoke).toHaveBeenCalledOnce();
   });
 
   it('settles at the chain deadline when organization resolution never settles', async () => {
@@ -607,6 +594,7 @@ describe('executeAiTask integration contract', () => {
     expect(observed.current?.status).toBe('rejected');
     if (observed.current?.status === 'rejected') {
       expect(classifyAiError(observed.current.error)).toBe('timeout');
+      expect(providerErrorTelemetry(observed.current.error).timeoutPhase).toBe('pre_provider');
     }
     expect(persistence.createGeneration).toHaveBeenCalledOnce();
     expect(persistence.failGeneration).not.toHaveBeenCalled();
@@ -638,6 +626,12 @@ describe('executeAiTask integration contract', () => {
     expect(observed.current?.status).toBe('rejected');
     if (observed.current?.status === 'rejected') {
       expect(classifyAiError(observed.current.error)).toBe('timeout');
+      expect(providerErrorTelemetry(observed.current.error).timeoutPhase).toBe('post_provider');
+      expect(providerErrorTelemetry(observed.current.error)).toMatchObject({
+        rawStatus: 200,
+        usage: { inputTokens: 10, outputTokens: 5 },
+        latencyMs: 50,
+      });
     }
     expect(invoke).toHaveBeenCalledOnce();
     expect(persistence.completeGeneration).toHaveBeenCalledOnce();
@@ -676,6 +670,76 @@ describe('executeAiTask integration contract', () => {
     }
     expect(persistence.completeGeneration).toHaveBeenCalledOnce();
     expect(persistence.failGeneration).not.toHaveBeenCalled();
+  });
+
+  it('settles known provider usage when post-provider persistence exceeds the deadline', async () => {
+    vi.useFakeTimers();
+    persistence.completeGeneration.mockImplementationOnce(() => new Promise<never>(() => undefined));
+    const rows = new Map<string, PilotAttemptRecord>();
+    const operations: string[] = [];
+    const store: PilotBudgetStore = {
+      execute: vi.fn(async (command: PilotBudgetCommand) => {
+        operations.push(command.operation);
+        const existing = rows.get(command.binding.attemptId);
+        const decision = decidePilotBudgetCommand({
+          pilotId: command.binding.pilotId,
+          budgetDay: '2026-09-11',
+          capNanoUsd: 500_000_000,
+          chargedNanoUsd: [...rows.values()].reduce((sum, row) => sum + row.chargedNanoUsd, 0),
+          turnAttemptCount: [...rows.values()].filter(
+            row => row.binding.turnId === command.binding.turnId,
+          ).length,
+          accountingBlocked: false,
+          existing,
+        }, command);
+        if (decision.ok && decision.write !== 'none') {
+          rows.set(command.binding.attemptId, structuredClone(decision.record));
+        }
+        return { storage: 'database' as const, ...decision };
+      }),
+    };
+    const observed = observeOutcome(runGovernedPilotModality({
+      pilotId: '00000000-0000-4000-8000-000000000001',
+      actorId: '00000000-0000-4000-8000-000000000002',
+      turnId: '00000000-0000-4000-8000-000000000003',
+      identityParts: ['photo', '00000000-0000-4000-8000-000000000004'],
+      task: 'photo_analyze',
+      store,
+      signal: new AbortController().signal,
+      run: () => executeAiTask({
+        task: 'photo_analyze',
+        prompt: 'analyze this meal photo',
+        invoke: vi.fn(async () => ({
+          output: { foods: [] },
+          usage: { inputTokens: 10, outputTokens: 5 },
+          latencyMs: 50,
+          rawStatus: 200,
+          providerGenerationId: 'msg_known_usage',
+        })),
+      }),
+    }));
+
+    await vi.advanceTimersByTimeAsync(35_000);
+
+    expect(observed.current).toEqual({
+      status: 'rejected',
+      error: expect.objectContaining({ message: 'provider_unavailable' }),
+    });
+    expect(operations).toEqual(['reserve', 'claim_dispatch', 'settle']);
+    expect([...rows.values()]).toEqual([
+      expect.objectContaining({
+        state: 'settled',
+        chargedNanoUsd: 8_000,
+        usage: {
+          inputTokens: 10,
+          outputTokens: 5,
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
+          reasoningTokens: 0,
+        },
+      }),
+    ]);
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it('does not return success when completion persistence crosses the monotonic deadline', async () => {
@@ -720,7 +784,7 @@ describe('executeAiTask integration contract', () => {
 
     expect(observed.current?.status).toBe('rejected');
     if (observed.current?.status === 'rejected') {
-      expect(observed.current.error).toBe(primaryError);
+      expect(classifyAiError(observed.current.error)).toBe('timeout');
     }
     expect(invoke).toHaveBeenCalledOnce();
     expect(persistence.failGeneration).toHaveBeenCalledOnce();
@@ -745,6 +809,183 @@ describe('executeAiTask integration contract', () => {
     await rejection;
     expect(invoke.mock.calls[0]?.[0].signal.aborted).toBe(true);
     expect(invoke).toHaveBeenCalledOnce();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('allows photo analysis to complete after 32 seconds within its bounded window', async () => {
+    vi.useFakeTimers();
+    const invoke = vi.fn(() => new Promise<typeof fallbackSuccess>((resolve) => {
+      setTimeout(() => resolve(fallbackSuccess), 32_000);
+    }));
+    const observed = observeOutcome(executeAiTask({
+      task: 'photo_analyze',
+      prompt: 'analyze this meal photo',
+      invoke,
+    }));
+
+    await vi.advanceTimersByTimeAsync(31_999);
+    expect(observed.current).toBeUndefined();
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(observed.current?.status).toBe('resolved');
+    expect(invoke).toHaveBeenCalledOnce();
+    expect(persistence.completeGeneration).toHaveBeenCalledOnce();
+    expect(persistence.failGeneration).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('aborts photo analysis once after 35 seconds without fallback or completion writes', async () => {
+    vi.useFakeTimers();
+    let abortCount = 0;
+    const providerError = new Error('photo provider aborted');
+    const invoke = vi.fn(({ signal }: { signal: AbortSignal }) => new Promise<never>((_resolve, reject) => {
+      signal.addEventListener('abort', () => {
+        abortCount++;
+        reject(providerError);
+      }, { once: true });
+    }));
+    const observed = observeOutcome(executeAiTask({
+      task: 'photo_analyze',
+      prompt: 'analyze this meal photo',
+      invoke,
+    }));
+
+    await vi.advanceTimersByTimeAsync(34_999);
+    expect(observed.current).toBeUndefined();
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(observed.current).toEqual({ status: 'rejected', error: providerError });
+    expect(abortCount).toBe(1);
+    expect(invoke).toHaveBeenCalledOnce();
+    expect(persistence.completeGeneration).not.toHaveBeenCalled();
+    expect(persistence.failGeneration).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('preserves a timed-out photo reservation as unknown before the 45 second request boundary', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const rows = new Map<string, PilotAttemptRecord>();
+    const phases: Array<{ phase: string; atMs: number }> = [];
+    const request = new AbortController();
+    const outerTimer = setTimeout(
+      () => request.abort(new Error('request deadline')),
+      45_000,
+    );
+    const store: PilotBudgetStore = {
+      execute: vi.fn(async (command: PilotBudgetCommand, signal: AbortSignal) => {
+        phases.push({ phase: `${command.operation}:start`, atMs: Date.now() });
+        const delayMs = command.operation === 'reserve'
+          ? 200
+          : command.operation === 'claim_dispatch'
+            ? 300
+            : 4_000;
+        await new Promise<void>((resolve, reject) => {
+          const timer = setTimeout(resolve, delayMs);
+          signal.addEventListener('abort', () => {
+            clearTimeout(timer);
+            reject(signal.reason);
+          }, { once: true });
+        });
+        const existing = rows.get(command.binding.attemptId);
+        const decision = decidePilotBudgetCommand({
+          pilotId: '00000000-0000-4000-8000-000000000001',
+          budgetDay: '2026-09-11',
+          capNanoUsd: 500_000_000,
+          chargedNanoUsd: [...rows.values()].reduce((sum, row) => sum + row.chargedNanoUsd, 0),
+          turnAttemptCount: [...rows.values()].filter(
+            row => row.binding.turnId === command.binding.turnId,
+          ).length,
+          accountingBlocked: false,
+          existing,
+        }, command);
+        if (decision.ok && decision.write !== 'none') {
+          rows.set(command.binding.attemptId, structuredClone(decision.record));
+        }
+        phases.push({ phase: `${command.operation}:end`, atMs: Date.now() });
+        return { storage: 'database' as const, ...decision };
+      }),
+    };
+    let providerAbortCount = 0;
+    const fetchImpl = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      const signal = init?.signal as AbortSignal;
+      return new Response(new ReadableStream<Uint8Array>({
+        start(controller) {
+          signal.addEventListener('abort', () => {
+            providerAbortCount++;
+            controller.error(new Error('photo response body aborted'));
+          }, { once: true });
+        },
+      }), {
+        status: 200,
+        headers: { 'request-id': 'req_photo_headers' },
+      });
+    }) as unknown as typeof fetch;
+    const invoke = vi.fn(({ signal }: { signal: AbortSignal }) => invokeAnthropicJson({
+      body: { model: 'claude-haiku-4-5-20251001', max_tokens: 2_048 },
+      signal,
+      fetchImpl,
+    }));
+    const observed = observeOutcome(runGovernedPilotModality({
+      pilotId: '00000000-0000-4000-8000-000000000001',
+      actorId: '00000000-0000-4000-8000-000000000002',
+      turnId: '00000000-0000-4000-8000-000000000003',
+      identityParts: ['photo', '00000000-0000-4000-8000-000000000004'],
+      task: 'photo_analyze',
+      store,
+      signal: request.signal,
+      run: () => executeAiTask({
+        task: 'photo_analyze',
+        prompt: 'analyze this meal photo',
+        invoke: args => invoke({ ...args, signal: AbortSignal.any([args.signal, request.signal]) }),
+      }),
+    }));
+
+    await vi.advanceTimersByTimeAsync(35_499);
+    expect(observed.current).toBeUndefined();
+    expect(phases).toContainEqual({ phase: 'claim_dispatch:end', atMs: 500 });
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(providerAbortCount).toBe(1);
+    expect(phases).toContainEqual({ phase: 'mark_unknown:start', atMs: 35_500 });
+
+    await vi.advanceTimersByTimeAsync(3_999);
+    expect(observed.current).toBeUndefined();
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(observed.current?.status).toBe('rejected');
+    if (observed.current?.status === 'rejected') {
+      expect(observed.current.error).toMatchObject({ message: 'provider_unavailable' });
+    }
+    expect(phases).toEqual([
+      { phase: 'reserve:start', atMs: 0 },
+      { phase: 'reserve:end', atMs: 200 },
+      { phase: 'claim_dispatch:start', atMs: 200 },
+      { phase: 'claim_dispatch:end', atMs: 500 },
+      { phase: 'mark_unknown:start', atMs: 35_500 },
+      { phase: 'mark_unknown:end', atMs: 39_500 },
+    ]);
+    expect(request.signal.aborted).toBe(false);
+    expect(invoke).toHaveBeenCalledOnce();
+    expect([...rows.values()]).toEqual([
+      expect.objectContaining({
+        state: 'unknown',
+        chargedNanoUsd: 80_000_000,
+        providerFailure: {
+          category: 'timeout',
+          phase: 'provider_pending',
+          rawStatus: 200,
+          providerError: {
+            requestId: 'req_photo_headers',
+          },
+          hasUsage: false,
+        },
+      }),
+    ]);
+    const accountingSignal = vi.mocked(store.execute).mock.calls[2]?.[1];
+    expect(accountingSignal).not.toBe(request.signal);
+    expect(accountingSignal?.aborted).toBe(false);
+    clearTimeout(outerTimer);
     expect(vi.getTimerCount()).toBe(0);
   });
 
@@ -781,30 +1022,23 @@ describe('executeAiTask integration contract', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it('aborts the exact fallback signal at the shared 15-second deadline', async () => {
+  it('aborts the primary signal at the shared 15-second deadline without fallback', async () => {
     vi.useFakeTimers();
     const primaryError = typedProviderError('primary unavailable', { status: 503 });
-    const fallbackError = new Error('fallback aborted');
     const startedAt = Date.now();
-    let fallbackSignal: AbortSignal | undefined;
-    let fallbackStartedAt: number | undefined;
-    let fallbackAbortedAt: number | undefined;
+    let providerSignal: AbortSignal | undefined;
+    let providerAbortedAt: number | undefined;
 
     const invoke = vi.fn(({ policy, signal }: {
       policy: { provider: string };
       signal: AbortSignal;
     }) => {
-      if (policy.provider === 'openai') {
-        return new Promise<never>((_, reject) => {
-          setTimeout(() => reject(primaryError), 14_000);
-        });
-      }
-      fallbackStartedAt = Date.now();
-      fallbackSignal = signal;
+      expect(policy.provider).toBe('openai');
+      providerSignal = signal;
       return new Promise<never>((_, reject) => {
         signal.addEventListener('abort', () => {
-          fallbackAbortedAt = Date.now();
-          reject(fallbackError);
+          providerAbortedAt = Date.now();
+          reject(primaryError);
         }, { once: true });
       });
     });
@@ -816,17 +1050,16 @@ describe('executeAiTask integration contract', () => {
     );
 
     await vi.advanceTimersByTimeAsync(14_000);
-    expect(invoke).toHaveBeenCalledTimes(2);
-    expect(fallbackStartedAt).toBe(startedAt + 14_000);
-    expect(fallbackSignal?.aborted).toBe(false);
+    expect(invoke).toHaveBeenCalledOnce();
+    expect(providerSignal?.aborted).toBe(false);
 
     await vi.advanceTimersByTimeAsync(999);
-    expect(fallbackSignal?.aborted).toBe(false);
+    expect(providerSignal?.aborted).toBe(false);
 
     await vi.advanceTimersByTimeAsync(24_001);
     const rejection = await outcome;
-    expect(rejection).toBe(fallbackError);
-    expect(fallbackAbortedAt).toBe(startedAt + 15_000);
+    expect(rejection).toBe(primaryError);
+    expect(providerAbortedAt).toBe(startedAt + 15_000);
     expect(vi.getTimerCount()).toBe(0);
   });
 
@@ -966,6 +1199,7 @@ describe('executeAiTask integration contract', () => {
     if (settled.status === 'rejected') {
       expect(settled.error).not.toBe(primaryError);
       expect(classifyAiError(settled.error)).toBe('timeout');
+      expect(providerErrorTelemetry(settled.error).timeoutPhase).toBe('provider_pending');
     }
     expect(invoke).toHaveBeenCalledOnce();
     expect(persistence.createGeneration).toHaveBeenCalledOnce();
@@ -974,28 +1208,23 @@ describe('executeAiTask integration contract', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it('bounds a fast-failure fallback by the remaining end-to-end deadline', async () => {
+  it('bounds a fast primary failure by the end-to-end deadline without fallback', async () => {
     vi.useFakeTimers();
     const primaryError = typedProviderError('primary unavailable', { status: 503 });
-    const fallbackError = new Error('fallback deadline reached');
     const startedAt = Date.now();
-    let fallbackSignal: AbortSignal | undefined;
-    let fallbackAbortedAt: number | undefined;
+    let providerSignal: AbortSignal | undefined;
+    let providerAbortedAt: number | undefined;
 
     const invoke = vi.fn(({ policy, signal }: {
       policy: { provider: string };
       signal: AbortSignal;
     }) => {
-      if (policy.provider === 'openai') {
-        return new Promise<never>((_, reject) => {
-          setTimeout(() => reject(primaryError), 1_000);
-        });
-      }
-      fallbackSignal = signal;
+      expect(policy.provider).toBe('openai');
+      providerSignal = signal;
       return new Promise<never>((_, reject) => {
         signal.addEventListener('abort', () => {
-          fallbackAbortedAt = Date.now();
-          reject(fallbackError);
+          providerAbortedAt = Date.now();
+          reject(primaryError);
         }, { once: true });
       });
     });
@@ -1007,19 +1236,19 @@ describe('executeAiTask integration contract', () => {
     );
 
     await vi.advanceTimersByTimeAsync(1_000);
-    expect(invoke).toHaveBeenCalledTimes(2);
+    expect(invoke).toHaveBeenCalledOnce();
 
     await vi.advanceTimersByTimeAsync(13_999);
-    expect(fallbackSignal?.aborted).toBe(false);
+    expect(providerSignal?.aborted).toBe(false);
 
     await vi.advanceTimersByTimeAsync(11_001);
     const rejection = await outcome;
-    expect(rejection).toBe(fallbackError);
-    expect(fallbackAbortedAt).toBe(startedAt + 15_000);
+    expect(rejection).toBe(primaryError);
+    expect(providerAbortedAt).toBe(startedAt + 15_000);
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it('logs fallback only when the fallback provider invocation starts', async () => {
+  it('logs only the primary provider invocation when no fallback is configured', async () => {
     const events: string[] = [];
     persistence.createGeneration.mockImplementation(async (input: {
       policy: { provider: string };
@@ -1027,28 +1256,23 @@ describe('executeAiTask integration contract', () => {
       events.push(`create:${input.policy.provider}`);
     });
     vi.spyOn(console, 'warn').mockImplementation(() => {
-      events.push('warn:fallback-start');
+      events.push('warn:provider-start');
     });
     const invoke = vi.fn(async ({ policy }: { policy: { provider: string } }) => {
       events.push(`invoke:${policy.provider}`);
-      if (policy.provider === 'openai') {
-        throw typedProviderError('primary unavailable', { status: 503 });
-      }
-      return fallbackSuccess;
+      expect(policy.provider).toBe('openai');
+      throw typedProviderError('primary unavailable', { status: 503 });
     });
 
-    await executeAiTask({
+    await expect(executeAiTask({
       task: 'meal_suggest',
       prompt: 'suggest a meal',
       invoke,
-    });
+    })).rejects.toMatchObject({ status: 503 });
 
     expect(events).toEqual([
       'create:openai',
       'invoke:openai',
-      'create:anthropic',
-      'warn:fallback-start',
-      'invoke:anthropic',
     ]);
   });
 
@@ -1056,9 +1280,6 @@ describe('executeAiTask integration contract', () => {
     vi.useFakeTimers();
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const primaryError = typedProviderError('primary unavailable', { status: 503 });
-    orgBudget.assertWithinOrganizationBudget
-      .mockResolvedValueOnce(undefined)
-      .mockImplementationOnce(() => new Promise<never>(() => undefined));
 
     const invoke = vi.fn(({ policy }: { policy: { provider: string } }) => {
       if (policy.provider === 'openai') {
@@ -1079,6 +1300,7 @@ describe('executeAiTask integration contract', () => {
       prompt: 'one apple',
       invoke,
     }));
+    await vi.advanceTimersByTimeAsync(0);
     await vi.advanceTimersByTimeAsync(15_000);
 
     expect(observed.current?.status).toBe('rejected');
@@ -1092,52 +1314,23 @@ describe('executeAiTask integration contract', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it('does not invoke a provider when generation persistence consumes the deadline', async () => {
+  it('does not invoke a provider when primary generation persistence hangs at the deadline', async () => {
     vi.useFakeTimers();
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    const primaryError = typedProviderError('primary unavailable', { status: 503 });
-    persistence.createGeneration
-      .mockResolvedValueOnce(undefined)
-      .mockImplementationOnce(() => new Promise<never>(() => undefined));
-
-    const invoke = vi.fn(({ policy }: { policy: { provider: string } }) => {
-      if (policy.provider === 'openai') {
-        return new Promise<never>((_, reject) => {
-          setTimeout(() => reject(primaryError), 14_000);
-        });
-      }
-      return Promise.resolve({
-        output: { items: [] },
-        usage: { inputTokens: 10, outputTokens: 5 },
-        latencyMs: 50,
-        rawStatus: 200,
-      });
-    });
-
-    const observed = observeOutcome(executeAiTask({
-      task: 'food_parse',
-      prompt: 'one apple',
-      invoke,
-    }));
-    await vi.advanceTimersByTimeAsync(15_000);
-
+    persistence.createGeneration.mockImplementationOnce(() => new Promise<never>(() => undefined));
+    const invoke = vi.fn();
+    const observed = observeOutcome(executeAiTask({ task: 'food_parse', prompt: 'one apple', invoke }));
+    await vi.advanceTimersByTimeAsync(1);
+    await vi.advanceTimersByTimeAsync(14_999);
     expect(observed.current?.status).toBe('rejected');
-    if (observed.current?.status === 'rejected') {
-      expect(observed.current.error).toBe(primaryError);
-    }
-    expect(invoke).toHaveBeenCalledOnce();
-    expect(persistence.createGeneration).toHaveBeenCalledTimes(2);
-    expect(persistence.failGeneration).toHaveBeenCalledOnce();
-    expect(warn).not.toHaveBeenCalled();
+    if (observed.current?.status === 'rejected') expect(classifyAiError(observed.current.error)).toBe('timeout');
+    expect(persistence.createGeneration).toHaveBeenCalledOnce();
+    expect(invoke).not.toHaveBeenCalled();
+    expect(persistence.failGeneration).not.toHaveBeenCalled();
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it('does not replace a pre-deadline fallback setup timeout with the primary error', async () => {
+  it('preserves the primary error when no fallback is configured', async () => {
     const primaryError = typedProviderError('primary unavailable', { status: 503 });
-    const fallbackSetupError = typedProviderError('fallback setup timeout', { _isTimeout: true });
-    persistence.createGeneration
-      .mockResolvedValueOnce(undefined)
-      .mockRejectedValueOnce(fallbackSetupError);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const invoke = vi.fn(async () => {
       throw primaryError;
@@ -1147,10 +1340,10 @@ describe('executeAiTask integration contract', () => {
       task: 'food_parse',
       prompt: 'one apple',
       invoke,
-    })).rejects.toBe(fallbackSetupError);
+    })).rejects.toBe(primaryError);
 
     expect(invoke).toHaveBeenCalledOnce();
-    expect(persistence.createGeneration).toHaveBeenCalledTimes(2);
+    expect(persistence.createGeneration).toHaveBeenCalledOnce();
     expect(persistence.failGeneration).toHaveBeenCalledOnce();
     expect(warn).not.toHaveBeenCalled();
   });
@@ -1161,16 +1354,12 @@ describe('executeAiTask integration contract', () => {
     taskPolicies.food_parse.timeoutMs = 2_147_483_647;
 
     try {
-      await expect(executeAiTask({
-        task: 'food_parse',
-        prompt: 'one apple',
-        invoke: vi.fn(async () => ({
-          output: { items: [] },
-          usage: { inputTokens: 10, outputTokens: 5 },
-          latencyMs: 50,
-          rawStatus: 200,
-        })),
-      })).resolves.toMatchObject({ output: { items: [] } });
+      const execution = executeAiTask({ task: 'food_parse', prompt: 'one apple', invoke: vi.fn(async () => ({
+        output: { items: [] }, usage: { inputTokens: 10, outputTokens: 5 }, latencyMs: 50, rawStatus: 200,
+      })) });
+      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(0);
+      await expect(execution).resolves.toMatchObject({ output: { items: [] } });
     } finally {
       taskPolicies.food_parse.timeoutMs = originalTimeoutMs;
     }

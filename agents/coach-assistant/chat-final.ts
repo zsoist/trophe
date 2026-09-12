@@ -3,6 +3,7 @@ import {conversationRequestSchema} from './schema';
 import {runConversation} from './conversation';
 import type {CoachChatScope} from './chat-contract';
 import {isIsolatedCoachEngineBinding,verifyIsolatedCoachEngineExecution,type IsolatedCoachEngineBinding} from './isolated-engine';
+import {isGovernedCoachEngineBinding,verifyGovernedCoachEngineExecution,type GovernedCoachEngineBinding} from './governed-engine';
 /** Opaque process-local proof. There is no constructor accepting arbitrary final text. */
 export interface VerifiedChatFinal {readonly kind:'verified_coach_chat_final'}
 interface FinalData {scope:CoachChatScope;threadId:string;turnId:string;text:string;hash:string;pipelineVersion:string;userTextHash:string}
@@ -36,5 +37,15 @@ export async function runVerifiedChatFinalWithIsolatedEngine(input:Parameters<Is
  if(!isIsolatedCoachEngineBinding(engine))throw new Error('forbidden');
  const response=await engine.run(request,{...options});
  if(!verifyIsolatedCoachEngineExecution(engine,request,options.actorId,response))throw new Error('forbidden');
+ return issueFinal(request,response,scope);
+}
+
+/** A live final can only come from the exact governed engine response object. */
+export async function runVerifiedChatFinalWithGovernedEngine(input:Parameters<GovernedCoachEngineBinding['run']>[0],options:Parameters<GovernedCoachEngineBinding['run']>[1],scope:CoachChatScope,engine:GovernedCoachEngineBinding){
+ const request=conversationRequestSchema.parse(input);scope=structuredClone(scope);
+ if(options.actorId!==scope.actorId||(request.context?.clientId??options.actorId)!==scope.subjectId)throw new Error('forbidden');
+ if(!isGovernedCoachEngineBinding(engine))throw new Error('forbidden');
+ const response=await engine.run(request,{...options});
+ if(!verifyGovernedCoachEngineExecution(engine,request,options.actorId,response))throw new Error('forbidden');
  return issueFinal(request,response,scope);
 }

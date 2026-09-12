@@ -100,6 +100,12 @@ partial storage deletion or unknown SQL commit it returns ok:false/removed:0
 silently. AG1 must wire bounded cleanup before considering retention operational;
 this slice does not install a cron or claim abandoned objects are already swept.
 
+Prepare also performs a bounded opportunistic reclaim for expired reservations
+owned by the currently authorized actor, subject and organization before applying
+the capacity limit. It uses the same exact-path Storage removal and ledger state
+transition, and cannot reclaim another actor's reservations. The global janitor
+remains necessary for abandoned rows whose owners do not return.
+
 ## Verification and limits
 
 Six tests: SDK fetch-double with real Sharp/SDK normalization+EXIF stripping,

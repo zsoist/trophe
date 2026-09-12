@@ -1,0 +1,28 @@
+import { defineConfig, devices } from '@playwright/test';
+
+export default defineConfig({
+  testDir: './e2e',
+  testMatch: ['coach-login-diagnostic.spec.ts'],
+  timeout: 240_000,
+  expect: { timeout: 15_000 },
+  fullyParallel: false,
+  workers: 1,
+  retries: 0,
+  reporter: [['line']],
+  outputDir: process.env.RUNNER_TEMP ? `${process.env.RUNNER_TEMP}/coach-login-diagnostic` : 'test-results/coach-login-diagnostic',
+  use: {
+    baseURL: 'http://127.0.0.1:3300',
+    ...devices['iPhone 14 Pro'],
+    viewport: { width: 390, height: 844 },
+    browserName: 'chromium',
+    trace: 'off',
+    screenshot: 'off',
+    video: 'off',
+  },
+  webServer: {
+    command: 'npm run dev -- --webpack --hostname 127.0.0.1 --port 3300',
+    url: 'http://127.0.0.1:3300',
+    reuseExistingServer: false,
+    timeout: 180_000,
+  },
+});

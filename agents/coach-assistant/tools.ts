@@ -1,8 +1,8 @@
-import type { CoachEvidence, CoachRequest } from './contracts';
+import type { CoachEvidence, CoachRequest, CoachWindow } from './contracts';
 import { weekdayFor, windowFor } from './context';
 import type { CoachRepository, ReadArgs, Rows } from './repository';
 
-export interface EvidenceOptions { actorId: string; repository: CoachRepository; now: Date; signal: AbortSignal; onDataRead?: (count:number)=>void }
+export interface EvidenceOptions { actorId: string; repository: CoachRepository; now: Date; signal: AbortSignal; window?:CoachWindow; onDataRead?: (count:number)=>void }
 
 export async function collectEvidence(input: CoachRequest, options: EvidenceOptions) {
   const { repository, actorId, signal } = options;
@@ -10,7 +10,8 @@ export async function collectEvidence(input: CoachRequest, options: EvidenceOpti
   const subjectId = input.clientId ?? actorId;
   const context = await repository.authorize(actorId, subjectId, signal);
   if (context.subjectId !== subjectId || context.actorId !== actorId) throw new Error('forbidden');
-  const window = windowFor(input.intent, context.timezone, options.now);
+  const window = options.window ?? windowFor(input.intent, context.timezone, options.now);
+  if(window.timezone!==context.timezone)throw new Error('forbidden');
   const facts: CoachEvidence[] = [];
   const limitations: string[] = [];
   let reads = 0;

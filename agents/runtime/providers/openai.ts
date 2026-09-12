@@ -8,6 +8,7 @@ import {
 import { debitPaidTransportAttempt } from '../../../scripts/safety/require-paid-ai-approval';
 
 const OPENAI_CHAT_COMPLETIONS_URL = 'https://api.openai.com/v1/chat/completions';
+const OPENAI_RESPONSES_URL = 'https://api.openai.com/v1/responses';
 const MISTRAL_CHAT_COMPLETIONS_URL = 'https://api.mistral.ai/v1/chat/completions';
 const MAX_ATTEMPTS = 3;
 const MAX_RETRY_DELAY_MS = 8_000;
@@ -17,12 +18,14 @@ type OpenAiErrorBody = {
   message?: string;
   code?: string;
   type?: string;
+  param?: string;
 };
 
 export class OpenAiApiError extends Error {
   readonly status: number;
   readonly code?: string;
   readonly type?: string;
+  readonly param?: string;
   readonly requestId?: string;
   readonly usage?: AiUsage;
   readonly latencyMs?: number;
@@ -33,6 +36,7 @@ export class OpenAiApiError extends Error {
     status: number;
     code?: string;
     type?: string;
+    param?: string;
     requestId?: string;
     usage?: AiUsage;
     latencyMs?: number;
@@ -43,6 +47,7 @@ export class OpenAiApiError extends Error {
     this.status = input.status;
     this.code = input.code;
     this.type = input.type;
+    this.param = input.param;
     this.requestId = input.requestId;
     this.usage = input.usage;
     this.latencyMs = input.latencyMs;
@@ -130,6 +135,7 @@ function apiError(response: Response, error: OpenAiErrorBody | undefined): OpenA
     status: response.status,
     code: error?.code,
     type: error?.type,
+    param: error?.param,
     requestId: response.headers.get('x-request-id') ?? undefined,
   });
 }
@@ -152,11 +158,15 @@ export async function invokeOpenAiStructured<T>(input: {
   store?: false;
   fetchImpl?: typeof fetch;
   beforeTransportAttempt?: (endpoint: string) => unknown;
+  /** Optional server-normalized image for Luna Responses vision calls. */
+  image?: { bytes: Uint8Array; mediaType: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif' };
 }): Promise<ProviderResult<T>> {
   const isMistralCompatible = /^mistral(?:-|$)/.test(input.model);
+  const useResponsesApi = input.model === 'gpt-5.6-luna';
   const endpoint = isMistralCompatible
     ? MISTRAL_CHAT_COMPLETIONS_URL
-    : OPENAI_CHAT_COMPLETIONS_URL;
+    : useResponsesApi ? OPENAI_RESPONSES_URL : OPENAI_CHAT_COMPLETIONS_URL;
+  if (input.image && !useResponsesApi) throw new Error('vision_not_supported');
   const accessMode = assertPaidProviderAccess({
     provider: 'openai',
     transportWasInjected: input.fetchImpl != null,
@@ -177,7 +187,26 @@ export async function invokeOpenAiStructured<T>(input: {
 
   const startedAt = Date.now();
   const supportsExplicitPromptCache = /^gpt-5\.6(?:-|$)/.test(input.model);
-  const body = JSON.stringify({
+  const userContent = [
+    { type: 'input_text', text: input.prompt },
+    ...(input.image ? [{
+      type: 'input_image',
+      image_url: `data:${input.image.mediaType};base64,${Buffer.from(input.image.bytes).toString('base64')}`,
+    }] : []),
+  ];
+  const body = JSON.stringify(useResponsesApi ? {
+    model: input.model,
+    input: [
+      { role: 'developer', content: [{ type: 'input_text', text: input.system }] },
+      { role: 'user', content: userContent },
+    ],
+    max_output_tokens: input.maxTokens,
+    reasoning: { effort: input.reasoningEffort ?? 'none' },
+    prompt_cache_key: promptCacheKey(input),
+    tools: [{ type: 'function', name: input.toolName, description: input.description, parameters: input.schema, ...(input.strict ? { strict: true } : {}) }],
+    tool_choice: { type: 'function', name: input.toolName },
+    ...(input.store === false ? { store: false } : {}),
+  } : {
     model: input.model,
     messages: [
       supportsExplicitPromptCache
@@ -221,11 +250,17 @@ export async function invokeOpenAiStructured<T>(input: {
       finish_reason?: string;
       message?: { tool_calls?: Array<{ function?: { name?: string; arguments?: string } }> };
     }>;
+    status?: string;
+    output?: Array<{ type?: string; status?: string; name?: string; arguments?: string }>;
     usage?: {
       prompt_tokens?: number;
       completion_tokens?: number;
       prompt_tokens_details?: { cached_tokens?: number; cache_write_tokens?: number };
       completion_tokens_details?: { reasoning_tokens?: number };
+      input_tokens?: number;
+      output_tokens?: number;
+      input_tokens_details?: { cached_tokens?: number; cache_write_tokens?: number };
+      output_tokens_details?: { reasoning_tokens?: number };
     };
     error?: OpenAiErrorBody;
   };
@@ -269,13 +304,14 @@ export async function invokeOpenAiStructured<T>(input: {
   }
   if (!response) throw new Error('OpenAI request failed before receiving a response');
   if (!response.ok) throw apiError(response, data.error);
+  if (useResponsesApi && data.status === 'failed' && data.error) throw apiError(response,data.error);
 
   const usage: AiUsage = {
-    inputTokens: data.usage?.prompt_tokens ?? 0,
-    outputTokens: data.usage?.completion_tokens ?? 0,
-    cacheReadTokens: data.usage?.prompt_tokens_details?.cached_tokens ?? 0,
-    cacheWriteTokens: data.usage?.prompt_tokens_details?.cache_write_tokens ?? 0,
-    reasoningTokens: data.usage?.completion_tokens_details?.reasoning_tokens ?? 0,
+    inputTokens: data.usage?.input_tokens ?? data.usage?.prompt_tokens ?? 0,
+    outputTokens: data.usage?.output_tokens ?? data.usage?.completion_tokens ?? 0,
+    cacheReadTokens: data.usage?.input_tokens_details?.cached_tokens ?? data.usage?.prompt_tokens_details?.cached_tokens ?? 0,
+    cacheWriteTokens: data.usage?.input_tokens_details?.cache_write_tokens ?? data.usage?.prompt_tokens_details?.cache_write_tokens ?? 0,
+    reasoningTokens: data.usage?.output_tokens_details?.reasoning_tokens ?? data.usage?.completion_tokens_details?.reasoning_tokens ?? 0,
   };
   const malformedResponse = (message: string) => new OpenAiApiError({
     message,
@@ -289,13 +325,14 @@ export async function invokeOpenAiStructured<T>(input: {
   });
 
   const choice = data.choices?.[0];
-  const toolCall = choice?.message?.tool_calls?.find(
-    (call) => call.function?.name === input.toolName,
-  );
-  const rawArguments = toolCall?.function?.arguments;
+  const toolCall = choice?.message?.tool_calls?.find((call) => call.function?.name === input.toolName);
+  const responseItems=data.output??[],responseCalls=responseItems.filter(item=>item.type==='function_call');
+  const responseCall=responseCalls.length===1&&responseItems.every(item=>item.type==='reasoning'||item.type==='function_call')
+    &&responseCalls[0].status==='completed'&&responseCalls[0].name===input.toolName&&typeof responseCalls[0].arguments==='string'&&responseCalls[0].arguments.trim()?responseCalls[0]:undefined;
+  const rawArguments = useResponsesApi ? responseCall?.arguments : toolCall?.function?.arguments;
   if (!rawArguments) throw malformedResponse('OpenAI structured response missing tool call');
-  if (choice?.finish_reason !== 'tool_calls') {
-    throw malformedResponse(`OpenAI structured response ended with ${choice?.finish_reason ?? 'unknown reason'}`);
+  if (useResponsesApi ? data.status !== 'completed' : choice?.finish_reason !== 'tool_calls') {
+    throw malformedResponse(`OpenAI structured response ended with ${useResponsesApi ? data.status ?? 'unknown status' : choice?.finish_reason ?? 'unknown reason'}`);
   }
 
   let parsedArguments: unknown;
@@ -316,6 +353,109 @@ export async function invokeOpenAiStructured<T>(input: {
     responseModel: typeof data.model === 'string' && data.model.trim().length > 0 ? data.model : undefined,
     output,
     providerGenerationId: data.id,
+    requestId: response.headers.get('x-request-id') ?? undefined,
+    usage,
+    latencyMs: Date.now() - startedAt,
+    rawStatus: response.status,
+  };
+}
+
+/** Minimal Luna text adapter for product tasks whose contract is prose rather
+ * than a function schema. It uses the same Responses endpoint and bounded
+ * transport as the structured adapter, without introducing another model. */
+export async function invokeOpenAiText(input: {
+  model: string;
+  system: string;
+  prompt: string;
+  maxTokens: number;
+  signal: AbortSignal;
+  reasoningEffort?: 'none' | 'low' | 'medium';
+  store?: false;
+  maxAttempts?: number;
+  fetchImpl?: typeof fetch;
+  beforeTransportAttempt?: (endpoint: string) => unknown;
+}): Promise<ProviderResult<string>> {
+  if (input.model !== 'gpt-5.6-luna') throw new Error('text_not_supported');
+  const accessMode = assertPaidProviderAccess({ provider: 'openai', transportWasInjected: input.fetchImpl != null });
+  const apiKey = accessMode === 'offline' ? PAID_PROVIDER_OFFLINE_CREDENTIAL : process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error('OPENAI_API_KEY not configured');
+  const endpoint = OPENAI_RESPONSES_URL;
+  const body = JSON.stringify({
+    model: input.model,
+    input: [
+      { role: 'developer', content: [{ type: 'input_text', text: input.system }] },
+      { role: 'user', content: [{ type: 'input_text', text: input.prompt }] },
+    ],
+    max_output_tokens: input.maxTokens,
+    reasoning: { effort: input.reasoningEffort ?? 'none' },
+    prompt_cache_key: `trophe-text-${createHash('sha256').update(JSON.stringify([input.model, input.system])).digest('hex').slice(0, 32)}`,
+    ...(input.store === false ? { store: false } : {}),
+  });
+  type TextResponse = {
+    id?: string;
+    model?: unknown;
+    status?: string;
+    output?: Array<{
+      type?: string;
+      text?: string;
+      content?: Array<{ type?: string; text?: string }>;
+    }>;
+    output_text?: string;
+    usage?: {
+      input_tokens?: number;
+      output_tokens?: number;
+      input_tokens_details?: { cached_tokens?: number; cache_write_tokens?: number };
+      output_tokens_details?: { reasoning_tokens?: number };
+    };
+    error?: OpenAiErrorBody;
+  };
+  const startedAt = Date.now();
+  const fetchImpl = input.fetchImpl ?? fetch;
+  const requestedAttempts = Number.isFinite(input.maxAttempts) ? Math.floor(input.maxAttempts as number) : 1;
+  const maxAttempts = Math.min(MAX_ATTEMPTS, Math.max(1, requestedAttempts));
+  let response: Response | undefined;
+  let data: TextResponse = {};
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    debitPaidTransportAttempt(input.beforeTransportAttempt, endpoint);
+    try {
+      response = await fetchImpl(endpoint, {
+        method: 'POST', redirect: 'error',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body, signal: input.signal,
+      });
+    } catch (error) {
+      if (input.signal.aborted || attempt === maxAttempts - 1) throw error;
+      await waitForRetry(retryDelayMs(undefined, attempt), input.signal);
+      continue;
+    }
+    const responseText = await response.text();
+    try { data = responseText ? JSON.parse(responseText) as TextResponse : {}; } catch { data = {}; }
+    if (response.ok) break;
+    if (!shouldRetry(response) || attempt === maxAttempts - 1) throw apiError(response, data.error);
+    await waitForRetry(retryDelayMs(response, attempt), input.signal);
+  }
+  if (!response) throw new Error('OpenAI request failed before receiving a response');
+  if (!response.ok) throw apiError(response, data.error);
+  if (data.status === 'failed' && data.error) throw apiError(response, data.error);
+  const usage: AiUsage = {
+    inputTokens: data.usage?.input_tokens ?? 0,
+    outputTokens: data.usage?.output_tokens ?? 0,
+    cacheReadTokens: data.usage?.input_tokens_details?.cached_tokens ?? 0,
+    cacheWriteTokens: data.usage?.input_tokens_details?.cache_write_tokens ?? 0,
+    reasoningTokens: data.usage?.output_tokens_details?.reasoning_tokens ?? 0,
+  };
+  const output = data.output_text ?? data.output?.flatMap(item => {
+    if (item.type === 'output_text' && typeof item.text === 'string') return [item.text];
+    return (item.content ?? []).filter(content => content.type === 'output_text' && typeof content.text === 'string').map(content => content.text!);
+  }).join('');
+  if (!output?.trim() || data.status !== 'completed') {
+    throw new OpenAiApiError({ message: 'OpenAI text response was malformed', status: response.status, code: 'invalid_response', type: 'response_validation_error', requestId: response.headers.get('x-request-id') ?? undefined, usage, latencyMs: Date.now() - startedAt, providerGenerationId: data.id });
+  }
+  return {
+    responseModel: typeof data.model === 'string' && data.model.trim() ? data.model : undefined,
+    output,
+    providerGenerationId: data.id,
+    requestId: response.headers.get('x-request-id') ?? undefined,
     usage,
     latencyMs: Date.now() - startedAt,
     rawStatus: response.status,

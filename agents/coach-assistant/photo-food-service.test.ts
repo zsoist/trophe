@@ -8,13 +8,14 @@ import {fixtureRepository} from './fixtures';
 import type {PhotoFoodProposal} from './photo-food-contracts';
 const id=(n:number)=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const actor=id(1),org=id(2),attachmentId=id(3),base={version:'coach-assistant.v2' as const,conversationId:id(4),turnId:id(5)};
-const photo={name:'Rice',estimated_grams:100,estimated_calories:130,estimated_protein_g:2.7,estimated_carbs_g:28,estimated_fat_g:0.3,estimated_fiber_g:0.4,estimated_sugar_g:0,confidence:0.9,source:'ai_estimate',accuracy_note:'Photo estimate; confirm portion.'};
+const photo={identity_status:'identified',name:'Rice',estimated_grams:100,estimated_calories:130,estimated_protein_g:2.7,estimated_carbs_g:28,estimated_fat_g:0.3,estimated_fiber_g:0.4,estimated_sugar_g:0,confidence:0.9,source:'ai_estimate',accuracy_note:'Photo estimate; confirm portion.'};
 const rawObservation={actorId:actor,subjectId:actor,organizationId:org,conversationId:base.conversationId,attachmentId,id:id(6),revision:id(7),imageDigest:'a'.repeat(64),source:'offline_fixture' as const,foods:[photo]};
 /** All numbers and observations are synthetic test data, including the injected
  * guarded offline observation port. No image interpretation, database or API is executed. */
 const isolationEnv=()=>({CI:'true',GITHUB_ACTIONS:'true',CI_REAL_SUPABASE:'1',COACH_ASSISTANT_ISOLATED_ENGINE_ENABLED:'1',COACH_ASSISTANT_ISOLATED_PHOTO_FOOD_ENABLED:'1',COACH_ASSISTANT_DATA_SOURCE:'authorized_records',DATABASE_URL:'postgresql://fixture:fixture@127.0.0.1:54322/postgres',NEXT_PUBLIC_SUPABASE_URL:'http://127.0.0.1:54321',VERCEL_ENV:'preview'});
-function fixture(offline=false){
+function fixture(offline=false,identity:'identified'|'uncertain'|null='identified'){
  const observation=structuredClone(rawObservation),env=isolationEnv();let authorized=true,available=true,expired=false,revision=true,receiptFails=false,auditFails=false,lost=false,corrupt=false,writes=0,audits=0;
+ if(identity)Object.assign(observation.foods[0],{identity_status:identity});else delete (observation.foods[0] as Partial<typeof photo>).identity_status;
  let proposals:Record<string,Record<string,unknown>>={},receipts:Record<string,Record<string,unknown>>={},rows:Record<string,unknown>[]=[];const queries:Array<{sql:string;params:unknown[]}>=[];
  const controller=new AbortController();let abortInsert=false;
  const tx={insert:()=>({values:(v:Record<string,unknown>)=>({returning:async()=>{writes++;rows.push(v);if(abortInsert)controller.abort();return [{...v,...(corrupt?{source:'custom'}:{})}];}})}),execute:async(q:Parameters<PgDialect['sqlToQuery']>[0])=>{
@@ -42,9 +43,32 @@ function fixture(offline=false){
  const read=async()=>execute({...base,operation:'photo.food.read',attachmentId});
  const propose=async()=>{const r=await read();if(!r.ok||!('snapshot' in r))throw Error(JSON.stringify(r));const result=await execute({...base,operation:'photo.food.propose',attachmentId,observationId:r.snapshot.observationId,itemIndex:0,resourceVersion:r.snapshot.items[0].version,after:{loggedDate:'2026-09-07',mealType:'lunch',grams:150}});if(!result.ok||!('proposal' in result))throw Error(JSON.stringify(result));return result.proposal;};
  const apply=(p:PhotoFoodProposal)=>({...base,operation:'photo.food.apply' as const,proposalId:p.id,hash:p.hash,resourceVersion:p.resource.version,actionId:id(8),reviewed:true as const});
- return {database,service,execute,env,port,boundary,fixtureScope,read,propose,apply,queries,state:()=>({rows,writes,audits,proposals,receipts}),revoke:()=>{authorized=false;},remove:()=>{available=false;},expire:()=>{expired=true;},change:()=>{observation.revision=id(99);},foreign:()=>{observation.subjectId=id(99);},digest:()=>{observation.imageDigest='b'.repeat(64);},failReceipt:()=>{receiptFails=true;},failAudit:()=>{auditFails=true;},noRevision:()=>{revision=false;},corrupt:()=>{corrupt=true;},lose:()=>{lost=true;},deleteEntry:()=>{rows=[];},abort:()=>controller.abort(),abortInsert:()=>{abortInsert=true;}};
+ return {observation,database,service,execute,env,port,boundary,fixtureScope,read,propose,apply,queries,state:()=>({rows,writes,audits,proposals,receipts}),revoke:()=>{authorized=false;},remove:()=>{available=false;},expire:()=>{expired=true;},change:()=>{observation.revision=id(99);},foreign:()=>{observation.subjectId=id(99);},digest:()=>{observation.imageDigest='b'.repeat(64);},failReceipt:()=>{receiptFails=true;},failAudit:()=>{auditFails=true;},noRevision:()=>{revision=false;},corrupt:()=>{corrupt=true;},lose:()=>{lost=true;},deleteEntry:()=>{rows=[];},abort:()=>controller.abort(),abortInsert:()=>{abortInsert=true;}};
 }
 describe('photo observation to reviewed Food creation with injected transactions',()=>{
+ it('allows selecting an identified item while leaving an uncertain component out',async()=>{
+  const f=fixture();f.observation.foods.push({...photo,identity_status:'uncertain',name:'Pale oval pieces',accuracy_note:'Could be fruit or a cooked vegetable. Which is it?'});
+  const p=await f.propose();expect(await f.execute(f.apply(p))).toMatchObject({receipt:{status:'applied'}});
+  expect(f.state()).toMatchObject({writes:1,rows:[{foodName:'Rice'}]});
+  const r=await f.read();if(!r.ok||!('snapshot'in r))throw Error('missing snapshot');
+  expect(await f.execute({...base,operation:'photo.food.propose',attachmentId,observationId:r.snapshot.observationId,itemIndex:1,resourceVersion:r.snapshot.items[1].version,after:{loggedDate:'2026-09-07',mealType:'lunch',grams:100}})).toMatchObject({error:'identity_clarification_required'});
+  expect(f.state().writes).toBe(1);
+ });
+ it.each(['uncertain',null] as const)('rejects identity drift to %s before apply and retains existing receipts',async identity=>{
+  const pending=fixture(),p=await pending.propose();
+  if(identity)pending.observation.foods[0].identity_status=identity;else delete (pending.observation.foods[0] as Partial<typeof photo>).identity_status;
+  expect(await pending.execute(pending.apply(p))).toMatchObject({error:'version_conflict'});expect(pending.state().writes).toBe(0);
+  const applied=fixture(),q=await applied.propose(),op=applied.apply(q),result=await applied.execute(op);
+  delete (applied.observation.foods[0] as Partial<typeof photo>).identity_status;
+  expect(await applied.execute(op)).toEqual(result);expect(applied.state().writes).toBe(1);
+ });
+ it.each(['uncertain',null] as const)('reads %s identity but blocks its proposal without writes',async identity=>{
+  const f=fixture(false,identity),r=await f.read();
+  expect(r).toMatchObject({ok:true,snapshot:{items:[{identityStatus:identity??'unassessed'}]}});
+  if(!r.ok||!('snapshot'in r))throw Error('missing snapshot');
+  expect(await f.execute({...base,operation:'photo.food.propose',attachmentId,observationId:r.snapshot.observationId,itemIndex:0,resourceVersion:r.snapshot.items[0].version,after:{loggedDate:'2026-09-07',mealType:'lunch',grams:150}})).toMatchObject({ok:false,error:'identity_clarification_required'});
+  expect(f.state()).toMatchObject({writes:0,proposals:{},receipts:{}});
+ });
  it('reads explicitly untrusted estimates and prepares 150g without saving food',async()=>{const f=fixture();expect(await f.read()).toMatchObject({storage:'isolated_database_fixture',evaluation:{observation:'offline_fixture',visionVerified:false,paidApiCalls:0},snapshot:{source:'offline_fixture',trust:'untrusted_image_data',reviewRequired:true,items:[{estimatedGrams:100,confidence:0.75}]}});const p=await f.propose();expect(p).toMatchObject({evidence:{trust:'untrusted_image_data'},after:{grams:150,calories:195,proteinG:4.1,carbsG:42,fatG:0.5,source:'photo_ai',nutrition:'estimated',portion:'explicit_user'}});expect(f.state().writes).toBe(0);});
  it('labels offline fixtures and never persists a proposal, food entry or receipt for them',async()=>{const f=fixture(true);expect(await f.read()).toMatchObject({storage:'offline_fixture',snapshot:{source:'offline_fixture'}});const p=await f.propose();expect(p.evidence.source).toBe('offline_fixture');expect(f.state()).toMatchObject({proposals:{},rows:[],receipts:{}});expect(await f.execute(f.apply(p))).toMatchObject({error:'not_found'});});
  it('applies reviewed creation once through shared writer and recovers after food and attachment removal',async()=>{const f=fixture(),p=await f.propose(),op=f.apply(p),result=await f.execute(op);expect(result).toMatchObject({receipt:{status:'applied',action:'food.photo.create'},refresh:{entryId:p.id}});expect(f.state()).toMatchObject({writes:1,audits:1,rows:[{qtyG:'150',source:'photo_ai',foodId:null}]});expect(await f.execute(op)).toEqual(result);f.deleteEntry();f.remove();expect(await f.execute({...base,operation:'photo.food.receipt',actionId:id(8)})).toEqual(result);expect(await f.execute({...op,actionId:id(9)})).toMatchObject({error:'idempotency_conflict'});expect(f.state().writes).toBe(1);});

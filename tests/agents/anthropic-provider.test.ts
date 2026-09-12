@@ -101,6 +101,26 @@ describe('Anthropic provider transport', () => {
     expect(JSON.stringify(fetchMock.mock.calls)).not.toContain(SENSITIVE_SENTINEL);
   });
 
+  it('does not invent response telemetry when abort wins before fetch returns headers', async () => {
+    const controller = new AbortController();
+    const fetchMock = vi.fn((_url: string | URL | Request, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      const signal = init?.signal as AbortSignal;
+      signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+    }));
+    const pending = captureError(() => invokeAnthropicJson({
+      body: { model: 'claude-haiku-4-5-20251001', max_tokens: 2_048 },
+      signal: controller.signal,
+      fetchImpl: fetchMock as unknown as typeof fetch,
+    }));
+
+    await Promise.resolve();
+    controller.abort(Object.assign(new Error('deadline'), { _isTimeout: true }));
+    const error = await pending;
+
+    expect(providerErrorTelemetry(error)).toEqual({ rawStatus: 0 });
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
   it.each([
     [403, { type: 'permission_error', code: 'forbidden' }, 'req_forbidden'],
     [429, { type: 'rate_limit_error', code: 'rate_limited' }, 'req_rate_limited'],

@@ -12,6 +12,50 @@ function provider(answer:string,followUp:string|null=null):OfflineConversationPr
   });
 }
 describe('unapproved full conversation release candidate (injected transport, no per-turn oracle)',()=>{
+  it('renders an empty authorized scope deterministically even when the candidate repeats a numeric date',async()=>{
+    const transport=provider('No hay comida registrada el 10 de septiembre.','¿Quieres revisar el 10 de septiembre?');
+    const empty=options();
+    const result=await runConversationCandidate({...base,message:'¿Qué comida está registrada en este día?',context:{surface:'food',includeScreen:true,screenDate:'2026-09-10'}},{...empty,offlineConversationProvider:transport});
+    expect(result.error).toBeUndefined();
+    expect(result.ok).toBe(true);
+    expect(result.output?.answer).toContain('The available authorized sources contain no records matching this request.');
+    expect(result.output?.answer).not.toContain('10');
+    expect(result.output?.suggestions).toEqual([]);
+    expect(result.evidence).toEqual([]);
+    expect(result.snapshot?.window).toEqual({start:'2026-09-10',end:'2026-09-10',days:1,timezone:'America/Bogota'});
+    expect(transport).toHaveBeenCalledOnce();
+  });
+  it('uses one visible Food day for both evidence reads and the response snapshot',async()=>{
+    const transport=provider('The authorized Food records can be reviewed.');
+    const scoped=options();
+    scoped.repository=fixtureRepository({nutrition:[
+      {id:'meal-old',userId:'synthetic-client',date:'2026-09-09',calories:900,proteinG:90},
+      {id:'meal-visible',userId:'synthetic-client',date:'2026-09-10',calories:150,proteinG:15},
+    ],workouts:[],plans:[],exercises:[]});
+    const result=await runConversationCandidate({...base,message:'¿Qué comida está registrada en este día?',context:{surface:'food',includeScreen:true,screenDate:'2026-09-10'}},{...scoped,offlineConversationProvider:transport});
+    expect(result.error).toBeUndefined();
+    expect(result.ok).toBe(true);
+    expect(result.snapshot?.window).toEqual({start:'2026-09-10',end:'2026-09-10',days:1,timezone:'America/Bogota'});
+    expect(result.evidence.find(item=>item.id==='nutrition.calories')).toMatchObject({value:150,sourceIds:['meal-visible'],window:{start:'2026-09-10',end:'2026-09-10'}});
+  });
+  it('does not carry the visible Food day into an explicit Workout turn',async()=>{
+    const transport=provider('The authorized workout records can be reviewed.');
+    const result=await runConversationCandidate({...base,message:'¿Qué entrenamiento está registrado esta semana?',context:{surface:'food',includeScreen:true,screenDate:'2026-09-10'}},{...options(),offlineConversationProvider:transport});
+    expect(result.error).toBeUndefined();
+    expect(result.ok).toBe(true);
+    expect(result.snapshot?.window).toEqual({start:'2026-08-31',end:'2026-09-06',days:7,timezone:'America/Bogota'});
+    expect(result.evidence.some(item=>item.source==='workout')).toBe(true);
+    expect(result.evidence.some(item=>item.source==='nutrition')).toBe(false);
+  });
+  it('does not apply the Food empty-state renderer to another surface',async()=>{
+    const transport=provider('No hay entrenamiento registrado el 10 de septiembre.');
+    const empty=options();
+    empty.repository=fixtureRepository({nutrition:[],workouts:[],plans:[],exercises:[]});
+    const result=await runConversationCandidate({...base,message:'¿Qué entrenamiento está registrado el 10 de septiembre?',context:{surface:'workout',includeScreen:true}},{...empty,offlineConversationProvider:transport});
+    expect(result.error?.code).toBe('invalid_output');
+    expect(result.output).toBeUndefined();
+    expect(transport).toHaveBeenCalledOnce();
+  });
   it.each([
     ['How should I interpret my food records this week?','A log offers a starting point for review rather than a complete picture of daily life. Checking whether entries represent the usual routine can help frame the next discussion.','What was hardest to record consistently?'],
     ['¿Y cómo podría organizarlo mejor?','Organizar la revisión alrededor de los momentos difíciles puede ayudar a formular una pregunta concreta. La explicación general debe mantenerse separada de los datos anotados.','¿Qué momento te resulta más difícil de organizar?'],

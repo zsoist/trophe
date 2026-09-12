@@ -1,9 +1,11 @@
 import { sql } from 'drizzle-orm';
 import type { db } from '@/db/client';
 import {
-  decidePilotBudgetCommand, pilotAttemptRecordSchema, pilotBudgetCommandSchema,
+  decidePilotBudgetCommand, pilotAttemptRecordSchema, pilotBudgetCommandSchema, pilotRecordActiveCharge,
   type PilotAttemptRecord, type PilotBudgetResult, type PilotBudgetStore,
 } from '@/agents/coach-assistant/pilot-budget';
+import { COACH_PILOT_BUDGET_USD, COACH_PILOT_TIME_ZONE } from '@/agents/coach-assistant/economics';
+import { HAIKU_MODEL } from '@/agents/router/policies';
 
 const fail = (error: 'budget_blocked' | 'invalid_input' | 'idempotency_conflict' | 'uncertain' | 'cancelled'): PilotBudgetResult => ({ storage: 'database', ok: false, error });
 const integer = (value: string | number) => {
@@ -27,8 +29,10 @@ export function createPilotBudgetStore(database: typeof db, actorId: string): Pi
       try {
         return await database.transaction(async transaction => {
           await transaction.execute(sql`SET LOCAL statement_timeout = '5s'`);
-          const configRows = await transaction.execute<{ organization_id: string; cap_nano_usd: string; charged_nano_usd: string; attempt_count: number; accounting_blocked: boolean; allowed: boolean }>(sql`
-            SELECT organization_id, cap_nano_usd::text, charged_nano_usd::text, attempt_count, accounting_blocked,
+          const configRows = await transaction.execute<{ organization_id: string; cap_nano_usd: string; operating_target_nano_usd:string; budget_day:string; server_budget_day:string; charged_nano_usd: string; attempt_count: number; accounting_blocked: boolean; allowed: boolean }>(sql`
+            SELECT organization_id, cap_nano_usd::text, operating_target_nano_usd::text, budget_day::text,
+              ((statement_timestamp() AT TIME ZONE ${COACH_PILOT_TIME_ZONE})::date)::text AS server_budget_day,
+              charged_nano_usd::text, attempt_count, accounting_blocked,
               ${actorId}::uuid=ANY(allowed_actor_ids) AS allowed
             FROM private.coach_pilot_budgets WHERE id=${binding.pilotId}::uuid FOR UPDATE`);
           const config = configRows.rows[0];
@@ -48,7 +52,7 @@ export function createPilotBudgetStore(database: typeof db, actorId: string): Pi
             const record = pilotAttemptRecordSchema.safeParse(row.record);
             if (!record.success || record.data.binding.agentRunId !== row.id || record.data.binding.actorId !== row.user_id
               || record.data.binding.pilotId !== binding.pilotId || row.organization_id !== config.organization_id || row.model !== record.data.binding.model) return fail('uncertain');
-            total += BigInt(record.data.chargedNanoUsd);
+            total += BigInt(pilotRecordActiveCharge(record.data,config.server_budget_day));
             if (record.data.binding.turnId === binding.turnId) turnAttemptCount++;
             accountingBlocked ||= record.data.accountingAlert;
             if (record.data.binding.attemptId === binding.attemptId || row.id === binding.agentRunId) {
@@ -56,9 +60,17 @@ export function createPilotBudgetStore(database: typeof db, actorId: string): Pi
               existing = record.data;
             }
           }
-          if (total !== BigInt(config.charged_nano_usd) || total > BigInt(Number.MAX_SAFE_INTEGER)) return fail('uncertain');
+          if (total > BigInt(Number.MAX_SAFE_INTEGER)) return fail('uncertain');
+          if (config.budget_day === config.server_budget_day) {
+            if (total !== BigInt(config.charged_nano_usd)) return fail('uncertain');
+          } else {
+            // A natural Bogotá day change recomputes today's settled usage plus every
+            // still-open reservation. Historical rows remain untouched and auditable.
+            await transaction.execute(sql`UPDATE private.coach_pilot_budgets SET budget_day=${config.server_budget_day}::date,charged_nano_usd=${total}::bigint WHERE id=${binding.pilotId}::uuid`);
+          }
           if (!existing && rows.rows.length === 4096) return fail('budget_blocked');
-          const decision = decidePilotBudgetCommand({ pilotId: binding.pilotId, capNanoUsd: integer(config.cap_nano_usd), chargedNanoUsd: integer(config.charged_nano_usd), turnAttemptCount, accountingBlocked, existing }, command);
+          const admissionCap=Math.min(integer(config.cap_nano_usd),integer(config.operating_target_nano_usd),COACH_PILOT_BUDGET_USD*1e9);
+          const decision = decidePilotBudgetCommand({ pilotId: binding.pilotId, budgetDay:config.server_budget_day, capNanoUsd: admissionCap, chargedNanoUsd: Number(total), turnAttemptCount, accountingBlocked, existing }, command);
           if (!decision.ok || decision.write === 'none') { signal.throwIfAborted(); return { ...decision, storage: 'database' }; }
           if (total + BigInt(decision.chargeDeltaNanoUsd) > BigInt(Number.MAX_SAFE_INTEGER)) {
             // A measured overrun must stop the pilot even when its aggregate cannot fit the port's integer range.
@@ -66,17 +78,20 @@ export function createPilotBudgetStore(database: typeof db, actorId: string): Pi
             signal.throwIfAborted(); return fail('uncertain');
           }
           const record = decision.record, metadata = JSON.stringify({ coachPilot: record });
+          // Haiku is recognized only while settling legacy ledger rows. New
+          // governed bindings are Luna or the dedicated transcription model.
+          const provider = binding.model === HAIKU_MODEL ? 'anthropic' : 'openai';
           // Preserve the existing generation status constraint. Financial state lives in metadata.
           const status = record.state === 'settled' ? 'completed' : record.state === 'released' ? 'failed' : 'pending';
           if (decision.write === 'insert') {
             await transaction.execute(sql`INSERT INTO public.agent_runs(id,generation_id,user_id,organization_id,task_name,provider,model,status,metadata,estimated_cost_usd)
-              VALUES (${binding.agentRunId}::uuid,${binding.agentRunId}::uuid,${actorId}::uuid,${config.organization_id}::uuid,'coach_pilot','openai',${binding.model},${status},${metadata}::jsonb,${binding.reservedNanoUsd / 1e9})`);
+              VALUES (${binding.agentRunId}::uuid,${binding.agentRunId}::uuid,${actorId}::uuid,${config.organization_id}::uuid,'coach_pilot',${provider},${binding.model},${status},${metadata}::jsonb,${binding.reservedNanoUsd / 1e9})`);
           } else {
-            await transaction.execute(sql`UPDATE public.agent_runs SET metadata=jsonb_set(metadata,'{coachPilot}',${JSON.stringify(record)}::jsonb),
+            await transaction.execute(sql`UPDATE public.agent_runs SET metadata=jsonb_set(metadata,'{coachPilot}',${JSON.stringify(record)}::jsonb),request_id=${record.providerSuccess?.requestId??null},
               status=${status},estimated_cost_usd=${record.state === 'released' ? 0 : binding.reservedNanoUsd / 1e9},error_message=${record.state === 'released' ? 'pilot_cancelled_before_dispatch' : null},actual_cost_usd=${record.state === 'settled' ? record.chargedNanoUsd / 1e9 : null}
               WHERE id=${binding.agentRunId}::uuid`);
           }
-          await transaction.execute(sql`UPDATE private.coach_pilot_budgets SET charged_nano_usd=charged_nano_usd+${decision.chargeDeltaNanoUsd}::bigint,
+          await transaction.execute(sql`UPDATE private.coach_pilot_budgets SET budget_day=${config.server_budget_day}::date,charged_nano_usd=charged_nano_usd+${decision.chargeDeltaNanoUsd}::bigint,
             attempt_count=attempt_count+${decision.write === 'insert' ? 1 : 0},accounting_blocked=${accountingBlocked || record.accountingAlert}
             WHERE id=${binding.pilotId}::uuid`);
           signal.throwIfAborted();

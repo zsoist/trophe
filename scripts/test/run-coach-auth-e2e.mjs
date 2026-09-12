@@ -65,6 +65,10 @@ function requireId(value) {
 export async function executeCoachWeek({ status, env, actors, service }) {
   assertCi();
   assertTargets(status);
+  const migration = spawnSync(process.execPath, ['--import', 'tsx', 'scripts/test/coach-live02-migration-sql.ts'], {
+    stdio: 'inherit', env: { ...env, DATABASE_URL: status.DB_URL, COACH_LIVE02_LEAVE_VERSIONED_INSTALLED: '1' },
+  });
+  if (migration.error || migration.status !== 0) throw new Error('Coach LIVE-02 versioned migration rehearsal failed');
   const clientId = requireId(actors?.clientId);
   const coachId = requireId(actors?.coachId);
   const orgId = requireId(env.E2E_TEST_ORG_ID);
@@ -155,21 +159,14 @@ export async function executeCoachWeek({ status, env, actors, service }) {
     const enabledEnv = {
       ...childEnv,
       NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED: '1',
-      NEXT_PUBLIC_COACH_VOICE_FIXTURE_ENABLED: '1',
-      NEXT_PUBLIC_COACH_VOICE_REVIEW_ENABLED: '1',
       COACH_ASSISTANT_ISOLATED_ENGINE_ENABLED: '1',
       COACH_ASSISTANT_ISOLATED_ACTIONS_ENABLED: '1',
-      COACH_ASSISTANT_VOICE_FIXTURE_ENABLED: '1',
-      COACH_ASSISTANT_VOICE_REVIEW_ENABLED: '1',
       COACH_SQL_ACTOR: clientId,
       E2E_COACH_ENGINE: '1',
       E2E_COACH_DRAFT_ONLY: '1',
-      E2E_COACH_VOICE: '1',
     };
-    // These enabled-only suites share one app server. Keeping them in one
-    // process avoids a second Next dev startup between compatible flag sets.
-    const enabled = spawnSync(process.execPath, [resolve('node_modules/@playwright/test/cli.js'), 'test', '--config', 'playwright.coach.config.ts', '--workers=1', 'e2e/coach-engine.spec.ts', 'e2e/coach-voice.spec.ts'], { stdio: 'inherit', env: enabledEnv });
-    if (enabled.error || enabled.status !== 0) throw new Error(`Coach Auth E2E isolated engine/voice failed with status ${enabled.status ?? 1}`);
+    const enabled = spawnSync(process.execPath, [resolve('node_modules/@playwright/test/cli.js'), 'test', '--config', 'playwright.coach.config.ts', '--workers=1', 'e2e/coach-engine.spec.ts'], { stdio: 'inherit', env: enabledEnv });
+    if (enabled.error || enabled.status !== 0) throw new Error(`Coach Auth E2E isolated engine failed with status ${enabled.status ?? 1}`);
     const modes = [
       childEnv,
       { ...childEnv, NEXT_PUBLIC_COACH_ASSISTANT_ENABLED: '0', COACH_ASSISTANT_ENABLED: '0', E2E_COACH_FLAG_OFF: '1', E2E_COACH_PROFESSIONAL_FLAG_OFF: '1' },
