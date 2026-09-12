@@ -5,7 +5,7 @@ import { LUNA_MODEL } from '@/agents/router/policies';
 import { invokeOpenAiStructured } from '@/agents/runtime/providers/openai';
 import type { runVerifiedPhotoFoodAnalysis } from './photo-food-observation-adapter';
 
-const prompt = readFileSync(join(process.cwd(), 'agents/prompts/photo-analyze.v2.md'), 'utf8').trim();
+const prompt = readFileSync(join(process.cwd(), 'agents/prompts/photo-analyze.v3.md'), 'utf8').trim();
 const tool = {
   name: 'submit_food_photo_analysis',
   description: 'Submit conservative nutrition estimates for visible foods in a photo.',
@@ -18,12 +18,13 @@ const tool = {
         items: {
           type: 'object',
           properties: {
+            identity_status: { type: 'string', enum: ['identified', 'uncertain'] },
             name: { type: 'string' }, estimated_grams: { type: 'number' }, estimated_calories: { type: 'number' },
             estimated_protein_g: { type: 'number' }, estimated_carbs_g: { type: 'number' }, estimated_fat_g: { type: 'number' },
             estimated_fiber_g: { type: 'number' }, estimated_sugar_g: { type: 'number' }, confidence: { type: 'number' },
             source: { type: 'string', enum: ['ai_estimate'] }, accuracy_note: { type: 'string' },
           },
-          required: ['name', 'estimated_grams', 'estimated_calories', 'estimated_protein_g', 'estimated_carbs_g', 'estimated_fat_g', 'estimated_fiber_g', 'estimated_sugar_g', 'confidence', 'source', 'accuracy_note'],
+          required: ['identity_status', 'name', 'estimated_grams', 'estimated_calories', 'estimated_protein_g', 'estimated_carbs_g', 'estimated_fat_g', 'estimated_fiber_g', 'estimated_sugar_g', 'confidence', 'source', 'accuracy_note'],
           additionalProperties: false,
         },
       },
@@ -36,6 +37,7 @@ const tool = {
 const photoOutputSchema = z.object({
   dish_name: z.string(),
   foods: z.array(z.object({
+    identity_status: z.enum(['identified','uncertain']),
     name: z.string(), estimated_grams: z.number(), estimated_calories: z.number(),
     estimated_protein_g: z.number(), estimated_carbs_g: z.number(), estimated_fat_g: z.number(),
     estimated_fiber_g: z.number(), estimated_sugar_g: z.number(), confidence: z.number(),

@@ -191,7 +191,7 @@ describe('governed LIVE-01 app engine', () => {
     const photoRequest={...request,turnId:id(62),message:'¿Qué ves en esta comida?',attachments:[{id:attachmentId,kind:'image' as const,status:'available' as const}]};
     const transport=vi.fn<GovernedCoachTransport>(async input=>{
       const payload=JSON.parse(input.prompt) as {photoObservations:Array<{attachmentId:string;trust:string;items:Array<{foodName:string}>}>};
-      expect(payload.photoObservations).toEqual([{observationId,attachmentId,source:'validated_photo_analysis',trust:'untrusted_image_data',reviewRequired:true,items:[{ref:'photo:0',foodName:'Arroz con pollo',accuracyNote:'Confirma los ingredientes.'}]}]);
+      expect(payload.photoObservations).toEqual([{observationId,attachmentId,source:'validated_photo_analysis',trust:'untrusted_image_data',reviewRequired:true,items:[{identity:'unassessed',name:'Arroz con pollo',note:'Confirma los ingredientes.'}]}]);
       return {requestId:'req_photo_text',responseModel:'gpt-5.6-luna',output:{answer:'Parece una comida completa; puedo ayudarte a revisar la porción.',followUp:null,evidenceRefs:[],entityRefs:[],facts:[],generalExplanationRefs:[],limitations:[],escalation:false,actionIntent:null},usage:{inputTokens:900,outputTokens:100,reasoningTokens:20},latencyMs:3,rawStatus:200};
     });
     const engine=createGovernedCoachEngineBinding({env:env(),actorId:id(1),persistentStore:test.store,transport});
@@ -201,7 +201,7 @@ describe('governed LIVE-01 app engine', () => {
       createFoodService:async()=>({}) as never,createPhotoFoodService:async()=>({execute}),now:()=>test.options.now,
     });
     const body=await response.json();
-    expect(response.status).toBe(200);expect(body.output.answer).toContain('En la foto se distinguen Arroz con pollo.');expect(body.output.answer).toContain('Parece una comida completa');
+    expect(response.status).toBe(200);expect(body.output.answer).toContain('Revisión de la foto: Identidad por aclarar: Arroz con pollo.');expect(body.output.answer).toContain('Parece una comida completa');
     expect(body.proposals).toEqual([]);expect(body.receipts).toEqual([]);expect(body.actionIntents).toEqual([]);
     expect(execute).toHaveBeenCalledWith(expect.objectContaining({actorId:id(1),subjectId:id(1),organizationId:id(4),operation:expect.objectContaining({operation:'photo.food.read',conversationId:photoRequest.conversationId,turnId:photoRequest.turnId,attachmentId})}));
     expect(transport).toHaveBeenCalledTimes(1);
@@ -218,7 +218,7 @@ describe('governed LIVE-01 app engine', () => {
     const call=test.transport.mock.calls[0][0],payload=JSON.parse(call.prompt);
     expect(new TextEncoder().encode(call.system+call.prompt+JSON.stringify(call.schema)).length).toBeLessThanOrEqual(7500);
     expect(payload.photoObservations[0]).toMatchObject({observationId:id(61),attachmentId,trust:'untrusted_image_data',reviewRequired:true});
-    expect(payload.photoObservations[0].items).toEqual(Array.from({length:4},(_,index)=>({ref:`photo:${index}`,foodName:'Uncertain food component',accuracyNote:'Identity and portion remain uncertain. '.repeat(6)})));
+    expect(payload.photoObservations[0].items).toEqual(Array.from({length:4},()=>({identity:'unassessed',name:'Uncertain food component',note:'Identity and portion remain uncertain. '.repeat(6)})));
   });
 
   it('returns a recoverable photo error before Luna when the observation is unavailable', async () => {

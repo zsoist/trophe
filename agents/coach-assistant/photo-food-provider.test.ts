@@ -7,7 +7,7 @@ vi.mock('@/agents/runtime/providers/openai', () => ({ invokeOpenAiStructured: mo
 
 const image = { bytes: Uint8Array.from([1, 2, 3]), mediaType: 'image/jpeg' as const };
 const foods = [{
-  name: 'Rice', estimated_grams: 100, estimated_calories: 130, estimated_protein_g: 2.7,
+  identity_status: 'identified', name: 'Rice', estimated_grams: 100, estimated_calories: 130, estimated_protein_g: 2.7,
   estimated_carbs_g: 28, estimated_fat_g: 0.3, estimated_fiber_g: 0.4, estimated_sugar_g: 0,
   confidence: 0.7, source: 'ai_estimate' as const, accuracy_note: 'Estimate; confirm grams.',
 }];
@@ -25,10 +25,16 @@ describe('Luna Photo Food provider', () => {
     }));
     expect(result.output).toEqual({ content: [{ type: 'tool_use', name: 'submit_food_photo_analysis', input: { dish_name: 'Rice plate', foods } }] });
     const effective = mocks.invokeOpenAiStructured.mock.calls[0][0].system;
-    expect(taskPolicies.photo_analyze.promptVersion).toBe('photo-analyze-v2');
+    const call = mocks.invokeOpenAiStructured.mock.calls[0][0];
+    expect(call.schema.properties.foods.items.required).toContain('identity_status');
+    for (const identity_status of [undefined, 'unassessed', 'confirmed']) {
+      expect(call.validator.safeParse({dish_name:'',foods:[{...foods[0],identity_status}]}).success).toBe(false);
+    }
+    expect(call.validator.safeParse({dish_name:'',foods:[{...foods[0],identity_status:'uncertain',name:'Pale oval pieces',accuracy_note:'Could be fruit or vegetable; please clarify.'}]}).success).toBe(true);
+    expect(taskPolicies.photo_analyze.promptVersion).toBe('photo-analyze-v3');
     expect(effective).not.toMatch(/Bandeja Paisa|reasonably identify/);
-    expect(effective).toContain('Identity uncertainty is separate from portion-weight uncertainty');
-    expect(effective).toContain('Do not infer a protein type, cut, or preparation');
+    expect(effective).toContain('Identity uncertainty and portion-weight uncertainty are separate');
+    expect(effective).toContain('name` must describe visible appearance');
   });
 
   it('fails closed for a legacy Anthropic policy without invoking a provider', async () => {

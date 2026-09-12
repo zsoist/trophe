@@ -31,7 +31,7 @@ export const nextConfig: NextConfig = {
   // The governed photo path loads its reviewed prompt from disk at runtime.
   // Keep that asset in the existing Coach function's serverless bundle.
   outputFileTracingIncludes: {
-    '/api/coach-assistant': ['./agents/prompts/photo-analyze.v2.md'],
+    '/api/coach-assistant': ['./agents/prompts/photo-analyze.v3.md'],
   },
   // Serwist injects a webpack config; Next 16 (Turbopack default) errors on a
   // webpack config with no turbopack config. An empty turbopack config lets

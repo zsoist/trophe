@@ -16,7 +16,7 @@ describe('governed private photo composition', () => {
   it('analyzes one missing observation under the shared governor before publishing the settled read', async () => {
     const events: string[] = [];
     const service = { execute: vi.fn(async () => { events.push('read'); return events.filter(value => value === 'read').length === 1 ? { version: 'coach-assistant.v2', storage: 'database', ok: false, error: 'not_connected' } as PhotoFoodResult : success; }) };
-    const observations = { analyzeAndRecord: vi.fn(async (_scope, input) => { events.push('analyze'); expect(input.pilotBinding).toEqual(binding); return { result: { selectedPolicy: { provider: 'openai', model: LUNA_MODEL, promptVersion: 'photo-analyze-v2' }, isFallback: false, usage: { inputTokens: 1, outputTokens: 1 }, rawStatus: 200, latencyMs: 1, output: {} }, observation: {} }; }) };
+    const observations = { analyzeAndRecord: vi.fn(async (_scope, input) => { events.push('analyze'); expect(input.pilotBinding).toEqual(binding); return { result: { selectedPolicy: { provider: 'openai', model: LUNA_MODEL, promptVersion: 'photo-analyze-v3' }, isFallback: false, usage: { inputTokens: 1, outputTokens: 1 }, rawStatus: 200, latencyMs: 1, output: {} }, observation: {} }; }) };
     const govern = vi.fn(async input => { events.push('reserve'); const result = await input.run(binding); events.push('settle'); return result; });
     const composed = createGovernedPhotoFoodService({ database: {} as typeof db, actorId: id(2), pilotId: id(1), store: {} as PilotBudgetStore, observations: observations as never, invoke: vi.fn() as never, service, govern: govern as never });
     await expect(composed.execute(scope)).resolves.toEqual(success);

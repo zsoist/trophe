@@ -28,6 +28,7 @@ async function loadObservation(tx:Tx,s:Scope,attachmentId:string,port:PhotoFoodO
 }
 async function derive(tx:Tx,o:PhotoFoodObservation,index:number,portion:{loggedDate:string;mealType:PhotoFoodReview['mealType'];grams:number}){
  const item=o.items[index];if(!item)throw new Rejected('invalid_input');
+ if(o.foods[index]?.identity_status!=='identified')throw new Rejected('identity_clarification_required');
  // Reuse the current Food edit calculation against the parsed basis, without an
  // insert/update and without creating a correction/training label from a photo.
  const existing={foodName:selectFoodDisplayName(item),foodId:null,quantity:item.quantity,qtyG:String(item.grams),calories:item.calories,proteinG:item.protein_g,carbsG:item.carbs_g,fatG:item.fat_g,fiberG:item.fiber_g,sugarG:item.sugar_g} as FoodLogRow;
@@ -57,7 +58,7 @@ export function createPhotoFoodService(database:Database,observations?:PhotoFood
   if(op.operation==='photo.food.read'||op.operation==='photo.food.propose'){
    const o=await loadObservation(tx,scope,op.attachmentId,observations),storage=o.source==='offline_fixture'?(isolated(o.attachmentId)?'isolated_database_fixture':'offline_fixture'):'database';
    const fixtureMetadata=storage==='isolated_database_fixture'?{evaluation}:{};
-   if(op.operation==='photo.food.read'){scope.signal.throwIfAborted();if(storage==='isolated_database_fixture'&&!isolated(o.attachmentId))throw new Rejected('not_connected');return {version:'coach-assistant.v2',storage,...fixtureMetadata,ok:true,snapshot:{observationId:o.id,attachmentId:o.attachmentId,source:o.source,trust:o.trust,reviewRequired:true,items:o.items.map((item,index)=>({index,version:basis(o,index),foodName:selectFoodDisplayName(item),estimatedGrams:item.grams,estimatedCalories:item.calories,confidence:item.confidence,accuracyNote:item.accuracy_note??''}))}};}
+   if(op.operation==='photo.food.read'){scope.signal.throwIfAborted();if(storage==='isolated_database_fixture'&&!isolated(o.attachmentId))throw new Rejected('not_connected');return {version:'coach-assistant.v2',storage,...fixtureMetadata,ok:true,snapshot:{observationId:o.id,attachmentId:o.attachmentId,source:o.source,trust:o.trust,reviewRequired:true,items:o.items.map((item,index)=>({index,version:basis(o,index),foodName:selectFoodDisplayName(item),estimatedGrams:item.grams,estimatedCalories:item.calories,confidence:item.confidence,accuracyNote:item.accuracy_note??'',identityStatus:o.foods[index].identity_status??'unassessed'}))}};}
    if(o.id!==op.observationId||!o.items[op.itemIndex]||basis(o,op.itemIndex)!==op.resourceVersion)throw new Rejected('version_conflict');
    const {review}=await derive(tx,o,op.itemIndex,op.after);const id=randomUUID();const clock=await tx.execute<{expires:string}>(sql`SELECT (clock_timestamp()+interval '5 minutes')::text AS expires`);
    const proposal:PhotoFoodProposal={id,hash:'',action,resource:{kind:'food_entry',id,version:op.resourceVersion},before:null,after:review,evidence:{observationId:o.id,observationRevision:o.revision,attachmentId:o.attachmentId,imageDigest:o.imageDigest,itemIndex:op.itemIndex,source:o.source,trust:o.trust},precondition:op.resourceVersion,expiresAt:new Date(clock.rows[0].expires).toISOString(),reviewRequired:true};proposal.hash=proposalHash(scope,proposal);

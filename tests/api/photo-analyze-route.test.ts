@@ -74,9 +74,9 @@ describe('POST /api/ai/photo-analyze', () => {
     expect(mocks.executeAiTask).toHaveBeenCalledTimes(1);
     expect(mocks.executeAiTask).toHaveBeenCalledWith(expect.objectContaining({
       task: 'photo_analyze',
-      prompt: expect.stringContaining('Identity uncertainty is separate from portion-weight uncertainty'),
+      prompt: expect.stringContaining('Identity uncertainty and portion-weight uncertainty are separate'),
     }));
-    expect(body.foods).toEqual([rice]);
+    expect(body.foods).toEqual([{...rice,identity_status:'unassessed'}]);
     expect(mocks.invokePrivatePhotoFoodProvider).not.toHaveBeenCalled();
   });
   it('routes a preview pilot photo through the shared durable modality admission',async()=>{

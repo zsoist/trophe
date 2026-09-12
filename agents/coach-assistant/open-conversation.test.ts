@@ -62,7 +62,7 @@ describe('open v2 conversation with explicit synthetic provider',()=>{
     const result=await runConversation(request,{...options(),offlineCandidateEvaluation:true,offlineConversationProvider:transport});
     expect(result.ok).toBe(true);expect(result.output?.answer).toContain('verduras');
     const call=vi.mocked(transport).mock.calls[0][0];
-    expect(call.policy.promptVersion).toBe('coach-assistant.conversation.v5-candidate.6-live02');
+    expect(call.policy.promptVersion).toBe('coach-assistant.conversation.v5-candidate.7-live02');
     expect(call.system).toContain('For food guidance, describe concrete meal components and choices in neutral terms');
     expect(call.system).toContain('avoid the words salud, saludable, health and healthy');
   });
@@ -77,7 +77,7 @@ describe('open v2 conversation with explicit synthetic provider',()=>{
     const result=await runConversation(request,{...options(),offlineCandidateEvaluation:true,offlineConversationProvider:transport});
     expect(result.error?.code).toBe('invalid_output');expect(result.output).toBeUndefined();expect(transport).toHaveBeenCalledOnce();
     const diagnostic=JSON.parse(String(warning.mock.calls[0]?.[0]));
-    expect(diagnostic).toEqual({event:'coach_conversation_output_rejected',code,diagnostic:{schemaVersion:'coach-assistant.output-rejection-diagnostic.v1',outputSchemaVersion:'coach-assistant.candidate-output.v1',promptVersion:'coach-assistant.conversation.v5-candidate.6-live02',rule:code,category,field:'answer',path:'output.answer',position,positionEncoding:code==='numeric_prose'?'original':'nfkd_without_marks',correlation:expect.stringMatching(/^[a-f0-9]{16}$/)}});
+    expect(diagnostic).toEqual({event:'coach_conversation_output_rejected',code,diagnostic:{schemaVersion:'coach-assistant.output-rejection-diagnostic.v1',outputSchemaVersion:'coach-assistant.candidate-output.v1',promptVersion:'coach-assistant.conversation.v5-candidate.7-live02',rule:code,category,field:'answer',path:'output.answer',position,positionEncoding:code==='numeric_prose'?'original':'nfkd_without_marks',correlation:expect.stringMatching(/^[a-f0-9]{16}$/)}});
     expect(JSON.stringify(diagnostic)).not.toContain(answer);expect(JSON.stringify(diagnostic)).not.toContain('kilograms');expect(JSON.stringify(diagnostic)).not.toContain('workout entry');expect(JSON.stringify(diagnostic)).not.toContain('saludable');expect(JSON.stringify(diagnostic)).not.toContain('Estás');expect(JSON.stringify(diagnostic)).not.toContain('Estas');
   });
   it('locates a sensitive follow-up with static metadata only',async()=>{
@@ -88,7 +88,7 @@ describe('open v2 conversation with explicit synthetic provider',()=>{
     const result=await runConversation(request,{...options(),offlineCandidateEvaluation:true,offlineConversationProvider:transport});
     expect(result.error?.code).toBe('invalid_output');expect(result.output).toBeUndefined();
     const diagnostic=JSON.parse(String(warning.mock.calls[0]?.[0]));
-    expect(diagnostic).toEqual({event:'coach_conversation_output_rejected',code:'candidate_sensitive_claim',diagnostic:{schemaVersion:'coach-assistant.output-rejection-diagnostic.v1',outputSchemaVersion:'coach-assistant.candidate-output.v1',promptVersion:'coach-assistant.conversation.v5-candidate.6-live02',rule:'candidate_sensitive_claim',category:'sensitive_claim_token',field:'followUp',path:'output.followUp',position:4,positionEncoding:'nfkd_without_marks',correlation:expect.stringMatching(/^[a-f0-9]{16}$/)}});
+    expect(diagnostic).toEqual({event:'coach_conversation_output_rejected',code:'candidate_sensitive_claim',diagnostic:{schemaVersion:'coach-assistant.output-rejection-diagnostic.v1',outputSchemaVersion:'coach-assistant.candidate-output.v1',promptVersion:'coach-assistant.conversation.v5-candidate.7-live02',rule:'candidate_sensitive_claim',category:'sensitive_claim_token',field:'followUp',path:'output.followUp',position:4,positionEncoding:'nfkd_without_marks',correlation:expect.stringMatching(/^[a-f0-9]{16}$/)}});
     expect(JSON.stringify(diagnostic)).not.toContain(followUp);expect(JSON.stringify(diagnostic)).not.toContain('corazón');expect(JSON.stringify(diagnostic)).not.toContain('corazon');
   });
   it('keeps detailed diagnostics disabled outside Preview even when the flag is set',async()=>{
