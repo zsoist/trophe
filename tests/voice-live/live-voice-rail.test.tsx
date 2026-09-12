@@ -57,7 +57,7 @@ it('streams live transcript turns into the single chat history instead of printi
   fireEvent.click(await screen.findByRole('button', { name: t('global_coach.live_title') }));
   await screen.findByRole('button', { name: t('global_coach.live_start') });
   expect(onTranscript).toHaveBeenCalledTimes(1);
-  expect(onTranscript).toHaveBeenCalledWith(row);
+  expect(onTranscript).toHaveBeenCalledWith({ ...row, id: 'pending:user:0:800' });
   // The rail must not duplicate the transcript over the thread.
   expect(screen.queryByText('two eggs and toast')).toBeNull();
 });
