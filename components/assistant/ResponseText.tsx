@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode } from 'react';
+import { memo, Fragment, type ReactNode } from 'react';
 import styles from './GlobalCoach.module.css';
 
 // A deliberately small formatting vocabulary. React escapes every text node;
@@ -7,7 +7,7 @@ function inline(text: string): ReactNode {
   return text.split(/(\*\*[^*\n]+\*\*)/g).map((part, index) => part.startsWith('**') && part.endsWith('**')
     ? <strong key={index}>{part.slice(2, -2)}</strong> : <Fragment key={index}>{part}</Fragment>);
 }
-export function ResponseText({ text, assistant = false, userStatement }: { text: string; assistant?: boolean; userStatement?: string }) {
+export const ResponseText = memo(function ResponseText({ text, assistant = false, userStatement }: { text: string; assistant?: boolean; userStatement?: string }) {
   // Legacy server wrappers are presentation metadata. Retain the stored source
   // untouched and only suppress the exact duplicated user statement we know.
   let displayText = assistant ? text.replace(/^Private Luna pilot:\s*/, '') : text;
@@ -37,4 +37,4 @@ export function ResponseText({ text, assistant = false, userStatement }: { text:
     }
   }
   return <div className={styles.responseText}>{blocks}</div>;
-}
+});

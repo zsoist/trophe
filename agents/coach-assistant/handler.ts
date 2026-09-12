@@ -16,6 +16,7 @@ import { executeFoodQuantityAction, type FoodQuantityService } from './food-acti
 import { executePhotoFoodAction, type PhotoFoodService } from './photo-food-actions';
 import { executeWorkoutSetAction, type WorkoutSetService } from './set-actions';
 import { executeCoachMessageAction, type CoachMessageService } from './message-actions';
+import { lookupFoodReference } from './food-reference';
 import { createCoachCapabilityRegistry } from './capability-registry';
 import { executeDurablePreferenceAction, withDurablePreferenceRead, type DurableCoachProfileService } from './durable-actions';
 import { run } from './index';
@@ -237,7 +238,7 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
       if(conversational&&!synthetic&&deps.env.COACH_ASSISTANT_MESSAGE_ACTIONS_ENABLED==='1') {
         if(clientId&&clientId!==guard.userId)return fail('forbidden',403);
         if(!deps.createMessageService)return fail('provider_unavailable',503);
-        capabilityRegistry=createCoachCapabilityRegistry({message:await deps.createMessageService()});
+        capabilityRegistry=createCoachCapabilityRegistry({message:await deps.createMessageService(),foodReference:lookupFoodReference});
       }
       const isolatedRequested=conversational&&deps.env.COACH_ASSISTANT_ISOLATED_ENGINE_ENABLED==='1';
       const candidateRequested=conversational&&deps.env.COACH_ASSISTANT_CANDIDATE_EVALUATION_ENABLED==='1';

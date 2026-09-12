@@ -29,7 +29,7 @@ export function AttachmentPicker({ controller, state, conversationId, transport,
         </div>
       </li>)}
     </ul>;
-  return <>{deferUpload && state.items.length > 0 && previews}{deferUpload && state.items.length > 0 && <p className={styles.context}>{t('global_coach.photo_one_per_turn')}</p>}{deferUpload && state.error && <p role="status">{t(`global_coach.photo_error_${state.error}`)}</p>}<details ref={popover} data-coach-popover className={`${styles.attachments} ${compact ? styles.compactAttachments : ''}`}>
+  return <>{deferUpload && state.items.length > 0 && previews}{deferUpload && state.error && <p role="status">{t(`global_coach.photo_error_${state.error}`)}</p>}<details ref={popover} data-coach-popover className={`${styles.attachments} ${compact ? styles.compactAttachments : ''}`}>
     <summary aria-label={t('global_coach.photos')}><span className={styles.compactOnly}><Plus size={20} aria-hidden="true" /></span><span className={styles.expandedOnly}><ImagePlus size={17} aria-hidden="true" />{t('global_coach.photos')}{state.items.length > 0 && ` · ${state.items.length}/${maxPhotos}`}</span></summary>
     {!compact && <><p>{t(transport ? analysisEnabled ? 'global_coach.photos_analysis' : 'global_coach.photos_upload_only' : 'global_coach.photos_local')}</p><p>{t('global_coach.photos_limits')}</p></>}
     <input hidden ref={input} type="file" accept="image/jpeg,image/png,image/webp" multiple={maxPhotos > 1} aria-label={t('global_coach.photos_select')} disabled={disabled || state.pending} onChange={event => { void controller.select(Array.from(event.target.files ?? [])); event.target.value = ''; if (compact && popover.current) popover.current.open = false; }} />

@@ -1,4 +1,9 @@
 export const globalCoachTranslations: Record<string, { en: string; es: string; el: string }> = {
+  'global_coach.photo_details': { en: 'Photo details', es: 'Detalles de la foto', el: 'Λεπτομέρειες φωτογραφίας' },
+  'global_coach.photo_context': { en: 'Use this conversation’s photo', es: 'Usar la foto de esta conversación', el: 'Χρήση φωτογραφίας αυτής της συνομιλίας' },
+  'global_coach.photo_expand': { en: 'Enlarge photo', es: 'Ampliar foto', el: 'Μεγέθυνση φωτογραφίας' },
+  'global_coach.preparing_answer': { en: 'Preparing your answer…', es: 'Preparando tu respuesta…', el: 'Προετοιμασία απάντησης…' },
+  'global_coach.preparing_photo_answer': { en: 'Preparing your photo answer…', es: 'Preparando la respuesta sobre tu foto…', el: 'Προετοιμασία απάντησης για τη φωτογραφία…' },
   'global_coach.photo_uploaded': { en: 'Uploaded', es: 'Cargada', el: 'Μεταφορτώθηκε' },
   'global_coach.photo_one_per_turn': { en: 'One photo per message.', es: 'Una foto por mensaje.', el: 'Μία φωτογραφία ανά μήνυμα.' },
   'global_coach.photo_analysis_failed': { en: 'Image analysis could not be confirmed. Your photo and question are kept; check the response status before trying again.', es: 'No se pudo confirmar el análisis de la imagen. Conservamos tu foto y pregunta; comprueba el estado de la respuesta antes de reintentar.', el: 'Η ανάλυση εικόνας δεν επιβεβαιώθηκε. Η φωτογραφία και η ερώτησή σας διατηρούνται· ελέγξτε την κατάσταση πριν προσπαθήσετε ξανά.' },
@@ -303,7 +308,7 @@ export const globalCoachTranslations: Record<string, { en: string; es: string; e
   'global_coach.include': { en: 'Include this screen', es: 'Incluir esta pantalla', el: 'Συμπερίληψη αυτής της οθόνης' },
   'global_coach.detached': { en: 'Screen context off', es: 'Sin contexto de pantalla', el: 'Χωρίς πλαίσιο οθόνης' },
   'global_coach.sources': { en: 'Records used', es: 'Registros consultados', el: 'Καταγραφές που χρησιμοποιήθηκαν' },
-  'global_coach.response_basis': { en: 'Evidence and limits', es: 'Evidencia y límites', el: 'Στοιχεία και περιορισμοί' },
+  'global_coach.response_basis': { en: 'Sources', es: 'Fuentes', el: 'Στοιχεία και περιορισμοί' },
   'global_coach.food': { en: 'Food', es: 'Alimentación', el: 'Διατροφή' },
   'global_coach.workout': { en: 'Workout', es: 'Entrenamiento', el: 'Προπόνηση' },
   'global_coach.home': { en: 'Home', es: 'Inicio', el: 'Αρχική' },

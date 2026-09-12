@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Mic, RotateCcw, Square } from 'lucide-react';
 import { useGlobalCoachI18n } from './useGlobalCoachI18n';
 import { VoiceController, type VoiceState } from './voice-state';
@@ -7,7 +8,7 @@ import type { CoachVoiceResult } from '@/agents/coach-assistant/voice-contract';
 import type { VoiceTranscriptionTransport } from './voice-client';
 import { VoiceTranscriptReview } from './VoiceTranscriptReview';
 import styles from './GlobalCoach.module.css';
-export function VoiceCapture({ controller, state, disabled, conversationId, transcribe, prepareConversation, onUse, onSend, compact = false }: {
+export function VoiceCapture({ controller, state, disabled, conversationId, transcribe, prepareConversation, onUse, onSend, onTranscript, onBusy, statusHost, compact = false }: {
   controller: VoiceController;
   state: VoiceState;
   disabled: boolean;
@@ -16,32 +17,39 @@ export function VoiceCapture({ controller, state, disabled, conversationId, tran
   prepareConversation?: () => Promise<string | null>;
   onUse?: (message: string) => boolean;
   onSend?: (result: Extract<CoachVoiceResult, { ok: true }>, message: string) => Promise<'sent' | 'ambiguous' | 'failed'>;
+  statusHost?: HTMLElement | null;
+  onTranscript?: (result: Extract<CoachVoiceResult, { ok: true }>) => void;
+  onBusy?: (busy: boolean) => void;
   compact?: boolean;
 }) {
   const { t, lang } = useGlobalCoachI18n();
   const active = ['requesting', 'recording', 'stopping'].includes(state.phase);
+  const [expanded, setExpanded] = useState(false);
+  const starting = useRef(false);
   const [processing, setProcessing] = useState(false);
   const [result, setResult] = useState<Extract<CoachVoiceResult, { ok: true }> | null>(null);
   const [flowError, setFlowError] = useState(false);
   const processingRequest = useRef<AbortController | null>(null);
   useEffect(() => () => processingRequest.current?.abort(), []);
+  useEffect(() => { onBusy?.(active || processing || Boolean(state.recording)); }, [active, processing, state.recording, onBusy]);
   const reset = () => {
     processingRequest.current?.abort(); processingRequest.current = null;
-    setProcessing(false); setResult(null); setFlowError(false); controller.reset();
+    setExpanded(false); setProcessing(false); setResult(null); setFlowError(false); controller.reset();
   };
   const start = async () => {
-    setResult(null); setFlowError(false);
-    if (prepareConversation && !await prepareConversation()) { setFlowError(true); return; }
-    controller.start();
+    if(starting.current||active||processingRequest.current)return;
+    starting.current=true;setExpanded(true);setResult(null);setFlowError(false);
+    try { if (prepareConversation && !await prepareConversation()) { setFlowError(true); return; } controller.start(); }
+    finally { starting.current=false; }
   };
   const processRecording = async () => {
-    if (!state.recording || !transcribe || !conversationId || processing) return;
+    if (!state.recording || !transcribe || !conversationId || processingRequest.current) return;
     const request = new AbortController(); processingRequest.current = request; setProcessing(true); setFlowError(false);
     try {
       const next = await transcribe({ blob: state.recording.blob, durationMs: state.recording.durationMs }, { conversationId, turnId: crypto.randomUUID(), locale: lang }, request.signal);
       if (request.signal.aborted) return;
       if (!next.ok || next.scope.conversationId !== conversationId) throw new Error('invalid_output');
-      controller.reset(); setResult(next);
+      controller.reset(); if (onTranscript) { setExpanded(false); onTranscript(next); } else setResult(next);
     } catch { if (!request.signal.aborted) setFlowError(true); }
     finally { if (processingRequest.current === request) processingRequest.current = null; if (!request.signal.aborted) setProcessing(false); }
   };
@@ -50,9 +58,7 @@ export function VoiceCapture({ controller, state, disabled, conversationId, tran
       onSend={onSend ? message => onSend(result, message) : undefined} onDiscard={reset} onRerecord={() => { setResult(null); start(); }} />;
     return compact ? <div className={styles.compactVoiceReview}>{review}</div> : review;
   }
-  return <details data-coach-popover className={`${styles.attachments} ${compact ? styles.compactVoice : ''}`} onToggle={event => { if (!event.currentTarget.open && (active || processing)) reset(); }}>
-    <summary aria-label={t('global_coach.voice')}><Mic size={19} aria-hidden="true" /><span className={compact ? 'sr-only' : undefined}>{t('global_coach.voice')}</span></summary>
-    <div className={styles.voiceBody}>
+  const body = <div className={styles.voiceBody}>
     {!compact && <p>{t(transcribe ? 'global_coach.voice_connected' : 'global_coach.voice_local')}</p>}
     {state.phase === 'idle' && !processing && <button type="button" disabled={disabled} onClick={() => void start()}>{t('global_coach.voice_start')}</button>}
     {active && <div role="status"><p>{t(`global_coach.voice_${state.phase}`, { seconds: Math.floor(state.elapsedMs / 1000) })}</p>
@@ -69,6 +75,13 @@ export function VoiceCapture({ controller, state, disabled, conversationId, tran
     </div>}
     {state.error && <p role="status">{t(`global_coach.voice_error_${state.error}`)}</p>}
     {flowError && <p role="alert">{t('global_coach.voice_processing_failed')}</p>}
-    </div>
+    </div>;
+  if(compact && statusHost) return <>
+    <button type="button" className={styles.iconButton} disabled={disabled || processing} aria-label={t('global_coach.voice')} aria-expanded={expanded} onClick={()=>active?controller.stop():void start()}><Mic size={19} aria-hidden="true" /></button>
+    {expanded&&createPortal(<div className={`${styles.attachments} ${styles.inlineVoice}`}>{body}</div>,statusHost)}
+  </>;
+  return <details data-coach-popover className={`${styles.attachments} ${compact ? styles.compactVoice : ''}`} onToggle={event => { if (!event.currentTarget.open && (active || processing)) reset(); }}>
+    <summary aria-label={t('global_coach.voice')}><Mic size={19} aria-hidden="true" /><span className={compact ? 'sr-only' : undefined}>{t('global_coach.voice')}</span></summary>
+{body}
   </details>;
 }

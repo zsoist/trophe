@@ -1,4 +1,5 @@
 import {z} from 'zod';
+import { foodReferenceSchema, type FoodReferenceLookup } from './food-reference';
 import type {AuthorizedContext} from './context';
 import type {CoachConversationRequest} from './contracts';
 import type {CoachRepository} from './repository';
@@ -7,6 +8,7 @@ import {coachMessageResultSchema,type CoachMessageService} from './message-actio
 export const capabilityChoiceSchema=z.discriminatedUnion('tool',[
  z.object({tool:z.literal('coach.message.recipient'),args:z.object({}).strict()}).strict(),
  z.object({tool:z.literal('coach.message.propose'),args:z.object({message:z.string().trim().min(1).max(2000)}).strict()}).strict(),
+ z.object({tool:z.literal('food.reference'),args:z.object({queries:z.array(z.string().trim().min(2).max(80)).min(1).max(2)}).strict()}).strict(),
  z.object({tool:z.literal('none')}).strict(),
 ]);
 export type CapabilityChoice=z.infer<typeof capabilityChoiceSchema>;
@@ -14,15 +16,24 @@ export type CapabilityResult={tool:CapabilityChoice['tool'];status:'read'|'revie
 
 /** Server-created message registry. The model can prepare exact review content;
  * recipient identity, versions, apply and receipts remain server/UI owned. */
-export function createCoachCapabilityRegistry(services:{message?:CoachMessageService}){
+export function createCoachCapabilityRegistry(services:{message?:CoachMessageService;foodReference?:FoodReferenceLookup}){
  return {
-  available():ReadonlyArray<'coach.message.recipient'|'coach.message.propose'>{return services.message?['coach.message.recipient','coach.message.propose']:[];},
+  available():ReadonlyArray<Exclude<CapabilityChoice['tool'],'none'>>{return [...(services.message?['coach.message.recipient','coach.message.propose'] as const:[]),...(services.foodReference?['food.reference'] as const:[])];},
   async execute(choice:CapabilityChoice,input:CoachConversationRequest,repository:CoachRepository,context:AuthorizedContext,signal:AbortSignal,onRead:()=>void):Promise<CapabilityResult>{
    const unavailable=():CapabilityResult=>({tool:choice.tool,status:'not_connected',result:{reason:'human_message_service_not_connected'},applied:false});
    if(choice.tool==='none'||!this.available().includes(choice.tool))return unavailable();
    if(context.actorId!==context.subjectId)throw new Error('forbidden');
    const verify=async()=>{signal.throwIfAborted();const fresh=await repository.authorize(context.actorId,context.subjectId,signal);if(JSON.stringify(fresh)!==JSON.stringify(context))throw new Error('forbidden');};
-   await verify();const service=services.message!;const base={version:'coach-assistant.v2' as const,conversationId:input.conversationId,turnId:input.turnId};const scope={actorId:context.actorId,subjectId:context.subjectId,organizationId:context.organizationId,signal};
+   await verify();
+   if(choice.tool==='food.reference'){
+    const options=[];
+    for(const query of [...new Set(choice.args.queries)]){
+      onRead();const result=await services.foodReference!(query,input.message,signal);await verify();
+      if(result)options.push(foodReferenceSchema.parse(result));
+    }
+    return {tool:choice.tool,status:'read',result:{options},applied:false};
+   }
+   const service=services.message!;const base={version:'coach-assistant.v2' as const,conversationId:input.conversationId,turnId:input.turnId};const scope={actorId:context.actorId,subjectId:context.subjectId,organizationId:context.organizationId,signal};
    onRead();const read=coachMessageResultSchema.parse(await service.execute({...scope,operation:{...base,operation:'message.recipient'}}));await verify();
    if(!read.ok)return {tool:choice.tool,status:read.error==='not_connected'?'not_connected':'rejected',result:read,applied:false};
    if(!('recipient'in read))throw new Error('invalid_output');let result:unknown=read;

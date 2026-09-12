@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, expect, it, vi } from 'vitest';
+import { beforeEach, afterEach, expect, it, vi } from 'vitest';
 import { I18nProvider } from '@/lib/i18n';
 import GlobalCoach, { resetGlobalCoachSessionsForActor } from '@/components/assistant/GlobalCoach';
 import { ConversationController, coachSurface, type ConversationTransport } from '@/components/assistant/conversation-state';
@@ -19,6 +19,7 @@ const response = (request: CoachConversationRequest, text = 'Recorded summary'):
   output: { answer: text, evidenceRefs: [], limitations: [], suggestions: [], escalation: { required: false, reason: null, draft: null } }, evidence: [], proposals: [], receipts: [], attachments: [],
   telemetry: { model: null, provider: null, promptVersion: 'test', modelCalls: 0, dataReads: 0, tokensIn: 0, tokensOut: 0, reasoningTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, latencyMs: 0, costUsd: 0, pricingVersion: 'test' },
 });
+beforeEach(() => { window.scrollTo = vi.fn(); });
 afterEach(() => {
   cleanup();
   resetGlobalCoachSessionsForActor('A');
@@ -97,7 +98,7 @@ it.each([false,true])('offers Food review without another chat turn when compani
   fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
   await screen.findByRole('button',{name:'Review food in photo'});
   if(!companionFailed)expect(screen.getByText('Photo response')).toBeTruthy();
-  expect(screen.getByText('Uploaded')).toBeTruthy();
+  expect(screen.queryByText('Uploaded')).toBeNull();
   expect(screen.queryByText('Uploaded · not analyzed')).toBeNull();
   view.unmount();
   const resumed=render(<I18nProvider defaultLang="en"><GlobalCoach identity="A" photoFoodTransport={photoFoodTransport} historyTransport={historyTransport}/></I18nProvider>);
@@ -230,7 +231,7 @@ it('renders the server supplied limitation even when the response has no evidenc
   fireEvent.change(screen.getByRole('textbox', { name: 'Your question' }), { target: { value: 'What did I eat today?' } });
   fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
   await screen.findByText('No records found for this day.');
-  fireEvent.click(screen.getByText('Evidence and limits'));
+  fireEvent.click(screen.getByText('Sources'));
   expect(screen.getByText(limitation)).toBeTruthy();
   view.unmount();
 });
@@ -243,7 +244,9 @@ it('detaches screen context and aborts a late response when the subject changes 
   });
   const view = render(mounted(transport, 'A', 'client-1'));
   fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Remove screen selection: Workout' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Saved conversations' }));
+  fireEvent.click(screen.getByRole('checkbox', { name: /Include.*Workout/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'Saved conversations' }));
   fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Private question' } });
   fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
   expect(transport.mock.calls[0][0].context?.includeScreen).toBe(false);

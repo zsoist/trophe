@@ -19,7 +19,7 @@ Chosen direction: A compact Siri-like glass overlay within Personal Best. Glass 
 
 Progressive disclosure: The plus menu exposes the permitted photo library and camera inputs. Voice opens from the microphone control. New and saved conversations, memory, diet, and progress live in the header menu. Selected media remain local in removable previews; deliberate Send prepares the canonical conversation and uploads before generation. Food mutations retain explicit review and confirmation. History loads when its menu opens and occupies the log area while the composer stays visible.
 
-Responsive behavior: On phones the panel is centered above the safe area at no more than 72dvh and follows visual viewport contraction from the keyboard. At 768px and wider it becomes a bounded right-side overlay up to 42rem without shrinking the working surface.
+Responsive behavior: On phones the panel fills the visual viewport from its top edge, locks background scrolling, preserves exact page position on close, and follows keyboard contraction. Recording status lives above the single composer; the transcript is edited in that same composer before its only Send action. Submitted photo thumbnails live with the message, not the composer. At 768px and wider it becomes a bounded right-side overlay up to 42rem without shrinking the working surface.
 
 Memorable moment: Ask Trophē rises once over the exact screen the user was viewing; removing the context chip visibly detaches that screen while the conversation remains intact.
 

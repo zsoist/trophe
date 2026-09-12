@@ -1,3 +1,4 @@
+import { renderFoodReferences } from './food-reference';
 import { medicalBoundary } from './medical-boundary';
 import { prepareConversationCapability } from './capability-conversation';
 import type { CoachCapabilityRegistry } from './capability-registry';
@@ -74,6 +75,10 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
         response.snapshot={id:randomUUID(),capturedAt:options.now.toISOString(),subjectId:subject,organizationId:authorized.organizationId,...scope,surface:scopedInput.context?.includeScreen?scopedInput.context.surface:null,screenIncluded:!!scopedInput.context?.includeScreen,language:authorized.language,units:{weight:'kg',energy:'kcal',protein:'g'},window:windowForConversation(scopedInput,selectedScope.intent,selectedScope.domain,authorized.timezone,options.now),capabilities:[]};
         response.output={answer:'',evidenceRefs:[],limitations:['capability_turn_no_aggregate_reads'],suggestions:[],escalation:{required:false,reason:null,draft:null}};
         await prepareConversationCapability(selectorInput,response,options.offlineConversationProvider!,options.capabilityRegistry,authorizedRepository,authorized,controller.signal);
+        if(response.capabilityResult?.tool==='food.reference'){
+          response.output={answer:renderFoodReferences(response.capabilityResult.result,authorized.language.startsWith('es'),scopedInput.message),evidenceRefs:[],limitations:[],suggestions:[],escalation:{required:false,reason:null,draft:null}};
+          await authorizedRepository.authorize(options.actorId,subject,controller.signal);controller.signal.throwIfAborted();response.ok=true;return;
+        }
         if(response.capabilityResult?.tool!=='none'){
           await generateOpenConversation(selectorInput,response,options.offlineConversationProvider!,controller.signal,options.offlineInterpretationReview,options.offlineCandidateEvaluation,options.isolatedFixtureBoundary,false,false,options.governedPilotBoundary,options.candidateActionsEnabled,undefined,photoObservations);
           await authorizedRepository.authorize(options.actorId,subject,controller.signal);controller.signal.throwIfAborted();response.ok=true;return;

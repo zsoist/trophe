@@ -53,3 +53,15 @@ it('does not generate a text fallback when upload fails and keeps draft and prev
  expect((screen.getByRole('textbox', { name: 'Your question' }) as HTMLTextAreaElement).value).toBe('What is this?');
  expect(screen.getByText('meal.png')).toBeTruthy();
 });
+it('moves the submitted photo out of the composer and reuses it in a same-thread follow-up without upload', async () => {
+ await setup(); fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
+ await screen.findByText('Photo answer');
+ const composer = screen.getByRole('textbox', { name: 'Your question' }).closest('form')!;
+ expect(composer.querySelector('img')).toBeNull();
+ expect(screen.getByLabelText('Enlarge photo')).toBeTruthy();
+ fireEvent.change(screen.getByRole('textbox', { name: 'Your question' }), { target: { value: 'And this portion?' } });
+ fireEvent.submit(composer); fireEvent.submit(composer);
+ await waitFor(() => expect(requestConversation).toHaveBeenCalledTimes(2));
+ expect(requestAttachment.upload).toHaveBeenCalledTimes(1);
+ expect(vi.mocked(requestConversation).mock.calls[1][0]).toMatchObject({ conversationId: id, attachments: [ref], message: 'And this portion?' });
+});
