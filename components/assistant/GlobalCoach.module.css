@@ -137,3 +137,6 @@
 .selectedPhotos button { min-width: 44px; min-height: 44px; }
 
 .recoveryButton { min-height: 44px; padding: .5rem .75rem; margin-top: .5rem; border: 1px solid var(--border-default); border-radius: 10px; font-size: .8125rem; }
+
+.photoFoodLogLink { display: inline-flex; align-items: center; min-height: 44px; padding: .5rem 0; color: var(--text-primary); text-decoration: underline; text-underline-offset: .2em; }
+.photoFoodLogLink:focus-visible { outline: 2px solid var(--text-primary); outline-offset: 3px; }

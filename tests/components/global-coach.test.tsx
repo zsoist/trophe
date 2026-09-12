@@ -73,7 +73,7 @@ it('offers Food review after the deliberate photo-and-question turn without an a
       version: 'coach-assistant.v2', storage: 'offline_fixture', ok: true,
     snapshot: {
       observationId: crypto.randomUUID(), attachmentId: input.attachmentId, source: 'offline_fixture', trust: 'untrusted_image_data', reviewRequired: true,
-      items: [{ index: 0, version: crypto.randomUUID(), foodName: 'Fixture rice', estimatedGrams: 100, estimatedCalories: 130, confidence: 0.7, accuracyNote: 'Estimate' }],
+      items: [{ index: 0, version: crypto.randomUUID(), foodName: 'Fixture rice', identityStatus: 'identified', estimatedGrams: 100, estimatedCalories: 130, confidence: 0.7, accuracyNote: 'Estimate' }],
     },
     } satisfies PhotoFoodResult;
   });
