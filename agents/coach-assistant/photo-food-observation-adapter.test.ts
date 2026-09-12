@@ -10,7 +10,7 @@ import type {PilotAttemptBinding} from './pilot-budget';
 import {COACH_ATTEMPT_RESERVATION_NANO_USD,PHOTO_ATTEMPT_RESERVATION_NANO_USD} from './pilot-budget';
 import {COACH_PRICING_VERSION} from './economics';
 import {ASK_TROPHE_SHARED_PILOT_ID} from '@/lib/workout/shared-pilot-budget';
-import {LUNA_MODEL} from '@/agents/router/policies';
+import {HAIKU_MODEL,LUNA_MODEL} from '@/agents/router/policies';
 import {PHOTO_PILOT_PRICING_VERSION} from '@/agents/router/pricing';
 
 const executeAiTask=vi.hoisted(()=>vi.fn());
@@ -40,7 +40,7 @@ describe('durable Photo Food observation adapter with injected SQL/runtime',()=>
   expect(executeAiTask).not.toHaveBeenCalled();
  });
  it('rejects ambiguous, dropped, unconfirmed or wrong-policy task output',async()=>{
-  for(const mutate of [(r:ReturnType<typeof taskResult>)=>{r.selectedPolicy.provider='anthropic';},(r:ReturnType<typeof taskResult>)=>{r.selectedPolicy.model='claude-haiku-4-5-20251001';},(r:ReturnType<typeof taskResult>)=>{r.output.content=[];},(r:ReturnType<typeof taskResult>)=>{r.output.content.push(r.output.content[0]);},(r:ReturnType<typeof taskResult>)=>{(r.output.content[0] as {input:{foods:unknown[]}}).input.foods=[food,{...food,estimated_grams:0}];},(r:ReturnType<typeof taskResult>)=>{(r.output.content[0] as {input:{foods:Array<typeof food&{needs_confirmation?:boolean}>}}).input.foods[0].needs_confirmation=true;},(r:ReturnType<typeof taskResult>)=>{(r.output.content[0] as {input:{foods:Array<typeof food&{action?:string}>}}).input.foods[0].action='food.photo.apply';}]){
+  for(const mutate of [(r:ReturnType<typeof taskResult>)=>{r.selectedPolicy.provider='anthropic';},(r:ReturnType<typeof taskResult>)=>{r.selectedPolicy.model=HAIKU_MODEL;},(r:ReturnType<typeof taskResult>)=>{r.output.content=[];},(r:ReturnType<typeof taskResult>)=>{r.output.content.push(r.output.content[0]);},(r:ReturnType<typeof taskResult>)=>{(r.output.content[0] as {input:{foods:unknown[]}}).input.foods=[food,{...food,estimated_grams:0}];},(r:ReturnType<typeof taskResult>)=>{(r.output.content[0] as {input:{foods:Array<typeof food&{needs_confirmation?:boolean}>}}).input.foods[0].needs_confirmation=true;},(r:ReturnType<typeof taskResult>)=>{(r.output.content[0] as {input:{foods:Array<typeof food&{action?:string}>}}).input.foods[0].action='food.photo.apply';}]){
    const result=taskResult();mutate(result);executeAiTask.mockResolvedValueOnce(result);await expect(runVerifiedPhotoFoodAnalysis(scope,{digest:imageDigest,bytes:imageBytes},{pilotBinding:binding(),invoke:vi.fn()})).rejects.toThrow();
   }
  });

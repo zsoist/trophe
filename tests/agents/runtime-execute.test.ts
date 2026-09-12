@@ -417,37 +417,22 @@ describe('executeAiTask integration contract', () => {
     [500, undefined],
     [502, undefined],
     [503, undefined],
-  ] as const)('falls back to secondary provider for recoverable status %i', async (status, code) => {
-    // Consumer text fails over from Luna to Haiku without reopening DeepSeek.
-    let callCount = 0;
+  ] as const)('does not fallback for recoverable status %i in the Luna-only lane', async (status, code) => {
+    const primaryError = typedProviderError('provider failure', { status, ...(code ? { code } : {}) });
     const invoke = vi.fn(async ({ policy }: { policy: { provider: string } }) => {
-      callCount++;
-      if (callCount === 1) {
-        expect(policy.provider).toBe('openai');
-        throw typedProviderError('provider failure', { status, ...(code ? { code } : {}) });
-      }
-      expect(policy.provider).toBe('anthropic');
-      return fallbackSuccess;
+      expect(policy.provider).toBe('openai');
+      throw primaryError;
     });
 
-    const result = await executeAiTask({
+    await expect(executeAiTask({
       task: 'meal_suggest',
       prompt: 'suggest a meal',
       invoke,
-    });
+    })).rejects.toBe(primaryError);
 
-    expect(invoke).toHaveBeenCalledTimes(2);
-    expect(result.output).toEqual({ suggestions: ['fallback meal'] });
-    expect(result).toMatchObject({
-      selectedPolicy: { provider: 'anthropic', model: 'claude-haiku-4-5-20251001' },
-      isFallback: true,
-    });
-    // Both primary failure and fallback success should be persisted
-    expect(persistence.failGeneration).toHaveBeenCalledOnce();
-    expect(persistence.completeGeneration).toHaveBeenCalledOnce();
-    expect(persistence.createGeneration).toHaveBeenLastCalledWith(
-      expect.objectContaining({ fallbackFrom: 'gpt-5.6-luna' }),
-    );
+    expect(invoke).toHaveBeenCalledOnce();
+    expect(persistence.createGeneration).toHaveBeenCalledOnce();
+    expect(persistence.completeGeneration).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -531,24 +516,17 @@ describe('executeAiTask integration contract', () => {
     expect(invoke).toHaveBeenCalledOnce();
   });
 
-  it('never invokes fallback more than once', async () => {
-    const fallbackError = typedProviderError('fallback unavailable', { status: 503 });
-    let attempts = 0;
-    const invoke = vi.fn(async () => {
-      attempts++;
-      if (attempts === 1) {
-        throw typedProviderError('primary unavailable', { status: 503 });
-      }
-      throw fallbackError;
-    });
+  it('does not invoke an unavailable fallback more than once', async () => {
+    const primaryError = typedProviderError('primary unavailable', { status: 503 });
+    const invoke = vi.fn(async () => { throw primaryError; });
 
     await expect(executeAiTask({
       task: 'meal_suggest',
       prompt: 'suggest a meal',
       invoke,
-    })).rejects.toBe(fallbackError);
+    })).rejects.toBe(primaryError);
 
-    expect(invoke).toHaveBeenCalledTimes(2);
+    expect(invoke).toHaveBeenCalledOnce();
   });
 
   it('settles at the chain deadline when organization resolution never settles', async () => {
@@ -751,7 +729,7 @@ describe('executeAiTask integration contract', () => {
     expect([...rows.values()]).toEqual([
       expect.objectContaining({
         state: 'settled',
-        chargedNanoUsd: 35_000,
+        chargedNanoUsd: 8_000,
         usage: {
           inputTokens: 10,
           outputTokens: 5,
@@ -806,7 +784,7 @@ describe('executeAiTask integration contract', () => {
 
     expect(observed.current?.status).toBe('rejected');
     if (observed.current?.status === 'rejected') {
-      expect(observed.current.error).toBe(primaryError);
+      expect(classifyAiError(observed.current.error)).toBe('timeout');
     }
     expect(invoke).toHaveBeenCalledOnce();
     expect(persistence.failGeneration).toHaveBeenCalledOnce();
@@ -1044,30 +1022,23 @@ describe('executeAiTask integration contract', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it('aborts the exact fallback signal at the shared 15-second deadline', async () => {
+  it('aborts the primary signal at the shared 15-second deadline without fallback', async () => {
     vi.useFakeTimers();
     const primaryError = typedProviderError('primary unavailable', { status: 503 });
-    const fallbackError = new Error('fallback aborted');
     const startedAt = Date.now();
-    let fallbackSignal: AbortSignal | undefined;
-    let fallbackStartedAt: number | undefined;
-    let fallbackAbortedAt: number | undefined;
+    let providerSignal: AbortSignal | undefined;
+    let providerAbortedAt: number | undefined;
 
     const invoke = vi.fn(({ policy, signal }: {
       policy: { provider: string };
       signal: AbortSignal;
     }) => {
-      if (policy.provider === 'openai') {
-        return new Promise<never>((_, reject) => {
-          setTimeout(() => reject(primaryError), 14_000);
-        });
-      }
-      fallbackStartedAt = Date.now();
-      fallbackSignal = signal;
+      expect(policy.provider).toBe('openai');
+      providerSignal = signal;
       return new Promise<never>((_, reject) => {
         signal.addEventListener('abort', () => {
-          fallbackAbortedAt = Date.now();
-          reject(fallbackError);
+          providerAbortedAt = Date.now();
+          reject(primaryError);
         }, { once: true });
       });
     });
@@ -1079,17 +1050,16 @@ describe('executeAiTask integration contract', () => {
     );
 
     await vi.advanceTimersByTimeAsync(14_000);
-    expect(invoke).toHaveBeenCalledTimes(2);
-    expect(fallbackStartedAt).toBe(startedAt + 14_000);
-    expect(fallbackSignal?.aborted).toBe(false);
+    expect(invoke).toHaveBeenCalledOnce();
+    expect(providerSignal?.aborted).toBe(false);
 
     await vi.advanceTimersByTimeAsync(999);
-    expect(fallbackSignal?.aborted).toBe(false);
+    expect(providerSignal?.aborted).toBe(false);
 
     await vi.advanceTimersByTimeAsync(24_001);
     const rejection = await outcome;
-    expect(rejection).toBe(fallbackError);
-    expect(fallbackAbortedAt).toBe(startedAt + 15_000);
+    expect(rejection).toBe(primaryError);
+    expect(providerAbortedAt).toBe(startedAt + 15_000);
     expect(vi.getTimerCount()).toBe(0);
   });
 
@@ -1238,28 +1208,23 @@ describe('executeAiTask integration contract', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it('bounds a fast-failure fallback by the remaining end-to-end deadline', async () => {
+  it('bounds a fast primary failure by the end-to-end deadline without fallback', async () => {
     vi.useFakeTimers();
     const primaryError = typedProviderError('primary unavailable', { status: 503 });
-    const fallbackError = new Error('fallback deadline reached');
     const startedAt = Date.now();
-    let fallbackSignal: AbortSignal | undefined;
-    let fallbackAbortedAt: number | undefined;
+    let providerSignal: AbortSignal | undefined;
+    let providerAbortedAt: number | undefined;
 
     const invoke = vi.fn(({ policy, signal }: {
       policy: { provider: string };
       signal: AbortSignal;
     }) => {
-      if (policy.provider === 'openai') {
-        return new Promise<never>((_, reject) => {
-          setTimeout(() => reject(primaryError), 1_000);
-        });
-      }
-      fallbackSignal = signal;
+      expect(policy.provider).toBe('openai');
+      providerSignal = signal;
       return new Promise<never>((_, reject) => {
         signal.addEventListener('abort', () => {
-          fallbackAbortedAt = Date.now();
-          reject(fallbackError);
+          providerAbortedAt = Date.now();
+          reject(primaryError);
         }, { once: true });
       });
     });
@@ -1271,19 +1236,19 @@ describe('executeAiTask integration contract', () => {
     );
 
     await vi.advanceTimersByTimeAsync(1_000);
-    expect(invoke).toHaveBeenCalledTimes(2);
+    expect(invoke).toHaveBeenCalledOnce();
 
     await vi.advanceTimersByTimeAsync(13_999);
-    expect(fallbackSignal?.aborted).toBe(false);
+    expect(providerSignal?.aborted).toBe(false);
 
     await vi.advanceTimersByTimeAsync(11_001);
     const rejection = await outcome;
-    expect(rejection).toBe(fallbackError);
-    expect(fallbackAbortedAt).toBe(startedAt + 15_000);
+    expect(rejection).toBe(primaryError);
+    expect(providerAbortedAt).toBe(startedAt + 15_000);
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it('logs fallback only when the fallback provider invocation starts', async () => {
+  it('logs only the primary provider invocation when no fallback is configured', async () => {
     const events: string[] = [];
     persistence.createGeneration.mockImplementation(async (input: {
       policy: { provider: string };
@@ -1291,28 +1256,23 @@ describe('executeAiTask integration contract', () => {
       events.push(`create:${input.policy.provider}`);
     });
     vi.spyOn(console, 'warn').mockImplementation(() => {
-      events.push('warn:fallback-start');
+      events.push('warn:provider-start');
     });
     const invoke = vi.fn(async ({ policy }: { policy: { provider: string } }) => {
       events.push(`invoke:${policy.provider}`);
-      if (policy.provider === 'openai') {
-        throw typedProviderError('primary unavailable', { status: 503 });
-      }
-      return fallbackSuccess;
+      expect(policy.provider).toBe('openai');
+      throw typedProviderError('primary unavailable', { status: 503 });
     });
 
-    await executeAiTask({
+    await expect(executeAiTask({
       task: 'meal_suggest',
       prompt: 'suggest a meal',
       invoke,
-    });
+    })).rejects.toMatchObject({ status: 503 });
 
     expect(events).toEqual([
       'create:openai',
       'invoke:openai',
-      'create:anthropic',
-      'warn:fallback-start',
-      'invoke:anthropic',
     ]);
   });
 
@@ -1320,9 +1280,6 @@ describe('executeAiTask integration contract', () => {
     vi.useFakeTimers();
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const primaryError = typedProviderError('primary unavailable', { status: 503 });
-    orgBudget.assertWithinOrganizationBudget
-      .mockResolvedValueOnce(undefined)
-      .mockImplementationOnce(() => new Promise<never>(() => undefined));
 
     const invoke = vi.fn(({ policy }: { policy: { provider: string } }) => {
       if (policy.provider === 'openai') {
@@ -1343,6 +1300,7 @@ describe('executeAiTask integration contract', () => {
       prompt: 'one apple',
       invoke,
     }));
+    await vi.advanceTimersByTimeAsync(0);
     await vi.advanceTimersByTimeAsync(15_000);
 
     expect(observed.current?.status).toBe('rejected');
@@ -1356,52 +1314,23 @@ describe('executeAiTask integration contract', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it('does not invoke a provider when generation persistence consumes the deadline', async () => {
+  it('does not invoke a provider when primary generation persistence hangs at the deadline', async () => {
     vi.useFakeTimers();
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    const primaryError = typedProviderError('primary unavailable', { status: 503 });
-    persistence.createGeneration
-      .mockResolvedValueOnce(undefined)
-      .mockImplementationOnce(() => new Promise<never>(() => undefined));
-
-    const invoke = vi.fn(({ policy }: { policy: { provider: string } }) => {
-      if (policy.provider === 'openai') {
-        return new Promise<never>((_, reject) => {
-          setTimeout(() => reject(primaryError), 14_000);
-        });
-      }
-      return Promise.resolve({
-        output: { items: [] },
-        usage: { inputTokens: 10, outputTokens: 5 },
-        latencyMs: 50,
-        rawStatus: 200,
-      });
-    });
-
-    const observed = observeOutcome(executeAiTask({
-      task: 'food_parse',
-      prompt: 'one apple',
-      invoke,
-    }));
-    await vi.advanceTimersByTimeAsync(15_000);
-
+    persistence.createGeneration.mockImplementationOnce(() => new Promise<never>(() => undefined));
+    const invoke = vi.fn();
+    const observed = observeOutcome(executeAiTask({ task: 'food_parse', prompt: 'one apple', invoke }));
+    await vi.advanceTimersByTimeAsync(1);
+    await vi.advanceTimersByTimeAsync(14_999);
     expect(observed.current?.status).toBe('rejected');
-    if (observed.current?.status === 'rejected') {
-      expect(observed.current.error).toBe(primaryError);
-    }
-    expect(invoke).toHaveBeenCalledOnce();
-    expect(persistence.createGeneration).toHaveBeenCalledTimes(2);
-    expect(persistence.failGeneration).toHaveBeenCalledOnce();
-    expect(warn).not.toHaveBeenCalled();
+    if (observed.current?.status === 'rejected') expect(classifyAiError(observed.current.error)).toBe('timeout');
+    expect(persistence.createGeneration).toHaveBeenCalledOnce();
+    expect(invoke).not.toHaveBeenCalled();
+    expect(persistence.failGeneration).not.toHaveBeenCalled();
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it('does not replace a pre-deadline fallback setup timeout with the primary error', async () => {
+  it('preserves the primary error when no fallback is configured', async () => {
     const primaryError = typedProviderError('primary unavailable', { status: 503 });
-    const fallbackSetupError = typedProviderError('fallback setup timeout', { _isTimeout: true });
-    persistence.createGeneration
-      .mockResolvedValueOnce(undefined)
-      .mockRejectedValueOnce(fallbackSetupError);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const invoke = vi.fn(async () => {
       throw primaryError;
@@ -1411,10 +1340,10 @@ describe('executeAiTask integration contract', () => {
       task: 'food_parse',
       prompt: 'one apple',
       invoke,
-    })).rejects.toBe(fallbackSetupError);
+    })).rejects.toBe(primaryError);
 
     expect(invoke).toHaveBeenCalledOnce();
-    expect(persistence.createGeneration).toHaveBeenCalledTimes(2);
+    expect(persistence.createGeneration).toHaveBeenCalledOnce();
     expect(persistence.failGeneration).toHaveBeenCalledOnce();
     expect(warn).not.toHaveBeenCalled();
   });
@@ -1425,16 +1354,12 @@ describe('executeAiTask integration contract', () => {
     taskPolicies.food_parse.timeoutMs = 2_147_483_647;
 
     try {
-      await expect(executeAiTask({
-        task: 'food_parse',
-        prompt: 'one apple',
-        invoke: vi.fn(async () => ({
-          output: { items: [] },
-          usage: { inputTokens: 10, outputTokens: 5 },
-          latencyMs: 50,
-          rawStatus: 200,
-        })),
-      })).resolves.toMatchObject({ output: { items: [] } });
+      const execution = executeAiTask({ task: 'food_parse', prompt: 'one apple', invoke: vi.fn(async () => ({
+        output: { items: [] }, usage: { inputTokens: 10, outputTokens: 5 }, latencyMs: 50, rawStatus: 200,
+      })) });
+      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(0);
+      await expect(execution).resolves.toMatchObject({ output: { items: [] } });
     } finally {
       taskPolicies.food_parse.timeoutMs = originalTimeoutMs;
     }

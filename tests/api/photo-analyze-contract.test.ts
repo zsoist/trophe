@@ -7,7 +7,9 @@ describe('photo nutrition contract', () => {
     const route = readFileSync(join(process.cwd(), 'app/api/ai/photo-analyze/route.ts'), 'utf8');
     const quickInput = readFileSync(join(process.cwd(), 'components/food/QuickFoodInput.tsx'), 'utf8');
     const normalizer = readFileSync(join(process.cwd(), 'lib/food/photo-analysis.ts'), 'utf8');
-    expect(route).toContain('estimated_grams');
+    const schema = readFileSync(join(process.cwd(), 'agents/schemas/food-parse-structured.ts'), 'utf8');
+    expect(schema).toContain('estimated_grams');
+    expect(route).toContain("@/lib/food/photo-analysis");
     expect(route).toContain('plausibility validation');
     expect(quickInput).toContain('photoAnalysisToParsedItems(data.foods)');
     expect(normalizer).toContain('grams: Math.round(food.estimated_grams)');
