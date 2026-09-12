@@ -7,7 +7,8 @@ import {taskPolicies} from '@/agents/router/policies';
 import {createDatabasePhotoFoodObservationAdapter,runVerifiedPhotoFoodAnalysis,type VerifiedPhotoFoodAnalysis} from './photo-food-observation-adapter';
 import type {PhotoFoodScope} from './photo-food-observation';
 import type {PilotAttemptBinding} from './pilot-budget';
-import {PHOTO_ATTEMPT_RESERVATION_NANO_USD} from './pilot-budget';
+import {COACH_ATTEMPT_RESERVATION_NANO_USD,PHOTO_ATTEMPT_RESERVATION_NANO_USD} from './pilot-budget';
+import {COACH_PRICING_VERSION} from './economics';
 import {ASK_TROPHE_SHARED_PILOT_ID} from '@/lib/workout/shared-pilot-budget';
 import {LUNA_MODEL} from '@/agents/router/policies';
 import {PHOTO_PILOT_PRICING_VERSION} from '@/agents/router/pricing';
@@ -32,6 +33,11 @@ describe('durable Photo Food observation adapter with injected SQL/runtime',()=>
   await expect(runVerifiedPhotoFoodAnalysis(scope,{digest:'a'.repeat(64),bytes:imageBytes},{pilotBinding:binding(),invoke})).rejects.toThrow('invalid_image_binding');
   await expect(runVerifiedPhotoFoodAnalysis(scope,{digest:createHash('sha256').update(new Uint8Array([1,2,3])).digest('hex'),bytes:new Uint8Array([1,2,3])},{pilotBinding:binding(),invoke})).rejects.toThrow('invalid_image');
   const garbage=new Uint8Array([0xff,0xd8,0xff,1,2,3]);await expect(runVerifiedPhotoFoodAnalysis(scope,{digest:createHash('sha256').update(garbage).digest('hex'),bytes:garbage},{pilotBinding:binding(),invoke})).rejects.toThrow('invalid_image');expect(executeAiTask).toHaveBeenCalledTimes(1);
+ });
+ it('rejects a Luna text binding before any Photo dispatch',async()=>{
+  const wrongBinding={...binding(),pricingVersion:COACH_PRICING_VERSION,reservedNanoUsd:COACH_ATTEMPT_RESERVATION_NANO_USD} as unknown as PilotAttemptBinding;
+  await expect(runVerifiedPhotoFoodAnalysis(scope,{digest:imageDigest,bytes:imageBytes},{pilotBinding:wrongBinding,invoke:vi.fn()})).rejects.toThrow('budget_blocked');
+  expect(executeAiTask).not.toHaveBeenCalled();
  });
  it('rejects ambiguous, dropped, unconfirmed or wrong-policy task output',async()=>{
   for(const mutate of [(r:ReturnType<typeof taskResult>)=>{r.selectedPolicy.provider='anthropic';},(r:ReturnType<typeof taskResult>)=>{r.selectedPolicy.model='claude-haiku-4-5-20251001';},(r:ReturnType<typeof taskResult>)=>{r.output.content=[];},(r:ReturnType<typeof taskResult>)=>{r.output.content.push(r.output.content[0]);},(r:ReturnType<typeof taskResult>)=>{(r.output.content[0] as {input:{foods:unknown[]}}).input.foods=[food,{...food,estimated_grams:0}];},(r:ReturnType<typeof taskResult>)=>{(r.output.content[0] as {input:{foods:Array<typeof food&{needs_confirmation?:boolean}>}}).input.foods[0].needs_confirmation=true;},(r:ReturnType<typeof taskResult>)=>{(r.output.content[0] as {input:{foods:Array<typeof food&{action?:string}>}}).input.foods[0].action='food.photo.apply';}]){

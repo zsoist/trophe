@@ -11,7 +11,7 @@ const contracts:Record<ModalityTask,TaskContract>={
  photo_analyze:{provider:'openai',model:LUNA_MODEL,promptVersion:'photo-analyze-v1',pricingVersion:PHOTO_PILOT_PRICING_VERSION,reservationNanoUsd:PHOTO_ATTEMPT_RESERVATION_NANO_USD},
  transcribe:{provider:'openai',model:TRANSCRIPTION_MODEL,promptVersion:'transcribe-v1',pricingVersion:'gpt-4o-mini-transcribe-2026-09-09',reservationNanoUsd:STT_ATTEMPT_RESERVATION_NANO_USD},
 };
-type GovernedResult={selectedPolicy:{provider:string;model:string;promptVersion:string};isFallback:boolean;usage:AiUsage;rawStatus:number;latencyMs:number;requestId?:string;providerGenerationId?:string;output:unknown};
+type GovernedResult={selectedPolicy:{provider:string;model:string;promptVersion:string};isFallback:boolean;responseModel?:string;usage:AiUsage;rawStatus:number;latencyMs:number;requestId?:string;providerGenerationId?:string;output:unknown};
 const digest=(value:unknown)=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 function stableId(parts:string[]):string {const bytes=Buffer.from(digest(parts).slice(0,32),'hex');bytes[6]=(bytes[6]&15)|64;bytes[8]=(bytes[8]&63)|128;const hex=bytes.toString('hex');return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;}
 const usageOf=(usage:AiUsage):PilotUsage=>({inputTokens:usage.inputTokens,outputTokens:usage.outputTokens,cacheReadTokens:usage.cacheReadTokens??0,cacheWriteTokens:usage.cacheWriteTokens??0,reasoningTokens:usage.reasoningTokens??0});
@@ -34,8 +34,8 @@ export async function runGovernedPilotModality<Result extends GovernedResult>(in
  const claim=await executePilotBudgetCommand({operation:'claim_dispatch',binding},input.store,input.signal);if(!claim.ok||!claim.dispatchGranted)throw new Error('budget_blocked');
  try{
   const result=await input.run(Object.freeze(structuredClone(binding))),usage=usageOf(result.usage);
-  if(result.selectedPolicy.provider!==contract.provider||result.selectedPolicy.model!==contract.model||result.selectedPolicy.promptVersion!==contract.promptVersion||result.isFallback||result.rawStatus<200||result.rawStatus>=300||pricePilotUsageNanoUsd(usage,binding.model)===null)throw new Error('invalid_modality_result');
-  const settled=await persistAfterDispatch({operation:'settle',binding,usage,providerSuccess:{responseModel:binding.model,requestId:result.requestId??null}},input.store);
+  if(result.selectedPolicy.provider!==contract.provider||result.selectedPolicy.model!==contract.model||result.selectedPolicy.promptVersion!==contract.promptVersion||result.isFallback||result.responseModel!==contract.model||result.rawStatus<200||result.rawStatus>=300||pricePilotUsageNanoUsd(usage,binding.model)===null)throw new Error('invalid_modality_result');
+  const settled=await persistAfterDispatch({operation:'settle',binding,usage,providerSuccess:{responseModel:result.responseModel,requestId:result.requestId??null}},input.store);
   if(!settled.ok||settled.record.state!=='settled')throw new Error('accounting_uncertain');
   return result;
  }catch(error){

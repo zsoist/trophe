@@ -7,7 +7,7 @@ import sharp from 'sharp';
 import type {db} from '@/db/client';
 import {executeAiTask} from '@/agents/runtime';
 import type {ExecuteAiTaskInput,ExecuteAiTaskResult} from '@/agents/runtime';
-import type {PilotAttemptBinding} from './pilot-budget';
+import {PHOTO_ATTEMPT_RESERVATION_NANO_USD,type PilotAttemptBinding} from './pilot-budget';
 import {HAIKU_MODEL,LUNA_MODEL} from '@/agents/router/policies';
 import {LEGACY_PHOTO_PILOT_PRICING_VERSION,PHOTO_PILOT_PRICING_VERSION} from '@/agents/router/pricing';
 import {ASK_TROPHE_SHARED_PILOT_ID} from '@/lib/workout/shared-pilot-budget';
@@ -32,7 +32,7 @@ type ObservationAdapter=PhotoFoodObservationPort&{record(scope:PhotoFoodScope,pr
  * call only when an integrating route invokes it; AG3's delivery never does. */
 export async function runVerifiedPhotoFoodAnalysis(scope:PhotoFoodScope,image:{digest:string;bytes:Uint8Array},input:{requestId?:string;signal?:AbortSignal;pilotBinding:Readonly<PilotAttemptBinding>;invoke:(args:Parameters<ExecuteAiTaskInput<PhotoProviderOutput>['invoke']>[0]&{image:{bytes:Uint8Array;mediaType:'image/jpeg'|'image/png'|'image/webp'|'image/gif'}})=>ReturnType<ExecuteAiTaskInput<PhotoProviderOutput>['invoke']>}):Promise<{result:ExecuteAiTaskResult<PhotoProviderOutput>;proof:VerifiedPhotoFoodAnalysis}>{
  scope=photoFoodScopeSchema.parse(scope);const imageDigest=digest.parse(image.digest);if(!(image.bytes instanceof Uint8Array)||image.bytes.length<1||image.bytes.length>COACH_IMAGE_LIMITS.fileBytes||createHash('sha256').update(image.bytes).digest('hex')!==imageDigest)throw new Error('invalid_image_binding');
- const binding=structuredClone(input.pilotBinding);if(binding.pilotId!==ASK_TROPHE_SHARED_PILOT_ID||binding.actorId!==scope.actorId||binding.model!==LUNA_MODEL)throw new Error('budget_blocked');
+ const binding=structuredClone(input.pilotBinding);if(binding.pilotId!==ASK_TROPHE_SHARED_PILOT_ID||binding.actorId!==scope.actorId||binding.model!==LUNA_MODEL||binding.pricingVersion!==PHOTO_PILOT_PRICING_VERSION||binding.reservedNanoUsd!==PHOTO_ATTEMPT_RESERVATION_NANO_USD)throw new Error('budget_blocked');
  const bytes=image.bytes.slice(),decoder=sharp(Buffer.from(bytes),{limitInputPixels:COACH_IMAGE_LIMITS.pixels,failOn:'warning',animated:false});
  try{const metadata=await decoder.metadata();if(metadata.format!=='jpeg'||!metadata.width||!metadata.height||metadata.width*metadata.height>COACH_IMAGE_LIMITS.pixels||(metadata.pages??1)!==1)throw new Error('invalid_image');}
  catch{throw new Error('invalid_image');}finally{decoder.destroy();}input.signal?.throwIfAborted();
