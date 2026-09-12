@@ -20,7 +20,7 @@ export function AttachmentPicker({ controller, state, conversationId, transport,
         {/* User-selected object URL, retained only for this subject and explicitly revoked on removal/reset. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={item.url} alt="" width={48} height={48} />
-        <div><p className={styles.fileName}>{item.file.name}</p><p>{t(`global_coach.photo_${item.state}`)}</p>
+        <div><p className={styles.fileName}>{item.file.name}</p><p>{t(deferUpload && item.state === 'available' ? 'global_coach.photo_uploaded' : `global_coach.photo_${item.state}`)}</p>
           <div className={styles.memoryActions}>
             {!deferUpload && transport && (item.state === 'selected' || item.state === 'retryable') && <button type="button" disabled={state.pending || disabled} onClick={() => setReview({ key: item.key, operation: 'upload' })}>{t('global_coach.photo_review_upload')}</button>}
             {transport && item.state === 'uncertain' && <button type="button" disabled={state.pending || disabled} onClick={() => void controller.check(item.key, conversationId, transport)}>{t('global_coach.photo_check')}</button>}

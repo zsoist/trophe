@@ -58,11 +58,13 @@ it('keeps the same conversation and editable draft across real Food and Workout 
   expect(transport.mock.calls[1][0].context?.surface).toBe('food');
   expect(transport.mock.calls[1][0].history).toHaveLength(2);
 });
-it('offers reviewed food analysis immediately after a private upload without another chat turn', async () => {
+it('offers Food review after the deliberate photo-and-question turn without an auxiliary chat turn', async () => {
   const attachmentId = '00000000-0000-4000-8000-000000000002';
   const durableConversationId = '00000000-0000-4000-8000-000000000003';
   const attachment = { id: attachmentId, kind: 'image' as const, status: 'available' as const };
-  const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => new Response(JSON.stringify(init?.method === 'PUT'
+  const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => new Response(JSON.stringify(init?.method === 'POST' && JSON.parse(String(init.body)).message
+    ? { ...response(JSON.parse(String(init.body)), 'Photo response'), dataSource: 'authorized_records', attachments: [attachment], snapshot: { id: crypto.randomUUID(), capturedAt: new Date().toISOString(), subjectId: 'A', organizationId: crypto.randomUUID(), screenIncluded: false, actorRole: 'client', access: 'self', scopeKey: 'a'.repeat(64), surface: null, capabilities: [] } }
+    : init?.method === 'PUT'
     ? { version: 'coach-assistant.v2', storage: 'private_storage', analysis: 'not_connected', ok: true, state: 'available', attachment }
     : { version: 'coach-assistant.v2', storage: 'private_storage', analysis: 'not_connected', ok: true, state: 'prepared', attachment: { ...attachment, status: 'pending' }, uploadToken: 'a'.repeat(64) }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
   const photoFoodTransport = vi.fn<PhotoFoodTransport>(async input => {
@@ -87,14 +89,20 @@ it('offers reviewed food analysis immediately after a private upload without ano
   fireEvent.click(screen.getByText('Photos'));
   const bytes = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a7n8AAAAASUVORK5CYII='), character => character.charCodeAt(0));
   fireEvent.change(screen.getByLabelText('Choose photos'), { target: { files: [new File([bytes], 'meal.png', { type: 'image/png' })] } });
-  fireEvent.click(await screen.findByRole('button', { name: 'Review upload' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Confirm change' }));
-  expect(await screen.findByText('Uploaded · not analyzed')).toBeTruthy();
+  await screen.findByText('meal.png');
+  expect(fetchMock).not.toHaveBeenCalled();
+  expect(screen.queryByRole('button', { name: 'Review upload' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Review food in photo' })).toBeNull();
+  fireEvent.change(screen.getByRole('textbox', { name: 'Your question' }), { target: { value: 'What is in this photo?' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
+  await screen.findByText('Photo response');
+  expect(screen.getByText('Uploaded')).toBeTruthy();
+  expect(screen.queryByText('Uploaded · not analyzed')).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Review food in photo' }));
   await screen.findByRole('button', { name: /Fixture rice/ });
-  expect(fetchMock).toHaveBeenCalledTimes(2);
+  expect(fetchMock).toHaveBeenCalledTimes(3);
   expect(createThread).toHaveBeenCalledTimes(1);
-  expect(screen.queryByRole('button', { name: 'Saved conversations' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Saved conversations' })).toBeTruthy();
   expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({ operation: 'attachment.prepare', conversationId: durableConversationId });
   expect(photoFoodTransport).toHaveBeenCalledTimes(1);
   expect(photoFoodTransport.mock.calls[0][0]).toMatchObject({ operation: 'photo.food.read', attachmentId, conversationId: durableConversationId });

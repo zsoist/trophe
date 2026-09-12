@@ -1,4 +1,5 @@
 export const globalCoachTranslations: Record<string, { en: string; es: string; el: string }> = {
+  'global_coach.photo_uploaded': { en: 'Uploaded', es: 'Cargada', el: 'Μεταφορτώθηκε' },
   'global_coach.photo_one_per_turn': { en: 'One photo per message.', es: 'Una foto por mensaje.', el: 'Μία φωτογραφία ανά μήνυμα.' },
   'global_coach.photo_analysis_failed': { en: 'Image analysis could not be confirmed. Your photo and question are kept; check the response status before trying again.', es: 'No se pudo confirmar el análisis de la imagen. Conservamos tu foto y pregunta; comprueba el estado de la respuesta antes de reintentar.', el: 'Η ανάλυση εικόνας δεν επιβεβαιώθηκε. Η φωτογραφία και η ερώτησή σας διατηρούνται· ελέγξτε την κατάσταση πριν προσπαθήσετε ξανά.' },
   'global_coach.history_checking': { en: 'Checking your saved response…', es: 'Comprobando tu respuesta guardada…', el: 'Έλεγχος αποθηκευμένης απάντησης…' },
