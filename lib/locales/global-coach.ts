@@ -1,4 +1,18 @@
 export const globalCoachTranslations: Record<string, { en: string; es: string; el: string }> = {
+  "global_coach.live_title": {"en": "Voice conversation", "es": "Conversación por voz", "el": "Φωνητική συνομιλία"},
+  "global_coach.live_ready": {"en": "Up to 2 minutes. Start when you are ready.", "es": "Hasta 2 minutos. Inicia cuando estés listo.", "el": "Έως 2 λεπτά. Ξεκινήστε όταν είστε έτοιμοι."},
+  "global_coach.live_listening": {"en": "Microphone on · Listening", "es": "Micrófono activo · Escuchando", "el": "Μικρόφωνο ενεργό · Ακούω"},
+  "global_coach.live_ending": {"en": "Ending session…", "es": "Cerrando sesión…", "el": "Τερματισμός συνεδρίας…"},
+  "global_coach.live_connecting": {"en": "Connecting…", "es": "Conectando…", "el": "Σύνδεση…"},
+  "global_coach.live_error": {"en": "Voice could not continue. You can still type your message.", "es": "La voz no pudo continuar. Puedes escribir tu mensaje.", "el": "Η φωνή δεν μπόρεσε να συνεχίσει. Μπορείτε να γράψετε το μήνυμά σας."},
+  "global_coach.live_start": {"en": "Start conversation", "es": "Iniciar conversación", "el": "Έναρξη συνομιλίας"},
+  "global_coach.live_end": {"en": "End conversation", "es": "Terminar conversación", "el": "Τέλος συνομιλίας"},
+  "global_coach.live_interrupt": {"en": "Pause audio", "es": "Pausar audio", "el": "Παύση ήχου"},
+  "global_coach.live_resume": {"en": "Resume audio", "es": "Reanudar audio", "el": "Συνέχιση ήχου"},
+  "global_coach.live_working": {"en": "Checking your information…", "es": "Consultando tu información…", "el": "Έλεγχος πληροφοριών…"},
+  "global_coach.live_you": {"en": "You", "es": "Tú", "el": "Εσείς"},
+  "global_coach.live_assistant": {"en": "Trophē", "es": "Trophē", "el": "Trophē"},
+
   'global_coach.photo_details': { en: 'Photo details', es: 'Detalles de la foto', el: 'Λεπτομέρειες φωτογραφίας' },
   'global_coach.photo_context': { en: 'Use this conversation’s photo', es: 'Usar la foto de esta conversación', el: 'Χρήση φωτογραφίας αυτής της συνομιλίας' },
   'global_coach.photo_expand': { en: 'Enlarge photo', es: 'Ampliar foto', el: 'Μεγέθυνση φωτογραφίας' },

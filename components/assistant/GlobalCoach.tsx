@@ -128,7 +128,7 @@ export function resetGlobalCoachSessionsForActor(actorId: string) {
 }
 
 export type CoachContextSlot = (props: { identity: string; controller: PreferenceController; state: PreferenceState; conversationId: string; turnId: string; surface: CoachSurfaceName; response: CoachConversationResponse; transport: PreferenceTransport }) => ReactNode;
-export type CoachVoiceSlot = (props: { conversationId: string; prepareConversation?: () => Promise<string | null>; onUse: (text: string) => boolean; onSend?: (result: Extract<CoachVoiceResult, { ok: true }>, text: string) => Promise<'sent' | 'ambiguous' | 'failed'> }) => ReactNode;
+export type CoachVoiceSlot = (props: { onQuery: (text: string, signal: AbortSignal) => Promise<string>; conversationId: string; prepareConversation?: () => Promise<string | null>; onUse: (text: string) => boolean; onSend?: (result: Extract<CoachVoiceResult, { ok: true }>, text: string) => Promise<'sent' | 'ambiguous' | 'failed'> }) => ReactNode;
 type Props = { identity: string; subjectId?: string; professional?: boolean; example?: ConversationTransport; preferenceTransport?: PreferenceTransport; memoryTransport?: MemoryTransport; dietTransport?: DietTransport; progressTransport?: ProgressTransport; foodTransport?:FoodTransport; photoFoodTransport?:PhotoFoodTransport; workoutSetTransport?:WorkoutSetTransport; messageTransport?:MessageTransport; historyTransport?: HistoryTransport; contextSlot?: CoachContextSlot; voiceSlot?: CoachVoiceSlot; voiceTranscriptionTransport?: VoiceTranscriptionTransport; reviewedVoiceTransport?: ReviewedVoiceTransport; workspaceHint?: CoachContextHint['workspace'] };
 
 export default function GlobalCoach(props: Props) {
@@ -592,7 +592,23 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
           if (combined.length > 2000) return false;
           controller.setDraft(combined); return true;
         }} onSend={reviewedVoiceTransport || !example && process.env.NEXT_PUBLIC_COACH_VOICE_REVIEW_ENABLED === '1' ? sendVoice : undefined} />
-        {voiceSlot?.({ conversationId: state.conversationId, prepareConversation: prepareVoiceConversation, onUse: text => {
+        {voiceSlot?.({ onQuery: async (text, signal) => {
+          const before = controller.snapshot();
+          signal.throwIfAborted();
+          if (before.pending || before.recoveryRequired || before.draft.trim() || voiceActive || voiceBusy || coachActionBlocked || text.length > 2000) throw new Error('conversation_busy');
+          controller.setDraft(text);
+          const cancel = () => { if (controller.snapshot().conversationId === before.conversationId) controller.cancel(); };
+          signal.addEventListener('abort', cancel, { once: true });
+          try {
+            await send();
+            signal.throwIfAborted();
+            const after = controller.snapshot();
+            if (after.conversationId !== before.conversationId) throw new Error('conversation_changed');
+            const response = after.turns.at(-1)?.response;
+            if (!response?.ok || !response.output?.answer) throw new Error('response_unavailable');
+            return response.output.answer;
+          } finally { signal.removeEventListener('abort', cancel); }
+        }, conversationId: state.conversationId, prepareConversation: prepareVoiceConversation, onUse: text => {
           if (voiceActive || state.pending || coachActionBlocked) return false;
           const current = controller.snapshot().draft;
           const combined = current.trim() ? `${current}\n${text}` : text;

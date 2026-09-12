@@ -6,6 +6,7 @@ import GlobalCoach, { resetGlobalCoachSession, resetGlobalCoachSessionsForActor 
 import type { CoachContextSlot } from './GlobalCoach';
 import { professionalCoachSubject } from './conversation-state';
 import type { CoachContextHint } from '@/agents/coach-assistant/contracts';
+import { LiveVoiceControl } from './LiveVoiceControl';
 import { coachVoiceTranscriptionEnabled, requestReviewedVoiceTurn, requestVoiceTranscript } from './voice-client';
 
 export default function AccountCoach({ professional = false, contextSlot, workspaceHint }: { professional?: boolean; contextSlot?: CoachContextSlot; workspaceHint?: CoachContextHint['workspace'] }) {
@@ -42,6 +43,7 @@ export default function AccountCoach({ professional = false, contextSlot, worksp
   // The key synchronously discards the old subject's surface and pending response.
   const durableVoice = process.env.NEXT_PUBLIC_COACH_CHAT_HISTORY_ENABLED === '1';
   return identity ? <GlobalCoach key={`${identity}:${subjectId ?? identity}`} professional={professional} identity={identity} subjectId={subjectId} contextSlot={contextSlot} workspaceHint={workspaceHint}
+    voiceSlot={durableVoice && !professional ? props => <LiveVoiceControl conversationId={props.conversationId} prepareConversation={props.prepareConversation} onQuery={props.onQuery} /> : undefined}
     voiceTranscriptionTransport={durableVoice && coachVoiceTranscriptionEnabled({
       fixture: process.env.NEXT_PUBLIC_COACH_VOICE_FIXTURE_ENABLED,
       live: process.env.NEXT_PUBLIC_COACH_VOICE_LIVE_ENABLED,

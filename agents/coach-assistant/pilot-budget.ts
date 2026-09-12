@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { LIVE_PRICING_VERSION, LIVE_RUNTIME_MAX_SECONDS, liveReservationNanoUsd, liveMeasuredChargeNanoUsd } from '@/lib/voice-live/pricing';
 import { COACH_PILOT_BUDGET_USD, COACH_PRICING, COACH_PRICING_VERSION } from './economics';
 import {HAIKU_MODEL,LUNA_MODEL,TRANSCRIPTION_MODEL} from '@/agents/router/policies';
 import {LEGACY_PHOTO_PILOT_PRICING_VERSION,PHOTO_PILOT_PRICING_VERSION} from '@/agents/router/pricing';
@@ -17,6 +18,7 @@ const bindingBase={
 // different pricing/reservation contracts. Keep legacy Haiku bindings parseable
 // so existing ledger rows remain auditable; no new runtime path issues them.
 export const pilotAttemptBindingSchema=z.union([
+  z.object({...bindingBase,model:z.literal('gpt-live-1'),pricingVersion:z.literal(LIVE_PRICING_VERSION),reservedNanoUsd:nano,maxDurationSeconds:z.number().int().min(1).max(LIVE_RUNTIME_MAX_SECONDS)}).strict().refine(b=>b.reservedNanoUsd===liveReservationNanoUsd(b.maxDurationSeconds)),
   z.object({...bindingBase,model:z.literal(LUNA_MODEL),pricingVersion:z.literal(COACH_PRICING_VERSION),reservedNanoUsd:z.literal(COACH_ATTEMPT_RESERVATION_NANO_USD)}).strict(),
   z.object({...bindingBase,model:z.literal(LUNA_MODEL),pricingVersion:z.literal(PHOTO_PILOT_PRICING_VERSION),reservedNanoUsd:z.literal(PHOTO_ATTEMPT_RESERVATION_NANO_USD)}).strict(),
   z.object({...bindingBase,model:z.literal(TRANSCRIPTION_MODEL),pricingVersion:z.literal('gpt-4o-mini-transcribe-2026-09-09'),reservedNanoUsd:z.literal(STT_ATTEMPT_RESERVATION_NANO_USD)}).strict(),
@@ -25,6 +27,8 @@ export const pilotAttemptBindingSchema=z.union([
 export type PilotAttemptBinding=z.infer<typeof pilotAttemptBindingSchema>;
 const usageSchema=z.object({inputTokens:nano,outputTokens:nano,cacheReadTokens:nano,cacheWriteTokens:nano,reasoningTokens:nano}).strict();
 export type PilotUsage=z.infer<typeof usageSchema>;
+const accountingUsageSchema=z.union([usageSchema,z.object({durationSeconds:nano}).strict()]);
+type AccountingUsage=z.infer<typeof accountingUsageSchema>;
 const providerDiagnostic=z.enum(['invalid_request_error','authentication_error','permission_error','not_found_error','request_too_large','rate_limit_error','api_error','overloaded_error','forbidden','rate_limited','invalid_response','response_validation_error','http_error','insufficient_permissions','invalid_api_key','rate_limit_exceeded','server_error','model_not_found','insufficient_quota','billing_not_active','ETIMEDOUT','ECONNRESET','ENOTFOUND','UND_ERR_CONNECT_TIMEOUT','TimeoutError','TypeError']);
 const providerErrorSchema=z.object({
   code:providerDiagnostic.optional(),type:providerDiagnostic.optional(),
@@ -38,7 +42,7 @@ export const providerFailureDiagnosticSchema=z.object({
 }).strict().refine(value=>value.phase===undefined||value.category==='timeout');
 export type ProviderFailureDiagnostic=z.infer<typeof providerFailureDiagnosticSchema>;
 const providerSuccessSchema=z.object({
-  responseModel:z.enum([LUNA_MODEL,TRANSCRIPTION_MODEL,HAIKU_MODEL]),
+  responseModel:z.enum([LUNA_MODEL,TRANSCRIPTION_MODEL,HAIKU_MODEL,'gpt-live-1']),
   requestId:z.string().regex(/^req_[A-Za-z0-9_-]{1,116}$/).nullable(),
 }).strict();
 export type ProviderSuccessDiagnostic=z.infer<typeof providerSuccessSchema>;
@@ -46,11 +50,11 @@ export const pilotBudgetCommandSchema=z.discriminatedUnion('operation',[
   z.object({operation:z.enum(['reserve','lookup','claim_dispatch','release_unstarted']),binding:pilotAttemptBindingSchema}).strict(),
   z.object({operation:z.literal('mark_unknown'),binding:pilotAttemptBindingSchema,failure:providerFailureDiagnosticSchema.optional()}).strict(),
   z.object({operation:z.literal('mark_pricing_unknown'),binding:pilotAttemptBindingSchema,usage:usageSchema,responseModel:z.string().min(1).nullable()}).strict(),
-  z.object({operation:z.literal('settle'),binding:pilotAttemptBindingSchema,usage:usageSchema,providerSuccess:providerSuccessSchema.optional()}).strict(),
+  z.object({operation:z.literal('settle'),binding:pilotAttemptBindingSchema,usage:accountingUsageSchema,providerSuccess:providerSuccessSchema.optional()}).strict(),
 ]);
 export type PilotBudgetCommand=z.infer<typeof pilotBudgetCommandSchema>;
 export const pilotAttemptRecordSchema=z.object({
-  binding:pilotAttemptBindingSchema,admissionDay:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),state:z.enum(['reserved','dispatched','unknown','settled','released']),chargedNanoUsd:nano,usage:usageSchema.nullable(),accountingAlert:z.boolean(),unpricedModel:z.string().min(1).nullable().optional(),providerFailure:providerFailureDiagnosticSchema.optional(),
+  binding:pilotAttemptBindingSchema,admissionDay:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),state:z.enum(['reserved','dispatched','unknown','settled','released']),chargedNanoUsd:nano,usage:accountingUsageSchema.nullable(),accountingAlert:z.boolean(),unpricedModel:z.string().min(1).nullable().optional(),providerFailure:providerFailureDiagnosticSchema.optional(),
   providerSuccess:providerSuccessSchema.optional(),
 }).strict().refine(record=>record.unpricedModel===undefined||(record.state==='unknown'&&record.accountingAlert&&record.usage!==null)).refine(record=>record.providerFailure===undefined||record.state==='unknown').refine(record=>record.providerSuccess===undefined||record.state==='settled'&&record.providerSuccess.responseModel===record.binding.model).refine(record=>record.state==='settled'?record.unpricedModel===undefined&&record.usage!==null&&pricePilotUsageNanoUsd(record.usage,record.binding.model)===record.chargedNanoUsd&&record.accountingAlert===(record.chargedNanoUsd>record.binding.reservedNanoUsd):record.state==='unknown'?record.chargedNanoUsd===record.binding.reservedNanoUsd&&(record.usage===null||record.accountingAlert&&(record.unpricedModel!==undefined||pricePilotUsageNanoUsd(record.usage,record.binding.model)===null)):record.usage===null&&!record.accountingAlert&&record.chargedNanoUsd===(record.state==='released'?0:record.binding.reservedNanoUsd));
 export type PilotAttemptRecord=z.infer<typeof pilotAttemptRecordSchema>;
@@ -59,6 +63,10 @@ export type PilotBudgetDecision={ok:false;error:PilotBudgetError}|{ok:true;recor
 
 /** Exact integer accounting. Unknown/invalid usage is not zero consumption. */
 export function pricePilotUsageNanoUsd(raw:unknown,model:PilotAttemptBinding['model']=LUNA_MODEL):number|null {
+  if(model==='gpt-live-1') {
+    const duration=z.object({durationSeconds:nano}).strict().safeParse(raw);
+    return duration.success?liveMeasuredChargeNanoUsd(duration.data.durationSeconds):null;
+  }
   const parsed=usageSchema.safeParse(raw);
   if(!parsed.success)return null;
   const u=parsed.data;
@@ -74,6 +82,7 @@ export function pricePilotUsageNanoUsd(raw:unknown,model:PilotAttemptBinding['mo
 }
 const failure=(error:PilotBudgetError):PilotBudgetDecision=>({ok:false,error});
 export function samePilotBinding(a:PilotAttemptBinding,b:PilotAttemptBinding):boolean {
+  if(a.model==='gpt-live-1'&&b.model==='gpt-live-1'&&a.maxDurationSeconds!==b.maxDurationSeconds)return false;
   return ['pilotId','actorId','attemptId','agentRunId','turnId','model','pricingVersion','requestHash','reservedNanoUsd'].every(key=>a[key as keyof PilotAttemptBinding]===b[key as keyof PilotAttemptBinding]);
 }
 
@@ -109,7 +118,7 @@ export function decidePilotBudgetCommand(snapshot:{pilotId:string;budgetDay:stri
   }
   if(!previous)return failure('not_found');
   if(command.operation==='lookup')return unchanged();
-  const update=(state:PilotAttemptRecord['state'],chargedNanoUsd:number,usage:PilotUsage|null,dispatchGranted=false,accountingAlert=false,providerFailure?:ProviderFailureDiagnostic):PilotBudgetDecision=>{
+  const update=(state:PilotAttemptRecord['state'],chargedNanoUsd:number,usage:AccountingUsage|null,dispatchGranted=false,accountingAlert=false,providerFailure?:ProviderFailureDiagnostic):PilotBudgetDecision=>{
     const record:PilotAttemptRecord={binding:structuredClone(previous!.binding),admissionDay:previous!.admissionDay,state,chargedNanoUsd,usage:structuredClone(usage),accountingAlert};
     const retainedFailure=providerFailure??(state==='unknown'?previous!.providerFailure:undefined);
     if(retainedFailure)record.providerFailure=structuredClone(retainedFailure);
