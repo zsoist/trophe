@@ -15,6 +15,7 @@ import { createOpenAiLiveSessionTransport } from '@/lib/voice-live/openai-live-t
 import { openLiveSideband } from '@/lib/voice-live/server-sideband';
 import { openLiveSession, consumeProviderEvents } from '@/lib/voice-live/server-session';
 import { LIVE_RATE_CONFIG, LIVE_RUNTIME_MAX_SECONDS } from '@/lib/voice-live/pricing';
+import { liveAttemptId, readLiveRequestReceipt } from '@/lib/voice-live/request-receipt';
 
 export const runtime = 'nodejs';
 // Includes authentication, the 120-second voice window, and independent cleanup.
@@ -45,6 +46,15 @@ export async function GET(request: NextRequest) {
   const guard = await guardAiRoute(request);
   if (!guard.ok) return guard.response;
   if (!enabled() || !sharedPilotRuntimeGate(process.env, guard.userId).ok) return reply({ enabled: false });
+  const requestId = request.nextUrl.searchParams.get('requestId');
+  if (requestId) {
+    if (!z.string().uuid().safeParse(requestId).success) return reply({ ok: false }, 400);
+    try {
+      const receipt = await readLiveRequestReceipt(db, guard.userId, requestId);
+      if (receipt.state === 'active') await authorizeConversation(guard.userId, receipt.conversationId, request.signal);
+      return reply({ ok: true, ...receipt });
+    } catch { return reply({ ok: false }, 503); }
+  }
   const sessionId = request.nextUrl.searchParams.get('sessionId');
   if (!sessionId) return reply({ enabled: true, maxDurationSeconds: LIVE_RUNTIME_MAX_SECONDS });
   if (sessionId.length > 256) return reply({ ok: false }, 400);
@@ -84,10 +94,13 @@ export async function POST(request: NextRequest) {
   const input = parsed.data;
   try {
     const context = await authorizeConversation(guard.userId, input.conversationId, request.signal);
+    const requestHash = createHash('sha256').update(JSON.stringify([input.conversationId, input.offerSdp])).digest('hex');
+    const prior = await readLiveRequestReceipt(db, guard.userId, input.requestId, requestHash);
+    if (prior.state === 'active') return reply({ ok: true, ...prior, replayed: true });
+    if (prior.state !== 'absent') return reply({ ok: false, error: prior.state === 'conflict' ? 'idempotency_conflict' : 'create_recovery_required', state: prior.state }, prior.state === 'pending' ? 202 : 409);
     const budget = createSharedPilotBudgetRuntime(process.env, guard.userId, createPilotBudgetStore(db, guard.userId));
     if (!budget.ok) return reply({ ok: false, error: 'budget_blocked' }, 503);
-    const digest = createHash('sha256').update(['gpt-live-attempt.v1', guard.userId, input.requestId].join('\0')).digest('hex');
-    const attemptId = `${digest.slice(0, 8)}-${digest.slice(8, 12)}-4${digest.slice(13, 16)}-8${digest.slice(17, 20)}-${digest.slice(20, 32)}`;
+    const attemptId = liveAttemptId(guard.userId, input.requestId);
     let sideband: ReturnType<typeof openLiveSideband> | undefined;
     const transport = createOpenAiLiveSessionTransport({
       apiKey: process.env.OPENAI_API_KEY!,
@@ -99,7 +112,7 @@ export async function POST(request: NextRequest) {
     });
     const outcome = await openLiveSession({
       context: { actorId: guard.userId, organizationId: context.organizationId, pilotId: budget.pilotId, conversationId: input.conversationId, turnId: attemptId, agentRunId: attemptId },
-      attemptId, requestHash: createHash('sha256').update(JSON.stringify([input.conversationId, input.offerSdp])).digest('hex'),
+      attemptId, requestHash,
       sdpOffer: input.offerSdp, store: false, maxDurationSeconds: LIVE_RUNTIME_MAX_SECONDS,
       instructions: 'You are Ask Trophē, a concise nutrition and workout assistant. Use client delegation for personal records, calculations, and app actions. Never claim a record changed until the app returns its confirmed receipt. Actions require the user to review and confirm the app card. Do not invent nutrition values. Speak in the user\'s language. The session is limited to two minutes.',
       rateConfig: LIVE_RATE_CONFIG, budget: createCanonicalLiveBudgetAdapter(guard.userId, budget.store), transport,
@@ -114,7 +127,7 @@ export async function POST(request: NextRequest) {
     after(async () => { try { await receiving; await session.finalize(); } finally { sideband?.dispose(); } });
     try {
       await sideband!.ready;
-      const saved = await db.execute(sql`UPDATE public.agent_runs SET metadata=jsonb_set(metadata,'{gptLive}',${JSON.stringify({ sessionId: session.sessionId, conversationId: input.conversationId })}::jsonb)
+      const saved = await db.execute(sql`UPDATE public.agent_runs SET metadata=jsonb_set(metadata,'{gptLive}',${JSON.stringify({ sessionId: session.sessionId, conversationId: input.conversationId, answerSdp: session.transportSdp, deadlineMs: session.deadlineMs })}::jsonb)
         WHERE id=${attemptId}::uuid AND user_id=${guard.userId}::uuid AND model='gpt-live-1' RETURNING id`);
       if (saved.rows.length !== 1 || session.state() !== 'active') throw new Error('session_unavailable');
     } catch { await session.close('connection_lost'); return reply({ ok: false, error: 'session_unavailable' }, 503); }

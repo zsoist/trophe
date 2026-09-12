@@ -11,6 +11,12 @@ export function createBrowserLiveSession(input: {
 }) {
   let peer: RTCPeerConnection | undefined;
   let disposed = false;
+  let unresolvedRequestId: string | null = null;
+  const recover = async (requestId: string) => {
+    const response = await fetch(`${endpoint}?requestId=${encodeURIComponent(requestId)}`, { credentials: 'same-origin', signal: AbortSignal.timeout(5_000) });
+    if (!response.ok) throw new Error('recovery_unavailable');
+    return response.json() as Promise<{ state?: string; sessionId?: string; answerSdp?: string }>;
+  };
   const playback = createBrowserLivePlayback(input.audio, () => controller.reportPlaybackBlocked());
   const adapter: LiveConnectionAdapter = {
     async acquireInput() {
@@ -58,6 +64,13 @@ export function createBrowserLiveSession(input: {
     async createSession({ signal }) {
       const current = peer;
       if (!current || disposed) throw new Error('cancelled');
+      if (unresolvedRequestId) {
+        const prior = await recover(unresolvedRequestId);
+        if (prior.state === 'active' && typeof prior.sessionId === 'string') {
+          await adapter.closeSession({ sessionId: prior.sessionId, reason: 'close_requested', signal });
+        } else if (prior.state !== 'ended') throw new Error('create_recovery_required');
+        unresolvedRequestId = null;
+      }
       const conversationId = await input.prepareConversation();
       signal.throwIfAborted();
       if (!conversationId) throw new Error('conversation_unavailable');
@@ -73,11 +86,25 @@ export function createBrowserLiveSession(input: {
         });
       }
       signal.throwIfAborted();
-      const response = await fetch(endpoint, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, signal,
-        body: JSON.stringify({ operation: 'create', conversationId, requestId: crypto.randomUUID(), offerSdp: current.localDescription?.sdp }) });
-      const body: unknown = await response.json();
-      if (!response.ok || !body || typeof body !== 'object' || !('sessionId' in body) || typeof body.sessionId !== 'string' || !('answerSdp' in body) || typeof body.answerSdp !== 'string') throw new Error('session_unavailable');
-      return { sessionId: body.sessionId, answerSdp: body.answerSdp };
+      const requestId = crypto.randomUUID();
+      unresolvedRequestId = requestId;
+      try {
+        const response = await fetch(endpoint, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, signal,
+          body: JSON.stringify({ operation: 'create', conversationId, requestId, offerSdp: current.localDescription?.sdp }) });
+        const body: unknown = await response.json();
+        if (!response.ok || !body || typeof body !== 'object' || !('sessionId' in body) || typeof body.sessionId !== 'string' || !('answerSdp' in body) || typeof body.answerSdp !== 'string') throw new Error('session_unavailable');
+        unresolvedRequestId = null;
+        return { sessionId: body.sessionId, answerSdp: body.answerSdp };
+      } catch {
+        // Read-only recovery, not a second provider request. The controller closes
+        // a recovered late handle if cancellation invalidated its epoch.
+        const recovered = await recover(requestId);
+        if (recovered.state === 'active' && typeof recovered.sessionId === 'string' && typeof recovered.answerSdp === 'string') {
+          unresolvedRequestId = null;
+          return { sessionId: recovered.sessionId, answerSdp: recovered.answerSdp };
+        }
+        throw new Error('create_recovery_required');
+      }
     },
     async closeSession({ sessionId, signal }) {
       const response = await fetch(endpoint, { method: 'POST', credentials: 'same-origin', keepalive: true, headers: { 'Content-Type': 'application/json' }, signal, body: JSON.stringify({ operation: 'close', sessionId }) });
