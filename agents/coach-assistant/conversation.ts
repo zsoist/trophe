@@ -1,3 +1,4 @@
+import { TEXT_FOOD_SERVER_DEADLINE_MS } from './text-food-deadline';
 import { textFoodIntakeIntent } from './text-food-intent';
 import { renderFoodReferences } from './food-reference';
 import { medicalBoundary } from './medical-boundary';
@@ -37,7 +38,7 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
   const controller = new AbortController();
   const abort = () => controller.abort(new Error('cancelled'));
   if(options.signal.aborted) abort(); else options.signal.addEventListener('abort',abort,{once:true});
-  const ceiling=parsed.success&&parsed.data.attachments?.length===1&&parsed.data.attachments[0].kind==='image'?90000:options.resolveTextFoodIntake&&parsed.success&&textFoodIntakeIntent(parsed.data.message)?65000:45000;
+  const ceiling=parsed.success&&parsed.data.attachments?.length===1&&parsed.data.attachments[0].kind==='image'?90000:options.resolveTextFoodIntake&&parsed.success&&textFoodIntakeIntent(parsed.data.message)?TEXT_FOOD_SERVER_DEADLINE_MS:45000;
   const budget = Math.min(ceiling,Math.max(1,options.deadlineMs ?? ceiling));
   const timer = setTimeout(()=>controller.abort(new Error('deadline')),budget);
   let boundary: (()=>void) | undefined;

@@ -1,3 +1,5 @@
+import { textFoodIntakeIntent } from '@/agents/coach-assistant/text-food-intent';
+import { TEXT_FOOD_CLIENT_DEADLINE_MS } from '@/agents/coach-assistant/text-food-deadline';
 import type { CoachChatMessage } from '@/agents/coach-assistant/chat-contract';
 import type { CoachAttachmentRef, CoachContextHint, CoachConversationRequest, CoachConversationResponse, CoachSurface } from '@/agents/coach-assistant/contracts';
 
@@ -118,7 +120,7 @@ export class ConversationController {
       if (generation !== this.generation) return;
       this.generation++; controller.abort(); this.active = null;
       this.publish({ ...this.state, pending: false, recoveryRequired: this.state.durable, error: 'failed', draft: this.state.draft || message });
-    }, attachments.length ? 95_000 : 45_000);
+    }, attachments.length ? 95_000 : textFoodIntakeIntent(message) ? TEXT_FOOD_CLIENT_DEADLINE_MS : 45_000);
     try {
       if (createThread && !this.state.durable) {
         if (attachments.length) throw new Error('thread_required_before_upload');

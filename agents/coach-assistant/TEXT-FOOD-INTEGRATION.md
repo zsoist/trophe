@@ -73,8 +73,9 @@ accepts the text-food feature flag. Its delete/undo handlers are untouched.
 
 ## Remaining release boundaries
 
-- Exact reviewed QA migration decision (still HOLD), then isolated full-schema
-  integration, authenticated browser and physical-device acceptance.
+- Exact reviewed QA migration decision (still HOLD), then authenticated browser
+  and physical-device acceptance. Full Drizzle schema checks passed locally using
+  compatibility Auth; real Supabase Auth/provider behavior remains unverified.
 - Intent coverage remains deliberately bounded to explicit English/Spanish new
   meal descriptions; it is not a claim of general conversational food reasoning.
 - Reopening the same chat in the same browser session supports receipt recovery;
@@ -95,3 +96,17 @@ FOR SHARE query blocks a concurrent nutrient update until commit and rejects a
 missing reference. This narrow lock test does not certify full-schema RLS or the
 QA action migration. It accepts only AG1_TEXT_FOOD_TEST_DATABASE_URL pointing to
 127.0.0.1:5432/trophe_text_food_ag1_<unique suffix>; it never reads DATABASE_URL.
+
+The Text Food server deadline is65 seconds and the matching browser deadline is75
+seconds, allowing durable setup/response overhead. The native parser ceiling,
+transport attempts and shared budget do not change. Deferred controller tests
+verify delivery at60 seconds, legitimate timeout at75 seconds, suppression of
+late responses and no repeated dispatch; ordinary text remains45 seconds.
+
+scripts/test/coach-text-food-full-schema.ts exercised the actual service against
+all canonical Drizzle migrations in a dedicated loopback container, with a
+synthetic parser and compatibility auth.uid(). Ten checks passed: schema HOLD,
+exact extension, no review writes, concurrent confirmation/readback/audit,
+receipt recovery, scope/idempotency rejection, peer RLS/private ACL, catalogue
+drift, missing reference and revoked chat. This is not a Supabase Auth or paid
+provider certification. No QA migration or feature enablement follows implicitly.

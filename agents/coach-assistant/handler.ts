@@ -1,3 +1,4 @@
+import { TEXT_FOOD_SERVER_DEADLINE_MS } from './text-food-deadline';
 import { textFoodIntakeIntent } from './text-food-intent';
 import { executeTextFoodAction, type TextFoodService } from './text-food-actions';
 import { createFoodPreferenceTurn } from './food-preference-turn';
@@ -163,7 +164,7 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
       if(raw && typeof raw==='object' && 'operation' in raw && typeof raw.operation==='string' && raw.operation.startsWith('text.food.')) {
         if(deps.env.COACH_ASSISTANT_TEXT_FOOD_ACTIONS_ENABLED!=='1')return fail('disabled',404);
         if(!deps.createTextFoodService)return fail('provider_unavailable',503);
-        if(raw.operation==='text.food.parse'){requestDeadlineMs=65000;clearTimeout(timer);timer=setTimeout(()=>controller.abort(new Error('deadline')),requestDeadlineMs);}
+        if(raw.operation==='text.food.parse'){requestDeadlineMs=TEXT_FOOD_SERVER_DEADLINE_MS;clearTimeout(timer);timer=setTimeout(()=>controller.abort(new Error('deadline')),requestDeadlineMs);}
         const result=await executeTextFoodAction(guard.userId,raw,await deps.createRepository(),await deps.createTextFoodService(guard.userId),controller.signal);
         return json(result,result.ok?200:result.error==='forbidden'?403:result.error==='invalid_input'?400:result.error==='expired'?410:result.error==='not_found'?404:result.error==='not_connected'||result.error==='uncertain'?503:409);
       }
@@ -315,7 +316,7 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
           const intent=textFoodIntakeIntent(input.message);if(!intent)return null;
           return executeTextFoodAction(guard.userId,{version:'coach-assistant.v2',operation:'text.food.parse',conversationId:input.conversationId,turnId:input.turnId,requestId:input.turnId,text:intent.text,language:intent.language},repository,await deps.createTextFoodService!(guard.userId),signal);
         }:undefined;
-      if(resolveTextFoodIntake&&conversationInput&&textFoodIntakeIntent(conversationInput.message)){requestDeadlineMs=65000;clearTimeout(timer);timer=setTimeout(()=>controller.abort(new Error('deadline')),Math.max(1,requestDeadlineMs-(performance.now()-start)));}
+      if(resolveTextFoodIntake&&conversationInput&&textFoodIntakeIntent(conversationInput.message)){requestDeadlineMs=TEXT_FOOD_SERVER_DEADLINE_MS;clearTimeout(timer);timer=setTimeout(()=>controller.abort(new Error('deadline')),Math.max(1,requestDeadlineMs-(performance.now()-start)));}
       const runOptions={
         resolveTextFoodIntake,
         capabilityRegistry,
