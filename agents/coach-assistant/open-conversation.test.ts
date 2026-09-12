@@ -99,6 +99,15 @@ describe('open v2 conversation with explicit synthetic provider',()=>{
     expect(result.error?.code).toBe('invalid_output');
     expect(JSON.parse(String(warning.mock.calls[0]?.[0]))).toEqual({event:'coach_conversation_output_rejected',code:'numeric_prose'});
   });
+  it.each(['preview','production'])('redacts a pretransport Photo read failure in %s',async environment=>{
+    process.env.COACH_ASSISTANT_OUTPUT_DIAGNOSTICS_ENABLED='1';process.env.VERCEL_ENV=environment;
+    const warning=vi.spyOn(console,'warn').mockImplementation(()=>undefined),transport=provider();
+    const result=await runConversation({...request,attachments:[{id:request.turnId,kind:'image',status:'available'}]},{...options(),offlineCandidateEvaluation:true,offlineConversationProvider:transport,resolvePhotoObservations:async()=>{throw new Error('PRIVATE_PHOTO_NOTE_987');}});
+    expect(result.error?.code).toBe('query_failed');expect(transport).not.toHaveBeenCalled();
+    if(environment==='production'){expect(warning).not.toHaveBeenCalled();return;}
+    expect(warning).toHaveBeenCalledOnce();
+    expect(JSON.parse(String(warning.mock.calls[0][0]))).toEqual({event:'coach_conversation_pretransport_failed',code:'query_failed',diagnostic:{stage:'photo_read',category:'photo_read_failure',correlation:expect.stringMatching(/^[a-f0-9]{16}$/)}});
+  });
   it('allows a useful distinction for the reviewed transcript without promoting its quantity to a recorded fact',async()=>{
     const voiceRequest={...request,message:'I did not lift 15 kilograms today. What is the difference between a workout plan and a workout log?',context:{surface:'workout' as const,includeScreen:true},history:[]};
     const safeAnswer='A statement in an editable transcript and a recorded training entry are separate sources. A plan describes intended training; a log contains recorded training entries.';

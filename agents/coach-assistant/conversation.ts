@@ -39,6 +39,7 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
   const budget = Math.min(ceiling,Math.max(1,options.deadlineMs ?? ceiling));
   const timer = setTimeout(()=>controller.abort(new Error('deadline')),budget);
   let boundary: (()=>void) | undefined;
+  const diagnosticStage:{value:'authorization'|'photo_read'|'context_preparation'}={value:'authorization'};
   try {
     if(!parsed.success) throw new Error('invalid_input');
     const input = parsed.data;
@@ -60,11 +61,13 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
       }};
       let photoObservations:ConversationPhotoObservation[]=[];
       if(scopedInput.attachments?.length){
+        diagnosticStage.value='photo_read';
         if(options.mode!=='model'||!options.resolvePhotoObservations)throw new Error('attachment_analysis_failed');
         photoObservations=await options.resolvePhotoObservations(scopedInput,controller.signal);
         if(photoObservations.length!==scopedInput.attachments.length)throw new Error('attachment_analysis_failed');
         await authorizedRepository.authorize(options.actorId,subject,controller.signal);controller.signal.throwIfAborted();
       }
+      diagnosticStage.value='context_preparation';
       if(options.capabilityRegistry&&options.mode==='model'&&!Object.values(medicalBoundary(scopedInput.message)).some(Boolean)){
         const selectorInput=options.filterMemoryHistory?.(scopedInput)??{...scopedInput,history:scopedInput.history?.filter(item=>item.role==='user'&&item.kind!=='memory_summary')};
         const selectedScope=selectConversationScope(selectorInput);
@@ -164,6 +167,10 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
     }
     const allowed = ['invalid_input','forbidden','unauthenticated','invalid_timezone','budget_blocked','context_limit','invalid_output','provider_unavailable','attachment_analysis_failed'];
     const code: CoachErrorCode = controller.signal.aborted ? options.signal.aborted?'cancelled':'deadline' : error instanceof Error && allowed.includes(error.message)?error.message as CoachErrorCode:'query_failed';
+    if(options.mode==='model'&&response.telemetry.modelCalls===0&&process.env.COACH_ASSISTANT_OUTPUT_DIAGNOSTICS_ENABLED==='1'&&process.env.VERCEL_ENV==='preview'){
+      const category=code==='deadline'?'deadline':code==='context_limit'?'context_limit':diagnosticStage.value==='photo_read'?'photo_read_failure':null;
+      if(category)console.warn(JSON.stringify({event:'coach_conversation_pretransport_failed',code,diagnostic:{stage:diagnosticStage.value,category,correlation:createHash('sha256').update(`${response.conversationId}:${response.turnId}`).digest('hex').slice(0,16)}}));
+    }
     response.error={code,retryable:code==='query_failed'||code==='deadline'||code==='provider_unavailable'||code==='attachment_analysis_failed'};
     response.ok=false;response.snapshot=null;response.evidence=[];response.actionIntents=[];delete response.capabilityResult;delete response.output;delete response.profile;delete response.foodPreference;delete response.memories;delete response.explanations;
   } finally {
