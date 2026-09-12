@@ -158,7 +158,15 @@ describe('open v2 conversation with explicit synthetic provider',()=>{
   });
   it.each([
     {answer:'Podrías elegir una comida saludable que encaje con tus preferencias.',ok:true},
+    {answer:'Una alimentación saludable puede incluir opciones variadas.',ok:true},
     {answer:'Tu salud está mejor.',ok:false},
+    {answer:'Estás saludable.',ok:false},
+    {answer:'Está saludable.',ok:false},
+    {answer:'Eres saludable.',ok:false},
+    {answer:'Pareces saludable.',ok:false},
+    {answer:'Te ves saludable.',ok:false},
+    {answer:'Tienes buena salud.',ok:false},
+    {answer:'Tus músculos están más fuertes.',ok:false},
   ])('classifies Spanish health wording by claim context: $answer',async({answer,ok})=>{
     const transport=provider(output=>({...output,answer,followUp:null,generalExplanationRefs:[]}));
     const result=await runConversation(request,{...options(),offlineCandidateEvaluation:true,offlineConversationProvider:transport});
