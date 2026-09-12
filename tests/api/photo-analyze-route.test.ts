@@ -74,7 +74,7 @@ describe('POST /api/ai/photo-analyze', () => {
     expect(mocks.executeAiTask).toHaveBeenCalledTimes(1);
     expect(mocks.executeAiTask).toHaveBeenCalledWith(expect.objectContaining({
       task: 'photo_analyze',
-      prompt: expect.stringContaining('Bandeja Paisa'),
+      prompt: expect.stringContaining('Identity uncertainty is separate from portion-weight uncertainty'),
     }));
     expect(body.foods.find((food: { name: string }) => food.name === 'Beans')).toMatchObject({
       estimated_grams: 120,

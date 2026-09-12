@@ -121,7 +121,7 @@ export const taskPolicies: Record<TaskName, RoutingPolicy> = {
     maxTokens: 2048,
     // Keep enough room below the 45s application boundary for governed
     // accounting while allowing the observed ~31s vision response to finish.
-    timeoutMs: 35_000, maxInputChars: 10_000_000, maxCostUsd: 0.08, promptVersion: 'photo-analyze-v1',
+    timeoutMs: 35_000, maxInputChars: 10_000_000, maxCostUsd: 0.08, promptVersion: 'photo-analyze-v2',
   },
   embed: {
     // Voyage v4 is called directly in agents/observability — not via this router.

@@ -18,7 +18,7 @@ interface PhotoAnalyzeRequest {
 }
 
 const PHOTO_ANALYZE_PROMPT = readFileSync(
-  join(process.cwd(), 'agents/prompts/photo-analyze.v1.md'),
+  join(process.cwd(), 'agents/prompts/photo-analyze.v2.md'),
   'utf8',
 ).trim();
 

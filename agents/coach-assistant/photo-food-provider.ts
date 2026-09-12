@@ -5,7 +5,7 @@ import { LUNA_MODEL } from '@/agents/router/policies';
 import { invokeOpenAiStructured } from '@/agents/runtime/providers/openai';
 import type { runVerifiedPhotoFoodAnalysis } from './photo-food-observation-adapter';
 
-const prompt = readFileSync(join(process.cwd(), 'agents/prompts/photo-analyze.v1.md'), 'utf8').trim();
+const prompt = readFileSync(join(process.cwd(), 'agents/prompts/photo-analyze.v2.md'), 'utf8').trim();
 const tool = {
   name: 'submit_food_photo_analysis',
   description: 'Submit conservative nutrition estimates for visible foods in a photo.',

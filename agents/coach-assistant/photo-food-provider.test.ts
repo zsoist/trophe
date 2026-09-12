@@ -24,6 +24,11 @@ describe('Luna Photo Food provider', () => {
       model: LUNA_MODEL, strict: true, maxAttempts: 1, store: false, image,
     }));
     expect(result.output).toEqual({ content: [{ type: 'tool_use', name: 'submit_food_photo_analysis', input: { dish_name: 'Rice plate', foods } }] });
+    const effective = mocks.invokeOpenAiStructured.mock.calls[0][0].system;
+    expect(taskPolicies.photo_analyze.promptVersion).toBe('photo-analyze-v2');
+    expect(effective).not.toMatch(/Bandeja Paisa|reasonably identify/);
+    expect(effective).toContain('Identity uncertainty is separate from portion-weight uncertainty');
+    expect(effective).toContain('Do not infer a protein type, cut, or preparation');
   });
 
   it('fails closed for a legacy Anthropic policy without invoking a provider', async () => {

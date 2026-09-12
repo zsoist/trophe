@@ -8,7 +8,7 @@ import {providerErrorTelemetry} from '@/agents/runtime/provider-error';
 type ModalityTask='photo_analyze'|'transcribe';
 type TaskContract={provider:'openai';model:PilotAttemptBinding['model'];promptVersion:string;pricingVersion:PilotAttemptBinding['pricingVersion'];reservationNanoUsd:number};
 const contracts:Record<ModalityTask,TaskContract>={
- photo_analyze:{provider:'openai',model:LUNA_MODEL,promptVersion:'photo-analyze-v1',pricingVersion:PHOTO_PILOT_PRICING_VERSION,reservationNanoUsd:PHOTO_ATTEMPT_RESERVATION_NANO_USD},
+ photo_analyze:{provider:'openai',model:LUNA_MODEL,promptVersion:'photo-analyze-v2',pricingVersion:PHOTO_PILOT_PRICING_VERSION,reservationNanoUsd:PHOTO_ATTEMPT_RESERVATION_NANO_USD},
  transcribe:{provider:'openai',model:TRANSCRIPTION_MODEL,promptVersion:'transcribe-v1',pricingVersion:'gpt-4o-mini-transcribe-2026-09-09',reservationNanoUsd:STT_ATTEMPT_RESERVATION_NANO_USD},
 };
 type GovernedResult={selectedPolicy:{provider:string;model:string;promptVersion:string};isFallback:boolean;responseModel?:string;usage:AiUsage;rawStatus:number;latencyMs:number;requestId?:string;providerGenerationId?:string;output:unknown};

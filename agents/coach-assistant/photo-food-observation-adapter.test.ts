@@ -39,6 +39,10 @@ describe('durable Photo Food observation adapter with injected SQL/runtime',()=>
   await expect(runVerifiedPhotoFoodAnalysis(scope,{digest:imageDigest,bytes:imageBytes},{pilotBinding:wrongBinding,invoke:vi.fn()})).rejects.toThrow('budget_blocked');
   expect(executeAiTask).not.toHaveBeenCalled();
  });
+ it('rejects an old prompt version for a newly produced observation',async()=>{
+  const result=taskResult();result.selectedPolicy.promptVersion='photo-analyze-v1';executeAiTask.mockResolvedValueOnce(result);
+  await expect(runVerifiedPhotoFoodAnalysis(scope,{digest:imageDigest,bytes:imageBytes},{pilotBinding:binding(),invoke:vi.fn()})).rejects.toThrow('invalid_photo_pipeline');
+ });
  it('rejects ambiguous, dropped, unconfirmed or wrong-policy task output',async()=>{
   for(const mutate of [(r:ReturnType<typeof taskResult>)=>{r.selectedPolicy.provider='anthropic';},(r:ReturnType<typeof taskResult>)=>{r.selectedPolicy.model=HAIKU_MODEL;},(r:ReturnType<typeof taskResult>)=>{r.output.content=[];},(r:ReturnType<typeof taskResult>)=>{r.output.content.push(r.output.content[0]);},(r:ReturnType<typeof taskResult>)=>{(r.output.content[0] as {input:{foods:unknown[]}}).input.foods=[food,{...food,estimated_grams:0}];},(r:ReturnType<typeof taskResult>)=>{(r.output.content[0] as {input:{foods:Array<typeof food&{needs_confirmation?:boolean}>}}).input.foods[0].needs_confirmation=true;},(r:ReturnType<typeof taskResult>)=>{(r.output.content[0] as {input:{foods:Array<typeof food&{action?:string}>}}).input.foods[0].action='food.photo.apply';}]){
    const result=taskResult();mutate(result);executeAiTask.mockResolvedValueOnce(result);await expect(runVerifiedPhotoFoodAnalysis(scope,{digest:imageDigest,bytes:imageBytes},{pilotBinding:binding(),invoke:vi.fn()})).rejects.toThrow();
@@ -77,6 +81,8 @@ describe('durable Photo Food observation adapter with injected SQL/runtime',()=>
   const f=fixture(),p=await proof();const recorded=await f.adapter.record(scope,p,new AbortController().signal);expect(recorded).toMatchObject({...scope,source:'validated_photo_analysis',imageDigest,foods:[{name:'Rice'}]});expect(f.state()).toMatchObject({actor_id:scope.actorId,attachment_id:scope.attachmentId,generation_id:id(5),active:true});expect(f.statements.join('\n')).not.toContain('http');
   expect(await f.adapter.load(scope,new AbortController().signal,f.tx as never)).toBeNull();f.unknown();expect(await f.adapter.load(scope,new AbortController().signal,f.tx as never)).toBeNull();f.settle();const loaded=await f.adapter.load(scope,new AbortController().signal,f.tx as never);expect(loaded).toMatchObject({id:(recorded as {id:string}).id,revision:(recorded as {revision:string}).revision,source:'validated_photo_analysis'});
   expect(f.statements.find(statement=>statement.includes('FROM private.coach_photo_food_observations o'))).toContain('FOR UPDATE OF o,a FOR SHARE OF g');
+  expect(f.statements.find(statement=>statement.includes('FROM private.coach_photo_food_observations o'))).toContain("g.prompt_version IN ('photo-analyze-v1','photo-analyze-v2')");
+  expect(f.statements.find(statement=>statement.includes('FROM public.agent_runs g'))).toContain("g.prompt_version='photo-analyze-v2'");
  });
  it('rejects control fields in a durable observation before normalization',async()=>{
   const f=fixture(),p=await proof();await f.adapter.record(scope,p,new AbortController().signal);f.settle();
@@ -89,7 +95,7 @@ describe('durable Photo Food observation adapter with injected SQL/runtime',()=>
   const adapter=createDatabasePhotoFoodObservationAdapter(f.database,storage);
   const completed=await adapter.analyzeAndRecord(scope,{pilotBinding:binding(),invoke:vi.fn()},new AbortController().signal),recorded=completed.observation;
   expect(storage.readNormalized).toHaveBeenCalledTimes(1);expect(authorizeCalls.count).toBe(1);expect(executeAiTask).toHaveBeenCalledTimes(1);expect(recorded).toMatchObject({source:'validated_photo_analysis',imageDigest});
-  expect(completed.result).toMatchObject({generationId:id(5),selectedPolicy:{provider:'openai',model:LUNA_MODEL,promptVersion:'photo-analyze-v1'},isFallback:false,rawStatus:200});
+  expect(completed.result).toMatchObject({generationId:id(5),selectedPolicy:{provider:'openai',model:LUNA_MODEL,promptVersion:'photo-analyze-v2'},isFallback:false,rawStatus:200});
  });
  it('rejects forged proof, wrong scope, missing generation, unavailable image and revocation',async()=>{
   const forged={kind:'verified_photo_food_analysis'} as VerifiedPhotoFoodAnalysis;await expect(fixture().adapter.record(scope,forged,new AbortController().signal)).rejects.toThrow('forbidden');

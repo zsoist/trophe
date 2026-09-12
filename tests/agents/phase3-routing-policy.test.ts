@@ -50,7 +50,7 @@ describe('Phase 3 routing policy', () => {
       provider: 'openai',
       model: 'gpt-5.6-luna',
       timeoutMs: 35_000,
-      promptVersion: 'photo-analyze-v1',
+      promptVersion: 'photo-analyze-v2',
     });
     expect(taskFallbacks.photo_analyze).toBeUndefined();
   });
