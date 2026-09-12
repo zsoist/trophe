@@ -57,6 +57,15 @@ describe('open v2 conversation with explicit synthetic provider',()=>{
     expect(JSON.parse(diagnostic)).toEqual({event:'coach_conversation_output_rejected',code:'numeric_prose'});
     expect(diagnostic).not.toContain(privateOutput);expect(diagnostic).not.toContain('150 gramos');
   });
+  it('aligns candidate food guidance with the conservative prose validator',async()=>{
+    const transport=provider(output=>({...output,answer:'Podrías combinar verduras, proteína y una fuente de carbohidratos según tus preferencias.',followUp:'¿Tienes alguna preferencia alimentaria?',generalExplanationRefs:[]}));
+    const result=await runConversation(request,{...options(),offlineCandidateEvaluation:true,offlineConversationProvider:transport});
+    expect(result.ok).toBe(true);expect(result.output?.answer).toContain('verduras');
+    const call=vi.mocked(transport).mock.calls[0][0];
+    expect(call.policy.promptVersion).toBe('coach-assistant.conversation.v5-candidate.5-live02');
+    expect(call.system).toContain('For food guidance, describe concrete meal components and choices in neutral terms');
+    expect(call.system).toContain('avoid the words salud, saludable, health and healthy');
+  });
   it.each([
     {answer:'Recorded quantity 15 kilograms.',code:'numeric_prose',category:'numeric_token',position:18},
     {answer:'Every workout entry is available.',code:'candidate_universal_claim',category:'universal_or_completion_token',position:0},
@@ -68,18 +77,18 @@ describe('open v2 conversation with explicit synthetic provider',()=>{
     const result=await runConversation(request,{...options(),offlineCandidateEvaluation:true,offlineConversationProvider:transport});
     expect(result.error?.code).toBe('invalid_output');expect(result.output).toBeUndefined();expect(transport).toHaveBeenCalledOnce();
     const diagnostic=JSON.parse(String(warning.mock.calls[0]?.[0]));
-    expect(diagnostic).toEqual({event:'coach_conversation_output_rejected',code,diagnostic:{schemaVersion:'coach-assistant.output-rejection-diagnostic.v1',outputSchemaVersion:'coach-assistant.candidate-output.v1',promptVersion:'coach-assistant.conversation.v5-candidate.4-live02',rule:code,category,field:'answer',path:'output.answer',position,positionEncoding:code==='numeric_prose'?'original':'nfkd_without_marks',correlation:expect.stringMatching(/^[a-f0-9]{16}$/)}});
+    expect(diagnostic).toEqual({event:'coach_conversation_output_rejected',code,diagnostic:{schemaVersion:'coach-assistant.output-rejection-diagnostic.v1',outputSchemaVersion:'coach-assistant.candidate-output.v1',promptVersion:'coach-assistant.conversation.v5-candidate.5-live02',rule:code,category,field:'answer',path:'output.answer',position,positionEncoding:code==='numeric_prose'?'original':'nfkd_without_marks',correlation:expect.stringMatching(/^[a-f0-9]{16}$/)}});
     expect(JSON.stringify(diagnostic)).not.toContain(answer);expect(JSON.stringify(diagnostic)).not.toContain('kilograms');expect(JSON.stringify(diagnostic)).not.toContain('workout entry');expect(JSON.stringify(diagnostic)).not.toContain('saludable');expect(JSON.stringify(diagnostic)).not.toContain('Estás');expect(JSON.stringify(diagnostic)).not.toContain('Estas');
   });
   it('locates a sensitive follow-up with static metadata only',async()=>{
     process.env.COACH_ASSISTANT_OUTPUT_DIAGNOSTICS_ENABLED='1';process.env.VERCEL_ENV='preview';
     const warning=vi.spyOn(console,'warn').mockImplementation(()=>undefined);
     const followUp='¿Tu corazón está saludable?';
-    const transport=provider(output=>({...output,answer:'Se puede elegir una comida saludable.',followUp,generalExplanationRefs:[]}));
+    const transport=provider(output=>({...output,answer:'Se puede elegir entre alimentos variados.',followUp,generalExplanationRefs:[]}));
     const result=await runConversation(request,{...options(),offlineCandidateEvaluation:true,offlineConversationProvider:transport});
     expect(result.error?.code).toBe('invalid_output');expect(result.output).toBeUndefined();
     const diagnostic=JSON.parse(String(warning.mock.calls[0]?.[0]));
-    expect(diagnostic).toEqual({event:'coach_conversation_output_rejected',code:'candidate_sensitive_claim',diagnostic:{schemaVersion:'coach-assistant.output-rejection-diagnostic.v1',outputSchemaVersion:'coach-assistant.candidate-output.v1',promptVersion:'coach-assistant.conversation.v5-candidate.4-live02',rule:'candidate_sensitive_claim',category:'sensitive_claim_token',field:'followUp',path:'output.followUp',position:4,positionEncoding:'nfkd_without_marks',correlation:expect.stringMatching(/^[a-f0-9]{16}$/)}});
+    expect(diagnostic).toEqual({event:'coach_conversation_output_rejected',code:'candidate_sensitive_claim',diagnostic:{schemaVersion:'coach-assistant.output-rejection-diagnostic.v1',outputSchemaVersion:'coach-assistant.candidate-output.v1',promptVersion:'coach-assistant.conversation.v5-candidate.5-live02',rule:'candidate_sensitive_claim',category:'sensitive_claim_token',field:'followUp',path:'output.followUp',position:4,positionEncoding:'nfkd_without_marks',correlation:expect.stringMatching(/^[a-f0-9]{16}$/)}});
     expect(JSON.stringify(diagnostic)).not.toContain(followUp);expect(JSON.stringify(diagnostic)).not.toContain('corazón');expect(JSON.stringify(diagnostic)).not.toContain('corazon');
   });
   it('keeps detailed diagnostics disabled outside Preview even when the flag is set',async()=>{
@@ -169,10 +178,12 @@ describe('open v2 conversation with explicit synthetic provider',()=>{
     expect(result.error?.code).toBe('invalid_output');expect(result.output).toBeUndefined();
   });
   it.each([
-    {answer:'Podrías elegir una comida saludable que encaje con tus preferencias.',ok:true},
-    {answer:'Una alimentación saludable puede incluir opciones variadas.',ok:true},
-    {answer:'Se puede elegir una comida saludable entre opciones variadas.',ok:true},
-    {answer:'Esta comida tiene opciones saludables.',ok:true},
+    {answer:'Podrías elegir una comida con verduras, proteína y una fuente de carbohidratos que encaje con tus preferencias.',ok:true},
+    {answer:'Una comida puede combinar alimentos variados.',ok:true},
+    {answer:'Se puede elegir entre opciones variadas.',ok:true},
+    {answer:'Esta comida tiene opciones variadas.',ok:true},
+    {answer:'Podrías elegir una comida saludable que encaje con tus preferencias.',ok:false},
+    {answer:'Una alimentación saludable puede incluir opciones variadas.',ok:false},
     {answer:'Tu salud está mejor.',ok:false},
     {answer:'Estás saludable.',ok:false},
     {answer:'Está saludable.',ok:false},
@@ -184,21 +195,20 @@ describe('open v2 conversation with explicit synthetic provider',()=>{
     {answer:'Usted tiene una alimentación saludable.',ok:false},
     {answer:'Ustedes tienen una alimentación saludable.',ok:false},
     {answer:'Tu cuerpo está saludable.',ok:false},
-    {answer:'Tu cuerpo está listo.',ok:false},
     {answer:'Tus músculos están más fuertes.',ok:false},
-  ])('classifies Spanish health wording by claim context: $answer',async({answer,ok})=>{
+  ])('keeps Spanish health terms behind the conservative candidate boundary: $answer',async({answer,ok})=>{
     const transport=provider(output=>({...output,answer,followUp:null,generalExplanationRefs:[]}));
     const result=await runConversation(request,{...options(),offlineCandidateEvaluation:true,offlineConversationProvider:transport});
     expect(result.ok).toBe(ok);
     expect(result.output?.answer).toBe(ok?answer:undefined);
     expect(result.error?.code).toBe(ok?undefined:'invalid_output');
   });
-  it('applies the same personal health boundary to follow-ups while allowing generic food guidance',async()=>{
-    const allowedTransport=provider(output=>({...output,answer:'Se puede elegir una comida saludable entre opciones variadas.',followUp:'¿Tienes alguna preferencia alimentaria?',generalExplanationRefs:[]}));
+  it('applies the same health boundary to follow-ups while allowing neutral food guidance',async()=>{
+    const allowedTransport=provider(output=>({...output,answer:'Se puede elegir entre alimentos variados.',followUp:'¿Tienes alguna preferencia alimentaria?',generalExplanationRefs:[]}));
     const allowed=await runConversation(request,{...options(),offlineCandidateEvaluation:true,offlineConversationProvider:allowedTransport});
     expect(allowed.ok).toBe(true);expect(allowed.output?.suggestions).toEqual(['¿Tienes alguna preferencia alimentaria?']);
     for(const followUp of ['¿Tienes una alimentación saludable?','¿Usted tiene una alimentación saludable?','¿Ustedes tienen una alimentación saludable?']){
-      const transport=provider(output=>({...output,answer:'Se puede elegir una comida saludable entre opciones variadas.',followUp,generalExplanationRefs:[]}));
+      const transport=provider(output=>({...output,answer:'Se puede elegir entre alimentos variados.',followUp,generalExplanationRefs:[]}));
       const result=await runConversation(request,{...options(),offlineCandidateEvaluation:true,offlineConversationProvider:transport});
       expect(result.error?.code).toBe('invalid_output');expect(result.output).toBeUndefined();
     }

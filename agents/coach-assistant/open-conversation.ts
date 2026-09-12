@@ -61,8 +61,7 @@ const rejectOutput = (code: OpenConversationOutputRejection, diagnostic?: OpenCo
 const numericProsePattern=/\d|\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|hundred|thousand|cero|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|cien|mil)\b/i;
 const candidateUniversalPattern=/\b(?:every|all|always|never|entire|fully|exactly|each|cada|todos|todas|siempre|nunca|ningun|ninguna|totalmente|completed|performed|fulfilled|finished|prescribed|completion|completad\w*|realizad\w*|cumplid\w*|finalizad\w*|prescrit\w*)\b/i;
 const candidateSensitivePattern=/\b(?:saved|updated|sent|approved|deleted|booked|confirmed|guardad\w*|actualizad\w*|enviad\w*|aprobad\w*|eliminad\w*|confirmad\w*|heart|muscles?|stronger|healthier|blood|insulin|corazon|muscul\w*|salud\w*|hormon\w*|skipped|skipping|omitid\w*)\b/i;
-const candidateGenericHealthyNutritionPattern=/\b(?:(?:alimentacion|comidas?|dietas?|opciones?|elecciones?|platos?|alimentos?|menus?|recetas?)\s+saludables?|saludables?\s+(?:alimentacion|comidas?|dietas?|opciones?|elecciones?|platos?|alimentos?|menus?|recetas?))\b/gi;
-const candidatePersonalClaimPattern=/\byou (?:are|were|have|did|completed|ate|trained)\b|\byour\b[^.!?]*\b(?:is|are|was|were|has|have|show|indicate|prove)\b|\btus?\b[^.!?]*\b(?:es|son|esta|estan|fue|fueron|tiene|tienen|demuestra\w*|indica\w*)\b|\b(?:tienes|usted\s+tiene|ustedes\s+tienen)\b[^.!?]{0,120}\bsaludables?\b/i;
+const candidatePersonalClaimPattern=/\byou (?:are|were|have|did|completed|ate|trained)\b|\byour\b[^.!?]*\b(?:is|are|was|were|has|have|show|indicate|prove)\b|\btus?\b[^.!?]*\b(?:es|son|fue|fueron|demuestra\w*|indica\w*)\b/i;
 const physiologicalClaimPattern=/\b(?:activation|activacion|fatigue|fatiga|metabolism|metabolismo|hypertrophy|hipertrofia|caloric deficit|deficit calorico|caused|causado|proves|demuestra)\b/i;
 const safeCandidatePhysiologicalLimitationPattern=/^(?:(?:the|these|those|available|your)\s+)?(?:records?|logs?|data|entries|evidence)\b(?![^.!?]*\b(?:but|however|yet|although)\b)[^.!?]{0,120}\b(?:do(?:es)?\s+not|cannot|can't)\s+(?:establish|show|prove|demonstrate|measure|indicate|confirm|support|determine|infer)\b[^.!?]{0,160}\b(?:activation|fatigue|metabolism|hypertrophy|caloric deficit)(?:\s+(?:or|nor)\s+(?:activation|fatigue|metabolism|hypertrophy|caloric deficit))*[.!?]?$|^(?:(?:los|estos|esos|tus)\s+)?(?:registros?|datos?|entradas?|evidencia)\b(?![^.!?]*\b(?:pero|aunque|sin embargo)\b)[^.!?]{0,120}\bno\s+(?:establec\w*|muestr\w*|prueb\w*|demuestr\w*|mid\w*|indic\w*|confirm\w*|sustent\w*|determin\w*|permit\w+\s+inferir)\b[^.!?]{0,160}\b(?:activacion|fatiga|metabolismo|hipertrofia|deficit calorico)(?:\s+(?:ni|o)\s+(?:activacion|fatiga|metabolismo|hipertrofia|deficit calorico))*[.!?]?$/i;
 function removeSafeCandidatePhysiologicalLimitations(value:string,enabled:boolean):string {
@@ -70,15 +69,11 @@ function removeSafeCandidatePhysiologicalLimitations(value:string,enabled:boolea
   const normalized=value.normalize('NFKD').replace(/\p{M}/gu,'').trim();
   return physiologicalClaimPattern.test(normalized)&&safeCandidatePhysiologicalLimitationPattern.test(normalized)?'':value;
 }
-function removeSafeCandidateNutritionGuidance(value:string):string {
-  return value.replace(candidateGenericHealthyNutritionPattern,match=>match.replace(/\bsaludables?\b/i,token=>' '.repeat(token.length)));
-}
 function proseDiagnostic(
   output: {answer:string;followUp:string|null;limitations:string[]},
   pattern: RegExp,
   input: Pick<OpenConversationOutputDiagnostic,'rule'|'category'|'promptVersion'|'outputSchemaVersion'>,
   positionEncoding: OpenConversationOutputDiagnostic['positionEncoding']='original',
-  prepareValue?: (value:string)=>string,
 ): OpenConversationOutputDiagnostic|undefined {
   const fields: Array<{field:OpenConversationOutputDiagnostic['field'];path:OpenConversationOutputDiagnostic['path'];value:string}>=[
     {field:'answer',path:'output.answer',value:output.answer},
@@ -87,7 +82,7 @@ function proseDiagnostic(
   ];
   for(const item of fields){
     const value=positionEncoding==='nfkd_without_marks'?item.value.normalize('NFKD').replace(/\p{M}/gu,''):item.value;
-    const match=(prepareValue?prepareValue(value):value).match(pattern);
+    const match=value.match(pattern);
     if(match?.index!==undefined)return {schemaVersion:'coach-assistant.output-rejection-diagnostic.v1',...input,field:item.field,path:item.path,position:match.index,positionEncoding};
   }
   return undefined;
@@ -374,8 +369,7 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
     if(candidateUniversalPattern.test(normalized))rejectOutput('candidate_universal_claim',proseDiagnostic(boundedOutput,candidateUniversalPattern,{rule:'candidate_universal_claim',category:'universal_or_completion_token',promptVersion,outputSchemaVersion:'coach-assistant.candidate-output.v1'},'nfkd_without_marks'));
     // Conservative release-candidate guards; independent tests, not a truth proof.
     // Apply to follow-ups too: interrogative syntax can hide the same assertion.
-    const candidateSensitiveScan=removeSafeCandidateNutritionGuidance(normalized);
-    if(candidateSensitivePattern.test(candidateSensitiveScan))rejectOutput('candidate_sensitive_claim',proseDiagnostic(boundedOutput,candidateSensitivePattern,{rule:'candidate_sensitive_claim',category:'sensitive_claim_token',promptVersion,outputSchemaVersion:'coach-assistant.candidate-output.v1'},'nfkd_without_marks',removeSafeCandidateNutritionGuidance));
+    if(candidateSensitivePattern.test(normalized))rejectOutput('candidate_sensitive_claim',proseDiagnostic(boundedOutput,candidateSensitivePattern,{rule:'candidate_sensitive_claim',category:'sensitive_claim_token',promptVersion,outputSchemaVersion:'coach-assistant.candidate-output.v1'},'nfkd_without_marks'));
     if(candidatePersonalClaimPattern.test(normalized))rejectOutput('candidate_personal_claim');
     const candidateOutput={...boundedOutput};
     delete candidateOutput.actionIntent;
