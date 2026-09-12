@@ -65,7 +65,7 @@ function LiveSessionState({ session }: { session: ReturnType<typeof createBrowse
   const inactive = ['idle', 'failed', 'closed'].includes(state.phase);
   return <>
     <p role="status" aria-live="polite">{t(inactive ? 'global_coach.live_ready' : state.phase === 'live' ? 'global_coach.live_listening' : state.phase === 'closing' ? 'global_coach.live_ending' : 'global_coach.live_connecting')}</p>
-    {state.error && <p role="alert">{t('global_coach.live_error')}</p>}
+    {state.error && <p role="alert">{t(state.error === 'permission' ? 'global_coach.live_microphone_permission' : state.error === 'unsupported' ? 'global_coach.live_microphone_unavailable' : 'global_coach.live_error')}</p>}
     <div className={styles.controls}>
       {inactive ? <button type="button" onClick={() => void session.controller.startFromGesture()}>{t('global_coach.live_start')}</button>
         : <button type="button" onClick={() => session.controller.stop()}><Square size={15} />{t('global_coach.live_end')}</button>}

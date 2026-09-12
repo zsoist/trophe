@@ -229,7 +229,9 @@ export class VoiceLiveController {
       stream = await this.deps.adapter.acquireInput();
     } catch (error) {
       if (epoch !== this.epoch) return;
-      this.fail(error instanceof Error && error.name === 'NotAllowedError' ? 'permission' : 'unsupported');
+      // DOMException can come from a different browser realm and need not be
+      // instanceof this realm's Error. Only use its standard name for UI guidance.
+      this.fail(error !== null && typeof error === 'object' && 'name' in error && error.name === 'NotAllowedError' ? 'permission' : 'unsupported');
       return;
     }
     // A synchronous stop/replacement happened while getUserMedia resolved: drop the tracks.

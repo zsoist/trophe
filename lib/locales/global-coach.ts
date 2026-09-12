@@ -5,6 +5,8 @@ export const globalCoachTranslations: Record<string, { en: string; es: string; e
   "global_coach.live_ending": {"en": "Ending session…", "es": "Cerrando sesión…", "el": "Τερματισμός συνεδρίας…"},
   "global_coach.live_connecting": {"en": "Connecting…", "es": "Conectando…", "el": "Σύνδεση…"},
   "global_coach.live_error": {"en": "Voice could not continue. You can still type your message.", "es": "La voz no pudo continuar. Puedes escribir tu mensaje.", "el": "Η φωνή δεν μπόρεσε να συνεχίσει. Μπορείτε να γράψετε το μήνυμά σας."},
+  "global_coach.live_microphone_permission": { en: "Allow microphone access in your browser, then start again. You can also type your message.", es: "Permite el acceso al micrófono en tu navegador y vuelve a iniciar. También puedes escribir tu mensaje.", el: "Επιτρέψτε την πρόσβαση στο μικρόφωνο στον περιηγητή και ξεκινήστε ξανά. Μπορείτε επίσης να γράψετε το μήνυμά σας." },
+  "global_coach.live_microphone_unavailable": { en: "Microphone access is unavailable. Check your microphone or open this page in Chrome or Safari. You can still type.", es: "No se puede acceder al micrófono. Revisa el micrófono o abre esta página en Chrome o Safari. Puedes seguir escribiendo.", el: "Το μικρόφωνο δεν είναι διαθέσιμο. Ελέγξτε το μικρόφωνο ή ανοίξτε τη σελίδα σε Chrome ή Safari. Μπορείτε να συνεχίσετε γραπτώς." },
   "global_coach.live_start": {"en": "Start conversation", "es": "Iniciar conversación", "el": "Έναρξη συνομιλίας"},
   "global_coach.live_end": {"en": "End conversation", "es": "Terminar conversación", "el": "Τέλος συνομιλίας"},
   "global_coach.live_interrupt": {"en": "Pause audio", "es": "Pausar audio", "el": "Παύση ήχου"},
