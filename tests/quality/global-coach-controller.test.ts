@@ -87,8 +87,8 @@ it('creates a durable thread before generation and requires recovery after respo
  expect(controller.snapshot().recoveryRequired).toBe(true);
  await controller.send(undefined, async () => { generations++; throw new Error('must not send'); }, [], create);
  expect(generations).toBe(1);
- controller.restore(id, []);
- expect(controller.snapshot().recoveryRequired).toBe(false);
+ expect(controller.restore(id, [])).toBe(false);
+ expect(controller.snapshot().recoveryRequired).toBe(true);
 });
 
 it('prepares one durable conversation before a voice transcript is bound to it', async () => {
@@ -125,4 +125,32 @@ it('starts a separate conversation and suppresses a late response from the previ
  expect(controller.snapshot().conversationId).toBe(after);
  expect(controller.snapshot().turns).toEqual([]); expect(controller.snapshot().restored).toEqual([]);
  expect(controller.snapshot().durable).toBe(false);
+});
+
+
+it('recovers an exact settled turn without resending and preserves a newer draft', async () => {
+ const controller = new ConversationController(); controller.identify('actor'); controller.setDraft('Original');
+ const id = crypto.randomUUID(); const generate = vi.fn(async () => { throw new Error('lost response'); });
+ await controller.send(undefined, generate, [], async () => ({ id }));
+ const turnId = controller.snapshot().turns[0].request.turnId;
+ controller.setDraft('Next question');
+ const message = { id: crypto.randomUUID(), turnId, role: 'user' as const, text: 'Original', sequence: 1, revision: crypto.randomUUID(), createdAt: new Date().toISOString() };
+ expect(await controller.recover(async () => ({ thread: { id }, status: 'inflight', user: message, assistant: null }))).toBe(false);
+ expect(controller.snapshot().recoveryRequired).toBe(true);
+ expect(await controller.recover(async () => ({ thread: { id }, status: 'settled', user: message, assistant: { ...message, id: crypto.randomUUID(), role: 'assistant', text: 'Stored final', sequence: 2 } }))).toBe(true);
+ expect(controller.snapshot()).toMatchObject({ recoveryRequired: false, recovering: false, draft: 'Next question', conversationId: id });
+ expect(controller.snapshot().turns[0].recovered?.[1].text).toBe('Stored final');
+ expect(generate).toHaveBeenCalledTimes(1);
+});
+
+it('does not release an uncertain turn for missing, mismatched or late actor readback', async () => {
+ const controller = new ConversationController(); controller.identify('actor'); controller.setDraft('Original');
+ const id = crypto.randomUUID(); await controller.send(undefined, async () => { throw new Error('lost'); }, [], async () => ({ id }));
+ expect(await controller.recover(async () => ({ thread: { id }, status: 'not_found', user: null, assistant: null }))).toBe(false);
+ expect(controller.snapshot().recoveryRequired).toBe(true);
+ let resolve!: (value: import('@/components/assistant/conversation-state').ConversationRecovery) => void;
+ const pending = controller.recover(() => new Promise(done => { resolve = done; }));
+ controller.identify('another-actor');
+ resolve({ thread: { id }, status: 'failed', user: null, assistant: null }); await pending;
+ expect(controller.snapshot().conversationId).not.toBe(id); expect(controller.snapshot().turns).toEqual([]);
 });

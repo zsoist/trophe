@@ -50,7 +50,7 @@ export function VoiceCapture({ controller, state, disabled, conversationId, tran
       onSend={onSend ? message => onSend(result, message) : undefined} onDiscard={reset} onRerecord={() => { setResult(null); start(); }} />;
     return compact ? <div className={styles.compactVoiceReview}>{review}</div> : review;
   }
-  return <details className={`${styles.attachments} ${compact ? styles.compactVoice : ''}`} onToggle={event => { if (!event.currentTarget.open && (active || processing)) reset(); }}>
+  return <details data-coach-popover className={`${styles.attachments} ${compact ? styles.compactVoice : ''}`} onToggle={event => { if (!event.currentTarget.open && (active || processing)) reset(); }}>
     <summary aria-label={t('global_coach.voice')}><Mic size={19} aria-hidden="true" /><span className={compact ? 'sr-only' : undefined}>{t('global_coach.voice')}</span></summary>
     <div className={styles.voiceBody}>
     {!compact && <p>{t(transcribe ? 'global_coach.voice_connected' : 'global_coach.voice_local')}</p>}

@@ -41,3 +41,17 @@ it('correlates a rename with thread, title and a newer revision', async () => {
  respond({ thread: { ...thread, id: other, title: 'New name', revision: '3' } });
  await expect(requestHistory.rename!(id, 'New name', '2', new AbortController().signal)).rejects.toThrow('history_mismatch');
 });
+
+it('validates exact terminal recovery without trusting a mismatched turn or assistant', async () => {
+ const user = { ...message, role: 'user', sequence: 1 };
+ const assistant = { ...message, id: crypto.randomUUID(), sequence: 2 };
+ respond({ thread, turnId: other, status: 'settled', user, assistant });
+ expect((await requestHistory.recover!(id, other, new AbortController().signal)).status).toBe('settled');
+ expect(fetch).toHaveBeenCalledWith('/api/coach-assistant', expect.objectContaining({ body: expect.stringContaining('"operation":"recover"') }));
+ respond({ thread, turnId: other, status: 'settled', user, assistant: { ...assistant, turnId: id } });
+ await expect(requestHistory.recover!(id, other, new AbortController().signal)).rejects.toThrow();
+ respond({ thread, turnId: other, status: 'inflight', user, assistant });
+ await expect(requestHistory.recover!(id, other, new AbortController().signal)).rejects.toThrow();
+ respond({ thread, turnId: other, status: 'inflight', user, assistant: null });
+ expect((await requestHistory.recover!(id, other, new AbortController().signal)).status).toBe('inflight');
+});
