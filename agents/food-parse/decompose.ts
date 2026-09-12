@@ -119,6 +119,7 @@ interface DecomposeInput {
   rawText: string;
   region?: string;
   beforeTransportAttempt?: (endpoint: string) => unknown;
+  providerTransport?: typeof invokeStructuredProvider;
 }
 
 const COUNT_UNITS = new Set([
@@ -201,6 +202,7 @@ async function llmDecompose(
   dishName: string,
   unit: string,
   beforeTransportAttempt?: (endpoint: string) => unknown,
+  providerTransport: typeof invokeStructuredProvider = invokeStructuredProvider,
 ): Promise<DecompositionResult | null> {
   // Cache decompositions per unit. The caller applies quantity after
   // aggregation; including it here would scale the result twice.
@@ -212,7 +214,7 @@ async function llmDecompose(
       prompt,
       systemPrompt: getDecomposePrompt(),
       context: { metadata: { operation: 'dish-decompose' } },
-      invoke: ({ policy: selected, signal }) => invokeStructuredProvider({
+      invoke: ({ policy: selected, signal }) => providerTransport({
         policy: selected,
         signal,
         system: getDecomposePrompt(),
@@ -410,6 +412,7 @@ export async function decomposeAndLookup(input: DecomposeInput): Promise<ParsedF
     input.foodName,
     input.unit,
     input.beforeTransportAttempt,
+    input.providerTransport,
   );
   if (!decomposition) return null;
 

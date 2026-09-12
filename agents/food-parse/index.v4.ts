@@ -943,6 +943,7 @@ async function estimateMacrosViaLLM(
     provenGrams?: number;
   }[],
   beforeTransportAttempt?: (endpoint: string) => unknown,
+  providerTransport: typeof invokeStructuredProvider = invokeStructuredProvider,
 ): Promise<(MacroEstimate | null)[]> {
   if (items.length === 0) return [];
 
@@ -956,7 +957,7 @@ async function estimateMacrosViaLLM(
       prompt: userMessage,
       systemPrompt: MACRO_ESTIMATE_PROMPT,
       context: { metadata: { operation: 'macro-estimate' } },
-      invoke: ({ policy: selected, signal }) => invokeStructuredProvider({
+      invoke: ({ policy: selected, signal }) => providerTransport({
         policy: selected,
         signal,
         system: MACRO_ESTIMATE_PROMPT,
@@ -1013,10 +1014,15 @@ export async function run(
     metadata?: Record<string, unknown>;
     /** Bound OpenAI attempts for controlled eval probes without changing normal traffic. */
     maxProviderAttempts?: number;
+    /** Server-owned admission wrapper, reused by every paid pipeline phase. */
+    providerTransport?: typeof invokeStructuredProvider;
+    /** Governed callers stop on malformed extraction instead of a repair attempt. */
+    allowSchemaRepair?: boolean;
     beforeTransportAttempt?: (endpoint: string) => unknown;
     onGenerationId?: (generationId: string) => void;
   },
 ): Promise<FoodParseRunResultV4> {
+  const providerTransport = opts?.providerTransport ?? invokeStructuredProvider;
   const pipelineDeadlineAt = performance.now() + FOOD_PARSE_PIPELINE_BUDGET_MS;
   const MAX_INPUT_LENGTH = 500;
   const trimmedText = input.text.trim();
@@ -1226,7 +1232,7 @@ export async function run(
         requestId: opts?.requestId,
         metadata: { pipelineVersion: FOOD_PARSE_VERSION, ...opts?.metadata },
       },
-      invoke: ({ policy: selected, signal }) => invokeStructuredProvider({
+      invoke: ({ policy: selected, signal }) => providerTransport({
         policy: selected,
         signal,
         system: PROMPT_TEMPLATE,
@@ -1306,7 +1312,7 @@ export async function run(
   }
 
   let v4Parsed: V4LLMOutput | null = llmResult.output;
-  if (!v4Parsed) {
+  if (!v4Parsed && opts?.allowSchemaRepair !== false) {
     try {
       const repair = await executeAiTask({
         task: 'food_parse',
@@ -1317,7 +1323,7 @@ export async function run(
           requestId: opts?.requestId,
           metadata: { pipelineVersion: FOOD_PARSE_VERSION, operation: 'schema-repair', ...opts?.metadata },
         },
-        invoke: ({ policy: selected, signal }) => invokeStructuredProvider({
+        invoke: ({ policy: selected, signal }) => providerTransport({
           policy: selected,
           signal,
           system: PROMPT_TEMPLATE,
@@ -1539,6 +1545,7 @@ export async function run(
         rawText: item.raw_text,
         region: regionCode,
         beforeTransportAttempt: opts?.beforeTransportAttempt,
+        providerTransport,
       });
     }),
   );
@@ -1861,6 +1868,7 @@ export async function run(
         rawText: fallback.candidate.raw_text,
         region: regionCode,
         beforeTransportAttempt: opts?.beforeTransportAttempt,
+        providerTransport,
       });
     }),
   );
@@ -1889,7 +1897,7 @@ export async function run(
         raw_text: f.candidate.raw_text,
         unprovenMetricUnit: f.unprovenMetricUnit,
         provenGrams: f.provenGrams,
-      })), opts?.beforeTransportAttempt);
+      })), opts?.beforeTransportAttempt, providerTransport);
 
     for (let i = 0; i < dbMissFallbacks.length; i++) {
       const { index, candidate, unprovenMetricUnit } = dbMissFallbacks[i];

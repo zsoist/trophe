@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { FOOD_PARSE_MAX_ITEMS } from '@/agents/food-parse/pipeline-budget';
 import { LIVE_PRICING_VERSION, LIVE_RUNTIME_MAX_SECONDS, liveReservationNanoUsd, liveMeasuredChargeNanoUsd } from '@/lib/voice-live/pricing';
 import { COACH_PILOT_BUDGET_USD, COACH_PRICING, COACH_PRICING_VERSION } from './economics';
 import {HAIKU_MODEL,LUNA_MODEL,TRANSCRIPTION_MODEL} from '@/agents/router/policies';
@@ -7,6 +8,11 @@ import {LEGACY_PHOTO_PILOT_PRICING_VERSION,PHOTO_PILOT_PRICING_VERSION} from '@/
 export const USD_IN_NANODOLLARS=1_000_000_000;
 /** Worst supported input tier is cache write; output already includes reasoning. */
 export const COACH_ATTEMPT_RESERVATION_NANO_USD=8000*Math.round(Math.max(COACH_PRICING.input,COACH_PRICING.read,COACH_PRICING.write)*1000)+2000*Math.round(COACH_PRICING.output*1000);
+/** Native Food includes its established long prompt and schema; same Luna rates,
+ * a conservative UTF-8 input ceiling, and the same shared daily authority. */
+// Extraction + at most two decompositions per item + one batch estimate; no repair/retry.
+export const TEXT_FOOD_MAX_PHASES=2+2*FOOD_PARSE_MAX_ITEMS;
+export const TEXT_FOOD_ATTEMPT_RESERVATION_NANO_USD=64000*Math.round(Math.max(COACH_PRICING.input,COACH_PRICING.read,COACH_PRICING.write)*1000)+2000*Math.round(COACH_PRICING.output*1000);
 export const STT_ATTEMPT_RESERVATION_NANO_USD=30_000_000;
 export const PHOTO_ATTEMPT_RESERVATION_NANO_USD=80_000_000;
 const nano=z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
@@ -19,7 +25,7 @@ const bindingBase={
 // so existing ledger rows remain auditable; no new runtime path issues them.
 export const pilotAttemptBindingSchema=z.union([
   z.object({...bindingBase,model:z.literal('gpt-live-1'),pricingVersion:z.literal(LIVE_PRICING_VERSION),reservedNanoUsd:nano,maxDurationSeconds:z.number().int().min(1).max(LIVE_RUNTIME_MAX_SECONDS)}).strict().refine(b=>b.reservedNanoUsd===liveReservationNanoUsd(b.maxDurationSeconds)),
-  z.object({...bindingBase,model:z.literal(LUNA_MODEL),pricingVersion:z.literal(COACH_PRICING_VERSION),reservedNanoUsd:z.literal(COACH_ATTEMPT_RESERVATION_NANO_USD)}).strict(),
+  z.object({...bindingBase,model:z.literal(LUNA_MODEL),pricingVersion:z.literal(COACH_PRICING_VERSION),reservedNanoUsd:z.union([z.literal(COACH_ATTEMPT_RESERVATION_NANO_USD),z.literal(TEXT_FOOD_ATTEMPT_RESERVATION_NANO_USD)])}).strict(),
   z.object({...bindingBase,model:z.literal(LUNA_MODEL),pricingVersion:z.literal(PHOTO_PILOT_PRICING_VERSION),reservedNanoUsd:z.literal(PHOTO_ATTEMPT_RESERVATION_NANO_USD)}).strict(),
   z.object({...bindingBase,model:z.literal(TRANSCRIPTION_MODEL),pricingVersion:z.literal('gpt-4o-mini-transcribe-2026-09-09'),reservedNanoUsd:z.literal(STT_ATTEMPT_RESERVATION_NANO_USD)}).strict(),
   z.object({...bindingBase,model:z.literal(HAIKU_MODEL),pricingVersion:z.literal(LEGACY_PHOTO_PILOT_PRICING_VERSION),reservedNanoUsd:z.literal(PHOTO_ATTEMPT_RESERVATION_NANO_USD)}).strict(),
@@ -113,7 +119,7 @@ export function decidePilotBudgetCommand(snapshot:{pilotId:string;budgetDay:stri
   if(command.operation==='reserve') {
     if(previous)return unchanged();
     const total=snapshot.chargedNanoUsd+command.binding.reservedNanoUsd;
-    if(snapshot.accountingBlocked||snapshot.turnAttemptCount>=2||!Number.isSafeInteger(total)||total>snapshot.capNanoUsd)return failure('budget_blocked');
+    if(snapshot.accountingBlocked||snapshot.turnAttemptCount>=(command.binding.reservedNanoUsd===TEXT_FOOD_ATTEMPT_RESERVATION_NANO_USD?TEXT_FOOD_MAX_PHASES:2)||!Number.isSafeInteger(total)||total>snapshot.capNanoUsd)return failure('budget_blocked');
     return {ok:true,record:{binding:structuredClone(command.binding),admissionDay:snapshot.budgetDay,state:'reserved',chargedNanoUsd:command.binding.reservedNanoUsd,usage:null,accountingAlert:false},write:'insert',chargeDeltaNanoUsd:command.binding.reservedNanoUsd,dispatchGranted:false};
   }
   if(!previous)return failure('not_found');

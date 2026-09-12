@@ -5,6 +5,8 @@ import { providerErrorTelemetry } from '@/agents/runtime/provider-error';
 import { COACH_PRICING_VERSION } from './economics';
 import {
   COACH_ATTEMPT_RESERVATION_NANO_USD,
+  TEXT_FOOD_ATTEMPT_RESERVATION_NANO_USD,
+  TEXT_FOOD_MAX_PHASES,
   USD_IN_NANODOLLARS,
   executePilotBudgetCommand,
   providerFailureDiagnosticSchema,
@@ -24,6 +26,7 @@ export interface GovernedAttemptTrace {
   state:GovernedAttemptState;providerCalled:boolean;error:string|null;providerFailure:ProviderFailureDiagnostic|null;
 }
 const issuedTransports=new WeakSet<GovernedCoachTransport>();
+const issuedFoodTransports=new WeakSet<GovernedCoachTransport>();
 
 const digest=(value:unknown)=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 function stableId(parts:string[]):string {
@@ -57,15 +60,20 @@ function providerFailure(error:unknown):{
 export function createGovernedCoachTransport(input:{
   pilotId:string;actorId:string;turnId:string;identityParts:string[];mode:'injected'|'live';store:PilotBudgetStore;signal:AbortSignal;
   transport:GovernedCoachTransport;allowedPromptVersions:readonly string[];
+  /** Composition-root only; native Food prompt needs a larger conservative reservation. */
+  reservationProfile?:'food_parse';
 }){
+  const reservation=input.reservationProfile==='food_parse'?TEXT_FOOD_ATTEMPT_RESERVATION_NANO_USD:COACH_ATTEMPT_RESERVATION_NANO_USD;
+  const maximumPhases=input.reservationProfile==='food_parse'?TEXT_FOOD_MAX_PHASES:2;
   const attempts:GovernedAttemptTrace[]=[];
   const transport:GovernedCoachTransport=async request=>{
+    if(input.reservationProfile==='food_parse'&&new TextEncoder().encode(JSON.stringify({system:request.system,prompt:request.prompt,schema:request.schema})).length>63500)throw new Error('context_limit');
     const invocation=attempts.length+1;
-    if(invocation>2||request.policy.model!=='gpt-5.6-luna'||request.policy.provider!=='openai'||request.policy.reasoningEffort!=='low'
+    if(invocation>maximumPhases||request.policy.model!=='gpt-5.6-luna'||request.policy.provider!=='openai'||request.policy.reasoningEffort!=='low'
       ||request.maxTokens!==2000||request.maxAttempts!==1||!input.allowedPromptVersions.includes(request.policy.promptVersion))throw new Error('budget_blocked');
     const binding:PilotAttemptBinding={pilotId:input.pilotId,actorId:input.actorId,
       attemptId:stableId([...input.identityParts,`attempt-${invocation}`]),agentRunId:stableId([...input.identityParts,`agent-run-${invocation}`]),turnId:input.turnId,
-      model:'gpt-5.6-luna',pricingVersion:COACH_PRICING_VERSION,requestHash:digest({policy:request.policy,system:request.system,prompt:request.prompt,schema:request.schema,maxTokens:request.maxTokens}),reservedNanoUsd:COACH_ATTEMPT_RESERVATION_NANO_USD};
+      model:'gpt-5.6-luna',pricingVersion:COACH_PRICING_VERSION,requestHash:digest({policy:request.policy,system:request.system,prompt:request.prompt,schema:request.schema,maxTokens:request.maxTokens}),reservedNanoUsd:reservation};
     const trace:GovernedAttemptTrace={attemptId:binding.attemptId,agentRunId:binding.agentRunId,requestId:null,requestedModel:'gpt-5.6-luna',returnedModel:null,reservationNanoUsd:binding.reservedNanoUsd,usage:null,pricedUsageNanoUsd:null,latencyMs:null,state:'blocked',providerCalled:false,error:null,providerFailure:null};attempts.push(trace);
     const reserve=input.mode==='live'?await reserveCoachPilotAttempt(binding,input.store,request.signal):await executePilotBudgetCommand({operation:'reserve',binding},input.store,request.signal);
     if(!reserve.ok){trace.state=reserve.error==='uncertain'?'unknown':'blocked';trace.error=reserve.error;throw new Error('budget_blocked');}
@@ -96,9 +104,14 @@ export function createGovernedCoachTransport(input:{
     }
   };
   issuedTransports.add(transport);
-  return {transport,attempts,reservedMaximumUsd:2*COACH_ATTEMPT_RESERVATION_NANO_USD/USD_IN_NANODOLLARS};
+  if(input.reservationProfile==='food_parse')issuedFoodTransports.add(transport);
+  return {transport,attempts,reservedMaximumUsd:maximumPhases*reservation/USD_IN_NANODOLLARS};
 }
 
 export function isGovernedCoachTransport(value:unknown):value is GovernedCoachTransport {
   return typeof value==='function'&&issuedTransports.has(value as GovernedCoachTransport);
+}
+
+export function isGovernedFoodParseTransport(value:unknown):value is GovernedCoachTransport {
+  return typeof value==='function'&&issuedFoodTransports.has(value as GovernedCoachTransport);
 }
