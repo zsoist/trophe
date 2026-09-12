@@ -44,7 +44,18 @@ interface ParsedFoodListProps {
 }
 
 /** Volume units where we display ml/L/cl instead of grams */
-const VOLUME_UNITS = new Set(['ml', 'l', 'cl', 'fl_oz', 'fl oz']);
+const VOLUME_UNITS = new Set(['ml', 'l', 'cl', 'dl', 'fl_oz', 'fl oz']);
+/** Millilitres per display unit — the row's own unit sets the edit scale. */
+const VOLUME_ML_PER_UNIT: Record<string, number> = {
+  ml: 1,
+  cl: 10,
+  dl: 100,
+  l: 1_000,
+  fl_oz: 29.5735,
+  'fl oz': 29.5735,
+};
+/** One stepper tap moves ~50 ml, expressed in the row's display unit. */
+const VOLUME_STEP_ML = 50;
 const MAX_EDITABLE_GRAMS = 15_000;
 const subscribeToClient = () => () => {};
 const getClientSnapshot = () => true;
@@ -93,13 +104,36 @@ export function isVolumeUnit(unit: string): boolean {
   return VOLUME_UNITS.has(unit.toLowerCase());
 }
 
+/**
+ * Stepper increment in the row's own display unit. Millilitre rows step 50,
+ * centilitre rows 5, litre rows 0.05 — all ≈50 ml. The old code hard-coded 50
+ * display units, so a litre row stepped 50 L (collapsing to the 5 g floor).
+ */
+export function getVolumeStepAmount(unit: string): number {
+  const mlPerUnit = VOLUME_ML_PER_UNIT[unit.toLowerCase()] ?? 1;
+  const step = VOLUME_STEP_ML / mlPerUnit;
+  return step >= 1
+    ? Math.round(step * 100) / 100
+    : Math.round(step * 1_000) / 1_000;
+}
+
+/** Round a volume amount without flattening sub-unit values (0.33 l stays 0.33). */
+function roundVolumeDisplay(amount: number): number {
+  if (!Number.isFinite(amount)) return amount;
+  if (amount >= 10) return Math.round(amount);
+  if (amount >= 1) return Math.round(amount * 10) / 10;
+  return Math.round(amount * 100) / 100;
+}
+
 /** Get the display quantity for volume items (derived from gram ratio) */
 export function getDisplayQuantity(item: ParsedFoodItem): number {
   if (!isVolumeUnit(item.unit)) return item.grams;
   // Preserve the original quantity-to-grams ratio
   // e.g. 450ml coke → grams=450 (density ~1), display=450ml
   const gramsPerInputUnit = item.quantity > 0 ? item.grams / item.quantity : 1;
-  return Math.round(item.grams / gramsPerInputUnit);
+  // Sub-unit volumes (0.5 l, 0.33 l) must survive display — integer rounding
+  // used to turn a half-litre row into "1 l".
+  return roundVolumeDisplay(item.grams / gramsPerInputUnit);
 }
 
 // ── W4 "provenance passport" helpers ──
@@ -557,7 +591,7 @@ export default function ParsedFoodList({
                           </span>
                         )}
                         {item.db_source === 'off' && (
-                          <span className="text-xs text-[var(--content-muted)]">community data</span>
+                          <span className="text-xs text-[var(--content-muted)]">{t('food.community_data')}</span>
                         )}
                       </div>
                     );
@@ -578,7 +612,7 @@ export default function ParsedFoodList({
                   const vol = isVolumeUnit(item.unit);
                   const natural = naturalPortion;
                   const humanUnit = vol || natural;
-                  const step = vol ? 50 : natural ? 0.25 : 25;
+                  const step = vol ? getVolumeStepAmount(item.unit) : natural ? 0.25 : 25;
                   const displayVal = vol
                     ? getDisplayQuantity(item)
                     : natural
@@ -594,7 +628,8 @@ export default function ParsedFoodList({
                   const maxDisplay = humanUnit
                     ? getPortionDisplayAmount(MAX_EDITABLE_GRAMS, gramsPerDisplayUnit)
                     : MAX_EDITABLE_GRAMS;
-                  const minDisplay = natural ? 0.01 : 1;
+                  // Volume rows must accept sub-unit values (0.5 l, 0.33 l).
+                  const minDisplay = humanUnit ? 0.01 : 1;
 
                   // W5: only the stepper-touched row rolls its grams figure —
                   // typing (focus) suspends the overlay so the caret stays visible.
@@ -621,8 +656,8 @@ export default function ParsedFoodList({
                           <input
                             ref={(node) => { amountInputRefs.current[index] = node; }}
                             type="number"
-                            inputMode={natural ? 'decimal' : 'numeric'}
-                            step={natural ? 0.25 : 1}
+                            inputMode={humanUnit ? 'decimal' : 'numeric'}
+                            step={natural ? 0.25 : vol ? step : 1}
                             value={typingIndex === index
                               ? (amountDrafts[index] ?? String(displayVal))
                               : displayVal}
@@ -664,7 +699,7 @@ export default function ParsedFoodList({
                             >
                               <AnimatedValue
                               value={displayVal}
-                              decimals={natural ? 2 : 0}
+                              decimals={natural || vol ? 2 : 0}
                               duration={220}
                                 grouped={false}
                                 startAt={touchSeed}
@@ -847,13 +882,13 @@ export default function ParsedFoodList({
                   placeholder={t('food.answer_refine_placeholder')}
                   disabled={logging}
                   className="input-dark flex-1 text-xs py-1.5 text-base"
-                  aria-label="Answer the clarification question"
+                  aria-label={t('food.answer_aria')}
                 />
                 <button
                   onClick={submitClarification}
                   disabled={!clarifyAnswer.trim() || logging}
                   className="px-2.5 rounded-lg border border-[var(--status-warning-border)] text-[var(--status-warning-fg)] hover:bg-[var(--status-warning-bg)] disabled:opacity-40 transition-colors flex items-center min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-                  aria-label="Submit answer and re-analyze"
+                  aria-label={t('food.answer_submit_aria')}
                 >
                   <CornerDownLeft size={13} />
                 </button>

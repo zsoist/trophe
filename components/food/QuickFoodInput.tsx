@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useId } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Send, Camera, Barcode, Loader2, Mic, MicOff, Plus, CheckCircle2, RotateCcw, X, HelpCircle } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
@@ -106,6 +106,9 @@ type RetryAction = 'text' | 'photo' | 'voice';
 
 export default function QuickFoodInput({ userId, mealType, date, onLogged, showCalories = false, manualOnly = false }: QuickFoodInputProps) {
   const { t, lang } = useI18n();
+  // Unique per-instance prefix so the manual-form labels stay associated with
+  // their own inputs even when several QuickFoodInput mounts coexist.
+  const manualFieldId = useId();
   const reducedMotion = useReducedMotion();
   const [text, setText] = useState('');
   const [showBarcode, setShowBarcode] = useState(false);
@@ -256,7 +259,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
       if (err instanceof DOMException && err.name === 'AbortError') {
         setError(t('food.err_timeout'));
       } else {
-        setError('Failed to parse food — check your connection');
+        setError(t('food.parse_failed_connection'));
       }
       setRetryCount(prev => prev + 1);
       setMode('idle');
@@ -294,7 +297,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
 
   const processImageFile = async (file: File) => {
     if (!file.type.startsWith('image/')) {
-      setError('Please choose an image file.');
+      setError(t('food.photo_invalid_type'));
       return;
     }
     if (parseBusyRef.current || logging) return;
@@ -362,9 +365,9 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
       setMode('confirming');
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
-        setError('Photo analysis timed out — try again');
+        setError(t('food.photo_timeout'));
       } else {
-        setError('Failed to analyze photo — check your connection');
+        setError(t('food.photo_failed_connection'));
       }
       setRetryCount(prev => prev + 1);
       setMode('idle');
@@ -551,7 +554,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
       user_id: userId,
       logged_date: date,
       meal_type: mealType,
-      food_name: value.name || `Quick add — ${value.calories} kcal`,
+      food_name: value.name || t('food.quick_add_fallback', { kcal: value.calories }),
       quantity: 1,
       unit: 'serving',
       calories: value.calories,
@@ -827,14 +830,14 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
             }}
             placeholder={t('food.answer_placeholder')}
             className="input-dark flex-1 text-sm py-2 text-base"
-            aria-label="Answer the clarification question"
+            aria-label={t('food.answer_aria')}
             autoFocus
           />
           <button
             onClick={submitQuestionAnswer}
             disabled={!questionAnswer.trim()}
             className="btn-gold px-4 text-sm flex items-center gap-1 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-            aria-label="Submit answer"
+            aria-label={t('food.answer_submit_aria')}
           >
             <Send size={14} />
           </button>
@@ -908,14 +911,15 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
           type="text"
           value={manualName}
           onChange={(e) => setManualName(e.target.value)}
-          placeholder="Food name (optional)"
+          placeholder={t('food.manual_name_placeholder')}
           className="input-dark w-full text-sm py-2 text-base"
           maxLength={200}
         />
         <div className="grid grid-cols-4 gap-2">
           <div>
-            <label className="text-xs text-[var(--content-muted)] mb-0.5 block">kcal *</label>
+            <label htmlFor={`${manualFieldId}-kcal`} className="text-xs text-[var(--content-muted)] mb-0.5 block">{t('food.manual_kcal_label')}</label>
             <input
+              id={`${manualFieldId}-kcal`}
               type="number"
               value={manualCal}
               onChange={(e) => setManualCal(e.target.value)}
@@ -929,8 +933,9 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
             />
           </div>
           <div>
-            <label className="text-xs text-[var(--content-muted)] mb-0.5 block">Protein</label>
+            <label htmlFor={`${manualFieldId}-protein`} className="text-xs text-[var(--content-muted)] mb-0.5 block">{t('food.edit.protein')}</label>
             <input
+              id={`${manualFieldId}-protein`}
               type="number"
               value={manualProtein}
               onChange={(e) => setManualProtein(e.target.value)}
@@ -943,8 +948,9 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
             />
           </div>
           <div>
-            <label className="text-xs text-[var(--content-muted)] mb-0.5 block">Carbs</label>
+            <label htmlFor={`${manualFieldId}-carbs`} className="text-xs text-[var(--content-muted)] mb-0.5 block">{t('food.edit.carbs')}</label>
             <input
+              id={`${manualFieldId}-carbs`}
               type="number"
               value={manualCarbs}
               onChange={(e) => setManualCarbs(e.target.value)}
@@ -957,8 +963,9 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
             />
           </div>
           <div>
-            <label className="text-xs text-[var(--content-muted)] mb-0.5 block">Fat</label>
+            <label htmlFor={`${manualFieldId}-fat`} className="text-xs text-[var(--content-muted)] mb-0.5 block">{t('food.edit.fat')}</label>
             <input
+              id={`${manualFieldId}-fat`}
               type="number"
               value={manualFat}
               onChange={(e) => setManualFat(e.target.value)}
@@ -1057,7 +1064,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
           onClick={() => fileInputRef.current?.click()}
           disabled={mode !== 'idle'}
           className="flex items-center gap-1.5 text-[var(--content-muted)] hover:gold-text text-xs transition-colors py-1 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-          aria-label="Take or upload a food photo"
+          aria-label={t('food.photo_pick_aria')}
         >
           <Camera size={14} />
           Photo
@@ -1082,7 +1089,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
         <button
           onClick={() => setShowBarcode(true)}
           className="flex items-center gap-1.5 text-[var(--content-muted)] hover:gold-text text-xs transition-colors py-1 ml-auto min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-          aria-label="Scan a barcode"
+          aria-label={t('food.barcode_scan_aria')}
         >
           <Barcode size={14} />
           Barcode

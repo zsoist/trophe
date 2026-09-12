@@ -110,7 +110,10 @@ export default function MealSlotCard({
   const [expanded, setExpanded] = useState(false);
   const [inputActive, setInputActive] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editQty, setEditQty] = useState(1);
+  // Raw draft string: coercing to a number on every keystroke made "0.5"
+  // impossible to type (typing "0" snapped the field to 1). Validation happens
+  // on save, where an empty/invalid draft surfaces food.edit.invalid.
+  const [editQty, setEditQty] = useState('1');
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
@@ -158,7 +161,7 @@ export default function MealSlotCard({
   const openEditor = (entry: FoodLogEntry) => {
     const ext = entry as FoodLogEntry & EntryExtras;
     setEditingId(entry.id);
-    setEditQty(entry.quantity || 1);
+    setEditQty(String(entry.quantity || 1));
     setDetailsOpen(false);
     setDirty(new Set());
     setEditError(null);
@@ -184,7 +187,10 @@ export default function MealSlotCard({
   // by the quantity factor and captures a correction row when AI-sourced.
   const saveQuick = async (entry: FoodLogEntry) => {
     if (saving) return;
-    const quickValidation = validateFoodLogEdit({ quantity: editQty });
+    const draft = editQty.trim();
+    const quickValidation = validateFoodLogEdit({
+      quantity: draft === '' ? Number.NaN : Number(draft),
+    });
     if (!quickValidation.ok) {
       setEditError(t('food.edit.invalid'));
       return;
@@ -511,10 +517,11 @@ export default function MealSlotCard({
                           <input
                             type="number"
                             value={editQty}
-                            onChange={(e) => setEditQty(parseFloat(e.target.value) || 1)}
+                            onChange={(e) => setEditQty(e.target.value)}
                             min={0.25}
                             step={0.25}
                             className="input-dark text-base sm:text-sm w-14 py-0.5 text-center"
+                            aria-label={t('food.edit.quantity_aria', { unit: entry.unit })}
                             autoFocus
                           />
                           <span className="text-[var(--content-muted)] text-xs">{entry.unit}</span>
@@ -677,7 +684,7 @@ export default function MealSlotCard({
                 <textarea
                   value={note}
                   onChange={(e) => saveNote(e.target.value)}
-                  placeholder="Add a note about this meal..."
+                  placeholder={t('food.add_note_placeholder')}
                   className="input-dark w-full text-base sm:text-sm resize-none min-h-11 py-1.5"
                   rows={1}
                   autoFocus
@@ -701,7 +708,7 @@ export default function MealSlotCard({
                     onClick={() => setInputActive(true)}
                     className="min-h-11 min-w-11 text-[var(--content-muted)] hover:gold-text text-xs transition-colors text-left py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                   >
-                    + Add more
+                    {t('food.add_more')}
                   </button>
                 ) : (
                   <div className="pt-2 w-full">
@@ -731,7 +738,7 @@ export default function MealSlotCard({
                   {!showNote && !note && (
                     <button
                       onClick={() => setShowNote(true)}
-                      aria-label="Add note"
+                      aria-label={t('food.add_note_aria')}
                       className="min-h-11 min-w-11 text-[var(--content-muted)] hover:text-[var(--content-secondary)] p-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                       title="Add note"
                     >
