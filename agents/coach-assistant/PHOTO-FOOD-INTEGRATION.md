@@ -23,7 +23,7 @@ creation service. The new small `insertReviewedPhotoFood` reuses their schema an
 builder to insert one reviewed item in the same transaction as proposal/receipt.
 AG1 may adopt it for native UI separately; this delivery does not change the UI.
 
-Photo v2 returns only normalized provider components. Neither the native route
+Photo v3 returns only normalized provider components. Neither the native route
 nor P5 completes recipes with assumed ingredients. A candidate marked
 needs_confirmation is rejected until the observation source resolves it.
 
@@ -65,15 +65,20 @@ production seam without invoking it during this delivery. Its composed
 `analyzeAndRecord` flow reads the exact normalized JPEG bytes directly from the
 private Storage adapter, verifies their SHA-256 digest, reauthorizes before and
 after Storage access, then invokes the existing `photo_analyze` task once with
-those bytes and the repository's fixed `photo-analyze.v2.md` prompt. It does not
+those bytes and the repository's fixed `photo-analyze.v3.md` prompt. It does not
 accept a URL, base64 image, prompt, task name or normalized foods from a browser.
 The integrating server supplies only the existing provider invocation callback;
 that callback receives a defensive copy of the verified JPEG bytes.
 
 The exact task result is represented by a process-local WeakMap proof. Output must
 contain one bounded `submit_food_photo_analysis` call under Luna's existing
-`photo-analyze-v2` policy. Historical v1 observations remain readable under the
-same authorization, attachment, generation, and ledger checks. Invalid candidates are not silently dropped and dish
+`photo-analyze-v3` policy. Historical v1/v2 observations remain readable under the
+same authorization, attachment, generation, and ledger checks. An absent identity
+assessment reads as `unassessed`; it is never upgraded to identified. New proposals
+and applications require `identity_status=identified`, separately from estimated
+portion weight. Uncertain components remain hypotheses for clarification or a
+separate canonical Food entry; changing a name never reuses their estimated macros.
+Previously applied receipts remain recoverable. Invalid candidates are not silently dropped and dish
 prior additions requiring confirmation are rejected. Recording accepts only that
 proof, locks the attachment again, checks current scope/digest/expiry and verifies
 the completed `agent_runs` row plus server-authored attachment metadata. A browser
