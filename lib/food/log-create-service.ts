@@ -3,6 +3,7 @@ import type { db } from '@/db/client';
 import { foodLog } from '@/db/schema/food';
 import { isParsedFoodItem,type ParsedFoodItem } from '@/agents/schemas/food-parse';
 import { buildReviewedFoodLogEntries } from '@/lib/food/reviewed-log-entry';
+import { selectFoodDisplayName } from '@/lib/food/display-name';
 import { foodLogAddSchema } from './log-create-validation';
 type Transaction=Parameters<Parameters<typeof db.transaction>[0]>[0];
 /** One explicitly reviewed photo-derived item; no client-supplied identity/source. */
@@ -22,4 +23,19 @@ export async function insertReviewedPhotoFood(tx:Transaction,scope:{entryId:stri
  const [entry]=buildReviewedFoodLogEntries({userId:ids.ownerUserId,date:validated.loggedDate,mealType:validated.mealType,inputSource:'photo',items:[input.item]});
  const [created]=await tx.insert(foodLog).values({id:ids.entryId,userId:entry.user_id,loggedDate:entry.logged_date,mealType:entry.meal_type,foodName:entry.food_name,quantity:entry.quantity,unit:entry.unit,calories:entry.calories,proteinG:entry.protein_g,carbsG:entry.carbs_g,fatG:entry.fat_g,fiberG:entry.fiber_g,sugarG:entry.sugar_g,parseConfidence:entry.parse_confidence,qtyInput:String(entry.qty_input),qtyInputUnit:entry.qty_input_unit,qtyG:String(entry.qty_g),foodId:entry.food_id,llmRecognized:entry.llm_recognized,source:entry.source,sourceId:`coach-photo:${ids.observationId}:${ids.itemIndex}`}).returning();
  if(!created)throw new Error('food_insert_missing');return created;
+}
+
+/** Text intake uses the same reviewed Food mapping; it never disguises text as photo evidence. */
+export function validateReviewedTextFood(item:ParsedFoodItem,date:string,mealType:unknown) {
+ if(!isParsedFoodItem(item)||item.portion_explicit!==true)throw new Error('invalid_input');
+ if([item.grams,item.quantity].some(value=>!Number.isFinite(value)||Math.abs(Math.round(value*100)-value*100)>1e-7))throw new Error('invalid_input');
+ return foodLogAddSchema.parse({foodName:selectFoodDisplayName(item),mealType,calories:item.calories,proteinG:item.protein_g,carbsG:item.carbs_g,fatG:item.fat_g,fiberG:item.fiber_g,foodId:item.db_food_id??undefined,qtyG:item.grams,qtyInput:item.quantity,qtyInputUnit:item.unit,parseConfidence:item.confidence,loggedDate:date});
+}
+export async function insertReviewedTextFood(tx:Transaction,scope:{entryId:string;ownerUserId:string;proposalId:string;itemIndex:number},input:{date:string;mealType:unknown;item:ParsedFoodItem}) {
+ const ids=z.object({entryId:z.string().uuid(),ownerUserId:z.string().uuid(),proposalId:z.string().uuid(),itemIndex:z.number().int().min(0).max(11)}).strict().parse(scope);
+ const validated=validateReviewedTextFood(input.item,input.date,input.mealType);
+ const [entry]=buildReviewedFoodLogEntries({userId:ids.ownerUserId,date:validated.loggedDate,mealType:validated.mealType,inputSource:'text',items:[input.item]});
+ const [created]=await tx.insert(foodLog).values({id:ids.entryId,userId:entry.user_id,loggedDate:entry.logged_date,mealType:entry.meal_type,foodName:entry.food_name,quantity:entry.quantity,unit:entry.unit,calories:entry.calories,proteinG:entry.protein_g,carbsG:entry.carbs_g,fatG:entry.fat_g,fiberG:entry.fiber_g,sugarG:entry.sugar_g,parseConfidence:entry.parse_confidence,qtyInput:String(entry.qty_input),qtyInputUnit:entry.qty_input_unit,qtyG:String(entry.qty_g),foodId:entry.food_id,llmRecognized:entry.llm_recognized,source:entry.source,sourceId:`coach-text:${ids.proposalId}:${ids.itemIndex}`}).returning();
+ if(!created||created.id!==ids.entryId||created.userId!==ids.ownerUserId)throw new Error('food_insert_missing');
+ return created;
 }
