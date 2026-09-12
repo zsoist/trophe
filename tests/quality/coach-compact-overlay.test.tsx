@@ -27,7 +27,7 @@ it('opens a compact conversation overlay with progressive media and history cont
   expect(screen.getByRole('button', { name: 'Send question' }).hasAttribute('disabled')).toBe(true);
   expect(screen.queryByText(/Up to 3 JPEG/)).toBeNull();
   expect(screen.queryByText(/Record up to 30 seconds/)).toBeNull();
-  expect(screen.getByRole('button', { name: 'Remove screen selection: Workout' })).toBeTruthy();
+  expect(screen.queryByRole('checkbox', { name: 'Include this screen · Workout' })).toBeNull();
 
   const menu = screen.getByLabelText('Saved conversations');
   const voice = screen.getByLabelText('Voice');
@@ -39,5 +39,6 @@ it('opens a compact conversation overlay with progressive media and history cont
   expect(document.activeElement).toBe(voice);
 
   fireEvent.click(menu);
+  expect(screen.getByRole('checkbox', { name: 'Include this screen · Workout' })).toBeTruthy();
   expect(screen.getByRole('button', { name: 'New conversation' })).toBeTruthy();
 });

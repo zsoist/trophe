@@ -15,7 +15,6 @@ it('stops local recording and TTS on visual close while keeping the draft', () =
  fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
  fireEvent.change(screen.getByRole('textbox', { name: 'Your question' }), { target: { value: 'Keep my draft' } });
  fireEvent.click(screen.getByLabelText('Voice'));
- fireEvent.click(screen.getByRole('button', { name: 'Record audio' }));
  expect(screen.getByRole('button', { name: 'Stop recording' })).toBeTruthy();
  const before = cancelSpeech.mock.calls.length;
  fireEvent.click(screen.getByRole('button', { name: 'Close Ask Trophē' }));

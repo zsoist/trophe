@@ -81,7 +81,8 @@ it('keeps the professional shell usable but does not send without a selected cli
  render(<I18nProvider defaultLang="en"><GlobalCoach professional identity={actor} example={transport} /></I18nProvider>);
  fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
  expect(screen.getByText('Select a client to ask about this screen.')).toBeTruthy();
- expect(screen.getByText('Booking')).toBeTruthy();
+ fireEvent.click(screen.getByRole('button', { name: 'Saved conversations' }));
+ expect(screen.getByRole('checkbox', { name: 'Include this screen · Booking' })).toBeTruthy();
  fireEvent.change(screen.getByLabelText('Your question'), { target: { value: 'Who is next?' } });
  expect(screen.getByRole('button', { name: 'Send question' }).hasAttribute('disabled')).toBe(true);
  expect(transport).not.toHaveBeenCalled();

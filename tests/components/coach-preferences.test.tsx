@@ -45,6 +45,7 @@ it('reviews before applying and displays an actual isolated receipt without chan
   fireEvent.change(screen.getByRole('textbox'), { target: { value: 'My profile' } });
   fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
   await screen.findByText('Your current records.');
+  fireEvent.click(screen.getByRole('button', { name: 'Saved conversations' }));
   fireEvent.click(screen.getByText('Your profile & memory'));
   fireEvent.change(screen.getByRole('combobox', { name: 'Workout duration' }), { target: { value: '20' } });
   fireEvent.click(screen.getByRole('button', { name: 'Review change' }));
