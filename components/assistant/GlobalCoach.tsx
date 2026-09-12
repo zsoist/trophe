@@ -395,6 +395,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   };
   const latestTurn = state.turns.findLast(turn => turn.response?.ok);
   const latestResponse = latestTurn?.response;
+  const latestPhotoTurn = state.turns.findLast(turn => Boolean(turn.request.attachments?.length));
   const professionalCapability = subjectId && subjectId !== identity
     ? latestResponse?.snapshot?.capabilities.find(item => item.key === surface as typeof item.key)
     : undefined;
@@ -510,7 +511,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
       {showLatest && <button type="button" className="min-h-11 px-4 text-sm" onClick={() => { followLatest.current = true; setShowLatest(false); log.current?.scrollTo({ top: log.current.scrollHeight }); }}>{t('global_coach.latest')}</button>}
       <form className={styles.composer} onSubmit={event => { event.preventDefault(); void send(); }}>
         <AttachmentPicker compact deferUpload maxPhotos={1} controller={attachments} state={attachmentState} conversationId={state.conversationId} transport={!example && (photoFoodEnabled && (state.durable || Boolean(preparePhotoConversation)) || latestResponse?.uploads?.images) ? requestAttachment : undefined} analysisEnabled={photoFoodEnabled} prepareConversation={photoFoodEnabled && !state.durable ? preparePhotoConversation : undefined} disabled={state.pending || coachActionBlocked} />
-        {photoFoodEnabled && latestResponse?.ok && !state.pending && attachmentState.items.filter(item => item.state === 'available' && item.reference?.status === 'available' && latestResponse.attachments?.some(ref => ref.id === item.reference?.id)).map(item => <button key={`food-${item.key}`} type="button" className={styles.contextToggle} disabled={photoFoodState.pending || coachActionBlocked} onClick={() => void photoFood.select(item.reference!.id, state.conversationId, photoFoodTransport ?? requestPhotoFood)}>{t('global_coach.photo_food_open')}</button>)}
+        {photoFoodEnabled && !state.pending && !professionalMode && latestPhotoTurn?.request.attachments?.filter(ref => ref.kind === 'image' && ref.status === 'available').map(ref => <button key={`food-${ref.id}`} type="button" className={styles.contextToggle} disabled={photoFoodState.pending || coachActionBlocked} onClick={() => void photoFood.select(ref.id, state.conversationId, photoFoodTransport ?? requestPhotoFood)}>{t('global_coach.photo_food_open')}</button>)}
         {includeScreen && <button type="button" className={styles.contextChip} onClick={() => setIncludeScreen(false)} aria-label={`${t('global_coach.remove_selection')}: ${selection?.label ?? t(`global_coach.${surface}`)}`}><span>{selection?.label ?? t(`global_coach.${surface}`)}</span><X size={14} aria-hidden="true" /></button>}
         <div className={styles.composeRail}>
         {!includeScreen && <button type="button" className={styles.restoreContext} onClick={() => setIncludeScreen(true)} aria-label={t('global_coach.include')}><Sparkles size={16} aria-hidden="true" /></button>}

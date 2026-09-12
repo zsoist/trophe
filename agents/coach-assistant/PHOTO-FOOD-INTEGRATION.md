@@ -189,3 +189,22 @@ refetch/recovery and UI provenance presentation. AG1's current history integrati
 has priority. The slice does not claim full photo-to-product activation or vision
 accuracy. Applied Food entries survive ordinary chat-history removal, consistent
 with the existing history cleanup contract; unapplied drafts are removable there.
+
+## Review availability after companion context limits
+
+The food observation and its explicit portion review do not depend on a successful
+conversational explanation. The UI offers the existing authorized Photo read from
+the submitted turn, including failed companion turns and remounts; the server
+still enforces observation scope, expiry, identity and revision on every action.
+
+The companion keeps complete identity notes and the 7,500-byte bound. General
+record explanations are sent in the selected response language only. If an
+otherwise reviewable photo still exceeds the bound and no other capability is
+selected, a deterministic response makes Photo review available and explicitly
+states that the additional explanation is unavailable. It invokes no companion
+provider and reserves no extra budget. It neither changes nor saves food.
+
+Uncertain and historically unassessed names use neutral component labels in the
+UI, companion payload and summary. Their original observations and complete notes
+remain unchanged. These labels do not resolve identity or make their macros
+eligible for logging. Identified items remain separately selectable and reviewable.

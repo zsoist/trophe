@@ -211,6 +211,7 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
   const facts=response.evidence;
   const entities=[...new Set(facts.flatMap(f=>f.sourceIds))].map((id,index)=>({alias:`entity:${index+1}`,evidenceRefs:facts.filter(f=>f.sourceIds.includes(id)).map(f=>f.id)}));
   const curated=availableGeneralExplanations(facts);
+  const spanish=response.snapshot?.language.startsWith('es')||/[¿¡]|\b(?:que|como|podria|comida|semana)\b/i.test(input.message.normalize('NFKD').replace(/\p{M}/gu,''));
   const boundDraftTarget=explicitDraftTarget(input.message);
   const boundSetTarget=explicitSetCorrectionTarget(input.message);
   const foodBinding=resolveFoodQuantityBinding(input.message,input.context?.surface??null,foodSelection);
@@ -225,8 +226,8 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
   const foodIntentAvailable=!capabilitySelected&&foodQuantityIntentsEnabled&&actionOutputAllowed&&foodBinding.kind!=='none'&&response.snapshot?.access==='self'&&Boolean(setSurface);
   const foodActionTarget=foodBinding.kind==='none'?null:foodBinding.target;
   const entryHintId=foodSelection?.status==='resolved'?foodSelection.snapshot.entryId:input.context?.includeScreen===true&&input.context.entity?.kind==='meal'?input.context.entity.id:null;
-  const payload={...(candidateEvaluation?{generalExplanations:curated.map(id=>({id,...GENERAL_EXPLANATIONS[id]}))}:{}),message:input.message,messageProvenance:{source:'current_user_message',trust:'untrusted_user_data',authority:'statement_only'},history:input.history??[],
-    photoObservations:photoObservations.map(observation=>({observationId:observation.observationId,attachmentId:observation.attachmentId,source:observation.source,trust:observation.trust,reviewRequired:observation.reviewRequired,items:observation.items.map(item=>({identity:item.identityStatus??'unassessed',name:item.foodName,note:item.accuracyNote}))})),
+  const payload={...(candidateEvaluation?{generalExplanations:curated.map(id=>({id,text:GENERAL_EXPLANATIONS[id][spanish?'es':'en']}))}:{}),message:input.message,messageProvenance:{source:'current_user_message',trust:'untrusted_user_data',authority:'statement_only'},history:input.history??[],
+    photoObservations:photoObservations.map(observation=>({observationId:observation.observationId,attachmentId:observation.attachmentId,source:observation.source,trust:observation.trust,reviewRequired:observation.reviewRequired,items:observation.items.map(item=>({identity:item.identityStatus??'unassessed',name:item.identityStatus==='identified'?item.foodName:'Unidentified food component',note:item.accuracyNote}))})),
     snapshot:response.snapshot?{surface:response.snapshot.surface,language:response.snapshot.language,units:response.snapshot.units,window:response.snapshot.window}:null,
     ...(capabilitySelected?{capabilityResult:response.capabilityResult}:{}),
     foodPreference:response.foodPreference?{preferences:response.foodPreference.preferences,version:response.foodPreference.version,source:'current_profile',meaning:'self_declared_preference_not_allergy_or_medical_instruction'}:null,
@@ -256,7 +257,18 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
     payload.history=payload.history.filter((_,index)=>index!==(assistant<0?0:assistant));
     historyTrimmed=true;prompt=JSON.stringify(payload);
   }
-  if(new TextEncoder().encode(system+prompt+JSON.stringify(schema)).length>7500)throw new Error('context_limit');
+  if(new TextEncoder().encode(system+prompt+JSON.stringify(schema)).length>7500) {
+    if(!photoObservations.length||capabilitySelected)throw new Error('context_limit');
+    // The authorized observation is already complete and reviewable. A companion
+    // prompt limit must not discard it or trigger another vision reservation.
+    // Leave full identity notes in the canonical Photo read, never truncate them.
+    signal.throwIfAborted();
+    response.output={answer:spanish
+      ?'La foto está lista para revisar. Abre la revisión para ver los alimentos, las porciones estimadas y las identidades por aclarar. No se ha guardado comida.'
+      :'The photo is ready to review. Open the review for foods, estimated portions and identities that need clarification. No food has been saved.',
+      evidenceRefs:[],limitations:[spanish?'La explicación adicional no está disponible en este mensaje.':'The additional explanation is unavailable in this message.'],suggestions:[],escalation:{required:false,reason:null,draft:null}};
+    return;
+  }
   if(historyTrimmed)response.output?.limitations.push('history_trimmed_for_context_budget');
   signal.throwIfAborted();
   response.telemetry.modelCalls++;
@@ -379,7 +391,6 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
     response.explanations=[...new Set(candidate.generalExplanationRefs)].map(id=>({kind:'curated_general',id,text:GENERAL_EXPLANATIONS[id][language],source:GENERAL_EXPLANATION_VERSION}));
   }
   const canonicalFacts=[...new Set(boundedOutput.facts.map(fragment=>fragment.evidenceId))].map(id=>facts.find(f=>f.id===id)!.statement);
-  const spanish=response.snapshot?.language.startsWith('es')||/[¿¡]|\b(?:que|como|podria|comida|semana)\b/i.test(input.message.normalize('NFKD').replace(/\p{M}/gu,''));
   const factsHeading=spanish?'Datos registrados:':'Recorded facts:';
   const limitationCodes=[...(response.output?.limitations??[]).filter(value=>value!=='open_ended_interpretation_not_connected'),...boundedOutput.limitations];
   const visibleLimitations=[...new Set(limitationCodes.flatMap(code=>{
@@ -388,7 +399,7 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
     if(code==='history_trimmed_for_context_budget')return [spanish?'Se usó solo la parte más reciente de la conversación.':'Only the most recent conversation context was used.'];
     return [];
   }))];
-  const photoNames=[...new Set(photoObservations.flatMap(observation=>observation.items.map(item=>item.identityStatus==='identified'?item.foodName.trim():`${spanish?'Identidad por aclarar':'Identity needs clarification'}: ${item.foodName.trim()}`)).filter(Boolean))];
+  const photoNames=[...new Set(photoObservations.flatMap(observation=>observation.items.map(item=>item.identityStatus==='identified'?item.foodName.trim():spanish?'Componente por identificar':'Unidentified food component')).filter(Boolean))];
   const photoSummary=photoNames.length?(spanish
     ?`Revisión de la foto: ${photoNames.join(', ')}. La identificación visual es una estimación y todavía no se ha guardado en Food.`
     :`Photo review: ${photoNames.join(', ')}. The visual identification is an estimate and has not been saved to Food.`):'';

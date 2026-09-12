@@ -58,12 +58,12 @@ it('keeps the same conversation and editable draft across real Food and Workout 
   expect(transport.mock.calls[1][0].context?.surface).toBe('food');
   expect(transport.mock.calls[1][0].history).toHaveLength(2);
 });
-it('offers Food review after the deliberate photo-and-question turn without an auxiliary chat turn', async () => {
+it.each([false,true])('offers Food review without another chat turn when companion failure is %s', async companionFailed => {
   const attachmentId = '00000000-0000-4000-8000-000000000002';
   const durableConversationId = '00000000-0000-4000-8000-000000000003';
   const attachment = { id: attachmentId, kind: 'image' as const, status: 'available' as const };
   const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => new Response(JSON.stringify(init?.method === 'POST' && JSON.parse(String(init.body)).message
-    ? { ...response(JSON.parse(String(init.body)), 'Photo response'), dataSource: 'authorized_records', attachments: [attachment], snapshot: { id: crypto.randomUUID(), capturedAt: new Date().toISOString(), subjectId: 'A', organizationId: crypto.randomUUID(), screenIncluded: false, actorRole: 'client', access: 'self', scopeKey: 'a'.repeat(64), surface: null, capabilities: [] } }
+    ? { ...response(JSON.parse(String(init.body)), 'Photo response'), ...(companionFailed?{ok:false,output:undefined,error:{code:'context_limit',retryable:true}}:{}), dataSource: 'authorized_records', attachments: [attachment], snapshot: { id: crypto.randomUUID(), capturedAt: new Date().toISOString(), subjectId: 'A', organizationId: crypto.randomUUID(), screenIncluded: false, actorRole: 'client', access: 'self', scopeKey: 'a'.repeat(64), surface: null, capabilities: [] } }
     : init?.method === 'PUT'
     ? { version: 'coach-assistant.v2', storage: 'private_storage', analysis: 'not_connected', ok: true, state: 'available', attachment }
     : { version: 'coach-assistant.v2', storage: 'private_storage', analysis: 'not_connected', ok: true, state: 'prepared', attachment: { ...attachment, status: 'pending' }, uploadToken: 'a'.repeat(64) }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
@@ -95,9 +95,13 @@ it('offers Food review after the deliberate photo-and-question turn without an a
   expect(screen.queryByRole('button', { name: 'Review food in photo' })).toBeNull();
   fireEvent.change(screen.getByRole('textbox', { name: 'Your question' }), { target: { value: 'What is in this photo?' } });
   fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
-  await screen.findByText('Photo response');
+  await screen.findByRole('button',{name:'Review food in photo'});
+  if(!companionFailed)expect(screen.getByText('Photo response')).toBeTruthy();
   expect(screen.getByText('Uploaded')).toBeTruthy();
   expect(screen.queryByText('Uploaded · not analyzed')).toBeNull();
+  view.unmount();
+  const resumed=render(<I18nProvider defaultLang="en"><GlobalCoach identity="A" photoFoodTransport={photoFoodTransport} historyTransport={historyTransport}/></I18nProvider>);
+  fireEvent.click(screen.getByRole('button',{name:'Ask Trophē'}));
   fireEvent.click(screen.getByRole('button', { name: 'Review food in photo' }));
   await screen.findByRole('button', { name: /Fixture rice/ });
   expect(fetchMock).toHaveBeenCalledTimes(3);
@@ -107,7 +111,7 @@ it('offers Food review after the deliberate photo-and-question turn without an a
   expect(photoFoodTransport).toHaveBeenCalledTimes(1);
   expect(photoFoodTransport.mock.calls[0][0]).toMatchObject({ operation: 'photo.food.read', attachmentId, conversationId: durableConversationId });
   expect(screen.queryByText('Recorded summary')).toBeNull();
-  view.unmount();
+  resumed.unmount();
 });
 it('keeps one conversation while rebinding each Food, Workout and Progress turn to its active surface', async () => {
   HTMLElement.prototype.scrollTo = vi.fn();

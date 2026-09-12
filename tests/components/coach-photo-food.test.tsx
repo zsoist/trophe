@@ -28,7 +28,7 @@ it.each(['uncertain','unassessed'] as const)('keeps %s identities readable witho
  const openLog=vi.fn();function View(){const state=React.useSyncExternalStore(controller.subscribe,controller.snapshot);return <I18nProvider defaultLang="en"><PhotoFoodPanel controller={controller} state={state} transport={transport} onOpenFoodLog={openLog}/></I18nProvider>}
  render(<View/>);
  expect(screen.getByText('Estimate')).toBeTruthy();
- expect(screen.getByRole('button',{name:identityStatus==='uncertain'?'Fixture rice · Possible identification':'Fixture rice · Identity not reviewed'})).toBeTruthy();
+ expect(screen.getByRole('button',{name:identityStatus==='uncertain'?'Unidentified component 1 · Possible identification':'Unidentified component 1 · Identity not reviewed'})).toBeTruthy();
  expect(screen.queryByLabelText('Grams')).toBeNull();
  expect(screen.queryByRole('button',{name:'Review food entry'})).toBeNull();
  expect(screen.getByRole('link',{name:'Open food log'}).getAttribute('href')).toBe('/dashboard/log');

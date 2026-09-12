@@ -1,3 +1,4 @@
+import photoV3Foods from '../../tests/fixtures/coach-photo-v3-observation.json';
 import { describe, expect, it, vi } from 'vitest';
 import { decidePilotBudgetCommand, type PilotAttemptRecord, type PilotBudgetCommand, type PilotBudgetStore } from './pilot-budget';
 import { createGovernedCoachEngineBinding, verifyGovernedCoachEngineExecution } from './governed-engine';
@@ -191,7 +192,7 @@ describe('governed LIVE-01 app engine', () => {
     const photoRequest={...request,turnId:id(62),message:'¿Qué ves en esta comida?',attachments:[{id:attachmentId,kind:'image' as const,status:'available' as const}]};
     const transport=vi.fn<GovernedCoachTransport>(async input=>{
       const payload=JSON.parse(input.prompt) as {photoObservations:Array<{attachmentId:string;trust:string;items:Array<{foodName:string}>}>};
-      expect(payload.photoObservations).toEqual([{observationId,attachmentId,source:'validated_photo_analysis',trust:'untrusted_image_data',reviewRequired:true,items:[{identity:'unassessed',name:'Arroz con pollo',note:'Confirma los ingredientes.'}]}]);
+      expect(payload.photoObservations).toEqual([{observationId,attachmentId,source:'validated_photo_analysis',trust:'untrusted_image_data',reviewRequired:true,items:[{identity:'unassessed',name:'Unidentified food component',note:'Confirma los ingredientes.'}]}]);
       return {requestId:'req_photo_text',responseModel:'gpt-5.6-luna',output:{answer:'Parece una comida completa; puedo ayudarte a revisar la porción.',followUp:null,evidenceRefs:[],entityRefs:[],facts:[],generalExplanationRefs:[],limitations:[],escalation:false,actionIntent:null},usage:{inputTokens:900,outputTokens:100,reasoningTokens:20},latencyMs:3,rawStatus:200};
     });
     const engine=createGovernedCoachEngineBinding({env:env(),actorId:id(1),persistentStore:test.store,transport});
@@ -201,7 +202,7 @@ describe('governed LIVE-01 app engine', () => {
       createFoodService:async()=>({}) as never,createPhotoFoodService:async()=>({execute}),now:()=>test.options.now,
     });
     const body=await response.json();
-    expect(response.status).toBe(200);expect(body.output.answer).toContain('Revisión de la foto: Identidad por aclarar: Arroz con pollo.');expect(body.output.answer).toContain('Parece una comida completa');
+    expect(response.status).toBe(200);expect(body.output.answer).toContain('Revisión de la foto: Componente por identificar.');expect(body.output.answer).toContain('Parece una comida completa');
     expect(body.proposals).toEqual([]);expect(body.receipts).toEqual([]);expect(body.actionIntents).toEqual([]);
     expect(execute).toHaveBeenCalledWith(expect.objectContaining({actorId:id(1),subjectId:id(1),organizationId:id(4),operation:expect.objectContaining({operation:'photo.food.read',conversationId:photoRequest.conversationId,turnId:photoRequest.turnId,attachmentId})}));
     expect(transport).toHaveBeenCalledTimes(1);
@@ -218,7 +219,30 @@ describe('governed LIVE-01 app engine', () => {
     const call=test.transport.mock.calls[0][0],payload=JSON.parse(call.prompt);
     expect(new TextEncoder().encode(call.system+call.prompt+JSON.stringify(call.schema)).length).toBeLessThanOrEqual(7500);
     expect(payload.photoObservations[0]).toMatchObject({observationId:id(61),attachmentId,trust:'untrusted_image_data',reviewRequired:true});
-    expect(payload.photoObservations[0].items).toEqual(Array.from({length:4},()=>({identity:'unassessed',name:'Uncertain food component',note:'Identity and portion remain uncertain. '.repeat(6)})));
+    expect(payload.photoObservations[0].items).toEqual(Array.from({length:4},()=>({identity:'unassessed',name:'Unidentified food component',note:'Identity and portion remain uncertain. '.repeat(6)})));
+  });
+
+  it.each(['real_notes','maximum_notes'] as const)('keeps %s photo review usable within the companion budget',async scenario=>{
+    const test=fixture(),attachmentId=id(60);
+    const foods=scenario==='real_notes'?photoV3Foods:Array.from({length:8},()=>({...photoV3Foods[2],name:'Brown component '.repeat(12),accuracy_note:'Identity and weight are uncertain. '.repeat(14)}));
+    const items=foods.map((food,index)=>({index,version:'a'.repeat(64),foodName:food.name,identityStatus:food.identity_status,estimatedGrams:food.estimated_grams,estimatedCalories:food.estimated_calories,confidence:food.confidence,accuracyNote:food.accuracy_note}));
+    const original=JSON.stringify(items);
+    const photoRequest={...request,message:'Analiza los alimentos visibles de esta foto. Indica porciones estimadas y lo que no puedes identificar con certeza. No registres nada todavía.',attachments:[{id:attachmentId,kind:'image',status:'available'}]};
+    const engine=createGovernedCoachEngineBinding({env:env(),actorId:id(1),persistentStore:test.store,transport:test.transport});
+    const execute=vi.fn().mockResolvedValue({version:'coach-assistant.v2',storage:'database',ok:true,snapshot:{observationId:id(61),attachmentId,source:'validated_photo_analysis',trust:'untrusted_image_data',reviewRequired:true,items}});
+    const response=await handleCoachRequest(new Request('https://private.invalid/api/coach-assistant',{method:'POST',body:JSON.stringify(photoRequest)}),{env:{...env(),COACH_ASSISTANT_PRIVATE_ATTACHMENTS_ENABLED:'1',COACH_ASSISTANT_PHOTO_FOOD_ACTIONS_ENABLED:'1'},guard:async()=>({userId:id(1)}),createRepository:repository,createGovernedEngine:async()=>engine,createFoodService:async()=>({}) as never,createPhotoFoodService:async()=>({execute}),now:()=>test.options.now});
+    const body=await response.json();expect(response.status).toBe(200);expect(body.ok).toBe(true);expect(body.error).toBeUndefined();
+    expect(body.proposals).toEqual([]);expect(body.receipts).toEqual([]);expect(JSON.stringify(items)).toBe(original);
+    if(scenario==='maximum_notes'){
+      expect(test.transport).not.toHaveBeenCalled();expect(test.store.execute).not.toHaveBeenCalled();expect(body.telemetry.modelCalls).toBe(0);
+      expect(body.output.answer).toContain('La foto está lista para revisar');expect(body.output.limitations).toContain('La explicación adicional no está disponible en este mensaje.');
+    }else{
+      expect(test.transport).toHaveBeenCalledOnce();const call=test.transport.mock.calls[0][0],payload=JSON.parse(call.prompt);
+      expect(new TextEncoder().encode(call.system+call.prompt+JSON.stringify(call.schema)).length).toBeLessThanOrEqual(7500);
+      expect(payload.photoObservations[0].items.map((item:{note:string})=>item.note)).toEqual(foods.map(food=>food.accuracy_note));
+      expect(payload.photoObservations[0].items[2].name).toBe('Unidentified food component');
+      expect(payload.generalExplanations.every((item:object)=>Object.keys(item).sort().join(',')==='id,text')).toBe(true);
+    }
   });
 
   it('returns a recoverable photo error before Luna when the observation is unavailable', async () => {
