@@ -470,7 +470,7 @@ export default function ParsedFoodList({
       <div className="glass p-4 text-center">
         <p className="text-[var(--content-muted)] text-sm mb-3">{t('food.no_items')}</p>
         <button onClick={onCancel} className="btn-ghost text-sm px-4 py-2 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
-          Back
+          {t('food.back')}
         </button>
       </div>
     );
@@ -935,31 +935,31 @@ export default function ParsedFoodList({
               <p className="portion-review-total-value portion-review-total-calories font-bold gold-text">
                 <AnimatedValue value={Math.round(totalCalories)} duration={220} grouped={false} />
               </p>
-              <p className="portion-review-total-label text-[var(--content-muted)]">kcal</p>
+              <p className="portion-review-total-label text-[var(--content-muted)]">{t('general.kcal')}</p>
             </div>
             <div>
               <p className="portion-review-total-value portion-review-total-protein font-bold" style={{ color: MACRO_COLORS.protein }}>
                 <AnimatedValue value={Math.round(totalProtein)} duration={220} grouped={false} />g
               </p>
-              <p className="portion-review-total-label text-[var(--content-muted)]">Protein</p>
+              <p className="portion-review-total-label text-[var(--content-muted)]">{t('food.edit.protein')}</p>
             </div>
             <div>
               <p className="portion-review-total-value portion-review-total-carbs font-bold" style={{ color: MACRO_COLORS.carbs }}>
                 <AnimatedValue value={Math.round(totalCarbs)} duration={220} grouped={false} />g
               </p>
-              <p className="portion-review-total-label text-[var(--content-muted)]">Carbs</p>
+              <p className="portion-review-total-label text-[var(--content-muted)]">{t('food.edit.carbs')}</p>
             </div>
             <div>
               <p className="portion-review-total-value portion-review-total-fat font-bold" style={{ color: MACRO_COLORS.fat }}>
                 <AnimatedValue value={Math.round(totalFat)} duration={220} grouped={false} />g
               </p>
-              <p className="portion-review-total-label text-[var(--content-muted)]">Fat</p>
+              <p className="portion-review-total-label text-[var(--content-muted)]">{t('food.edit.fat')}</p>
             </div>
             <div>
               <p className="portion-review-total-value portion-review-total-fiber font-bold" style={{ color: MACRO_COLORS.fiber }}>
                 <AnimatedValue value={Math.round(totalFiber)} duration={220} grouped={false} />g
               </p>
-              <p className="portion-review-total-label text-[var(--content-muted)]">Fiber</p>
+              <p className="portion-review-total-label text-[var(--content-muted)]">{t('food.edit.fiber')}</p>
             </div>
           </div>
 

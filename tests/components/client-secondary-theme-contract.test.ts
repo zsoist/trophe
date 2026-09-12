@@ -313,7 +313,9 @@ describe('client secondary theme and accessibility contract', () => {
 
   it('associates the recipe servings spinbutton with its visible label', () => {
     const recipeAnalyzer = source('components/food/RecipeAnalyzerModal.tsx');
-    expect(recipeAnalyzer).toMatch(/<label\s+htmlFor="recipe-servings-yielded"[^>]*>\s*Servings yielded/);
+    // Copy is localized via t('food.recipe_servings_yielded'); the label must
+    // still be programmatically tied to the servings input.
+    expect(recipeAnalyzer).toMatch(/<label\s+htmlFor="recipe-servings-yielded"[^>]*>\s*\{t\('food\.recipe_servings_yielded'\)\}/);
     expect(recipeAnalyzer).toMatch(/<input\s+id="recipe-servings-yielded"\s+type="number"/);
   });
 

@@ -5,7 +5,7 @@ import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X, Barcode, Loader2, Camera, Keyboard, ChevronLeft, RotateCcw } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { useI18n } from '@/lib/i18n';
+import { useFoodI18n as useI18n } from '@/components/food/useFoodI18n';
 import type { MealType } from '@/lib/types';
 
 /**
@@ -316,7 +316,7 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
                 </div>
                 <div className="flex gap-1 mb-3">
                   {MEAL_OPTIONS.map((m) => (
-                    <button key={m} onClick={() => setMealType(m)} className="flex-1 text-xs min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" style={{ padding: '6px 0', borderRadius: 8, textTransform: 'capitalize', cursor: 'pointer', border: '1px solid', borderColor: mealType === m ? 'var(--action-primary)' : 'var(--border-default)', background: mealType === m ? 'var(--action-secondary)' : 'transparent', color: mealType === m ? 'var(--action-primary)' : 'var(--content-secondary)', fontFamily: 'var(--font-mono)' }}>{m}</button>
+                    <button key={m} onClick={() => setMealType(m)} className="flex-1 text-xs min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" style={{ padding: '6px 0', borderRadius: 8, textTransform: 'capitalize', cursor: 'pointer', border: '1px solid', borderColor: mealType === m ? 'var(--action-primary)' : 'var(--border-default)', background: mealType === m ? 'var(--action-secondary)' : 'transparent', color: mealType === m ? 'var(--action-primary)' : 'var(--content-secondary)', fontFamily: 'var(--font-mono)' }}>{t(`food.${m}`)}</button>
                   ))}
                 </div>
                 <button onClick={logIt} disabled={logging}
@@ -441,7 +441,7 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
                 </div>
                 <div className="flex gap-1 mb-3">
                   {MEAL_OPTIONS.map((m) => (
-                    <button key={m} onClick={() => setMealType(m)} className="flex-1 text-xs min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" style={{ padding: '6px 0', borderRadius: 8, textTransform: 'capitalize', cursor: 'pointer', border: '1px solid', borderColor: mealType === m ? 'var(--action-primary)' : 'var(--border-default)', background: mealType === m ? 'var(--action-secondary)' : 'transparent', color: mealType === m ? 'var(--action-primary)' : 'var(--content-secondary)', fontFamily: 'var(--font-mono)' }}>{m}</button>
+                    <button key={m} onClick={() => setMealType(m)} className="flex-1 text-xs min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" style={{ padding: '6px 0', borderRadius: 8, textTransform: 'capitalize', cursor: 'pointer', border: '1px solid', borderColor: mealType === m ? 'var(--action-primary)' : 'var(--border-default)', background: mealType === m ? 'var(--action-secondary)' : 'transparent', color: mealType === m ? 'var(--action-primary)' : 'var(--content-secondary)', fontFamily: 'var(--font-mono)' }}>{t(`food.${m}`)}</button>
                   ))}
                 </div>
                 <button onClick={logManual} disabled={logging || !manual.name.trim()}

@@ -26,6 +26,13 @@ import MealPhotoGallery from '@/components/meals/MealPhotoGallery';
 import DayComparison from '@/components/progress/DayComparison';
 import CoachFoodRecs from '@/components/food/CoachFoodRecs';
 import RecipeAnalyzerModal from '@/components/food/RecipeAnalyzerModal';
+import { insertEntryForDate } from '@/components/food/log-entry-restore';
+import { useFoodLogDelete } from '@/components/food/use-food-log-delete';
+import type { FoodLogRowSnapshot } from '@/components/food/food-log-row';
+import {
+  createFoodLogDeletePort,
+  type FoodLogDeleteClient,
+} from '@/components/food/food-log-delete-port';
 import { localToday, localDateStr } from '../../../lib/utils/dates';
 import {
   CLIENT_VIEW_PANELS,
@@ -37,6 +44,12 @@ import DailyMacroStrip from '@/components/nutrition/DailyMacroStrip';
 import { summarizeSugar } from '@/lib/nutrition/daily-summary';
 import { useCoachScreenDate } from '@/components/assistant/screen-date';
 import { COACH_FOOD_REFRESH, readFoodSelection } from '@/components/assistant/food-events';
+
+// One stable adapter instance: the persistence classification (what the UI may
+// claim about a delete/restore) lives in food-log-delete-port.ts and is tested
+// against a fake PostgREST client. `supabase` is cast because the port types only
+// the query shapes it actually issues.
+const foodLogDeletePort = createFoodLogDeletePort(supabase as unknown as FoodLogDeleteClient);
 
 const DEFAULT_MEAL_SLOTS: MealSlot[] = [
   { id: 'breakfast', mealType: 'breakfast', label: 'Breakfast', icon: 'i-sun', order: 0 },
@@ -302,7 +315,9 @@ export default function FoodLogPage() {
   const [loadError, setLoadError] = useState(false);
   const [mutationError, setMutationError] = useState<string | null>(null);
   const loadRequestRef = useRef(0);
-  const [todayLog, setTodayLog] = useState<FoodLogEntry[]>([]);
+  // The full persisted row (select('*') below) — the delete snapshot must keep
+  // every quantity/reference/provenance column, not just the legacy fields.
+  const [todayLog, setTodayLog] = useState<FoodLogRowSnapshot[]>([]);
   const today = localToday();
   const [selectedDate, setSelectedDate] = useState(today);
   useCoachScreenDate(selectedDate);
@@ -310,13 +325,35 @@ export default function FoodLogPage() {
   const [skippedSlots, setSkippedSlots] = useState<Set<string>>(() => loadStoredSet(`trophe_skipped_${today}`));
   const [lockedSlots, setLockedSlots] = useState<Set<string>>(() => loadStoredSet(`trophe_locked_${today}`));
 
-  // F3: Undo delete
-  const [pendingDelete, setPendingDelete] = useState<{ id: string; entry: FoodLogEntry } | null>(null);
-  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Batch undo — a multi-item AI log hands its inserted ids up; one tap deletes them all.
-  const [pendingBatch, setPendingBatch] = useState<{ ids: string[]; key: number } | null>(null);
-  const batchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // F3 + batch undo. Durable delete/undo lives in a hook so the persistence
+  // ordering (immediate delete, verified restore, date-scoped batch) is unit
+  // testable: an in-memory soft delete was resurrected by a reload, and a shared
+  // timer ref let a second delete swallow the first one's commit.
+  const slotFlashKeyRef = useRef(0);
+  const {
+    pendingDelete,
+    pendingBatch,
+    requestDelete,
+    undoDelete,
+    registerBatch,
+    undoBatch,
+    clearPending,
+  } = useFoodLogDelete({
+    selectedDateRef,
+    port: foodLogDeletePort,
+    onRemove: (ids) => setTodayLog(prev => prev.filter(e => !ids.includes(e.id))),
+    onRestore: (entry) => setTodayLog(prev => insertEntryForDate(prev, entry, selectedDateRef.current)),
+    onRefetch: () => loadTodayLog(),
+    onError: (key) => setMutationError(t(key)),
+    onClearError: () => setMutationError(null),
+    onRestored: (entry) => {
+      const slotId = slotIdForEntry(entry);
+      if (!slotId) return;
+      if (slotFlashTimerRef.current) clearTimeout(slotFlashTimerRef.current);
+      setSlotFlash({ slotId, key: ++slotFlashKeyRef.current });
+      slotFlashTimerRef.current = setTimeout(() => setSlotFlash(null), 900);
+    },
+  });
 
   // Macro changes also drive the compact narrative date pill.
   const reducedMotion = useReducedMotion();
@@ -412,10 +449,15 @@ export default function FoodLogPage() {
     setSelectedDate(date);
     setSkippedSlots(loadStoredSet(`trophe_skipped_${date}`));
     setLockedSlots(loadStoredSet(`trophe_locked_${date}`));
+    // A pending delete/undo belongs to the day it was made on. The deletion is
+    // already persisted, but the undo affordance and any pending batch must not
+    // survive the date change — otherwise Undo/batch could touch the old day's
+    // rows (and inject totals) while the newly selected day is displayed.
+    clearPending();
     // W6: a lingering delta expansion belongs to the previous day's story
     if (pillDeltaTimerRef.current) clearTimeout(pillDeltaTimerRef.current);
     setPillDelta(null);
-  }, []);
+  }, [clearPending]);
 
   const saveSkipped = (newSkipped: Set<string>) => {
     setSkippedSlots(newSkipped);
@@ -591,56 +633,11 @@ export default function FoodLogPage() {
   const [copying, setCopying] = useState(false);
   const [showRecipeModal, setShowRecipeModal] = useState(false);
 
-  const restoreDeletedEntry = (entry: FoodLogEntry) => {
-    if (entry.logged_date === selectedDateRef.current) {
-      setTodayLog(prev => (
-        prev.some(existing => existing.id === entry.id)
-          ? prev
-          : [...prev, entry].sort(
-            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
-          )
-      ));
-    }
-    setMutationError(t('food.delete_failed'));
-  };
-
-  const commitDelete = async ({ id, entry }: { id: string; entry: FoodLogEntry }) => {
-    try {
-      const { data, error } = await supabase
-        .from('food_log')
-        .delete()
-        .eq('id', id)
-        .select('id')
-        .maybeSingle();
-      if (error || !data) {
-        restoreDeletedEntry(entry);
-      }
-    } catch {
-      restoreDeletedEntry(entry);
-    }
-  };
-
-  // F3: Undo delete — soft delete with 5s timeout
+  // F3: Undo delete. MealSlotCard hands us an id; resolve it to the row snapshot
+  // the durable delete hook needs (persist now, verified Undo restores).
   const deleteEntry = (id: string) => {
     const entry = todayLog.find(e => e.id === id);
-    if (!entry) return;
-    setMutationError(null);
-
-    // Cancel any previous pending delete
-    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
-    if (pendingDelete) {
-      void commitDelete(pendingDelete);
-    }
-
-    // Soft-delete from UI
-    setTodayLog(prev => prev.filter(e => e.id !== id));
-    setPendingDelete({ id, entry });
-
-    // Hard-delete after 5 seconds
-    undoTimerRef.current = setTimeout(() => {
-      setPendingDelete(cur => (cur?.id === id ? null : cur));
-      void commitDelete({ id, entry });
-    }, 5000);
+    if (entry) requestDelete(entry);
   };
 
   // W13: which slot card renders this entry — mirrors groupBySlot's routing.
@@ -657,46 +654,6 @@ export default function FoodLogPage() {
     return slotId && slots.some(s => s.id === slotId) ? slotId : null;
   };
 
-  const undoDelete = () => {
-    if (!pendingDelete) return;
-    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
-    setTodayLog(prev => [...prev, pendingDelete.entry].sort(
-      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-    ));
-    // W13: flash the restored entry's slot card gold once (flywheel-editor vocabulary)
-    const slotId = slotIdForEntry(pendingDelete.entry);
-    if (slotId) {
-      if (slotFlashTimerRef.current) clearTimeout(slotFlashTimerRef.current);
-      setSlotFlash({ slotId, key: Date.now() });
-      slotFlashTimerRef.current = setTimeout(() => setSlotFlash(null), 900);
-    }
-    setPendingDelete(null);
-  };
-
-  // Batch undo — "Logged N items — Undo" for 10s after a multi-item AI log.
-  const registerBatch = useCallback((ids: string[]) => {
-    if (batchTimerRef.current) clearTimeout(batchTimerRef.current);
-    setPendingBatch({ ids, key: Date.now() });
-    batchTimerRef.current = setTimeout(() => setPendingBatch(null), 10000);
-  }, []);
-
-  const undoBatch = async () => {
-    if (!pendingBatch) return;
-    if (batchTimerRef.current) clearTimeout(batchTimerRef.current);
-    const ids = pendingBatch.ids;
-    setPendingBatch(null);
-    setMutationError(null);
-    const { data, error } = await supabase
-      .from('food_log')
-      .delete()
-      .in('id', ids)
-      .select('id');
-    if (error || !data || data.length !== ids.length) {
-      setMutationError(t('food.delete_failed'));
-    }
-    await loadTodayLog();
-  };
-
   useEffect(() => {
     if (!mutationError) return;
     const timer = window.setTimeout(() => setMutationError(null), 5000);
@@ -704,7 +661,6 @@ export default function FoodLogPage() {
   }, [mutationError]);
 
   useEffect(() => () => {
-    if (batchTimerRef.current) clearTimeout(batchTimerRef.current);
     if (pillDeltaTimerRef.current) clearTimeout(pillDeltaTimerRef.current);
     if (slotFlashTimerRef.current) clearTimeout(slotFlashTimerRef.current);
     if (emberTimerRef.current) clearTimeout(emberTimerRef.current);

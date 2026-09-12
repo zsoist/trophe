@@ -539,9 +539,9 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
     });
     if (!validated.ok) {
       const messages = {
-        calories_out_of_range: 'Enter calories between 1 and 10,000.',
-        macro_out_of_range: 'Protein, carbs, and fat must each be between 0 and 1,000 g.',
-        name_too_long: 'Keep the food name under 200 characters.',
+        calories_out_of_range: t('food.err_manual_calories_range'),
+        macro_out_of_range: t('food.err_manual_macro_range'),
+        name_too_long: t('food.err_manual_name_long'),
       } as const;
       setError(messages[validated.code]);
       return;
@@ -599,7 +599,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
   const handleConfirm = async (items: ParsedFoodItem[]) => {
     if (logging || items.length === 0) return;
     if (!items.every(isParsedFoodItem)) {
-      setError('One or more items has an invalid amount. Adjust the portion and try again.');
+      setError(t('food.err_item_amount'));
       return;
     }
     setLogging(true);
@@ -1067,7 +1067,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
           aria-label={t('food.photo_pick_aria')}
         >
           <Camera size={14} />
-          Photo
+          {t('food.action_photo')}
         </button>
         <button
           onClick={voiceActive ? stopVoiceInput : startVoiceInput}
@@ -1084,7 +1084,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
           className="flex items-center gap-1.5 text-[var(--content-muted)] hover:gold-text text-xs transition-colors py-1 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
         >
           <Plus size={14} />
-          Custom
+          {t('general.custom')}
         </button>
         <button
           onClick={() => setShowBarcode(true)}
@@ -1092,7 +1092,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
           aria-label={t('food.barcode_scan_aria')}
         >
           <Barcode size={14} />
-          Barcode
+          {t('food.action_barcode')}
         </button>
       </div>
 
