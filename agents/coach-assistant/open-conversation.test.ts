@@ -172,6 +172,7 @@ describe('open v2 conversation with explicit synthetic provider',()=>{
     {answer:'Podrías elegir una comida saludable que encaje con tus preferencias.',ok:true},
     {answer:'Una alimentación saludable puede incluir opciones variadas.',ok:true},
     {answer:'Se puede elegir una comida saludable entre opciones variadas.',ok:true},
+    {answer:'Esta comida tiene opciones saludables.',ok:true},
     {answer:'Tu salud está mejor.',ok:false},
     {answer:'Estás saludable.',ok:false},
     {answer:'Está saludable.',ok:false},
@@ -180,6 +181,8 @@ describe('open v2 conversation with explicit synthetic provider',()=>{
     {answer:'Te ves saludable.',ok:false},
     {answer:'Tienes buena salud.',ok:false},
     {answer:'Tienes una alimentación saludable.',ok:false},
+    {answer:'Usted tiene una alimentación saludable.',ok:false},
+    {answer:'Ustedes tienen una alimentación saludable.',ok:false},
     {answer:'Tu cuerpo está saludable.',ok:false},
     {answer:'Tu cuerpo está listo.',ok:false},
     {answer:'Tus músculos están más fuertes.',ok:false},
@@ -194,9 +197,11 @@ describe('open v2 conversation with explicit synthetic provider',()=>{
     const allowedTransport=provider(output=>({...output,answer:'Se puede elegir una comida saludable entre opciones variadas.',followUp:'¿Tienes alguna preferencia alimentaria?',generalExplanationRefs:[]}));
     const allowed=await runConversation(request,{...options(),offlineCandidateEvaluation:true,offlineConversationProvider:allowedTransport});
     expect(allowed.ok).toBe(true);expect(allowed.output?.suggestions).toEqual(['¿Tienes alguna preferencia alimentaria?']);
-    const transport=provider(output=>({...output,answer:'Se puede elegir una comida saludable entre opciones variadas.',followUp:'¿Tienes una alimentación saludable?',generalExplanationRefs:[]}));
-    const result=await runConversation(request,{...options(),offlineCandidateEvaluation:true,offlineConversationProvider:transport});
-    expect(result.error?.code).toBe('invalid_output');expect(result.output).toBeUndefined();
+    for(const followUp of ['¿Tienes una alimentación saludable?','¿Usted tiene una alimentación saludable?','¿Ustedes tienen una alimentación saludable?']){
+      const transport=provider(output=>({...output,answer:'Se puede elegir una comida saludable entre opciones variadas.',followUp,generalExplanationRefs:[]}));
+      const result=await runConversation(request,{...options(),offlineCandidateEvaluation:true,offlineConversationProvider:transport});
+      expect(result.error?.code).toBe('invalid_output');expect(result.output).toBeUndefined();
+    }
   });
   it('keeps declarative explanations gated behind a separate explicit offline oracle',async()=>{
     const answer='The available entries leave open whether the log represents your usual routine.';
