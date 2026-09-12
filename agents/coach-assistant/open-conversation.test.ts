@@ -45,6 +45,14 @@ describe('open v2 conversation with explicit synthetic provider',()=>{
     expect(result.error?.code).toBe('invalid_output');expect(result.output).toBeUndefined();expect(result.evidence).toEqual([]);
     expect(transport).toHaveBeenCalledTimes(1);
   });
+  it('does not release recovered Photo review after authorization is revoked',async()=>{
+    const base=options(),authorize=base.repository.authorize;let generated=false;
+    base.repository.authorize=async(...args)=>{if(generated)throw new Error('forbidden');return authorize(...args);};
+    const transport=provider(output=>{generated=true;return {...output,evidenceRefs:['missing-fact']};});
+    const attachmentId='00000000-0000-4000-8000-000000000001';
+    const result=await runConversation({...request,attachments:[{id:attachmentId,kind:'image',status:'available'}]},{...base,offlineConversationProvider:transport,resolvePhotoObservations:async()=>[{observationId:attachmentId,attachmentId,source:'validated_photo_analysis',trust:'untrusted_image_data',reviewRequired:true,items:[{index:0,version:'a'.repeat(64),foodName:'Rice',identityStatus:'identified',estimatedGrams:220,estimatedCalories:285,confidence:.58,accuracyNote:'Estimated portion.'}]}]});
+    expect(generated).toBe(true);expect(transport).toHaveBeenCalledOnce();expect(result.ok).toBe(false);expect(result.error?.code).toBe('forbidden');expect(result.output).toBeUndefined();expect(result.proposals).toEqual([]);expect(result.receipts).toEqual([]);
+  });
   it('emits only a closed rejection stage while preserving the public invalid_output contract',async()=>{
     const warning=vi.spyOn(console,'warn').mockImplementation(()=>undefined);
     const privateOutput='SENSITIVE_MODEL_OUTPUT 150 gramos';

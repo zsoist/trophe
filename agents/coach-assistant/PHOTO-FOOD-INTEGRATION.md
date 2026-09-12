@@ -208,3 +208,9 @@ Uncertain and historically unassessed names use neutral component labels in the
 UI, companion payload and summary. Their original observations and complete notes
 remain unchanged. These labels do not resolve identity or make their macros
 eligible for logging. Identified items remain separately selectable and reviewable.
+
+### Browser identity contract and rejected companion references
+
+The d5131367 QA trial completed vision but rejected companion evidence references; the browser then rejected the valid observation because its strict JSON reader omitted `identityStatus`. The browser reader now accepts only the three declared identity states (historical absence remains unassessed in consumers) and the identity clarification error. Real `requestPhotoFood` transport tests consume server-schema-validated JSON, so injected UI transports cannot hide this contract gap. Unknown fields/states remain rejected.
+
+For a completed, authorized photo observation, an `evidence_reference` rejection in the ordinary companion path returns only the deterministic review-available message and explicit explanation-unavailable limitation. No rejected prose, references or action intent escapes; no model retry or write occurs. Selected capabilities, other output errors, cancellation and authorization failures retain their existing failure behavior. Final authorization still runs and revocation removes the recovered response. Live delivery remains subject to the normal attachment expiry and review → confirmation → canonical writer → receipt flow.

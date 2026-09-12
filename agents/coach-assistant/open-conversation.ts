@@ -43,6 +43,13 @@ export type OpenConversationOutputDiagnostic = {
   positionEncoding: 'original' | 'nfkd_without_marks';
 };
 
+export function photoReviewOnlyOutput(spanish:boolean):NonNullable<CoachConversationResponse['output']> {
+  return {answer:spanish
+      ?'La foto está lista para revisar. Abre la revisión para ver los alimentos, las porciones estimadas y las identidades por aclarar. No se ha guardado comida.'
+      :'The photo is ready to review. Open the review for foods, estimated portions and identities that need clarification. No food has been saved.',
+      evidenceRefs:[],limitations:[spanish?'La explicación adicional no está disponible en este mensaje.':'The additional explanation is unavailable in this message.'],suggestions:[],escalation:{required:false,reason:null,draft:null}};
+}
+
 export class OpenConversationOutputError extends Error {
   readonly diagnosticCode: OpenConversationOutputRejection;
   readonly diagnostic?: OpenConversationOutputDiagnostic;
@@ -263,10 +270,7 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
     // prompt limit must not discard it or trigger another vision reservation.
     // Leave full identity notes in the canonical Photo read, never truncate them.
     signal.throwIfAborted();
-    response.output={answer:spanish
-      ?'La foto está lista para revisar. Abre la revisión para ver los alimentos, las porciones estimadas y las identidades por aclarar. No se ha guardado comida.'
-      :'The photo is ready to review. Open the review for foods, estimated portions and identities that need clarification. No food has been saved.',
-      evidenceRefs:[],limitations:[spanish?'La explicación adicional no está disponible en este mensaje.':'The additional explanation is unavailable in this message.'],suggestions:[],escalation:{required:false,reason:null,draft:null}};
+    response.output=photoReviewOnlyOutput(spanish);
     return;
   }
   if(historyTrimmed)response.output?.limitations.push('history_trimmed_for_context_budget');

@@ -5,7 +5,7 @@ import { parseFoodPreferences } from '@/lib/food/preferences';
 import { createSelectionContext } from './selection-context';
 import { isIsolatedEngineBoundary, type IsolatedEngineBoundary } from './isolated-engine-boundary';
 import { isGovernedPilotBoundary, type GovernedPilotBoundary } from './governed-engine-boundary';
-import { generateOpenConversation, OpenConversationOutputError, type ConversationFoodChange, type ConversationFoodSelection, type ConversationPhotoObservation, type OfflineConversationProvider, type OfflineInterpretationReview } from './open-conversation';
+import { generateOpenConversation, photoReviewOnlyOutput, OpenConversationOutputError, type ConversationFoodChange, type ConversationFoodSelection, type ConversationPhotoObservation, type OfflineConversationProvider, type OfflineInterpretationReview } from './open-conversation';
 import { createHash, randomUUID } from 'node:crypto';
 import { selectConversationScope, evidenceMatchesScope } from './conversation-scope';
 import { COACH_CONVERSATION_VERSION } from './contracts';
@@ -147,7 +147,17 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
         }
       }
       if(options.mode==='model'&&!medical) {
+        try {
         await generateOpenConversation(options.filterMemoryHistory?.(scopedInput)??scopedInput,response,options.offlineConversationProvider!,controller.signal,options.offlineInterpretationReview,options.offlineCandidateEvaluation,options.isolatedFixtureBoundary,options.workoutSetIntentsEnabled,options.foodQuantityIntentsEnabled,options.governedPilotBoundary,options.candidateActionsEnabled,options.foodSelection,photoObservations);
+        } catch(error) {
+          // Reject the companion's unbound references without losing an already
+          // authorized observation. Never release rejected prose or retry a model.
+          if(!(error instanceof OpenConversationOutputError)||error.diagnosticCode!=='evidence_reference'||!photoObservations.length||response.capabilityResult&&response.capabilityResult.tool!=='none')throw error;
+          controller.signal.throwIfAborted();
+          console.warn(JSON.stringify({event:'coach_conversation_output_rejected',code:error.diagnosticCode}));
+          response.output=photoReviewOnlyOutput(response.snapshot?.language.startsWith('es')??false);
+          response.actionIntents=[];delete response.explanations;
+        }
         await repository.authorize(options.actorId,subject,controller.signal);
         controller.signal.throwIfAborted();
       }
