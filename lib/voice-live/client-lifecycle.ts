@@ -19,11 +19,14 @@ import type {
   LiveDataChannel,
   LiveDelegationAdapter,
   LiveDelegationRequest,
+  LiveInputMeterPort,
   LiveMediaStream,
   LivePlaybackPort,
   LivePeerConnection,
   LiveSessionRequest,
+  LiveTranscriptCursor,
   LiveTranscriptRow,
+  LiveUserFragmentBatch,
   LiveUsageReconciler,
   LiveUsageSnapshot,
 } from './client-types';
@@ -66,6 +69,14 @@ export interface LiveLifecycleState {
   serverError: LiveServerError | null;
   playbackBlocked: boolean;
   microphoneEnabled: boolean;
+  /** Local mic track muted (`track.enabled = false`). NOT output pause, NOT teardown. */
+  microphoneMuted: boolean;
+  /** True only when a real analyser is attached; false means hosts must not draw a wave. */
+  meterSupported: boolean;
+  /** Latest real input amplitude 0..1 from the analyser, or null when unsupported/muted. */
+  inputLevel: number | null;
+  /** Server-admitted deadline (epoch ms), or null when the transport admitted none. */
+  admittedDeadlineMs: number | null;
   busy: boolean;
   activeActions: string[];
   interrupted: boolean;
@@ -92,6 +103,8 @@ export interface LiveLifecycleDeps {
   reconciler?: LiveUsageReconciler | null;
   /** Injected local playback owner. Barge-in stops output here; it never cancels backend work. */
   playback?: LivePlaybackPort | null;
+  /** Injected real input meter. The controller never fabricates a level without it. */
+  inputMeter?: LiveInputMeterPort | null;
   timers?: LiveTimers;
   iceTimeoutMs?: number;
   startTimeoutMs?: number;
@@ -113,6 +126,10 @@ const emptyState = (): LiveLifecycleState => ({
   serverError: null,
   playbackBlocked: false,
   microphoneEnabled: false,
+  microphoneMuted: false,
+  meterSupported: false,
+  inputLevel: null,
+  admittedDeadlineMs: null,
   busy: false,
   activeActions: [],
   interrupted: false,
@@ -157,6 +174,8 @@ export class VoiceLiveController {
   private channel: LiveDataChannel | null = null;
   private stream: LiveMediaStream | null = null;
   private createAbort: AbortController | null = null;
+  private meterDetach: (() => void) | null = null;
+  private meterLevel: number | null = null;
 
   constructor(deps: LiveLifecycleDeps) {
     this.deps = deps;
@@ -240,6 +259,7 @@ export class VoiceLiveController {
       return;
     }
     this.stream = stream;
+    this.attachInputMeter(stream);
 
     try {
       const peer = this.deps.adapter.createPeerConnection();
@@ -289,7 +309,11 @@ export class VoiceLiveController {
       }
 
       this.expectedSessionId = handle.sessionId;
-      this.publish({ phase: 'waiting_started', sessionId: handle.sessionId });
+      const admittedDeadlineMs = typeof handle.admittedDeadlineMs === 'number'
+        && Number.isFinite(handle.admittedDeadlineMs) && handle.admittedDeadlineMs > Date.now()
+        ? handle.admittedDeadlineMs
+        : null;
+      this.publish({ phase: 'waiting_started', sessionId: handle.sessionId, admittedDeadlineMs });
       // The connection is now bound to a created id: validate buffered early frames against it.
       this.drainEarlyEvents();
       this.setTimer('start', () => {
@@ -314,7 +338,8 @@ export class VoiceLiveController {
     this.epoch += 1;
     this.createAbort?.abort();
     this.disableMicrophone();
-    this.publish({ phase: 'closing', lastCloseReason: reason });
+    // No further provider deltas are expected once the user stops: settle caption groups now.
+    this.publish({ phase: 'closing', lastCloseReason: reason, transcript: this.transcript.settle() });
 
     // The retained trusted handle covers a stop that races the answer-SDP apply, before the
     // id was ever published; the remote session must still be released.
@@ -357,6 +382,26 @@ export class VoiceLiveController {
     this.publish({ interrupted: false });
   }
 
+  /**
+   * Real microphone mute: toggles `MediaStreamTrack.enabled` so the track stays live and
+   * sends silence. Distinct from output pause (`interrupt`) and from teardown (`stop`).
+   * Ignored (never a false claim) when no live mic track exists or the track has no
+   * writable `enabled`.
+   */
+  setMicrophoneMuted(muted: boolean): void {
+    if (this.disposed) return;
+    const track = this.stream?.getTracks()[0];
+    if (!track || this.state.microphoneEnabled !== true) return;
+    if (typeof track.enabled !== 'boolean' && !('enabled' in track)) return;
+    try {
+      track.enabled = !muted;
+    } catch {
+      return;
+    }
+    // When muted the analyser reads silence; report 0 rather than a stale level.
+    this.publish({ microphoneMuted: muted, inputLevel: muted ? 0 : this.meterLevel });
+  }
+
   /** Cancel one delegated backend action. Distinct from `interrupt()`. */
   cancelAction(delegationId: string): boolean {
     const cancelled = this.delegation.cancel(delegationId);
@@ -369,10 +414,10 @@ export class VoiceLiveController {
     // Dispatch only from a live, owned session. Idle/closing/failed/disposed controllers
     // (including a retained reference after logout) refuse before touching the backend.
     if (this.state.phase !== 'live' || this.disposed) {
-      return { delegationId: request.delegationId, status: 'failed', summary: 'not_dispatchable' };
+      return { delegationId: request.delegationId, status: 'failed', summary: 'not_dispatchable', dispatched: false };
     }
     if (request.sessionId && request.sessionId !== this.state.sessionId) {
-      return { delegationId: request.delegationId, status: 'failed', summary: 'session_mismatch' };
+      return { delegationId: request.delegationId, status: 'failed', summary: 'session_mismatch', dispatched: false };
     }
     this.publish({ busy: true });
     // `run` registers its abort controller synchronously, so this publish exposes the
@@ -382,6 +427,16 @@ export class VoiceLiveController {
     const result = await running;
     this.publish({ busy: false });
     return result;
+  }
+
+  /**
+   * Unseen RAW user fragments for a delegation, in arrival order, plus the cursor to record
+   * once dispatched. Hosts must build delegated text from this — NOT from `transcript` rows —
+   * because display caption rows merge fragments and a row cursor would strand any fragment
+   * that arrives after its row was already consumed.
+   */
+  userFragmentBatch(cursor: LiveTranscriptCursor | null = null): LiveUserFragmentBatch {
+    return this.transcript.pendingUserFragments(cursor);
   }
 
   /** Called by the host when browser playback is refused (autoplay policy). */
@@ -464,15 +519,17 @@ export class VoiceLiveController {
         this.publish({ phase: 'live', sessionId: event.sessionId, error: null, microphoneEnabled: true });
         return;
       }
+      // Deltas only (event_id/delta/start_ms/end_ms). Local caption grouping is display-only:
+      // it never finalizes a semantic turn or triggers delegated work.
       case 'session.input_transcript.delta': {
         if (phase !== 'live') return;
-        const rows = this.transcript.append('user', event.delta, event.startMs, event.endMs);
+        const rows = this.transcript.append('user', event.delta, event.startMs, event.endMs, { eventId: event.eventId });
         this.publish({ transcript: rows });
         return;
       }
       case 'session.output_transcript.delta': {
         if (phase !== 'live') return;
-        const rows = this.transcript.append('assistant', event.delta, event.startMs, event.endMs, { newRow: this.state.interrupted });
+        const rows = this.transcript.append('assistant', event.delta, event.startMs, event.endMs, { newRow: this.state.interrupted, eventId: event.eventId });
         this.publish({ transcript: rows });
         return;
       }
@@ -558,9 +615,10 @@ export class VoiceLiveController {
   }
 
   private disableMicrophone(): void {
+    this.detachInputMeter();
     if (this.stream) stopStream(this.stream);
     this.stream = null;
-    this.publish({ microphoneEnabled: false });
+    this.publish({ microphoneEnabled: false, microphoneMuted: false, meterSupported: false, inputLevel: null });
   }
 
   private fail(code: Exclude<LiveErrorCode, null>): void {
@@ -581,6 +639,11 @@ export class VoiceLiveController {
 
   /** Idempotent release of media tracks, channel and peer connection. */
   private teardownPorts(): void {
+    // Close any still-open caption groups: `settled` only means "no more deltas will extend
+    // them", never that a complete semantic turn was received from the provider.
+    const captions = this.transcript.settle();
+    if (captions.some(row => row.status === 'settled')) this.publish({ transcript: captions });
+    this.detachInputMeter();
     if (this.stream) stopStream(this.stream);
     this.stream = null;
     const channel = this.channel;
@@ -608,6 +671,50 @@ export class VoiceLiveController {
       }
     }
     this.peer = null;
+  }
+
+  /**
+   * Attach the injected real analyser to the acquired stream. A missing port, a throwing
+   * implementation, or a `null` detach all surface `meterSupported: false` — the controller
+   * never fabricates a level.
+   */
+  private attachInputMeter(stream: LiveMediaStream): void {
+    this.detachInputMeter();
+    const meter = this.deps.inputMeter;
+    if (!meter) {
+      this.publish({ meterSupported: false, inputLevel: null });
+      return;
+    }
+    let detach: (() => void) | null = null;
+    try {
+      detach = meter.attach(stream, level => {
+        const bounded = typeof level === 'number' && Number.isFinite(level)
+          ? Math.min(1, Math.max(0, level))
+          : null;
+        this.meterLevel = bounded;
+        this.publish({ inputLevel: this.state.microphoneMuted ? 0 : bounded });
+      });
+    } catch {
+      detach = null;
+    }
+    if (!detach) {
+      this.publish({ meterSupported: false, inputLevel: null });
+      return;
+    }
+    this.meterDetach = detach;
+    this.publish({ meterSupported: true, inputLevel: this.state.microphoneMuted ? 0 : this.meterLevel });
+  }
+
+  private detachInputMeter(): void {
+    const detach = this.meterDetach;
+    this.meterDetach = null;
+    this.meterLevel = null;
+    if (!detach) return;
+    try {
+      detach();
+    } catch {
+      // Host analyser cleanup failures must not break teardown.
+    }
   }
 }
 

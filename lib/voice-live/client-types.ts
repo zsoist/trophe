@@ -32,6 +32,11 @@ export interface LiveSessionHandle {
   sessionId: string;
   /** `transport.sdp` answer to apply to the peer connection. */
   answerSdp: string;
+  /**
+   * Server-admitted session deadline (epoch ms) when the create receipt carried one.
+   * Absent/null means the transport admitted none; the host must NOT invent a deadline.
+   */
+  admittedDeadlineMs?: number | null;
 }
 
 /** Minimal data-channel surface (RTCPeerConnection data channel subset). */
@@ -47,6 +52,10 @@ export interface LiveDataChannel {
 export interface LiveMediaTrack {
   readonly kind: string;
   stop(): void;
+  /**
+   * Real mute control. `false` keeps the track live and sends silence — it is NOT a
+   * teardown and NOT the same as pausing remote output.
+   */
   enabled?: boolean;
 }
 
@@ -89,6 +98,55 @@ export interface LiveDelegationRequest {
   transcript: LiveTranscriptRow[];
   /** Session the caller believes it is acting against (optional guard). */
   sessionId?: string;
+  /**
+   * Bounded cursor over already-consumed RAW user fragments (monotonic sequence + last
+   * provider `event_id`). The provider supplies no utterance id and no final transcript
+   * event, so the host must not fabricate one: it advances this cursor as it dispatches so
+   * previously consumed fragments are never replayed into a new delegated action. This is
+   * deliberately separate from display caption grouping, which merges fragments into wider
+   * rows and must never be used to decide what a delegation has already seen.
+   */
+  transcriptCursor?: LiveTranscriptCursor;
+  /**
+   * True when the fragment store hit its finite capacity and evicted unconsumed fragments
+   * before this dispatch. Surfaced explicitly so a host/backend never treats a truncated
+   * fragment set as a complete utterance (silent loss is not allowed).
+   */
+  transcriptTruncated?: boolean;
+}
+
+/**
+ * How much of the client-side RAW user fragment stream a delegation has already consumed.
+ * Sequences are assigned at arrival and never reused, so two overlapping fragments that
+ * merge into one display row each keep their own sequence and can be consumed exactly once.
+ */
+export interface LiveTranscriptCursor {
+  /** Monotonic sequence of the last consumed raw user fragment (0 = nothing consumed). */
+  sequence: number;
+  /** Provider `event_id` of the last consumed raw fragment, or null when none/unknown. */
+  lastEventId: string | null;
+}
+
+/** One raw user transcript delta retained for exact-once delegation consumption. */
+export interface LiveUserFragment {
+  /** Monotonic local sequence (1-based) assigned on arrival. Never reused. */
+  seq: number;
+  /** Provider `event_id`, or null when the delta carried none (a real field, never invented). */
+  eventId: string | null;
+  /** The raw provider `delta` text, exactly as received. */
+  text: string;
+  startMs: number;
+  endMs: number;
+}
+
+/** Unconsumed raw user fragments plus the cursor to record after consuming them. */
+export interface LiveUserFragmentBatch {
+  /** Fragments strictly after the cursor, in arrival order. */
+  fragments: LiveUserFragment[];
+  /** Cursor to record once this batch is dispatched. */
+  cursor: LiveTranscriptCursor;
+  /** True when capacity evicted unconsumed fragments before this batch. */
+  truncated: boolean;
 }
 
 /**
@@ -134,6 +192,27 @@ export interface LiveTranscriptRow {
   text: string;
   startMs: number;
   endMs: number;
+  /** LOCAL caption-group id (host-visible). Not a provider id. */
+  id?: string;
+  /** Provider event_id of the last fragment merged into this group (real field, dedup key). */
+  eventId?: string;
+  /** open = still receiving deltas; settled = a newer group for this speaker began. */
+  status?: 'open' | 'settled';
+  /** True when a late/out-of-order fragment revised this group. Display-only. */
+  revision?: boolean;
+}
+
+/**
+ * Injected real input-level meter. The host wires `WebAudio` (MediaStreamSource ->
+ * AnalyserNode) and reports only measured RMS. The controller never fabricates a wave:
+ * `attach` returning `null` (or unavailable APIs) is surfaced as `meterSupported: false`.
+ */
+export interface LiveInputMeterPort {
+  /**
+   * Attach a real analyser to the acquired stream. Returns a detach function that MUST
+   * release the AudioContext/RAF, or `null` when a real meter is unavailable.
+   */
+  attach(stream: LiveMediaStream, onLevel: (level: number | null) => void): (() => void) | null;
 }
 
 export interface LiveUsageSnapshot {
