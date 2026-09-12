@@ -123,6 +123,19 @@ export async function deriveFoodLogEdit(database:Pick<FoodEditDatabase,'select'>
     sugarG: input.sugarG ?? derived?.sugarG ?? scaled(existing.sugarG),
   };
 
+  // Keep qty_g consistent with a quantity-only edit. Scaling the macros by the
+  // quantity ratio while freezing qty_g left rows self-contradictory (2 × 355 g
+  // can stored as 355 g with doubled macros), and a later grams edit then scaled
+  // from the stale baseline — doubling or halving twice. The mass tracks the
+  // portion whenever the row already carries a measured gram value.
+  if (input.grams == null && input.quantity != null && factor != null && existing.qtyG != null) {
+    const existingQtyG = Number(existing.qtyG);
+    if (Number.isFinite(existingQtyG) && existingQtyG > 0) {
+      const scaledQtyG = existingQtyG * factor;
+      next.qtyG = String(Math.round(scaledQtyG * 100) / 100);
+    }
+  }
+
   return next;
 }
 export type FoodEditValues=Awaited<ReturnType<typeof deriveFoodLogEdit>>;

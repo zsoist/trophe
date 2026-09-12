@@ -185,6 +185,220 @@ function computeFromPer100g(c: V4Candidate): {
 }
 
 /**
+ * Deterministic gram mass for a portion the user stated in an explicit metric
+ * unit (g, kg, 100g, ml, cl, dl, l, fl oz).
+ *
+ * A typed metric amount IS the measurement the user gave us: "30 ml cola" is
+ * 30 grams of cola (water-density approximation), regardless of what the model
+ * later estimated. The LLM CoT path (`estimated_grams`) is only trusted when no
+ * such measurement exists — otherwise a hallucinated portion ("30 ml" → 15000 g)
+ * is logged verbatim. See the cola 30 ml → 15 kg / 6300 kcal regression.
+ *
+ * Returns null when the unit is not a recognized direct metric unit, or when the
+ * quantity is not a usable positive finite number.
+ */
+export function explicitMetricGrams(
+  candidate: Pick<V4Candidate, 'unit' | 'quantity'>,
+): { grams: number; basis: 'measured_mass' | 'density_assumption' } | null {
+  const unit = typeof candidate.unit === 'string' ? candidate.unit : '';
+  const quantity = candidate.quantity;
+  if (!Number.isFinite(quantity) || quantity <= 0) return null;
+  const metric = resolveDirectMetricUnit(unit);
+  if (!metric) return null;
+  return { grams: quantity * metric.gramsPerUnit, basis: metric.basis };
+}
+
+interface SourceSpan { start: number; end: number }
+
+interface SourceMetricMatch {
+  start: number;
+  end: number;
+  value: number;
+  gramsPerUnit: number;
+  basis: 'measured_mass' | 'density_assumption';
+}
+
+export interface BoundMetricPortion {
+  grams: number;
+  basis: 'measured_mass' | 'density_assumption';
+}
+
+const METRIC_NUMBER_RE = /(\d+(?:[.,]\d+)?)/g;
+const NEGATION_DISTANCE = 24;
+// A metric amount only belongs to the food its anchor sits next to. The bound
+// keeps a bare candidate from adopting an unrelated amount that lives in a
+// different clause of a long multi-item entry.
+const MAX_ANCHOR_DISTANCE = 40;
+const NEGATION_WORDS = new Set([
+  'no', 'not', 'never', 'without', 'sans', 'sin', 'non', 'nicht', 'ohne', 'senza',
+  // pt ("sem açúcar", "não 30 ml" → accent-stripped "nao") and nl ("zonder",
+  // "geen") complete the supported app languages alongside en/es/fr/it/de/el.
+  'sem', 'nao', 'zonder', 'geen',
+  'δεν', 'μη', 'μην', 'χωρις',
+]);
+
+/** Unit surface forms following a number: one token ("ml") or two ("fl oz"),
+ *  with trailing punctuation dropped and an accent-stripped variant so
+ *  localized synonyms resolve through the canonical unit table. */
+function unitSurfaceForms(afterNumber: string): string[] {
+  const tokens = afterNumber.split(/\s+/).filter(Boolean);
+  const forms = new Set<string>();
+  for (const raw of [tokens[0] ?? '', tokens.slice(0, 2).join(' ')]) {
+    const form = raw.replace(/[^\p{L}\p{N}]+$/u, '');
+    if (!form) continue;
+    forms.add(form);
+    forms.add(form.normalize('NFD').replace(/\p{M}/gu, ''));
+  }
+  return [...forms];
+}
+
+/** True when the text immediately before a number denies/negates it
+ *  ("not 30 ml", "no 30ml", "χωρίς 30 ml"). Handles both the spaced and the
+ *  glued surface ("not30") so a denied amount is never read as a measurement. */
+function isNegatedPrefix(prefix: string): boolean {
+  const tail = prefix.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
+  const glued = tail.match(/([\p{L}]+)$/u);
+  if (glued && NEGATION_WORDS.has(glued[1])) return true;
+  const words = tail.split(/[^\p{L}]+/u).filter(Boolean);
+  const last = words[words.length - 1];
+  return last ? NEGATION_WORDS.has(last) : false;
+}
+
+/** Every `<number><metric-unit>` pair present in the raw text, with its
+ *  position, resolved conversion, and negation already filtered out. */
+function scanSourceMetricMatches(lower: string): SourceMetricMatch[] {
+  const matches: SourceMetricMatch[] = [];
+  for (const match of lower.matchAll(METRIC_NUMBER_RE)) {
+    const start = match.index ?? 0;
+    const value = Number(match[1].replace(',', '.'));
+    if (!Number.isFinite(value) || value <= 0) continue;
+    if (isNegatedPrefix(lower.slice(Math.max(0, start - NEGATION_DISTANCE), start))) continue;
+    const after = lower.slice(start + match[0].length).replace(/^\s*(?:x\s*)?/, '');
+    const resolved = unitSurfaceForms(after)
+      .map((form) => resolveDirectMetricUnit(form))
+      .find((r) => r !== null);
+    if (!resolved) continue;
+    matches.push({
+      start,
+      end: start + match[0].length,
+      value,
+      gramsPerUnit: resolved.gramsPerUnit,
+      basis: resolved.basis,
+    });
+  }
+  return matches;
+}
+
+/** All occurrences of the candidate's own surface text in the raw input. The
+ *  model's `raw_text` is used only as a locator hint — authority stays with the
+ *  user's text — with the localized/English names as fallbacks. */
+function candidateAnchorSpans(
+  lower: string,
+  candidate: Pick<V4Candidate, 'raw_text' | 'food_name' | 'name_localized'>,
+): SourceSpan[] {
+  const phrases = [candidate.raw_text, candidate.food_name, candidate.name_localized]
+    .map((value) => (typeof value === 'string' ? value.trim().toLowerCase() : ''))
+    .filter((value) => value.length > 0);
+  const spans: SourceSpan[] = [];
+  for (const phrase of phrases) {
+    let from = 0;
+    while (spans.length < 40) {
+      const index = lower.indexOf(phrase, from);
+      if (index < 0) break;
+      spans.push({ start: index, end: index + phrase.length });
+      from = index + 1;
+    }
+  }
+  return spans;
+}
+
+function spanDistance(a: SourceSpan, b: SourceSpan): number {
+  if (a.end <= b.start) return b.start - a.end;
+  if (b.end <= a.start) return a.start - b.end;
+  return 0;
+}
+
+/**
+ * Binds each candidate's reported metric amount to the span of the user's RAW
+ * input that actually belongs to that food.
+ *
+ * Two fabrication paths motivated span binding:
+ *  - a global "<number><unit>" scan let one item borrow a *different* item's
+ *    amount ("rice 150 g and cola" also turned cola into 150 g);
+ *  - it ignored negation, so "not 30 ml" was read as a 30 ml measurement.
+ *
+ * Each metric pair is attributed to the candidate whose food anchor
+ * (raw_text / food_name / name_localized, whichever appears in the source) is
+ * nearest, and only when the pair matches that candidate's reported unit basis
+ * and quantity. A candidate with no anchor, an ambiguous/far pair, or a
+ * negated amount gets `null` — unproven rather than borrowed. The caller then
+ * falls back to the model's estimate or clarification, never to a fabricated
+ * user measurement. `portion_explicit` is model-reported and is not consulted.
+ */
+export function bindSourceMetricPortions(
+  sourceText: string,
+  candidates: Pick<V4Candidate, 'unit' | 'quantity' | 'raw_text' | 'food_name' | 'name_localized'>[],
+): (BoundMetricPortion | null)[] {
+  const result: (BoundMetricPortion | null)[] = candidates.map(() => null);
+  if (candidates.length === 0) return result;
+
+  const lower = sourceText.toLowerCase();
+  const matches = scanSourceMetricMatches(lower);
+  if (matches.length === 0) return result;
+
+  const anchors = candidates.map((candidate) => candidateAnchorSpans(lower, candidate));
+  const targets = candidates.map((candidate) =>
+    resolveDirectMetricUnit(typeof candidate.unit === 'string' ? candidate.unit : ''));
+
+  const claimed = new Set<SourceMetricMatch>();
+  for (const match of matches) {
+    let owner = -1;
+    let bestDistance = Infinity;
+    for (let ci = 0; ci < candidates.length; ci++) {
+      const target = targets[ci];
+      if (!target || target.gramsPerUnit !== match.gramsPerUnit || target.basis !== match.basis) continue;
+      if (!Number.isFinite(candidates[ci].quantity) ||
+          Math.abs(candidates[ci].quantity - match.value) > 1e-6) continue;
+      for (const span of anchors[ci]) {
+        const distance = spanDistance(match, span);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          owner = ci;
+        }
+      }
+    }
+    if (owner >= 0 && bestDistance <= MAX_ANCHOR_DISTANCE && result[owner] === null) {
+      result[owner] = explicitMetricGrams(candidates[owner]);
+      claimed.add(match);
+    }
+  }
+
+  // Fallback for a single candidate whose surface text we could not locate in
+  // the source (e.g. the model translated `raw_text`). If exactly one metric
+  // pair in the entry is unclaimed and matches its reported unit/quantity, the
+  // association is unambiguous, so bind it. With several unlocatable candidates
+  // the amount cannot be attributed, and it stays unproven.
+  const anchorless = candidates
+    .map((_, index) => index)
+    .filter((index) => result[index] === null && anchors[index].length === 0);
+  if (anchorless.length === 1) {
+    const index = anchorless[0];
+    const target = targets[index];
+    if (target) {
+      const eligible = matches.filter((match) =>
+        !claimed.has(match) &&
+        target.gramsPerUnit === match.gramsPerUnit &&
+        target.basis === match.basis &&
+        Math.abs(candidates[index].quantity - match.value) <= 1e-6);
+      if (eligible.length === 1) {
+        result[index] = explicitMetricGrams(candidates[index]);
+      }
+    }
+  }
+  return result;
+}
+
+/**
  * v6: Metabolic consistency post-correction.
  * Enforces: calories ≈ protein×4 + carbs×4 + fat×9
  * When the macro-derived energy diverges >20% from stated calories,
@@ -720,7 +934,14 @@ Rules:
 - Consider cooking method (fried adds fat, boiled doesn't).`;
 
 async function estimateMacrosViaLLM(
-  items: { food_name: string; quantity: number; unit: string; raw_text: string }[],
+  items: {
+    food_name: string;
+    quantity: number;
+    unit: string;
+    raw_text: string;
+    unprovenMetricUnit?: boolean;
+    provenGrams?: number;
+  }[],
   beforeTransportAttempt?: (endpoint: string) => unknown,
 ): Promise<(MacroEstimate | null)[]> {
   if (items.length === 0) return [];
@@ -753,9 +974,22 @@ async function estimateMacrosViaLLM(
     return items.map((_, i) => {
       const est = estimates!.find((estimate) => estimate.item_index === i + 1);
       if (!est || typeof est.calories !== 'number') return null;
+      // The estimator may omit grams. Prefer an already-proven mass (a bound
+      // metric amount), then the legacy `quantity * 100` default for genuinely
+      // non-metric portions. That default must never apply to a recognized
+      // metric unit whose user amount was not proven — it re-fabricates the
+      // 30 ml → 3000 g mass — so such items return no estimate and stay unknown.
+      const grams = typeof est.grams === 'number' && Number.isFinite(est.grams)
+        ? Math.round(est.grams)
+        : typeof items[i].provenGrams === 'number' && items[i].provenGrams! > 0
+          ? Math.round(items[i].provenGrams!)
+          : items[i].unprovenMetricUnit
+            ? null
+            : Math.round(items[i].quantity * 100);
+      if (grams === null || grams <= 0) return null;
       return {
         food_name: est.food_name ?? items[i].food_name,
-        grams: Math.round(est.grams ?? items[i].quantity * 100),
+        grams,
         calories: Math.round(est.calories),
         protein_g: Math.round((est.protein_g ?? 0) * 10) / 10,
         carbs_g: Math.round((est.carbs_g ?? 0) * 10) / 10,
@@ -1250,6 +1484,16 @@ export async function run(
   v4Parsed.items = v4Parsed.items.map((item, index) =>
     repairNutrientClaimPortion(item, nutrientClaimsByItem[index]));
 
+  // Bind each item's reported metric amount to its own span in the raw text
+  // once, before lookup/decomposition, so every downstream branch shares the
+  // same provenance decision (borrowed or negated amounts stay unproven).
+  const sourceMetricPortions = bindSourceMetricPortions(sanitizedText, v4Parsed.items);
+  let unprovenMetricPortion = false;
+  // Indices of legacy items whose metric amount could not be bound to the
+  // user's own span. If the estimator cannot supply a real weight either, these
+  // are dropped as unknown rather than reported as a fabricated mass.
+  const unprovenMetricPortionIndices = new Set<number>();
+
   const regionCode = regionForLanguage(language);
 
   // ── Step 2: Check dish_recipes cache (cheap, no LLM) ──────────────────────
@@ -1327,7 +1571,13 @@ export async function run(
 
   // ── Step 3: Build final ParsedFoodItem[] with deterministic macros ────────
   let finalItems: ParsedFoodItem[] = [];
-  const dbMissFallbacks: { index: number; candidate: V4Candidate }[] = [];
+  const dbMissFallbacks: {
+    index: number;
+    candidate: V4Candidate;
+    unprovenMetricUnit?: boolean;
+    /** Mass already proven from the user's own span (bound metric amount). */
+    provenGrams?: number;
+  }[] = [];
   const legacyDecompFallbacks: {
     index: number;
     candidate: V4Candidate;
@@ -1488,17 +1738,48 @@ export async function run(
       // v6: prefer per-100g computed values — eliminates LLM multiplication errors
       if (hasValidCoTEstimate(candidate)) {
         const per100gComputed = hasValidPer100g(candidate) ? computeFromPer100g(candidate) : null;
+        // A metric amount the user actually typed outranks the model's portion
+        // estimate. Without this, "30 ml cola" on a DB miss logged the model's
+        // hallucinated 15000 g / 6300 kcal instead of the measured 30 g / 12.6 kcal.
+        // Provenance comes from the raw input text, NOT the model's
+        // `portion_explicit` boolean (which arrives false/missing for the same
+        // typed amount). Mirrors DB-hit arbitration Rule 1 (direct metric wins).
+        const measured = sourceMetricPortions[i] ?? null;
+        // When the measured mass is used but the model only gave totals, keep the
+        // model's per-gram density by scaling its totals down to the measured grams
+        // (the "30 ml" → 6300 kcal case becomes 12.6 kcal), never the raw totals.
+        const measuredScale = measured && candidate.estimated_grams
+          ? measured.grams / candidate.estimated_grams
+          : 1;
+        const measuredMacros = measured
+          ? {
+              calories: Math.round((candidate.per_100g_kcal != null
+                ? (candidate.per_100g_kcal * measured.grams) / 100
+                : (candidate.estimated_calories ?? 0) * measuredScale) * 100) / 100,
+              protein_g: Math.round((candidate.per_100g_protein != null
+                ? (candidate.per_100g_protein * measured.grams) / 100
+                : (candidate.estimated_protein_g ?? 0) * measuredScale) * 10) / 10,
+              carbs_g: Math.round((candidate.per_100g_carbs != null
+                ? (candidate.per_100g_carbs * measured.grams) / 100
+                : (candidate.estimated_carbs_g ?? 0) * measuredScale) * 10) / 10,
+              fat_g: Math.round((candidate.per_100g_fat != null
+                ? (candidate.per_100g_fat * measured.grams) / 100
+                : (candidate.estimated_fat_g ?? 0) * measuredScale) * 10) / 10,
+            }
+          : null;
         finalItems.push({
           raw_text:       candidate.raw_text,
           food_name:      candidate.food_name,
           name_localized: candidate.name_localized,
           quantity:       candidate.quantity,
           unit:           candidate.unit,
-          grams:          per100gComputed?.grams ?? Math.round(candidate.estimated_grams!),
-          calories:       per100gComputed?.calories ?? Math.round(candidate.estimated_calories!),
-          protein_g:      per100gComputed?.protein_g ?? Math.round((candidate.estimated_protein_g ?? 0) * 10) / 10,
-          carbs_g:        per100gComputed?.carbs_g ?? Math.round((candidate.estimated_carbs_g ?? 0) * 10) / 10,
-          fat_g:          per100gComputed?.fat_g ?? Math.round((candidate.estimated_fat_g ?? 0) * 10) / 10,
+          grams:          measured
+            ? measured.grams
+            : per100gComputed?.grams ?? Math.round(candidate.estimated_grams!),
+          calories:       measuredMacros?.calories ?? per100gComputed?.calories ?? Math.round(candidate.estimated_calories!),
+          protein_g:      measuredMacros?.protein_g ?? per100gComputed?.protein_g ?? Math.round((candidate.estimated_protein_g ?? 0) * 10) / 10,
+          carbs_g:        measuredMacros?.carbs_g ?? per100gComputed?.carbs_g ?? Math.round((candidate.estimated_carbs_g ?? 0) * 10) / 10,
+          fat_g:          measuredMacros?.fat_g ?? per100gComputed?.fat_g ?? Math.round((candidate.estimated_fat_g ?? 0) * 10) / 10,
           fiber_g:        0,
           sugar_g:        0,
           confidence:     Math.min(candidate.estimation_confidence ?? 0.6, 0.70),
@@ -1510,19 +1791,33 @@ export async function run(
       }
 
       // Legacy fallback chain (v4 behavior when no CoT available)
+      // A typed metric amount bound to this item's own span resolves through the
+      // canonical conversion (the bare `quantity * 100` default assumes a ~100 g
+      // unit portion and inflated "30 ml" to 3000 g). A recognized metric unit
+      // whose amount is NOT proven for this item must never take that
+      // non-metric default either — leave the mass unknown and let the estimator
+      // supply a real weight or the pipeline clarify.
+      const legacyMetric = sourceMetricPortions[i] ?? null;
+      const unitIsDirectMetric = resolveDirectMetricUnit(
+        typeof candidate.unit === 'string' ? candidate.unit : '') !== null;
+      const metricUnproven = unitIsDirectMetric && legacyMetric === null;
+      if (metricUnproven) unprovenMetricPortion = true;
       const legacyItem: ParsedFoodItem = {
         food_name: candidate.food_name,
         name_localized: candidate.name_localized,
         raw_text: candidate.raw_text,
         quantity: candidate.quantity,
         unit: candidate.unit,
-        grams: candidate.quantity * 100, // rough default
+        // rough default for unmeasured portions — only for non-metric units
+        grams: legacyMetric ? legacyMetric.grams : metricUnproven ? 0 : candidate.quantity * 100,
         calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0,
         fiber_g: 0, sugar_g: 0,
         confidence: candidate.confidence * 0.7, // lower confidence for fallback
         source: 'ai_estimate' as const,
         food_state: candidate.food_state as ParsedFoodItem['food_state'],
-        portion_explicit: candidate.portion_explicit,
+        // An unproven metric portion is not a user-supplied measurement: keep it
+        // implicit so the UI shows a range and asks for confirmation.
+        portion_explicit: metricUnproven ? false : candidate.portion_explicit,
       };
 
       const [enriched] = enrichWithLocalDB([legacyItem]);
@@ -1533,10 +1828,18 @@ export async function run(
       } else {
         const index = finalItems.length;
         finalItems.push(legacyItem); // placeholder, overwritten by a later phase when possible
-        if (foodTypes[i] === 'composite') {
+        if (metricUnproven) unprovenMetricPortionIndices.add(index);
+        if (metricUnproven || foodTypes[i] === 'composite') {
           // Composite decomposition already ran in Step 2b. Never pay for the
           // same attempt twice; go directly to the final estimate fallback.
-          dbMissFallbacks.push({ index, candidate });
+          // Unproven metric portions skip decomposition too: decomposing a
+          // portion we cannot trust would fabricate weight from it.
+          dbMissFallbacks.push({
+            index,
+            candidate,
+            unprovenMetricUnit: metricUnproven,
+            provenGrams: legacyMetric?.grams,
+          });
         } else {
           legacyDecompFallbacks.push({ index, candidate });
         }
@@ -1567,7 +1870,11 @@ export async function run(
     if (decomposed) {
       finalItems[fallback.index] = decomposed;
     } else {
-      dbMissFallbacks.push({ index: fallback.index, candidate: fallback.candidate });
+      dbMissFallbacks.push({
+        index: fallback.index,
+        candidate: fallback.candidate,
+        provenGrams: sourceMetricPortions[fallback.index]?.grams,
+      });
     }
   }
 
@@ -1580,10 +1887,12 @@ export async function run(
         quantity: f.candidate.quantity,
         unit: f.candidate.unit,
         raw_text: f.candidate.raw_text,
+        unprovenMetricUnit: f.unprovenMetricUnit,
+        provenGrams: f.provenGrams,
       })), opts?.beforeTransportAttempt);
 
     for (let i = 0; i < dbMissFallbacks.length; i++) {
-      const { index, candidate } = dbMissFallbacks[i];
+      const { index, candidate, unprovenMetricUnit } = dbMissFallbacks[i];
       const est = estimates[i];
       if (est && est.calories > 0) {
         finalItems[index] = {
@@ -1602,7 +1911,34 @@ export async function run(
           confidence:     candidate.confidence * 0.7,
           source:         'ai_estimate',
           food_state:     candidate.food_state as ParsedFoodItem['food_state'],
-          portion_explicit: candidate.portion_explicit,
+          // An unproven metric portion stays implicit even when the estimator
+          // supplies a reviewed weight: the range/confirm contract applies.
+          portion_explicit: unprovenMetricUnit ? false : candidate.portion_explicit,
+        };
+      }
+    }
+  }
+
+  // Unproven metric portions that the estimator could not weigh: drop them as
+  // unknown instead of letting the zero-mass clamp mislabel them as a 1 g
+  // serving. The user is asked to confirm the amount below.
+  let unknownMetricPortionCount = 0;
+  if (unprovenMetricPortionIndices.size > 0) {
+    const unknownMetricIndices = new Set(
+      [...unprovenMetricPortionIndices].filter((index) => finalItems[index] && finalItems[index].grams <= 0),
+    );
+    if (unknownMetricIndices.size > 0) {
+      unknownMetricPortionCount = unknownMetricIndices.size;
+      finalItems = finalItems.filter((_, index) => !unknownMetricIndices.has(index));
+      if (finalItems.length === 0) {
+        // Every item was an unbindable metric amount with no weight estimate —
+        // fail closed rather than return a meal we cannot measure.
+        return {
+          ok: false,
+          error: budgetLimited
+            ? 'Food parse pipeline timeout'
+            : 'Nutrition result failed plausibility validation',
+          telemetry,
         };
       }
     }
@@ -1719,7 +2055,10 @@ export async function run(
   }
 
   const deterministicClarification =
-    requiresPortionClarification(v4Parsed.items) || plausibilityFlag || budgetLimited;
+    requiresPortionClarification(v4Parsed.items) || plausibilityFlag || budgetLimited ||
+    // A recognized metric unit we could not bind to the user's own span is an
+    // unknown portion, not a measured one — ask rather than report a guess.
+    unprovenMetricPortion;
   if (deterministicClarification) {
     for (const item of finalItems) {
       if (item.portion_explicit === false) item.confidence = Math.min(item.confidence, 0.65);
@@ -1758,6 +2097,9 @@ export async function run(
 
   if (droppedCount > 0) {
     warnings.push(`${droppedCount} item${droppedCount > 1 ? 's' : ''} couldn't be read reliably and ${droppedCount > 1 ? 'were' : 'was'} skipped — the rest are ready.`);
+  }
+  if (unknownMetricPortionCount > 0) {
+    warnings.push(`${unknownMetricPortionCount} item${unknownMetricPortionCount > 1 ? 's' : ''} had an amount we couldn't confirm — add grams or a portion size and we'll log it.`);
   }
   if (budgetLimited) {
     warnings.push('Some items needed more processing time and were skipped — review the remaining items or log the meal in smaller groups.');

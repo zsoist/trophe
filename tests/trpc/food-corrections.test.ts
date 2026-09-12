@@ -323,6 +323,45 @@ describe('food.log.edit (capture-gate integration)', () => {
     expect(inserted[0]).toMatchObject({ aiCalories: 100, correctedCalories: 200 });
   });
 
+  // Regression: a quantity-only edit scaled the macros by the quantity ratio but
+  // froze qty_g. The row then contradicted itself (2 × 355 g can stored as 355 g
+  // with doubled macros) and a later grams edit scaled from the stale baseline.
+  it('keeps qty_g consistent with a quantity-only edit of a measured entry', async () => {
+    const existing = foodLogRow({
+      source: 'photo_ai',
+      quantity: 1,
+      unit: 'can',
+      qtyG: '355.00',
+      calories: 140,
+      carbsG: 39,
+      sugarG: 39,
+      parseConfidence: 0.8,
+    });
+    const { db, updates } = makeStubDb({ selectRows: [existing] });
+    const caller = createCaller(authedCtx(USER_ID, 'client', db));
+
+    await caller.food.log.edit({ entryId: ENTRY_ID, quantity: 2 });
+
+    // Macros double AND the stored mass doubles with them — internally consistent.
+    expect(updates[0]).toMatchObject({
+      quantity: 2,
+      qtyG: '710',
+      calories: 280,
+      carbsG: 78,
+      sugarG: 78,
+    });
+  });
+
+  it('does not invent qty_g for an entry that never had a measured mass', async () => {
+    const existing = foodLogRow({ source: 'photo_ai', quantity: 1, qtyG: null, calories: 100 });
+    const { db, updates } = makeStubDb({ selectRows: [existing] });
+    const caller = createCaller(authedCtx(USER_ID, 'client', db));
+
+    await caller.food.log.edit({ entryId: ENTRY_ID, quantity: 2 });
+
+    expect(updates[0]).toMatchObject({ quantity: 2, qtyG: null, calories: 200 });
+  });
+
   it('recomputes macros from a grams ratio when the row has qty_g', async () => {
     const existing = foodLogRow({ source: 'natural_language', qtyG: '100.00' });
     const { db, updates } = makeStubDb({ selectRows: [existing] });
