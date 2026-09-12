@@ -42,6 +42,8 @@ import { PhotoFoodController } from './photo-food-state';
 import { PhotoFoodPanel } from './PhotoFoodPanel';
 import { requestPhotoFood, type PhotoFoodTransport } from './photo-food-client';
 import type { CoachConversationResponse, CoachContextHint, CoachSurface as CoachSurfaceName } from '@/agents/coach-assistant/contracts';
+import type { LiveTranscriptRow } from '@/lib/voice-live/client-types';
+import { mergeVoiceTurns, voiceRowVisible, type VoiceChatEntry } from './LiveVoiceControl';
 import type { CoachVoiceResult } from '@/agents/coach-assistant/voice-contract';
 import type { CoachSpeechDescriptor } from '@/agents/coach-assistant/voice-turn';
 import type { ReviewedVoiceTransport, VoiceTranscriptionTransport } from './voice-client';
@@ -128,7 +130,7 @@ export function resetGlobalCoachSessionsForActor(actorId: string) {
 }
 
 export type CoachContextSlot = (props: { identity: string; controller: PreferenceController; state: PreferenceState; conversationId: string; turnId: string; surface: CoachSurfaceName; response: CoachConversationResponse; transport: PreferenceTransport }) => ReactNode;
-export type CoachVoiceSlot = (props: { onQuery: (text: string, signal: AbortSignal) => Promise<string>; conversationId: string; prepareConversation?: () => Promise<string | null>; onUse: (text: string) => boolean; onSend?: (result: Extract<CoachVoiceResult, { ok: true }>, text: string) => Promise<'sent' | 'ambiguous' | 'failed'> }) => ReactNode;
+export type CoachVoiceSlot = (props: { onQuery: (text: string, signal: AbortSignal) => Promise<string>; conversationId: string; prepareConversation?: () => Promise<string | null>; onUse: (text: string) => boolean; onSend?: (result: Extract<CoachVoiceResult, { ok: true }>, text: string) => Promise<'sent' | 'ambiguous' | 'failed'>; onTranscript?: (row: LiveTranscriptRow) => void }) => ReactNode;
 type Props = { identity: string; subjectId?: string; professional?: boolean; example?: ConversationTransport; preferenceTransport?: PreferenceTransport; memoryTransport?: MemoryTransport; dietTransport?: DietTransport; progressTransport?: ProgressTransport; foodTransport?:FoodTransport; photoFoodTransport?:PhotoFoodTransport; workoutSetTransport?:WorkoutSetTransport; messageTransport?:MessageTransport; historyTransport?: HistoryTransport; contextSlot?: CoachContextSlot; voiceSlot?: CoachVoiceSlot; voiceTranscriptionTransport?: VoiceTranscriptionTransport; reviewedVoiceTransport?: ReviewedVoiceTransport; workspaceHint?: CoachContextHint['workspace'] };
 
 export default function GlobalCoach(props: Props) {
@@ -245,6 +247,10 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   const followLatest = useRef(true);
   const [showLatest, setShowLatest] = useState(false);
   const [speechByTurn, setSpeechByTurn] = useState<Record<string, CoachSpeechDescriptor>>({});
+  // Live voice turns stream into the ONE chat history; nothing is stored twice and nothing here
+  // ever triggers backend work (the delegated chat turn does that).
+  const [voiceRows, setVoiceRows] = useState<VoiceChatEntry[]>([]);
+  const appendVoiceRow = useCallback((row: LiveTranscriptRow) => { setVoiceRows(current => mergeVoiceTurns(current, [row])); }, []);
   const professionalMode = professional || Boolean(subjectId && subjectId !== identity);
   const missingProfessionalSubject = professionalMode && !subjectId;
   const serverScope = useRef<string | null>(null);
@@ -258,6 +264,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   useEffect(() => () => workoutSetController.moveConversation(), [workoutSetController]);
   useEffect(() => () => { messageController.cancel(); }, [messageController]);
   useEffect(() => { memory.identify(state.conversationId); }, [memory, state.conversationId]);
+  useEffect(() => { setVoiceRows([]); }, [state.conversationId]);
   useEffect(() => {
     if (process.env.NEXT_PUBLIC_COACH_FOOD_ACTIONS_ENABLED !== '1' || example || subjectId && subjectId !== identity) return;
     const select = (event: Event) => {
@@ -489,10 +496,20 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   const startNewConversation = () => {
     if (controller.snapshot().pending || controller.snapshot().recovering) return;
     voice.reset(); setVoiceDraft(null); setVoiceDraftError(false); setIncludePhoto(true); attachments.reset(); preferences.moveConversation(); food.moveConversation(); memory.reset();
+    setVoiceRows([]);
     workoutSetController.moveConversation(); controller.startNew(); messageController.moveConversation(controller.snapshot().conversationId);
     photoFood.moveConversation(controller.snapshot().conversationId); diet.moveConversation(controller.snapshot().conversationId);
     progress.moveConversation(controller.snapshot().conversationId); setHistoryOpen(false); input.current?.focus();
   };
+  // Voice turns already present in the thread (the delegated question and the answer with its
+  // proposals/cards) are not repeated; only live speech the thread does not yet carry is shown.
+  const visibleVoiceRows = voiceRows.filter(row => voiceRowVisible(row, {
+    user: [...state.turns.map(turn => turn.request.message), ...state.restored.filter(message => message.role === 'user').map(message => message.text)],
+    assistant: [
+      ...state.turns.map(turn => turn.response?.output?.answer).filter((text): text is string => Boolean(text)),
+      ...state.restored.filter(message => message.role === 'assistant').map(message => message.text),
+    ],
+  }));
   const launch = <button ref={launcher} type="button" className={styles.launcher} aria-expanded={open} aria-controls="global-coach" onClick={() => open ? close() : setOpen(true)}>
       <AskTropheMark />{t('global_coach.open')}
     </button>;
@@ -523,6 +540,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
                   return;
                 }
                 voice.reset(); setVoiceDraft(null); setVoiceDraftError(false); setIncludePhoto(true); attachments.reset(); preferences.moveConversation(); food.moveConversation(); memory.reset(); workoutSetController.moveConversation(); messageController.moveConversation(controller.snapshot().conversationId); photoFood.moveConversation(controller.snapshot().conversationId);
+                setVoiceRows([]);
                 diet.moveConversation(controller.snapshot().conversationId); progress.moveConversation(controller.snapshot().conversationId); setHistoryOpen(false); input.current?.focus();
               }} /></section>}
               {dietEnabled && <details className={styles.profile} onToggle={event => { if (event.currentTarget.open) { voice.reset(); if (!dietState.profileId) diet.select(identity, state.conversationId, dietTransport ?? requestDiet); else if (!dietState.profile) void diet.read(dietTransport ?? requestDiet); } }}><summary>{t('global_coach.diet_title')}</summary><DietPanel controller={diet} state={dietState} transport={dietTransport ?? requestDiet} /></details>}
@@ -570,6 +588,10 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
               {turn.response.output.limitations.map((limitation, index) => <p className={styles.context} key={`${turn.request.turnId}-limitation-${index}`}>{globalCoachTranslations[`global_coach.limit_${limitation}`] ? t(`global_coach.limit_${limitation}`) : limitation.replace(/_/g, ' ')}</p>)}
             </details>}
           </div>}
+        </article>)}
+        {visibleVoiceRows.map(row => <article className={styles.turn} key={row.id}>
+          <p className={styles.context}>{t(row.speaker === 'user' ? 'global_coach.live_you' : 'global_coach.live_assistant')}</p>
+          <p className={row.speaker === 'user' ? styles.question : styles.answer}>{row.text}</p>
         </article>)}
         {state.pending && <p className={styles.pending} role="status"><span aria-hidden="true" />{t(state.turns.at(-1)?.request.attachments?.length ? 'global_coach.preparing_photo_answer' : 'global_coach.preparing_answer')}</p>}
         {state.error && <div role="status"><p>{t(state.recovering ? 'global_coach.history_checking' : state.recoveryRequired ? 'global_coach.history_waiting' : `global_coach.${state.error}`)}</p>{state.recoveryRequired && <button type="button" className={styles.recoveryButton} disabled={state.recovering} onClick={() => { const read = (historyTransport ?? requestHistory).recover; if (read) void controller.recover(read); }}>{t('global_coach.history_check')}</button>}</div>}
@@ -623,7 +645,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
           if (combined.length > 2000) return false;
           controller.setDraft(combined);
           return true;
-        }, onSend: reviewedVoiceTransport || !example && process.env.NEXT_PUBLIC_COACH_VOICE_REVIEW_ENABLED === '1' ? sendVoice : undefined })}
+        }, onSend: reviewedVoiceTransport || !example && process.env.NEXT_PUBLIC_COACH_VOICE_REVIEW_ENABLED === '1' ? sendVoice : undefined, onTranscript: appendVoiceRow })}
         <button type={state.pending ? 'button' : 'submit'} className={styles.sendButton} onClick={state.pending ? () => controller.cancel() : undefined} disabled={preparingPhotos || !state.pending && (missingProfessionalSubject || state.recoveryRequired || !state.draft.trim() || attachmentState.pending || voiceActive || voiceBusy || composerSubmitBlocked)} aria-label={t(state.pending ? 'global_coach.cancel' : 'global_coach.send')}>{state.pending ? <Square size={15} aria-hidden="true" /> : <Send size={17} aria-hidden="true" />}</button>
         </div>
       </form>

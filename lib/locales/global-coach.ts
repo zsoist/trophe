@@ -14,6 +14,13 @@ export const globalCoachTranslations: Record<string, { en: string; es: string; e
   "global_coach.live_working": {"en": "Checking your information…", "es": "Consultando tu información…", "el": "Έλεγχος πληροφοριών…"},
   "global_coach.live_you": {"en": "You", "es": "Tú", "el": "Εσείς"},
   "global_coach.live_assistant": {"en": "Trophē", "es": "Trophē", "el": "Trophē"},
+  "global_coach.live_speaking": {"en": "Trophē is speaking", "es": "Trophē está hablando", "el": "Η Trophē μιλάει"},
+  "global_coach.live_time_left": {"en": "{seconds}s left", "es": "Quedan {seconds} s", "el": "Απομένουν {seconds} δευτ."},
+  "global_coach.live_mute_mic": {"en": "Mute microphone", "es": "Silenciar micrófono", "el": "Σίγαση μικροφώνου"},
+  "global_coach.live_unmute_mic": {"en": "Unmute microphone", "es": "Activar micrófono", "el": "Ενεργοποίηση μικροφώνου"},
+  "global_coach.live_mic_muted": {"en": "Microphone muted", "es": "Micrófono silenciado", "el": "Το μικρόφωνο είναι σε σίγαση"},
+  "global_coach.live_waveform": {"en": "Live microphone level", "es": "Nivel del micrófono en vivo", "el": "Ζωντανό επίπεδο μικροφώνου"},
+  "global_coach.live_no_level": {"en": "Microphone level unavailable", "es": "Nivel del micrófono no disponible", "el": "Το επίπεδο μικροφώνου δεν είναι διαθέσιμο"},
 
   'global_coach.photo_details': { en: 'Photo details', es: 'Detalles de la foto', el: 'Λεπτομέρειες φωτογραφίας' },
   'global_coach.photo_context': { en: 'Use this conversation’s photo', es: 'Usar la foto de esta conversación', el: 'Χρήση φωτογραφίας αυτής της συνομιλίας' },
