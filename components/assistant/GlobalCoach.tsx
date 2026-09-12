@@ -400,6 +400,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
       }
       const voiceTransport = reviewedVoiceTransport ?? (!example && process.env.NEXT_PUBLIC_COACH_VOICE_REVIEW_ENABLED === '1' ? requestReviewedVoiceTurn : undefined);
       let response: CoachConversationResponse;
+      if (voiceDraft && !voiceTransport) throw new Error('voice_review_unavailable');
       if (voiceDraft && voiceTransport) {
         const { message, ...requestTail } = request;
         const reviewed = await voiceTransport({ voice: voiceDraft, editedText: message, reviewed: true, request: requestTail, offerSpeech: true }, signal);
@@ -571,12 +572,13 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
 
         <div ref={setVoiceHost} />
         {voiceDraft && <p className={styles.context}>{t('global_coach.voice_edit')}</p>}
-        {voiceDraftError && <p role="alert">{t('global_coach.voice_ambiguous')}</p>}
+        {voiceDraftError && <p role="alert">{t('global_coach.voice_composer_full')}</p>}
         <div className={styles.composeRail}>
 
         <label className="sr-only" htmlFor="global-coach-question">{t('global_coach.question')}</label>
         <textarea id="global-coach-question" ref={input} disabled={composerInputBlocked || voiceBusy} maxLength={2000} rows={1} value={state.draft} onChange={event => { controller.setDraft(event.target.value); }} placeholder={t('global_coach.placeholder')} />
         <VoiceCapture statusHost={voiceHost} onBusy={setVoiceBusy} onTranscript={result => {
+          if (!reviewedVoiceTransport && (example || process.env.NEXT_PUBLIC_COACH_VOICE_REVIEW_ENABLED !== '1')) { setVoiceDraftError(true); return; }
           const current = controller.snapshot().draft;
           const combined = current.trim() ? `${current}\n${result.transcript.text}` : result.transcript.text;
           if (combined.length > 2000) { setVoiceDraftError(true); return; }

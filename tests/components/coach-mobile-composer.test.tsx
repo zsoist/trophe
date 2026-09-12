@@ -38,3 +38,16 @@ it('locks the underlying page and restores its exact position and inline styles 
  expect(document.body.style.position).toBe('');expect(document.body.style.overflow).toBe('auto');
  expect(scroll).toHaveBeenCalledWith({left:0,top:380,behavior:'instant'});
 });
+
+it('does not send a transcript through ordinary conversation when reviewed voice is unavailable',async()=>{
+ window.scrollTo=vi.fn(); HTMLElement.prototype.scrollTo=vi.fn();
+ const ordinary=vi.fn();
+ render(<I18nProvider defaultLang="en"><GlobalCoach identity={crypto.randomUUID()} example={ordinary}/></I18nProvider>);
+ fireEvent.click(screen.getByRole('button',{name:'Ask Trophē'}));
+ const {act}=await import('@testing-library/react');
+ act(()=>deliver({version:'coach-assistant.voice.v1',ok:true,status:'review_required',scope:{actorId:'actor',organizationId:'org',conversationId:'fixture'},turnId:crypto.randomUUID(),transcript:{text:'Lunch ideas',locale:'en',languages:['en'],source:'synthetic_fixture',trust:'untrusted_transcript'},review:{token:'fixture',expiresAt:new Date(Date.now()+60000).toISOString(),editable:true,audioRetention:'discarded_after_transcription'},durationMs:1000}));
+ expect((screen.getByRole('textbox',{name:'Your question'}) as HTMLTextAreaElement).value).toBe('');
+ expect(screen.getByRole('alert')).toBeTruthy();
+ fireEvent.submit(screen.getByRole('textbox',{name:'Your question'}).closest('form')!);
+ expect(ordinary).not.toHaveBeenCalled();
+});
