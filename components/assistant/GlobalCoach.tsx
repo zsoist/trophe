@@ -188,6 +188,14 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
     if (!create) return Promise.resolve(null);
     return controller.prepareDurable(t('global_coach.photo_food_title'), (requestId, title, signal) => create(requestId, title, signal));
   } : undefined;
+  // The composer and the Send path must agree on exactly one capability: the
+  // server advertises private-attachment uploads (`uploads.images`) independently
+  // of the client photo-food action flag, so "upload only" is a real state. A
+  // photo is attachable precisely when this browser can also upload and send it.
+  const uploadsAdvertised = Boolean(state.turns.findLast(turn => turn.response?.ok)?.response?.uploads?.images);
+  const photoTransportEnabled = !example
+    && (photoFoodEnabled || uploadsAdvertised)
+    && (state.durable || Boolean((historyTransport ?? requestHistory).create));
   const memoryEnabled = process.env.NEXT_PUBLIC_COACH_MEMORY_ACTIONS_ENABLED === '1' && (!historyEnabled || state.durable) && (!example || Boolean(memoryTransport)) && (!subjectId || subjectId === identity);
   const [diet] = useState(() => new DietController());
   const dietState = useSyncExternalStore(diet.subscribe, diet.snapshot, diet.snapshot);
@@ -366,7 +374,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
     if (voiceDraft && hasAmbiguousSpokenNumber(controller.snapshot().draft)) { setVoiceDraftError(true); return; }
     const selectedPhotos = attachments.snapshot().items;
     if (selectedPhotos.length) {
-      if (!photoFoodEnabled || example || attachments.snapshot().pending) return;
+      if (!photoTransportEnabled || attachments.snapshot().pending) return;
       preparingPhotosRef.current = true; setPreparingPhotos(true);
       try {
         const create = (historyTransport ?? requestHistory).create;
@@ -568,7 +576,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
       </div>
       {showLatest && <button type="button" className="min-h-11 px-4 text-sm" onClick={() => { followLatest.current = true; setShowLatest(false); log.current?.scrollTo({ top: log.current.scrollHeight }); }}>{t('global_coach.latest')}</button>}
       <form className={styles.composer} onSubmit={event => { event.preventDefault(); void send(); }}>
-        <AttachmentPicker compact deferUpload maxPhotos={1} controller={attachments} state={attachmentState} conversationId={state.conversationId} transport={!example && (photoFoodEnabled && (state.durable || Boolean(preparePhotoConversation)) || latestResponse?.uploads?.images) ? requestAttachment : undefined} analysisEnabled={photoFoodEnabled} prepareConversation={photoFoodEnabled && !state.durable ? preparePhotoConversation : undefined} disabled={state.pending || coachActionBlocked} />
+        <AttachmentPicker compact deferUpload maxPhotos={1} controller={attachments} state={attachmentState} conversationId={state.conversationId} transport={photoTransportEnabled ? requestAttachment : undefined} analysisEnabled={photoFoodEnabled} prepareConversation={photoFoodEnabled && !state.durable ? preparePhotoConversation : undefined} disabled={state.pending || coachActionBlocked} />
 
         <div ref={setVoiceHost} />
         {voiceDraft && <p className={styles.context}>{t('global_coach.voice_edit')}</p>}
