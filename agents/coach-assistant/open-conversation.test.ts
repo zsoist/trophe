@@ -156,6 +156,16 @@ describe('open v2 conversation with explicit synthetic provider',()=>{
     const result=await runConversation(request,{...options(),offlineConversationProvider:transport});
     expect(result.error?.code).toBe('invalid_output');expect(result.output).toBeUndefined();
   });
+  it.each([
+    {answer:'Podrías elegir una comida saludable que encaje con tus preferencias.',ok:true},
+    {answer:'Tu salud está mejor.',ok:false},
+  ])('classifies Spanish health wording by claim context: $answer',async({answer,ok})=>{
+    const transport=provider(output=>({...output,answer,followUp:null,generalExplanationRefs:[]}));
+    const result=await runConversation(request,{...options(),offlineCandidateEvaluation:true,offlineConversationProvider:transport});
+    expect(result.ok).toBe(ok);
+    expect(result.output?.answer).toBe(ok?answer:undefined);
+    expect(result.error?.code).toBe(ok?undefined:'invalid_output');
+  });
   it('keeps declarative explanations gated behind a separate explicit offline oracle',async()=>{
     const answer='The available entries leave open whether the log represents your usual routine.';
     const transport=provider(output=>({...output,answer}));

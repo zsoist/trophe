@@ -367,7 +367,7 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
     if(candidateUniversalPattern.test(normalized))rejectOutput('candidate_universal_claim',proseDiagnostic(boundedOutput,candidateUniversalPattern,{rule:'candidate_universal_claim',category:'universal_or_completion_token',promptVersion,outputSchemaVersion:'coach-assistant.candidate-output.v1'},'nfkd_without_marks'));
     // Conservative release-candidate guards; independent tests, not a truth proof.
     // Apply to follow-ups too: interrogative syntax can hide the same assertion.
-    if(/\b(?:saved|updated|sent|approved|deleted|booked|confirmed|guardad\w*|actualizad\w*|enviad\w*|aprobad\w*|eliminad\w*|confirmad\w*|heart|muscles?|stronger|healthier|blood|insulin|corazon|muscul\w*|salud\w*|hormon\w*|skipped|skipping|omitid\w*)\b/i.test(normalized))rejectOutput('candidate_sensitive_claim');
+    if(/\b(?:saved|updated|sent|approved|deleted|booked|confirmed|guardad\w*|actualizad\w*|enviad\w*|aprobad\w*|eliminad\w*|confirmad\w*|heart|muscles?|stronger|healthier|blood|insulin|corazon|muscul\w*|salud|hormon\w*|skipped|skipping|omitid\w*)\b/i.test(normalized))rejectOutput('candidate_sensitive_claim');
     if(/\byou (?:are|were|have|did|completed|ate|trained)\b|\byour\b[^.!?]*\b(?:is|are|was|were|has|have|show|indicate|prove)\b|\btus?\b[^.!?]*\b(?:es|son|fue|fueron|demuestra\w*|indica\w*)\b/i.test(normalized))rejectOutput('candidate_personal_claim');
     const candidateOutput={...boundedOutput};
     delete candidateOutput.actionIntent;
