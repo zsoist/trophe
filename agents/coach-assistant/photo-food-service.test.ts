@@ -46,6 +46,14 @@ function fixture(offline=false,identity:'identified'|'uncertain'|null='identifie
  return {observation,database,service,execute,env,port,boundary,fixtureScope,read,propose,apply,queries,state:()=>({rows,writes,audits,proposals,receipts}),revoke:()=>{authorized=false;},remove:()=>{available=false;},expire:()=>{expired=true;},change:()=>{observation.revision=id(99);},foreign:()=>{observation.subjectId=id(99);},digest:()=>{observation.imageDigest='b'.repeat(64);},failReceipt:()=>{receiptFails=true;},failAudit:()=>{auditFails=true;},noRevision:()=>{revision=false;},corrupt:()=>{corrupt=true;},lose:()=>{lost=true;},deleteEntry:()=>{rows=[];},abort:()=>controller.abort(),abortInsert:()=>{abortInsert=true;}};
 }
 describe('photo observation to reviewed Food creation with injected transactions',()=>{
+ it.each(['uncertain',null] as const)('returns a neutral display name for %s without rewriting private evidence',async identity=>{
+  const f=fixture(false,identity);f.observation.foods[0].name='Dark grilled-looking pieces';
+  f.observation.foods[0].accuracy_note='Dark brown pieces. Identity and preparation are uncertain; please clarify.';
+  const original=JSON.stringify(f.observation);const result=await f.read();
+  expect(result).toMatchObject({ok:true,snapshot:{items:[{foodName:'Unidentified food component',identityStatus:identity??'unassessed',accuracyNote:f.observation.foods[0].accuracy_note}]}});
+  expect(JSON.stringify(result)).not.toContain('grilled-looking');expect(JSON.stringify(f.observation)).toBe(original);
+  expect(f.state()).toMatchObject({writes:0,proposals:{},receipts:{}});
+ });
  it('allows selecting an identified item while leaving an uncertain component out',async()=>{
   const f=fixture();f.observation.foods.push({...photo,identity_status:'uncertain',name:'Pale oval pieces',accuracy_note:'Could be fruit or a cooked vegetable. Which is it?'});
   const p=await f.propose();expect(await f.execute(f.apply(p))).toMatchObject({receipt:{status:'applied'}});
