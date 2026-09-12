@@ -35,6 +35,7 @@ export function AttachmentPicker({ controller, state, conversationId, transport,
     <input hidden ref={input} type="file" accept="image/jpeg,image/png,image/webp" multiple={maxPhotos > 1} aria-label={t('global_coach.photos_select')} disabled={disabled || state.pending} onChange={event => { void controller.select(Array.from(event.target.files ?? [])); event.target.value = ''; if (compact && popover.current) popover.current.open = false; }} />
     <input hidden ref={cameraInput} type="file" accept="image/*" capture="environment" aria-label={t('global_coach.camera')} disabled={disabled || state.pending} onChange={event => { void controller.select(Array.from(event.target.files ?? [])); event.target.value = ''; if (compact && popover.current) popover.current.open = false; }} />
     <div className={styles.attachmentPopover}>
+    {deferUpload && state.items.length === 0 && <p className={styles.context}>{t('global_coach.photo_one_per_turn')}</p>}
     <div className={styles.attachmentChoices}>
       <button type="button" disabled={disabled || state.pending || state.items.length >= maxPhotos} onClick={() => input.current?.click()}><ImagePlus size={17} aria-hidden="true" />{t('global_coach.photos_select')}</button>
       <button type="button" disabled={disabled || state.pending || state.items.length >= maxPhotos} onClick={() => cameraInput.current?.click()}><Camera size={17} aria-hidden="true" />{t('global_coach.camera')}</button>

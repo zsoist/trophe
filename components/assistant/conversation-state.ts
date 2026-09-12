@@ -101,11 +101,11 @@ export class ConversationController {
   }
   async send(context: CoachContextHint | undefined, transport: ConversationTransport, attachments: CoachAttachmentRef[] = [], createThread?: (requestId: string, title: string, signal: AbortSignal) => Promise<{ id: string }>, requestedTurnId?: string) {
     const message = this.state.draft.trim();
-    if (!this.identity || this.active || this.state.recoveryRequired || !message) return;
+    if (!this.identity || this.active || this.state.recoveryRequired || !message || attachments.length > 1) return;
     const request: CoachConversationRequest = {
       version: 'coach-assistant.v2', conversationId: this.state.conversationId, turnId: requestedTurnId ?? crypto.randomUUID(), message,
       ...(context ? { context: structuredClone(context) } : {}),
-      ...(attachments.length ? { attachments: structuredClone(attachments.slice(0, 3)) } : {}),
+      ...(attachments.length ? { attachments: structuredClone(attachments) } : {}),
       history: [...this.state.restored.map(item => ({ role: item.role, text: item.text.slice(0, 500) })), ...this.state.turns.filter(turn => turn.response?.ok || turn.recovered).flatMap(turn => turn.recovered ? turn.recovered.map(item => ({ role: item.role, text: item.text.slice(0, 500) })) : [
         { role: 'user' as const, text: turn.request.message.slice(0, 500) },
         { role: 'assistant' as const, text: (turn.response?.output?.answer ?? '').slice(0, 500), ...(turn.response?.memoryContext?.derivedHistoryToken ? { derivedToken: turn.response.memoryContext.derivedHistoryToken } : {}) },

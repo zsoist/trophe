@@ -27,6 +27,8 @@ async function setup() {
  render(<I18nProvider defaultLang="en"><GlobalCoach identity={crypto.randomUUID()} historyTransport={{ create, list: vi.fn(), read: vi.fn() }} /></I18nProvider>);
  fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
  fireEvent.click(screen.getByLabelText('Photos'));
+ expect(screen.getByText('One photo per message.')).toBeTruthy();
+ expect(screen.getByLabelText('Choose photos').hasAttribute('multiple')).toBe(false);
  fireEvent.change(screen.getByLabelText('Choose photos'), { target: { files: [new File(['private'], 'meal.png', { type: 'image/png' })] } });
  await screen.findByText('meal.png');
  fireEvent.change(screen.getByRole('textbox', { name: 'Your question' }), { target: { value: 'What is this?' } });
