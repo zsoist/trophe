@@ -13,9 +13,10 @@ function setup() {
   const options = { actorId: actor, repository, now: new Date('2026-09-07T03:30:00Z'), signal: new AbortController().signal, mode: 'offline' as const };
   const execute = vi.fn(async () => ({ version: 'coach-assistant.chat.v1', storage: 'database', ok: true, value: { message: {}, replayed: false, current: true } }));
   const appendFinal = vi.fn(async () => ({ ok: true }));
+  const markFailed = vi.fn(async () => ({ ok: true }));
   // Service port double; the final proof comes from the actual offline pipeline.
-  const service = { execute, appendFinal } as unknown as ReturnType<typeof createCoachChatService>;
-  return { request, options, service, execute, appendFinal, empty };
+  const service = { execute, appendFinal, markFailed } as unknown as ReturnType<typeof createCoachChatService>;
+  return { request, options, service, execute, appendFinal, markFailed, empty };
 }
 describe('durable turn orchestration', () => {
   it('persists the exact verified answer after the user turn, once', async () => {
@@ -37,6 +38,14 @@ describe('durable turn orchestration', () => {
   it('does not report success when final persistence is uncertain', async () => {
     const f = setup(); f.appendFinal.mockResolvedValue({ ok: false });
     expect(await runDurableChatTurn(f.request, f.options, f.service)).toEqual({ saved: false });
+  });
+  it('marks a conclusive failed generation but leaves an aborted claim inflight',async()=>{
+    const failed=setup();
+    const terminal=await runDurableChatTurn(failed.request,{...failed.options,mode:'model'},failed.service);
+    expect(terminal.saved).toBe(true);expect(terminal.saved&&terminal.response.error?.code).toBe('budget_blocked');expect(failed.markFailed).toHaveBeenCalledTimes(1);
+    const aborted=setup(),controller=new AbortController();controller.abort();
+    const uncertain=await runDurableChatTurn(aborted.request,{...aborted.options,signal:controller.signal},aborted.service);
+    expect(uncertain.saved).toBe(true);expect(aborted.markFailed).not.toHaveBeenCalled();expect(aborted.appendFinal).not.toHaveBeenCalled();
   });
   it('rejects a different subject before any storage or generation', async () => {
     const f = setup();

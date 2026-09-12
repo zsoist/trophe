@@ -95,7 +95,8 @@ describe('governed LIVE-01 app engine', () => {
     const response = await engine.run(request, test.options);
 
     expect(response.ok).toBe(true);
-    expect(response.output?.answer).toContain('Private Luna pilot:');
+    expect(response.output?.answer).not.toContain('Private Luna pilot:');
+    expect(response.output?.answer).toContain('Puedo preparar esa corrección de cantidad para que la revises.');
     expect(response.actionIntents).toEqual([expect.objectContaining({
       action: 'food.quantity.update', source: 'provider_tool', reviewRequired: true,
       target: { selection: 'authorized_food_entry', entryHintId: null, previousGrams: 250, grams: 150 },
@@ -183,6 +184,52 @@ describe('governed LIVE-01 app engine', () => {
     expect(execute).toHaveBeenCalledWith(expect.objectContaining({operation:expect.objectContaining({operation:'food.resolve',entryHintId:selectedEntry})}));
     expect(body.actionIntents).toEqual([expect.objectContaining({target:{selection:'authorized_food_entry',entryHintId:selectedEntry,previousGrams:250,grams:150}})]);
     expect(test.transport.mock.calls[0][0].system).toContain('actionsAvailable is the complete allowlist');
+  });
+
+  it('feeds one durable photo observation into the Luna turn without creating a Food write', async () => {
+    const test=fixture(),attachmentId=id(60),observationId=id(61);
+    const photoRequest={...request,turnId:id(62),message:'¿Qué ves en esta comida?',attachments:[{id:attachmentId,kind:'image' as const,status:'available' as const}]};
+    const transport=vi.fn<GovernedCoachTransport>(async input=>{
+      const payload=JSON.parse(input.prompt) as {photoObservations:Array<{attachmentId:string;trust:string;items:Array<{foodName:string}>}>};
+      expect(payload.photoObservations).toEqual([{observationId,attachmentId,source:'validated_photo_analysis',trust:'untrusted_image_data',reviewRequired:true,items:[{ref:`photo:${attachmentId}:0`,foodName:'Arroz con pollo',accuracyNote:'Confirma los ingredientes.'}]}]);
+      return {requestId:'req_photo_text',responseModel:'gpt-5.6-luna',output:{answer:'Parece una comida completa; puedo ayudarte a revisar la porción.',followUp:null,evidenceRefs:[],entityRefs:[],facts:[],generalExplanationRefs:[],limitations:[],escalation:false,actionIntent:null},usage:{inputTokens:900,outputTokens:100,reasoningTokens:20},latencyMs:3,rawStatus:200};
+    });
+    const engine=createGovernedCoachEngineBinding({env:env(),actorId:id(1),persistentStore:test.store,transport});
+    const execute=vi.fn().mockResolvedValue({version:'coach-assistant.v2',storage:'database',ok:true,snapshot:{observationId,attachmentId,source:'validated_photo_analysis',trust:'untrusted_image_data',reviewRequired:true,items:[{index:0,version:'a'.repeat(64),foodName:'Arroz con pollo',estimatedGrams:240,estimatedCalories:420,confidence:.7,accuracyNote:'Confirma los ingredientes.'}]}});
+    const response=await handleCoachRequest(new Request('https://private.invalid/api/coach-assistant',{method:'POST',body:JSON.stringify(photoRequest)}),{
+      env:{...env(),COACH_ASSISTANT_PRIVATE_ATTACHMENTS_ENABLED:'1',COACH_ASSISTANT_PHOTO_FOOD_ACTIONS_ENABLED:'1'},guard:async()=>({userId:id(1)}),createRepository:repository,createGovernedEngine:async()=>engine,
+      createFoodService:async()=>({}) as never,createPhotoFoodService:async()=>({execute}),now:()=>test.options.now,
+    });
+    const body=await response.json();
+    expect(response.status).toBe(200);expect(body.output.answer).toContain('En la foto se distinguen Arroz con pollo.');expect(body.output.answer).toContain('Parece una comida completa');
+    expect(body.proposals).toEqual([]);expect(body.receipts).toEqual([]);expect(body.actionIntents).toEqual([]);
+    expect(execute).toHaveBeenCalledWith(expect.objectContaining({actorId:id(1),subjectId:id(1),organizationId:id(4),operation:expect.objectContaining({operation:'photo.food.read',conversationId:photoRequest.conversationId,turnId:photoRequest.turnId,attachmentId})}));
+    expect(transport).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns a recoverable photo error before Luna when the observation is unavailable', async () => {
+    const test=fixture(),attachmentId=id(63),photoRequest={...request,turnId:id(64),message:'¿Qué ves?',attachments:[{id:attachmentId,kind:'image' as const,status:'available' as const}]};
+    const transport=vi.fn<GovernedCoachTransport>();
+    const engine=createGovernedCoachEngineBinding({env:env(),actorId:id(1),persistentStore:test.store,transport});
+    const execute=vi.fn().mockResolvedValue({version:'coach-assistant.v2',storage:'database',ok:false,error:'not_connected'});
+    const response=await handleCoachRequest(new Request('https://private.invalid/api/coach-assistant',{method:'POST',body:JSON.stringify(photoRequest)}),{
+      env:{...env(),COACH_ASSISTANT_PRIVATE_ATTACHMENTS_ENABLED:'1',COACH_ASSISTANT_PHOTO_FOOD_ACTIONS_ENABLED:'1'},guard:async()=>({userId:id(1)}),createRepository:repository,createGovernedEngine:async()=>engine,
+      createFoodService:async()=>({}) as never,createPhotoFoodService:async()=>({execute}),now:()=>test.options.now,
+    });
+    const body=await response.json();
+    expect(response.status).toBe(503);expect(body.error).toEqual({code:'attachment_analysis_failed',retryable:true});expect(transport).not.toHaveBeenCalled();
+    expect(body.proposals).toEqual([]);expect(body.receipts).toEqual([]);
+  });
+
+  it('rejects a multi-photo turn before any vision or Luna dispatch',async()=>{
+    const test=fixture(),createPhotoFoodService=vi.fn(),photoRequest={...request,turnId:id(65),message:'¿Qué ves?',attachments:[id(66),id(67)].map(attachmentId=>({id:attachmentId,kind:'image' as const,status:'available' as const}))};
+    const transport=vi.fn<GovernedCoachTransport>(),engine=createGovernedCoachEngineBinding({env:env(),actorId:id(1),persistentStore:test.store,transport});
+    const response=await handleCoachRequest(new Request('https://private.invalid/api/coach-assistant',{method:'POST',body:JSON.stringify(photoRequest)}),{
+      env:{...env(),COACH_ASSISTANT_PRIVATE_ATTACHMENTS_ENABLED:'1',COACH_ASSISTANT_PHOTO_FOOD_ACTIONS_ENABLED:'1'},guard:async()=>({userId:id(1)}),createRepository:repository,createGovernedEngine:async()=>engine,
+      createFoodService:async()=>({}) as never,createPhotoFoodService,now:()=>test.options.now,
+    });
+    expect(response.status).toBe(503);expect((await response.json()).error).toEqual({code:'attachment_analysis_failed',retryable:true});
+    expect(createPhotoFoodService).not.toHaveBeenCalled();expect(transport).not.toHaveBeenCalled();
   });
 
   it('grounds a Food follow-up only in a revalidated receipt and canonical refetch', async () => {

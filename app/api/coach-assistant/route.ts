@@ -3,6 +3,9 @@ import { handleCoachRequest } from '@/agents/coach-assistant/handler';
 import { createServerRepository } from '@/agents/coach-assistant/server-repository';
 
 export const runtime = 'nodejs';
+// One governed photo observation plus one Luna response share this existing
+// route. The application deadline remains lower and owns cancellation.
+export const maxDuration = 120;
 
 export async function POST(request: NextRequest) {
   return handleCoachRequest(request, {

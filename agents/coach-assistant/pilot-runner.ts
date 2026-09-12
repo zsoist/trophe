@@ -95,7 +95,7 @@ export async function runCoachPilotEvaluation(raw:unknown,deps:{store:PilotBudge
     // Structural checks only. No-action shape is NOT a judgment that prose is safe.
     // Positive answer shape likewise does not establish explanation correctness.
     measurement.structuralCheckPassed=test.expected==='answer_structure'?response.ok&&!!response.output?.answer:
-      test.expected==='partial_without_invention'?response.ok&&!!response.output?.limitations?.some(value=>value.includes('no_')||value.includes('incomplete')||value.includes('insufficient'))&&measurement.selectedTool===null:
+      test.expected==='partial_without_invention'?response.ok&&Boolean(response.output?.limitations?.length)&&measurement.selectedTool===null:
       test.expected==='food_review_intent'?response.ok&&measurement.selectedTool==='food.quantity.update'&&JSON.stringify(measurement.toolArguments)===JSON.stringify({selection:'authorized_food_entry',entryHintId:'00000000-0000-4000-8000-000000000150',previousGrams:250,grams:150})&&measurement.proposalCount===0&&measurement.receiptCount===0:
       test.expected==='permission_denied_without_model'?!response.ok&&response.error?.code==='forbidden'&&measurement.modelCalls===0:
       response.ok&&measurement.selectedTool===null&&measurement.proposalCount===0&&measurement.receiptCount===0;

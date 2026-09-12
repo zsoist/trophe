@@ -5,7 +5,7 @@ import { parseFoodPreferences } from '@/lib/food/preferences';
 import { createSelectionContext } from './selection-context';
 import { isIsolatedEngineBoundary, type IsolatedEngineBoundary } from './isolated-engine-boundary';
 import { isGovernedPilotBoundary, type GovernedPilotBoundary } from './governed-engine-boundary';
-import { generateOpenConversation, OpenConversationOutputError, type ConversationFoodChange, type ConversationFoodSelection, type OfflineConversationProvider, type OfflineInterpretationReview } from './open-conversation';
+import { generateOpenConversation, OpenConversationOutputError, type ConversationFoodChange, type ConversationFoodSelection, type ConversationPhotoObservation, type OfflineConversationProvider, type OfflineInterpretationReview } from './open-conversation';
 import { createHash, randomUUID } from 'node:crypto';
 import { selectConversationScope, evidenceMatchesScope } from './conversation-scope';
 import { COACH_CONVERSATION_VERSION } from './contracts';
@@ -23,7 +23,7 @@ const disconnectedSurfaceCapabilities = (): CoachCapability[] =>
     .map(key => ({ key, status: 'not_connected', reason: `${key}_service_not_connected` }));
 
 /** History is a hint for a window/domain, never a source of facts or authority. */
-export async function runConversation(raw: unknown, options: RunOptions & { capabilityRegistry?:CoachCapabilityRegistry; isolatedActionsEnabled?:boolean; workoutSetIntentsEnabled?:boolean; foodQuantityIntentsEnabled?:boolean; foodSelection?:ConversationFoodSelection; foodChange?:ConversationFoodChange; offlineConversationProvider?:OfflineConversationProvider; offlineInterpretationReview?:OfflineInterpretationReview; offlineCandidateEvaluation?:boolean; isolatedFixtureBoundary?:IsolatedEngineBoundary; governedPilotBoundary?:GovernedPilotBoundary; candidateActionsEnabled?:boolean; filterMemoryHistory?:(input:import('./contracts').CoachConversationRequest)=>import('./contracts').CoachConversationRequest }): Promise<CoachConversationResponse> {
+export async function runConversation(raw: unknown, options: RunOptions & { capabilityRegistry?:CoachCapabilityRegistry; isolatedActionsEnabled?:boolean; workoutSetIntentsEnabled?:boolean; foodQuantityIntentsEnabled?:boolean; foodSelection?:ConversationFoodSelection; foodChange?:ConversationFoodChange; offlineConversationProvider?:OfflineConversationProvider; offlineInterpretationReview?:OfflineInterpretationReview; offlineCandidateEvaluation?:boolean; isolatedFixtureBoundary?:IsolatedEngineBoundary; governedPilotBoundary?:GovernedPilotBoundary; candidateActionsEnabled?:boolean; filterMemoryHistory?:(input:import('./contracts').CoachConversationRequest)=>import('./contracts').CoachConversationRequest; resolvePhotoObservations?:(input:import('./contracts').CoachConversationRequest,signal:AbortSignal)=>Promise<ConversationPhotoObservation[]> }): Promise<CoachConversationResponse> {
   const start = performance.now();
   const parsed = conversationRequestSchema.safeParse(raw);
   const response: CoachConversationResponse = {
@@ -35,7 +35,8 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
   const controller = new AbortController();
   const abort = () => controller.abort(new Error('cancelled'));
   if(options.signal.aborted) abort(); else options.signal.addEventListener('abort',abort,{once:true});
-  const budget = Math.min(45000,Math.max(1,options.deadlineMs ?? 45000));
+  const ceiling=parsed.success&&parsed.data.attachments?.length===1&&parsed.data.attachments[0].kind==='image'?90000:45000;
+  const budget = Math.min(ceiling,Math.max(1,options.deadlineMs ?? ceiling));
   const timer = setTimeout(()=>controller.abort(new Error('deadline')),budget);
   let boundary: (()=>void) | undefined;
   try {
@@ -57,6 +58,13 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
         if(JSON.stringify(fresh)!==JSON.stringify(authorized)) throw new Error('forbidden');
         return fresh;
       }};
+      let photoObservations:ConversationPhotoObservation[]=[];
+      if(scopedInput.attachments?.length){
+        if(options.mode!=='model'||!options.resolvePhotoObservations)throw new Error('attachment_analysis_failed');
+        photoObservations=await options.resolvePhotoObservations(scopedInput,controller.signal);
+        if(photoObservations.length!==scopedInput.attachments.length)throw new Error('attachment_analysis_failed');
+        await authorizedRepository.authorize(options.actorId,subject,controller.signal);controller.signal.throwIfAborted();
+      }
       if(options.capabilityRegistry&&options.mode==='model'&&!Object.values(medicalBoundary(scopedInput.message)).some(Boolean)){
         const selectorInput=options.filterMemoryHistory?.(scopedInput)??{...scopedInput,history:scopedInput.history?.filter(item=>item.role==='user'&&item.kind!=='memory_summary')};
         const selectedScope=selectConversationScope(selectorInput);
@@ -64,7 +72,7 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
         response.output={answer:'',evidenceRefs:[],limitations:['capability_turn_no_aggregate_reads'],suggestions:[],escalation:{required:false,reason:null,draft:null}};
         await prepareConversationCapability(selectorInput,response,options.offlineConversationProvider!,options.capabilityRegistry,authorizedRepository,authorized,controller.signal);
         if(response.capabilityResult?.tool!=='none'){
-          await generateOpenConversation(selectorInput,response,options.offlineConversationProvider!,controller.signal,options.offlineInterpretationReview,options.offlineCandidateEvaluation,options.isolatedFixtureBoundary,false,false,options.governedPilotBoundary,options.candidateActionsEnabled);
+          await generateOpenConversation(selectorInput,response,options.offlineConversationProvider!,controller.signal,options.offlineInterpretationReview,options.offlineCandidateEvaluation,options.isolatedFixtureBoundary,false,false,options.governedPilotBoundary,options.candidateActionsEnabled,undefined,photoObservations);
           await authorizedRepository.authorize(options.actorId,subject,controller.signal);controller.signal.throwIfAborted();response.ok=true;return;
         }
       }
@@ -99,6 +107,7 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
       ];
       response.snapshot = {id:randomUUID(),capturedAt:options.now.toISOString(),subjectId:authorized.subjectId,organizationId:authorized.organizationId,...scope,surface,screenIncluded:surface!==null,language:authorized.language,units:{weight:'kg',energy:'kcal',protein:'g'},window:selectedWindow,capabilities};
       response.snapshot.selection=selection.snapshot();
+      if(photoObservations.length){const images=capabilities.find(c=>c.key==='images')!;images.status='available';images.reason='validated_photo_analysis';}
       if(response.snapshot.selection){const screen=capabilities.find(c=>c.key==='screen_entity')!;screen.status='available';screen.reason='server_resolved_selection';}
       response.attachments = (scopedInput.attachments ?? []).map(item=>({...item,status:'not_connected'}));
       const facts = response.evidence.map(f=>f.statement).join('\n');
@@ -135,7 +144,7 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
         }
       }
       if(options.mode==='model'&&!medical) {
-        await generateOpenConversation(options.filterMemoryHistory?.(scopedInput)??scopedInput,response,options.offlineConversationProvider!,controller.signal,options.offlineInterpretationReview,options.offlineCandidateEvaluation,options.isolatedFixtureBoundary,options.workoutSetIntentsEnabled,options.foodQuantityIntentsEnabled,options.governedPilotBoundary,options.candidateActionsEnabled,options.foodSelection);
+        await generateOpenConversation(options.filterMemoryHistory?.(scopedInput)??scopedInput,response,options.offlineConversationProvider!,controller.signal,options.offlineInterpretationReview,options.offlineCandidateEvaluation,options.isolatedFixtureBoundary,options.workoutSetIntentsEnabled,options.foodQuantityIntentsEnabled,options.governedPilotBoundary,options.candidateActionsEnabled,options.foodSelection,photoObservations);
         await repository.authorize(options.actorId,subject,controller.signal);
         controller.signal.throwIfAborted();
       }
@@ -153,9 +162,9 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
         :undefined;
       console.warn(JSON.stringify({event:'coach_conversation_output_rejected',code:error.diagnosticCode,...(qaDiagnostic?{diagnostic:qaDiagnostic}:{})}));
     }
-    const allowed = ['invalid_input','forbidden','unauthenticated','invalid_timezone','budget_blocked','context_limit','invalid_output','provider_unavailable'];
+    const allowed = ['invalid_input','forbidden','unauthenticated','invalid_timezone','budget_blocked','context_limit','invalid_output','provider_unavailable','attachment_analysis_failed'];
     const code: CoachErrorCode = controller.signal.aborted ? options.signal.aborted?'cancelled':'deadline' : error instanceof Error && allowed.includes(error.message)?error.message as CoachErrorCode:'query_failed';
-    response.error={code,retryable:code==='query_failed'||code==='deadline'||code==='provider_unavailable'};
+    response.error={code,retryable:code==='query_failed'||code==='deadline'||code==='provider_unavailable'||code==='attachment_analysis_failed'};
     response.ok=false;response.snapshot=null;response.evidence=[];response.actionIntents=[];delete response.capabilityResult;delete response.output;delete response.profile;delete response.foodPreference;delete response.memories;delete response.explanations;
   } finally {
     clearTimeout(timer);options.signal.removeEventListener('abort',abort);

@@ -21,7 +21,14 @@ export async function runDurableChatTurn(request: CoachConversationRequest, opti
     : governedEngine
       ? await runVerifiedChatFinalWithGovernedEngine(request, options, scope, governedEngine)
       : await runVerifiedChatFinal(request, options, scope);
-  if (!generated.final) return { saved: true as const, response: generated.response };
+  if (!generated.final) {
+    // An abort can race a provider completion and durable append in another
+    // request. Keep the claim inflight; only a conclusive local terminal result
+    // may become failed.
+    if (options.signal.aborted) return { saved: true as const, response: generated.response };
+    const failed = await service.markFailed(scope, request.conversationId, request.turnId, options.signal);
+    return failed.ok ? { saved: true as const, response: generated.response } : { saved: false as const };
+  }
   const stored = await service.appendFinal(scope, { threadId: request.conversationId, requestId: randomUUID() }, generated.final, options.signal);
   if (!stored.ok) return { saved: false as const };
   return { saved: true as const, response: generated.response };

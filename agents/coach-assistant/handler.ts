@@ -52,7 +52,7 @@ interface HandlerDependencies {
 const json = (body: unknown, status: number) => Response.json(body,{status,headers:{'Cache-Control':'no-store'}});
 function fail(code: CoachErrorCode,status: number): Response {
   const body: CoachResponse = { version:'coach-assistant.v1',ok:false,mode:'offline',dataSource:'authorized_records',evidence:[],
-    error:{code,retryable:['rate_limited','query_failed','provider_unavailable','deadline'].includes(code)},telemetry:{model:null,provider:null,promptVersion:COACH_PROMPT_VERSION,modelCalls:0,dataReads:0,
+    error:{code,retryable:['rate_limited','query_failed','provider_unavailable','deadline','attachment_analysis_failed'].includes(code)},telemetry:{model:null,provider:null,promptVersion:COACH_PROMPT_VERSION,modelCalls:0,dataReads:0,
       tokensIn:0,tokensOut:0,reasoningTokens:0,cacheReadTokens:0,cacheWriteTokens:0,latencyMs:0,costUsd:0,pricingVersion:COACH_PRICING_VERSION} };
   return json(body,status);
 }
@@ -88,7 +88,8 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
   const controller=new AbortController();
   const cancel=()=>controller.abort(new Error('cancelled'));
   if(request.signal.aborted)cancel();else request.signal.addEventListener('abort',cancel,{once:true});
-  const timer=setTimeout(()=>controller.abort(new Error('deadline')),45000);
+  let requestDeadlineMs=45000;
+  let timer=setTimeout(()=>controller.abort(new Error('deadline')),requestDeadlineMs);
   const start=performance.now();
   let abortBoundary:(()=>void)|undefined;
   try {
@@ -205,6 +206,8 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
       }
       const parsed=conversationRequestSchema.or(requestSchema).safeParse(raw);
       if(!parsed.success)return fail('invalid_input',400);
+      const singlePhoto='version' in parsed.data&&parsed.data.attachments?.length===1&&parsed.data.attachments[0].kind==='image';
+      if(singlePhoto){requestDeadlineMs=90000;clearTimeout(timer);timer=setTimeout(()=>controller.abort(new Error('deadline')),requestDeadlineMs);}
       const synthetic=deps.env.COACH_ASSISTANT_DATA_SOURCE==='synthetic';
       const conversational='version' in parsed.data;
       const clientId='version' in parsed.data?parsed.data.context?.clientId:parsed.data.clientId;
@@ -284,6 +287,17 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
       }
       const durableChat=conversational&&deps.env.COACH_ASSISTANT_CHAT_HISTORY_ENABLED==='1';
       if(durableChat&&(synthetic||candidate||!deps.createChatService))return fail('provider_unavailable',503);
+      const resolvePhotoObservations=conversationInput?.attachments?.length?async(input:import('./contracts').CoachConversationRequest,signal:AbortSignal)=>{
+        const attachments=input.attachments??[];
+        if(!live||deps.env.COACH_ASSISTANT_PRIVATE_ATTACHMENTS_ENABLED!=='1'||deps.env.COACH_ASSISTANT_PHOTO_FOOD_ACTIONS_ENABLED!=='1'||!deps.createPhotoFoodService
+          ||attachments.length!==1||attachments[0].kind!=='image'||attachments[0].status!=='available')throw new Error('attachment_analysis_failed');
+        const operation={version:'coach-assistant.v2' as const,operation:'photo.food.read' as const,conversationId:input.conversationId,turnId:input.turnId,attachmentId:attachments[0].id};
+        const service=await deps.createPhotoFoodService(operation,guard.userId);
+        const result=await executePhotoFoodAction(guard.userId,operation,repository,service,signal);
+        if(!result.ok||result.storage!=='database'||!('snapshot'in result)||result.snapshot.attachmentId!==attachments[0].id
+          ||result.snapshot.source!=='validated_photo_analysis'||result.snapshot.trust!=='untrusted_image_data'||result.snapshot.reviewRequired!==true)throw new Error('attachment_analysis_failed');
+        return [result.snapshot];
+      }:undefined;
       const runOptions={
         capabilityRegistry,
         filterMemoryHistory:historyTurn?.filterHistory,
@@ -293,11 +307,12 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
         foodQuantityIntentsEnabled:deps.env.COACH_ASSISTANT_FOOD_ACTIONS_ENABLED==='1'&&Boolean(deps.createFoodService),
         foodSelection,
         foodChange,
+        resolvePhotoObservations,
         actorId:synthetic?'synthetic-client':guard.userId,
         repository,
         now:synthetic?new Date('2026-09-07T03:30:00Z'):(deps.now?.()??new Date()),
         signal:controller.signal,mode:(isolated||candidate||live||deps.env.COACH_ASSISTANT_MODE==='model'?'model':'offline') as 'model'|'offline',
-        deadlineMs:Math.max(1,45000-(performance.now()-start)),
+        deadlineMs:Math.max(1,requestDeadlineMs-(performance.now()-start)),
       };
       const persisted=durableChat?await runDurableChatTurn(parsed.data as import('./contracts').CoachConversationRequest,runOptions,await deps.createChatService!(),isolatedEngine,governedEngine):undefined;
       if(persisted&&!persisted.saved)return fail('provider_unavailable',503);

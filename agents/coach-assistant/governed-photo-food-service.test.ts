@@ -22,6 +22,9 @@ describe('governed private photo composition', () => {
     await expect(composed.execute(scope)).resolves.toEqual(success);
     expect(events).toEqual(['read', 'reserve', 'analyze', 'settle', 'read']);
     expect(govern).toHaveBeenCalledWith(expect.objectContaining({ task: 'photo_analyze', actorId: id(2), turnId: id(5), identityParts: expect.arrayContaining([id(4), id(5), id(6)]) }));
+    await expect(composed.execute({...scope,operation:{...operation,turnId:id(10)}})).resolves.toEqual(success);
+    expect(govern).toHaveBeenCalledTimes(1);
+    expect(events).toEqual(['read', 'reserve', 'analyze', 'settle', 'read', 'read']);
   });
 
   it('does not dispatch for an existing observation, a missing attachment, or another actor', async () => {

@@ -3,7 +3,7 @@ import {sql} from 'drizzle-orm';
 import {z} from 'zod';
 import type {db} from '@/db/client';
 import {coachMessageInputSchema} from './message-input';
-import {COACH_CHAT_VERSION,type CoachChatScope,type CoachChatResult,type CoachChatThread,type CoachChatMessage,type CoachChatError} from './chat-contract';
+import {COACH_CHAT_VERSION,type CoachChatScope,type CoachChatResult,type CoachChatThread,type CoachChatMessage,type CoachChatTurnRecovery,type CoachChatError} from './chat-contract';
 import {chatTextHash,readVerifiedChatFinal,bindVerifiedChatFinal,type VerifiedChatFinal} from './chat-final';
 import type {CoachSpeechTextPort} from './chat-ports';
 export const COACH_CHAT_NAMESPACE='coach-assistant-global-v1';
@@ -15,6 +15,7 @@ const operationSchema=z.discriminatedUnion('operation',[
  z.object({version:z.literal(COACH_CHAT_VERSION),operation:z.literal('create'),requestId:uuid,title}).strict(),
  z.object({version:z.literal(COACH_CHAT_VERSION),operation:z.literal('list'),limit:z.number().int().min(1).max(50).default(20),before:z.object({createdAt:iso,id:uuid}).strict().optional()}).strict(),
  z.object({version:z.literal(COACH_CHAT_VERSION),operation:z.literal('read'),threadId:uuid,limit:z.number().int().min(1).max(50).default(20),afterSequence:z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).default(0)}).strict(),
+ z.object({version:z.literal(COACH_CHAT_VERSION),operation:z.literal('recover'),threadId:uuid,turnId:uuid}).strict(),
  z.object({version:z.literal(COACH_CHAT_VERSION),operation:z.literal('rename'),threadId:uuid,title,expectedRevision:revision}).strict(),
  z.object({version:z.literal(COACH_CHAT_VERSION),operation:z.literal('delete'),threadId:uuid,reviewed:z.literal(true)}).strict(),
  z.object({version:z.literal(COACH_CHAT_VERSION),operation:z.literal('append_user'),threadId:uuid,turnId:uuid,requestId:uuid,text:coachMessageInputSchema}).strict(),
@@ -22,7 +23,7 @@ const operationSchema=z.discriminatedUnion('operation',[
 const dbTimestamp=z.string().refine(v=>Number.isFinite(Date.parse(v))).transform(v=>new Date(v).toISOString());
 const threadSchema=z.object({access_revoked:z.boolean(),id:uuid,title:z.string(),created_at:dbTimestamp,revision,request_id:uuid,create_hash:z.string(),state:z.enum(['active','cleanup_pending','deleted']),next_sequence:z.number().int().nonnegative()});
 type Thread=z.infer<typeof threadSchema>;
-const messageSchema=z.object({id:uuid,turn_id:uuid,role:z.enum(['user','assistant']),content:z.string(),sequence:z.number().int().positive(),revision:uuid,created_at:dbTimestamp,request_id:uuid,content_hash:z.string(),current:z.boolean(),pipeline_version:z.string().nullable()});
+const messageSchema=z.object({id:uuid,turn_id:uuid,role:z.enum(['user','assistant']),content:z.string(),sequence:z.number().int().positive(),revision:uuid,created_at:dbTimestamp,request_id:uuid,content_hash:z.string(),current:z.boolean(),pipeline_version:z.string().nullable(),outcome:z.enum(['inflight','failed','settled'])});
 type Message=z.infer<typeof messageSchema>;
 class Rejected extends Error{constructor(readonly code:CoachChatError){super(code);}}
 const fail=<T>(error:CoachChatError):CoachChatResult<T>=>({version:COACH_CHAT_VERSION,storage:'database',ok:false,error});
@@ -30,7 +31,7 @@ const success=<T>(value:T):CoachChatResult<T>=>({version:COACH_CHAT_VERSION,stor
 const threadView=(t:Thread):CoachChatThread=>({id:t.id,title:t.title,createdAt:t.created_at,revision:t.revision,state:t.state});
 function messageView(m:Message):CoachChatMessage{if(chatTextHash(m.content)!==m.content_hash)throw new Rejected('uncertain');return {id:m.id,turnId:m.turn_id,role:m.role,text:m.content,sequence:m.sequence,revision:m.revision,createdAt:m.created_at};}
 export interface CoachChatCleanup {cleanup(scope:CoachChatScope,threadId:string,signal:AbortSignal):Promise<{complete:boolean}>}
-export type ChatOperationValue={thread:CoachChatThread;cleanup?:'complete'|'pending'}|{threads:CoachChatThread[];nextCursor:{createdAt:string;id:string}|null}|{thread:CoachChatThread;messages:CoachChatMessage[];nextSequence:number|null}|{message:CoachChatMessage;replayed:boolean;current:boolean};
+export type ChatOperationValue={thread:CoachChatThread;cleanup?:'complete'|'pending'}|{threads:CoachChatThread[];nextCursor:{createdAt:string;id:string}|null}|{thread:CoachChatThread;messages:CoachChatMessage[];nextSequence:number|null}|CoachChatTurnRecovery|{message:CoachChatMessage;replayed:boolean;current:boolean};
 /** Current actor, membership roles, subject and assignment are locked on EVERY operation.
  * Scope is a server argument, never parsed from the operation body.
  */
@@ -69,7 +70,7 @@ export function createCoachChatService(database:typeof db,cleanup?:CoachChatClea
   if(!includeDeleted&&(t.state!=='active'||t.access_revoked))throw new Rejected('not_found');return t;
  }
  async function messages(tx:Tx,scope:CoachChatScope,id:string,condition:ReturnType<typeof sql>,limit:number){
-  const r=await tx.execute(sql`SELECT c.id,t.turn_id,t.role,c.content,t.sequence,t.revision,c.created_at::text,t.request_id,t.content_hash,t.current,t.pipeline_version
+  const r=await tx.execute(sql`SELECT c.id,t.turn_id,t.role,c.content,t.sequence,t.revision,c.created_at::text,t.request_id,t.content_hash,t.current,t.pipeline_version,t.outcome
  FROM (SELECT * FROM private.coach_chat_turns WHERE thread_id=${id}::uuid) t LEFT JOIN public.agent_conversation c ON c.id=t.content_id
  AND c.user_id=${scope.actorId}::uuid AND c.session_id=${id} AND c.agent_name=${COACH_CHAT_NAMESPACE} AND c.role=t.role WHERE ${condition}
  ORDER BY t.sequence LIMIT ${limit}`);return r.rows.map(row=>messageSchema.parse(row));
@@ -85,13 +86,26 @@ export function createCoachChatService(database:typeof db,cleanup?:CoachChatClea
   }
   if(t.next_sequence>=1000)throw new Rejected('invalid_input');
   const id=randomUUID(),version=randomUUID();
-  const sequence=await tx.execute<{sequence:number}>(sql`UPDATE private.coach_chat_threads SET next_sequence=next_sequence+1,revision=revision+1 WHERE id=${t.id}::uuid RETURNING next_sequence AS sequence`);
+  const firstTitle=input.role==='user'&&t.next_sequence===0?extractCoachChatTitle(input.text):null;
+  const sequence=firstTitle===null
+   ?await tx.execute<{sequence:number}>(sql`UPDATE private.coach_chat_threads SET next_sequence=next_sequence+1,revision=revision+1 WHERE id=${t.id}::uuid RETURNING next_sequence AS sequence`)
+   :await tx.execute<{sequence:number}>(sql`UPDATE private.coach_chat_threads SET next_sequence=next_sequence+1,revision=revision+1,title=${firstTitle} WHERE id=${t.id}::uuid RETURNING next_sequence AS sequence`);
   const n=sequence.rows[0]?.sequence;if(!Number.isSafeInteger(n)||n!==t.next_sequence+1)throw new Rejected('uncertain');
   await tx.execute(sql`INSERT INTO public.agent_conversation(id,user_id,agent_name,session_id,role,content) VALUES (${id}::uuid,${scope.actorId}::uuid,${COACH_CHAT_NAMESPACE},${t.id},${input.role},${input.text})`);
-  await tx.execute(sql`INSERT INTO private.coach_chat_turns(thread_id,content_id,turn_id,request_id,role,sequence,revision,content_hash,pipeline_version,current)
- VALUES (${t.id}::uuid,${id}::uuid,${input.turnId}::uuid,${input.requestId}::uuid,${input.role},${n},${version}::uuid,${hash},${input.pipelineVersion},true)`);
+  await tx.execute(sql`INSERT INTO private.coach_chat_turns(thread_id,content_id,turn_id,request_id,role,sequence,revision,content_hash,pipeline_version,current,outcome)
+   VALUES (${t.id}::uuid,${id}::uuid,${input.turnId}::uuid,${input.requestId}::uuid,${input.role},${n},${version}::uuid,${hash},${input.pipelineVersion},true,${input.role==='user'?'inflight':'settled'})`);
+  if(input.role==='assistant'){
+   const settled=await tx.execute<{content_id:string}>(sql`UPDATE private.coach_chat_turns SET outcome='settled' WHERE thread_id=${t.id}::uuid AND turn_id=${input.turnId}::uuid AND role='user' AND outcome<>'failed' RETURNING content_id`);
+   if(settled.rows.length!==1)throw new Rejected('idempotency_conflict');
+  }
   const inserted=await messages(tx,scope,t.id,sql`t.content_id=${id}::uuid`,1);if(inserted.length!==1)throw new Rejected('uncertain');
   return {message:messageView(inserted[0]),replayed:false,current:true};
+ }
+ function recovery(t:Thread,rows:Message[],turnId:string):CoachChatTurnRecovery{
+  const user=rows.find(row=>row.role==='user'),assistant=rows.find(row=>row.role==='assistant');
+  if(!user)throw new Rejected('not_found');
+  if(user.outcome==='settled'&&!assistant||user.outcome!=='settled'&&assistant)throw new Rejected('uncertain');
+  return {thread:threadView(t),turnId,status:user.outcome,user:messageView(user),assistant:assistant?messageView(assistant):null};
  }
  const service={
   async execute(scope:CoachChatScope,raw:unknown,signal:AbortSignal):Promise<CoachChatResult<ChatOperationValue>>{
@@ -117,6 +131,10 @@ export function createCoachChatService(database:typeof db,cleanup?:CoachChatClea
      const rows=await messages(tx,scope,t.id,sql`t.current=true AND t.sequence>${op.afterSequence}`,op.limit+1),page=rows.slice(0,op.limit);
      return {thread:threadView(t),messages:page.map(messageView),nextSequence:rows.length>op.limit?page.at(-1)!.sequence:null};
     }
+    if(op.operation==='recover'){
+     const rows=await messages(tx,scope,t.id,sql`t.turn_id=${op.turnId}::uuid AND t.current=true`,3);
+     return recovery(t,rows,op.turnId);
+    }
     if(op.operation==='rename'){
      if(t.revision!==op.expectedRevision)throw new Rejected('version_conflict');await tx.execute(sql`UPDATE private.coach_chat_threads SET title=${op.title},revision=revision+1 WHERE id=${t.id}::uuid`);
      return {thread:threadView(await thread(tx,scope,t.id))};
@@ -135,6 +153,16 @@ export function createCoachChatService(database:typeof db,cleanup?:CoachChatClea
     return transaction(scope,signal,async tx=>{const t=await thread(tx,scope,op.threadId,true);if(t.state==='active')throw new Rejected('uncertain');await tx.execute(sql`UPDATE private.coach_chat_threads SET state='deleted' WHERE id=${t.id}::uuid`);return {thread:{...threadView(t),state:'deleted' as const},cleanup:'complete' as const};});
    }catch{return result;}
   },
+  async markFailed(scope:CoachChatScope,threadId:string,turnId:string,signal:AbortSignal){
+   if(!uuid.safeParse(threadId).success||!uuid.safeParse(turnId).success)return fail<CoachChatTurnRecovery>('invalid_input');
+   return transaction(scope,signal,async tx=>{
+    const t=await thread(tx,scope,threadId),rows=await messages(tx,scope,t.id,sql`t.turn_id=${turnId}::uuid AND t.current=true`,3);
+    const current=recovery(t,rows,turnId);if(current.status!=='inflight')return current;
+    const updated=await tx.execute<{content_id:string}>(sql`UPDATE private.coach_chat_turns SET outcome='failed' WHERE thread_id=${t.id}::uuid AND turn_id=${turnId}::uuid AND role='user' AND outcome='inflight' RETURNING content_id`);
+    if(updated.rows.length!==1)throw new Rejected('uncertain');
+    return {...current,status:'failed' as const};
+   });
+  },
   async appendFinal(scope:CoachChatScope,raw:{threadId:string;requestId:string;expectedAssistantRevision?:string},proof:VerifiedChatFinal,signal:AbortSignal){
    const op=z.object({threadId:uuid,requestId:uuid,expectedAssistantRevision:uuid.optional()}).strict().safeParse(raw),final=readVerifiedChatFinal(proof);
    if(!op.success||!final)return fail<ChatOperationValue>('invalid_input');
@@ -152,6 +180,13 @@ export function createCoachChatService(database:typeof db,cleanup?:CoachChatClea
   },
  };
  return service;
+}
+
+/** Deterministic first-turn title. It normalizes layout whitespace and preserves
+ * only an extract from user text; no model or record lookup is involved. */
+export function extractCoachChatTitle(text:string):string{
+ const compact=text.trim().split(/\s+/u).join(' '),points=Array.from(compact);
+ return points.length<=80?compact:`${points.slice(0,79).join('').trimEnd()}…`;
 }
 /** Concrete durable final-text lookup + current authenticated session epoch.
  * Epoch callback comes from the server session; null after logout. No browser final flags.

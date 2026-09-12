@@ -67,7 +67,7 @@ describe('open v2 conversation with explicit synthetic provider',()=>{
     const result=await runConversation(request,{...options(),offlineCandidateEvaluation:true,offlineConversationProvider:transport});
     expect(result.error?.code).toBe('invalid_output');expect(result.output).toBeUndefined();expect(transport).toHaveBeenCalledOnce();
     const diagnostic=JSON.parse(String(warning.mock.calls[0]?.[0]));
-    expect(diagnostic).toEqual({event:'coach_conversation_output_rejected',code,diagnostic:{schemaVersion:'coach-assistant.output-rejection-diagnostic.v1',outputSchemaVersion:'coach-assistant.candidate-output.v1',promptVersion:'coach-assistant.conversation.v5-candidate.3-live02',rule:code,category,field:'answer',path:'output.answer',position,positionEncoding:code==='candidate_universal_claim'?'nfkd_without_marks':'original',correlation:expect.stringMatching(/^[a-f0-9]{16}$/)}});
+    expect(diagnostic).toEqual({event:'coach_conversation_output_rejected',code,diagnostic:{schemaVersion:'coach-assistant.output-rejection-diagnostic.v1',outputSchemaVersion:'coach-assistant.candidate-output.v1',promptVersion:'coach-assistant.conversation.v5-candidate.4-live02',rule:code,category,field:'answer',path:'output.answer',position,positionEncoding:code==='candidate_universal_claim'?'nfkd_without_marks':'original',correlation:expect.stringMatching(/^[a-f0-9]{16}$/)}});
     expect(JSON.stringify(diagnostic)).not.toContain(answer);expect(JSON.stringify(diagnostic)).not.toContain('kilograms');expect(JSON.stringify(diagnostic)).not.toContain('workout entry');
   });
   it('keeps detailed diagnostics disabled outside Preview even when the flag is set',async()=>{
@@ -101,7 +101,7 @@ describe('open v2 conversation with explicit synthetic provider',()=>{
     const voiceRequest={...request,message,context:{surface:'workout' as const,includeScreen:true},history:[]};
     const transport:OfflineConversationProvider=vi.fn(async()=>({output:{...prose,answer:'The reviewed statement is user-provided context. A plan describes intent, while a log contains recorded entries.',evidenceRefs:[],entityRefs:[],facts:[],userStatementRef:'current_message',followUp:null,limitations:[],escalation:false,actionIntent:null,generalExplanationRefs:[]},usage:{inputTokens:1000,outputTokens:250,reasoningTokens:40},latencyMs:1,rawStatus:200}));
     const result=await runConversation(voiceRequest,{...options(),offlineCandidateEvaluation:true,offlineConversationProvider:transport});
-    expect(result.error).toBeUndefined();expect(result.ok).toBe(true);expect(result.output?.answer).toContain(`User statement (unverified): ${message}`);
+    expect(result.error).toBeUndefined();expect(result.ok).toBe(true);expect(result.output?.answer).not.toContain('User statement (unverified)');expect(result.output?.answer).not.toContain(message);
     expect(result.output?.evidenceRefs).toEqual([]);expect(result.evidence.length).toBeGreaterThan(0);
     expect(result.proposals).toEqual([]);expect(result.actionIntents).toEqual([]);expect(result.receipts).toEqual([]);
     const payload=JSON.parse(vi.mocked(transport).mock.calls[0][0].prompt);
@@ -119,7 +119,8 @@ describe('open v2 conversation with explicit synthetic provider',()=>{
     const result=await runConversation(voiceRequest,{...options(),offlineCandidateEvaluation:true,offlineConversationProvider:transport});
     expect(result.error).toBeUndefined();expect(result.ok).toBe(true);
     expect(result.output?.answer).toContain(safeDisclaimer);
-    expect(result.output?.answer).toContain(`User statement (unverified): ${message}`);
+    expect(result.output?.answer).not.toContain('User statement (unverified)');
+    expect(result.output?.answer).not.toContain(message);
     expect(result.output?.answer).toContain('Recorded facts:');
     expect(result.proposals).toEqual([]);expect(result.actionIntents).toEqual([]);expect(result.receipts).toEqual([]);
     for(const answer of [
@@ -165,7 +166,7 @@ describe('open v2 conversation with explicit synthetic provider',()=>{
       return {approved:true};
     }});
     expect(approved.output?.answer).toContain(answer);
-    expect(approved.output?.answer).toContain('Offline oracle-reviewed');
+    expect(approved.output?.answer).not.toContain('Offline oracle-reviewed');
   });
   it('requires independent review for questions and follow-ups too',async()=>{
     const answer='How would you maintain your stronger muscles and healthier heart shown by these records?';

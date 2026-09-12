@@ -18,6 +18,7 @@ type EngineOptions = RunOptions & {
   foodQuantityIntentsEnabled?: boolean;
   foodSelection?: import('./open-conversation').ConversationFoodSelection;
   foodChange?: import('./open-conversation').ConversationFoodChange;
+  resolvePhotoObservations?: (input: CoachConversationRequest, signal: AbortSignal) => Promise<import('./open-conversation').ConversationPhotoObservation[]>;
 };
 
 export interface GovernedCoachEngineBinding {
