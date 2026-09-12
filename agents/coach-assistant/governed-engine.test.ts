@@ -191,7 +191,7 @@ describe('governed LIVE-01 app engine', () => {
     const photoRequest={...request,turnId:id(62),message:'¿Qué ves en esta comida?',attachments:[{id:attachmentId,kind:'image' as const,status:'available' as const}]};
     const transport=vi.fn<GovernedCoachTransport>(async input=>{
       const payload=JSON.parse(input.prompt) as {photoObservations:Array<{attachmentId:string;trust:string;items:Array<{foodName:string}>}>};
-      expect(payload.photoObservations).toEqual([{observationId,attachmentId,source:'validated_photo_analysis',trust:'untrusted_image_data',reviewRequired:true,items:[{ref:`photo:${attachmentId}:0`,foodName:'Arroz con pollo',accuracyNote:'Confirma los ingredientes.'}]}]);
+      expect(payload.photoObservations).toEqual([{observationId,attachmentId,source:'validated_photo_analysis',trust:'untrusted_image_data',reviewRequired:true,items:[{ref:'photo:0',foodName:'Arroz con pollo',accuracyNote:'Confirma los ingredientes.'}]}]);
       return {requestId:'req_photo_text',responseModel:'gpt-5.6-luna',output:{answer:'Parece una comida completa; puedo ayudarte a revisar la porción.',followUp:null,evidenceRefs:[],entityRefs:[],facts:[],generalExplanationRefs:[],limitations:[],escalation:false,actionIntent:null},usage:{inputTokens:900,outputTokens:100,reasoningTokens:20},latencyMs:3,rawStatus:200};
     });
     const engine=createGovernedCoachEngineBinding({env:env(),actorId:id(1),persistentStore:test.store,transport});
@@ -205,6 +205,20 @@ describe('governed LIVE-01 app engine', () => {
     expect(body.proposals).toEqual([]);expect(body.receipts).toEqual([]);expect(body.actionIntents).toEqual([]);
     expect(execute).toHaveBeenCalledWith(expect.objectContaining({actorId:id(1),subjectId:id(1),organizationId:id(4),operation:expect.objectContaining({operation:'photo.food.read',conversationId:photoRequest.conversationId,turnId:photoRequest.turnId,attachmentId})}));
     expect(transport).toHaveBeenCalledTimes(1);
+  });
+
+  it('admits text for four valid synthetic observation rows with identity notes',async()=>{
+    const test=fixture(),attachmentId=id(60);
+    const photoRequest={...request,message:'¿Qué ves en esta comida?',attachments:[{id:attachmentId,kind:'image',status:'available'}]};
+    const engine=createGovernedCoachEngineBinding({env:env(),actorId:id(1),persistentStore:test.store,transport:test.transport});
+    const execute=vi.fn().mockResolvedValue({version:'coach-assistant.v2',storage:'database',ok:true,snapshot:{observationId:id(61),attachmentId,source:'validated_photo_analysis',trust:'untrusted_image_data',reviewRequired:true,items:Array.from({length:4},(_,index)=>({index,version:'a'.repeat(64),foodName:'Uncertain food component',estimatedGrams:100,estimatedCalories:100,confidence:.4,accuracyNote:'Identity and portion remain uncertain. '.repeat(6)}))}});
+    const response=await handleCoachRequest(new Request('https://private.invalid/api/coach-assistant',{method:'POST',body:JSON.stringify(photoRequest)}),{env:{...env(),COACH_ASSISTANT_PRIVATE_ATTACHMENTS_ENABLED:'1',COACH_ASSISTANT_PHOTO_FOOD_ACTIONS_ENABLED:'1'},guard:async()=>({userId:id(1)}),createRepository:repository,createGovernedEngine:async()=>engine,createFoodService:async()=>({}) as never,createPhotoFoodService:async()=>({execute}),now:()=>test.options.now});
+    const body=await response.json();
+    expect(body.error).toBeUndefined();expect(test.transport).toHaveBeenCalledOnce();
+    const call=test.transport.mock.calls[0][0],payload=JSON.parse(call.prompt);
+    expect(new TextEncoder().encode(call.system+call.prompt+JSON.stringify(call.schema)).length).toBeLessThanOrEqual(7500);
+    expect(payload.photoObservations[0]).toMatchObject({observationId:id(61),attachmentId,trust:'untrusted_image_data',reviewRequired:true});
+    expect(payload.photoObservations[0].items).toEqual(Array.from({length:4},(_,index)=>({ref:`photo:${index}`,foodName:'Uncertain food component',accuracyNote:'Identity and portion remain uncertain. '.repeat(6)})));
   });
 
   it('returns a recoverable photo error before Luna when the observation is unavailable', async () => {
