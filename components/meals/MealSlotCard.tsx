@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { ChevronDown, ChevronUp, SkipForward, Undo2, Trash2, Pencil, Check, X, Lock, Unlock, Star, MessageSquare, Minus, Plus, Loader2 } from 'lucide-react';
 import { Icon, type IconName } from '@/components/ui';
-import { useI18n } from '@/lib/i18n';
+import { useFoodI18n as useI18n } from '@/components/food/useFoodI18n';
 import { trpc } from '@/lib/trpc/client';
 import type { FoodLogEntry, MealType } from '@/lib/types';
 import { calculateMealScore, getScoreBgColor } from '@/lib/food/meal-score';

@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { AudioLines, Square, VolumeX, X } from 'lucide-react';
-import { createBrowserLiveSession } from '@/lib/voice-live/browser-session';
+import type { createBrowserLiveSession } from '@/lib/voice-live/browser-session';
 import { useGlobalCoachI18n } from './useGlobalCoachI18n';
 import styles from './LiveVoiceControl.module.css';
 
@@ -40,14 +40,21 @@ function LiveSession(props: { conversationId: string; prepareConversation?: () =
   useEffect(() => { latest.current = props; });
   const audio = useRef<HTMLAudioElement>(null);
   const [session, setSession] = useState<ReturnType<typeof createBrowserLiveSession> | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
   useEffect(() => {
-    const instance = createBrowserLiveSession({ audio: audio.current!, prepareConversation: async () => latest.current.prepareConversation?.() ?? latest.current.conversationId, query: (text, signal) => latest.current.onQuery(text, signal) });
-    setSession(instance);
-    return () => instance.dispose();
+    let active = true;
+    let instance: ReturnType<typeof createBrowserLiveSession> | undefined;
+    void import('@/lib/voice-live/browser-session').then(({ createBrowserLiveSession }) => {
+      if (!active || !audio.current) return;
+      instance = createBrowserLiveSession({ audio: audio.current, prepareConversation: async () => latest.current.prepareConversation?.() ?? latest.current.conversationId, query: (text, signal) => latest.current.onQuery(text, signal) });
+      setSession(instance);
+    }).catch(() => { if (active) setLoadFailed(true); });
+    return () => { active = false; instance?.dispose(); };
   }, []);
   return <div className={styles.panel} role="region" aria-label={t('global_coach.live_title')}>
     <header><strong>{t('global_coach.live_title')}</strong><button type="button" onClick={props.onClose} aria-label={t('global_coach.close')}><X size={18} /></button></header>
     <audio ref={audio} autoPlay />
+    {loadFailed && <p role="alert">{t('global_coach.live_error')}</p>}
     {session && <LiveSessionState session={session} />}
   </div>;
 }

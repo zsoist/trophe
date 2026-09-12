@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { translations } from '@/lib/i18n';
+import { foodLoggingTranslations as translations } from '@/lib/locales/food-logging';
 import { de } from '@/lib/locales/de';
 import { fr } from '@/lib/locales/fr';
 import { it as italian } from '@/lib/locales/it';

@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect, useId } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Send, Camera, Barcode, Loader2, Mic, MicOff, Plus, CheckCircle2, RotateCcw, X, HelpCircle } from 'lucide-react';
-import { useI18n } from '@/lib/i18n';
+import { useFoodI18n as useI18n } from '@/components/food/useFoodI18n';
 import { supabase } from '@/lib/supabase';
 import { trpcClient } from '@/lib/trpc/client';
 import type { MealType } from '@/lib/types';
