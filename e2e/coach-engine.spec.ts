@@ -63,7 +63,8 @@ test('authenticated HTTP engine uses current authorized profile with explicit fi
     expect(result).toMatchObject({ ok: true, version: 'coach-assistant.v2', dataSource: 'authorized_records',
       evaluation: { transport: 'injected_fixture', records: 'authorized_records', semanticQualityVerified: false },
       snapshot: { subjectId: actor }, profile: { source: 'authorized_profile' }, proposals: [], receipts: [] });
-    expect(result.output.answer).toContain('Isolated transport fixture');
+    expect(result.output.answer).toBe('Reviewing recorded context can help organize a useful discussion.');
+    expect(result.output.answer).not.toContain('Isolated transport fixture');
     expect(result.profile.preferences).toEqual({ durationMinutes: before.workout_preferences.durationMinutes });
     expect((await pool.query('SELECT workout_preferences FROM public.client_profiles WHERE user_id=$1', [actor])).rows[0]).toEqual(before);
     expect((await page.context().request.post('/api/coach-assistant', { data: { ...body, context: { surface: 'workout', includeScreen: true, clientId: randomUUID() } } })).status()).toBe(403);
@@ -88,7 +89,8 @@ test('authenticated HTTP engine uses current authorized profile with explicit fi
     expect(exerciseResult.proposals).toEqual([]);
     expect(exerciseResult.receipts).toEqual([]);
     await panel.getByRole('button', { name: `Remove screen selection: ${exercise.name}`, exact: true }).click();
-    await expect(panel.getByRole('checkbox', { name: /Include this screen/ })).not.toBeChecked();
+    await expect(panel.getByRole('button', { name: 'Include this screen', exact: true })).toBeVisible();
+    await expect(panel.getByRole('button', { name: `Remove screen selection: ${exercise.name}`, exact: true })).toHaveCount(0);
     const selectedContext = { surface: 'atlas', includeScreen: true, anatomy: { group: 'chest', subgroup: 'serratus-anterior', legRegion: 'all' } };
     const selectedResponse = await page.context().request.post('/api/coach-assistant', { data: { ...body, turnId: randomUUID(), context: selectedContext } });
     expect(selectedResponse.status()).toBe(200);
