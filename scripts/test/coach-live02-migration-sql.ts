@@ -14,6 +14,7 @@ const pass = (check: string) => process.stdout.write(`${JSON.stringify({ event: 
 async function main() {
   const preflight = await readFile('db/release/0087_ask_trophe_live02_contracts.preflight.sql', 'utf8');
   const migration = await readFile('drizzle/0087_ask_trophe_live02_contracts.sql', 'utf8');
+  const recoveryMigration = await readFile('drizzle/0088_coach_chat_turn_recovery.sql', 'utf8');
   const postflight = await readFile('db/release/0087_ask_trophe_live02_contracts.postflight.sql', 'utf8');
   const rollback = await readFile('scripts/test/fixtures/0087_ask_trophe_live02_contracts.rollback.sql', 'utf8');
   const sourceManifest = (await readFile('db/release/0087_ask_trophe_live02_contracts.sources', 'utf8')).trim().split('\n');
@@ -38,6 +39,7 @@ async function main() {
   pass('loopback_disposable_rollback_and_preflight');
 
   await pool.query(migration);
+  await pool.query(recoveryMigration);
   await pool.query(postflight);
   assert.equal((await pool.query('SELECT private.coach_chat_contract_version() AS version')).rows[0].version, 'coach-assistant.chat.v1');
   pass('exact_migration_replay_postflight');

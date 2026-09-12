@@ -25,6 +25,7 @@ async function main() {
   assert.equal((await pool.query("SELECT relrowsecurity FROM pg_class WHERE oid='public.agent_conversation'::regclass")).rows[0].relrowsecurity, true);
   baselinePolicies = await policies(); baselineContent = structuredClone(await content()); baselineLedger = structuredClone(await ledger());
   const chat = await readFile('db/isolated/coach-chat.sql', 'utf8'), attachments = await readFile('db/isolated/coach-private-attachments.sql', 'utf8');
+  const recovery = await readFile('drizzle/0088_coach_chat_turn_recovery.sql', 'utf8');
   const probe = await pool.connect();
   try {
     await probe.query('BEGIN'); await probe.query('ALTER TABLE public.agent_conversation DISABLE ROW LEVEL SECURITY');
@@ -33,7 +34,7 @@ async function main() {
   check = 'disabled_chat_rls_rejected_before_installation'; pass();
   const connection = await pool.connect();
   try {
-    await connection.query('BEGIN'); await connection.query(attachments); await connection.query(chat); await connection.query('COMMIT'); installed = true;
+    await connection.query('BEGIN'); await connection.query(attachments); await connection.query(chat); await connection.query(recovery); await connection.query('COMMIT'); installed = true;
   } catch (error) { await connection.query('ROLLBACK'); throw error; }
   finally { connection.release(); }
   check = 'reviewed_chat_sql_rls_lifecycle';

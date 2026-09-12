@@ -58,7 +58,11 @@ async function main(){
  assert.ok((await execute({operation:'rename',threadId:a.thread.id,title:'Renamed',expectedRevision:a.thread.revision})).ok);
  const stale=await execute({operation:'rename',threadId:a.thread.id,title:'Stale',expectedRevision:a.thread.revision});assert.ok(!stale.ok&&stale.error==='version_conflict');pass();
  check='user_request_identity_and_final_proof';const u=await user(a.thread.id,'Review my workout records today');
- await user(a.thread.id,'Second explicit user turn');
+ const second=await user(a.thread.id,'Second explicit user turn');
+ const secondInflight=await execute({operation:'recover',threadId:a.thread.id,turnId:second.op.turnId});
+ assert.ok(secondInflight.ok&&'status'in secondInflight.value);assert.equal(secondInflight.value.status,'inflight');assert.equal(secondInflight.value.assistant,null);
+ const secondFailed=await service.markFailed(scope,a.thread.id,second.op.turnId,signal());
+ assert.ok(secondFailed.ok);assert.equal(secondFailed.value.status,'failed');
  const firstPage=await execute({operation:'read',threadId:a.thread.id,limit:1});assert.ok(firstPage.ok&&'messages'in firstPage.value);assert.equal(firstPage.value.messages.length,1);assert.equal(firstPage.value.nextSequence,1);
  const nextPage=await execute({operation:'read',threadId:a.thread.id,limit:1,afterSequence:firstPage.value.nextSequence});assert.ok(nextPage.ok&&'messages'in nextPage.value);assert.equal(nextPage.value.messages[0].sequence,2);
  assert.deepEqual(await execute(u.op),{...u.result,value:{...u.result.value,replayed:true}});
@@ -66,6 +70,8 @@ async function main(){
  const generated=await runVerifiedChatFinal({version:'coach-assistant.v2',conversationId:a.thread.id,turnId:u.op.turnId,message:u.op.text},{actorId,repository:createServerRepository(pool),mode:'offline',now:new Date(),signal:signal()},scope);
  assert.ok(generated.final,'offline_existing_pipeline_final_required');
  const final=await service.appendFinal(scope,{threadId:a.thread.id,requestId:randomUUID()},generated.final,signal());assert.ok(final.ok&&'message'in final.value);contentIds.push(final.value.message.id);
+ const recovered=await execute({operation:'recover',threadId:a.thread.id,turnId:u.op.turnId});
+ assert.ok(recovered.ok&&'status'in recovered.value);assert.equal(recovered.value.status,'settled');assert.equal(recovered.value.user.id,u.message.id);assert.equal(recovered.value.assistant?.id,final.value.message.id);
  const lookup=await service.lookupFinal(scope,a.thread.id,final.value.message.id,signal());assert.ok(lookup.ok);assert.equal(lookup.value.text,generated.response.output!.answer);pass();
  check='legacy_and_current_self_positive_foreign_actor_negative';
  const legacyId=randomUUID();contentIds.push(legacyId);
@@ -79,7 +85,7 @@ async function main(){
    const thread=randomUUID(),id=randomUUID(),text='Synthetic invalid scope';
    await c.query("INSERT INTO private.coach_chat_threads(id,actor_id,subject_id,organization_id,actor_role,request_id,create_hash,title) VALUES($1,$2,$3,$4,'client',$5,$6,'Synthetic scope')",[thread,actorId,subject,tenant,randomUUID(),'a'.repeat(64)]);
    await c.query('INSERT INTO public.agent_conversation(id,user_id,agent_name,session_id,role,content) VALUES($1,$2,$3,$4,\'user\',$5)',[id,actorId,COACH_CHAT_NAMESPACE,thread,text]);
-   await c.query("INSERT INTO private.coach_chat_turns(thread_id,content_id,turn_id,request_id,role,sequence,revision,content_hash,current) VALUES($1,$2,$3,$4,'user',1,$5,$6,true)",[thread,id,randomUUID(),randomUUID(),randomUUID(),createHash('sha256').update(text).digest('hex')]);
+   await c.query("INSERT INTO private.coach_chat_turns(thread_id,content_id,turn_id,request_id,role,sequence,revision,content_hash,current,outcome) VALUES($1,$2,$3,$4,'user',1,$5,$6,true,'inflight')",[thread,id,randomUUID(),randomUUID(),randomUUID(),createHash('sha256').update(text).digest('hex')]);
    assert.equal(await visible(c,actorId,id),0);assert.equal(await visible(c,actorId,legacyId),1);
   }
  });pass();
