@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { requireRole } from '@/lib/auth/require-role';
+import {
+  hasPostgrestSearchText,
+  mergePostgrestSearchRows,
+  postgrestIlikeOrFilter,
+  postgrestTokenTerms,
+  sanitizePostgrestIlikeTerm,
+} from '@/lib/food/postgrest-search';
+
+const SEARCH_COLUMNS = ['name', 'name_el', 'name_es'];
 
 const USDA_BASE = 'https://api.nal.usda.gov/fdc/v1/foods/search';
 const API_KEY = process.env.USDA_API_KEY || 'DEMO_KEY';
@@ -88,37 +97,47 @@ function rankLocalFoods(
 
 // Try local food_database first. Auth is checked by the route before this runs.
 async function searchLocal(query: string): Promise<{ foods: Record<string, unknown>[]; count: number } | null> {
-  const supabase = createSupabaseServiceClient();
-  // Sanitize ilike input: escape %, _, and backslash to prevent injection
-  const q = query.toLowerCase().replace(/[%_\\]/g, '\\$&');
-  const tokens = q
-    .split(/\s+/)
-    .map((token) => token.trim())
-    .filter((token) => token.length >= 3 && !['con', 'una', 'uno', 'the', 'and', 'para'].includes(token))
-    .slice(0, 5);
+  // Escape wildcards and neutralise PostgREST filter delimiters so the query
+  // can never terminate or extend the `or=(...)` expression.
+  const q = sanitizePostgrestIlikeTerm(query);
+  // Delimiter-only input sanitises to empty: `ilike.%%` would match arbitrary
+  // rows, so skip the local query entirely (the route validates this earlier).
+  if (q.length === 0) return null;
 
-  let { data, error } = await supabase
+  const supabase = createSupabaseServiceClient();
+  // Word OR-filter: a literal phrase misses rows whose stored name interleaves
+  // punctuation with the words (query "milk whole" vs row "Milk, whole").
+  const tokens = postgrestTokenTerms(query)
+    .filter((token) => !['con', 'una', 'uno', 'the', 'and', 'para'].includes(token));
+  const phraseFilter = postgrestIlikeOrFilter([q], SEARCH_COLUMNS);
+  const tokenFilter = tokens.length > 0 ? postgrestIlikeOrFilter(tokens, SEARCH_COLUMNS) : null;
+
+  // Phrase query first. The token query supplements it even when the phrase
+  // matched, because a phrase hit does not imply the punctuation-variant row
+  // is present; identical filters are skipped so at most two queries run.
+  const phrase = await supabase
     .from('food_database')
     .select('*')
-    .or(`name.ilike.%${q}%,name_el.ilike.%${q}%,name_es.ilike.%${q}%`)
+    .or(phraseFilter)
     .order('popularity', { ascending: false })
     .limit(15);
 
-  if ((!data || data.length === 0) && tokens.length > 0) {
-    const tokenFilter = tokens
-      .flatMap((token) => [`name.ilike.%${token}%`, `name_el.ilike.%${token}%`, `name_es.ilike.%${token}%`])
-      .join(',');
-    const fallback = await supabase
+  if (phrase.error) return null;
+  let data = (phrase.data ?? []) as Record<string, unknown>[];
+
+  if (tokenFilter && tokenFilter !== phraseFilter) {
+    const supplement = await supabase
       .from('food_database')
       .select('*')
       .or(tokenFilter)
       .order('popularity', { ascending: false })
       .limit(15);
-    data = fallback.data;
-    error = fallback.error;
+    if (!supplement.error) {
+      data = mergePostgrestSearchRows(data, (supplement.data ?? []) as Record<string, unknown>[], 15);
+    }
   }
 
-  if (error || !data || data.length === 0) return null;
+  if (data.length === 0) return null;
   data = rankLocalFoods(data, q, tokens);
 
   // Bump popularity for returned results
@@ -185,6 +204,15 @@ export async function GET(request: NextRequest) {
     if (!q || q.trim().length === 0) {
       return NextResponse.json(
         { foods: [], error: 'Query parameter "q" is required' },
+        { status: 400 },
+      );
+    }
+
+    // Delimiter-only input (`,()"`) sanitises to empty and would build an
+    // `ilike.%%` match-all filter; reject before any DB/provider call.
+    if (!hasPostgrestSearchText(q)) {
+      return NextResponse.json(
+        { foods: [], error: 'Query must contain searchable characters' },
         { status: 400 },
       );
     }

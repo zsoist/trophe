@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { consumeRateLimit } from '@/lib/security/durable-rate-limit';
 import { safeErrorMetadata } from '@/lib/security/safe-error-log';
+import {
+  hasPostgrestSearchText,
+  mergePostgrestSearchRows,
+  postgrestIlikeOrFilter,
+  postgrestTokenTerms,
+  sanitizePostgrestIlikeTerm,
+} from '@/lib/food/postgrest-search';
+
+const SEARCH_COLUMNS = ['name', 'name_el', 'name_es'];
 
 function parseSearchLimit(raw: string | null): number {
   const normalized = raw?.trim();
@@ -25,6 +34,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Query parameter "q" is required' }, { status: 400 });
   }
 
+  // Delimiter-only input (`,()"`) sanitises to empty; building a filter from it
+  // would be `ilike.%%` and scan arbitrary rows, so reject before any DB call.
+  if (!hasPostgrestSearchText(q)) {
+    return NextResponse.json(
+      { error: 'Query must contain searchable characters' },
+      { status: 400 },
+    );
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -34,23 +52,51 @@ export async function GET(request: NextRequest) {
 
   // Use anon key for public search — respects RLS, no privilege escalation
   const supabase = createClient(supabaseUrl, anonKey);
-  // Sanitize ilike input: escape %, _, and backslash to prevent injection
-  const query = q.trim().toLowerCase().replace(/[%_\\]/g, '\\$&');
+  // Escape wildcards and neutralise PostgREST filter delimiters so the query
+  // can never terminate or extend the `or=(...)` expression.
+  const query = sanitizePostgrestIlikeTerm(q);
+  // A single literal phrase misses rows whose stored name interleaves
+  // punctuation with the words (e.g. "milk whole" vs the row "Milk, whole"),
+  // so also query each word. Terms are escaped up front and bounded to 5.
+  const terms = postgrestTokenTerms(q);
+  const phraseFilter = postgrestIlikeOrFilter([query], SEARCH_COLUMNS);
+  const tokenFilter = terms.length > 0 ? postgrestIlikeOrFilter(terms, SEARCH_COLUMNS) : null;
 
-  // Search across name, name_el, name_es
-  const { data, error } = await supabase
+  // Search across name, name_el, name_es — phrase first, then a supplementary
+  // word OR query. The supplement runs even when the phrase already matched
+  // (a phrase hit does not imply the punctuation-variant row is present), but
+  // is skipped when it would be the same filter, so at most two queries run.
+  const phrase = await supabase
     .from('food_database')
     .select('id,name,name_el,name_es,calories_per_100g,protein_per_100g,carbs_per_100g,fat_per_100g,fiber_per_100g,default_serving_grams,default_serving_unit,common_units,popularity')
-    .or(`name.ilike.%${query}%,name_el.ilike.%${query}%,name_es.ilike.%${query}%`)
+    .or(phraseFilter)
     .order('popularity', { ascending: false })
     .limit(safeLim);
 
-  if (error) {
-    console.error('Local search error', safeErrorMetadata(error));
+  if (phrase.error) {
+    console.error('Local search error', safeErrorMetadata(phrase.error));
     return NextResponse.json(
       { error: 'Food search temporarily unavailable' },
       { status: 503 },
     );
+  }
+
+  let data = phrase.data ?? [];
+
+  if (tokenFilter && tokenFilter !== phraseFilter) {
+    const supplement = await supabase
+      .from('food_database')
+      .select('id,name,name_el,name_es,calories_per_100g,protein_per_100g,carbs_per_100g,fat_per_100g,fiber_per_100g,default_serving_grams,default_serving_unit,common_units,popularity')
+      .or(tokenFilter)
+      .order('popularity', { ascending: false })
+      .limit(safeLim);
+    if (supplement.error) {
+      // Keep the phrase page rather than failing the whole request: the
+      // supplement is recall coverage, not the primary answer.
+      console.error('Local search token fallback error', safeErrorMetadata(supplement.error));
+    } else {
+      data = mergePostgrestSearchRows(data, supplement.data ?? [], safeLim);
+    }
   }
 
   // Map to the format expected by the frontend (same as USDA search)

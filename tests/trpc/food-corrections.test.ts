@@ -372,6 +372,81 @@ describe('food.log.edit (capture-gate integration)', () => {
     expect(updates[0]).toMatchObject({ qtyG: '150', calories: 150, proteinG: 15 });
   });
 
+  // Regression: a grams edit on a row with neither a canonical food row
+  // (per-100g) nor a measured qty_g baseline used to persist the new mass while
+  // leaving the macros at their original serving values (200 g stored with the
+  // old 100 kcal), and a later quantity edit then scaled from that bogus mass.
+  // The write is now refused instead of corrupting the row.
+  it('refuses a grams edit when there is no gram baseline to scale from', async () => {
+    const existing = foodLogRow({
+      source: 'custom',
+      quantity: 1,
+      qtyG: null,
+      foodId: null,
+      calories: 300,
+      proteinG: 10,
+    });
+    const { db, updates } = makeStubDb({ selectRows: [existing] });
+    const caller = createCaller(authedCtx(USER_ID, 'client', db));
+
+    await expect(
+      caller.food.log.edit({ entryId: ENTRY_ID, grams: 250 }),
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+    // No partial write: the contradictory qty_g must never reach the row.
+    expect(updates).toHaveLength(0);
+  });
+
+  it('rejects a no-baseline grams edit through coachEdit too', async () => {
+    const existing = foodLogRow({
+      userId: CLIENT_ID,
+      source: 'custom',
+      quantity: 1,
+      qtyG: null,
+      foodId: null,
+      calories: 300,
+    });
+    const { db, updates } = makeStubDb({ selectRows: [existing] });
+    // Coach tenant check is stubbed by returning the client row for every select.
+    const caller = createCaller(authedCtx(COACH_ID, 'coach', db));
+
+    await expect(
+      caller.food.log.coachEdit({ clientId: CLIENT_ID, entryId: ENTRY_ID, grams: 250 }),
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+    expect(updates).toHaveLength(0);
+  });
+
+  it('allows a no-baseline grams edit when the caller asserts all core macros', async () => {
+    const existing = foodLogRow({
+      source: 'custom',
+      quantity: 1,
+      qtyG: null,
+      foodId: null,
+      calories: 300,
+      proteinG: 10,
+      carbsG: 40,
+      fatG: 8,
+    });
+    const { db, updates } = makeStubDb({ selectRows: [existing] });
+    const caller = createCaller(authedCtx(USER_ID, 'client', db));
+
+    await caller.food.log.edit({
+      entryId: ENTRY_ID,
+      grams: 250,
+      calories: 420,
+      proteinG: 14,
+      carbsG: 56,
+      fatG: 11,
+    });
+
+    expect(updates[0]).toMatchObject({
+      qtyG: '250',
+      calories: 420,
+      proteinG: 14,
+      carbsG: 56,
+      fatG: 11,
+    });
+  });
+
   it('explicit macro values win over derivation, per-field', async () => {
     const existing = foodLogRow({ source: 'natural_language', qtyG: '100.00' });
     const { db, updates } = makeStubDb({ selectRows: [existing] });

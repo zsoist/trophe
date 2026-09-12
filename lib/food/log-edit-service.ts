@@ -106,6 +106,26 @@ export async function deriveFoodLogEdit(database:Pick<FoodEditDatabase,'select'>
     }
   }
 
+  // A grams edit must be applied consistently to the macros. When the entry has
+  // neither a canonical food row (per-100g) nor a measured gram baseline, and the
+  // caller did not supply the core macros explicitly, there is no per-gram
+  // reference to scale from: writing qty_g alone would persist a mass the macros
+  // do not reflect (e.g. 250 g stored with the original serving's calories), and a
+  // later quantity edit would then scale from that bogus mass. Reject instead of
+  // silently corrupting the row. An explicit calories+protein+carbs+fat set is the
+  // caller's assertion of the nutrition for that mass, so it is allowed.
+  const explicitCoreMacros =
+    input.calories != null &&
+    input.proteinG != null &&
+    input.carbsG != null &&
+    input.fatG != null;
+  if (input.grams != null && derived === null && factor === null && !explicitCoreMacros) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'This entry has no measured gram baseline to scale from — edit the quantity or the macros instead.',
+    });
+  }
+
   const scaled = (v: number | null, kcal = false): number | null => {
     if (factor == null || v == null) return v;
     return kcal ? Math.round(v * factor) : round1(v * factor);
