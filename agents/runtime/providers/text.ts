@@ -4,6 +4,7 @@ import {
   type GeminiGenerateContent,
 } from '@/agents/clients/google';
 import { invokeDeepSeekText } from './deepseek';
+import { invokeOpenAiText } from './openai';
 import type { RoutingPolicy } from '@/agents/router/policies';
 import type { ProviderResult } from '../types';
 
@@ -31,6 +32,19 @@ export async function invokeTextProvider(input: {
       maxTokens: input.maxTokens ?? input.policy.maxTokens,
       signal: input.signal,
       userId: input.userId,
+      fetchImpl: input.fetchImpl,
+      beforeTransportAttempt: input.beforeTransportAttempt,
+    });
+  }
+
+  if (input.policy.provider === 'openai') {
+    return invokeOpenAiText({
+      model: input.policy.model,
+      system: input.system,
+      prompt: input.prompt,
+      maxTokens: input.maxTokens ?? input.policy.maxTokens,
+      reasoningEffort: input.policy.reasoningEffort,
+      signal: input.signal,
       fetchImpl: input.fetchImpl,
       beforeTransportAttempt: input.beforeTransportAttempt,
     });

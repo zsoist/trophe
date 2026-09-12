@@ -78,6 +78,8 @@ export function createPilotBudgetStore(database: typeof db, actorId: string): Pi
             signal.throwIfAborted(); return fail('uncertain');
           }
           const record = decision.record, metadata = JSON.stringify({ coachPilot: record });
+          // Haiku is recognized only while settling legacy ledger rows. New
+          // governed bindings are Luna or the dedicated transcription model.
           const provider = binding.model === HAIKU_MODEL ? 'anthropic' : 'openai';
           // Preserve the existing generation status constraint. Financial state lives in metadata.
           const status = record.state === 'settled' ? 'completed' : record.state === 'released' ? 'failed' : 'pending';

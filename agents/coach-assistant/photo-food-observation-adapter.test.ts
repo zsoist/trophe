@@ -9,7 +9,7 @@ import type {PhotoFoodScope} from './photo-food-observation';
 import type {PilotAttemptBinding} from './pilot-budget';
 import {PHOTO_ATTEMPT_RESERVATION_NANO_USD} from './pilot-budget';
 import {ASK_TROPHE_SHARED_PILOT_ID} from '@/lib/workout/shared-pilot-budget';
-import {HAIKU_MODEL} from '@/agents/router/policies';
+import {LUNA_MODEL} from '@/agents/router/policies';
 import {PHOTO_PILOT_PRICING_VERSION} from '@/agents/router/pricing';
 
 const executeAiTask=vi.hoisted(()=>vi.fn());
@@ -18,7 +18,7 @@ const id=(n:number)=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const scope:PhotoFoodScope={actorId:id(1),subjectId:id(1),organizationId:id(2),conversationId:id(3),attachmentId:id(4)};
 let imageBytes:Uint8Array,imageDigest:string;
 const food={name:'Rice',estimated_grams:100,estimated_calories:130,estimated_protein_g:2.7,estimated_carbs_g:28,estimated_fat_g:.3,estimated_fiber_g:.4,estimated_sugar_g:0,confidence:.7,source:'ai_estimate',accuracy_note:'Estimate; confirm grams.'};
-const binding=(n=20):PilotAttemptBinding=>({pilotId:ASK_TROPHE_SHARED_PILOT_ID,actorId:scope.actorId,turnId:id(n),attemptId:id(n+1),agentRunId:id(n+2),requestHash:'b'.repeat(64),model:HAIKU_MODEL,pricingVersion:PHOTO_PILOT_PRICING_VERSION,reservedNanoUsd:PHOTO_ATTEMPT_RESERVATION_NANO_USD});
+const binding=(n=20):PilotAttemptBinding=>({pilotId:ASK_TROPHE_SHARED_PILOT_ID,actorId:scope.actorId,turnId:id(n),attemptId:id(n+1),agentRunId:id(n+2),requestHash:'b'.repeat(64),model:LUNA_MODEL,pricingVersion:PHOTO_PILOT_PRICING_VERSION,reservedNanoUsd:PHOTO_ATTEMPT_RESERVATION_NANO_USD});
 const taskResult=(generation=5):ExecuteAiTaskResult<{content:Array<unknown>} >=>({generationId:id(generation),estimatedCostUsd:.001,selectedPolicy:{...taskPolicies.photo_analyze,reasoningEffort:'none'},isFallback:false,output:{content:[{type:'tool_use',name:'submit_food_photo_analysis',input:{foods:[structuredClone(food)]}}]},usage:{inputTokens:10,outputTokens:10},latencyMs:1,rawStatus:200});
 
 beforeAll(async()=>{imageBytes=new Uint8Array(await sharp({create:{width:2,height:2,channels:3,background:'red'}}).jpeg().toBuffer());imageDigest=createHash('sha256').update(imageBytes).digest('hex');});
@@ -34,7 +34,7 @@ describe('durable Photo Food observation adapter with injected SQL/runtime',()=>
   const garbage=new Uint8Array([0xff,0xd8,0xff,1,2,3]);await expect(runVerifiedPhotoFoodAnalysis(scope,{digest:createHash('sha256').update(garbage).digest('hex'),bytes:garbage},{pilotBinding:binding(),invoke})).rejects.toThrow('invalid_image');expect(executeAiTask).toHaveBeenCalledTimes(1);
  });
  it('rejects ambiguous, dropped, unconfirmed or wrong-policy task output',async()=>{
-  for(const mutate of [(r:ReturnType<typeof taskResult>)=>{r.selectedPolicy.provider='openai';},(r:ReturnType<typeof taskResult>)=>{r.output.content=[];},(r:ReturnType<typeof taskResult>)=>{r.output.content.push(r.output.content[0]);},(r:ReturnType<typeof taskResult>)=>{(r.output.content[0] as {input:{foods:unknown[]}}).input.foods=[food,{...food,estimated_grams:0}];},(r:ReturnType<typeof taskResult>)=>{(r.output.content[0] as {input:{foods:Array<typeof food&{needs_confirmation?:boolean}>}}).input.foods[0].needs_confirmation=true;},(r:ReturnType<typeof taskResult>)=>{(r.output.content[0] as {input:{foods:Array<typeof food&{action?:string}>}}).input.foods[0].action='food.photo.apply';}]){
+  for(const mutate of [(r:ReturnType<typeof taskResult>)=>{r.selectedPolicy.provider='anthropic';},(r:ReturnType<typeof taskResult>)=>{r.selectedPolicy.model='claude-haiku-4-5-20251001';},(r:ReturnType<typeof taskResult>)=>{r.output.content=[];},(r:ReturnType<typeof taskResult>)=>{r.output.content.push(r.output.content[0]);},(r:ReturnType<typeof taskResult>)=>{(r.output.content[0] as {input:{foods:unknown[]}}).input.foods=[food,{...food,estimated_grams:0}];},(r:ReturnType<typeof taskResult>)=>{(r.output.content[0] as {input:{foods:Array<typeof food&{needs_confirmation?:boolean}>}}).input.foods[0].needs_confirmation=true;},(r:ReturnType<typeof taskResult>)=>{(r.output.content[0] as {input:{foods:Array<typeof food&{action?:string}>}}).input.foods[0].action='food.photo.apply';}]){
    const result=taskResult();mutate(result);executeAiTask.mockResolvedValueOnce(result);await expect(runVerifiedPhotoFoodAnalysis(scope,{digest:imageDigest,bytes:imageBytes},{pilotBinding:binding(),invoke:vi.fn()})).rejects.toThrow();
   }
  });
@@ -83,7 +83,7 @@ describe('durable Photo Food observation adapter with injected SQL/runtime',()=>
   const adapter=createDatabasePhotoFoodObservationAdapter(f.database,storage);
   const completed=await adapter.analyzeAndRecord(scope,{pilotBinding:binding(),invoke:vi.fn()},new AbortController().signal),recorded=completed.observation;
   expect(storage.readNormalized).toHaveBeenCalledTimes(1);expect(authorizeCalls.count).toBe(1);expect(executeAiTask).toHaveBeenCalledTimes(1);expect(recorded).toMatchObject({source:'validated_photo_analysis',imageDigest});
-  expect(completed.result).toMatchObject({generationId:id(5),selectedPolicy:{provider:'anthropic',promptVersion:'photo-analyze-v1'},isFallback:false,rawStatus:200});
+  expect(completed.result).toMatchObject({generationId:id(5),selectedPolicy:{provider:'openai',model:LUNA_MODEL,promptVersion:'photo-analyze-v1'},isFallback:false,rawStatus:200});
  });
  it('rejects forged proof, wrong scope, missing generation, unavailable image and revocation',async()=>{
   const forged={kind:'verified_photo_food_analysis'} as VerifiedPhotoFoodAnalysis;await expect(fixture().adapter.record(scope,forged,new AbortController().signal)).rejects.toThrow('forbidden');

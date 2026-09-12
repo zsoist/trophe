@@ -21,8 +21,8 @@ agents/
       text.ts       # text-task dispatch
       structured.ts # structured/tool-call output dispatch
   clients/          # thin API wrappers
-    anthropic.ts    # Messages API — used ONLY for photo_analyze (vision)
-    google.ts       # Gemini via @google/genai — legacy/fallback only (not on the text path)
+    anthropic.ts    # Messages API — historical/offline contracts only
+    google.ts       # Gemini via @google/genai — legacy/offline contracts only
   observability/
     langfuse.ts     # wraps every run() in a Langfuse generation span
     otel.ts         # gen_ai.* semconv attributes
@@ -58,14 +58,14 @@ agents/
 |-------|-------------------|-------|--------|
 | `food-parse` | GPT-5.6 Luna | explicit stable-prefix cache | ✅ v0.3 deterministic pipeline |
 | `recipe-analyze` | GPT-5.6 Luna | explicit stable-prefix cache | ✅ live |
-| `photo-analyze` (inline route) | Anthropic Haiku 4.5 (vision) | — | ✅ live |
+| `photo-analyze` (inline route) | GPT-5.6 Luna (vision) | — | ✅ live |
 | `meal-suggest` (inline route) | GPT-5.6 Luna | explicit stable-prefix cache | ✅ live |
-| `coach-insight` / `wearable-summary` | Anthropic Haiku 4.5 | prompt cache | ✅ live |
-| `memory-write` / `memory-extract` | Anthropic Haiku 4.5 | prompt cache | ✅ live |
+| `coach-insight` / `wearable-summary` | GPT-5.6 Luna | — | ✅ live |
+| `memory-write` / `memory-extract` | GPT-5.6 Luna | — | ✅ live |
 | `shopping-extract` (inline route) | GPT-5.6 Luna | explicit stable-prefix cache | ✅ live |
 | `factory_generate` | DeepSeek V4 Flash | provider cache | ✅ synthetic-only |
 
-> Phase 3 routing: consumer text stays GPT-5.6 Luna → Claude Haiku 4.5, health-context stays Haiku, and DeepSeek is confined to synthetic factory generation.
+> Product routing uses GPT-5.6 Luna for generative text and vision, with no cross-provider fallback. STT remains on its dedicated OpenAI transcription model; DeepSeek is confined to synthetic factory generation. Historical Haiku rows and offline fixtures remain readable for audit only.
 
 The contextual Workout assistant is independent of the existing wearable `coach-insight` and memory agents. Its `coach_assistant` task has an intentional zero-dollar budget; it remains blocked by the request-budget guard. The current private slice reads/proposes only and keeps synthetic test adapters separate from authorized records. Production activation is denied in this wave. See [`coach-assistant/README.md`](./coach-assistant/README.md) for the versioned contract, data sources and verification limits. Offline passes do not establish model quality or deployed database authorization.
 
@@ -78,16 +78,17 @@ The contextual Workout assistant is independent of the existing wearable `coach-
 const taskPolicies = {
   food_parse:      { provider: 'openai',    model: 'gpt-5.6-luna' },
   recipe_analyze:  { provider: 'openai',    model: 'gpt-5.6-luna' },
-  coach_insight:   { provider: 'anthropic', model: 'claude-haiku-4-5-20251001' },
+  coach_insight:   { provider: 'openai',    model: 'gpt-5.6-luna' },
   meal_suggest:    { provider: 'openai',    model: 'gpt-5.6-luna' },
-  memory_extract:  { provider: 'anthropic', model: 'claude-haiku-4-5-20251001' },
+  memory_extract:  { provider: 'openai',    model: 'gpt-5.6-luna' },
   shopping_extract:{ provider: 'openai',    model: 'gpt-5.6-luna' },
   factory_generate:{ provider: 'deepseek',  model: 'deepseek-v4-flash' },
-  photo_analyze:   { provider: 'anthropic', model: 'claude-haiku-4-5-20251001' }, // vision only
+  photo_analyze:   { provider: 'openai',    model: 'gpt-5.6-luna' }, // text + image input
   embed:           { provider: 'voyage',    model: 'voyage-4' },
   memory_embed:    { provider: 'voyage',    model: 'voyage-4' },
 };
-// Consumer taskFallbacks use Claude Haiku 4.5. Factory generation has no cross-lane fallback.
+// Product taskFallbacks are empty. Historical Haiku policy objects appear only
+// in audit/evaluation code and are never selected by the live router.
 ```
 
 **Never hardcode models in agent files.** Always call `router.pick(task)`.
@@ -125,7 +126,7 @@ Every route MUST pass `telemetry` to `logAPIUsage()` so cost and cache-hit rates
 **v0.3 (current)**:
 ```
 User input: "200g feta, 1 banana"
-  → LLM (GPT-5.6 Luna, Haiku fallback): identifies foods, quantities, units,
+  → LLM (GPT-5.6 Luna): identifies foods, quantities, units,
     and secondary per-100g estimates
   → lookup.ts:
       1. tsvector keyword filter (GIN index on search_text)
@@ -164,12 +165,13 @@ and partition with a stable mapping before exceeding that rate. Tagged frozen
 and watch-list probes use one Luna attempt per request ID; ordinary production
 traffic keeps the bounded retry policy.
 
-`clients/anthropic.ts` supports `cacheSystem: true` which wraps the system prompt in `cache_control: { type: 'ephemeral' }`.
+`clients/anthropic.ts` retains the legacy cache wrapper for historical/offline
+provider contracts; product policies do not select it.
 
 **Requirements**:
-- Prefix must be ≥1024 tokens for GPT-5.6 (≥2048 for the current Anthropic cache path)
+- Prefix must be ≥1024 tokens for GPT-5.6
 - Stable prefix: rules + USDA reference values + FOOD_DATABASE constants
-- Cache lifetime: GPT-5.6 minimum 30 minutes; Anthropic ephemeral cache ~5 minutes
+- Cache lifetime: GPT-5.6 minimum 30 minutes
 - Cache hit: ~10% of normal input cost → ~70% spend reduction at steady state
 
 **Use when**: system prompt ≥2048 tokens AND requests arrive in bursts (typical user sessions).
@@ -198,7 +200,7 @@ a second provider attempt.
 Provider adapters normalize status, allowlisted diagnostics, token usage,
 cache-read/write usage, latency, and provider request IDs. Raw provider bodies,
 prompts, keys, and arbitrary error messages are not persistence or telemetry
-fields. Structured OpenAI and Anthropic calls require the selected tool output
+fields. Structured OpenAI calls require the selected tool output
 and validate it with Zod before returning.
 
 Langfuse flushing is best-effort and never sits between a validated provider

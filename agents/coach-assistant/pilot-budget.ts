@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { COACH_PILOT_BUDGET_USD, COACH_PRICING, COACH_PRICING_VERSION } from './economics';
 import {HAIKU_MODEL,LUNA_MODEL,TRANSCRIPTION_MODEL} from '@/agents/router/policies';
-import {PHOTO_PILOT_PRICING_VERSION} from '@/agents/router/pricing';
+import {LEGACY_PHOTO_PILOT_PRICING_VERSION,PHOTO_PILOT_PRICING_VERSION} from '@/agents/router/pricing';
 
 export const USD_IN_NANODOLLARS=1_000_000_000;
 /** Worst supported input tier is cache write; output already includes reasoning. */
@@ -13,10 +13,14 @@ const bindingBase={
   pilotId:z.string().uuid(),actorId:z.string().uuid(),attemptId:z.string().uuid(),agentRunId:z.string().uuid(),turnId:z.string().uuid(),
   requestHash:z.string().regex(/^[a-f0-9]{64}$/),
 };
-export const pilotAttemptBindingSchema=z.discriminatedUnion('model',[
+// A Luna text attempt and a Luna Photo attempt share the model but have
+// different pricing/reservation contracts. Keep legacy Haiku bindings parseable
+// so existing ledger rows remain auditable; no new runtime path issues them.
+export const pilotAttemptBindingSchema=z.union([
   z.object({...bindingBase,model:z.literal(LUNA_MODEL),pricingVersion:z.literal(COACH_PRICING_VERSION),reservedNanoUsd:z.literal(COACH_ATTEMPT_RESERVATION_NANO_USD)}).strict(),
+  z.object({...bindingBase,model:z.literal(LUNA_MODEL),pricingVersion:z.literal(PHOTO_PILOT_PRICING_VERSION),reservedNanoUsd:z.literal(PHOTO_ATTEMPT_RESERVATION_NANO_USD)}).strict(),
   z.object({...bindingBase,model:z.literal(TRANSCRIPTION_MODEL),pricingVersion:z.literal('gpt-4o-mini-transcribe-2026-09-09'),reservedNanoUsd:z.literal(STT_ATTEMPT_RESERVATION_NANO_USD)}).strict(),
-  z.object({...bindingBase,model:z.literal(HAIKU_MODEL),pricingVersion:z.literal(PHOTO_PILOT_PRICING_VERSION),reservedNanoUsd:z.literal(PHOTO_ATTEMPT_RESERVATION_NANO_USD)}).strict(),
+  z.object({...bindingBase,model:z.literal(HAIKU_MODEL),pricingVersion:z.literal(LEGACY_PHOTO_PILOT_PRICING_VERSION),reservedNanoUsd:z.literal(PHOTO_ATTEMPT_RESERVATION_NANO_USD)}).strict(),
 ]);
 export type PilotAttemptBinding=z.infer<typeof pilotAttemptBindingSchema>;
 const usageSchema=z.object({inputTokens:nano,outputTokens:nano,cacheReadTokens:nano,cacheWriteTokens:nano,reasoningTokens:nano}).strict();

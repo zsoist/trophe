@@ -4,7 +4,7 @@ import { NextRequest } from 'next/server';
 const mocks = vi.hoisted(() => ({
   guardAiRoute: vi.fn(),
   executeAiTask: vi.fn(),
-  invokeAnthropicJson: vi.fn(),
+  invokePrivatePhotoFoodProvider: vi.fn(),
   createPilotBudgetStore: vi.fn(()=>({execute:vi.fn()})),
   createSharedPilotBudgetRuntime: vi.fn(()=>({ok:true,pilotId:'a857fa8d-2bb8-4a7e-a190-5f8f1cf66229',store:{execute:vi.fn()}})),
   runGovernedPilotModality: vi.fn(async(input:{run:()=>Promise<unknown>})=>input.run()),
@@ -12,8 +12,8 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/lib/security/api-guard', () => ({ guardAiRoute: mocks.guardAiRoute }));
 vi.mock('@/agents/runtime', () => ({ executeAiTask: mocks.executeAiTask }));
-vi.mock('@/agents/runtime/providers/anthropic', () => ({
-  invokeAnthropicJson: mocks.invokeAnthropicJson,
+vi.mock('@/agents/coach-assistant/photo-food-provider', () => ({
+  invokePrivatePhotoFoodProvider: mocks.invokePrivatePhotoFoodProvider,
 }));
 vi.mock('@/db/client',()=>({db:{}}));
 vi.mock('@/lib/workout/pilot-budget-service',()=>({createPilotBudgetStore:mocks.createPilotBudgetStore}));
@@ -49,7 +49,7 @@ describe('POST /api/ai/photo-analyze', () => {
   afterEach(()=>vi.unstubAllEnvs());
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.stubEnv('ANTHROPIC_API_KEY', 'test-only-key');
+    vi.stubEnv('OPENAI_API_KEY', 'test-only-key');
     mocks.guardAiRoute.mockResolvedValue({
       ok: true,
       userId: 'user-1',
@@ -81,7 +81,7 @@ describe('POST /api/ai/photo-analyze', () => {
       estimated_fiber_g: 7.7,
       needs_confirmation: true,
     });
-    expect(mocks.invokeAnthropicJson).not.toHaveBeenCalled();
+    expect(mocks.invokePrivatePhotoFoodProvider).not.toHaveBeenCalled();
   });
   it('routes a preview pilot photo through the shared durable modality admission',async()=>{
     const actor='00000000-0000-4000-8000-000000000001';mocks.guardAiRoute.mockResolvedValue({ok:true,userId:actor,rateLimitBypassed:false});

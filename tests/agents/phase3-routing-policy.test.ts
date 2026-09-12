@@ -20,18 +20,13 @@ const consumerTasks: TaskName[] = [
 ];
 
 describe('Phase 3 routing policy', () => {
-  it('uses Luna then Haiku for food_parse', () => {
+  it('keeps food_parse in Luna with no cross-provider fallback', () => {
     expect(taskPolicies.food_parse).toMatchObject({
       provider: 'openai',
       model: 'gpt-5.6-luna',
-      fallbackOnTimeout: true,
       timeoutMs: 15_000,
     });
-    expect(taskFallbacks.food_parse).toMatchObject({
-      provider: 'anthropic',
-      model: 'claude-haiku-4-5-20251001',
-      timeoutMs: 25_000,
-    });
+    expect(taskFallbacks.food_parse).toBeUndefined();
   });
 
   it('keeps DeepSeek out of every consumer primary and fallback', () => {
@@ -41,23 +36,31 @@ describe('Phase 3 routing policy', () => {
     }
   });
 
-  it('keeps health-context tasks on Haiku', () => {
+  it('keeps health-context tasks in the Luna product lane', () => {
     for (const task of ['coach_insight', 'memory_extract'] as const) {
       expect(taskPolicies[task]).toMatchObject({
-        provider: 'anthropic',
-        model: 'claude-haiku-4-5-20251001',
+        provider: 'openai',
+        model: 'gpt-5.6-luna',
       });
     }
   });
 
   it('gives photo analysis a bounded 35-second primary window with no fallback', () => {
     expect(taskPolicies.photo_analyze).toMatchObject({
-      provider: 'anthropic',
-      model: 'claude-haiku-4-5-20251001',
+      provider: 'openai',
+      model: 'gpt-5.6-luna',
       timeoutMs: 35_000,
       promptVersion: 'photo-analyze-v1',
     });
     expect(taskFallbacks.photo_analyze).toBeUndefined();
+  });
+
+  it('never resolves Anthropic for a product task or fallback', () => {
+    for (const task of Object.keys(taskPolicies) as TaskName[]) {
+      if (task === 'transcribe' || task === 'embed' || task === 'memory_embed' || task === 'factory_generate') continue;
+      expect(taskPolicies[task].provider, `${task} primary`).not.toBe('anthropic');
+      expect(taskFallbacks[task]?.provider, `${task} fallback`).not.toBe('anthropic');
+    }
   });
 
   it('exposes the exact production policy object to food-parse simulators', () => {

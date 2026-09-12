@@ -158,12 +158,15 @@ export async function invokeOpenAiStructured<T>(input: {
   store?: false;
   fetchImpl?: typeof fetch;
   beforeTransportAttempt?: (endpoint: string) => unknown;
+  /** Optional server-normalized image for Luna Responses vision calls. */
+  image?: { bytes: Uint8Array; mediaType: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif' };
 }): Promise<ProviderResult<T>> {
   const isMistralCompatible = /^mistral(?:-|$)/.test(input.model);
   const useResponsesApi = input.model === 'gpt-5.6-luna';
   const endpoint = isMistralCompatible
     ? MISTRAL_CHAT_COMPLETIONS_URL
     : useResponsesApi ? OPENAI_RESPONSES_URL : OPENAI_CHAT_COMPLETIONS_URL;
+  if (input.image && !useResponsesApi) throw new Error('vision_not_supported');
   const accessMode = assertPaidProviderAccess({
     provider: 'openai',
     transportWasInjected: input.fetchImpl != null,
@@ -184,11 +187,18 @@ export async function invokeOpenAiStructured<T>(input: {
 
   const startedAt = Date.now();
   const supportsExplicitPromptCache = /^gpt-5\.6(?:-|$)/.test(input.model);
+  const userContent = [
+    { type: 'input_text', text: input.prompt },
+    ...(input.image ? [{
+      type: 'input_image',
+      image_url: `data:${input.image.mediaType};base64,${Buffer.from(input.image.bytes).toString('base64')}`,
+    }] : []),
+  ];
   const body = JSON.stringify(useResponsesApi ? {
     model: input.model,
     input: [
       { role: 'developer', content: [{ type: 'input_text', text: input.system }] },
-      { role: 'user', content: [{ type: 'input_text', text: input.prompt }] },
+      { role: 'user', content: userContent },
     ],
     max_output_tokens: input.maxTokens,
     reasoning: { effort: input.reasoningEffort ?? 'none' },
@@ -341,6 +351,108 @@ export async function invokeOpenAiStructured<T>(input: {
 
   return {
     responseModel: typeof data.model === 'string' && data.model.trim().length > 0 ? data.model : undefined,
+    output,
+    providerGenerationId: data.id,
+    requestId: response.headers.get('x-request-id') ?? undefined,
+    usage,
+    latencyMs: Date.now() - startedAt,
+    rawStatus: response.status,
+  };
+}
+
+/** Minimal Luna text adapter for product tasks whose contract is prose rather
+ * than a function schema. It uses the same Responses endpoint and bounded
+ * transport as the structured adapter, without introducing another model. */
+export async function invokeOpenAiText(input: {
+  model: string;
+  system: string;
+  prompt: string;
+  maxTokens: number;
+  signal: AbortSignal;
+  reasoningEffort?: 'none' | 'low' | 'medium';
+  store?: false;
+  maxAttempts?: number;
+  fetchImpl?: typeof fetch;
+  beforeTransportAttempt?: (endpoint: string) => unknown;
+}): Promise<ProviderResult<string>> {
+  if (input.model !== 'gpt-5.6-luna') throw new Error('text_not_supported');
+  const accessMode = assertPaidProviderAccess({ provider: 'openai', transportWasInjected: input.fetchImpl != null });
+  const apiKey = accessMode === 'offline' ? PAID_PROVIDER_OFFLINE_CREDENTIAL : process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error('OPENAI_API_KEY not configured');
+  const endpoint = OPENAI_RESPONSES_URL;
+  const body = JSON.stringify({
+    model: input.model,
+    input: [
+      { role: 'developer', content: [{ type: 'input_text', text: input.system }] },
+      { role: 'user', content: [{ type: 'input_text', text: input.prompt }] },
+    ],
+    max_output_tokens: input.maxTokens,
+    reasoning: { effort: input.reasoningEffort ?? 'none' },
+    prompt_cache_key: `trophe-text-${createHash('sha256').update(JSON.stringify([input.model, input.system])).digest('hex').slice(0, 32)}`,
+    ...(input.store === false ? { store: false } : {}),
+  });
+  type TextResponse = {
+    id?: string;
+    model?: unknown;
+    status?: string;
+    output?: Array<{
+      type?: string;
+      text?: string;
+      content?: Array<{ type?: string; text?: string }>;
+    }>;
+    output_text?: string;
+    usage?: {
+      input_tokens?: number;
+      output_tokens?: number;
+      input_tokens_details?: { cached_tokens?: number; cache_write_tokens?: number };
+      output_tokens_details?: { reasoning_tokens?: number };
+    };
+    error?: OpenAiErrorBody;
+  };
+  const startedAt = Date.now();
+  const fetchImpl = input.fetchImpl ?? fetch;
+  const requestedAttempts = Number.isFinite(input.maxAttempts) ? Math.floor(input.maxAttempts as number) : 1;
+  const maxAttempts = Math.min(MAX_ATTEMPTS, Math.max(1, requestedAttempts));
+  let response: Response | undefined;
+  let data: TextResponse = {};
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    debitPaidTransportAttempt(input.beforeTransportAttempt, endpoint);
+    try {
+      response = await fetchImpl(endpoint, {
+        method: 'POST', redirect: 'error',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body, signal: input.signal,
+      });
+    } catch (error) {
+      if (input.signal.aborted || attempt === maxAttempts - 1) throw error;
+      await waitForRetry(retryDelayMs(undefined, attempt), input.signal);
+      continue;
+    }
+    const responseText = await response.text();
+    try { data = responseText ? JSON.parse(responseText) as TextResponse : {}; } catch { data = {}; }
+    if (response.ok) break;
+    if (!shouldRetry(response) || attempt === maxAttempts - 1) throw apiError(response, data.error);
+    await waitForRetry(retryDelayMs(response, attempt), input.signal);
+  }
+  if (!response) throw new Error('OpenAI request failed before receiving a response');
+  if (!response.ok) throw apiError(response, data.error);
+  if (data.status === 'failed' && data.error) throw apiError(response, data.error);
+  const usage: AiUsage = {
+    inputTokens: data.usage?.input_tokens ?? 0,
+    outputTokens: data.usage?.output_tokens ?? 0,
+    cacheReadTokens: data.usage?.input_tokens_details?.cached_tokens ?? 0,
+    cacheWriteTokens: data.usage?.input_tokens_details?.cache_write_tokens ?? 0,
+    reasoningTokens: data.usage?.output_tokens_details?.reasoning_tokens ?? 0,
+  };
+  const output = data.output_text ?? data.output?.flatMap(item => {
+    if (item.type === 'output_text' && typeof item.text === 'string') return [item.text];
+    return (item.content ?? []).filter(content => content.type === 'output_text' && typeof content.text === 'string').map(content => content.text!);
+  }).join('');
+  if (!output?.trim() || data.status !== 'completed') {
+    throw new OpenAiApiError({ message: 'OpenAI text response was malformed', status: response.status, code: 'invalid_response', type: 'response_validation_error', requestId: response.headers.get('x-request-id') ?? undefined, usage, latencyMs: Date.now() - startedAt, providerGenerationId: data.id });
+  }
+  return {
+    responseModel: typeof data.model === 'string' && data.model.trim() ? data.model : undefined,
     output,
     providerGenerationId: data.id,
     requestId: response.headers.get('x-request-id') ?? undefined,

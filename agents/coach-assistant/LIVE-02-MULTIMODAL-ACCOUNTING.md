@@ -1,7 +1,7 @@
 # LIVE-02 shared modality accounting
 
-LIVE-02 retains the existing Coach Everywhere and AI task runtimes. Text Luna,
-OpenAI transcription, and Anthropic photo analysis reserve against the same
+LIVE-02 retains the existing Coach Everywhere and AI task runtimes. Luna text,
+Luna vision, and OpenAI transcription reserve against the same
 `ASK_TROPHE_SHARED_PILOT_ID` row before provider dispatch. The transaction-level
 authority is the durable shared US$3 daily budget on the America/Bogota calendar
 day. Historical rows, attempt counts, uncertain charges, and accounting blocks

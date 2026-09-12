@@ -7,7 +7,10 @@ export interface ModelPricing {
 }
 
 export const DEEPSEEK_STRESS_PRICING_VERSION = 'deepseek-v4-2026-07-25';
-export const PHOTO_PILOT_PRICING_VERSION = 'claude-haiku-4-5-20251001-standard-2026-09-09' as const;
+/** Luna vision uses the same published token rates as the product text lane. */
+export const PHOTO_PILOT_PRICING_VERSION = 'gpt-5.6-luna-vision-standard-2026-09-08' as const;
+/** Historical Haiku rows remain readable for audit/recovery only. */
+export const LEGACY_PHOTO_PILOT_PRICING_VERSION = 'claude-haiku-4-5-20251001-standard-2026-09-09' as const;
 export const DEEPSEEK_STRESS_INPUT_TOKEN_CEILING = 16_384;
 export const DEEPSEEK_STRESS_OUTPUT_TOKEN_CEILING = 8_192;
 

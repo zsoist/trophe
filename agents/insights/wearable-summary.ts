@@ -1,7 +1,7 @@
 /**
  * Trophē v0.3 — Wearable summary agent (Phase 6).
  *
- * Uses Sonnet 4.6 (per memory_extract policy — mid cost, medium latency)
+ * Uses the routed Luna text policy (low cost, low latency)
  * to synthesize the last 7 days of HRV, sleep, and training load data
  * into a concise coaching insight block for the coach dashboard.
  *
@@ -15,7 +15,7 @@
  *   - Workout (last 7 days) — sessions, duration, load
  *   - Readiness (last 7 days) — recovery scores (Whoop/Oura)
  *
- * Cost estimate: ~$0.003 per call (800 tokens in + 300 out at Sonnet rates)
+ * Cost estimate follows the current Luna pricing contract.
  */
 
 import { db } from '@/db/client';

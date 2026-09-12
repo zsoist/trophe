@@ -392,7 +392,7 @@ export default function DemoPage() {
               </div>
             ))}
           </div>
-          <DetailBlock title="AI Food Parser" body="Claude Haiku parses free text in EN/ES/EL. '3 αυγά, τοστ, ελληνικός καφές' → structured items with macros. ~$0.003/call." />
+          <DetailBlock title="AI Food Parser" body="GPT-5.6 Luna parses free text in EN/ES/EL. '3 αυγά, τοστ, ελληνικός καφές' → structured items with macros." />
           <DetailBlock title="Meal Quality Score" body="Each meal: A/B/C/D. 40% macro balance + 30% protein adequacy + 30% variety. Score badge on every meal card." />
           <DetailBlock title="Analytics Suite" body="30-day trends, calorie heatmap, radar chart, gauge, protein distribution, food frequency, day patterns, monthly report." />
         </Section>
@@ -436,7 +436,7 @@ export default function DemoPage() {
             <ProgressBar label="RLS policy coverage" value={41} max={41} color="#3b82f6" />
             <ProgressBar label="Trilingual coverage" value={200} max={200} color="#a855f7" />
           </div>
-          <DetailBlock title="Stack" body="Next.js 16 + React 19 + Supabase + Tailwind 4. Vercel serverless. Claude Haiku + Gemini Flash + MediaPipe WASM." />
+          <DetailBlock title="Stack" body="Next.js 16 + React 19 + Supabase + Tailwind 4. Vercel serverless. GPT-5.6 Luna + Gemini Flash + MediaPipe WASM." />
           <DetailBlock title="AI Cost" body="~$1.80/month for 20 calls/day. Photo analysis ~$0.005/call. Text parsing ~$0.003/call. Form check: $0 (browser)." />
         </Section>
 

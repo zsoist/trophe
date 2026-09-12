@@ -17,11 +17,11 @@ describe('isolated Luna configuration and accounting', () => {
     expect(result.requestId).toBe('req_offline_fixture');
     expect(priceCoachUsage(result.usage)).toBeCloseTo(.000845,10);
   });
-  it('keeps the coach task narrowly bounded without moving existing health context or fallbacks', () => {
+  it('keeps the coach task narrowly bounded in the Luna lane without fallbacks', () => {
     expect(taskPolicies.coach_assistant.maxCostUsd).toBe(0.0044);
     expect(taskPolicies.coach_assistant.reasoningEffort).toBe('low');
-    expect(taskPolicies.coach_insight.provider).toBe('anthropic');
-    expect(taskPolicies.memory_extract.provider).toBe('anthropic');
+    expect(taskPolicies.coach_insight.provider).toBe('openai');
+    expect(taskPolicies.memory_extract.provider).toBe('openai');
     expect(taskFallbacks.coach_assistant).toBeUndefined();
   });
   it('never treats absent or invalid usage as free', () => {

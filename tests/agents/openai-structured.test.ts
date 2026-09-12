@@ -130,6 +130,34 @@ describe('invokeOpenAiStructured', () => {
     expect(JSON.stringify(fetchMock.mock.calls)).not.toContain(SENSITIVE_SENTINEL);
   });
 
+  it('sends a server-bound image as input_image on the Luna Responses request', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(lunaSuccess()), { status: 200 }));
+    await invokeOpenAiStructured({
+      model: 'gpt-5.6-luna', system: 'system', prompt: 'inspect the image', maxTokens: 256,
+      signal: new AbortController().signal, toolName: 'submit_result', description: 'Submit result',
+      schema: { type: 'object' }, validator, strict: true, reasoningEffort: 'low', maxAttempts: 1,
+      image: { bytes: Uint8Array.from([1, 2, 3]), mediaType: 'image/jpeg' },
+      fetchImpl: fetchMock as unknown as typeof fetch,
+    });
+    const request = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    expect(request.input[1].content).toEqual([
+      { type: 'input_text', text: 'inspect the image' },
+      { type: 'input_image', image_url: 'data:image/jpeg;base64,AQID' },
+    ]);
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it('fails closed when an image is supplied to a non-Luna OpenAI adapter', async () => {
+    const fetchMock = vi.fn();
+    await expect(invokeOpenAiStructured({
+      model: 'mistral-small-2603', system: 'system', prompt: 'inspect the image', maxTokens: 256,
+      signal: new AbortController().signal, toolName: 'submit_result', description: 'Submit result',
+      schema: { type: 'object' }, validator, image: { bytes: Uint8Array.from([1]), mediaType: 'image/jpeg' },
+      fetchImpl: fetchMock as unknown as typeof fetch,
+    })).rejects.toThrow('vision_not_supported');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it.each([
     ['text output',{status:'completed',output:[{type:'message',content:[]}]}],
     ['refusal',{status:'completed',output:[{type:'refusal',refusal:'no'}]}],

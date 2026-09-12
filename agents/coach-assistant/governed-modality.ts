@@ -1,14 +1,14 @@
 import {createHash} from 'node:crypto';
 import type {AiUsage} from '@/agents/runtime';
 import {executePilotBudgetCommand,PHOTO_ATTEMPT_RESERVATION_NANO_USD,pricePilotUsageNanoUsd,providerFailureDiagnosticSchema,reserveCoachPilotAttempt,STT_ATTEMPT_RESERVATION_NANO_USD,type PilotAttemptBinding,type PilotBudgetStore,type PilotUsage,type ProviderFailureDiagnostic} from './pilot-budget';
-import {HAIKU_MODEL,TRANSCRIPTION_MODEL} from '@/agents/router/policies';
+import {LUNA_MODEL,TRANSCRIPTION_MODEL} from '@/agents/router/policies';
 import {PHOTO_PILOT_PRICING_VERSION} from '@/agents/router/pricing';
 import {providerErrorTelemetry} from '@/agents/runtime/provider-error';
 
 type ModalityTask='photo_analyze'|'transcribe';
-type TaskContract={provider:'anthropic'|'openai';model:PilotAttemptBinding['model'];promptVersion:string;pricingVersion:PilotAttemptBinding['pricingVersion'];reservationNanoUsd:number};
+type TaskContract={provider:'openai';model:PilotAttemptBinding['model'];promptVersion:string;pricingVersion:PilotAttemptBinding['pricingVersion'];reservationNanoUsd:number};
 const contracts:Record<ModalityTask,TaskContract>={
- photo_analyze:{provider:'anthropic',model:HAIKU_MODEL,promptVersion:'photo-analyze-v1',pricingVersion:PHOTO_PILOT_PRICING_VERSION,reservationNanoUsd:PHOTO_ATTEMPT_RESERVATION_NANO_USD},
+ photo_analyze:{provider:'openai',model:LUNA_MODEL,promptVersion:'photo-analyze-v1',pricingVersion:PHOTO_PILOT_PRICING_VERSION,reservationNanoUsd:PHOTO_ATTEMPT_RESERVATION_NANO_USD},
  transcribe:{provider:'openai',model:TRANSCRIPTION_MODEL,promptVersion:'transcribe-v1',pricingVersion:'gpt-4o-mini-transcribe-2026-09-09',reservationNanoUsd:STT_ATTEMPT_RESERVATION_NANO_USD},
 };
 type GovernedResult={selectedPolicy:{provider:string;model:string;promptVersion:string};isFallback:boolean;usage:AiUsage;rawStatus:number;latencyMs:number;requestId?:string;providerGenerationId?:string;output:unknown};
@@ -29,7 +29,7 @@ export async function runGovernedPilotModality<Result extends GovernedResult>(in
  const common={pilotId:input.pilotId,actorId:input.actorId,turnId:input.turnId,attemptId:stableId([...input.identityParts,input.task,'attempt']),agentRunId:stableId([...input.identityParts,input.task,'budget-run']),requestHash:digest({task:input.task,identityParts:input.identityParts})};
  const binding:PilotAttemptBinding=contract.model===TRANSCRIPTION_MODEL
   ?{...common,model:contract.model,pricingVersion:'gpt-4o-mini-transcribe-2026-09-09',reservedNanoUsd:STT_ATTEMPT_RESERVATION_NANO_USD}
-  :{...common,model:HAIKU_MODEL,pricingVersion:PHOTO_PILOT_PRICING_VERSION,reservedNanoUsd:PHOTO_ATTEMPT_RESERVATION_NANO_USD};
+  :{...common,model:LUNA_MODEL,pricingVersion:PHOTO_PILOT_PRICING_VERSION,reservedNanoUsd:PHOTO_ATTEMPT_RESERVATION_NANO_USD};
  const reserve=await reserveCoachPilotAttempt(binding,input.store,input.signal);if(!reserve.ok)throw new Error('budget_blocked');
  const claim=await executePilotBudgetCommand({operation:'claim_dispatch',binding},input.store,input.signal);if(!claim.ok||!claim.dispatchGranted)throw new Error('budget_blocked');
  try{

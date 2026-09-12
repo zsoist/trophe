@@ -71,7 +71,7 @@ The integrating server supplies only the existing provider invocation callback;
 that callback receives a defensive copy of the verified JPEG bytes.
 
 The exact task result is represented by a process-local WeakMap proof. Output must
-contain one bounded `submit_food_photo_analysis` call under Anthropic's existing
+contain one bounded `submit_food_photo_analysis` call under Luna's existing
 `photo-analyze-v1` policy. Invalid candidates are not silently dropped and dish
 prior additions requiring confirmation are rejected. Recording accepts only that
 proof, locks the attachment again, checks current scope/digest/expiry and verifies

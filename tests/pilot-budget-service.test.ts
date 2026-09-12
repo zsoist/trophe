@@ -5,10 +5,10 @@ import { createPilotBudgetStore } from '@/lib/workout/pilot-budget-service';
 import { COACH_ATTEMPT_RESERVATION_NANO_USD as reserve, PHOTO_ATTEMPT_RESERVATION_NANO_USD, type PilotAttemptBinding } from '@/agents/coach-assistant/pilot-budget';
 import { COACH_PRICING_VERSION } from '@/agents/coach-assistant/economics';
 import { HAIKU_MODEL } from '@/agents/router/policies';
-import { PHOTO_PILOT_PRICING_VERSION } from '@/agents/router/pricing';
+import { LEGACY_PHOTO_PILOT_PRICING_VERSION } from '@/agents/router/pricing';
 const actor = randomUUID();
 const binding = (): PilotAttemptBinding => ({ actorId: actor, pilotId: randomUUID(), attemptId: randomUUID(), agentRunId: randomUUID(), turnId: randomUUID(), model: 'gpt-5.6-luna', pricingVersion: COACH_PRICING_VERSION, requestHash: 'a'.repeat(64), reservedNanoUsd: reserve });
-const photoBinding = (): PilotAttemptBinding => ({ actorId: actor, pilotId: randomUUID(), attemptId: randomUUID(), agentRunId: randomUUID(), turnId: randomUUID(), model: HAIKU_MODEL, pricingVersion: PHOTO_PILOT_PRICING_VERSION, requestHash: 'b'.repeat(64), reservedNanoUsd: PHOTO_ATTEMPT_RESERVATION_NANO_USD });
+const photoBinding = (): PilotAttemptBinding => ({ actorId: actor, pilotId: randomUUID(), attemptId: randomUUID(), agentRunId: randomUUID(), turnId: randomUUID(), model: HAIKU_MODEL, pricingVersion: LEGACY_PHOTO_PILOT_PRICING_VERSION, requestHash: 'b'.repeat(64), reservedNanoUsd: PHOTO_ATTEMPT_RESERVATION_NANO_USD });
 describe('persistent budget writer fail-closed boundaries', () => {
   it('admits beyond the retired LIVE-02 count ceiling when the durable daily budget remains available', async () => {
     const input = binding(), organizationId = randomUUID();

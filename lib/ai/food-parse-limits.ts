@@ -6,7 +6,7 @@ import { FOOD_PARSE_MAX_ITEMS } from '../../agents/food-parse/pipeline-budget';
  * - one decomposition per returned item; and
  * - one batched macro fallback for every unresolved item.
  *
- * Each execution can make three OpenAI transports and one Anthropic fallback.
+ * Product execution stays in the Luna lane and has no cross-provider fallback.
  * The computed ceiling is documented for review, while opaque live-route tools
  * intentionally retain a value above the approval system's hard 1,000-call
  * ceiling so they remain disabled during the zero-spend phase.

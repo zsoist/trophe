@@ -2,23 +2,24 @@
  * Trophē v0.3 — LLM routing policies.
  *
  * Maps agent tasks to (provider, model) pairs.
- * Three-lane strategy (2026-07): consumer, health-context, and factory
- * traffic are intentionally separated by policy and compliance posture.
+ * Product generative traffic uses one governed Luna lane. Synthetic factory
+ * generation and dedicated embeddings/transcription remain separate policies.
  *
  *   - food_parse   → OpenAI GPT-5.6 Luna (Phase 2 quality winner)
  *   - recipe       → OpenAI GPT-5.6 Luna
- *   - coach_insight→ Anthropic Haiku 4.5 (health-context compliance boundary)
+ *   - coach_insight→ OpenAI GPT-5.6 Luna (health-context text)
  *   - meal_suggest → OpenAI GPT-5.6 Luna
- *   - photo_analyze→ Anthropic Haiku 4.5 (needs vision/multimodal)
+ *   - photo_analyze→ OpenAI GPT-5.6 Luna (text + image input)
  *   - embed        → Voyage voyage-4
  *
  * Costs ($/M tokens, approximate 2026-06):
  *   gpt-5.6-luna      $0.20 in / $1.20 out (official 2026-09-08)
  *   deepseek-v4-flash ~$0.14 in / $0.28 out (+ prompt cache discounts)
  *   gemini-2.5-flash  ~$0.30 in / $2.50 out
- *   claude-haiku-4-5  ~$1.00 in / $5.00 out
+ *   claude-haiku-4-5  ~$1.00 in / $5.00 out (historical rows only)
  *
- * To override a task globally: change its policy entry here.
+ * Product traffic uses Luna for generative text and vision. The specialized
+ * transcription lane remains on its dedicated audio model.
  */
 
 export type Provider = 'anthropic' | 'google' | 'openai' | 'voyage' | 'deepseek';
@@ -58,6 +59,7 @@ export interface RoutingPolicy {
 }
 
 export const LUNA_MODEL = 'gpt-5.6-luna' as const;
+/** Historical ledger/evaluation identifier; no live policy selects it. */
 export const HAIKU_MODEL = 'claude-haiku-4-5-20251001' as const;
 export const TRANSCRIPTION_MODEL = 'gpt-4o-mini-transcribe' as const;
 const DEEPSEEK_FACTORY_MODEL = 'deepseek-v4-flash';
@@ -81,7 +83,6 @@ export const taskPolicies: Record<TaskName, RoutingPolicy> = {
     // parse is ~150-400 tok; a 5-item meal w/ per-item reasoning ~700. 1024 keeps
     // headroom while halving the p99 decode ceiling vs 2048. (latency plan A1)
     maxTokens: 1024,
-    fallbackOnTimeout: true,
     timeoutMs: 15_000, maxInputChars: 12_000, maxCostUsd: 0.02, promptVersion: 'food-parse-v9-luna',
   },
   recipe_analyze: {
@@ -94,14 +95,14 @@ export const taskPolicies: Record<TaskName, RoutingPolicy> = {
   },
   coach_insight: {
     // Contains direct identifiers and health-context fields. Keep this traffic
-    // off DeepSeek pending the three-lane bake-off and formal vendor review.
-    provider: 'anthropic',
-    model: HAIKU_MODEL,
+    // in the product Luna lane; the adapter remains grounded and text-only.
+    provider: 'openai',
+    model: LUNA_MODEL,
     costClass: 'cheap',
     latencyClass: 'fast',
-    cacheSystem: true,
+    reasoningEffort: 'low',
     maxTokens: 2048,
-    timeoutMs: 30_000, maxInputChars: 40_000, maxCostUsd: 0.08, promptVersion: 'coach-insight-v2-haiku-compliance',
+    timeoutMs: 30_000, maxInputChars: 40_000, maxCostUsd: 0.08, promptVersion: 'coach-insight-v3-luna',
   },
   meal_suggest: {
     provider: 'openai',
@@ -112,8 +113,9 @@ export const taskPolicies: Record<TaskName, RoutingPolicy> = {
     timeoutMs: 25_000, maxInputChars: 8_000, maxCostUsd: 0.02, promptVersion: 'meal-suggest-v2-luna',
   },
   photo_analyze: {
-    provider: 'anthropic',
-    model: HAIKU_MODEL,
+    provider: 'openai',
+    model: LUNA_MODEL,
+    reasoningEffort: 'low',
     costClass: 'cheap',
     latencyClass: 'fast',
     maxTokens: 2048,
@@ -131,14 +133,15 @@ export const taskPolicies: Record<TaskName, RoutingPolicy> = {
     timeoutMs: 15_000, maxInputChars: 100_000, maxCostUsd: 0.02, promptVersion: 'embed-v1',
   },
   memory_extract: {
-    // Extracts allergies, goals, measurements, mood, and user-authored text.
-    // Keep this traffic off DeepSeek pending formal vendor review.
-    provider: 'anthropic',
-    model: HAIKU_MODEL,
+    // Extracts allergies, goals, measurements, mood, and user-authored text
+    // through the provider-neutral structured adapter. Keep it in Luna.
+    provider: 'openai',
+    model: LUNA_MODEL,
+    reasoningEffort: 'low',
     costClass: 'cheap',
     latencyClass: 'fast',
     maxTokens: 1024,
-    timeoutMs: 20_000, maxInputChars: 30_000, maxCostUsd: 0.05, promptVersion: 'memory-extract-v4-haiku-compliance',
+    timeoutMs: 20_000, maxInputChars: 30_000, maxCostUsd: 0.05, promptVersion: 'memory-extract-v5-luna',
   },
   memory_embed: {
     // Voyage v4 — same embedding model as food/general embeddings for consistency.
@@ -189,64 +192,5 @@ export const foodParseSimulatorPolicy = taskPolicies.food_parse;
 /** Factory policy object consumed directly by synthetic-data generators. */
 export const factoryPolicy = taskPolicies.factory_generate;
 
-// ── Provider fallback chains ─────────────────────────────────────────────
-//
-// When a primary provider fails (network, rate-limit, outage), executeAiTask
-// retries once with the fallback policy before surfacing the error.
-//
-// Consumer text stays inside the Luna → Haiku chain. DeepSeek is deliberately
-// absent from every consumer fallback and remains confined to factory_generate.
-
-export const taskFallbacks: Partial<Record<TaskName, RoutingPolicy>> = {
-  food_parse: {
-    provider: 'anthropic',
-    model: HAIKU_MODEL,
-    costClass: 'cheap',
-    latencyClass: 'fast',
-    cacheSystem: true,
-    maxTokens: 1024,
-    timeoutMs: 25_000, maxInputChars: 12_000, maxCostUsd: 0.02, promptVersion: 'food-parse-v9-haiku-fallback',
-  },
-  recipe_analyze: {
-    provider: 'anthropic',
-    model: HAIKU_MODEL,
-    costClass: 'cheap',
-    latencyClass: 'fast',
-    maxTokens: 4096,
-    cacheSystem: true,
-    timeoutMs: 25_000, maxInputChars: 30_000, maxCostUsd: 0.05, promptVersion: 'recipe-analyze-v1-fallback',
-  },
-  coach_insight: {
-    provider: 'anthropic',
-    model: HAIKU_MODEL,
-    costClass: 'cheap',
-    latencyClass: 'fast',
-    maxTokens: 2048,
-    cacheSystem: true,
-    timeoutMs: 45_000, maxInputChars: 40_000, maxCostUsd: 0.10, promptVersion: 'coach-insight-v2-haiku-compliance-fallback',
-  },
-  meal_suggest: {
-    provider: 'anthropic',
-    model: HAIKU_MODEL,
-    costClass: 'cheap',
-    latencyClass: 'fast',
-    maxTokens: 2048,
-    timeoutMs: 25_000, maxInputChars: 8_000, maxCostUsd: 0.05, promptVersion: 'meal-suggest-v1-fallback',
-  },
-  memory_extract: {
-    provider: 'anthropic',
-    model: HAIKU_MODEL,
-    costClass: 'cheap',
-    latencyClass: 'fast',
-    maxTokens: 1024,
-    timeoutMs: 30_000, maxInputChars: 30_000, maxCostUsd: 0.08, promptVersion: 'memory-extract-v4-haiku-compliance-fallback',
-  },
-  shopping_extract: {
-    provider: 'anthropic',
-    model: HAIKU_MODEL,
-    costClass: 'cheap',
-    latencyClass: 'fast',
-    maxTokens: 2048,
-    timeoutMs: 30_000, maxInputChars: 12_000, maxCostUsd: 0.05, promptVersion: 'shopping-extract-v1-fallback',
-  },
-};
+/** Product traffic has no Anthropic fallback; failures stay in the Luna lane. */
+export const taskFallbacks: Partial<Record<TaskName, RoutingPolicy>> = {};
