@@ -44,6 +44,7 @@ export async function invokeTextProvider(input: {
       prompt: input.prompt,
       maxTokens: input.maxTokens ?? input.policy.maxTokens,
       reasoningEffort: input.policy.reasoningEffort,
+      store: false,
       signal: input.signal,
       fetchImpl: input.fetchImpl,
       beforeTransportAttempt: input.beforeTransportAttempt,

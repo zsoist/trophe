@@ -30,6 +30,7 @@ describe('Luna text adapter', () => {
       { role: 'user', content: [{ type: 'input_text', text: 'summarize' }] },
     ]);
     expect(body.reasoning).toEqual({ effort: 'low' });
+    expect(body.store).toBe(false);
   });
 
   it('rejects an unsupported non-Luna OpenAI text model before transport', async () => {
