@@ -150,11 +150,13 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
         try {
         await generateOpenConversation(options.filterMemoryHistory?.(scopedInput)??scopedInput,response,options.offlineConversationProvider!,controller.signal,options.offlineInterpretationReview,options.offlineCandidateEvaluation,options.isolatedFixtureBoundary,options.workoutSetIntentsEnabled,options.foodQuantityIntentsEnabled,options.governedPilotBoundary,options.candidateActionsEnabled,options.foodSelection,photoObservations);
         } catch(error) {
-          // Reject the companion's unbound references without losing an already
+          // Reject invalid companion output without losing an already
           // authorized observation. Never release rejected prose or retry a model.
-          if(!(error instanceof OpenConversationOutputError)||error.diagnosticCode!=='evidence_reference'||!photoObservations.length||response.capabilityResult&&response.capabilityResult.tool!=='none')throw error;
+          if(!(error instanceof OpenConversationOutputError)||!photoObservations.length||response.capabilityResult&&response.capabilityResult.tool!=='none')throw error;
           controller.signal.throwIfAborted();
-          console.warn(JSON.stringify({event:'coach_conversation_output_rejected',code:error.diagnosticCode}));
+          const qaDiagnostic=process.env.COACH_ASSISTANT_OUTPUT_DIAGNOSTICS_ENABLED==='1'&&process.env.VERCEL_ENV==='preview'&&error.diagnostic
+            ?{...error.diagnostic,correlation:createHash('sha256').update(`${response.conversationId}:${response.turnId}`).digest('hex').slice(0,16)}:undefined;
+          console.warn(JSON.stringify({event:'coach_conversation_output_rejected',code:error.diagnosticCode,...(qaDiagnostic?{diagnostic:qaDiagnostic}:{})}));
           response.output=photoReviewOnlyOutput(response.snapshot?.language.startsWith('es')??false);
           response.actionIntents=[];delete response.explanations;
         }

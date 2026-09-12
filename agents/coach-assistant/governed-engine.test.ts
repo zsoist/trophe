@@ -222,14 +222,14 @@ describe('governed LIVE-01 app engine', () => {
     expect(payload.photoObservations[0].items).toEqual(Array.from({length:4},()=>({identity:'unassessed',name:'Unidentified food component',note:'Identity and portion remain uncertain. '.repeat(6)})));
   });
 
-  it.each(['real_notes','maximum_notes','rejected_references'] as const)('keeps %s photo review usable within the companion budget',async scenario=>{
+  it.each(['real_notes','maximum_notes','rejected_references','rejected_numeric_followup','rejected_execution_claim'] as const)('keeps %s photo review usable within the companion budget',async scenario=>{
     const test=fixture(),attachmentId=id(60);
     const foods=scenario!=='maximum_notes'?photoV3Foods:Array.from({length:8},()=>({...photoV3Foods[2],name:'Brown component '.repeat(12),accuracy_note:'Identity and weight are uncertain. '.repeat(14)}));
     const items=foods.map((food,index)=>({index,version:'a'.repeat(64),foodName:food.name,identityStatus:food.identity_status,estimatedGrams:food.estimated_grams,estimatedCalories:food.estimated_calories,confidence:food.confidence,accuracyNote:food.accuracy_note}));
     const original=JSON.stringify(items);
-    if(scenario==='rejected_references'){
+    if(scenario.startsWith('rejected_')){
       const actual=test.transport.getMockImplementation()!;
-      test.transport.mockImplementation(async input=>{const result=await actual(input);return {...result,output:{...result.output as object,evidenceRefs:['unbound-photo-reference']}};});
+      test.transport.mockImplementation(async input=>{const result=await actual(input);return {...result,output:{...result.output as object,...(scenario==='rejected_references'?{evidenceRefs:['unbound-photo-reference']}:scenario==='rejected_numeric_followup'?{followUp:'¿Confirmas los 220 gramos?'}:{answer:'He guardado la comida.'})}};});
     }
     const photoRequest={...request,message:'Analiza los alimentos visibles de esta foto. Indica porciones estimadas y lo que no puedes identificar con certeza. No registres nada todavía.',attachments:[{id:attachmentId,kind:'image',status:'available'}]};
     const engine=createGovernedCoachEngineBinding({env:env(),actorId:id(1),persistentStore:test.store,transport:test.transport});
@@ -241,7 +241,7 @@ describe('governed LIVE-01 app engine', () => {
       expect(test.transport).not.toHaveBeenCalled();expect(test.store.execute).not.toHaveBeenCalled();expect(body.telemetry.modelCalls).toBe(0);
       expect(body.output.answer).toContain('La foto está lista para revisar');expect(body.output.limitations).toContain('La explicación adicional no está disponible en este mensaje.');
     }else{
-      if(scenario==='rejected_references'){expect(body.output.answer).toContain('La foto está lista para revisar');expect(body.output.evidenceRefs).toEqual([]);expect(body.actionIntents).toEqual([]);}
+      if(scenario.startsWith('rejected_')){expect(body.output.answer).toContain('La foto está lista para revisar');expect(body.output.evidenceRefs).toEqual([]);expect(body.actionIntents).toEqual([]);}
       expect(test.transport).toHaveBeenCalledOnce();const call=test.transport.mock.calls[0][0],payload=JSON.parse(call.prompt);
       expect(new TextEncoder().encode(call.system+call.prompt+JSON.stringify(call.schema)).length).toBeLessThanOrEqual(7500);
       expect(payload.photoObservations[0].items.map((item:{note:string})=>item.note)).toEqual(foods.map(food=>food.accuracy_note));
