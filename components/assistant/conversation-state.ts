@@ -21,17 +21,22 @@ export class ConversationController {
   private identity: string | null = null;
   private creationTitle: string | null = null;
   private state: ConversationState = this.empty();
+  private uncertainThreads = new Map<string, ConversationState>();
   private empty(): ConversationState { return { conversationId: crypto.randomUUID(), draft: '', turns: [], restored: [], durable: false, recoveryRequired: false, recovering: false, pending: false, error: null }; }
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   snapshot = () => this.state;
-  private publish(next: ConversationState) { this.state = next; this.listeners.forEach(listener => listener()); }
+  private publish(next: ConversationState) {
+    if (next.recoveryRequired) this.uncertainThreads.set(next.conversationId, { ...next, pending: false, recovering: false });
+    else this.uncertainThreads.delete(next.conversationId);
+    this.state = next; this.listeners.forEach(listener => listener()); }
   identify(identity: string | null) {
     if (identity === this.identity) return;
-    this.generation++; this.active?.abort(); this.active = null; this.identity = identity; this.creationTitle = null;
+    this.generation++; this.active?.abort(); this.active = null; this.identity = identity; this.creationTitle = null; this.uncertainThreads.clear();
     this.publish(this.empty());
   }
   startNew() {
     if (!this.identity) return false;
+    this.cancel();
     this.generation++; this.active?.abort(); this.active = null; this.creationTitle = null;
     this.publish(this.empty());
     return true;
@@ -40,7 +45,8 @@ export class ConversationController {
     if (!this.identity || messages.length > 1000 || this.state.pending || this.state.recovering || this.state.recoveryRequired && conversationId === this.state.conversationId) return false;
     const draft = conversationId === this.state.conversationId ? this.state.draft : '';
     this.generation++; this.active?.abort(); this.active = null; this.creationTitle = null;
-    this.publish({ ...this.empty(), conversationId, draft, durable: true, restored: structuredClone(messages) });
+    const uncertain = this.uncertainThreads.get(conversationId);
+    this.publish(uncertain ?? { ...this.empty(), conversationId, draft, durable: true, restored: structuredClone(messages) });
     return true;
   }
   async recover(read: ConversationRecoveryTransport) {
@@ -112,7 +118,7 @@ export class ConversationController {
       if (generation !== this.generation) return;
       this.generation++; controller.abort(); this.active = null;
       this.publish({ ...this.state, pending: false, recoveryRequired: this.state.durable, error: 'failed', draft: this.state.draft || message });
-    }, 45_000);
+    }, attachments.length ? 95_000 : 45_000);
     try {
       if (createThread && !this.state.durable) {
         if (attachments.length) throw new Error('thread_required_before_upload');

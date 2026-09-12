@@ -1,4 +1,5 @@
 export const globalCoachTranslations: Record<string, { en: string; es: string; el: string }> = {
+  'global_coach.photo_one_per_turn': { en: 'One photo per message.', es: 'Una foto por mensaje.', el: 'Μία φωτογραφία ανά μήνυμα.' },
   'global_coach.photo_analysis_failed': { en: 'Image analysis could not be confirmed. Your photo and question are kept; check the response status before trying again.', es: 'No se pudo confirmar el análisis de la imagen. Conservamos tu foto y pregunta; comprueba el estado de la respuesta antes de reintentar.', el: 'Η ανάλυση εικόνας δεν επιβεβαιώθηκε. Η φωτογραφία και η ερώτησή σας διατηρούνται· ελέγξτε την κατάσταση πριν προσπαθήσετε ξανά.' },
   'global_coach.history_checking': { en: 'Checking your saved response…', es: 'Comprobando tu respuesta guardada…', el: 'Έλεγχος αποθηκευμένης απάντησης…' },
   'global_coach.history_waiting': { en: 'The previous response is not confirmed yet. Your draft is safe.', es: 'La respuesta anterior aún no está confirmada. Tu borrador está guardado.', el: 'Η προηγούμενη απάντηση δεν έχει επιβεβαιωθεί ακόμα. Το πρόχειρό σας είναι ασφαλές.' },

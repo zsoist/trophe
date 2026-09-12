@@ -14,6 +14,7 @@ const empty = (): AttachmentState => ({ items: [], pending: false, error: null }
 
 /** Local selection never uploads. Explicit review starts upload; uncertain uploads reuse their reservation. */
 export class AttachmentController {
+  constructor(private readonly maxImages: number = COACH_IMAGE_LIMITS.count) {}
   private state = empty();
   private listeners = new Set<() => void>();
   private active: AbortController | null = null;
@@ -25,7 +26,7 @@ export class AttachmentController {
   async select(files: File[]) {
     if (this.state.pending) return;
     if (files.some(file => !['image/jpeg', 'image/png', 'image/webp'].includes(file.type))) { this.publish({ ...this.state, error: 'type' }); return; }
-    if (this.state.items.length + files.length > COACH_IMAGE_LIMITS.count || files.some(file => file.size < 1 || file.size > COACH_IMAGE_LIMITS.fileBytes)
+    if (this.state.items.length + files.length > this.maxImages || files.some(file => file.size < 1 || file.size > COACH_IMAGE_LIMITS.fileBytes)
       || [...this.state.items.map(item => item.file), ...files].reduce((sum, file) => sum + file.size, 0) > COACH_IMAGE_LIMITS.totalBytes) { this.publish({ ...this.state, error: 'limit' }); return; }
     const controller = new AbortController(); this.active = controller;
     const generation = ++this.generation;

@@ -5,9 +5,9 @@ import { AttachmentController, type AttachmentState, type AttachmentTransport } 
 import { useGlobalCoachI18n } from './useGlobalCoachI18n';
 import styles from './GlobalCoach.module.css';
 
-export function AttachmentPicker({ controller, state, conversationId, transport, analysisEnabled = false, prepareConversation, disabled, compact = false, deferUpload = false }: {
+export function AttachmentPicker({ controller, state, conversationId, transport, analysisEnabled = false, prepareConversation, disabled, compact = false, deferUpload = false, maxPhotos = 3 }: {
   controller: AttachmentController; state: AttachmentState; conversationId: string; transport?: AttachmentTransport; analysisEnabled?: boolean; prepareConversation?: () => Promise<string | null>; disabled: boolean;
-  compact?: boolean; deferUpload?: boolean;
+  compact?: boolean; deferUpload?: boolean; maxPhotos?: number;
 }) {
   const { t } = useGlobalCoachI18n();
   const popover = useRef<HTMLDetailsElement>(null);
@@ -29,15 +29,15 @@ export function AttachmentPicker({ controller, state, conversationId, transport,
         </div>
       </li>)}
     </ul>;
-  return <>{deferUpload && state.items.length > 0 && previews}{deferUpload && state.error && <p role="status">{t(`global_coach.photo_error_${state.error}`)}</p>}<details ref={popover} data-coach-popover className={`${styles.attachments} ${compact ? styles.compactAttachments : ''}`}>
-    <summary aria-label={t('global_coach.photos')}><span className={styles.compactOnly}><Plus size={20} aria-hidden="true" /></span><span className={styles.expandedOnly}><ImagePlus size={17} aria-hidden="true" />{t('global_coach.photos')}{state.items.length > 0 && ` · ${state.items.length}/3`}</span></summary>
+  return <>{deferUpload && state.items.length > 0 && previews}{deferUpload && state.items.length > 0 && <p className={styles.context}>{t('global_coach.photo_one_per_turn')}</p>}{deferUpload && state.error && <p role="status">{t(`global_coach.photo_error_${state.error}`)}</p>}<details ref={popover} data-coach-popover className={`${styles.attachments} ${compact ? styles.compactAttachments : ''}`}>
+    <summary aria-label={t('global_coach.photos')}><span className={styles.compactOnly}><Plus size={20} aria-hidden="true" /></span><span className={styles.expandedOnly}><ImagePlus size={17} aria-hidden="true" />{t('global_coach.photos')}{state.items.length > 0 && ` · ${state.items.length}/${maxPhotos}`}</span></summary>
     {!compact && <><p>{t(transport ? analysisEnabled ? 'global_coach.photos_analysis' : 'global_coach.photos_upload_only' : 'global_coach.photos_local')}</p><p>{t('global_coach.photos_limits')}</p></>}
-    <input hidden ref={input} type="file" accept="image/jpeg,image/png,image/webp" multiple aria-label={t('global_coach.photos_select')} disabled={disabled || state.pending} onChange={event => { void controller.select(Array.from(event.target.files ?? [])); event.target.value = ''; if (compact && popover.current) popover.current.open = false; }} />
+    <input hidden ref={input} type="file" accept="image/jpeg,image/png,image/webp" multiple={maxPhotos > 1} aria-label={t('global_coach.photos_select')} disabled={disabled || state.pending} onChange={event => { void controller.select(Array.from(event.target.files ?? [])); event.target.value = ''; if (compact && popover.current) popover.current.open = false; }} />
     <input hidden ref={cameraInput} type="file" accept="image/*" capture="environment" aria-label={t('global_coach.camera')} disabled={disabled || state.pending} onChange={event => { void controller.select(Array.from(event.target.files ?? [])); event.target.value = ''; if (compact && popover.current) popover.current.open = false; }} />
     <div className={styles.attachmentPopover}>
     <div className={styles.attachmentChoices}>
-      <button type="button" disabled={disabled || state.pending || state.items.length >= 3} onClick={() => input.current?.click()}><ImagePlus size={17} aria-hidden="true" />{t('global_coach.photos_select')}</button>
-      <button type="button" disabled={disabled || state.pending || state.items.length >= 3} onClick={() => cameraInput.current?.click()}><Camera size={17} aria-hidden="true" />{t('global_coach.camera')}</button>
+      <button type="button" disabled={disabled || state.pending || state.items.length >= maxPhotos} onClick={() => input.current?.click()}><ImagePlus size={17} aria-hidden="true" />{t('global_coach.photos_select')}</button>
+      <button type="button" disabled={disabled || state.pending || state.items.length >= maxPhotos} onClick={() => cameraInput.current?.click()}><Camera size={17} aria-hidden="true" />{t('global_coach.camera')}</button>
     </div>
     {!deferUpload && previews}
     {selected && review && <section className={styles.proposal} aria-label={t('global_coach.photo_review')}>

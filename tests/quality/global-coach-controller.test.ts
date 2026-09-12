@@ -154,3 +154,18 @@ it('does not release an uncertain turn for missing, mismatched or late actor rea
  resolve({ thread: { id }, status: 'failed', user: null, assistant: null }); await pending;
  expect(controller.snapshot().conversationId).not.toBe(id); expect(controller.snapshot().turns).toEqual([]);
 });
+
+it.each(['other-thread', 'new-thread'])('preserves an uncertain thread guard across %s and back', async route => {
+ const controller = new ConversationController(); controller.identify('actor'); controller.setDraft('Do not duplicate');
+ const id = crypto.randomUUID(); const generate = vi.fn(async () => { throw new Error('lost response'); });
+ await controller.send(undefined, generate, [], async () => ({ id }));
+ const original = controller.snapshot().turns[0].request;
+ if (route === 'other-thread') expect(controller.restore(crypto.randomUUID(), [])).toBe(true);
+ else expect(controller.startNew()).toBe(true);
+ expect(controller.restore(id, [])).toBe(true);
+ expect(controller.snapshot()).toMatchObject({ recoveryRequired: true, draft: 'Do not duplicate' });
+ await controller.send(undefined, generate); expect(generate).toHaveBeenCalledTimes(1);
+ const user = { id: crypto.randomUUID(), turnId: original.turnId, role: 'user' as const, text: original.message, sequence: 1, revision: crypto.randomUUID(), createdAt: new Date().toISOString() };
+ await controller.recover(async () => ({ thread: { id }, status: 'failed', user, assistant: null }));
+ expect(controller.snapshot().recoveryRequired).toBe(false);
+});

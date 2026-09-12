@@ -157,7 +157,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   const photoFoodState = useSyncExternalStore(photoFood.subscribe, photoFood.snapshot, photoFood.snapshot);
   const voiceState = useSyncExternalStore(voice.subscribe, voice.snapshot, voice.snapshot);
   const voiceActive = ['requesting', 'recording', 'stopping'].includes(voiceState.phase);
-  const [attachments] = useState(() => new AttachmentController());
+  const [attachments] = useState(() => new AttachmentController(1));
   const [preparingPhotos, setPreparingPhotos] = useState(false);
   const preparingPhotosRef = useRef(false);
   const attachmentState = useSyncExternalStore(attachments.subscribe, attachments.snapshot, attachments.snapshot);
@@ -432,6 +432,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
     window.dispatchEvent(new CustomEvent(COACH_MESSAGE_REFRESH, { detail: { ...refresh, messageId: receipt.messageId } }));
   }, [identity, messageEnabled, messageState.error, messageState.pending, messageState.receipt, messageState.refresh]);
   const startNewConversation = () => {
+    if (controller.snapshot().pending || controller.snapshot().recovering) return;
     voice.reset(); attachments.reset(); preferences.moveConversation(); food.moveConversation(); memory.reset();
     workoutSetController.moveConversation(); controller.startNew(); messageController.moveConversation(controller.snapshot().conversationId);
     photoFood.moveConversation(controller.snapshot().conversationId); diet.moveConversation(controller.snapshot().conversationId);
@@ -454,7 +455,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
       </header>
       {historyOpen && (
             <div className={styles.menuBody} aria-label={t('global_coach.saved_chats')}>
-              {historyEnabled && <button type="button" disabled={coachActionBlocked} onClick={startNewConversation}><Sparkles size={16} aria-hidden="true" />{t('global_coach.new_chat')}</button>}
+              {historyEnabled && <button type="button" disabled={coachActionBlocked || state.pending || state.recovering} onClick={startNewConversation}><Sparkles size={16} aria-hidden="true" />{t('global_coach.new_chat')}</button>}
               {historyEnabled && <section><h3 className={styles.historyHeading}><History size={16} aria-hidden="true" />{t('global_coach.saved_chats')}</h3><HistoryPanel transport={historyTransport ?? requestHistory} onInvalidate={threadId => {
                 if (controller.snapshot().conversationId !== threadId || coachActionBlocked) return;
                 startNewConversation();
@@ -508,7 +509,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
       </div>
       {showLatest && <button type="button" className="min-h-11 px-4 text-sm" onClick={() => { followLatest.current = true; setShowLatest(false); log.current?.scrollTo({ top: log.current.scrollHeight }); }}>{t('global_coach.latest')}</button>}
       <form className={styles.composer} onSubmit={event => { event.preventDefault(); void send(); }}>
-        <AttachmentPicker compact deferUpload controller={attachments} state={attachmentState} conversationId={state.conversationId} transport={!example && (photoFoodEnabled && (state.durable || Boolean(preparePhotoConversation)) || latestResponse?.uploads?.images) ? requestAttachment : undefined} analysisEnabled={photoFoodEnabled} prepareConversation={photoFoodEnabled && !state.durable ? preparePhotoConversation : undefined} disabled={state.pending || coachActionBlocked} />
+        <AttachmentPicker compact deferUpload maxPhotos={1} controller={attachments} state={attachmentState} conversationId={state.conversationId} transport={!example && (photoFoodEnabled && (state.durable || Boolean(preparePhotoConversation)) || latestResponse?.uploads?.images) ? requestAttachment : undefined} analysisEnabled={photoFoodEnabled} prepareConversation={photoFoodEnabled && !state.durable ? preparePhotoConversation : undefined} disabled={state.pending || coachActionBlocked} />
         {photoFoodEnabled && latestResponse?.ok && !state.pending && attachmentState.items.filter(item => item.state === 'available' && item.reference?.status === 'available' && latestResponse.attachments?.some(ref => ref.id === item.reference?.id)).map(item => <button key={`food-${item.key}`} type="button" className={styles.contextToggle} disabled={photoFoodState.pending || coachActionBlocked} onClick={() => void photoFood.select(item.reference!.id, state.conversationId, photoFoodTransport ?? requestPhotoFood)}>{t('global_coach.photo_food_open')}</button>)}
         {includeScreen && <button type="button" className={styles.contextChip} onClick={() => setIncludeScreen(false)} aria-label={`${t('global_coach.remove_selection')}: ${selection?.label ?? t(`global_coach.${surface}`)}`}><span>{selection?.label ?? t(`global_coach.${surface}`)}</span><X size={14} aria-hidden="true" /></button>}
         <div className={styles.composeRail}>
