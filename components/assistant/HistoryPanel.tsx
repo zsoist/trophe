@@ -67,7 +67,7 @@ export function HistoryPanel({ transport, onResume, onInvalidate }: { transport:
     {list && !list.threads.length && <p>{t('global_coach.no_chats')}</p>}
     {list?.nextCursor && <button type="button" disabled={pending} onClick={() => void load('list', undefined, true)}>{t('global_coach.more_chats')}</button>}
     {page && <article>{deletingId !== page.thread.id && <HistoryRename key={`${page.thread.id}:${page.thread.revision}`} thread={page.thread} transport={transport} onSaved={thread => { setPage(current => current?.thread.id === thread.id ? { ...current, thread } : current); setList(current => current ? { ...current, threads: current.threads.map(item => item.id === thread.id ? thread : item) } : current); }} />}<h3 ref={heading} tabIndex={-1}>{page.thread.title}</h3>
-      {page.messages.map(item => <div key={item.id}><strong>{t(item.role === 'user' ? 'global_coach.you' : 'global_coach.title')}</strong><ResponseText text={item.text} /></div>)}
+      {page.messages.map(item => <div key={item.id}><strong>{t(item.role === 'user' ? 'global_coach.you' : 'global_coach.title')}</strong><ResponseText text={item.text} assistant={item.role === 'assistant'} userStatement={page.messages.find(message => message.turnId === item.turnId && message.role === 'user')?.text} /></div>)}
       {page.nextSequence !== null && <button type="button" disabled={pending} onClick={() => void load('read', page.thread.id, true)}>{t('global_coach.more_messages')}</button>}
       {onResume && deletingId !== page.thread.id && page.nextSequence === null && <button type="button" disabled={pending} onClick={() => onResume(page)}>{t('global_coach.resume_chat')}</button>}
       {deletion(page.thread)}

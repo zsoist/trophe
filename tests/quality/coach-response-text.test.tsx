@@ -12,3 +12,15 @@ it('renders paragraphs, lists and emphasis while keeping model HTML inert', () =
  expect(container.querySelector('img,a,script')).toBeNull();
  expect(screen.getByText(/<img src=x/)).toBeTruthy();
 });
+
+it('hides only recognized assistant wrappers and an exact repeated user statement without rewriting the source', () => {
+ const text = 'Private Luna pilot: Answer.\nUser statement (unverified): My question';
+ const view = render(<ResponseText assistant userStatement="My question" text={text} />);
+ expect(screen.getByText('Answer.')).toBeTruthy();
+ expect(view.container.textContent).not.toContain('unverified');
+ expect(text).toContain('Private Luna pilot:');
+ view.rerender(<ResponseText text={text} />);
+ expect(view.container.textContent).toContain('Private Luna pilot:');
+ view.rerender(<ResponseText assistant userStatement="Different question" text={text} />);
+ expect(view.container.textContent).toContain('User statement (unverified): My question');
+});

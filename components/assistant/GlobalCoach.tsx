@@ -486,15 +486,15 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
         {messageEnabled && messageState.intentId && <MessagePanel controller={messageController} state={messageState} transport={activeMessageTransport} />}
         {photoFoodState.attachmentId&&<PhotoFoodPanel controller={photoFood} state={photoFoodState} transport={photoFoodTransport??requestPhotoFood} onReceipt={entryId=>food.select(entryId,state.conversationId,activeFoodTransport)}/>}
         {!state.turns.length && !state.restored.length && <p className={styles.intro}>{t('global_coach.intro')}</p>}
-        {state.restored.map(item => <article className={styles.turn} key={item.id}><p className={styles.context}>{t('global_coach.saved_message')} · {t(item.role === 'user' ? 'global_coach.you' : 'global_coach.title')}</p><ResponseText text={item.text} /></article>)}
+        {state.restored.map(item => <article className={styles.turn} key={item.id}><p className={styles.context}>{t('global_coach.saved_message')} · {t(item.role === 'user' ? 'global_coach.you' : 'global_coach.title')}</p><ResponseText text={item.text} assistant={item.role === 'assistant'} userStatement={state.restored.find(message => message.turnId === item.turnId && message.role === 'user')?.text} /></article>)}
         {state.turns.map(turn => <article className={styles.turn} key={turn.request.turnId}>
           <p className={styles.question}>{turn.request.message}</p>
           <p className={styles.context}>{t(turn.request.context?.includeScreen ? `global_coach.${turn.request.context.surface}` : 'global_coach.detached')}</p>
           {Boolean(turn.request.attachments?.length) && <p className={styles.context}>{t('global_coach.photos_attached', { count: turn.request.attachments!.length })}</p>}
           {String(turn.response?.error?.code) === 'attachment_analysis_failed' && !turn.recovered && <p role="status" className={styles.answer}>{t('global_coach.photo_analysis_failed')}</p>}
-          {turn.recovered && <div className={styles.answer}><ResponseText text={turn.recovered.find(item => item.role === 'assistant')?.text ?? ''} /><p className={styles.context}>{t('global_coach.saved_message')}</p></div>}
+          {turn.recovered && <div className={styles.answer}><ResponseText assistant userStatement={turn.request.message} text={turn.recovered.find(item => item.role === 'assistant')?.text ?? ''} /><p className={styles.context}>{t('global_coach.saved_message')}</p></div>}
           {!turn.recovered && turn.response?.output && <div className={styles.answer}>
-            <ResponseText text={turn.response.output.answer} />
+            <ResponseText assistant userStatement={turn.request.message} text={turn.response.output.answer} />
             {speechByTurn[turn.request.turnId] && <VoiceAnswerPlayback descriptor={speechByTurn[turn.request.turnId]} text={turn.response.output.answer} />}
             {!example && turn.response.mode === 'offline' && <p className={styles.context}>{t('global_coach.offline')}</p>}
             {(turn.response.evidence.length > 0 || turn.response.output.limitations.length > 0) && <details>
