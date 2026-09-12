@@ -60,6 +60,7 @@ describe('open v2 conversation with explicit synthetic provider',()=>{
   it.each([
     {answer:'Recorded quantity 15 kilograms.',code:'numeric_prose',category:'numeric_token',position:18},
     {answer:'Every workout entry is available.',code:'candidate_universal_claim',category:'universal_or_completion_token',position:0},
+    {answer:'Estás saludable.',code:'candidate_sensitive_claim',category:'sensitive_claim_token',position:6},
   ] as const)('emits a typed $code diagnostic in explicitly flagged Preview without retaining prose',async({answer,code,category,position})=>{
     process.env.COACH_ASSISTANT_OUTPUT_DIAGNOSTICS_ENABLED='1';process.env.VERCEL_ENV='preview';
     const warning=vi.spyOn(console,'warn').mockImplementation(()=>undefined);
@@ -67,8 +68,19 @@ describe('open v2 conversation with explicit synthetic provider',()=>{
     const result=await runConversation(request,{...options(),offlineCandidateEvaluation:true,offlineConversationProvider:transport});
     expect(result.error?.code).toBe('invalid_output');expect(result.output).toBeUndefined();expect(transport).toHaveBeenCalledOnce();
     const diagnostic=JSON.parse(String(warning.mock.calls[0]?.[0]));
-    expect(diagnostic).toEqual({event:'coach_conversation_output_rejected',code,diagnostic:{schemaVersion:'coach-assistant.output-rejection-diagnostic.v1',outputSchemaVersion:'coach-assistant.candidate-output.v1',promptVersion:'coach-assistant.conversation.v5-candidate.4-live02',rule:code,category,field:'answer',path:'output.answer',position,positionEncoding:code==='candidate_universal_claim'?'nfkd_without_marks':'original',correlation:expect.stringMatching(/^[a-f0-9]{16}$/)}});
-    expect(JSON.stringify(diagnostic)).not.toContain(answer);expect(JSON.stringify(diagnostic)).not.toContain('kilograms');expect(JSON.stringify(diagnostic)).not.toContain('workout entry');
+    expect(diagnostic).toEqual({event:'coach_conversation_output_rejected',code,diagnostic:{schemaVersion:'coach-assistant.output-rejection-diagnostic.v1',outputSchemaVersion:'coach-assistant.candidate-output.v1',promptVersion:'coach-assistant.conversation.v5-candidate.4-live02',rule:code,category,field:'answer',path:'output.answer',position,positionEncoding:code==='numeric_prose'?'original':'nfkd_without_marks',correlation:expect.stringMatching(/^[a-f0-9]{16}$/)}});
+    expect(JSON.stringify(diagnostic)).not.toContain(answer);expect(JSON.stringify(diagnostic)).not.toContain('kilograms');expect(JSON.stringify(diagnostic)).not.toContain('workout entry');expect(JSON.stringify(diagnostic)).not.toContain('saludable');expect(JSON.stringify(diagnostic)).not.toContain('Estás');expect(JSON.stringify(diagnostic)).not.toContain('Estas');
+  });
+  it('locates a sensitive follow-up with static metadata only',async()=>{
+    process.env.COACH_ASSISTANT_OUTPUT_DIAGNOSTICS_ENABLED='1';process.env.VERCEL_ENV='preview';
+    const warning=vi.spyOn(console,'warn').mockImplementation(()=>undefined);
+    const followUp='¿Tu corazón está saludable?';
+    const transport=provider(output=>({...output,answer:'Se puede elegir una comida saludable.',followUp,generalExplanationRefs:[]}));
+    const result=await runConversation(request,{...options(),offlineCandidateEvaluation:true,offlineConversationProvider:transport});
+    expect(result.error?.code).toBe('invalid_output');expect(result.output).toBeUndefined();
+    const diagnostic=JSON.parse(String(warning.mock.calls[0]?.[0]));
+    expect(diagnostic).toEqual({event:'coach_conversation_output_rejected',code:'candidate_sensitive_claim',diagnostic:{schemaVersion:'coach-assistant.output-rejection-diagnostic.v1',outputSchemaVersion:'coach-assistant.candidate-output.v1',promptVersion:'coach-assistant.conversation.v5-candidate.4-live02',rule:'candidate_sensitive_claim',category:'sensitive_claim_token',field:'followUp',path:'output.followUp',position:4,positionEncoding:'nfkd_without_marks',correlation:expect.stringMatching(/^[a-f0-9]{16}$/)}});
+    expect(JSON.stringify(diagnostic)).not.toContain(followUp);expect(JSON.stringify(diagnostic)).not.toContain('corazón');expect(JSON.stringify(diagnostic)).not.toContain('corazon');
   });
   it('keeps detailed diagnostics disabled outside Preview even when the flag is set',async()=>{
     process.env.COACH_ASSISTANT_OUTPUT_DIAGNOSTICS_ENABLED='1';process.env.VERCEL_ENV='production';
@@ -159,6 +171,7 @@ describe('open v2 conversation with explicit synthetic provider',()=>{
   it.each([
     {answer:'Podrías elegir una comida saludable que encaje con tus preferencias.',ok:true},
     {answer:'Una alimentación saludable puede incluir opciones variadas.',ok:true},
+    {answer:'Se puede elegir una comida saludable entre opciones variadas.',ok:true},
     {answer:'Tu salud está mejor.',ok:false},
     {answer:'Estás saludable.',ok:false},
     {answer:'Está saludable.',ok:false},
@@ -166,6 +179,9 @@ describe('open v2 conversation with explicit synthetic provider',()=>{
     {answer:'Pareces saludable.',ok:false},
     {answer:'Te ves saludable.',ok:false},
     {answer:'Tienes buena salud.',ok:false},
+    {answer:'Tienes una alimentación saludable.',ok:false},
+    {answer:'Tu cuerpo está saludable.',ok:false},
+    {answer:'Tu cuerpo está listo.',ok:false},
     {answer:'Tus músculos están más fuertes.',ok:false},
   ])('classifies Spanish health wording by claim context: $answer',async({answer,ok})=>{
     const transport=provider(output=>({...output,answer,followUp:null,generalExplanationRefs:[]}));
@@ -173,6 +189,14 @@ describe('open v2 conversation with explicit synthetic provider',()=>{
     expect(result.ok).toBe(ok);
     expect(result.output?.answer).toBe(ok?answer:undefined);
     expect(result.error?.code).toBe(ok?undefined:'invalid_output');
+  });
+  it('applies the same personal health boundary to follow-ups while allowing generic food guidance',async()=>{
+    const allowedTransport=provider(output=>({...output,answer:'Se puede elegir una comida saludable entre opciones variadas.',followUp:'¿Tienes alguna preferencia alimentaria?',generalExplanationRefs:[]}));
+    const allowed=await runConversation(request,{...options(),offlineCandidateEvaluation:true,offlineConversationProvider:allowedTransport});
+    expect(allowed.ok).toBe(true);expect(allowed.output?.suggestions).toEqual(['¿Tienes alguna preferencia alimentaria?']);
+    const transport=provider(output=>({...output,answer:'Se puede elegir una comida saludable entre opciones variadas.',followUp:'¿Tienes una alimentación saludable?',generalExplanationRefs:[]}));
+    const result=await runConversation(request,{...options(),offlineCandidateEvaluation:true,offlineConversationProvider:transport});
+    expect(result.error?.code).toBe('invalid_output');expect(result.output).toBeUndefined();
   });
   it('keeps declarative explanations gated behind a separate explicit offline oracle',async()=>{
     const answer='The available entries leave open whether the log represents your usual routine.';
