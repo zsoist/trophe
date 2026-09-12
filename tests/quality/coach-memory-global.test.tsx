@@ -17,10 +17,11 @@ it('uses the active conversation identity for memory, hides it when disabled, an
   const example = vi.fn(async (request: { conversationId: string }) => { turns.push(request.conversationId); throw new Error('fixture_no_answer'); });
   const view = render(<I18nProvider defaultLang="en"><GlobalCoach identity="actor-one" example={example} memoryTransport={memory} /></I18nProvider>);
   fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
-  expect(screen.queryByRole('button', { name: 'Load saved memories' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Saved conversations' }));
+  expect(screen.queryByText('Remembered context', { selector: 'summary' })).toBeNull();
   vi.stubEnv('NEXT_PUBLIC_COACH_MEMORY_ACTIONS_ENABLED', '1');
   view.rerender(<I18nProvider defaultLang="en"><GlobalCoach identity="actor-one" example={example} memoryTransport={memory} /></I18nProvider>);
-  fireEvent.click(screen.getByRole('button', { name: 'Load saved memories', hidden: true }));
+  fireEvent.click(screen.getByText('Remembered context', { selector: 'summary' }));
   await waitFor(() => expect(memoryRequests).toHaveLength(1));
   fireEvent.change(document.getElementById('global-coach-question')!, { target: { value: 'My workout' } });
   fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
@@ -28,7 +29,8 @@ it('uses the active conversation identity for memory, hides it when disabled, an
   expect(memoryRequests[0]).toBe(turns[0]);
   view.rerender(<I18nProvider defaultLang="en"><GlobalCoach identity="actor-two" example={example} memoryTransport={memory} /></I18nProvider>);
   fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Load saved memories', hidden: true }));
+  fireEvent.click(screen.getByRole('button', { name: 'Saved conversations' }));
+  fireEvent.click(screen.getByText('Remembered context', { selector: 'summary' }));
   await waitFor(() => expect(memoryRequests).toHaveLength(2));
   expect(memoryRequests[1]).not.toBe(memoryRequests[0]);
 });

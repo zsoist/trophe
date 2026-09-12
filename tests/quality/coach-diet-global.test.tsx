@@ -55,13 +55,14 @@ it('moves diet context without resetting its recovery state when starting anothe
   vi.stubEnv('NEXT_PUBLIC_COACH_DIET_ACTIONS_ENABLED', '1');
   const reset = vi.spyOn(DietController.prototype, 'reset');
   const moveConversation = vi.spyOn(DietController.prototype, 'moveConversation');
-  const history: HistoryTransport = { list: vi.fn(), read: vi.fn() };
+  const history: HistoryTransport = { list: vi.fn(async () => ({ threads: [], nextCursor: null })), read: vi.fn() };
   const actor = crypto.randomUUID();
   const diet: DietTransport = async operation => ({ version: 'coach-assistant.v2', storage: 'database', ok: true, snapshot: { profileId: operation.profileId, version: '0', preferences: { version: 1, dietPattern: null } } });
   render(<I18nProvider defaultLang="en"><GlobalCoach identity={actor} example={vi.fn()} historyTransport={history} dietTransport={diet} /></I18nProvider>);
   fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
-  expect(screen.getAllByText('Diet preference')).toHaveLength(2);
+  expect(screen.queryByText('Diet preference', { selector: 'summary' })).toBeNull();
   fireEvent.click(screen.getByLabelText('Saved conversations'));
+  expect(screen.getByText('Diet preference', { selector: 'summary' })).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'New conversation' }));
   expect(reset).not.toHaveBeenCalled();
   expect(moveConversation).toHaveBeenCalledOnce();
