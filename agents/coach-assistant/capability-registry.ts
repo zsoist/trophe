@@ -29,10 +29,10 @@ export function createCoachCapabilityRegistry(services:{message?:CoachMessageSer
     const options=[];
     for(const query of [...new Set(choice.args.queries)]){
       onRead();const result=await services.foodReference!(query,input.message,signal);await verify();
-      if(result)options.push(foodReferenceSchema.parse(result));
+      if(result){const parsed=foodReferenceSchema.safeParse(result);if(parsed.success)options.push(parsed.data);}
     }
     return {tool:choice.tool,status:'read',result:{options},applied:false};
-   }
+  }
    const service=services.message!;const base={version:'coach-assistant.v2' as const,conversationId:input.conversationId,turnId:input.turnId};const scope={actorId:context.actorId,subjectId:context.subjectId,organizationId:context.organizationId,signal};
    onRead();const read=coachMessageResultSchema.parse(await service.execute({...scope,operation:{...base,operation:'message.recipient'}}));await verify();
    if(!read.ok)return {tool:choice.tool,status:read.error==='not_connected'?'not_connected':'rejected',result:read,applied:false};
