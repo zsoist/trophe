@@ -123,6 +123,6 @@ export async function GET() {
   const {sharedPilotRuntimeGate}=await import('@/lib/workout/shared-pilot-budget');
   const client=await createSupabaseServerClient();
   const {data,error}=await client.auth.getUser();
-  const available=!error&&Boolean(data.user)&&(process.env.VERCEL_ENV === 'production' ? sharedPilotRuntimeGate(process.env,data.user!.id).ok : process.env.NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED === '1');
+  const available=!error&&Boolean(data.user)&&(['production','preview'].includes(process.env.VERCEL_ENV ?? '') ? sharedPilotRuntimeGate(process.env,data.user!.id).ok : process.env.NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED === '1');
   return Response.json({available},{headers:{'Cache-Control':'private, no-store'}});
 }

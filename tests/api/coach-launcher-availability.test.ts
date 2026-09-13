@@ -12,3 +12,5 @@ it('shows only server-admitted identity and prevents shared caching',async()=>{
 });
 it('hides denied production actors',async()=>{mocks.gate.mockReturnValue({ok:false});expect(await (await GET()).json()).toEqual({available:false});});
 it('does not admit an invalid session',async()=>{mocks.getUser.mockResolvedValue({data:{user:null},error:new Error('expired')});expect(await (await GET()).json()).toEqual({available:false});expect(mocks.gate).not.toHaveBeenCalled();});
+
+it('hides an unadmitted preview actor too',async()=>{vi.stubEnv('VERCEL_ENV','preview');vi.stubEnv('NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED','1');mocks.gate.mockReturnValue({ok:false});expect(await (await GET()).json()).toEqual({available:false});});
