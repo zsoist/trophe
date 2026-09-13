@@ -9,6 +9,8 @@ it.each(['dos Big Macs','two Big Macs','2 Big Macs'])('scales %s using the actua
  expect(resolved.grams).toBe(430);
  expect(renderFoodReferences({options:[reference]},false,text)).toContain('1105.1 kcal');
  expect(renderFoodReferences({options:[reference]},false,text)).toContain('50.74 g');
+ expect(renderFoodReferences({options:[reference]},false,text)).not.toContain('per 100 g');
+ expect(renderFoodReferences({options:[reference]},false,text)).toContain('usda');
 });
 it('does not turn a Double Big Mac or ambiguous count into two standard units',async()=>{
  const reference=(await lookup('Big Mac','2 Big Macs',new AbortController().signal))!;

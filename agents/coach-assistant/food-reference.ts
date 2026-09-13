@@ -528,6 +528,11 @@ export function renderFoodReferences(raw: unknown, spanish: boolean, userText = 
     return language ? 'No encontré una referencia alimentaria compatible en el catálogo.' : 'No matching food reference was found in the catalogue.';
   }
   const resolutions = resolveFoodReferences(parsed.data.options, userText);
+  // Lead with the user's portion when every binding is valid. Keep provenance
+  // and the fact that nothing was logged, without repeating the per-100g table.
+  if(resolutions.length>0 && resolutions.every(item=>item.grams!==null && item.label && item.issue===null)) {
+    return [...resolutions.map(item=>`**${item.option.name}** — ${scaledLine(item,language)} ${language?'Fuente':'Source'}: ${item.option.source}; ${item.option.quality}.`),language?'Referencia estimada; no se ha registrado consumo. ¿Quieres registrarlo?':'Estimated reference, not logged intake. Would you like to log it?'].join('\n');
+  }
   const lines: string[] = [language
     ? 'Referencias del catálogo por 100 g (no son registros de consumo):'
     : 'Catalogue references per 100 g (not logged intake):'];
