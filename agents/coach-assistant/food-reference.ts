@@ -111,6 +111,7 @@ function formatNumber(value: number): string {
 }
 
 const CANONICAL_UNITS: Record<string, string> = {
+  'big mac': 'piece', 'big macs': 'piece',
   cup: 'cup', cups: 'cup', taza: 'cup', tazas: 'cup',
   tbsp: 'tbsp', tablespoon: 'tbsp', tablespoons: 'tbsp', cucharada: 'tbsp', cucharadas: 'tbsp',
   tsp: 'tsp', teaspoon: 'tsp', teaspoons: 'tsp', cucharadita: 'tsp', cucharaditas: 'tsp',
@@ -129,8 +130,10 @@ const CANONICAL_UNITS: Record<string, string> = {
 
 const ALL_UNIT_WORDS = [...Object.keys(MASS_UNITS), ...Object.keys(CANONICAL_UNITS)]
   .sort((a, b) => b.length - a.length)
-  .map(escapeRegex)
+  .map(value => escapeRegex(value).replace(/ /g, '\\s+'))
   .join('|');
+
+const COUNT_WORDS: Record<string, number> = { one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,un:1,una:1,uno:1,dos:2,tres:3,cuatro:4,cinco:5,seis:6,siete:7,ocho:8,nueve:9,diez:10 };
 
 /** Complete numeric token: mixed number, fraction, decimal (dot/comma) or
  * leading decimal. The look-behind rejects any partial match inside a longer
@@ -138,12 +141,13 @@ const ALL_UNIT_WORDS = [...Object.keys(MASS_UNITS), ...Object.keys(CANONICAL_UNI
  * as "2 cups". */
 const AMOUNT_TOKEN = String.raw`[+-]?(?:\d+\s+\d+\s*\/\s*\d+|\d+\s*\/\s*\d+|\d+(?:[.,]\d+)?|\.\d+)`;
 const PORTION_RE = new RegExp(
-  String.raw`(?<![0-9A-Za-z.,/\-+])(${AMOUNT_TOKEN})\s*(${ALL_UNIT_WORDS})\b`,
+  String.raw`(?<![0-9A-Za-z.,/\-+])(${AMOUNT_TOKEN}|${Object.keys(COUNT_WORDS).join('|')})\s*(${ALL_UNIT_WORDS})\b`,
   'gi',
 );
 
 /** A numeric amount as typed, or null when it is not a complete valid number. */
 function parseAmountToken(token: string): { value: number; ambiguousSeparator: boolean } | null {
+  if (COUNT_WORDS[token.toLowerCase()] !== undefined) return {value:COUNT_WORDS[token.toLowerCase()],ambiguousSeparator:false};
   const compact = token.replace(/\s+/g, ' ').trim();
   const fraction = /^([+-]?)(?:(\d+)\s+)?(\d+)\s*\/\s*(\d+)$/.exec(compact);
   if (fraction) {
@@ -181,12 +185,17 @@ interface PortionSyntaxIssue {
 /** A digit run separated from the amount only by whitespace ("2 200 g") is not
  * a suffix we may silently drop. */
 function precededByBareNumber(text: string, index: number): boolean {
+  const prefix=text.slice(0,index);
+  if(/\b(?:twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|veinte|treinta|cuarenta|cincuenta|sesenta|setenta|ochenta|noventa|cien|ciento|mil|minus|menos)\s+(?:(?:and|y)\s+)?$/i.test(prefix)) return true;
+  if(new RegExp(String.raw`\b(?:\d+|${Object.keys(COUNT_WORDS).join('|')})\s+(?:(?:or|o|and|y|to|a)\s+)?$`,'i').test(prefix)) return true;
   let cursor = index - 1;
   while (cursor >= 0 && /\s/.test(text[cursor])) cursor -= 1;
   return cursor >= 0 && /[0-9]/.test(text[cursor]);
 }
 
 export interface ParsedPortion {
+  /** Named units may only bind to that exact catalogue product. */
+  product?: string;
   /** Numeric amount as typed (e.g. 150, 1, 0.5). */
   value: number;
   /** Canonical unit name ('g', 'cup', 'piece', ...). */
@@ -209,7 +218,7 @@ function scanFoodPortions(text: string): { portions: ParsedPortion[]; issues: Po
   for (const match of text.matchAll(PORTION_RE)) {
     const index = match.index ?? 0;
     const rawAmount = match[1];
-    const rawUnit = match[2].toLowerCase();
+    const rawUnit = match[2].toLowerCase().replace(/\s+/g,' ');
     if (precededByBareNumber(text, index)) {
       issues.push({ kind: 'ambiguous_syntax', detail: match[0], index });
       continue;
@@ -236,7 +245,7 @@ function scanFoodPortions(text: string): { portions: ParsedPortion[]; issues: Po
     }
     const unit = CANONICAL_UNITS[rawUnit];
     if (!unit) continue;
-    portions.push({ value, unit, kind: 'conversion', grams: null, label: `${formatNumber(value)} ${unit}`, index });
+    portions.push({ value, unit, kind: 'conversion', grams: null, label: `${formatNumber(value)} ${unit}`, index, ...(/^big macs?$/.test(rawUnit)?{product:'big mac'}:{}) });
   }
   return { portions, issues };
 }
@@ -303,6 +312,10 @@ export function resolveFoodReferences(options: readonly FoodReference[], userTex
   }));
 
   const assign = (resolution: ReferenceResolution, portion: ParsedPortion): void => {
+    // Do not bind a standard named product count to a different variant or food.
+    if(portion.product && resolution.option.name.split(',').at(-1)?.trim().toLowerCase()!==portion.product){
+      resolution.issue='ambiguous_portion'; return;
+    }
     if (userPreparation && userPreparation.term !== resolution.option.preparation) {
       resolution.issue = 'needs_preparation';
       resolution.issueDetail = userPreparation.surface;
