@@ -3,10 +3,10 @@
 // Register: informal "tu", European Portuguese
 // ═══════════════════════════════════════════════
 
-import { workoutAnalyticsPt } from './workout-analytics';
+import { workoutAnalyticsPt } from './workout-analytics-overlays';
 
 export const pt: Record<string, string> = {
-  'food.restore_failed': 'Não foi possível restaurar o registro — ele continua excluído',
+  'food.restore_failed': 'Não foi possível confirmar a restauração. Confira o registro alimentar atualizado.',
   'food.recipe_analysis_failed': 'A análise falhou — tente novamente',
   'install.faster_access': 'Instala para um acesso mais rápido.',
   'workout.home_status_label': 'Estado do treino de hoje', 'workout.home_source_label': 'Origem', 'workout.home_readiness_label': 'Preparação', 'workout.home_next_step_label': 'Próximo passo', 'workout.home_schedule': 'Programa', 'workout.home_schedule_empty': 'Não há sessão do coach agendada. Cria um treino adequado para hoje.', 'workout.home_explore_plan': 'Explorar e planear', 'workout.home_find_exercise': 'Encontrar exercício', 'workout.home_plan_cardio': 'Planear cardio', 'workout.home_training_progress': 'Progresso do treino', 'workout.home_saved_plans': 'Planos guardados', 'workout.home_recent_progress': 'Progresso recente',

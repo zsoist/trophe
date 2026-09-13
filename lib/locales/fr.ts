@@ -1,7 +1,7 @@
-import { workoutAnalyticsFr } from './workout-analytics';
+import { workoutAnalyticsFr } from './workout-analytics-overlays';
 
 export const fr: Record<string, string> = {
-  'food.restore_failed': 'L’entrée n’a pas pu être restaurée — elle reste supprimée',
+  'food.restore_failed': 'La restauration n’a pas pu être confirmée. Consultez le journal alimentaire actualisé.',
   'food.recipe_analysis_failed': 'L’analyse a échoué — veuillez réessayer',
   'install.faster_access': 'Installez-la pour un accès plus rapide.',
   'workout.home_status_label': 'État de l’entraînement du jour', 'workout.home_source_label': 'Source', 'workout.home_readiness_label': 'Préparation', 'workout.home_next_step_label': 'Étape suivante', 'workout.home_schedule': 'Programme', 'workout.home_schedule_empty': 'Aucune séance du coach n’est prévue. Créez un entraînement adapté à aujourd’hui.', 'workout.home_explore_plan': 'Explorer et planifier', 'workout.home_find_exercise': 'Trouver un exercice', 'workout.home_plan_cardio': 'Planifier le cardio', 'workout.home_training_progress': 'Progression', 'workout.home_saved_plans': 'Plans enregistrés', 'workout.home_recent_progress': 'Progression récente',

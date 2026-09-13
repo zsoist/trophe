@@ -8,7 +8,7 @@ import { createContext, useContext, useState, useCallback, useEffect, type React
 import { anatomyTranslations } from './locales/anatomy';
 import type { Language, CoreLanguage } from './types';
 import { interpolateTranslation } from './i18n-interpolate';
-import { coreWorkoutAnalyticsTranslations, WORKOUT_ANALYTICS_COPY_KEYS as WORKOUT_ANALYTICS_NEW_COPY_KEYS } from './locales/workout-analytics';
+import { coreWorkoutAnalyticsTranslations, WORKOUT_ANALYTICS_COPY_KEYS as WORKOUT_ANALYTICS_NEW_COPY_KEYS } from './locales/workout-analytics-core';
 
 /** Exact Task 9 copy surface, including established shared navigation/history keys. */
 export const WORKOUT_ANALYTICS_COPY_KEYS = [
@@ -184,7 +184,7 @@ export const translations: Record<string, Record<CoreLanguage, string>> = {
   'food.retry': { en: 'Retry', es: 'Reintentar', el: 'Επανάληψη' },
   'food.log_load_failed': { en: 'Your food log could not be loaded — try again', es: 'No se pudo cargar tu registro de comida — inténtalo de nuevo', el: 'Δεν ήταν δυνατή η φόρτωση του ημερολογίου φαγητού — δοκίμασε ξανά' },
   'food.delete_failed': { en: 'Food could not be removed — your log was refreshed', es: 'No se pudo eliminar la comida — tu registro se actualizó', el: 'Δεν ήταν δυνατή η αφαίρεση του φαγητού — το ημερολόγιό σου ανανεώθηκε' },
-  'food.restore_failed': { en: 'The entry could not be restored — it stays deleted', es: 'No se pudo restaurar la entrada — permanece eliminada', el: 'Δεν ήταν δυνατή η επαναφορά της καταχώρησης — παραμένει διαγραμμένη' },
+  'food.restore_failed': { en: 'Restoration could not be confirmed. Check the updated food log.', es: 'No se pudo confirmar la restauración. Revisa el registro de alimentos actualizado.', el: 'Δεν ήταν δυνατή η επιβεβαίωση της επαναφοράς. Ελέγξτε το ενημερωμένο ημερολόγιο τροφίμων.' },
   'food.save_failed': { en: 'Your meal was not saved — review it and try again', es: 'Tu comida no se guardó — revísala e inténtalo de nuevo', el: 'Το γεύμα σου δεν αποθηκεύτηκε — έλεγξέ το και δοκίμασε ξανά' },
   'food.session_expired': { en: 'Your session expired — refresh and sign in again', es: 'Tu sesión caducó — actualiza e inicia sesión de nuevo', el: 'Η συνεδρία σου έληξε — ανανέωσε και συνδέσου ξανά' },
   'food.invalid_entry': { en: 'This meal has an invalid value — review it and try again', es: 'Esta comida tiene un valor no válido — revísala e inténtalo de nuevo', el: 'Αυτό το γεύμα έχει μη έγκυρη τιμή — έλεγξέ το και δοκίμασε ξανά' },

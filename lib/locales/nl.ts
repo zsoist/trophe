@@ -1,7 +1,7 @@
-import { workoutAnalyticsNl } from './workout-analytics';
+import { workoutAnalyticsNl } from './workout-analytics-overlays';
 
 export const nl: Record<string, string> = {
-  'food.restore_failed': 'De invoer kon niet worden hersteld — deze blijft verwijderd',
+  'food.restore_failed': 'Het herstel kon niet worden bevestigd. Controleer het bijgewerkte voedingsdagboek.',
   'food.recipe_analysis_failed': 'De analyse is mislukt — probeer het opnieuw',
   'install.faster_access': 'Installeer voor snellere toegang.',
   'workout.home_status_label': 'Status van de training van vandaag', 'workout.home_source_label': 'Bron', 'workout.home_readiness_label': 'Gereedheid', 'workout.home_next_step_label': 'Volgende stap', 'workout.home_schedule': 'Schema', 'workout.home_schedule_empty': 'Er staat geen coachsessie gepland. Stel een training samen die vandaag past.', 'workout.home_explore_plan': 'Verkennen en plannen', 'workout.home_find_exercise': 'Oefening zoeken', 'workout.home_plan_cardio': 'Cardio plannen', 'workout.home_training_progress': 'Trainingsvoortgang', 'workout.home_saved_plans': 'Opgeslagen plannen', 'workout.home_recent_progress': 'Recente voortgang',
