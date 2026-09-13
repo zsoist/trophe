@@ -11,6 +11,10 @@
 .workout-muscle-figure { min-width:0; position:relative; background:var(--bg-primary); border-radius:16px; overflow:hidden; }
 .workout-muscle-views { margin:8px 8px 0 auto; width:154px; position:relative; z-index:1; border:1px solid var(--border-default); }
 .workout-anatomy-model.anatomy-stage { height:320px; padding:0; background:transparent; border-radius:0; }
+.workout-anatomy-tools { position:absolute; right:8px; bottom:8px; z-index:2; display:flex; gap:6px; padding:4px; border:1px solid var(--border-default); border-radius:12px; background:var(--bg-surface); }
+.workout-anatomy-tools button { display:inline-flex; align-items:center; justify-content:center; min-width:44px; min-height:44px; border:0; border-radius:9px; background:transparent; color:var(--text-primary); cursor:pointer; }
+.workout-anatomy-tools button:disabled { opacity:.45; cursor:default; }
+.workout-anatomy-tools button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
 .workout-anatomy-model .anatomy-canvas { height:100%; min-height:0; }
 .workout-muscle-state-label { font-size:12px; line-height:1.5; color:var(--text-secondary); margin:0 0 12px; }
 .workout-muscle-groups ul { display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:0; list-style:none; margin:0; }
@@ -22,6 +26,10 @@
 .workout-muscle-groups strong { display:block; font-size:12px; line-height:1.3; overflow-wrap:anywhere; }
 .workout-muscle-groups small { display:block; margin-top:4px; font-size:10px; line-height:1.4; color:var(--text-secondary); }
 .workout-muscle-action { margin-top:16px; }
+.workout-muscle-lazy { display:grid; gap:12px; align-content:center; justify-items:start; min-height:320px; padding:24px; }
+.workout-muscle-lazy p { margin:0; font-size:13px; line-height:1.5; color:var(--text-secondary); max-width:42ch; }
+.workout-muscle-lazy button { min-height:48px; border:0; border-radius:12px; padding:0 20px; background:var(--accent); color:var(--bg-primary); font:inherit; font-weight:650; cursor:pointer; }
+@media(min-width:640px) { .workout-muscle-lazy { min-height:360px; } }
 .workout-muscle-action > button { min-height:48px; width:100%; border:0; border-radius:12px; background:var(--accent); color:var(--bg-primary); font:inherit; font-weight:650; }
 .workout-model-fallback .muscle-atlas__views, .workout-model-fallback .muscle-atlas__roles, .workout-model-fallback .muscle-atlas__summary { display:none; }
 .workout-model-fallback .muscle-atlas { border:0; padding:0; }

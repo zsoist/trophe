@@ -6,6 +6,7 @@ import { useI18n } from '@/lib/i18n';
 import { localeForLanguage } from '@/lib/i18n-locale';
 import { calculateMuscleLoad } from '@/lib/workout/muscle-load';
 import { resolveCuratedMuscleActivations, type AnatomyMuscleId } from '@/lib/workout/anatomy';
+import { localDateStr, localToday } from '@/lib/utils/dates';
 
 export type MuscleLoadRange = 'last' | 'week' | 'month' | 'all';
 export interface MuscleLoadEntry {
@@ -15,18 +16,14 @@ export interface MuscleLoadEntry {
   sets: Array<{ completed?: boolean; isWarmup?: boolean; is_warmup?: boolean }>;
 }
 
-function dateKey(date: Date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-}
-
 export function muscleLoadRangeStart(range: MuscleLoadRange, now: string) {
   const date = new Date(`${now}T12:00:00`);
   if (range === 'all' || range === 'last') return undefined;
   if (range === 'week') {
     date.setDate(date.getDate() - ((date.getDay() + 6) % 7));
-    return dateKey(date);
+    return localDateStr(date);
   }
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`;
+  return localDateStr(new Date(date.getFullYear(), date.getMonth(), 1));
 }
 
 /** Last uses the exact latest terminal session, even when it has no strength rows. */
@@ -50,7 +47,7 @@ const muscleCopyKey = (id: AnatomyMuscleId) => `workout.atlas_muscle_${id.replac
 export function MuscleLoadChart({
   data,
   range,
-  now = dateKey(new Date()),
+  now = localToday(),
   latestCompletedSessionId,
 }: {
   data: MuscleLoadEntry[];

@@ -1,6 +1,7 @@
 'use client';
 import { useContext, useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
+import { Minus, Plus, RotateCcw } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { activeAtlasRelease } from '@/lib/anatomy/release';
 import { fetchAtlasManifest } from '@/lib/anatomy/validation';
@@ -26,6 +27,10 @@ export function WorkoutAnatomyModel({ activations, selected, onSelect, view, col
   const [manifest, setManifest] = useState<AtlasManifest | null>(null);
   const [progress, setProgress] = useState([0, 0]);
   const [failed, setFailed] = useState(false);
+  // Manual zoom steps and a reset counter reuse the shared renderer's own
+  // camera semantics (0.8 distance factor per step); no local tweening is added.
+  const [zoom, setZoom] = useState(0);
+  const [resetCount, setResetCount] = useState(0);
   const { t } = useI18n();
   useEffect(() => {
     if (!manifestUrl) return;
@@ -40,7 +45,12 @@ export function WorkoutAnatomyModel({ activations, selected, onSelect, view, col
   const hidden = useMemo(() => manifest ? workoutOcularElements(manifest) : [], [manifest]);
   if (!manifestUrl || failed) return <div className="workout-model-fallback">{failed && <p role="status">{t("anatomy.model_fallback")}</p>}<MuscleAtlas activations={activations} selected={selected} onSelect={onSelect} viewOverride={view} compact /></div>;
   return <><div className="workout-anatomy-model anatomy-stage">
-    {context ? <Canvas manifest={context} systems={systems} focusElements={empty} selectedElements={empty} elementColors={colors} hiddenElements={hidden} isolated={false} view={view} reset={0} zoom={0} framingScale={0.83} cameraRequest={cameraRequest} onManualView={onManualView} interactive={true} onPick={id => { const hit = mapped.find(item => item.elements.includes(id)); if (hit) onSelect(hit.activation.id === selected ? null : hit.activation.id); }} onError={() => setFailed(true)} onProgress={(loaded, total) => setProgress(previous => previous[0] === loaded && previous[1] === total ? previous : [loaded, total])} label={t('anatomy.viewer')} /> : <p role="status">{t('anatomy.loading')}</p>}
+    {context ? <Canvas manifest={context} systems={systems} focusElements={empty} selectedElements={empty} elementColors={colors} hiddenElements={hidden} isolated={false} view={view} reset={resetCount} zoom={zoom} framingScale={0.83} cameraRequest={cameraRequest} onManualView={onManualView} interactive={true} onPick={id => { const hit = mapped.find(item => item.elements.includes(id)); if (hit) onSelect(hit.activation.id === selected ? null : hit.activation.id); }} onError={() => setFailed(true)} onProgress={(loaded, total) => setProgress(previous => previous[0] === loaded && previous[1] === total ? previous : [loaded, total])} label={t('anatomy.viewer')} /> : <p role="status">{t('anatomy.loading')}</p>}
+    {context ? <div className="workout-anatomy-tools">
+      <button type="button" disabled={zoom >= 12} aria-label={t('anatomy.zoom_in')} onClick={() => setZoom((current) => Math.min(12, current + 1))}><Plus size={17} aria-hidden="true" /></button>
+      <button type="button" disabled={zoom <= 0} aria-label={t('anatomy.zoom_out')} onClick={() => setZoom((current) => Math.max(0, current - 1))}><Minus size={17} aria-hidden="true" /></button>
+      <button type="button" aria-label={t('anatomy.reset')} onClick={() => { setZoom(0); setResetCount((current) => current + 1); }}><RotateCcw size={16} aria-hidden="true" /></button>
+    </div> : null}
     {context && (progress[1] === 0 || progress[0] < progress[1]) && <p className="workout-model-loading" role="status">{t('anatomy.loading')}</p>}
   </div>{manifest && <AtlasInformation><p>{manifest.license.attribution} · <a href={manifest.license.url}>{manifest.license.id}</a></p>{supplement && <p>{t('anatomy.authored_explanation')} · {supplement.author} · {supplement.license}</p>}<p>{t('anatomy.worked_note')}</p></AtlasInformation>}</>;
 }

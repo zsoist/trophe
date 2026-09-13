@@ -15,6 +15,7 @@ import { ExerciseProgressChart } from './ExerciseProgressChart';
 import { MuscleLoadChart, type MuscleLoadRange } from './MuscleLoadChart';
 import { WorkoutSummaryMetrics } from './WorkoutSummaryMetrics';
 import { kgToDisplay, useWeightUnit } from '@/lib/workout/units';
+import { localToday } from '@/lib/utils/dates';
 import {
   expandScheduledDates,
   loadWorkoutAnalyticsData,
@@ -29,10 +30,6 @@ const emptyData: WorkoutAnalyticsData = {
   issues: { schedule: false, measurements: false, historyTruncated: false, measurementsTruncated: false },
 };
 
-function localDateKey(date = new Date()) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-}
-
 export default function WorkoutAnalyticsSurface() {
   const router = useRouter();
   const { lang, t } = useI18n();
@@ -42,7 +39,7 @@ export default function WorkoutAnalyticsSurface() {
   const [error, setError] = useState(false);
   const [range, setRange] = useState<MuscleLoadRange>('week');
   const [exerciseId, setExerciseId] = useState('');
-  const today = localDateKey();
+  const today = localToday();
   const [selectedDate, setSelectedDate] = useState(today);
   const [unit] = useWeightUnit();
   const requestId = useRef(0);

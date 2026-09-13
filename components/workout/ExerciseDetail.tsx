@@ -105,10 +105,13 @@ export function ExerciseDetail({
 }: ExerciseDetailProps) {
   const { t, lang } = useI18n();
   const [unit] = useWeightUnit();
-  const [history, setHistory] = useState<HistoryEntry[] | null>(userId ? null : []);
-  const [historyError, setHistoryError] = useState(false);
   const [historyRequest, setHistoryRequest] = useState(0);
   const requestKey = `${userId ?? 'guest'}:${exercise.id}:${historyRequest}`;
+  // Evidence is keyed by the request identity so a late response never paints the
+  // previous exercise's history while the new one is still loading.
+  const [historyState, setHistoryState] = useState<{ requestKey: string; entries: HistoryEntry[] | null; error: boolean }>({ requestKey, entries: userId ? null : [], error: false });
+  const history = historyState.requestKey === requestKey ? historyState.entries : userId ? null : [];
+  const historyError = historyState.requestKey === requestKey ? historyState.error : false;
   const [prState, setPrState] = useState<{ requestKey: string; value: number | null }>({ requestKey, value: null });
   const pr = prState.requestKey === requestKey ? prState.value : null;
   const name = exerciseDisplayName(exercise, lang);
@@ -140,8 +143,7 @@ export function ExerciseDetail({
     let active = true;
     queueMicrotask(() => {
       if (!active) return;
-      setHistory(null);
-      setHistoryError(false);
+      setHistoryState({ requestKey, entries: null, error: false });
       setPrState({ requestKey, value: null });
     });
     void (async () => {
@@ -158,8 +160,7 @@ export function ExerciseDetail({
         .limit(120);
       if (!active) return;
       if (error) {
-        setHistoryError(true);
-        setHistory([]);
+        setHistoryState({ requestKey, entries: [], error: true });
         setPrState({ requestKey, value: null });
         return;
       }
@@ -174,8 +175,7 @@ export function ExerciseDetail({
         byDate.set(date, [...(byDate.get(date) ?? []), row]);
       }
       setPrState({ requestKey, value: best > 0 ? best : null });
-      setHistoryError(false);
-      setHistory([...byDate.entries()]
+      setHistoryState({ requestKey, error: false, entries: [...byDate.entries()]
         .sort(([a], [b]) => b.localeCompare(a))
         .slice(0, 3)
         .map(([date, dateRows]) => {
@@ -183,7 +183,7 @@ export function ExerciseDetail({
             row.weight_kg !== null && (current === null || row.weight_kg > (current.weight_kg ?? 0)) ? row : current
           ), null);
           return { date, topWeightKg: top?.weight_kg ?? null, topReps: top?.reps ?? null, sets: dateRows.length };
-        }));
+        })});
     })();
     return () => { active = false; };
   }, [exercise.id, historyRequest, requestKey, userId]);

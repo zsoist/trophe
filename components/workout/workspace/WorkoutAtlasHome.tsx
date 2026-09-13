@@ -1,12 +1,14 @@
 'use client';
 import type { ReactNode } from 'react';
-import { useId, useState } from 'react';
+import { useContext, useId, useState } from 'react';
 import { Check, ChevronDown, Layers, RotateCcw } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
+import { activeAtlasRelease } from '@/lib/anatomy/release';
 import { anatomyLabelKey, type AnatomyMuscleId, type AnatomyView, type MuscleActivation } from '@/lib/workout/anatomy';
 import { ATLAS_GEOMETRY } from '@/lib/workout/atlas-geometry';
 import { muscleSections } from '@/lib/workout/muscle-sections';
 import { WorkoutAnatomyModel } from '@/components/anatomy/WorkoutAnatomyModel';
+import { WorkoutAnatomySource } from '@/components/anatomy/WorkoutAnatomySource';
 import './workout-muscle-home.css';
 interface WorkoutAtlasHomeProps {
   activations: MuscleActivation[];
@@ -25,12 +27,19 @@ export function WorkoutAtlasHome({ activations, workedActivations = [], workedAv
   const [view, setView] = useState<AnatomyView>('front');
   const [manual, setManual] = useState(false);
   const [cameraRequest, setCameraRequest] = useState(0);
+  // The 3D viewer is a heavy surface: it only mounts after an explicit
+  // exploration intent. Before that the home shows the lightweight region
+  // summary (or, when no private atlas source is enabled, the compact map).
+  const reviewSource = useContext(WorkoutAnatomySource);
+  const viewerAvailable = Boolean(reviewSource) || Boolean(activeAtlasRelease(process.env.NEXT_PUBLIC_ANATOMY_ATLAS_ENABLED));
+  const [viewerEngaged, setViewerEngaged] = useState(false);
+  const armViewer = () => { if (viewerAvailable) setViewerEngaged(true); };
   const visible = mode === 'planned' ? activations : workedActivations;
   const groups = muscleSections(visible);
   const applied = visible.some(a => a.id === selected) ? selected : null;
   const choose = (id: AnatomyMuscleId | null) => {
     setSelected(id === applied ? null : id);
-    if (id) { setView(ATLAS_GEOMETRY[id].view); setOpenGroup(groups.find(group => group.muscles.includes(id))?.id ?? null); setManual(false); setCameraRequest(n => n + 1); }
+    if (id) { armViewer(); setView(ATLAS_GEOMETRY[id].view); setOpenGroup(groups.find(group => group.muscles.includes(id))?.id ?? null); setManual(false); setCameraRequest(n => n + 1); }
   };
   return <section className="workout-muscle-home" data-mode={mode} aria-labelledby={headingId}>
     <header><div><span className="workout-muscle-eyebrow"><Layers size={14} aria-hidden="true" />{t('anatomy.workout_title')}</span><h2 id={headingId}>{t('workout.atlas_today_target')}</h2><p>{targetLabel}</p></div></header>
@@ -38,7 +47,10 @@ export function WorkoutAtlasHome({ activations, workedActivations = [], workedAv
       {(['worked', 'planned'] as const).map(item => <button key={item} aria-pressed={mode === item} onClick={() => { setMode(item); setSelected(null); setOpenGroup(null); }}><span>{t(`anatomy.${item}`)}</span><small>{item === 'planned' ? muscleSections(activations).length : workedAvailable ? muscleSections(workedActivations).length : '—'}</small></button>)}
     </div>
     <div className="workout-muscle-body">
-      <div className="workout-muscle-figure"><div className="workout-muscle-views" role="group" aria-label={t('anatomy.orientation')}>{(['front','back'] as const).map(side => <button key={side} aria-pressed={!manual && view === side} onClick={() => { setView(side); setManual(false); setCameraRequest(n => n + 1); }}>{t(`anatomy.${side}`)}</button>)}<button aria-label={t('anatomy.reset')} onClick={() => { setView('front'); setManual(false); setCameraRequest(n => n + 1); }}><RotateCcw size={16} /></button></div><WorkoutAnatomyModel activations={visible} selected={applied} focused={groups.find(group => group.id === openGroup)?.activations.map(a => a.id)} onSelect={choose} view={view} cameraRequest={cameraRequest} onManualView={() => setManual(true)} color={mode === 'worked' ? '#78bdb2' : '#d4a853'} /></div>
+      <div className="workout-muscle-figure"><div className="workout-muscle-views" role="group" aria-label={t('anatomy.orientation')}>{(['front','back'] as const).map(side => <button key={side} aria-pressed={!manual && view === side} onClick={() => { armViewer(); setView(side); setManual(false); setCameraRequest(n => n + 1); }}>{t(`anatomy.${side}`)}</button>)}<button aria-label={t('anatomy.reset')} onClick={() => { setView('front'); setManual(false); setCameraRequest(n => n + 1); }}><RotateCcw size={16} /></button></div>
+      {viewerAvailable && !viewerEngaged
+        ? <div className="workout-muscle-lazy"><p>{t('anatomy.preview_source')}</p><button type="button" data-testid="workout-atlas-explore" onClick={() => setViewerEngaged(true)}>{t('anatomy.explore_muscles')}</button></div>
+        : <WorkoutAnatomyModel activations={visible} selected={applied} focused={groups.find(group => group.id === openGroup)?.activations.map(a => a.id)} onSelect={choose} view={view} cameraRequest={cameraRequest} onManualView={() => setManual(true)} color={mode === 'worked' ? '#78bdb2' : '#d4a853'} />}</div>
       <div className="workout-muscle-groups">
         <h3 className="workout-muscle-section-title">{t('anatomy.involved')}</h3>
         {!visible.length && <p role="status">{t(mode === 'worked' ? workedAvailable ? 'anatomy.no_worked' : 'anatomy.worked_unavailable' : emptyState === 'cardio' ? 'workout.atlas_empty_cardio' : 'workout.atlas_empty_strength')}</p>}
