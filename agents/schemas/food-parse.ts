@@ -19,6 +19,8 @@ export interface ParsedFoodItem {
   fat_g: number;
   fiber_g: number;
   sugar_g: number;
+  /** Numeric placeholders are not nutrient evidence. Persist these as null. */
+  unavailable_nutrients?: Array<'fiber_g' | 'sugar_g'>;
   confidence: number;
   source: 'local_db' | 'ai_estimate' | 'local_db+category_default' | 'llm_cot' | 'hybrid';
   food_state?: 'raw' | 'cooked' | 'fried' | 'grilled' | 'baked' | 'boiled' | 'prepared' | 'unknown';
@@ -97,6 +99,10 @@ export function isParsedFoodItem(x: unknown): x is ParsedFoodItem {
   ) {
     return false;
   }
+
+  if (o.unavailable_nutrients !== undefined && (!Array.isArray(o.unavailable_nutrients)
+    || o.unavailable_nutrients.length > 2
+    || o.unavailable_nutrients.some(n => n !== 'fiber_g' && n !== 'sugar_g'))) return false;
 
   const macroMass = o.protein_g + o.carbs_g + o.fat_g;
   if (macroMass > o.grams * 1.15) return false;

@@ -75,3 +75,21 @@ describe("Today's deterministic nutrition note", () => {
     expect(note.text).not.toMatch(/too much sugar|WHO|limit|excess/i);
   });
 });
+
+
+it('does not call incomplete fiber a low daily total', () => {
+  const note = buildDailyNutritionNote({ entries: [entry({ fiber_g: null }), entry({ fiber_g: 0 }), entry({ fiber_g: 0 })], targetProteinG: 0, waterMl: 1000, hour: 12 });
+  expect(note.text).not.toMatch(/Fiber is|Add beans/);
+});
+
+
+it('reports legacy unreferenced estimate zeros as incomplete without changing the rows', () => {
+ const legacy = { sugar_g: 0, source: 'natural_language', food_id: null };
+ const verified = { sugar_g: 0, source: 'natural_language', food_id: 'canonical-food' };
+ expect(summarizeSugar([legacy, verified])).toEqual({totalGrams:0,completeness:'partial',missingEntries:1});
+ expect(summarizeSugar([verified, {sugar_g:0,source:'custom',food_id:null}]).completeness).toBe('complete');
+ expect(legacy.sugar_g).toBe(0);
+ const note = buildDailyNutritionNote({entries:[entry({...legacy,fiber_g:0}),entry({...verified,fiber_g:0}),entry({...verified,fiber_g:0})],targetProteinG:0,waterMl:1000,hour:12});
+ expect(note.text).toMatch(/incomplete/);
+ expect(note.text).not.toMatch(/Fiber is/);
+});

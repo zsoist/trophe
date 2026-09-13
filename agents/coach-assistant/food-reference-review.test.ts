@@ -25,3 +25,15 @@ it('keeps the selected canonical advice option unchanged and never guesses among
  for(const text of ['la 1','Revisa la opción 1','Review option 1','Επιλογή 1'])expect(adviceOptionIndex(text)).toBe(0);
  for(const text of ['la 4','la 1 mañana','no la 1'])expect(adviceOptionIndex(text)).toBeNull();
 });
+
+it('keeps unavailable nutrients unknown through native reference review and persistence', async () => {
+ const { projectNativeFoodReference } = await import('./food-reference-native-fallback');
+ const { buildReviewedFoodLogEntries } = await import('@/lib/food/reviewed-log-entry');
+ const item = { raw_text: '150g beans', food_name: 'Beans', name_localized: 'Beans', quantity: 150, unit: 'g', grams: 150, calories: 180, protein_g: 10, carbs_g: 25, fat_g: 2, fiber_g: 0, sugar_g: 0, unavailable_nutrients: ['fiber_g', 'sugar_g'] as Array<'fiber_g' | 'sugar_g'>, confidence: .7, source: 'llm_cot' as const, portion_explicit: true };
+ const ref = projectNativeFoodReference(item)!;
+ expect(ref.nutrients).toMatchObject({fiberG:null,sugarG:null});
+ const output = foodReferenceReviewOutput({ kind:'native', references:[ref], reviewItems:[item], referenceEvidence:null });
+ expect(output?.items[0].unavailable_nutrients).toEqual(['fiber_g','sugar_g']);
+ const [entry] = buildReviewedFoodLogEntries({userId:'user',date:'2026-09-13',mealType:'dinner',inputSource:'text',items:output!.items});
+ expect(entry).toMatchObject({fiber_g:null,sugar_g:null,calories:180});
+});

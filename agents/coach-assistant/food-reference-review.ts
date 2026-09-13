@@ -18,8 +18,10 @@ export function foodReferenceReviewOutput(raw:FoodReferenceSnapshot):FoodParseOu
   if(snapshot.reviewItems?.length!==snapshot.references.length)return null;
   for(let i=0;i<snapshot.references.length;i++){
    const ref=snapshot.references[i],original=snapshot.reviewItems[i];
-   if(projectNativeFoodReference(original)?.referenceId!==ref.referenceId||ref.nutrients.fiberG===null||ref.nutrients.sugarG===null)return null;
-   items.push({...original,quantity:ref.portion.grams,unit:'g',grams:ref.portion.grams,calories:ref.nutrients.kcal,protein_g:ref.nutrients.proteinG,carbs_g:ref.nutrients.carbsG,fat_g:ref.nutrients.fatG,fiber_g:ref.nutrients.fiberG,sugar_g:ref.nutrients.sugarG,portion_explicit:true});
+   if(projectNativeFoodReference(original)?.referenceId!==ref.referenceId
+    || (ref.nutrients.fiberG===null && !original.unavailable_nutrients?.includes('fiber_g'))
+    || (ref.nutrients.sugarG===null && !original.unavailable_nutrients?.includes('sugar_g')))return null;
+   items.push({...original,quantity:ref.portion.grams,unit:'g',grams:ref.portion.grams,calories:ref.nutrients.kcal,protein_g:ref.nutrients.proteinG,carbs_g:ref.nutrients.carbsG,fat_g:ref.nutrients.fatG,fiber_g:ref.nutrients.fiberG??0,sugar_g:ref.nutrients.sugarG??0,unavailable_nutrients:[...(ref.nutrients.fiberG===null?['fiber_g' as const]:[]),...(ref.nutrients.sugarG===null?['sugar_g' as const]:[])],portion_explicit:true});
   }
  }else{
   if(snapshot.portions?.length!==snapshot.options.length)return null;

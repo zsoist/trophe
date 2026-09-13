@@ -144,6 +144,7 @@ export default function QuickFoodInput({ userId, mealType, mealSlot, date, onLog
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lastTextRef = useRef('');
   const lastFileRef = useRef<File | null>(null);
+  const photoOperationRef = useRef<{ file: File; conversationId: string; turnId: string } | null>(null);
   /** Snapshot of the parse result at confirm-entry — flywheel diffs confirmed values against it. */
   const originalItemsRef = useRef<ParsedFoodItem[]>([]);
   const parseBusyRef = useRef(false);
@@ -154,7 +155,7 @@ export default function QuickFoodInput({ userId, mealType, mealSlot, date, onLog
    * stale review onto the newly selected date (see the context effect below).
    */
   const parseEpochRef = useRef(0);
-  const reviewContextRef = useRef(`${date}\u0000${mealType}`);
+  const reviewContextRef = useRef(`${userId}\u0000${date}\u0000${mealType}\u0000${mealSlot ?? ''}`);
 
   // 429 Retry-After countdown — Retry stays disabled until it reaches 0.
   useEffect(() => {
@@ -331,6 +332,12 @@ export default function QuickFoodInput({ userId, mealType, mealSlot, date, onLog
     retryActionRef.current = 'photo';
     setMode('photo_analyzing');
     lastFileRef.current = file;
+    // A retry of the same upload retains its admission identity. A new file or
+    // changed owner/day/meal starts a separate operation.
+    if (photoOperationRef.current?.file !== file) {
+      photoOperationRef.current = { file, conversationId: crypto.randomUUID(), turnId: crypto.randomUUID() };
+    }
+    const operation = photoOperationRef.current;
     let requestTimeout: ReturnType<typeof setTimeout> | null = null;
 
     // Create preview thumbnail
@@ -350,7 +357,11 @@ export default function QuickFoodInput({ userId, mealType, mealSlot, date, onLog
 
       const res = await fetch('/api/ai/photo-analyze', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-coach-conversation-id': operation.conversationId,
+          'x-coach-turn-id': operation.turnId,
+        },
         body: JSON.stringify({ imageBase64: base64, mediaType }),
         signal: controller.signal,
       });
@@ -758,10 +769,12 @@ export default function QuickFoodInput({ userId, mealType, mealSlot, date, onLog
    * The epoch bump makes any still-running request a no-op.
    */
   useEffect(() => {
-    const context = `${date}\u0000${mealType}`;
+    const context = `${userId}\u0000${date}\u0000${mealType}\u0000${mealSlot ?? ''}`;
     if (reviewContextRef.current === context) return;
     reviewContextRef.current = context;
     parseEpochRef.current += 1;
+    photoOperationRef.current = null;
+    lastFileRef.current = null;
     voiceSessionRef.current?.cancel();
     voiceSessionRef.current = null;
     transcriptionAbortRef.current?.abort();
@@ -777,7 +790,7 @@ export default function QuickFoodInput({ userId, mealType, mealSlot, date, onLog
     setMode('idle');
     setError(null);
     setRetryCount(0);
-  }, [date, mealType]);
+  }, [userId, date, mealType, mealSlot]);
 
   /** Submit an answer to the empty-items clarification question — re-parses "original — answer". */
   const submitQuestionChoice = (answerValue: string) => {

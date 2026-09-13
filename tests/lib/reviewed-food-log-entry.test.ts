@@ -39,3 +39,11 @@ describe('reviewed food-log persistence', () => {
     });
   });
 });
+
+
+it('persists unavailable estimate nutrients as null while preserving known zero', () => {
+  const item = { raw_text: 'beans', food_name: 'Beans', name_localized: 'Beans', quantity: 100, unit: 'g', grams: 100, calories: 100, protein_g: 5, carbs_g: 15, fat_g: 2, fiber_g: 0, sugar_g: 0, confidence: .7, source: 'llm_cot' as const };
+  const input = { userId: 'user-1', date: '2026-09-13', mealType: 'dinner' as const, inputSource: 'text' as const };
+  expect(buildReviewedFoodLogEntries({ ...input, items: [{ ...item, unavailable_nutrients: ['fiber_g', 'sugar_g'] }] })[0]).toMatchObject({ fiber_g: null, sugar_g: null });
+  expect(buildReviewedFoodLogEntries({ ...input, items: [item] })[0]).toMatchObject({ fiber_g: 0, sugar_g: 0 });
+});

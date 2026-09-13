@@ -121,6 +121,7 @@ export interface FoodParseRunResultV4 {
 
 // ── LLM macro estimation fallback ────────────────────────────────────────────
 interface MacroEstimate {
+  unavailable_nutrients?: ParsedFoodItem['unavailable_nutrients'];
   food_name: string;
   grams: number;
   calories: number;
@@ -506,6 +507,7 @@ function applyMetabolicConsistency(item: ParsedFoodItem): ParsedFoodItem {
 const ALCOHOL_NAME_PATTERN = /wine|beer|ale\b|lager|stout|cocktail|mojito|margarita|martini|sangria|champagne|prosecco|cava\b|cider|rum\b|vodka|whisk|tequila|gin\b|brandy|cognac|liqueur|aperol|spritz|negroni|alcohol|vino|cerveza|bière|biere|κρασί|μπίρα|μπύρα|ούζο|τσίπουρο|ouzo|raki|soju|sake/i;
 
 interface ArbitrationResult {
+  unavailable_nutrients?: ParsedFoodItem['unavailable_nutrients'];
   source: 'local_db' | 'llm_cot' | 'hybrid';
   grams: number;
   calories: number;
@@ -733,6 +735,7 @@ export function arbitrateDbVsCoT(
       fat_g: llmMacros.fat_g,
       fiber_g: 0,
       sugar_g: 0,
+      unavailable_nutrients: ['fiber_g', 'sugar_g'],
       confidence: Math.min(llmConfidence, 0.75),
     };
   }
@@ -1044,6 +1047,7 @@ async function estimateMacrosViaLLM(
         fat_g: Math.round((est.fat_g ?? 0) * 10) / 10,
         fiber_g: Math.round((est.fiber_g ?? 0) * 10) / 10,
         sugar_g: Math.round((est.sugar_g ?? 0) * 10) / 10,
+        unavailable_nutrients: [...(est.fiber_g == null ? ['fiber_g' as const] : []), ...(est.sugar_g == null ? ['sugar_g' as const] : [])],
       };
     });
   } catch (err) {
@@ -1814,6 +1818,7 @@ export async function run(
         fat_g:          arb.fat_g,
         fiber_g:        arb.fiber_g,
         sugar_g:        arb.sugar_g,
+        unavailable_nutrients: arb.unavailable_nutrients,
         confidence:     arb.confidence,
         source:         arb.source,
         food_state:     candidate.food_state as ParsedFoodItem['food_state'],
@@ -1879,6 +1884,7 @@ export async function run(
           fat_g:          measuredMacros?.fat_g ?? per100gComputed?.fat_g ?? Math.round((candidate.estimated_fat_g ?? 0) * 10) / 10,
           fiber_g:        0,
           sugar_g:        0,
+          unavailable_nutrients: ['fiber_g', 'sugar_g'],
           confidence:     Math.min(candidate.estimation_confidence ?? 0.6, 0.70),
           source:         'llm_cot',
           food_state:     candidate.food_state as ParsedFoodItem['food_state'],
@@ -2006,6 +2012,7 @@ export async function run(
           fat_g:          est.fat_g,
           fiber_g:        est.fiber_g,
           sugar_g:        est.sugar_g,
+          unavailable_nutrients: est.unavailable_nutrients,
           confidence:     candidate.confidence * 0.7,
           source:         'ai_estimate',
           food_state:     candidate.food_state as ParsedFoodItem['food_state'],

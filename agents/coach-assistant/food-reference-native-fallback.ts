@@ -262,8 +262,8 @@ export function projectNativeFoodReference(item: unknown): NativeFoodReference |
       proteinG: item.protein_g,
       carbsG: item.carbs_g,
       fatG: item.fat_g,
-      fiberG: item.fiber_g ?? null,
-      sugarG: item.sugar_g ?? null,
+      fiberG: item.unavailable_nutrients?.includes('fiber_g') ? null : item.fiber_g ?? null,
+      sugarG: item.unavailable_nutrients?.includes('sugar_g') ? null : item.sugar_g ?? null,
     },
     per100g: item.grams > 0 ? {
       kcal: round6(item.calories / factor),

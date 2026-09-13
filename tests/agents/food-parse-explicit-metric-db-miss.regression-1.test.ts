@@ -108,6 +108,7 @@ describe('explicit metric portion on a DB miss', () => {
       portion_explicit: true,
     });
     // Sanity: mass dropped ~500×, per-100g density preserved (≈0.42 kcal/g).
+    expect(item.unavailable_nutrients).toEqual(['fiber_g', 'sugar_g']);
     expect(item.calories / item.grams).toBeCloseTo(0.42, 2);
   });
 });

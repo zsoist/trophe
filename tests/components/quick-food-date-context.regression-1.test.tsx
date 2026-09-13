@@ -85,6 +85,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 function renderInput(date: string) {
@@ -134,6 +135,49 @@ describe('QuickFoodInput review is scoped to the selected day', () => {
     // The old request settles only now — it must not open a review for the new day.
     pending?.(parseResponse({ items: [FETA], warnings: [] }));
     await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(screen.queryByTestId('parsed-food-list')).toBeNull();
+  });
+});
+
+
+describe('Food photo admission identity', () => {
+  function photoSetup() {
+    vi.stubGlobal('createImageBitmap', vi.fn(async () => ({ width: 10, height: 10, close: vi.fn() })));
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage: vi.fn() } as unknown as CanvasRenderingContext2D);
+    vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue('data:image/jpeg;base64,aGVsbG8=');
+  }
+  function upload(container: HTMLElement, file: File) {
+    fireEvent.change(container.querySelector('input[type="file"]')!, { target: { files: [file] } });
+  }
+  it('sends valid operation UUIDs and keeps them on an explicit retry', async () => {
+    photoSetup();
+    const { container } = renderInput('2026-09-13');
+    const file = new File(['image'], 'plate.jpg', { type: 'image/jpeg' });
+    upload(container, file);
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    const first = vi.mocked(fetch).mock.calls[0][1]!.headers as Record<string, string>;
+    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    expect(first['x-coach-conversation-id']).toMatch(uuid);
+    expect(first['x-coach-turn-id']).toMatch(uuid);
+    pending?.({ ok: false, status: 503, headers: { get: () => null }, json: async () => ({ error: 'Unavailable' }) });
+    fireEvent.click(await screen.findByRole('button', { name: 'food.retry' }));
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(fetch).mock.calls[1][1]!.headers).toEqual(first);
+  });
+  it('drops stale photo results and rotates identity when the owner changes', async () => {
+    photoSetup();
+    const props = { userId: 'user-1', mealType: 'breakfast' as const, date: '2026-09-13', onLogged: vi.fn(), onSearchMode: vi.fn() };
+    const { container, rerender } = render(<QuickFoodInput {...props} />);
+    const file = new File(['image'], 'plate.jpg', { type: 'image/jpeg' });
+    upload(container, file);
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    const old = pending;
+    const first = vi.mocked(fetch).mock.calls[0][1]!.headers;
+    rerender(<QuickFoodInput {...props} userId="user-2" />);
+    old?.(parseResponse({ foods: [] }));
+    upload(container, file);
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(fetch).mock.calls[1][1]!.headers).not.toEqual(first);
     expect(screen.queryByTestId('parsed-food-list')).toBeNull();
   });
 });
