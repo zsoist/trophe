@@ -1,10 +1,10 @@
 'use client';
-import { Pause, Play, Square, Volume2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { CoachSpeechDescriptor } from '@/agents/coach-assistant/voice-turn';
 import { COACH_VOICE_STOP_PLAYBACK, stopCoachVoicePlayback } from './voice-playback';
 import { useGlobalCoachI18n } from './useGlobalCoachI18n';
 import styles from './GlobalCoach.module.css';
+import { AskTropheIcon } from './ask-trophe-icons';
 
 export function VoiceAnswerPlayback({ descriptor, text }: { descriptor: CoachSpeechDescriptor; text: string }) {
   const { t, lang } = useGlobalCoachI18n();
@@ -32,10 +32,10 @@ export function VoiceAnswerPlayback({ descriptor, text }: { descriptor: CoachSpe
   };
   const pauseSupported = typeof window.speechSynthesis.pause === 'function' && typeof window.speechSynthesis.resume === 'function';
   return <div className={styles.speechControls} aria-label={t('global_coach.voice_speech_controls')}>
-    {mode === 'idle' && <button type="button" className={styles.speechControl} onClick={play}><Volume2 size={15} aria-hidden="true" />{t('global_coach.voice_speech_play')}</button>}
-    {mode === 'playing' && pauseSupported && <button type="button" className={styles.speechControl} onClick={() => { window.speechSynthesis.pause(); setMode('paused'); }}><Pause size={15} aria-hidden="true" />{t('global_coach.voice_speech_pause')}</button>}
-    {mode === 'paused' && pauseSupported && <button type="button" className={styles.speechControl} onClick={() => { window.speechSynthesis.resume(); setMode('playing'); }}><Play size={15} aria-hidden="true" />{t('global_coach.voice_speech_resume')}</button>}
-    {mode !== 'idle' && <button type="button" className={styles.speechControl} onClick={stopCoachVoicePlayback}><Square size={14} aria-hidden="true" />{t('global_coach.voice_speech_stop')}</button>}
+    {mode === 'idle' && <button type="button" className={styles.speechControl} onClick={play}><AskTropheIcon name="output" size={15} />{t('global_coach.voice_speech_play')}</button>}
+    {mode === 'playing' && pauseSupported && <button type="button" className={styles.speechControl} onClick={() => { window.speechSynthesis.pause(); setMode('paused'); }}><AskTropheIcon name="pause" size={15} />{t('global_coach.voice_speech_pause')}</button>}
+    {mode === 'paused' && pauseSupported && <button type="button" className={styles.speechControl} onClick={() => { window.speechSynthesis.resume(); setMode('playing'); }}><AskTropheIcon name="play" size={15} />{t('global_coach.voice_speech_resume')}</button>}
+    {mode !== 'idle' && <button type="button" className={styles.speechControl} onClick={stopCoachVoicePlayback}><AskTropheIcon name="end" size={14} />{t('global_coach.voice_speech_stop')}</button>}
     <label className={styles.speechRate}>{t('global_coach.voice_speech_speed')}<select value={rate} onChange={event => {
       const next = Number(event.target.value);
       if (mode !== 'idle') { stopCoachVoicePlayback(); setRestartRequired(true); }

@@ -57,7 +57,9 @@ export function TextFoodReview({ draft, conversationId, transport, onReceipt, on
   return <section className={styles.foodReview} aria-label={t('global_coach.text_food_title')}>
     <h3>{t('global_coach.text_food_title')}</h3>
     {onDismiss&&<button type="button" disabled={pending||submitted&&!receipt} onClick={onDismiss}>{t(receipt?'global_coach.food_done':'general.cancel')}</button>}
-    <p>{t(receipt ? 'global_coach.text_food_saved' : 'global_coach.text_food_estimate')}</p>
+    {receipt
+      ? <div className={styles.receipt}><p role="status">{t('global_coach.text_food_saved')}</p></div>
+      : <p>{t('global_coach.text_food_estimate')}</p>}
     {draft.clarification && <p role="status">{draft.clarification}</p>}
     {!draft.clarification && <>
       <fieldset disabled={pending || submitted}>

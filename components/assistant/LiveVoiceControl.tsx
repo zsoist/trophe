@@ -12,11 +12,18 @@
  * Authoritative backend work (create/close session, delegation, budget, deadline) stays in
  * `lib/voice-live` (DS2) and `app/api/coach-assistant/live` (AG1). This file performs no provider,
  * auth, budget or network call of its own beyond importing the existing browser adapter.
+ *
+ * Presentation uses the approved assets only: the seven-trace SVG renderer
+ * (`ask-trophe-wave.ts`) and its pure snapshot mapping (`ask-trophe-visual.ts`). Amplitudes are
+ * consumed as fresh measurements, never recycled from every snapshot or animation frame.
  */
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { AudioLines, Mic, MicOff, Pause, Play, Square, X } from 'lucide-react';
+import { AudioLines } from 'lucide-react';
 import type { LiveTranscriptRow } from '@/lib/voice-live/client-types';
 import { useGlobalCoachI18n } from './useGlobalCoachI18n';
+import { AskTropheIcon } from './ask-trophe-icons';
+import { mountAskTropheWave, type AskTropheWaveHandle } from './ask-trophe-wave';
+import { askTropheViewState, connectAskTropheVisual } from './ask-trophe-visual';
 import styles from './LiveVoiceControl.module.css';
 
 // ---------------------------------------------------------------------------------------------
@@ -170,6 +177,8 @@ export interface LiveVoiceSnapshot {
   transcript?: LiveTranscriptRow[];
   /** Real input amplitude 0..1 (RMS) from the engine analyser. `null`/absent => no real level. */
   inputLevel?: number | null;
+  /** Epoch ms of the real sample backing `inputLevel` (DS2 `inputLevelUpdatedAtMs`). */
+  inputLevelUpdatedAtMs?: number | null;
   /** True only when a real analyser is attached. `false`/absent => render "no level feedback". */
   meterSupported?: boolean;
   /**
@@ -180,6 +189,10 @@ export interface LiveVoiceSnapshot {
    * listening rather than inferring speech from transcript timing.
    */
   outputLevel?: number | null;
+  /** True only when a real analyser is attached to the remote output stream (DS2 `outputMeterSupported`). */
+  outputMeterSupported?: boolean;
+  /** Epoch ms of the real sample backing `outputLevel` (DS2 `outputLevelUpdatedAtMs`). */
+  outputLevelUpdatedAtMs?: number | null;
   /** True while the microphone TRACK is muted (output keeps playing). Not an output pause. */
   microphoneMuted?: boolean;
   /** Absolute, server-admitted session deadline (epoch ms), from the create/replay receipt. */
@@ -190,11 +203,6 @@ export interface LiveVoiceSnapshot {
 
 const readFiniteNumber = (value: unknown): number | null =>
   typeof value === 'number' && Number.isFinite(value) ? value : null;
-
-const readLevel = (value: unknown): number | null => {
-  const level = readFiniteNumber(value);
-  return level === null ? null : Math.min(1, Math.max(0, level));
-};
 
 /** The admitted deadline may arrive under the contract name or the receipt's own name. */
 function readDeadlineMs(state: LiveVoiceSnapshot): number | null {
@@ -280,7 +288,7 @@ function LiveSession(props: { conversationId: string; onQuery: LiveVoiceProps['o
   return <section className={styles.rail} aria-label={t('global_coach.live_title')}>
     <header className={styles.railHeader}>
       <span className={styles.railTitle}><AudioLines size={16} aria-hidden="true" />{t('global_coach.live_title')}</span>
-      <button type="button" className={styles.iconButton} onClick={props.onClose} aria-label={t('global_coach.close')}><X size={18} aria-hidden="true" /></button>
+      <button type="button" className={styles.iconButton} onClick={props.onClose} aria-label={t('global_coach.close')}><AskTropheIcon name="close" size={18} /></button>
     </header>
     {loadFailed && <p role="alert" className={styles.alert}>{t('global_coach.live_error')}</p>}
     {runtime && <LiveVoiceRail runtime={runtime} onTranscript={props.onTranscript} />}
@@ -296,6 +304,32 @@ function LiveVoiceRail({ runtime, onTranscript }: { runtime: LiveVoiceRuntimePor
   const inactive = ['idle', 'failed', 'closed'].includes(state.phase);
   const live = state.phase === 'live';
   const muted = state.microphoneMuted === true;
+  const [waveHost, setWaveHost] = useState<HTMLDivElement | null>(null);
+  const wave = useRef<AskTropheWaveHandle | null>(null);
+  const visual = useRef<ReturnType<typeof connectAskTropheVisual> | null>(null);
+  // Phase/status is derived from the engine snapshot on EVERY render, independently of whether a
+  // renderer is mounted. An unsupported microphone analyser must never freeze the status line, and
+  // a valid output trace must still render when only the input meter is unavailable.
+  const viewState = askTropheViewState(state);
+
+  // One renderer per mounted rail. Unmount, conversation change and subject change dispose it,
+  // so a late callback from an old session can never paint the new surface.
+  useEffect(() => {
+    if (!waveHost) return;
+    const handle = mountAskTropheWave(waveHost);
+    const connection = connectAskTropheVisual(handle);
+    wave.current = handle;
+    visual.current = connection;
+    return () => { connection.dispose(); wave.current = null; visual.current = null; };
+  }, [waveHost]);
+
+  // Snapshot -> visual state, plus only the levels the engine actually published as new values.
+  useEffect(() => {
+    const connection = visual.current;
+    if (!connection) return;
+    connection.updateState(state);
+    connection.pushLevels(state);
+  }, [state, waveHost]);
 
   // Stream transcript turns into the one chat history. A group is emitted once and re-emitted only
   // when a late fragment revised it, so revisions update the existing chat entry in place.
@@ -324,104 +358,67 @@ function LiveVoiceRail({ runtime, onTranscript }: { runtime: LiveVoiceRuntimePor
   }, [deadlineMs, live]);
 
   // A real analyser is the only source of a level; without one the rail says so instead of faking.
+  // The two channels are independent: the microphone analyser may be unavailable while the remote
+  // output analyser is attached (and vice versa), so each is gated on its own support flag.
   const meterSupported = state.meterSupported === true || typeof state.inputLevel === 'number';
-  const inputLevel = meterSupported ? readLevel(state.inputLevel) : null;
-  const outputLevel = readLevel(state.outputLevel);
-  const speaking = live && !muted && outputLevel !== null && outputLevel > 0.02;
-  const statusKey = inactive ? 'global_coach.live_ready'
-    : state.phase === 'closing' ? 'global_coach.live_ending'
-      : state.phase !== 'live' ? 'global_coach.live_connecting'
-        : speaking ? 'global_coach.live_speaking' : 'global_coach.live_listening';
+  const outputMeterSupported = state.outputMeterSupported === true || typeof state.outputLevel === 'number';
+  // Keep a renderer mounted whenever EITHER channel can produce a real trace. Only a snapshot with
+  // no analyser at all replaces the host with an honest "no level" notice.
+  const rendererSupported = meterSupported || outputMeterSupported;
+  const statusKey = viewState === 'idle' ? 'global_coach.live_ready'
+    : viewState === 'requesting_input' ? 'global_coach.live_requesting'
+      : viewState === 'waiting_started' ? 'global_coach.live_waiting'
+        : viewState === 'closing' ? 'global_coach.live_ending'
+          : viewState === 'ended' ? 'global_coach.live_finished'
+            : viewState === 'connecting' ? 'global_coach.live_connecting'
+              : viewState === 'error' ? 'global_coach.live_error'
+                : viewState === 'thinking' ? 'global_coach.live_working'
+                  : viewState === 'speaking' ? 'global_coach.live_speaking'
+                    : viewState === 'paused' ? 'global_coach.live_paused'
+                      : viewState === 'muted' ? 'global_coach.live_mic_muted'
+                        : 'global_coach.live_listening';
 
   const canMute = live && typeof controller.setMicrophoneMuted === 'function';
+  // The generic failure text is already the status line for the `error` visual state; the alert is
+  // reserved for the actionable acquisition failures that name a real recovery step.
   const errorKey = state.error === 'permission' ? 'global_coach.live_microphone_permission'
     : state.error === 'unsupported' ? 'global_coach.live_microphone_unavailable'
-      : state.error === 'playback_blocked' ? null : state.error ? 'global_coach.live_error' : null;
+      : null;
 
-  return <>
-    <p role="status" aria-live="polite" className={styles.status}>{t(statusKey)}</p>
-    {muted && !inactive && <p role="status" className={styles.mutedNotice}>{t('global_coach.live_mic_muted')}</p>}
-    {errorKey && <p role="alert" className={styles.alert}>{t(errorKey)}</p>}
-    {live && !meterSupported
-      ? <p className={styles.mutedNotice}>{t('global_coach.live_no_level')}</p>
-      : <LiveVoiceWaveform level={muted ? 0 : inputLevel} live={live && !muted && meterSupported} label={t('global_coach.live_waveform')} />}
-    {remainingMs !== null && <p className={styles.deadline}>{t('global_coach.live_time_left', { seconds: Math.max(0, Math.ceil(remainingMs / 1000)) })}</p>}
-    {state.busy && <p role="status" className={styles.status}>{t('global_coach.live_working')}</p>}
-    <div className={styles.controls}>
+  // Compact idle / expanded conversation: the body (visual area + controls) only exists once a
+  // session is engaged, exactly as in the approved demo (`data-expanded` drives the grid-row tween).
+  const expanded = viewState !== 'idle' && viewState !== 'ended';
+  // The dock carries no landmark name of its own: the enclosing rail is the single labelled region
+  // and its header is the single heading, so the surface is not announced twice.
+  return <div className={styles.dock} data-state={viewState} data-expanded={String(expanded)}>
+    <div className={styles.dockHead}>
       {inactive
-        ? <button type="button" className={styles.startCta} onClick={() => void controller.startFromGesture()}>{t('global_coach.live_start')}</button>
-        : <button type="button" className={styles.endButton} onClick={() => controller.stop()}><Square size={15} aria-hidden="true" />{t('global_coach.live_end')}</button>}
-      {canMute && <button type="button" className={styles.controlButton} aria-pressed={muted} onClick={() => controller.setMicrophoneMuted!(!muted)}>
-        {muted ? <MicOff size={17} aria-hidden="true" /> : <Mic size={17} aria-hidden="true" />}
-        {t(muted ? 'global_coach.live_unmute_mic' : 'global_coach.live_mute_mic')}
-      </button>}
-      {state.canInterrupt && <button type="button" className={styles.controlButton} onClick={() => controller.interrupt?.()}><Pause size={17} aria-hidden="true" />{t('global_coach.live_interrupt')}</button>}
-      {state.interrupted && <button type="button" className={styles.controlButton} onClick={() => controller.clearInterruption?.()}><Play size={17} aria-hidden="true" />{t('global_coach.live_resume')}</button>}
-      {state.playbackBlocked && !state.interrupted && <button type="button" className={styles.controlButton} onClick={() => controller.resumePlayback?.()}><Play size={17} aria-hidden="true" />{t('global_coach.live_resume')}</button>}
+        ? <button type="button" className={styles.iconButton} onClick={() => void controller.startFromGesture()} aria-label={t('global_coach.live_start')}><AskTropheIcon name="mic" size={18} /></button>
+        : <span className={styles.dockGlyph} aria-hidden="true"><AudioLines size={16} /></span>}
+      <p role="status" aria-live="polite" className={styles.status}>{t(statusKey)}</p>
+      {remainingMs !== null && <span className={styles.deadline}>{t('global_coach.live_time_left', { seconds: Math.max(0, Math.ceil(remainingMs / 1000)) })}</span>}
     </div>
-  </>;
-}
-
-const WAVEFORM_BARS = 24;
-const WAVEFORM_BASELINE = 0.12;
-
-/**
- * `resolved` stays false on the server and on the first client paint so hydration is stable; the
- * waveform only starts once the real preference is known.
- */
-function usePrefersReducedMotion(): { reduce: boolean; resolved: boolean } {
-  const [preference, setPreference] = useState({ reduce: false, resolved: false });
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-      setPreference({ reduce: false, resolved: true });
-      return;
-    }
-    const query = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const apply = () => setPreference({ reduce: query.matches, resolved: true });
-    apply();
-    query.addEventListener?.('change', apply);
-    return () => query.removeEventListener?.('change', apply);
-  }, []);
-  return preference;
-}
-
-/**
- * Large waveform driven by the real input amplitude. The animation loop runs ONLY while the
- * session is live and the engine reports an amplitude; otherwise the bars stay at rest. Reduced
- * motion keeps a still, meaningful shape at the current level instead of animating.
- */
-function LiveVoiceWaveform({ level, live, label }: { level: number | null; live: boolean; label: string }) {
-  const bars = useRef<Array<HTMLSpanElement | null>>([]);
-  const target = useRef(0);
-  const { reduce, resolved } = usePrefersReducedMotion();
-  const measurable = typeof level === 'number';
-  useEffect(() => {
-    target.current = measurable ? Math.min(1, Math.max(0, level as number)) : 0;
-  }, [level, measurable]);
-  useEffect(() => {
-    const paint = (values: number[]) => {
-      bars.current.forEach((bar, index) => { if (bar) bar.style.transform = `scaleY(${(values[index] ?? WAVEFORM_BASELINE).toFixed(3)})`; });
-    };
-    if (!resolved || !live || !measurable) {
-      paint(Array.from({ length: WAVEFORM_BARS }, () => WAVEFORM_BASELINE));
-      return;
-    }
-    if (reduce) {
-      paint(Array.from({ length: WAVEFORM_BARS }, (_, index) => WAVEFORM_BASELINE + (1 - WAVEFORM_BASELINE) * Math.abs(Math.sin((index + 1) * 1.7)) * target.current));
-      return;
-    }
-    let samples = Array.from({ length: WAVEFORM_BARS }, () => WAVEFORM_BASELINE);
-    let frame = 0;
-    const tick = () => {
-      samples = [...samples.slice(1), Math.max(WAVEFORM_BASELINE, target.current)];
-      paint(samples);
-      frame = requestAnimationFrame(tick);
-    };
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [resolved, live, measurable, reduce]);
-  const indices = useMemo(() => Array.from({ length: WAVEFORM_BARS }, (_, index) => index), []);
-  return <div className={styles.waveform} role="img" aria-label={label}>
-    {indices.map(index => <span key={index} ref={node => { bars.current[index] = node; }} style={{ transform: `scaleY(${WAVEFORM_BASELINE})` }} />)}
+    <div className={styles.dockBody}>
+      <div className={styles.dockBodyInner}>
+        {muted && viewState !== 'muted' && <p role="status" className={styles.mutedNotice}>{t('global_coach.live_mic_muted')}</p>}
+        {errorKey && <p role="alert" className={styles.alert}>{t(errorKey)}</p>}
+        <div className={styles.waveWrap}>
+          {/* Decorative progress arc: it never represents an audio level. */}
+          <svg className={styles.thinkingArc} viewBox="0 0 400 56" aria-hidden="true" focusable="false"><path d="M0 30C80 30 98 14 150 22S232 52 280 28 352 28 400 30" /></svg>
+          {(!live || rendererSupported) && <div className={styles.waveHost} ref={setWaveHost} role="img" aria-label={t(meterSupported ? 'global_coach.live_waveform' : 'global_coach.live_waveform_output')} />}
+        </div>
+        {/* Keep the channel notice in normal flow, including when short viewports hide the wave. */}
+        {live && !meterSupported && <p className={styles.mutedNotice}>{t('global_coach.live_no_level')}</p>}
+        <div className={styles.controls}>
+          {!inactive && <button type="button" className={styles.endButton} onClick={() => controller.stop()} aria-label={t('global_coach.live_end')}><AskTropheIcon name="end" size={18} /></button>}
+          {canMute && <button type="button" className={styles.controlButton} aria-pressed={muted} onClick={() => controller.setMicrophoneMuted!(!muted)} aria-label={t(muted ? 'global_coach.live_unmute_mic' : 'global_coach.live_mute_mic')}>
+            <AskTropheIcon name={muted ? 'micOff' : 'mic'} size={18} />
+          </button>}
+          {state.canInterrupt && <button type="button" className={styles.controlButton} onClick={() => controller.interrupt?.()} aria-label={t('global_coach.live_interrupt')}><AskTropheIcon name="pause" size={18} /></button>}
+          {state.interrupted && <button type="button" className={styles.controlButton} onClick={() => controller.clearInterruption?.()} aria-label={t('global_coach.live_resume')}><AskTropheIcon name="play" size={18} /></button>}
+          {state.playbackBlocked && !state.interrupted && <button type="button" className={styles.controlButton} onClick={() => controller.resumePlayback?.()} aria-label={t('global_coach.live_resume')}><AskTropheIcon name="play" size={18} /></button>}
+        </div>
+      </div>
+    </div>
   </div>;
 }

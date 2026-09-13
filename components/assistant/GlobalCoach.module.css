@@ -77,7 +77,7 @@
 .compactVoice { position: relative; flex: 0 0 auto; }
 .compactVoice > summary { display: grid; width: 44px; height: 44px; place-items: center; border-radius: 13px; color: var(--text-secondary); }
 .compactVoice .voiceBody { position: absolute; right: 0; bottom: 50px; width: min(19rem, calc(100vw - 3rem)); max-height: min(42dvh, 22rem); overflow: auto; padding: .65rem; border: 1px solid var(--border-default); border-radius: 14px; background: color-mix(in srgb, var(--bg-primary) 96%, transparent); box-shadow: 0 16px 48px rgba(0,0,0,.34); }
-.compactVoiceReview { position: absolute; z-index: 6; right: .7rem; bottom: 4.5rem; left: .7rem; max-height: min(42dvh, 22rem); overflow: auto; padding: .7rem; border: 1px solid var(--border-default); border-radius: 14px; background: color-mix(in srgb, var(--bg-primary) 96%, transparent); box-shadow: 0 16px 48px rgba(0,0,0,.34); }
+.compactVoiceReview { position: static; order: -1; flex: 1 0 100%; max-height: min(42dvh, 22rem); overflow: auto; margin: .15rem 0 .3rem; padding: .7rem; border: 1px solid var(--at-line); border-radius: 16px; background: color-mix(in srgb, var(--at-surface) 94%, transparent); }
 .speechControls { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem; margin-top: .65rem; }
 .speechControl { display: inline-flex; min-height: 40px; align-items: center; gap: .4rem; padding: .45rem .65rem; border: 1px solid var(--border-default); border-radius: 10px; color: var(--text-secondary); font-size: .75rem; }
 .speechRate { display: inline-flex; align-items: center; gap: .4rem; color: var(--text-secondary); font-size: .75rem; }
@@ -173,3 +173,101 @@
 .inlineVoice .voiceBody p { font-size: .75rem; }
 .inlineVoice button { margin: 0; }
 .inlineVoice { max-height: 24dvh; overflow: auto; }
+
+/* ==========================================================================================
+   Approved Ask Trophē premium surface (AG2 final package translated into this CSS module).
+   Tokens map onto the product theme pair, so light and dark both come from the existing theme.
+   ========================================================================================== */
+/* The premium surface tokens must live on every element that is actually rendered through a portal:
+   the launcher is portaled into `#global-coach-anchor` (AppHeader) and the dialog is portaled into
+   `document.body`, so neither inherits from `.root`. Declaring them here keeps one theme source
+   (the product html-level `dark`/`light` variables) instead of re-deriving colors per surface. */
+.root, .launcher, .panel {
+  --at-bg: var(--bg-primary, #0b0c0c);
+  --at-surface: var(--bg-input, #151615);
+  --at-user: color-mix(in srgb, var(--gold-300, #d4a853) 16%, var(--bg-input, #141414));
+  --at-text: var(--text-primary, #f5f2ec);
+  --at-muted: var(--text-secondary, #aaa69e);
+  --at-line: var(--border-default, #343530);
+  --at-gold: var(--performance-gold, var(--gold-300, #d4a853));
+  --at-danger: #f19791;
+  --at-ease: cubic-bezier(.22, 1, .36, 1);
+}
+
+.launcher { gap: .55rem; min-height: 44px; padding: .55rem .8rem; border: 1px solid var(--at-line); border-radius: 999px; background: color-mix(in srgb, var(--at-bg) 88%, transparent); color: var(--at-text); font-size: .8125rem; font-weight: 650; box-shadow: 0 10px 30px rgba(0, 0, 0, .18); }
+.launcher svg { color: var(--at-gold); }
+
+/* Full-height mobile surface; a readable desktop card. */
+.panel { border: 1px solid var(--at-line); border-radius: 22px; background: color-mix(in srgb, var(--at-bg) 96%, transparent); animation: coach-rise 220ms var(--at-ease); }
+.header { min-height: 60px; border-bottom: 1px solid var(--at-line); background: color-mix(in srgb, var(--at-bg) 72%, transparent); }
+.header h2 { font-size: 1rem; font-weight: 700; letter-spacing: -.01em; }
+.header p, .context { color: var(--at-muted); }
+.mark { color: var(--at-gold); }
+.menuBody { background: color-mix(in srgb, var(--at-bg) 96%, transparent); }
+
+/* Unified transcript: one readable column, real turn separation, overflow-safe. */
+.log { padding: 1.6rem max(1rem, calc((100% - 760px) / 2)); overflow-wrap: anywhere; }
+.intro { max-width: 42ch; color: var(--at-muted); }
+.turn { max-width: 760px; }
+.turn + .turn { margin-top: 1.5rem; padding-top: 1.35rem; border-top: 1px solid color-mix(in srgb, var(--at-text) 9%, transparent); }
+.question { border-radius: 20px 20px 5px 20px; background: var(--at-user); color: var(--at-text); font-weight: 600; }
+.answer { line-height: 1.65; }
+
+/* One artifact for estimate/review; a receipt only for a confirmed server result. */
+.foodReview { padding: 1rem; border: 1px solid var(--at-line); border-radius: 16px; margin: 1rem 0; max-width: 540px; background: color-mix(in srgb, var(--at-surface) 92%, transparent); }
+.foodReview h3 { font-size: 1.0625rem; font-weight: 650; margin: .25rem 0 .6rem; }
+.foodReview caption { color: var(--at-gold); font-size: .75rem; letter-spacing: .02em; text-transform: none; }
+.receipt { margin: 1.1rem 0; padding-left: .9rem; border-left: 2px solid var(--at-gold); }
+.receipt p { margin: .25rem 0; }
+.photoReview { max-width: 540px; border: 1px solid var(--at-line); border-radius: 16px; }
+
+.sidebar { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.sidebar .menuBody { flex: none; min-height: 0; overflow: visible; padding: 1.1rem .9rem; background: transparent; }
+
+/* Compact composer with a bounded attachment preview and real enlargement. */
+.composer { width: min(100%, 800px); margin: auto; padding: .45rem .7rem max(.7rem, env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--at-line); background: color-mix(in srgb, var(--at-bg) 82%, transparent); }
+.composeRail { border-radius: 22px; background: color-mix(in srgb, var(--at-surface) 92%, transparent); }
+.composeRail textarea { font-size: 16px; }
+.sendButton { width: 44px; height: 44px; border-radius: 999px; }
+.attachments img, .selectedPhotos img { width: 56px; height: 56px; border-radius: 12px; }
+.selectedPhotos > li { max-width: 18rem; }
+.attachmentZoom { display: block; width: fit-content; border: 0; padding: 0; background: transparent; cursor: zoom-in; }
+.attachmentZoom[open] { cursor: zoom-out; }
+.attachmentZoom summary { list-style: none; display: block; }
+.attachmentZoom summary::-webkit-details-marker { display: none; }
+.attachmentExpanded { position: fixed; z-index: 60; inset: 0; display: grid; place-items: center; padding: 1.5rem; background: rgba(0, 0, 0, .62); }
+/* Local dismissal: a dismissible backdrop plus an explicit 44px close control over the image. */
+.attachmentBackdrop { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; border-radius: 0; background: transparent; }
+.attachmentExpanded img { position: relative; z-index: 1; width: auto; height: auto; max-width: min(92vw, 40rem); max-height: 80dvh; border-radius: 14px; object-fit: contain; }
+.attachmentClose { position: absolute; z-index: 2; top: max(1rem, env(safe-area-inset-top, 0px)); right: 1rem; display: grid; width: 44px; height: 44px; place-items: center; border: 1px solid color-mix(in srgb, #fff 38%, transparent); border-radius: 999px; background: rgba(12, 12, 12, .68); color: #f5f2ec; }
+.attachmentClose:focus-visible { outline: 2px solid #f5f2ec; outline-offset: 2px; }
+
+/* Mobile: full-height premium surface; history replaces the thread while it is open. */
+@media (max-width: 767px) {
+  .panel { inset-inline: 0; border-radius: 0; border-left: 0; border-right: 0; }
+  .header { padding-top: max(.65rem, env(safe-area-inset-top, 0px)); }
+  .log { padding: 1.1rem .95rem; }
+  .panel[data-history="true"] .log, .panel[data-history="true"] .composer { display: none; }
+}
+
+/* Desktop: 248px history column beside the readable thread. */
+@media (min-width: 768px) {
+  .panel { width: min(64rem, calc(100vw - 2.5rem)); height: min(88dvh, 52rem); }
+  .panel[data-history="true"] { display: grid; grid-template-columns: 248px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; }
+  .panel[data-history="true"] .header { grid-column: 1 / -1; }
+  .panel[data-history="true"] .sidebar { grid-column: 1; grid-row: 2 / span 2; border-right: 1px solid var(--at-line); }
+  .panel[data-history="true"] .log { grid-column: 2; }
+  .panel[data-history="true"] .composer { grid-column: 2; }
+  .log { scrollbar-gutter: stable; }
+}
+
+/* Short viewports keep the composer and status; the voice visual area collapses. */
+@media (max-height: 560px) {
+  .header { min-height: 48px; }
+  .header p { display: none; }
+  .log { padding-block: .75rem; }
+}
+
+@media (prefers-reduced-motion: reduce) { .panel { animation: none; } }
+.latestButton { align-self: center; width: fit-content; margin: 0 auto .4rem; border: 1px solid var(--at-line); border-radius: 999px; background: color-mix(in srgb, var(--at-surface) 92%, transparent); color: var(--at-text); }
+.panel[data-history="true"] .latestButton { display: none; }

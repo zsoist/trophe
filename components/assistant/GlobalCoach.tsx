@@ -2,10 +2,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { createPortal } from 'react-dom';
-import { History, Menu, Send, Sparkles, Square, X } from 'lucide-react';
+import { History, Sparkles } from 'lucide-react';
 import { ConversationController, coachSurface, type ConversationTransport } from './conversation-state';
 import { requestConversation } from './client';
 import { AskTropheMark } from './AskTropheMark';
+import { AskTropheIcon } from './ask-trophe-icons';
 import { ResponseText } from './ResponseText';
 import { globalCoachTranslations } from '@/lib/locales/global-coach';
 import { acceptedScreenSelection, subscribeScreenSelection, screenSelectionSnapshot, emptyScreenSelection } from './screen-selection';
@@ -243,6 +244,9 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   const [historyOpen, setHistoryOpen] = useState(false);
   const [includeScreen, setIncludeScreen] = useState(true);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  // Mobile history replaces the thread (its CSS hides .log/.composer); the desktop history column
+  // does not. Only the mobile layout gets an inert, out-of-tab-order thread.
+  const [mobileThreadHidden, setMobileThreadHidden] = useState(false);
   const [viewportMetrics, setViewportMetrics] = useState<{ height: number; keyboardInset: number; top: number } | null>(null);
   const launcher = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLElement>(null);
@@ -309,6 +313,16 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
     };
   }, [open]);
   useEffect(() => { if (open) panel.current?.focus({ preventScroll: true }); }, [open]);
+  // Narrow-viewport detection for the mobile history swap; jsdom/older hosts without matchMedia stay
+  // on the layout the CSS serves by default (thread visible, history column or in-flow menu).
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return;
+    const query = window.matchMedia('(max-width: 767px)');
+    const update = () => setMobileThreadHidden(query.matches);
+    update();
+    query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, []);
   useEffect(() => {
     const node=input.current;if(!open||!node)return;
     node.style.height='auto';node.style.height=`${Math.min(node.scrollHeight,112)}px`;
@@ -357,8 +371,16 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
     if (event.key === 'Escape') { event.stopPropagation(); close(); return; }
     if (event.key !== 'Tab' || !panel.current) return;
     const focusable = Array.from(panel.current.querySelectorAll<HTMLElement>('button:not(:disabled), summary, textarea:not(:disabled), input:not(:disabled):not([hidden]), select:not(:disabled), [tabindex]:not([tabindex="-1"])')).filter(node => {
+      // Only real, visible focus targets may anchor the loop. Hidden regions (mobile history hides
+      // the thread/composer) are inert or display:none, and closed disclosures hide their body.
+      if (node.hasAttribute('hidden') || node.closest('[hidden], [inert]')) return false;
       const closedDisclosure = node.closest('details:not([open])');
-      return !closedDisclosure || closedDisclosure.firstElementChild === node;
+      if (closedDisclosure && closedDisclosure.firstElementChild !== node) return false;
+      for (let element: HTMLElement | null = node; element && element !== panel.current; element = element.parentElement) {
+        const style = typeof window.getComputedStyle === 'function' ? window.getComputedStyle(element) : null;
+        if (style && (style.display === 'none' || style.visibility === 'hidden')) return false;
+      }
+      return true;
     });
     if (!focusable.length) return;
     const first = focusable[0]; const last = focusable[focusable.length - 1];
@@ -370,6 +392,9 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
     '--coach-viewport-top': `${viewportMetrics.top}px`,
     '--coach-keyboard-inset': `${viewportMetrics.keyboardInset}px`,
   } as CSSProperties : undefined;
+  // On mobile the history view replaces the thread; mark the hidden thread/composer inert so no
+  // keyboard or assistive traversal can reach display:none descendants.
+  const threadInert = historyOpen && mobileThreadHidden;
   const currentContext = (): CoachContextHint => {
     const contextualSelection = includeScreen && selection
       ? selection.anatomy ? { anatomy: selection.anatomy } : { entity: selection.entity }
@@ -524,22 +549,23 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
     ],
   }));
   const launch = <button ref={launcher} type="button" className={styles.launcher} aria-expanded={open} aria-controls="global-coach" onClick={() => open ? close() : setOpen(true)}>
-      <AskTropheMark />{t('global_coach.open')}
+      <AskTropheMark size={32} />{t('global_coach.open')}
     </button>;
   return <div className={styles.root}>
     {anchor ? createPortal(launch, anchor) : launch}
     {open && createPortal(<>
       <button ref={backdrop} type="button" className={styles.backdrop} onClick={close} aria-hidden="true" tabIndex={-1} />
-      <section ref={panel} id="global-coach" className={styles.panel} style={panelStyle} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="global-coach-title" onKeyDown={handleDialogKeyDown}>
+      <section ref={panel} id="global-coach" className={styles.panel} data-history={historyOpen ? 'true' : 'false'} style={panelStyle} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="global-coach-title" onKeyDown={handleDialogKeyDown}>
       <header className={styles.header}>
         <div className={styles.identity}><span className={styles.mark}><AskTropheMark size={32} /></span><div><h2 id="global-coach-title">{t('global_coach.title')}</h2><p>{t(example ? 'global_coach.example' : 'global_coach.identity')}</p>{subjectId && subjectId !== identity && <p className={styles.subject}>{t('global_coach.professional_subject', { subject: subjectId.slice(0, 8) })}</p>}</div></div>
         <div className={styles.headerActions}>
-          <button type="button" className={styles.iconButton} aria-label={t('global_coach.saved_chats')} aria-expanded={historyOpen} onClick={() => { panel.current?.querySelectorAll<HTMLDetailsElement>('[data-coach-popover][open]').forEach(node => { node.open = false; }); setHistoryOpen(current => !current); }}><Menu size={20} aria-hidden="true" /></button>
-          <button type="button" className={styles.iconButton} onClick={close} aria-label={t('global_coach.close')}><X size={20} /></button>
+          <button type="button" className={styles.iconButton} aria-label={t('global_coach.saved_chats')} aria-expanded={historyOpen} onClick={() => { panel.current?.querySelectorAll<HTMLDetailsElement>('[data-coach-popover][open]').forEach(node => { node.open = false; }); setHistoryOpen(current => !current); }}><AskTropheIcon name="history" size={20} /></button>
+          <button type="button" className={styles.iconButton} onClick={close} aria-label={t('global_coach.close')}><AskTropheIcon name="close" size={20} /></button>
         </div>
       </header>
       {historyOpen && (
-            <div className={styles.menuBody} aria-label={t('global_coach.saved_chats')}>
+            <aside className={styles.sidebar} aria-label={t('global_coach.saved_chats')}>
+            <div className={styles.menuBody}>
               <label className={styles.contextToggle}><input type="checkbox" checked={includePhoto} onChange={event => setIncludePhoto(event.target.checked)} />{t('global_coach.photo_context')}</label>
               <label className={styles.contextToggle}><input type="checkbox" checked={includeScreen} onChange={event => setIncludeScreen(event.target.checked)} />{t('global_coach.include')} · {selection?.label ?? t(`global_coach.${surface}`)}</label>
               {historyEnabled && <button type="button" disabled={coachActionBlocked || state.pending || state.recovering} onClick={startNewConversation}><Sparkles size={16} aria-hidden="true" />{t('global_coach.new_chat')}</button>}
@@ -560,11 +586,12 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
               {progressEnabled && <details className={styles.profile} onToggle={event => { if (event.currentTarget.open) { voice.reset(); if (!progressState.subjectId) progress.select(identity, state.conversationId); if (!progress.snapshot().snapshot) void progress.read(progressTransport ?? requestProgress); } }}><summary>{t('global_coach.progress_title')}</summary><ProgressPanel controller={progress} state={progressState} transport={progressTransport ?? requestProgress} onSaved={() => window.dispatchEvent(new CustomEvent(COACH_PROGRESS_REFRESH, { detail: { actorId: identity } }))} /></details>}
               {memoryEnabled && <details className={styles.profile} onToggle={event => { if (event.currentTarget.open) { voice.reset(); if (!memoryState.loaded) void memory.read(memoryTransport ?? requestMemory); } }}><summary>{t('global_coach.memory')}</summary><MemoryPanel controller={memory} state={memoryState} transport={memoryTransport ?? requestMemory} /></details>}
             </div>
+            {latestResponse && latestTurn && <ContextCards response={latestResponse} conversationId={state.conversationId} subjectId={subjectId} hideMemories={memoryEnabled} onExpand={() => voice.reset()} controller={preferences} state={preferenceState} transport={preferenceTransport ?? requestPreference}>{contextSlot?.({ identity, controller: preferences, state: preferenceState, conversationId: state.conversationId, turnId: latestTurn.request.turnId, surface, response: latestResponse, transport: preferenceTransport ?? requestPreference })}</ContextCards>}
+            </aside>
       )}
       {professionalMode && <p className={styles.professionalNotice}>{t(missingProfessionalSubject ? 'global_coach.professional_select_subject' : 'global_coach.professional_notice')}</p>}
       {professionalCapability && <p className={styles.capabilityStatus}>{t(`global_coach.${surface}`)} · {t(`global_coach.capability_${professionalCapability.status}`)}</p>}
-      {historyOpen && latestResponse && latestTurn && <ContextCards response={latestResponse} conversationId={state.conversationId} subjectId={subjectId} hideMemories={memoryEnabled} onExpand={() => voice.reset()} controller={preferences} state={preferenceState} transport={preferenceTransport ?? requestPreference}>{contextSlot?.({ identity, controller: preferences, state: preferenceState, conversationId: state.conversationId, turnId: latestTurn.request.turnId, surface, response: latestResponse, transport: preferenceTransport ?? requestPreference })}</ContextCards>}
-      <div ref={log} hidden={historyOpen} className={styles.log} role="log" aria-live="polite" aria-relevant="additions text" onScroll={() => {
+      <div ref={log} className={styles.log} role="log" aria-live="polite" aria-relevant="additions text" inert={threadInert || undefined} onScroll={() => {
         const node = log.current; if (!node) return;
         followLatest.current = node.scrollHeight - node.scrollTop - node.clientHeight < 64;
         if (followLatest.current) setShowLatest(false);
@@ -611,8 +638,8 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
         {state.pending && <p className={styles.pending} role="status"><span aria-hidden="true" />{t(state.turns.at(-1)?.request.attachments?.length ? 'global_coach.preparing_photo_answer' : 'global_coach.preparing_answer')}</p>}
         {state.error && <div role="status"><p>{t(state.recovering ? 'global_coach.history_checking' : state.recoveryRequired ? 'global_coach.history_waiting' : `global_coach.${state.error}`)}</p>{state.recoveryRequired && <button type="button" className={styles.recoveryButton} disabled={state.recovering} onClick={() => { const read = (historyTransport ?? requestHistory).recover; if (read) void controller.recover(read); }}>{t('global_coach.history_check')}</button>}</div>}
       </div>
-      {showLatest && <button type="button" className="min-h-11 px-4 text-sm" onClick={() => { followLatest.current = true; setShowLatest(false); log.current?.scrollTo({ top: log.current.scrollHeight }); }}>{t('global_coach.latest')}</button>}
-      <form className={styles.composer} onSubmit={event => { event.preventDefault(); void send(); }}>
+      {showLatest && <button type="button" className={`${styles.latestButton} min-h-11 px-4 text-sm`} inert={historyOpen || undefined} onClick={() => { followLatest.current = true; setShowLatest(false); log.current?.scrollTo({ top: log.current.scrollHeight }); }}>{t('global_coach.latest')}</button>}
+      <form className={styles.composer} inert={threadInert || undefined} onSubmit={event => { event.preventDefault(); void send(); }}>
         <AttachmentPicker compact deferUpload maxPhotos={1} controller={attachments} state={attachmentState} conversationId={state.conversationId} transport={photoTransportEnabled ? requestAttachment : undefined} analysisEnabled={photoFoodEnabled} prepareConversation={photoFoodEnabled && !state.durable ? preparePhotoConversation : undefined} disabled={state.pending || coachActionBlocked} />
 
         <div ref={setVoiceHost} />
@@ -661,7 +688,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
           controller.setDraft(combined);
           return true;
         }, onSend: reviewedVoiceTransport || !example && process.env.NEXT_PUBLIC_COACH_VOICE_REVIEW_ENABLED === '1' ? sendVoice : undefined, onTranscript: appendVoiceRow })}
-        <button type={state.pending ? 'button' : 'submit'} className={styles.sendButton} onClick={state.pending ? () => controller.cancel() : undefined} disabled={preparingPhotos || !state.pending && (missingProfessionalSubject || state.recoveryRequired || !state.draft.trim() || attachmentState.pending || voiceActive || voiceBusy || composerSubmitBlocked)} aria-label={t(state.pending ? 'global_coach.cancel' : 'global_coach.send')}>{state.pending ? <Square size={15} aria-hidden="true" /> : <Send size={17} aria-hidden="true" />}</button>
+        <button type={state.pending ? 'button' : 'submit'} className={styles.sendButton} onClick={state.pending ? () => controller.cancel() : undefined} disabled={preparingPhotos || !state.pending && (missingProfessionalSubject || state.recoveryRequired || !state.draft.trim() || attachmentState.pending || voiceActive || voiceBusy || composerSubmitBlocked)} aria-label={t(state.pending ? 'global_coach.cancel' : 'global_coach.send')}><AskTropheIcon name={state.pending ? 'end' : 'send'} size={17} /></button>
         </div>
       </form>
     </section></>, document.body)}

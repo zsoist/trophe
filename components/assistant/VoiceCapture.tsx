@@ -1,7 +1,8 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Mic, RotateCcw, Square } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
+import { AskTropheIcon } from './ask-trophe-icons';
 import { useGlobalCoachI18n } from './useGlobalCoachI18n';
 import { VoiceController, type VoiceState } from './voice-state';
 import type { CoachVoiceResult } from '@/agents/coach-assistant/voice-contract';
@@ -62,7 +63,7 @@ export function VoiceCapture({ controller, state, disabled, conversationId, tran
     {!compact && <p>{t(transcribe ? 'global_coach.voice_connected' : 'global_coach.voice_local')}</p>}
     {state.phase === 'idle' && !processing && <button type="button" disabled={disabled} onClick={() => void start()}>{t('global_coach.voice_start')}</button>}
     {active && <div role="status"><p>{t(`global_coach.voice_${state.phase}`, { seconds: Math.floor(state.elapsedMs / 1000) })}</p>
-      {state.phase === 'recording' && <button type="button" onClick={() => controller.stop()}><Square size={14} aria-hidden="true" />{t('global_coach.voice_stop')}</button>}
+      {state.phase === 'recording' && <button type="button" onClick={() => controller.stop()}><AskTropheIcon name="end" size={14} />{t('global_coach.voice_stop')}</button>}
       <button type="button" onClick={reset}>{t('global_coach.voice_cancel')}</button>
     </div>}
     {processing && <div role="status"><p>{t('global_coach.voice_processing')}</p><button type="button" onClick={reset}>{t('global_coach.voice_cancel')}</button></div>}
@@ -77,11 +78,11 @@ export function VoiceCapture({ controller, state, disabled, conversationId, tran
     {flowError && <p role="alert">{t('global_coach.voice_processing_failed')}</p>}
     </div>;
   if(compact && statusHost) return <>
-    <button type="button" className={styles.iconButton} disabled={disabled || processing} aria-label={t('global_coach.voice')} aria-expanded={expanded} onClick={()=>active?controller.stop():void start()}><Mic size={19} aria-hidden="true" /></button>
+    <button type="button" className={styles.iconButton} disabled={disabled || processing} aria-label={t('global_coach.voice')} aria-expanded={expanded} onClick={()=>active?controller.stop():void start()}><AskTropheIcon name="mic" size={19} /></button>
     {expanded&&createPortal(<div className={`${styles.attachments} ${styles.inlineVoice}`}>{body}</div>,statusHost)}
   </>;
   return <details data-coach-popover className={`${styles.attachments} ${compact ? styles.compactVoice : ''}`} onToggle={event => { if (!event.currentTarget.open && (active || processing)) reset(); }}>
-    <summary aria-label={t('global_coach.voice')}><Mic size={19} aria-hidden="true" /><span className={compact ? 'sr-only' : undefined}>{t('global_coach.voice')}</span></summary>
+    <summary aria-label={t('global_coach.voice')}><AskTropheIcon name="mic" size={19} /><span className={compact ? 'sr-only' : undefined}>{t('global_coach.voice')}</span></summary>
 {body}
   </details>;
 }
