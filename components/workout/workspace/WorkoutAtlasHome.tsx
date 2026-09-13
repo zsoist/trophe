@@ -87,10 +87,11 @@ export function WorkoutAtlasHome({ activations, workedActivations = [], workedAv
   };
   const requestView = (side: AnatomyView) => { setView(side); setManual(false); setCameraRequest(n => n + 1); };
   return <section className="wk2 workout-muscle-home" data-mode={mode} aria-labelledby={headingId}>
-    <header><div><h2 id={headingId}>{t('workout.muscle_map')}</h2><p>{targetLabel}</p></div></header>
+    <header className="workout-muscle-heading"><h2 id={headingId}>{t('workout.muscle_map')}</h2>
     <div className="workout-muscle-tabs" role="group" aria-label={t('anatomy.training_state')}>
       {(['worked', 'planned'] as const).map(item => <button key={item} aria-pressed={mode === item} onClick={() => { setMode(item); setSelected(null); setOpenGroup(null); }}><span>{t(`anatomy.${item}`)}</span><small>{item === 'planned' ? muscleSections(activations).length : workedAvailable ? muscleSections(workedActivations).length : '—'}</small></button>)}
     </div>
+    </header>
     <div className="workout-muscle-body">
       <div className="workout-muscle-figure" data-testid="workout-atlas-stage" ref={stageRef}>
         <div className="workout-muscle-toolbar">
@@ -114,6 +115,7 @@ export function WorkoutAtlasHome({ activations, workedActivations = [], workedAv
           <button type="button" data-testid="workout-muscle-exercises" onClick={openExercises}>{t('anatomy.exercises_view_all')}</button>
           {!selectedActivation && <p role="status">{t(mode === 'worked' ? 'anatomy.no_worked' : 'anatomy.planned_note')}</p>}
         </div>}
+        <p className="workout-muscle-target-context">{targetLabel}</p>
         <h3 className="workout-muscle-section-title">{t('anatomy.involved')}</h3>
         {!visible.length && <p role="status">{t(mode === 'worked' ? workedAvailable ? 'anatomy.no_worked' : 'anatomy.worked_unavailable' : emptyState === 'cardio' ? 'workout.atlas_empty_cardio' : 'workout.atlas_empty_strength')}</p>}
         <div className="workout-muscle-accordions">{groups.map(group => <section className="workout-muscle-section" key={group.id}>
