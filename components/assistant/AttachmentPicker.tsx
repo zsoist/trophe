@@ -25,9 +25,11 @@ export function AttachmentPicker({ controller, state, conversationId, transport,
     if (details) details.open = false;
     trigger?.focus();
   };
-  const onZoomKeyDown = (event: KeyboardEvent<HTMLElement>, key: string) => {
+  const onZoomKeyDown = (event: KeyboardEvent<HTMLDetailsElement>, key: string) => {
     if (event.key !== 'Escape') return;
-    // Stop here so the chat dialog's own Escape handler cannot close the whole conversation.
+    // Only a currently enlarged preview owns Escape. A closed thumbnail must let the surrounding
+    // chat dialog's own Escape handler close the conversation instead of swallowing the key.
+    if (!event.currentTarget.open) return;
     event.preventDefault();
     event.stopPropagation();
     closeZoom(key);

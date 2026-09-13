@@ -48,3 +48,67 @@ it('allows selecting an identified item while leaving an uncertain component uns
  expect(transport.mock.calls.filter(([op])=>op.operation==='photo.food.propose')).toHaveLength(1);
  expect(transport.mock.calls.some(([op])=>op.operation==='photo.food.apply')).toBe(false);
 });
+it('keeps a lost apply pinned when the receipt is not found, then recovers the original receipt on a later check',async()=>{
+ const {controller,transport}=fixture();await controller.select(attachment,conversation,transport);await controller.propose({loggedDate:'2026-09-08',mealType:'lunch',grams:150},transport);
+ const actual=transport.getMockImplementation()!;
+ transport.mockImplementation(async(op,signal)=>{const result=await actual(op,signal);if(op.operation==='photo.food.apply')throw Error('lost');return result;});
+ await controller.apply(transport);expect(controller.snapshot().uncertain).toBe(true);
+ // A missing receipt is absence at lookup time, not proof the delayed apply cannot commit: keep the
+ // pinned envelope and uncertainty, and never retry the mutation automatically.
+ transport.mockImplementation(async(op,signal)=>{if(op.operation==='photo.food.receipt')return {version:'coach-assistant.v2',storage:'database',ok:false,error:'not_found'};return actual(op,signal);});
+ await controller.check(transport);
+ expect(controller.snapshot().uncertain).toBe(true);
+ expect(transport.mock.calls.filter(([op])=>op.operation==='photo.food.apply')).toHaveLength(1);
+ const blocked=transport.mock.calls.length;await controller.propose({loggedDate:'2026-09-08',mealType:'dinner',grams:150},transport);
+ expect(transport.mock.calls.length).toBe(blocked);
+ // A later Check recovers the original, still-immutable action id and the delayed receipt.
+ transport.mockImplementation(actual);
+ await controller.check(transport);
+ const receiptIds=transport.mock.calls.filter(([op])=>op.operation==='photo.food.receipt').map(([op])=>op as Extract<PhotoFoodOperation,{operation:'photo.food.receipt'}>).map(op=>op.actionId);
+ expect(new Set(receiptIds).size).toBe(1);
+ expect(controller.snapshot().receipt?.status).toBe('applied');
+ expect(controller.snapshot().uncertain).toBe(false);
+});
+it('releases a definitively refused review so the panel stays dismissible',async()=>{
+ const {controller,transport}=fixture();await controller.select(attachment,conversation,transport);await controller.propose({loggedDate:'2026-09-08',mealType:'lunch',grams:150},transport);
+ const actual=transport.getMockImplementation()!;
+ transport.mockImplementation(async(op,signal)=>{if(op.operation==='photo.food.apply')return {version:'coach-assistant.v2',storage:'database',ok:false,error:'expired'};return actual(op,signal);});
+ await controller.apply(transport);
+ expect(controller.snapshot()).toMatchObject({uncertain:false,error:'expired',receipt:null});
+ expect(controller.snapshot().proposal).toBeTruthy();
+ function View(){const state=React.useSyncExternalStore(controller.subscribe,controller.snapshot);return <I18nProvider defaultLang="en"><PhotoFoodPanel controller={controller} state={state} transport={transport}/></I18nProvider>}
+ render(<View/>);
+ expect(screen.getByText('This photo has expired. Add it again if you want a new analysis.')).toBeTruthy();
+ fireEvent.click(screen.getByRole('button',{name:'Close saved change'}));
+ expect(controller.snapshot()).toMatchObject({attachmentId:null,snapshot:null,proposal:null,receipt:null,error:null});
+ expect(transport.mock.calls.filter(([op])=>op.operation==='photo.food.apply')).toHaveLength(1);
+});
+it('recovers the original receipt on a later check after a receipt lookup failure',async()=>{
+ const {controller,transport}=fixture();await controller.select(attachment,conversation,transport);await controller.propose({loggedDate:'2026-09-08',mealType:'lunch',grams:150},transport);
+ const actual=transport.getMockImplementation()!;
+ transport.mockImplementation(async(op,signal)=>{const result=await actual(op,signal);if(op.operation==='photo.food.apply')throw Error('committed response lost');return result;});
+ await controller.apply(transport);
+ transport.mockImplementation(async(op,signal)=>op.operation==='photo.food.receipt'?{version:'coach-assistant.v2',storage:'database',ok:false,error:'forbidden'}:actual(op,signal));
+ await controller.check(transport);
+ expect(controller.snapshot().uncertain).toBe(true);
+ const blocked=transport.mock.calls.filter(([op])=>op.operation==='photo.food.apply').length;
+ await controller.propose({loggedDate:'2026-09-08',mealType:'dinner',grams:150},transport);
+ expect(transport.mock.calls.filter(([op])=>op.operation==='photo.food.apply')).toHaveLength(blocked);
+ transport.mockImplementation(actual);
+ await controller.check(transport);
+ const receiptIds=transport.mock.calls.filter(([op])=>op.operation==='photo.food.receipt').map(([op])=>op as Extract<PhotoFoodOperation,{operation:'photo.food.receipt'}>).map(op=>op.actionId);
+ expect(receiptIds.every(actionId=>actionId===receiptIds[0])).toBe(true);
+ expect(controller.snapshot().receipt?.status).toBe('applied');
+ expect(controller.snapshot().uncertain).toBe(false);
+});
+
+it.each(['forbidden','not_connected','invalid_input'] as const)('AG4 receipt lookup %s cannot release a potentially committed action',async error=>{
+ const {controller,transport}=fixture();await controller.select(attachment,conversation,transport);await controller.propose({loggedDate:'2026-09-08',mealType:'lunch',grams:150},transport);
+ const actual=transport.getMockImplementation()!;
+ transport.mockImplementation(async(op,signal)=>{const result=await actual(op,signal);if(op.operation==='photo.food.apply')throw Error('committed response lost');return result;});
+ await controller.apply(transport);
+ transport.mockImplementation(async(op,signal)=>op.operation==='photo.food.receipt'?{version:'coach-assistant.v2',storage:'database',ok:false,error}:actual(op,signal));
+ await controller.check(transport);
+ expect(controller.snapshot().uncertain).toBe(true);
+ const before=transport.mock.calls.length;await controller.propose({loggedDate:'2026-09-08',mealType:'dinner',grams:150},transport);expect(transport.mock.calls.length).toBe(before);
+});

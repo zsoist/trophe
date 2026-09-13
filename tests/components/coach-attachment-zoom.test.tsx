@@ -69,3 +69,21 @@ it('dismisses the enlarged attachment from the backdrop for touch and pointer us
   expect(details.hasAttribute('open')).toBe(false);
   expect(document.activeElement).toBe(summary);
 });
+
+it('lets Escape close the surrounding dialog while no preview is enlarged', async () => {
+  const { parentEscape, summary, details } = await mountPreview();
+  expect(details.hasAttribute('open')).toBe(false);
+  fireEvent.keyDown(summary, { key: 'Escape' });
+  // A closed thumbnail must not swallow Escape: the chat dialog still closes.
+  expect(parentEscape).toHaveBeenCalledTimes(1);
+  expect(details.hasAttribute('open')).toBe(false);
+});
+
+it('lets Escape close the surrounding dialog after the enlarged preview is dismissed', async () => {
+  const { parentEscape, summary, details } = await mountPreview();
+  fireEvent.click(summary);
+  fireEvent.click(screen.getByRole('button', { name: 'Close photo: food.png' }));
+  expect(details.hasAttribute('open')).toBe(false);
+  fireEvent.keyDown(summary, { key: 'Escape' });
+  expect(parentEscape).toHaveBeenCalledTimes(1);
+});
