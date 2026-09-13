@@ -113,7 +113,11 @@ export async function createPrivateNutritionAdviceEstimator(env:Record<string,st
    if(workSignal.aborted)break;
    let output;
    try {
-    output=await parseTextFood({text:choice.foods.map(adviceFoodText).join('; '),language},{actorId,requestId:turnId,signal:workSignal,transport});
+    let onAbort:(()=>void)|undefined;
+    try{
+     const parsing=parseTextFood({text:choice.foods.map(adviceFoodText).join('; '),language},{actorId,requestId:turnId,signal:workSignal,transport});
+     output=await Promise.race([parsing,new Promise<never>((_,reject)=>{onAbort=()=>reject(workSignal.reason);if(workSignal.aborted)onAbort();else workSignal.addEventListener('abort',onAbort,{once:true});})]);
+    }finally{if(onAbort)workSignal.removeEventListener('abort',onAbort);}
    } catch(error){
     // Cancellation is never swallowed — it propagates unchanged.
     if(signal.aborted)throw error;
