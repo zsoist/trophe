@@ -7,6 +7,13 @@ export const foodReferenceSchema = z.object({
    * bind a portion-only follow-up to the same validated food, never model input. */
   referenceId: z.string().min(1).max(200),
   name: z.string().min(1).max(200),
+  /** Real catalogue brand, when the row has one. Lets Ask surface the same
+   * branded identity Food resolved instead of a bare English name. Null for
+   * generic/unbranded rows; never synthesised from the model's wording. */
+  brand: z.string().max(120).nullable().optional(),
+  /** Canonical foods.id when the resolver returned one — the shared identifier
+   * Food writes to food_log.food_id. Absent when the resolver has no row id. */
+  catalogueId: z.string().min(1).max(200).optional(),
   source: z.string().min(1).max(80),
   quality: z.string().min(1).max(80),
   preparation: z.string().min(1).max(120).nullable(),
@@ -29,7 +36,9 @@ export type FoodReferenceLookup = (name: string, userText: string, signal: Abort
 /** Structural subset of agents/food-parse/lookup.ts lookupFood we depend on. */
 interface FoodReferenceRow {
   food: {
+    id?: string | null;
     nameEn?: string | null;
+    brand?: string | null;
     source?: string | null;
     dataQuality?: string | null;
     kcalPer100g?: number | null;
@@ -411,6 +420,12 @@ function buildFoodReference(
     if (!name || typeof kcal !== 'number' || typeof protein !== 'number' || !Number.isFinite(kcal) || !Number.isFinite(protein)) return null;
 
     const preparation = extractPreparation(name);
+    const brand = typeof base.food?.brand === 'string' && base.food.brand.trim()
+      ? base.food.brand.trim()
+      : null;
+    const catalogueId = typeof base.food?.id === 'string' && base.food.id.trim()
+      ? base.food.id.trim()
+      : undefined;
     const conversions: Array<{ unit: string; gramsPerUnit: number; conversionId: string }> = [];
     const units = [...new Set(parseFoodPortions(input.userText).filter(portion => portion.kind === 'conversion').map(portion => portion.unit))].slice(0, 2);
     for (const unit of units) {
@@ -426,6 +441,8 @@ function buildFoodReference(
     const parsed = foodReferenceSchema.safeParse({
       referenceId: makeReferenceId(name, String(base.food.source ?? ''), preparation),
       name,
+      brand,
+      ...(catalogueId ? { catalogueId } : {}),
       source: String(base.food.source ?? ''),
       quality: String(base.food.dataQuality ?? ''),
       preparation,

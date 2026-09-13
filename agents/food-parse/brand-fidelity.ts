@@ -4,12 +4,21 @@ interface BrandRewrite {
   replacement: string;
 }
 
+/**
+ * Plural-tolerant brand patterns. A countable brand/product named by the user
+ * may arrive in the plural ("dos Big Macs", "two Whoppers", "two cokes"), and
+ * the model may echo the plural form back. A singular-only `\b` boundary after
+ * the brand token fails on the plural (there is no word boundary between "mac"
+ * and "s"), so the intent guard never fired and an explicitly named brand was
+ * stripped as if the model had invented it. `s?` covers ES/EN singular+plural
+ * without matching a longer unrelated token (the trailing `\b` still holds).
+ */
 const BRAND_REWRITES: BrandRewrite[] = [
-  { candidate: /\bbig\s+mac\b/gi, intent: /\bbig\s+mac\b/i, replacement: 'burger' },
-  { candidate: /\bwhopper\b/gi, intent: /\bwhopper\b/i, replacement: 'burger' },
-  { candidate: /\bcoca[\s-]*cola\b|\bcoke\b/gi, intent: /\bcoca[\s-]*cola\b|\bcoke\b/i, replacement: 'cola' },
-  { candidate: /\bpepsi\b/gi, intent: /\bpepsi\b/i, replacement: 'cola' },
-  { candidate: /\bred\s+bull\b/gi, intent: /\bred\s+bull\b/i, replacement: '' },
+  { candidate: /\bbig\s+macs?\b/gi, intent: /\bbig\s+macs?\b/i, replacement: 'burger' },
+  { candidate: /\bwhoppers?\b/gi, intent: /\bwhoppers?\b/i, replacement: 'burger' },
+  { candidate: /\bcoca[\s-]*colas?\b|\bcokes?\b/gi, intent: /\bcoca[\s-]*colas?\b|\bcokes?\b/i, replacement: 'cola' },
+  { candidate: /\bpepsis?\b/gi, intent: /\bpepsis?\b/i, replacement: 'cola' },
+  { candidate: /\bred\s+bulls?\b/gi, intent: /\bred\s+bulls?\b/i, replacement: '' },
   { candidate: /\bstarbucks\b/gi, intent: /\bstarbucks\b/i, replacement: '' },
   { candidate: /\bmcdonald(?:'s|s)?\b/gi, intent: /\bmcdonald(?:'s|s)?\b/i, replacement: '' },
   { candidate: /\bburger\s+king\b/gi, intent: /\bburger\s+king\b/i, replacement: '' },
