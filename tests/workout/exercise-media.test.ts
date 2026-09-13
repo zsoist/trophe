@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveExerciseMedia } from '@/lib/workout/exercise-media';
+import { EXERCISE_MEDIA_REGISTRY, resolveExerciseMedia, slugForExerciseName } from '@/lib/workout/exercise-media';
 
 describe('resolveExerciseMedia', () => {
   it('returns a complete verified technique record for an exact movement and equipment', () => {
@@ -81,5 +81,21 @@ describe('resolveExerciseMedia', () => {
       posterSrc: `/workout-v3/posters/${slug}.webp`,
       motionSrc: `/workout-v3/motion/${slug}.webm`,
     });
+  });
+
+  it('resolves curated anatomy identically for every canonical alias of the same movement', () => {
+    // Regression: singular registry aliases ('Push Up', 'Pushup', 'Chest Dip',
+    // 'Parallel Bar Chest Dip') previously bypassed the curated slug lookup, so
+    // the same movement returned a group estimate under one canonical name and
+    // reviewed named-muscle anatomy under another.
+    for (const definition of EXERCISE_MEDIA_REGISTRY) {
+      for (const name of definition.canonicalNames) {
+        expect(slugForExerciseName(name), name).toBe(definition.slug);
+      }
+    }
+    const single = resolveExerciseMedia({ name: 'Chest Dip', equipment: 'Bodyweight', muscleGroup: 'chest' });
+    const plural = resolveExerciseMedia({ name: 'Chest Dips', equipment: 'Bodyweight', muscleGroup: 'chest' });
+    expect(single.activations).toEqual(plural.activations);
+    expect(single.activations.every((activation) => activation.confidence === 'curated')).toBe(true);
   });
 });

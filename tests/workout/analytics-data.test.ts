@@ -71,6 +71,17 @@ describe('analytics terminal pagination', () => {
     expect(expandScheduledDates([], '2026-09')).toEqual([]);
   });
 
+  it('never emits a date outside the requested local calendar month', () => {
+    const december = expandScheduledDates([{ workout_program_days: [{ weekday: 0 }, { weekday: 6 }] }], '2026-12');
+    expect(december[0]).toBe('2026-12-05');
+    expect(december.at(-1)).toBe('2026-12-27');
+    expect(december.every((key) => key.startsWith('2026-12-'))).toBe(true);
+
+    const february = expandScheduledDates([{ workout_program_days: [{ weekday: 0 }, { weekday: 6 }] }], '2027-02');
+    expect(february.at(-1)).toBe('2027-02-28');
+    expect(february).not.toContain('2027-03-01');
+  });
+
   it('loads user-scoped terminal evidence with stable pagination, safe set batches, and partial issue classification', async () => {
     const calls: Array<{ table: string; steps: Array<[string, ...unknown[]]> }> = [];
     const terminalRows = [

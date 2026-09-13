@@ -93,6 +93,10 @@ describe('LiveWorkout warm-up real consumer', () => {
       fireEvent.change(screen.getByLabelText('Weight in lb'), { target: { value: '220' } });
       fireEvent.change(screen.getByLabelText('Reps'), { target: { value: '8' } });
       fireEvent.click(screen.getByRole('button', { name: 'Complete set' }));
+      // The accepted-set UI is produced by a promise continuation. Fake timers
+      // do not flush React's scheduler, so settle that continuation inside act
+      // (same idiom as the resume step below) before asserting the row state.
+      await act(async () => {});
       await vi.advanceTimersByTimeAsync(0);
       expect(screen.getByRole('button', { name: 'Undo set' })).toBeTruthy();
 
