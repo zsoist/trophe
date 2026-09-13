@@ -52,6 +52,9 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
   const [manual, setManual] = useState({ name: '', kcal: '', protein: '', carbs: '', fat: '' });
   const [loading, setLoading] = useState(false);
   const [logging, setLogging] = useState(false);
+  // A lookup is in flight — Enter in the code field (and rapid decode callbacks
+  // from the camera) bypass the disabled button, so guard the request itself.
+  const lookupBusyRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const controlsRef = useRef<{ stop: () => void } | null>(null);
@@ -91,7 +94,9 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
   }, [isOpen, onClose]);
 
   const lookup = useCallback(async (barcode: string) => {
+    if (lookupBusyRef.current) return;
     if (!/^\d{8,14}$/.test(barcode)) { setError(t('barcode.err_invalid')); return; }
+    lookupBusyRef.current = true;
     setLoading(true); setError(null); setProduct(null);
     try {
       const res = await fetch('/api/food/barcode', {
@@ -114,7 +119,7 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
       // W12: release the snap-lock so the reticle doesn't sit green on failure
       setLocked(false); setLaserTop(null);
       setError(t('barcode.err_lookup'));
-    } finally { setLoading(false); }
+    } finally { lookupBusyRef.current = false; setLoading(false); }
   }, [stopScan, t]);
 
   async function logManual() {

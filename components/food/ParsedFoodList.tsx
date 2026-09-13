@@ -521,13 +521,15 @@ export default function ParsedFoodList({
               <motion.div
               key={`${item.food_name}-${index}`}
               layout
-              initial={{ opacity: 0, y: 14, scale: 0.97 }}
+              initial={reduceMotion ? false : { opacity: 0, y: 14, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, x: 24, height: 0, marginBottom: 0 }}
-              transition={{
-                type: 'spring', stiffness: 420, damping: 32,
-                delay: Math.min(index * 0.045, 0.35),
-              }}
+              exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: 24, height: 0, marginBottom: 0 }}
+              transition={reduceMotion
+                ? { duration: 0 }
+                : {
+                    type: 'spring', stiffness: 420, damping: 32,
+                    delay: Math.min(index * 0.045, 0.35),
+                  }}
               className={`portion-review-item glass${!item.portion_explicit ? ' border-l-2 border-[var(--status-warning-border)]' : ''}`}
             >
               <div className="flex items-start justify-between gap-2">
@@ -923,9 +925,9 @@ export default function ParsedFoodList({
 
       {/* F1: Body-level Save Bar — transformed meal cards must not capture fixed positioning. */}
       {canUseDom && createPortal(<motion.div
-        initial={{ y: 100, opacity: 0 }}
+        initial={reduceMotion ? false : { y: 100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+        transition={reduceMotion ? { duration: 0 } : { type: 'spring', damping: 25, stiffness: 300 }}
         className="portion-review-save-shell fixed bottom-24 left-0 right-0 z-50"
       >
         <div ref={saveBarRef} className="portion-review-save max-w-md mx-auto glass-elevated rounded-2xl border border-[#D4A853]/20 shadow-[0_-4px_24px_rgba(212,168,83,0.15)]">
@@ -979,7 +981,8 @@ export default function ParsedFoodList({
           <div className="flex gap-2">
             <button
               onClick={onCancel}
-              className="btn-ghost flex-shrink-0 py-3 px-4 text-sm min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+              disabled={logging}
+              className="btn-ghost flex-shrink-0 py-3 px-4 text-sm min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {t('general.cancel')}
             </button>

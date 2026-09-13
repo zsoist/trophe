@@ -141,6 +141,13 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
   const originalItemsRef = useRef<ParsedFoodItem[]>([]);
   const parseBusyRef = useRef(false);
   const retryActionRef = useRef<RetryAction>('text');
+  /**
+   * A parse result belongs to the day+meal it was started on. The epoch is bumped
+   * whenever that context changes so an in-flight request can never settle a
+   * stale review onto the newly selected date (see the context effect below).
+   */
+  const parseEpochRef = useRef(0);
+  const reviewContextRef = useRef(`${date}\u0000${mealType}`);
 
   // 429 Retry-After countdown — Retry stays disabled until it reaches 0.
   useEffect(() => {
@@ -186,6 +193,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
       setError(t('food.err_too_long', { max: MAX_PARSE_INPUT }));
       return;
     }
+    const epoch = parseEpochRef.current;
     parseBusyRef.current = true;
     retryActionRef.current = 'text';
     setError(null);
@@ -209,6 +217,10 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
       });
 
       const data = await res.json();
+      // The selected day/meal changed while this request was in flight — drop the
+      // result so a stale review can never render against (or confirm into) the
+      // newly selected date.
+      if (epoch !== parseEpochRef.current) return;
 
       if (!res.ok) {
         if (res.status === 429) {
@@ -256,6 +268,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
       setInputSource('text');
       setMode('confirming');
     } catch (err) {
+      if (epoch !== parseEpochRef.current) return;
       if (err instanceof DOMException && err.name === 'AbortError') {
         setError(t('food.err_timeout'));
       } else {
@@ -266,8 +279,12 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
     } finally {
       if (requestTimeout) clearTimeout(requestTimeout);
       clearTimeout(slowTimer);
-      setSlowParse(false);
-      parseBusyRef.current = false;
+      // Only unwind state that still belongs to this request epoch; a newer
+      // context (or parse) owns parseBusyRef now.
+      if (epoch === parseEpochRef.current) {
+        setSlowParse(false);
+        parseBusyRef.current = false;
+      }
     }
   };
 
@@ -301,6 +318,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
       return;
     }
     if (parseBusyRef.current || logging) return;
+    const epoch = parseEpochRef.current;
     parseBusyRef.current = true;
     setError(null);
     retryActionRef.current = 'photo';
@@ -318,6 +336,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
       // upload so the API receives a bounded JPEG regardless of source format.
       const base64 = await resizeAndEncode(file, 1600);
       const mediaType = 'image/jpeg';
+      if (epoch !== parseEpochRef.current) return;
 
       const controller = new AbortController();
       requestTimeout = setTimeout(() => controller.abort(), 20000); // 20s for photo
@@ -330,6 +349,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
       });
 
       const data = await res.json();
+      if (epoch !== parseEpochRef.current) return;
 
       if (!res.ok || !Array.isArray(data.foods) || data.foods.length === 0) {
         if (res.status === 429) {
@@ -364,6 +384,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
       setInputSource('photo');
       setMode('confirming');
     } catch (err) {
+      if (epoch !== parseEpochRef.current) return;
       if (err instanceof DOMException && err.name === 'AbortError') {
         setError(t('food.photo_timeout'));
       } else {
@@ -373,7 +394,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
       setMode('idle');
     } finally {
       if (requestTimeout) clearTimeout(requestTimeout);
-      parseBusyRef.current = false;
+      if (epoch === parseEpochRef.current) parseBusyRef.current = false;
     }
   };
 
@@ -719,6 +740,35 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
     setError(null);
     setRetryCount(0);
   };
+
+  /**
+   * Switching the selected day (or meal) must abandon any review/parse started
+   * for the previous context. Without this, an open review carried across a date
+   * change would confirm its items into the NEWLY selected date (a silent
+   * mis-dated log), and an in-flight parse would settle onto the wrong day.
+   * The epoch bump makes any still-running request a no-op.
+   */
+  useEffect(() => {
+    const context = `${date}\u0000${mealType}`;
+    if (reviewContextRef.current === context) return;
+    reviewContextRef.current = context;
+    parseEpochRef.current += 1;
+    voiceSessionRef.current?.cancel();
+    voiceSessionRef.current = null;
+    transcriptionAbortRef.current?.abort();
+    transcriptionAbortRef.current = null;
+    parseBusyRef.current = false;
+    setParsedItems([]);
+    setClarificationQuestion(null);
+    setParseWarnings([]);
+    setPhotoPreview(null);
+    setQuestionText(null);
+    setQuestionAnswer('');
+    originalItemsRef.current = [];
+    setMode('idle');
+    setError(null);
+    setRetryCount(0);
+  }, [date, mealType]);
 
   /** Submit an answer to the empty-items clarification question — re-parses "original — answer". */
   const submitQuestionChoice = (answerValue: string) => {

@@ -106,7 +106,10 @@ interface FavoriteFood {
   carbs_g: number;
   fat_g: number;
   fiber_g: number;
-  sugar_g: number;
+  // Null is a valid canonical "unknown sugar" (manual entries) and must survive
+  // the favorite round trip. Coercing it to 0 here made an unknown read as a
+  // measured zero after favorite → re-log. Historical stored 0s stay 0.
+  sugar_g: number | null;
 }
 
 function loadFavorites(): FavoriteFood[] {
@@ -689,7 +692,7 @@ export default function FoodLogPage() {
         carbs_g: entry.carbs_g ?? 0,
         fat_g: entry.fat_g ?? 0,
         fiber_g: entry.fiber_g ?? 0,
-        sugar_g: entry.sugar_g ?? 0,
+        sugar_g: entry.sugar_g ?? null,
       }];
     }
     setFavorites(newFavs);
