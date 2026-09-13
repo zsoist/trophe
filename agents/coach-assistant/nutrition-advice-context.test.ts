@@ -5,10 +5,10 @@ import {createCoachCapabilityRegistry} from './capability-registry';
 const request={version:'coach-assistant.v2' as const,conversationId:'00000000-0000-4000-8000-000000000001',turnId:'00000000-0000-4000-8000-000000000002',message:'Dame sugerencias con proteína'};
 const choices=['Tofu','Lentils','Chickpeas'].map(name=>({name,foods:[{name,grams:150}]}));
 async function fixture(empty=false){
- const repo=fixtureRepository({nutrition:empty?[]:[{id:'meal',userId:'synthetic-client',date:'2026-09-13',calories:600,proteinG:30}],workouts:[],plans:[]});
+ const repo=fixtureRepository({nutrition:empty?[]:Array.from({length:6},(_,index)=>({id:`00000000-0000-4000-8000-${String(index+10).padStart(12,'0')}`,userId:'synthetic-client',date:'2026-09-13',calories:100,proteinG:5})),workouts:[],plans:[]});
  repo.personalContext=async()=>({rows:empty?[]:[{userId:'synthetic-client',preferences:{},memories:[],nutritionTargets:{calories:2300,proteinG:120},foodPreference:{profileId:'synthetic-client',version:'v1',preferences:{version:1 as const,dietPattern:'vegan' as const}}}],truncated:false});
  const reference=vi.fn();const estimate=vi.fn(async()=>[]);
- const provider=vi.fn(async(input)=>{const payload=JSON.parse(input.prompt);expect(payload.snapshot.language).toBe('es');expect(payload.snapshot.window.start).toBe('2026-09-13');
+ const provider=vi.fn(async(input)=>{const payload=JSON.parse(input.prompt);expect(new TextEncoder().encode(input.system+input.prompt+JSON.stringify(input.schema)).length).toBeLessThanOrEqual(7500);expect(payload.snapshot.language).toBe('es');expect(payload.snapshot.window.start).toBe('2026-09-13');
   if(!empty){expect(payload.evidence).toEqual(expect.arrayContaining([expect.objectContaining({id:'nutrition.target.proteinG',value:120}),expect.objectContaining({id:'nutrition.calories',value:600})]));expect(payload.foodPreference.preferences.dietPattern).toBe('vegan');}
   return {output:{answer:'Te propongo estas opciones para cenar.',followUp:null,evidenceRefs:[],entityRefs:[],facts:[],generalExplanationRefs:[],limitations:[],escalation:false,mealAdviceChoices:choices},usage:{inputTokens:100,outputTokens:100},rawStatus:200,latencyMs:1};
  });
