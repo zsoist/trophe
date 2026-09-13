@@ -77,6 +77,8 @@ function fixture() {
   return { breakDraft: () => { failDraft = true; }, catalogueLocks, removeCatalogue: () => { cataloguePresent = false; }, parser, execute, parse, propose, parseOp, applyOp, state: () => ({ proposals, receipts, foods, audits }), revoke: () => { authorized = false; }, disconnect: () => { connected = false; }, expire: () => { expired = true; }, breakReceipt: () => { failReceipt = true; }, breakAudit: () => { failAudit = true; }, corrupt: () => { corrupt = true; }, abort: () => controller.abort() };
 }
 describe('actor-bound text Food review service — offline transactions', () => {
+  it('persists explicit PM snack through proposal, write and receipt replay',async()=>{const f=fixture(),d=await f.parse();const r=await f.execute({...base,operation:'text.food.propose',draftId:d.id,hash:d.hash,after:{loggedDate:'2026-09-12',mealType:'snack',mealSlot:'snack_pm',items:[{index:0,grams:150}]}});if(!r.ok||!('proposal'in r))throw Error(JSON.stringify(r));expect(r.proposal.after.mealSlot).toBe('snack_pm');const a=f.applyOp(r.proposal);expect(await f.execute(a)).toMatchObject({ok:true,refresh:'refetch'});expect(f.state().foods[0]).toMatchObject({mealType:'snack',mealSlot:'snack_pm'});expect(await f.execute(a)).toMatchObject({ok:true});expect(f.state().foods).toHaveLength(1);});
+
   it('parses once, scales a review with native Food rules, and writes only on confirmation', async () => {
     const f = fixture(), d = await f.parse(); expect(f.state().foods).toHaveLength(0);
     expect(await f.parse()).toEqual(d); expect(f.parser).toHaveBeenCalledTimes(1);

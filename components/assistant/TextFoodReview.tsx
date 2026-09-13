@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import {CANONICAL_MEAL_SLOTS,type CanonicalMealSlot} from '@/lib/food/meal-slot';
 import { textFoodPortionsSchema, textFoodResultSchema, type TextFoodDraft, type TextFoodOperation, type TextFoodProposal, type TextFoodReceipt } from '@/agents/coach-assistant/text-food-contract';
 import { localToday } from '@/lib/utils/dates';
 import { selectFoodDisplayName } from '@/lib/food/display-name';
@@ -45,7 +46,7 @@ export interface TextFoodReviewProps {
 export function TextFoodReview({ draft, conversationId, transport, onReceipt, onDismiss, savedReceipt, onApplyState }: TextFoodReviewProps) {
   const { t } = useGlobalCoachI18n();
   const [grams, setGrams] = useState(() => draft.items.map(item => String(item.grams)));
-  const [date, setDate] = useState(localToday), [meal, setMeal] = useState<TextFoodProposal['after']['mealType']>(() => initialMeal(draft.rawText));
+  const [date, setDate] = useState(localToday), [meal, setMeal] = useState<CanonicalMealSlot>(() => initialMeal(draft.rawText));
   const [proposal, setProposal] = useState<TextFoodProposal | null>(null), [receipt, setReceipt] = useState<TextFoodReceipt | null>(savedReceipt ?? null);
   const [recovery]=useState(()=>{const value=readTextFoodRecovery(conversationId);return value?.draftId===draft.id&&value.draftHash===draft.hash?value:null;});
   const expectedEntries=useRef<string[]|null>(recovery?.entryIds??null);
@@ -60,7 +61,7 @@ export function TextFoodReview({ draft, conversationId, transport, onReceipt, on
   useEffect(() => { onApplyState?.(applyState); }, [applyState, onApplyState]);
   useEffect(() => () => { reportApplyState.current?.('idle'); }, []);
   const base = () => ({ version: 'coach-assistant.v2' as const, conversationId, turnId: crypto.randomUUID() });
-  const after = textFoodPortionsSchema.safeParse({ loggedDate: date, mealType: meal, items: grams.map((value, index) => ({ index, grams: Number(value) })) });
+  const after = textFoodPortionsSchema.safeParse({ loggedDate: date, mealType: meal==='snack_am'||meal==='snack_pm'?'snack':meal, mealSlot:meal, items: grams.map((value, index) => ({ index, grams: Number(value) })) });
   async function run(operation: TextFoodOperation) {
     if (active.current) return;
     const controller = new AbortController(); active.current = controller; setPending(true); setError(null);
@@ -96,7 +97,7 @@ export function TextFoodReview({ draft, conversationId, transport, onReceipt, on
           <input aria-label={`${selectFoodDisplayName(item)} — ${t('global_coach.food_grams')}`} type="number" min="0.01" max="10000" step="0.01" value={grams[index]} onChange={event => { edit(); setGrams(current => current.map((value, i) => i === index ? event.target.value : value)); }} />
         </label>)}
         <label>{t('global_coach.photo_food_date')}<input type="date" value={date} onChange={event => { edit(); setDate(event.target.value); }} /></label>
-        <label>{t('global_coach.photo_food_meal')}<select value={meal} onChange={event => { edit(); setMeal(event.target.value as typeof meal); }}>{(['breakfast', 'lunch', 'dinner', 'snack', 'pre_workout', 'post_workout'] as const).map(value => <option key={value} value={value}>{t(`global_coach.photo_food_${value === 'pre_workout' ? 'pre' : value === 'post_workout' ? 'post' : value}`)}</option>)}</select></label>
+        <label>{t('global_coach.photo_food_meal')}<select value={meal} onChange={event => { edit(); setMeal(event.target.value as typeof meal); }}>{CANONICAL_MEAL_SLOTS.map(value => <option key={value} value={value}>{t(`global_coach.photo_food_${value === 'pre_workout' ? 'pre' : value === 'post_workout' ? 'post' : value==='snack_am'||value==='snack_pm'?'snack':value}`)}{value==='snack_am'?' · AM':value==='snack_pm'?' · PM':''}</option>)}</select></label>
       </fieldset>
       {!receipt && !uncertain && !submitted && (proposal ? <button type="button" disabled={pending} onClick={() => {
         if (active.current || apply.current) return;

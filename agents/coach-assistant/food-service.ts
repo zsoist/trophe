@@ -1,3 +1,4 @@
+import {CANONICAL_MEAL_SLOTS} from '@/lib/food/meal-slot';
 import { createHash,randomUUID } from 'node:crypto';
 import { and,eq,sql } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
@@ -15,7 +16,7 @@ type Scope={actorId:string;subjectId:string;organizationId:string;signal:AbortSi
 const action='food.quantity.update';
 const fail=(error:Extract<FoodQuantityResult,{ok:false}>['error']):FoodQuantityResult=>({version:'coach-assistant.v2',storage:'database',ok:false,error});
 class Rejected extends Error {constructor(readonly reason:Extract<FoodQuantityResult,{ok:false}>['error']){super(reason);}}
-const expectedEditSchema=z.object({foodName:z.string(),quantity:z.number(),qtyG:z.string().nullable(),calories:z.number().nullable(),proteinG:z.number().nullable(),carbsG:z.number().nullable(),fatG:z.number().nullable(),fiberG:z.number().nullable(),sugarG:z.number().nullable()}).strict();
+const expectedEditSchema=z.object({mealSlot:z.enum(CANONICAL_MEAL_SLOTS).nullable().optional(),foodName:z.string(),quantity:z.number(),qtyG:z.string().nullable(),calories:z.number().nullable(),proteinG:z.number().nullable(),carbsG:z.number().nullable(),fatG:z.number().nullable(),fiberG:z.number().nullable(),sugarG:z.number().nullable()}).strict();
 const envelopeSchema=z.object({proposal:foodQuantityProposalSchema,expectedEdit:expectedEditSchema,foodId:z.string().uuid().nullable()}).strict();
 function canonical(value:unknown):string {
   if(Array.isArray(value))return `[${value.map(canonical).join(',')}]`;

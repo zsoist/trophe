@@ -166,7 +166,7 @@ export async function deriveFoodLogEdit(database:Pick<FoodEditDatabase,'select'>
     fatG: input.fatG ?? derived?.fatG ?? scaled(existing.fatG),
     fiberG: input.fiberG ?? derived?.fiberG ?? scaled(existing.fiberG),
     sugarG: input.sugarG ?? derived?.sugarG ?? scaled(existing.sugarG),
-    mealSlot: input.mealSlot ?? existing.mealSlot,
+    ...(input.mealSlot!==undefined||existing.mealSlot!==undefined?{mealSlot:input.mealSlot??existing.mealSlot}:{}),
   };
 
   // Keep qty_g consistent with a quantity-only edit. Scaling the macros by the

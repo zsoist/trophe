@@ -58,8 +58,8 @@ ALTER TABLE public.food_log
 -- ── Rollback (DATA-PRESERVING, default) ─────────────────────────────────────
 -- Default rollback is APP-ONLY: redeploy the previous application build and STOP.
 -- The additive column, its constraint, and every already-saved meal_slot value
--- are RETAINED — no DROP COLUMN, no data is deleted. The previous app build never
--- selects meal_slot, so leaving it in place is invisible and harmless, and any
+-- are RETAINED — no DROP COLUMN, no data is deleted. Older readers may select all
+-- columns but ignore the additive field; older writers omit it. All
 -- AM/PM values users saved are preserved for a future re-apply.
 --
 --   -- (no database change on rollback — application redeploy only)

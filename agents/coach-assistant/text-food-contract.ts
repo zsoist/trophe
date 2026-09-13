@@ -1,10 +1,11 @@
+import {CANONICAL_MEAL_SLOTS,mealSlotMatchesMealType} from '@/lib/food/meal-slot';
 import { z } from 'zod';
 import { isParsedFoodItem, type ParsedFoodItem } from '@/agents/schemas/food-parse';
 import { FOOD_PARSE_MAX_ITEMS } from '@/agents/food-parse/pipeline-budget';
 const uuid=z.string().uuid(), hash=z.string().regex(/^[a-f0-9]{64}$/);
 const grams=z.number().finite().positive().max(10000).refine(v=>Math.abs(v*100-Math.round(v*100))<1e-7);
 const base={version:z.literal('coach-assistant.v2'),conversationId:uuid,turnId:uuid};
-export const textFoodPortionsSchema=z.object({loggedDate:z.iso.date(),mealType:z.enum(['breakfast','lunch','dinner','snack','pre_workout','post_workout']),items:z.array(z.object({index:z.number().int().min(0).max(FOOD_PARSE_MAX_ITEMS-1),grams}).strict()).min(1).max(FOOD_PARSE_MAX_ITEMS)}).strict();
+export const textFoodPortionsSchema=z.object({loggedDate:z.iso.date(),mealSlot:z.enum(CANONICAL_MEAL_SLOTS).optional(),mealType:z.enum(['breakfast','lunch','dinner','snack','pre_workout','post_workout']),items:z.array(z.object({index:z.number().int().min(0).max(FOOD_PARSE_MAX_ITEMS-1),grams}).strict()).min(1).max(FOOD_PARSE_MAX_ITEMS)}).strict().refine(value=>!value.mealSlot||mealSlotMatchesMealType(value.mealSlot,value.mealType),{message:'invalid meal slot'});
 export const textFoodOperationSchema=z.discriminatedUnion('operation',[
  z.object({...base,operation:z.literal('text.food.parse'),requestId:uuid,text:z.string().trim().min(1).max(500),language:z.enum(['en','es','el','fr','de','it','pt','nl'])}).strict(),
  z.object({...base,operation:z.literal('text.food.propose'),draftId:uuid,hash,after:textFoodPortionsSchema}).strict(),

@@ -1,4 +1,5 @@
-import { foodReferenceReviewIntent } from './food-reference-review';
+import { nutritionIntent, conversationLanguage } from './nutrition-intent';
+import { foodReferenceReviewIntent,adviceOptionIndex } from './food-reference-review';
 import { recalculateFoodReference } from './food-reference-continuity';
 import { renderNativeFoodReference } from './food-reference-native-render';
 import { TEXT_FOOD_SERVER_DEADLINE_MS } from './text-food-deadline';
@@ -19,7 +20,7 @@ import type { CoachCapability, CoachConversationResponse, CoachErrorCode } from 
 import { conversationRequestSchema } from './schema';
 import { run } from './index';
 import type { RunOptions } from './index';
-import { conversationScope, scopeConversationInput, windowForConversation } from './context';
+import { conversationScope, scopeConversationInput, windowForConversation, windowFor } from './context';
 import { workoutPreferencesSchema } from '@/lib/workout/preferences';
 import { COACH_PRICING_VERSION } from './economics';
 import { COACH_PROMPT_VERSION } from './prompt.v3';
@@ -44,6 +45,7 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
   const ceiling=parsed.success&&parsed.data.attachments?.length===1&&parsed.data.attachments[0].kind==='image'?90000:options.resolveTextFoodIntake&&parsed.success&&textFoodIntakeIntent(parsed.data.message)?TEXT_FOOD_SERVER_DEADLINE_MS:45000;
   const budget = Math.min(ceiling,Math.max(1,options.deadlineMs ?? ceiling));
   const timer = setTimeout(()=>controller.abort(new Error('deadline')),budget);
+  const adviceEstimator:RunOptions['estimateMealAdvice']=options.estimateMealAdvice?((choices,language,signal,constraints)=>options.estimateMealAdvice!(choices,language,signal,{...constraints,timeoutMs:Math.max(1,Math.floor(budget-(performance.now()-start)-3000))})):undefined;
   let boundary: (()=>void) | undefined;
   const diagnosticStage:{value:'authorization'|'photo_read'|'context_preparation'}={value:'authorization'};
   try {
@@ -68,16 +70,19 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
       if(options.foodReferenceFollowUp&&authorized.actorId===authorized.subjectId){
         const recalculated=recalculateFoodReference(options.foodReferenceFollowUp,scopedInput.message,authorized.language.startsWith('es'));
         if(recalculated){
-          response.snapshot={id:randomUUID(),capturedAt:options.now.toISOString(),subjectId:subject,organizationId:authorized.organizationId,...scope,surface:scopedInput.context?.includeScreen?scopedInput.context.surface:null,screenIncluded:!!scopedInput.context?.includeScreen,language:authorized.language,units:{weight:'kg',energy:'kcal',protein:'g'},window:windowForConversation(scopedInput,'today','food',authorized.timezone,options.now),capabilities:[]};
+          response.snapshot={id:randomUUID(),capturedAt:options.now.toISOString(),subjectId:subject,organizationId:authorized.organizationId,...scope,surface:scopedInput.context?.includeScreen?scopedInput.context.surface:null,screenIncluded:!!scopedInput.context?.includeScreen,language:conversationLanguage(scopedInput.message,authorized.language),units:{weight:'kg',energy:'kcal',protein:'g'},window:windowForConversation(scopedInput,'today','food',authorized.timezone,options.now),capabilities:[]};
           response.capabilityResult={tool:'food.reference',status:'read',result:recalculated.result,applied:false};
           response.output={answer:recalculated.answer,evidenceRefs:[],limitations:[],suggestions:[],escalation:{required:false,reason:null,draft:null}};
           await authorizedRepository.authorize(options.actorId,subject,controller.signal);controller.signal.throwIfAborted();response.ok=true;return;
         }
       }
       if(authorized.actorId===authorized.subjectId&&options.foodReferenceFollowUp&&options.prepareFoodReferenceReview&&foodReferenceReviewIntent(scopedInput.message)&&!scopedInput.attachments?.length){
-        const intake=await options.prepareFoodReferenceReview(scopedInput,options.foodReferenceFollowUp,controller.signal);
+        const reference=options.foodReferenceFollowUp;
+        const selected=adviceOptionIndex(scopedInput.message);
+        if(reference.kind==='advice'&&((selected===null&&reference.meals.length>1)||(selected!==null&&!reference.meals[selected]))){response.output={answer:conversationLanguage(scopedInput.message,authorized.language)==='es'?'Elige el número de una opción para revisarla antes de guardar.':'Choose an option number to review before saving.',evidenceRefs:[],limitations:[],suggestions:[],escalation:{required:false,reason:null,draft:null}};response.capabilityResult={tool:'food.reference',status:'read',result:reference,applied:false};response.snapshot={id:randomUUID(),capturedAt:options.now.toISOString(),subjectId:subject,organizationId:authorized.organizationId,...scope,surface:null,screenIncluded:false,language:conversationLanguage(scopedInput.message,authorized.language),units:{weight:'kg',energy:'kcal',protein:'g'},window:windowForConversation(scopedInput,'today','food',authorized.timezone,options.now),capabilities:[]};await authorizedRepository.authorize(options.actorId,subject,controller.signal);controller.signal.throwIfAborted();response.ok=true;return;}
+        const intake=await options.prepareFoodReferenceReview(scopedInput,reference.kind==='advice'&&selected!==null?{...reference,selected}:reference,controller.signal);
         if(intake){
-          response.snapshot={id:randomUUID(),capturedAt:options.now.toISOString(),subjectId:subject,organizationId:authorized.organizationId,...scope,surface:scopedInput.context?.includeScreen?scopedInput.context.surface:null,screenIncluded:!!scopedInput.context?.includeScreen,language:authorized.language,units:{weight:'kg',energy:'kcal',protein:'g'},window:windowForConversation(scopedInput,'today','food',authorized.timezone,options.now),capabilities:[]};
+          response.snapshot={id:randomUUID(),capturedAt:options.now.toISOString(),subjectId:subject,organizationId:authorized.organizationId,...scope,surface:scopedInput.context?.includeScreen?scopedInput.context.surface:null,screenIncluded:!!scopedInput.context?.includeScreen,language:conversationLanguage(scopedInput.message,authorized.language),units:{weight:'kg',energy:'kcal',protein:'g'},window:windowForConversation(scopedInput,'today','food',authorized.timezone,options.now),capabilities:[]};
           response.textFood=intake;
           response.output={answer:authorized.language.startsWith('es')?intake.ok?'Revisa la misma referencia, la porción y la fecha antes de confirmar. Todavía no se ha registrado.':'No pude preparar la revisión. No se registró nada.':intake.ok?'Review the same reference, portion and date before confirming. It has not been logged yet.':'I could not prepare the review. Nothing was logged.',evidenceRefs:[],limitations:['text_food_review_required'],suggestions:[],escalation:{required:false,reason:null,draft:null}};
           await authorizedRepository.authorize(options.actorId,subject,controller.signal);controller.signal.throwIfAborted();response.ok=true;return;
@@ -110,10 +115,10 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
       diagnosticStage.value='context_preparation';
       const foodContextReady = Boolean(options.foodSelection || options.foodChange || photoObservations.length);
       const onlyFoodReference = options.capabilityRegistry?.available().every(tool => tool === 'food.reference');
-      if(options.capabilityRegistry&&!(foodContextReady&&onlyFoodReference)&&options.mode==='model'&&!Object.values(medicalBoundary(scopedInput.message)).some(Boolean)){
+      if(options.capabilityRegistry&&nutritionIntent(scopedInput)!=='advise'&&!(foodContextReady&&onlyFoodReference)&&options.mode==='model'&&!Object.values(medicalBoundary(scopedInput.message)).some(Boolean)){
         const selectorInput=options.filterMemoryHistory?.(scopedInput)??{...scopedInput,history:scopedInput.history?.filter(item=>item.role==='user'&&item.kind!=='memory_summary')};
         const selectedScope=selectConversationScope(selectorInput);
-        response.snapshot={id:randomUUID(),capturedAt:options.now.toISOString(),subjectId:subject,organizationId:authorized.organizationId,...scope,surface:scopedInput.context?.includeScreen?scopedInput.context.surface:null,screenIncluded:!!scopedInput.context?.includeScreen,language:authorized.language,units:{weight:'kg',energy:'kcal',protein:'g'},window:windowForConversation(scopedInput,selectedScope.intent,selectedScope.domain,authorized.timezone,options.now),capabilities:[]};
+        response.snapshot={id:randomUUID(),capturedAt:options.now.toISOString(),subjectId:subject,organizationId:authorized.organizationId,...scope,surface:scopedInput.context?.includeScreen?scopedInput.context.surface:null,screenIncluded:!!scopedInput.context?.includeScreen,language:conversationLanguage(scopedInput.message,authorized.language),units:{weight:'kg',energy:'kcal',protein:'g'},window:windowForConversation(scopedInput,selectedScope.intent,selectedScope.domain,authorized.timezone,options.now),capabilities:[]};
         response.output={answer:'',evidenceRefs:[],limitations:['capability_turn_no_aggregate_reads'],suggestions:[],escalation:{required:false,reason:null,draft:null}};
         await prepareConversationCapability(selectorInput,response,options.offlineConversationProvider!,options.capabilityRegistry,authorizedRepository,authorized,controller.signal);
         if(response.capabilityResult?.tool==='food.reference'){
@@ -121,14 +126,14 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
           await authorizedRepository.authorize(options.actorId,subject,controller.signal);controller.signal.throwIfAborted();response.ok=true;return;
         }
         if(response.capabilityResult?.tool!=='none'){
-          await generateOpenConversation(selectorInput,response,options.offlineConversationProvider!,controller.signal,options.offlineInterpretationReview,options.offlineCandidateEvaluation,options.isolatedFixtureBoundary,false,false,options.governedPilotBoundary,options.candidateActionsEnabled,undefined,photoObservations);
+          await generateOpenConversation(selectorInput,response,options.offlineConversationProvider!,controller.signal,options.offlineInterpretationReview,options.offlineCandidateEvaluation,options.isolatedFixtureBoundary,false,false,options.governedPilotBoundary,options.candidateActionsEnabled,undefined,photoObservations,adviceEstimator);
           await authorizedRepository.authorize(options.actorId,subject,controller.signal);controller.signal.throwIfAborted();response.ok=true;return;
         }
       }
       const selection=createSelectionContext(authorizedRepository,scopedInput.context,authorized);
       const repository=selection.repository;
       const {intent,surface,exerciseId,domain}=selectConversationScope(options.filterMemoryHistory?.(scopedInput)??scopedInput);
-      const selectedWindow=windowForConversation(scopedInput,intent,domain,authorized.timezone,options.now);
+      const selectedWindow=nutritionIntent(scopedInput)==='advise'?windowFor('today',authorized.timezone,options.now):windowForConversation(scopedInput,intent,domain,authorized.timezone,options.now);
       const result = await run({message:scopedInput.message,intent,clientId:scopedInput.context?.clientId,exerciseId}, {
         ...options, mode:'offline', repository, window:selectedWindow, signal:controller.signal, deadlineMs:Math.max(1,budget-(performance.now()-start)),
       });
@@ -154,7 +159,7 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
         ...(['model','profile','memory','images','voice','actions','progress'] as const).map(key=>({key,status:'not_connected' as const,reason:key==='model'?'paid_provider_disabled':'service_not_connected'})),
         ...disconnectedSurfaceCapabilities(),
       ];
-      response.snapshot = {id:randomUUID(),capturedAt:options.now.toISOString(),subjectId:authorized.subjectId,organizationId:authorized.organizationId,...scope,surface,screenIncluded:surface!==null,language:authorized.language,units:{weight:'kg',energy:'kcal',protein:'g'},window:selectedWindow,capabilities};
+      response.snapshot = {id:randomUUID(),capturedAt:options.now.toISOString(),subjectId:authorized.subjectId,organizationId:authorized.organizationId,...scope,surface,screenIncluded:surface!==null,language:conversationLanguage(scopedInput.message,authorized.language),units:{weight:'kg',energy:'kcal',protein:'g'},window:selectedWindow,capabilities};
       response.snapshot.selection=selection.snapshot();
       if(photoObservations.length){const images=capabilities.find(c=>c.key==='images')!;images.status='available';images.reason='validated_photo_analysis';}
       if(response.snapshot.selection){const screen=capabilities.find(c=>c.key==='screen_entity')!;screen.status='available';screen.reason='server_resolved_selection';}
@@ -176,6 +181,16 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
             if(row.foodPreference.profileId!==subject)throw new Error('forbidden');
             response.foodPreference={...row.foodPreference,preferences:parseFoodPreferences(row.foodPreference.preferences)};
           }
+          if(row.nutritionTargets){
+            for(const [field,unit,label] of [['calories','kcal','calorías'],['proteinG','g protein','proteína']] as const){
+              const value=row.nutritionTargets[field];
+              if(typeof value==='number'&&Number.isFinite(value)&&value>0&&value<=(field==='calories'?15000:1000)){
+                const es=response.snapshot.language.startsWith('es');
+                response.evidence.push({id:`nutrition.target.${field}`,source:'nutrition',sourceIds:[subject],window,completeness:'complete',value,unit,
+                  statement:es?`Objetivo diario guardado de ${label}: ${value} ${field==='proteinG'?'g':unit}.`:`Stored daily ${field==='proteinG'?'protein':'calorie'} target: ${value} ${unit}.`});
+              }
+            }
+          }
           const preferences=workoutPreferencesSchema.safeParse(row.preferences);
           if(preferences.success) {
             response.profile={language:authorized.language,timezone:authorized.timezone,units:response.snapshot.units,preferences:{durationMinutes:preferences.data.durationMinutes},version:row.preferencesVersion??createHash('sha256').update(JSON.stringify(preferences.data)).digest('hex'),source:options.repository.dataSource==='synthetic'?'isolated_fixture':'authorized_profile'};
@@ -194,7 +209,7 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
       }
       if(options.mode==='model'&&!medical) {
         try {
-        await generateOpenConversation(options.filterMemoryHistory?.(scopedInput)??scopedInput,response,options.offlineConversationProvider!,controller.signal,options.offlineInterpretationReview,options.offlineCandidateEvaluation,options.isolatedFixtureBoundary,options.workoutSetIntentsEnabled,options.foodQuantityIntentsEnabled,options.governedPilotBoundary,options.candidateActionsEnabled,options.foodSelection,photoObservations);
+        await generateOpenConversation(options.filterMemoryHistory?.(scopedInput)??scopedInput,response,options.offlineConversationProvider!,controller.signal,options.offlineInterpretationReview,options.offlineCandidateEvaluation,options.isolatedFixtureBoundary,options.workoutSetIntentsEnabled,options.foodQuantityIntentsEnabled,options.governedPilotBoundary,options.candidateActionsEnabled,options.foodSelection,photoObservations,adviceEstimator);
         } catch(error) {
           // Reject invalid companion output without losing an already
           // authorized observation. Never release rejected prose or retry a model.

@@ -66,6 +66,7 @@ export function createServerRepository(pool: ReadPool): CoachRepository {
     },
     personalContext: args => bounded<PersonalContextRow>(args, `
       SELECT cp.user_id AS "userId", to_jsonb(cp)->'workout_preferences' AS preferences,
+        jsonb_build_object('calories',to_jsonb(cp)->'target_calories','proteinG',to_jsonb(cp)->'target_protein_g') AS "nutritionTargets",
         coalesce((SELECT jsonb_agg(memory) FROM (
           SELECT m.id,m.user_id AS "userId",left(m.fact_text,500) AS text,m.source,m.created_at::text AS "createdAt",m.scope,
             md5(m.id::text || m.fact_text || m.active::text || coalesce(m.superseded_by::text,'')) AS version

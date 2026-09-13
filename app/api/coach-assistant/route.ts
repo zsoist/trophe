@@ -18,6 +18,10 @@ export async function POST(request: NextRequest) {
       const [{db},{createTextFoodService},{foodReferenceReviewOutput}]=await Promise.all([import('@/db/client'),import('@/agents/coach-assistant/text-food-service'),import('@/agents/coach-assistant/food-reference-review')]);
       return createTextFoodService(db,async()=>{const output=foodReferenceReviewOutput(reference);if(!output)throw new Error('invalid_input');return output;});
     },
+    createNutritionAdviceEstimator: async (actorId,turnId) => {
+      const { createPrivateNutritionAdviceEstimator } = await import('@/agents/coach-assistant/private-nutrition-advice');
+      return createPrivateNutritionAdviceEstimator(process.env,actorId,turnId);
+    },
     createFoodReferenceFallback: async (actorId, turnId) => {
       const { createPrivateFoodReferenceFallback } = await import('@/agents/coach-assistant/private-food-reference-runtime');
       return createPrivateFoodReferenceFallback(process.env, actorId, turnId);

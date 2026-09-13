@@ -18,7 +18,7 @@ describe('unapproved full conversation release candidate (injected transport, no
     const result=await runConversationCandidate({...base,message:'¿Qué comida está registrada en este día?',context:{surface:'food',includeScreen:true,screenDate:'2026-09-10'}},{...empty,offlineConversationProvider:transport});
     expect(result.error).toBeUndefined();
     expect(result.ok).toBe(true);
-    expect(result.output?.answer).toContain('The available authorized sources contain no records matching this request.');
+    expect(result.output?.answer).toContain('Las fuentes autorizadas disponibles no contienen registros compatibles con esta consulta.');
     expect(result.output?.answer).not.toContain('10');
     expect(result.output?.suggestions).toEqual([]);
     expect(result.evidence).toEqual([]);

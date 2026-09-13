@@ -4,12 +4,17 @@ import { projectNativeFoodReference } from './food-reference-native-fallback';
 
 /** Acceptance prepares an editable draft only. Apply still requires the existing review. */
 export function foodReferenceReviewIntent(text:string):boolean {
- return /^(?:yes(?:,?\s+please)?|sí(?:,?\s+por\s+favor)?|si|(?:please\s+)?(?:log|record)\s+(?:it|that)|registra(?:r)?\s+(?:eso|esto)|regístralo|registralo)[.!?\s]*$/i.test(text.trim());
+ return adviceOptionIndex(text)!==null||/^(?:yes(?:,?\s+please)?|sí(?:,?\s+por\s+favor)?|si|(?:please\s+)?(?:log|record)\s+(?:it|that)|registra(?:r)?\s+(?:eso|esto)|regístralo|registralo)[.!?\s]*$/i.test(text.trim());
 }
+export function adviceOptionIndex(text:string):number|null {const match=text.trim().match(/^(?:(?:log|record|review|registra|registrar|revisa)\s+)?(?:(?:the\s+)?option|la(?:\s+opción)?|opción|option|επιλογή)?\s*([1-3])[.!?\s]*$/i);return match?Number(match[1])-1:null;}
 export function foodReferenceReviewOutput(raw:FoodReferenceSnapshot):FoodParseOutput|null {
  const parsed=foodReferenceSnapshotSchema.safeParse(raw);if(!parsed.success)return null;
  const snapshot=parsed.data;const items:ParsedFoodItem[]=[];
- if(snapshot.kind==='native'){
+ if(snapshot.kind==='advice'){
+  const selected=snapshot.selected??(snapshot.meals.length===1?0:undefined);
+  if(selected===undefined||!snapshot.meals[selected])return null;
+  items.push(...snapshot.meals[selected].items.map(item=>({...item,portion_explicit:true})));
+ }else if(snapshot.kind==='native'){
   if(snapshot.reviewItems?.length!==snapshot.references.length)return null;
   for(let i=0;i<snapshot.references.length;i++){
    const ref=snapshot.references[i],original=snapshot.reviewItems[i];

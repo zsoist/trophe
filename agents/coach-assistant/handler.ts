@@ -45,6 +45,7 @@ interface HandlerDependencies {
   createAttachmentService?:()=>ReturnType<typeof createPrivateAttachmentService>|Promise<ReturnType<typeof createPrivateAttachmentService>>;
   createFoodService?:()=>FoodQuantityService|Promise<FoodQuantityService>;
   createReferenceReviewService?:(reference:import('./food-reference-continuity').FoodReferenceSnapshot)=>Promise<TextFoodService>;
+  createNutritionAdviceEstimator?:(actorId:string,turnId:string)=>Promise<import('./nutrition-advice').EstimateMealAdvice>;
   createFoodReferenceFallback?:(actorId:string,turnId:string)=>Promise<FoodReferenceFallback>;
   createTextFoodService?:(actorId:string)=>TextFoodService|Promise<TextFoodService>;
   createPhotoFoodService?:(operation:unknown,actorId:string)=>PhotoFoodService|Promise<PhotoFoodService>;
@@ -335,6 +336,7 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
           return executeTextFoodAction(guard.userId,{version:'coach-assistant.v2',operation:'text.food.parse',conversationId:input.conversationId,turnId:input.turnId,requestId:input.turnId,text:input.message,language:'en'},repository,await deps.createReferenceReviewService!(reference),signal);
         }:undefined;
       const runOptions={
+        estimateMealAdvice:live&&durableChat&&conversationInput&&(!conversationInput.context?.clientId||conversationInput.context.clientId===guard.userId)&&deps.createNutritionAdviceEstimator?await deps.createNutritionAdviceEstimator(guard.userId,conversationInput.turnId):undefined,
         prepareFoodReferenceReview,
         resolveTextFoodIntake,
         capabilityRegistry,

@@ -33,7 +33,8 @@ describe('actual guarded candidate composition, synthetic transports only',()=>{
    expect(payload.actionsAvailable).toBe(false);expect(payload.history.length).toBeLessThanOrEqual(i*2);if(i>0)expect(payload.history.some((h:{role:string;text:string})=>h.role==='user'&&h.text===history[history.length-2].text)).toBe(true);
    expect(payload.evidence.length).toBeGreaterThan(0);
    expect(payload.evidence.every((e:{source:string})=>i<2?e.source==='nutrition':e.source==='workout'||e.source==='plan')).toBe(true);
-   for(const evidence of payload.evidence)expect(result.output?.answer).toContain(evidence.statement);
+   if(i===1){expect(result.output?.answer).toContain('Días con registros: 1.');expect(result.output?.answer).toContain('1200 kcal registradas.');expect(result.output?.answer).toContain('75 g de proteína registrados.');}
+   else for(const evidence of payload.evidence)expect(result.output?.answer).toContain(evidence.statement);
    history.push({role:'user',text:message},{role:'assistant',text:result.output!.answer.slice(0,500)});
   }
   expect(provider).toHaveBeenCalledTimes(3);

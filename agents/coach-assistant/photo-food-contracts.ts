@@ -1,5 +1,6 @@
+import type {CanonicalMealSlot} from '@/lib/food/meal-slot';
 /** Browser-only declarations. Numbers remain photo-derived estimates after portion review. */
-export interface PhotoFoodReview {loggedDate:string;mealType:'breakfast'|'lunch'|'dinner'|'snack'|'pre_workout'|'post_workout';foodName:string;grams:number;calories:number;proteinG:number;carbsG:number;fatG:number;fiberG:number;sugarG:number;confidence:number;source:'photo_ai';nutrition:'estimated';portion:'explicit_user'}
+export interface PhotoFoodReview {mealSlot?:CanonicalMealSlot;loggedDate:string;mealType:'breakfast'|'lunch'|'dinner'|'snack'|'pre_workout'|'post_workout';foodName:string;grams:number;calories:number;proteinG:number;carbsG:number;fatG:number;fiberG:number;sugarG:number;confidence:number;source:'photo_ai';nutrition:'estimated';portion:'explicit_user'}
 export interface PhotoFoodEvidence {observationId:string;observationRevision:string;attachmentId:string;imageDigest:string;itemIndex:number;source:'validated_photo_analysis'|'offline_fixture';trust:'untrusted_image_data'}
 export interface PhotoFoodProposal {id:string;hash:string;action:'food.photo.create';resource:{kind:'food_entry';id:string;version:string};before:null;after:PhotoFoodReview;evidence:PhotoFoodEvidence;precondition:string;expiresAt:string;reviewRequired:true}
 export type PhotoFoodError='identity_clarification_required'|'invalid_input'|'forbidden'|'not_found'|'not_connected'|'version_conflict'|'expired'|'idempotency_conflict'|'uncertain'|'cancelled';

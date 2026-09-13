@@ -9,6 +9,7 @@ import { COACH_PRICING_VERSION } from './economics';
 import { COACH_PROMPT_VERSION, COACH_SYSTEM_PROMPT } from './prompt.v3';
 
 export interface RunOptions extends EvidenceOptions {
+  estimateMealAdvice?: import('./nutrition-advice').EstimateMealAdvice;
   /** Authenticated durable assistant metadata only; never request history. */
   prepareFoodReferenceReview?: (input: import('./contracts').CoachConversationRequest, reference: import('./food-reference-continuity').FoodReferenceSnapshot, signal: AbortSignal) => Promise<import('./text-food-contract').TextFoodResult | null>;
   foodReferenceFollowUp?: import('./food-reference-continuity').FoodReferenceSnapshot;

@@ -80,7 +80,7 @@ async function reviewedItems(tx: Tx, draft: TextFoodDraft, after: TextFoodPropos
     // Catalogue access is still locked above; edited grams keep the normal Food derivation.
     const scaled = portion.grams===item.grams?{calories:item.calories,proteinG:item.protein_g,carbsG:item.carbs_g,fatG:item.fat_g,fiberG:item.fiber_g,sugarG:item.sugar_g}:await deriveFoodLogEdit(tx, basis, { grams: portion.grams });
     const confirmed = { ...item, quantity: portion.grams, unit: 'g', grams: portion.grams, calories: scaled.calories!, protein_g: scaled.proteinG!, carbs_g: scaled.carbsG!, fat_g: scaled.fatG!, fiber_g: scaled.fiberG!, sugar_g: scaled.sugarG!, portion_explicit: true };
-    validateReviewedTextFood(confirmed, after.loggedDate, after.mealType);
+    validateReviewedTextFood(confirmed, after.loggedDate, after.mealType, after.mealSlot);
     result.push(confirmed);
   }
   return result;
@@ -184,8 +184,8 @@ export function createTextFoodService(database: Database, parser: TextFoodParser
         if (live.rows[0]?.expired !== false) throw new Rejected('expired');
         for (let index = 0; index < items.length; index++) {
           s.signal.throwIfAborted();
-          const created = await insertReviewedTextFood(tx, { entryId: p.entryIds[index], ownerUserId: s.subjectId, proposalId: p.id, itemIndex: index }, { date: p.after.loggedDate, mealType: p.after.mealType, item: items[index] });
-          if (created.source !== 'natural_language' || created.sourceId !== `coach-text:${p.id}:${index}` || created.foodName !== selectFoodDisplayName(items[index]) || created.foodId !== (items[index].db_food_id ?? null) || created.unit !== 'g' || created.qtyInputUnit !== 'g' || Number(created.qtyInput) !== items[index].grams || created.loggedDate !== p.after.loggedDate || created.mealType !== p.after.mealType || Number(created.qtyG) !== items[index].grams) throw new Rejected('uncertain');
+          const created = await insertReviewedTextFood(tx, { entryId: p.entryIds[index], ownerUserId: s.subjectId, proposalId: p.id, itemIndex: index }, { date: p.after.loggedDate, mealType: p.after.mealType, mealSlot:p.after.mealSlot, item: items[index] });
+          if (created.source !== 'natural_language' || created.sourceId !== `coach-text:${p.id}:${index}` || created.foodName !== selectFoodDisplayName(items[index]) || created.foodId !== (items[index].db_food_id ?? null) || created.unit !== 'g' || created.qtyInputUnit !== 'g' || Number(created.qtyInput) !== items[index].grams || created.loggedDate !== p.after.loggedDate || created.mealType !== p.after.mealType || (p.after.mealSlot!==undefined&&created.mealSlot!==p.after.mealSlot) || Number(created.qtyG) !== items[index].grams) throw new Rejected('uncertain');
           for (const [actual, expected] of [[created.calories, items[index].calories], [created.proteinG, items[index].protein_g], [created.carbsG, items[index].carbs_g], [created.fatG, items[index].fat_g], [created.fiberG, items[index].fiber_g], [created.sugarG, items[index].sugar_g], [created.quantity, items[index].quantity], [created.parseConfidence, items[index].confidence]]) if (typeof actual !== 'number' || typeof expected !== 'number' || !Number.isFinite(actual) || Math.fround(actual) !== Math.fround(expected)) throw new Rejected('uncertain');
         }
         const clock = await tx.execute<{ recorded: string }>(sql`SELECT clock_timestamp()::text AS recorded`);

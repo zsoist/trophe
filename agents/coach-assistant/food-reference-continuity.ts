@@ -5,6 +5,7 @@ import { nativeFoodReferenceSchema, rescaleNativeFoodReference } from './food-re
 import { foodReferenceEvidenceSchema } from './food-reference-evidence';
 import { renderNativeFoodReference } from './food-reference-native-render';
 export const foodReferenceSnapshotSchema = z.discriminatedUnion('kind',[
+ z.object({kind:z.literal('advice'),meals:z.array(z.object({name:z.string().min(1).max(500),items:z.array(z.custom<ParsedFoodItem>(isParsedFoodItem)).min(1).max(12)}).strict()).min(1).max(3),selected:z.number().int().min(0).max(2).optional()}).strict(),
  z.object({kind:z.literal('catalogue'),options:z.array(foodReferenceSchema).min(1).max(2),portions:z.array(z.number().positive().max(10000).nullable()).max(2).optional()}).strict(),
  z.object({kind:z.literal('native'),references:z.array(nativeFoodReferenceSchema).min(1).max(12),referenceEvidence:foodReferenceEvidenceSchema.nullable(),unverifiedMarkets:z.array(z.string().regex(/^[A-Z]{2}$/)).max(10).optional(),reviewItems:z.array(z.custom<ParsedFoodItem>(isParsedFoodItem)).max(12).optional()}).strict(),
 ]);
@@ -12,6 +13,7 @@ export type FoodReferenceSnapshot=z.infer<typeof foodReferenceSnapshotSchema>;
 export const foodReferenceToolSchema=z.tuple([z.object({name:z.literal('food.reference'),input:z.object({}).strict(),output:foodReferenceSnapshotSchema}).strict()]);
 export function snapshotFoodReference(result:unknown,userText?:string):FoodReferenceSnapshot|null{
  if(!result||typeof result!=='object')return null;
+ if('kind'in result&&result.kind==='advice'){const parsed=foodReferenceSnapshotSchema.safeParse(result);return parsed.success?parsed.data:null;}
  if('native'in result&&result.native&&typeof result.native==='object'&&'ok'in result.native&&result.native.ok===true&&'outcome'in result.native&&result.native.outcome==='reference'&&'references'in result.native){
   const parsed=foodReferenceSnapshotSchema.safeParse({kind:'native',references:result.native.references,referenceEvidence:'referenceEvidence'in result?result.referenceEvidence:null,...('unverifiedMarkets'in result?{unverifiedMarkets:result.unverifiedMarkets}:{}),...('reviewItems'in result?{reviewItems:result.reviewItems}:{})});return parsed.success?parsed.data:null;
  }
@@ -23,6 +25,7 @@ export function recalculateFoodReference(raw:FoodReferenceSnapshot,text:string,s
  if(!isFoodPortionFollowUp(text))return null;
  const parsed=foodReferenceSnapshotSchema.safeParse(raw);if(!parsed.success)return null;
  const snapshot=parsed.data;
+ if(snapshot.kind==='advice')return null;
  if(snapshot.kind==='catalogue')return {answer:renderFoodReferences({options:snapshot.options},spanish,text),result:{options:snapshot.options}};
  const portion=parseFoodPortions(text)[0];
  if(snapshot.references.length!==1)return {answer:spanish?'¿Para cuál alimento quieres esa cantidad?':'Which food should use that amount?',result:{native:{ok:true,outcome:'clarification_required',question:null,partial:snapshot.references}}};

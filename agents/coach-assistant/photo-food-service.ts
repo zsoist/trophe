@@ -26,7 +26,7 @@ async function loadObservation(tx:Tx,s:Scope,attachmentId:string,port:PhotoFoodO
  let raw:unknown;try{raw=await Promise.race([port.load(scope,signal,tx),new Promise<never>((_,reject)=>{onAbort=()=>reject(signal.reason);signal.addEventListener('abort',onAbort,{once:true});if(signal.aborted)onAbort();})]);}finally{if(onAbort)signal.removeEventListener('abort',onAbort);}
  s.signal.throwIfAborted();if(raw===null)throw new Rejected('not_connected');const observation=validatePhotoFoodObservation(raw,scope);if(observation.imageDigest!==row.normalized_digest)throw new Rejected('version_conflict');return observation;
 }
-async function derive(tx:Tx,o:PhotoFoodObservation,index:number,portion:{loggedDate:string;mealType:PhotoFoodReview['mealType'];grams:number}){
+async function derive(tx:Tx,o:PhotoFoodObservation,index:number,portion:{loggedDate:string;mealType:PhotoFoodReview['mealType'];mealSlot?:PhotoFoodReview['mealSlot'];grams:number}){
  const item=o.items[index];if(!item)throw new Rejected('invalid_input');
  if(o.foods[index]?.identity_status!=='identified')throw new Rejected('identity_clarification_required');
  // Reuse the current Food edit calculation against the parsed basis, without an
@@ -34,7 +34,7 @@ async function derive(tx:Tx,o:PhotoFoodObservation,index:number,portion:{loggedD
  const existing={foodName:selectFoodDisplayName(item),foodId:null,quantity:item.quantity,qtyG:String(item.grams),calories:item.calories,proteinG:item.protein_g,carbsG:item.carbs_g,fatG:item.fat_g,fiberG:item.fiber_g,sugarG:item.sugar_g} as FoodLogRow;
  const scaled=await deriveFoodLogEdit(tx,existing,{grams:portion.grams});
  const confirmed={...item,quantity:portion.grams,unit:'g',grams:portion.grams,calories:scaled.calories!,protein_g:scaled.proteinG!,carbs_g:scaled.carbsG!,fat_g:scaled.fatG!,fiber_g:scaled.fiberG!,sugar_g:scaled.sugarG!,portion_explicit:true};
- validateReviewedPhotoFood(confirmed,portion.loggedDate,portion.mealType);
+ validateReviewedPhotoFood(confirmed,portion.loggedDate,portion.mealType,portion.mealSlot);
  const review=photoFoodReviewSchema.parse({...portion,foodName:selectFoodDisplayName(confirmed),calories:confirmed.calories,proteinG:confirmed.protein_g,carbsG:confirmed.carbs_g,fatG:confirmed.fat_g,fiberG:confirmed.fiber_g,sugarG:confirmed.sugar_g,confidence:confirmed.confidence,source:'photo_ai',nutrition:'estimated',portion:'explicit_user'});
  return {confirmed,review};
 }
@@ -80,8 +80,8 @@ export function createPhotoFoodService(database:Database,observations?:PhotoFood
   if(o.source!==p.evidence.source||o.id!==p.evidence.observationId||o.revision!==p.evidence.observationRevision||o.imageDigest!==p.evidence.imageDigest||basis(o,p.evidence.itemIndex)!==op.resourceVersion)throw new Rejected('version_conflict');
   const {confirmed,review}=await derive(tx,o,p.evidence.itemIndex,p.after);if(canonical(review)!==canonical(p.after))throw new Rejected('version_conflict');
   await authorize(tx,scope);const expiry=await tx.execute<{expired:boolean}>(sql`SELECT clock_timestamp()>=${p.expiresAt}::timestamptz OR clock_timestamp()>=(SELECT expires_at FROM private.coach_attachment_uploads WHERE id=${o.attachmentId}::uuid) AS expired`);if(expiry.rows[0]?.expired!==false)throw new Rejected('expired');scope.signal.throwIfAborted();if(fixtureWrite&&!isolated(p.evidence.attachmentId))throw new Rejected('not_connected');
-  const created=await insertReviewedPhotoFood(tx,{entryId:p.id,ownerUserId:scope.subjectId,observationId:o.id,itemIndex:p.evidence.itemIndex},{date:review.loggedDate,mealType:review.mealType,item:confirmed});
-  if(created.id!==p.id||created.userId!==scope.subjectId||created.loggedDate!==review.loggedDate||created.mealType!==review.mealType||created.foodName!==review.foodName||created.source!=='photo_ai'||created.sourceId!==`coach-photo:${o.id}:${p.evidence.itemIndex}`||created.foodId!==null||created.llmRecognized!==false||created.unit!=='g'||created.qtyInputUnit!=='g'||Number(created.qtyG)!==review.grams||Number(created.qtyInput)!==review.grams)throw new Rejected('uncertain');
+  const created=await insertReviewedPhotoFood(tx,{entryId:p.id,ownerUserId:scope.subjectId,observationId:o.id,itemIndex:p.evidence.itemIndex},{date:review.loggedDate,mealType:review.mealType,mealSlot:review.mealSlot,item:confirmed});
+  if(created.id!==p.id||created.userId!==scope.subjectId||created.loggedDate!==review.loggedDate||created.mealType!==review.mealType||(review.mealSlot!==undefined&&created.mealSlot!==review.mealSlot)||created.foodName!==review.foodName||created.source!=='photo_ai'||created.sourceId!==`coach-photo:${o.id}:${p.evidence.itemIndex}`||created.foodId!==null||created.llmRecognized!==false||created.unit!=='g'||created.qtyInputUnit!=='g'||Number(created.qtyG)!==review.grams||Number(created.qtyInput)!==review.grams)throw new Rejected('uncertain');
   for(const [actual,expected] of [[created.quantity,review.grams],[created.calories,review.calories],[created.proteinG,review.proteinG],[created.carbsG,review.carbsG],[created.fatG,review.fatG],[created.fiberG,review.fiberG],[created.sugarG,review.sugarG],[created.parseConfidence,review.confidence]])if(typeof actual!=='number'||typeof expected!=='number'||!Number.isFinite(actual)||Math.fround(actual)!==Math.fround(expected))throw new Rejected('uncertain');
   const revisions=await tx.execute<{revision:string}>(sql`SELECT revision::text FROM private.coach_food_entry_versions WHERE entry_id=${p.id}::uuid`);const nextVersion=revisions.rows[0]?.revision;if(!nextVersion||!/^\d{1,20}$/.test(nextVersion))throw new Rejected('not_connected');
   const clock=await tx.execute<{recorded:string}>(sql`SELECT clock_timestamp()::text AS recorded`);
