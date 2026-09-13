@@ -1,17 +1,18 @@
+import { attachFoodReferenceEvidence, type FoodReferenceEvidence } from './food-reference-evidence';
 import type { invokeStructuredProvider } from '@/agents/runtime/providers/structured';
 import type { FoodParseInput } from '@/agents/schemas/food-parse';
 import { TEXT_FOOD_MAX_PHASES } from './pilot-budget';
 import { taskPolicies } from '@/agents/router/policies';
 import { isGovernedFoodParseTransport, type GovernedCoachTransport } from './governed-transport';
 
-export const TEXT_FOOD_PROMPT_VERSION = 'coach-assistant.text-food-native.v1';
+export const TEXT_FOOD_PROMPT_VERSION = 'coach-assistant.text-food-native.v2-reference-context';
 
 /** Every native extraction/decomposition/estimate uses the existing admitted transport.
  * Serial dispatch prevents parallel decomposition from escaping the native algorithm ceiling.
  * A failure latches closed: the native parser cannot turn a failed provider call into
  * an unadmitted repair, fallback estimate, or partially accepted meal.
  */
-export function createTextFoodParserTransport(transport: GovernedCoachTransport, signal: AbortSignal) {
+export function createTextFoodParserTransport(transport: GovernedCoachTransport, signal: AbortSignal, evidence?: FoodReferenceEvidence) {
   if (!isGovernedFoodParseTransport(transport)) throw new Error('budget_blocked');
   let failed = false;
   let calls = 0;
@@ -23,12 +24,13 @@ export function createTextFoodParserTransport(transport: GovernedCoachTransport,
     await previous;
     try {
       signal.throwIfAborted();
+      const contextualRequest = attachFoodReferenceEvidence(request, evidence);
       // UTF-8 bytes conservatively bound tokens; leave headroom for protocol framing.
-      if (new TextEncoder().encode(JSON.stringify({ system: request.system, prompt: request.prompt, schema: request.schema })).length > 63500) throw new Error('context_limit');
+      if (new TextEncoder().encode(JSON.stringify({ system: contextualRequest.system, prompt: contextualRequest.prompt, schema: contextualRequest.schema })).length > 63500) throw new Error('context_limit');
       if (failed || calls >= TEXT_FOOD_MAX_PHASES) throw new Error('budget_blocked');
       calls++;
       const result = await transport({
-        ...request,
+        ...contextualRequest,
         signal: AbortSignal.any([signal, request.signal]),
         policy: { ...taskPolicies.coach_assistant, promptVersion: TEXT_FOOD_PROMPT_VERSION },
         maxTokens: 2000,
@@ -47,8 +49,9 @@ export function createTextFoodParserTransport(transport: GovernedCoachTransport,
 /** Uses Food's original parser and catalogue; never writes a food record. */
 export async function parseTextFood(input: FoodParseInput, scope: {
   actorId: string; requestId: string; signal: AbortSignal; transport: GovernedCoachTransport;
+  referenceEvidence?: FoodReferenceEvidence;
 }) {
-  const admitted = createTextFoodParserTransport(scope.transport, scope.signal);
+  const admitted = createTextFoodParserTransport(scope.transport, scope.signal, scope.referenceEvidence);
   const { run } = await import('@/agents/food-parse');
   const result = await run(input, {
     userId: scope.actorId,
