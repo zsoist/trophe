@@ -31,7 +31,13 @@ export function summarizeSugar(entries: Array<{ sugar_g: number | null }>): Suga
     return { totalGrams: null, completeness: 'unknown', missingEntries: 0 };
   }
 
-  const known = entries.filter((entry) => entry.sugar_g !== null);
+  // A missing nutrient is not a zero. Treat anything that is not a finite
+  // number (null, undefined from a column that was never written, or NaN from a
+  // bad row) as unknown so the day is reported partial/unknown rather than
+  // silently summing the gap as 0 g.
+  const known = entries.filter(
+    (entry) => typeof entry.sugar_g === 'number' && Number.isFinite(entry.sugar_g),
+  );
   const missingEntries = entries.length - known.length;
   if (known.length === 0) {
     return { totalGrams: null, completeness: 'unknown', missingEntries };
@@ -104,7 +110,11 @@ export function buildDailyNutritionNote({
     };
   }
 
-  const uniqueFoods = new Set(entries.map((entry) => entry.food_name.trim().toLowerCase()).filter(Boolean));
+  const uniqueFoods = new Set(
+    entries
+      .map((entry) => entry.food_name.replace(/\s+/g, ' ').trim().toLowerCase())
+      .filter(Boolean),
+  );
   if (uniqueFoods.size >= 6) {
     return {
       tone: 'positive',

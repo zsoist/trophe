@@ -52,7 +52,14 @@ export function calculateMealScore(entries: FoodLogEntry[]): MealScore | null {
   const proteinScore = Math.min(100, (totalProtein / TARGET_PROTEIN_PER_MEAL) * 100);
 
   // 3. Variety score (30%)
-  const uniqueFoods = new Set(entries.map(e => e.food_name)).size;
+  // Count distinct foods the way a person would: the same food logged as
+  // "Rice", "rice " or "RICE" is one food, not three. Mirrors the normalization
+  // in lib/nutrition/daily-summary.ts so both surfaces agree.
+  const uniqueFoods = new Set(
+    entries
+      .map(e => (e.food_name ?? '').replace(/\s+/g, ' ').trim().toLowerCase())
+      .filter(Boolean),
+  ).size;
   const varietyScore = uniqueFoods >= 4 ? 100
     : uniqueFoods === 3 ? 80
     : uniqueFoods === 2 ? 60
