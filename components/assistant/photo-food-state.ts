@@ -4,13 +4,19 @@ import type { PhotoFoodTransport } from './photo-food-client';
 
 type Snapshot = Extract<PhotoFoodResult, { ok: true; snapshot: unknown }>['snapshot'];
 type Receipt = Extract<PhotoFoodResult, { ok: true; receipt: unknown }>['receipt'];
-export interface PhotoFoodState { attachmentId:string|null;snapshot:Snapshot|null;itemIndex:number|null;proposal:PhotoFoodProposal|null;receipt:Receipt|null;refreshEntryId:string|null;pending:boolean;uncertain:boolean;error:string|null }
-const empty=():PhotoFoodState=>({attachmentId:null,snapshot:null,itemIndex:null,proposal:null,receipt:null,refreshEntryId:null,pending:false,uncertain:false,error:null});
-// These first-apply outcomes reject or roll back the current transaction. not_connected
-// may follow an insertion that was rolled back; idempotency_conflict does not establish
-// that no earlier write exists. This controller never replays apply after uncertainty.
-// forbidden/not_found/uncertain/cancelled remain ambiguous and retain the envelope.
-const nonCommitApplyErrors=new Set<PhotoFoodError>(['identity_clarification_required','invalid_input','not_connected','expired','version_conflict','idempotency_conflict']);
+export interface PhotoFoodState { attachmentId:string|null;snapshot:Snapshot|null;itemIndex:number|null;proposal:PhotoFoodProposal|null;receipt:Receipt|null;refreshEntryId:string|null;pending:boolean;uncertain:boolean;receiptMissing:boolean;error:string|null }
+const empty=():PhotoFoodState=>({attachmentId:null,snapshot:null,itemIndex:null,proposal:null,receipt:null,refreshEntryId:null,pending:false,uncertain:false,receiptMissing:false,error:null});
+// Apply outcomes the writer contract proves did not commit: pre-dispatch validation (`invalid_input`),
+// a transaction rollback (`not_connected` can be raised before dispatch *or* after the write statement
+// rolls back, so nothing is committed), or a refusal that precedes the insert (`expired`/`version_conflict`/
+// `identity_clarification_required`). `forbidden` is excluded because the service re-authorizes after
+// dispatch, so a fresh-auth mismatch can follow a committed write. `idempotency_conflict` is excluded
+// because it only reports that the *current* request was refused (consumed proposal or reused action id)
+// and is not proof that no older write committed. `not_found`/`uncertain`/`cancelled` are ambiguous and
+// never release the pinned envelope. These outcomes are only trusted for the *initial* dispatch: on an
+// explicit retry a delayed original may still commit behind the same action lock, so a retry error never
+// releases the pinned recovery (see `retry`).
+const nonCommitApplyErrors=new Set<PhotoFoodError>(['identity_clarification_required','invalid_input','not_connected','expired','version_conflict']);
 
 export class PhotoFoodController {
  private state=empty();private listeners=new Set<()=>void>();private active:AbortController|null=null;private generation=0;private conversationId='';private action:Extract<PhotoFoodOperation,{operation:'photo.food.apply'}>|null=null;
@@ -25,11 +31,20 @@ export class PhotoFoodController {
  discard(){if(!this.state.pending&&!this.action)this.publish({...this.state,proposal:null,error:null});}
  async apply(transport:PhotoFoodTransport){const p=this.state.proposal;if(!p||this.state.pending||this.action||this.state.receipt)return;if(this.state.snapshot?.items.find(item=>item.index===this.state.itemIndex)?.identityStatus!=='identified'){this.publish({...this.state,proposal:null,error:'identity_clarification_required'});return;}if(Date.parse(p.expiresAt)<=Date.now()){this.publish({...this.state,error:'expired'});return;}this.action={version:'coach-assistant.v2',operation:'photo.food.apply',conversationId:this.conversationId,turnId:crypto.randomUUID(),proposalId:p.id,hash:p.hash,actionId:crypto.randomUUID(),resourceVersion:p.resource.version,reviewed:true};await this.run(this.action,transport);}
  async check(transport:PhotoFoodTransport){const action=this.action;if(!action||this.state.pending||!this.state.uncertain)return;await this.run({version:'coach-assistant.v2',operation:'photo.food.receipt',conversationId:this.conversationId,turnId:crypto.randomUUID(),actionId:action.actionId},transport);}
- private async run(operation:PhotoFoodOperation,transport:PhotoFoodTransport):Promise<PhotoFoodResult|null>{const controller=new AbortController();this.active=controller;const generation=++this.generation,valid=()=>generation===this.generation&&!controller.signal.aborted;this.publish({...this.state,pending:true,error:null});try{const result=await transport(operation,controller.signal);if(!valid())return null;if(!result.ok){
+ // Explicit, user-triggered retry of the SAME already-confirmed immutable envelope (identical
+ // actionId/proposalId/hash/resourceVersion). Offered only after a Check proved the receipt missing.
+ // Writer idempotency (actor+actionId transaction lock, receipt-first equality checks, consumed-proposal
+ // guard) makes a residual retry safe: if the delayed original won, the receipt is returned; if this retry
+ // wins, exactly one commit occurs. Never automatic, never a new action identity.
+ async retry(transport:PhotoFoodTransport){const action=this.action;if(!action||this.state.pending||this.state.receipt||!this.state.receiptMissing)return false;await this.run(action,transport,true);return true;}
+ private async run(operation:PhotoFoodOperation,transport:PhotoFoodTransport,isRetry=false):Promise<PhotoFoodResult|null>{const controller=new AbortController();this.active=controller;const generation=++this.generation,valid=()=>generation===this.generation&&!controller.signal.aborted;this.publish({...this.state,pending:true,error:null});try{const result=await transport(operation,controller.signal);if(!valid())return null;if(!result.ok){
    // Receipt lookups are pure reads: no lookup error (including forbidden/not_connected/invalid_input)
    // can prove the pinned apply did not commit, so they never release the envelope or clear uncertainty.
    // Only an apply outcome the writer contract proves non-committing releases the pinned action.
-   const released=operation.operation==='photo.food.apply'&&nonCommitApplyErrors.has(result.error);if(this.action&&released)this.action=null;
-   this.publish({...this.state,pending:false,uncertain:Boolean(this.action),error:result.error});return result;}if('snapshot'in result){if(result.snapshot.attachmentId!==this.state.attachmentId||result.snapshot.trust!=='untrusted_image_data'||result.snapshot.reviewRequired!==true)throw Error('invalid_snapshot');this.publish({...this.state,snapshot:result.snapshot,itemIndex:result.snapshot.items[0]?.index??null,pending:false});}else if('proposal'in result){const item=this.state.snapshot?.items.find(value=>value.index===this.state.itemIndex);if(!item||result.proposal.before!==null||result.proposal.precondition!==item.version||result.proposal.after.portion!=='explicit_user'||result.proposal.evidence.trust!=='untrusted_image_data')throw Error('invalid_proposal');this.publish({...this.state,proposal:result.proposal,pending:false});}else{if(!this.action||result.receipt.actionId!==this.action.actionId||result.refresh.entryId!==result.receipt.proposalId)throw Error('invalid_receipt');this.publish({...this.state,receipt:result.receipt,refreshEntryId:result.refresh.entryId,pending:false,uncertain:false});}return result;}
+   if(operation.operation==='photo.food.apply'&&!isRetry&&nonCommitApplyErrors.has(result.error))this.action=null;
+   // Check is a pure read: a `not_found` lookup is only absence at lookup time and cannot prove a
+   // delayed apply never commits, so it stays pinned and instead offers an explicit user retry.
+   const receiptMissing=Boolean(this.action)&&(operation.operation==='photo.food.receipt'?result.error==='not_found':this.state.receiptMissing);
+   this.publish({...this.state,pending:false,uncertain:Boolean(this.action),receiptMissing,error:result.error});return result;}if('snapshot'in result){if(result.snapshot.attachmentId!==this.state.attachmentId||result.snapshot.trust!=='untrusted_image_data'||result.snapshot.reviewRequired!==true)throw Error('invalid_snapshot');this.publish({...this.state,snapshot:result.snapshot,itemIndex:result.snapshot.items[0]?.index??null,pending:false});}else if('proposal'in result){const item=this.state.snapshot?.items.find(value=>value.index===this.state.itemIndex);if(!item||result.proposal.before!==null||result.proposal.precondition!==item.version||result.proposal.after.portion!=='explicit_user'||result.proposal.evidence.trust!=='untrusted_image_data')throw Error('invalid_proposal');this.publish({...this.state,proposal:result.proposal,pending:false});}else{if(!this.action||result.receipt.actionId!==this.action.actionId||result.refresh.entryId!==result.receipt.proposalId)throw Error('invalid_receipt');this.publish({...this.state,receipt:result.receipt,refreshEntryId:result.refresh.entryId,pending:false,uncertain:false,receiptMissing:false});}return result;}
  catch{if(valid())this.publish({...this.state,pending:false,uncertain:Boolean(this.action),error:this.action?'uncertain':'failed'});return null;}finally{if(valid())this.active=null;}}
 }

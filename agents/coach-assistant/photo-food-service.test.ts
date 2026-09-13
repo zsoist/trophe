@@ -101,4 +101,19 @@ describe('photo observation to reviewed Food creation with injected transactions
   f.database.$client.options.connectionString='postgresql://fixture@remote.invalid/postgres';expect(await f.execute(op)).toMatchObject({error:'not_connected'});
  });
 
+ it('recovers a missing receipt by retrying the same immutable envelope exactly once, and returns the stored receipt if a delayed duplicate arrives',async()=>{
+  const f=fixture(),p=await f.propose(),op=f.apply(p);
+  // The apply never reached the writer: Check proves the receipt is absent.
+  expect(await f.execute({...base,operation:'photo.food.receipt',actionId:op.actionId})).toMatchObject({error:'not_found'});
+  expect(f.state()).toMatchObject({writes:0,receipts:{}});
+  // Explicit retry of the SAME envelope (same actionId) commits exactly once through the shared writer.
+  const retried=await f.execute(op);
+  expect(retried).toMatchObject({ok:true,receipt:{status:'applied',actionId:op.actionId,proposalId:p.id},refresh:{previousVersion:op.resourceVersion}});
+  expect(f.state().writes).toBe(1);
+  // A delayed duplicate of the original returns the stored receipt, never a second write.
+  expect(await f.execute(op)).toEqual(retried);expect(f.state().writes).toBe(1);
+  // Check now recovers the same receipt, read-only.
+  expect(await f.execute({...base,operation:'photo.food.receipt',actionId:op.actionId})).toEqual(retried);
+ });
+
 });

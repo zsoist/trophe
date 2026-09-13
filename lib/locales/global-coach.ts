@@ -131,6 +131,8 @@ export const globalCoachTranslations: Record<string, { en: string; es: string; e
   'global_coach.photo_food_snack': { en:'Snack', es:'Snack', el:'Σνακ' },
   'global_coach.photo_food_pre': { en:'Pre-workout', es:'Antes de entrenar', el:'Πριν την προπόνηση' },
   'global_coach.photo_food_post': { en:'Post-workout', es:'Después de entrenar', el:'Μετά την προπόνηση' },
+  'global_coach.photo_food_receipt_missing': { en:'No saved food was found for this confirmation yet. Checking again is safe; retrying saves the same confirmed entry only once.', es:'Aún no se encontró comida guardada para esta confirmación. Volver a consultar es seguro; reintentar guarda la misma entrada confirmada solo una vez.', el:'Δεν βρέθηκε ακόμη αποθηκευμένο φαγητό για αυτή την επιβεβαίωση. Ο επανέλεγχος είναι ασφαλής· η επανάληψη αποθηκεύει την ίδια επιβεβαιωμένη καταχώριση μόνο μία φορά.' },
+  'global_coach.photo_food_retry': { en:'Retry saving the same confirmed food', es:'Reintentar guardar la misma comida confirmada', el:'Επανάληψη αποθήκευσης της ίδιας επιβεβαιωμένης τροφής' },
   'global_coach.delete_chat': { en: 'Delete conversation', es: 'Eliminar conversación', el: 'Διαγραφή συνομιλίας' },
   'global_coach.confirm_delete_chat': { en: 'Confirm deletion', es: 'Confirmar eliminación', el: 'Επιβεβαίωση διαγραφής' },
   'global_coach.retry_cleanup': { en: 'Retry cleanup', es: 'Reintentar limpieza', el: 'Επανάληψη εκκαθάρισης' },

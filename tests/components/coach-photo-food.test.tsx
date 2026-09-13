@@ -112,3 +112,120 @@ it.each(['forbidden','not_connected','invalid_input'] as const)('AG4 receipt loo
  expect(controller.snapshot().uncertain).toBe(true);
  const before=transport.mock.calls.length;await controller.propose({loggedDate:'2026-09-08',mealType:'dinner',grams:150},transport);expect(transport.mock.calls.length).toBe(before);
 });
+
+type ApplyOp=Extract<PhotoFoodOperation,{operation:'photo.food.apply'}>;
+type ReceiptOp=Extract<PhotoFoodOperation,{operation:'photo.food.receipt'}>;
+// Stateful harness modelling the real writer's receipt-first idempotency: an apply with an already
+// recorded actionId returns the stored receipt instead of committing again. No DB concurrency is
+// claimed here; the service-level contract is exercised offline in photo-food-service.test.ts.
+function retryFixture(){const controller=new PhotoFoodController();let proposalId='';const commits:ApplyOp[]=[];const receipts=new Map<string,Awaited<ReturnType<PhotoFoodTransport>>>();
+ const stored=(actionId:string)=>({version:'coach-assistant.v2' as const,storage:'isolated_database_fixture' as const,evaluation:{mode:'isolated_authorized_fixture' as const,observation:'offline_fixture' as const,visionVerified:false as const,paidApiCalls:0 as const},ok:true as const,receipt:{id:id(),actionId,proposalId,status:'applied' as const,action:'food.photo.create' as const,resourceVersion:'1',recordedAt:new Date().toISOString()},refresh:{entryId:proposalId,loggedDate:'2026-09-08',previousVersion:hash,version:'1',strategy:'refetch' as const}});
+ const transport=vi.fn<PhotoFoodTransport>(async op=>{
+  if(op.operation==='photo.food.read')return {version:'coach-assistant.v2',storage:'offline_fixture',ok:true,snapshot:{observationId:observation,attachmentId:attachment,source:'offline_fixture',trust:'untrusted_image_data',reviewRequired:true,items:[{index:0,version:hash,foodName:'Fixture rice',identityStatus:'identified',estimatedGrams:100,estimatedCalories:130,confidence:.7,accuracyNote:'Estimate'}]}};
+  if(op.operation==='photo.food.propose'){proposalId=id();return {version:'coach-assistant.v2',storage:'offline_fixture',ok:true,proposal:{id:proposalId,hash:'b'.repeat(64),action:'food.photo.create',resource:{kind:'food_entry',id:proposalId,version:hash},before:null,after:{...op.after,foodName:'Fixture rice',calories:195,proteinG:4,carbsG:42,fatG:.5,fiberG:.6,sugarG:0,confidence:.7,source:'photo_ai',nutrition:'estimated',portion:'explicit_user'},evidence:{observationId:observation,observationRevision:id(),attachmentId:attachment,imageDigest:'c'.repeat(64),itemIndex:0,source:'offline_fixture',trust:'untrusted_image_data'},precondition:hash,expiresAt:new Date(Date.now()+300000).toISOString(),reviewRequired:true}};}
+  if(op.operation==='photo.food.apply'){const prior=receipts.get(op.actionId);if(prior)return prior;commits.push(op);const result=stored(op.actionId);receipts.set(op.actionId,result);return result;}
+  return receipts.get(op.actionId)??{version:'coach-assistant.v2',storage:'database',ok:false,error:'not_found'};
+ });return {controller,transport,commits,receipts};}
+
+it('keeps a lost apply pinned with no retry until Check proves the receipt missing, then retries the same immutable envelope once',async()=>{
+ const f=retryFixture(),{controller,transport}=f;await controller.select(attachment,conversation,transport);await controller.propose({loggedDate:'2026-09-08',mealType:'lunch',grams:150},transport);
+ const actual=transport.getMockImplementation()!;
+ // The original request never reached the writer: it never commits and the acknowledgement is lost.
+ transport.mockImplementation(async(op,signal)=>{if(op.operation==='photo.food.apply')throw Error('offline-before-commit');return actual(op,signal);});
+ await controller.apply(transport);
+ expect(controller.snapshot()).toMatchObject({uncertain:true,receiptMissing:false,receipt:null});
+ expect(f.commits).toHaveLength(0);
+ // Before any Check there is no explicit retry and dismissal stays blocked.
+ controller.dismiss();
+ expect(controller.snapshot().uncertain).toBe(true);
+ transport.mockImplementation(actual);
+ await controller.check(transport);
+ expect(controller.snapshot()).toMatchObject({uncertain:true,receiptMissing:true,receipt:null});
+ const appliesBefore=transport.mock.calls.filter(([op])=>op.operation==='photo.food.apply');
+ expect(appliesBefore).toHaveLength(1);
+ expect(await controller.retry(transport)).toBe(true);
+ expect(f.commits).toHaveLength(1);
+ const applies=transport.mock.calls.filter(([op])=>op.operation==='photo.food.apply').map(([op])=>op as ApplyOp);
+ expect(applies).toHaveLength(2);
+ expect(applies[1]).toEqual(applies[0]);
+ expect(applies[1].actionId).toBe(applies[0].actionId);
+ expect(controller.snapshot()).toMatchObject({receipt:{status:'applied'},uncertain:false,receiptMissing:false});
+});
+it('offers an explicitly labelled retry only after a checked missing receipt, keeps Check read-only and guards duplicate clicks',async()=>{
+ const f=retryFixture(),{controller,transport}=f;await controller.select(attachment,conversation,transport);await controller.propose({loggedDate:'2026-09-08',mealType:'lunch',grams:150},transport);
+ const actual=transport.getMockImplementation()!;
+ transport.mockImplementation(async(op,signal)=>{if(op.operation==='photo.food.apply')throw Error('offline-before-commit');return actual(op,signal);});
+ await controller.apply(transport);
+ function View(){const state=React.useSyncExternalStore(controller.subscribe,controller.snapshot);return <I18nProvider defaultLang="en"><PhotoFoodPanel controller={controller} state={state} transport={transport}/></I18nProvider>}
+ render(<View/>);
+ expect(screen.getByRole('button',{name:'Check saved change'})).toBeTruthy();
+ expect(screen.queryByRole('button',{name:'Retry saving the same confirmed food'})).toBeNull();
+ transport.mockImplementation(actual);
+ fireEvent.click(screen.getByRole('button',{name:'Check saved change'}));
+ expect(await screen.findByRole('button',{name:'Retry saving the same confirmed food'})).toBeTruthy();
+ expect(screen.getByRole('button',{name:'Check saved change'})).toBeTruthy();
+ expect(f.commits).toHaveLength(0);
+ let release!:(value:void)=>void;const gate=new Promise<void>(resolve=>{release=resolve;});
+ transport.mockImplementation(async(op,signal)=>{if(op.operation==='photo.food.apply'){await gate;return actual(op,signal);}return actual(op,signal);});
+ fireEvent.click(screen.getByRole('button',{name:'Retry saving the same confirmed food'}));
+ fireEvent.click(screen.getByRole('button',{name:'Retry saving the same confirmed food'}));
+ release();
+ await screen.findByText(/Food saved/);
+ expect(f.commits).toHaveLength(1);
+ expect(transport.mock.calls.filter(([op])=>op.operation==='photo.food.apply')).toHaveLength(2);
+});
+it('reconciles a late original with a second read-only Check without a second write or a new action identity',async()=>{
+ const f=retryFixture(),{controller,transport}=f;await controller.select(attachment,conversation,transport);await controller.propose({loggedDate:'2026-09-08',mealType:'lunch',grams:150},transport);
+ const actual=transport.getMockImplementation()!;
+ // The original committed but its acknowledgement was lost and the receipt is not visible yet.
+ transport.mockImplementation(async(op,signal)=>{const result=await actual(op,signal);if(op.operation==='photo.food.apply')throw Error('lost ack');return result;});
+ await controller.apply(transport);
+ expect(controller.snapshot().uncertain).toBe(true);
+ let hidden=true;
+ transport.mockImplementation(async(op,signal)=>{if(op.operation==='photo.food.receipt'&&hidden)return {version:'coach-assistant.v2',storage:'database',ok:false,error:'not_found'};return actual(op,signal);});
+ await controller.check(transport);
+ expect(controller.snapshot().receiptMissing).toBe(true);
+ await controller.check(transport);
+ expect(controller.snapshot().receipt).toBeNull();
+ expect(transport.mock.calls.filter(([op])=>op.operation==='photo.food.apply')).toHaveLength(1);
+ hidden=false;
+ await controller.check(transport);
+ expect(controller.snapshot()).toMatchObject({receipt:{status:'applied'},uncertain:false,receiptMissing:false});
+ expect(f.commits).toHaveLength(1);
+ const lookups=transport.mock.calls.filter(([op])=>op.operation==='photo.food.receipt').map(([op])=>op as ReceiptOp);
+ expect(lookups.length).toBeGreaterThanOrEqual(3);
+ expect(new Set(lookups.map(op=>op.actionId)).size).toBe(1);
+});
+it.each(['forbidden','expired','version_conflict','not_connected','invalid_input','identity_clarification_required'] as const)('a retry outcome of %s never falsely releases the pinned recovery',async error=>{
+ const f=retryFixture(),{controller,transport}=f;await controller.select(attachment,conversation,transport);await controller.propose({loggedDate:'2026-09-08',mealType:'lunch',grams:150},transport);
+ const actual=transport.getMockImplementation()!;
+ transport.mockImplementation(async(op,signal)=>{if(op.operation==='photo.food.apply')throw Error('offline-before-commit');return actual(op,signal);});
+ await controller.apply(transport);transport.mockImplementation(actual);await controller.check(transport);
+ expect(controller.snapshot()).toMatchObject({uncertain:true,receiptMissing:true});
+ transport.mockImplementation(async(op,signal)=>op.operation==='photo.food.apply'?{version:'coach-assistant.v2',storage:'database',ok:false,error}:actual(op,signal));
+ expect(await controller.retry(transport)).toBe(true);
+ expect(controller.snapshot()).toMatchObject({uncertain:true,receiptMissing:true,receipt:null});
+ expect(f.commits).toHaveLength(0);
+ // Check stays read-only and the pinned recovery remains available.
+ transport.mockImplementation(actual);
+ await controller.check(transport);
+ expect(controller.snapshot()).toMatchObject({uncertain:true,receiptMissing:true,receipt:null});
+ expect(transport.mock.calls.filter(([op])=>op.operation==='photo.food.apply')).toHaveLength(2);
+ expect(await controller.retry(transport)).toBe(true);
+ expect(controller.snapshot().receipt?.status).toBe('applied');
+ expect(f.commits).toHaveLength(1);
+});
+it('drops a stale retry completion when the conversation is replaced',async()=>{
+ const f=retryFixture(),{controller,transport}=f;await controller.select(attachment,conversation,transport);await controller.propose({loggedDate:'2026-09-08',mealType:'lunch',grams:150},transport);
+ const actual=transport.getMockImplementation()!;
+ transport.mockImplementation(async(op,signal)=>{if(op.operation==='photo.food.apply')throw Error('offline-before-commit');return actual(op,signal);});
+ await controller.apply(transport);transport.mockImplementation(actual);await controller.check(transport);
+ expect(controller.snapshot().receiptMissing).toBe(true);
+ let release!:(value:void)=>void;const gate=new Promise<void>(resolve=>{release=resolve;});
+ transport.mockImplementation(async(op,signal)=>{if(op.operation==='photo.food.apply'){await gate;return actual(op,signal);}return actual(op,signal);});
+ const retrying=controller.retry(transport);
+ controller.moveConversation(id());
+ release();await retrying;
+ expect(controller.snapshot()).toMatchObject({attachmentId:null,snapshot:null,receipt:null,uncertain:false,receiptMissing:false});
+ expect(f.commits).toHaveLength(1);
+});
