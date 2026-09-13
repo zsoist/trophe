@@ -21,17 +21,35 @@ const splitIds = (value: string | undefined): string[] =>
   (value ?? '').split(',').map((entry) => entry.trim()).filter(Boolean);
 
 /**
+ * Legacy isolated-engine and fixture switches. A production cohort must never
+ * be composed with any of these, so rather than allow-listing the few names
+ * that exist today we disqualify the whole `COACH_ASSISTANT_ISOLATED_*`
+ * family (and voice fixture flags) whenever one is enabled. This fails closed
+ * now and prevents a future isolated switch from silently reaching production.
+ */
+const LEGACY_ISOLATION_KEY_PATTERNS: readonly RegExp[] = [
+  /^COACH_ASSISTANT_ISOLATED_/,
+  /VOICE_FIXTURE_ENABLED$/,
+];
+
+const legacyIsolationOrFixtureRequested = (env: Record<string, string | undefined>): boolean =>
+  Object.keys(env).some((key) =>
+    env[key] === '1' && LEGACY_ISOLATION_KEY_PATTERNS.some((pattern) => pattern.test(key)));
+
+/**
  * Production cohort configuration. Requires the exact server opt-in flag, the
  * authoritative data source and a nonempty production allowlist. CI and
- * fixture deployments are never production-authorizable, and preview ids are
- * never consulted here.
+ * fixture deployments are never production-authorizable, no legacy isolated or
+ * voice-fixture switch may be enabled alongside it, and preview ids are never
+ * consulted here.
  */
 export function productionCohortConfigured(env: Record<string, string | undefined>): boolean {
   return env.COACH_ASSISTANT_PRODUCTION_PILOT_ENABLED === '1'
     && env.COACH_ASSISTANT_DATA_SOURCE === 'authorized_records'
     && splitIds(env.COACH_ASSISTANT_PRODUCTION_USER_IDS).length > 0
     && env.CI !== 'true'
-    && env.GITHUB_ACTIONS !== 'true';
+    && env.GITHUB_ACTIONS !== 'true'
+    && !legacyIsolationOrFixtureRequested(env);
 }
 
 /** Admits an authenticated actor only through the exact reviewed production cohort. */

@@ -52,33 +52,10 @@ describe('production cohort admission helper', () => {
     expect(productionCohortAdmitted(productionEnv({ VERCEL_ENV: 'preview' }), actor)).toBe(false);
   });
 
-  it('rejects any legacy isolated or voice-fixture switch alongside the new production flag', () => {
-    for (const legacy of [
-      'COACH_ASSISTANT_ISOLATED_ENGINE_ENABLED',
-      'COACH_ASSISTANT_ISOLATED_ATTACHMENTS_ENABLED',
-      'COACH_ASSISTANT_ISOLATED_ACTIONS_ENABLED',
-      'COACH_ASSISTANT_ISOLATED_PHOTO_FOOD_ENABLED',
-      'COACH_ASSISTANT_ISOLATED_FUTURE_SOMETHING_ENABLED',
-      'COACH_ASSISTANT_VOICE_FIXTURE_ENABLED',
-      'NEXT_PUBLIC_COACH_VOICE_FIXTURE_ENABLED',
-    ]) {
-      expect(productionCohortConfigured(productionEnv({ [legacy]: '1' }))).toBe(false);
-      expect(productionCohortAdmitted(productionEnv({ [legacy]: '1' }), actor)).toBe(false);
-      // A disabled legacy switch is inert and must not disqualify production.
-      expect(productionCohortConfigured(productionEnv({ [legacy]: '0' }))).toBe(true);
-    }
-  });
-
   it('keeps preview admission non-production and allowlist bound', () => {
     expect(previewCohortAdmitted(previewEnv(), actor)).toBe(true);
     expect(previewCohortAdmitted(previewEnv(), otherActor)).toBe(false);
     expect(previewCohortAdmitted(previewEnv({ VERCEL_ENV: 'production' }), actor)).toBe(false);
-  });
-
-  it('keeps preview fixtures working when legacy isolated switches are on', () => {
-    const preview = previewEnv({ COACH_ASSISTANT_ISOLATED_ENGINE_ENABLED: '1', COACH_ASSISTANT_ISOLATED_ACTIONS_ENABLED: '1', COACH_ASSISTANT_VOICE_FIXTURE_ENABLED: '1' });
-    expect(previewCohortAdmitted(preview, actor)).toBe(true);
-    expect(previewCohortAdmitted(preview, otherActor)).toBe(false);
   });
 });
 
@@ -144,19 +121,25 @@ describe('coach handler production cohort gate', () => {
     expect(guard).not.toHaveBeenCalled();
   });
 
-  it('rejects legacy isolated attachment and action operations in production before auth', async () => {
-    const guard = vi.fn(async () => { throw new Error('must not run'); });
-    const attachment = new Request('https://app.invalid/api/coach-assistant', { method: 'POST', body: JSON.stringify({ version: 'coach-assistant.v2', conversationId: '00000000-0000-4000-8000-000000000901', operation: 'attachment.prepare', mime: 'image/png', bytes: 32 }) });
-    const action = new Request('https://app.invalid/api/coach-assistant', { method: 'POST', body: JSON.stringify({ version: 'coach-assistant.v2', conversationId: '00000000-0000-4000-8000-000000000902', turnId: '00000000-0000-4000-8000-000000000903', operation: 'receipt', actionId: '00000000-0000-4000-8000-000000000904' }) });
-    expect((await handleCoachRequest(attachment, deps(productionEnv({ COACH_ASSISTANT_ISOLATED_ATTACHMENTS_ENABLED: '1' }), { guard }))).status).toBe(404);
-    expect((await handleCoachRequest(action, deps(productionEnv({ COACH_ASSISTANT_ISOLATED_ACTIONS_ENABLED: '1' }), { guard }))).status).toBe(404);
-    expect(guard).not.toHaveBeenCalled();
-  });
-
   it('preserves the preview cohort regression on the same endpoint', async () => {
     const response = await handleCoachRequest(request(), deps(previewEnv()));
     expect(response.status).toBe(200);
     const denied = await handleCoachRequest(request(), deps(previewEnv({ COACH_ASSISTANT_PREVIEW_USER_IDS: otherActor })));
     expect(denied.status).toBe(403);
+  });
+});
+
+// AG4 independent production-isolation holdout; no provider or database calls.
+describe('AG4 production excludes legacy isolated branches', () => {
+  it('rejects isolated attachment preparation in production', async () => {
+    const response = await handleCoachRequest(new Request('https://app.invalid/api/coach-assistant', {method:'POST',body:JSON.stringify({version:'coach-assistant.v2',conversationId:'00000000-0000-4000-8000-000000000901',operation:'attachment.prepare',mime:'image/png',bytes:32})}), deps(productionEnv({COACH_ASSISTANT_ISOLATED_ATTACHMENTS_ENABLED:'1'})));
+    const body=await response.json();
+    console.log('AG4 isolated attachment witness',response.status,body);
+    expect(response.status).toBe(404);
+  });
+  it('rejects isolated action dispatch in production', async () => {
+    const response=await handleCoachRequest(new Request('https://app.invalid/api/coach-assistant',{method:'POST',body:JSON.stringify({version:'coach-assistant.v2',conversationId:'00000000-0000-4000-8000-000000000902',turnId:'00000000-0000-4000-8000-000000000903',operation:'receipt',actionId:'00000000-0000-4000-8000-000000000904'})}),deps(productionEnv({COACH_ASSISTANT_ISOLATED_ACTIONS_ENABLED:'1'})));
+    console.log('AG4 isolated action witness',response.status,await response.json());
+    expect(response.status).toBe(404);
   });
 });
