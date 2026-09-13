@@ -24,3 +24,11 @@ it('hides only recognized assistant wrappers and an exact repeated user statemen
  view.rerender(<ResponseText assistant userStatement="Different question" text={text} />);
  expect(view.container.textContent).toContain('User statement (unverified): My question');
 });
+
+it('makes public supporting sources usable while rejecting unsafe URLs',()=>{
+ const {container}=render(<ResponseText text={'Sources: [label](https://example.com/food%29). [bad](javascript:alert) [private](http://127.0.0.1/admin) [credentials](https://user:pass@example.com)'} />);
+ const links=screen.getAllByRole('link');expect(links).toHaveLength(1);
+ expect(links[0].getAttribute('href')).toBe('https://example.com/food%29');
+ expect(links[0].getAttribute('rel')).toBe('noopener noreferrer');
+ expect(container.querySelector('img,script')).toBeNull();
+});

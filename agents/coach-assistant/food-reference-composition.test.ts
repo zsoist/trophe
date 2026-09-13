@@ -108,3 +108,17 @@ it('acceptance opens the same native reference as a review without another estim
  expect(second.ok).toBe(true);expect(second.textFood).toMatchObject({ok:true,draft:{items:[{grams:150,calories:247.5,protein_g:46.5}]}});
  expect(second.receipts).toEqual([]);expect(prepare).toHaveBeenCalledTimes(1);expect(h.provider).toHaveBeenCalledTimes(calls);expect(second.telemetry.modelCalls).toBe(0);
 });
+
+ it('does not turn foreign search results into a Colombia reference or reviewable draft',async()=>{
+  const result=await run(false,'Search calories in 150 g Whopper Burger King in Colombia');
+  expect(result.ok).toBe(true);expect(result.output?.answer).toContain('could not verify');
+  expect(result.output?.answer).not.toContain('247.5');
+  expect(snapshotFoodReference(result.capabilityResult?.result)).toBeNull();
+  expect(h.provider).toHaveBeenCalledTimes(1);expect(fetch).toHaveBeenCalledTimes(1);
+  expect([...records.values()].map(row=>pilotTurnProfile(row.binding)).sort()).toEqual(['ordinary_text','search']);
+ });
+ it('does not use an unqualified catalogue hit as country-specific evidence',async()=>{
+  const result=await run(true,'Calories in 150 g chicken breast in Colombia');
+  expect(result.output?.answer).toContain('could not verify');expect(result.output?.answer).not.toContain('247.5');
+  expect(snapshotFoodReference(result.capabilityResult?.result)).toBeNull();
+ });

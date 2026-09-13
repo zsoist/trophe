@@ -1,3 +1,4 @@
+import { requestedFoodMarkets } from './food-reference-search-intent';
 import {z} from 'zod';
 import type { FoodReferenceFallback } from './private-food-reference-runtime';
 import { foodReferenceSchema, type FoodReferenceLookup } from './food-reference';
@@ -31,7 +32,7 @@ export function createCoachCapabilityRegistry(services:{message?:CoachMessageSer
     const misses:string[]=[];
     for(const query of [...new Set(choice.args.queries)]){
       onRead();const result=await services.foodReference!(query,input.message,signal);await verify();
-      if(result){const parsed=foodReferenceSchema.safeParse(result);if(parsed.success)options.push(parsed.data);else throw new Error('invalid_output');}else misses.push(query);
+      if(result){const parsed=foodReferenceSchema.safeParse(result);if(parsed.success){if(requestedFoodMarkets(input.message).length)misses.push(query);else options.push(parsed.data);}else throw new Error('invalid_output');}else misses.push(query);
     }
     if(misses.length&&services.foodReferenceFallback){
       const fallback=await services.foodReferenceFallback({queries:misses,text:input.message,language:context.language,signal});

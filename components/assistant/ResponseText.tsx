@@ -1,11 +1,17 @@
 import { memo, Fragment, type ReactNode } from 'react';
+import { safeSourceUrl } from '@/lib/food/nutrition-search-transport';
 import styles from './GlobalCoach.module.css';
 
-// A deliberately small formatting vocabulary. React escapes every text node;
-// HTML, images and URLs are never interpreted as executable markup.
+// React escapes all text. Only validated public HTTP(S) links are interactive;
+// HTML and images remain inert, including in saved messages.
 function inline(text: string): ReactNode {
-  return text.split(/(\*\*[^*\n]+\*\*)/g).map((part, index) => part.startsWith('**') && part.endsWith('**')
-    ? <strong key={index}>{part.slice(2, -2)}</strong> : <Fragment key={index}>{part}</Fragment>);
+  return text.split(/(\*\*[^*\n]+\*\*|\[[^\]\n]+\]\([^\s)]+\))/g).map((part, index) => {
+    if (part.startsWith('**') && part.endsWith('**')) return <strong key={index}>{part.slice(2, -2)}</strong>;
+    const link = /^\[([^\]\n]+)\]\(([^\s)]+)\)$/.exec(part);
+    const href = link ? safeSourceUrl(link[2]) : null;
+    if (link && href) return <a key={index} href={href} target="_blank" rel="noopener noreferrer">{link[1]}</a>;
+    return <Fragment key={index}>{part}</Fragment>;
+  });
 }
 export const ResponseText = memo(function ResponseText({ text, assistant = false, userStatement }: { text: string; assistant?: boolean; userStatement?: string }) {
   // Legacy server wrappers are presentation metadata. Retain the stored source

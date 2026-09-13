@@ -1,4 +1,4 @@
-import { foodReferenceSearchIntent } from './food-reference-search-intent';
+import { foodReferenceSearchIntent, requestedFoodMarkets } from './food-reference-search-intent';
 import { createGovernedCoachTransport } from './governed-transport';
 import { TEXT_FOOD_PROMPT_VERSION, parseTextFood } from './text-food-parser';
 import { createNativeFoodReferenceFallback, type NativeFoodReferenceOutcome } from './food-reference-native-fallback';
@@ -39,6 +39,15 @@ export async function createPrivateFoodReferenceFallback(env: Record<string, str
         return url ? [{ title: source.title, url, snippet: source.snippet, publishDate: source.publishDate }] : [];
       });
       if (sources.length) evidence.push({ product: result.evidence.product, brand: result.evidence.brand, locale: result.evidence.locale, market: result.evidence.market, sources });
+    }
+    // Search locale expresses the requested market, not verified provenance.
+    // Neither snippets nor today's catalogue schema prove a country-specific label.
+    // Keep these results out of durable numerical references and review drafts.
+    if (requestedFoodMarkets(input.text).length) {
+      const question = input.language.startsWith('es')
+        ? 'No pude verificar una etiqueta nutricional del mercado solicitado. Las fuentes de búsqueda no prueban esa coincidencia. ¿Puedes compartir la etiqueta o prefieres una estimación genérica sin atribuirla a ese país?'
+        : 'I could not verify a nutrition label for the requested market. Search sources do not prove that match. Can you share the label, or would you prefer a generic estimate without attributing it to that country?';
+      return { native: { ok: true, outcome: 'clarification_required', question, partial: [] }, referenceEvidence: evidence.length ? evidence : null };
     }
     const { transport } = createGovernedCoachTransport({
       pilotId: shared.pilotId, actorId, turnId, identityParts: [shared.pilotId, actorId, 'food-reference-native', turnId],

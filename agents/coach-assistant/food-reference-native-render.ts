@@ -10,9 +10,13 @@ export function renderNativeFoodReference(raw: unknown, spanish: boolean): strin
   const unavailable = spanish ? 'No pude calcular esta referencia. No se registró ningún alimento.' : 'I could not calculate this reference. No food was logged.';
   if (!native || typeof native !== 'object' || !('ok' in native) || native.ok !== true) return unavailable;
   if (!('outcome' in native)) return unavailable;
+  const evidence = 'referenceEvidence' in raw ? foodReferenceEvidenceSchema.safeParse(raw.referenceEvidence) : null;
+  const links = evidence?.success ? [...new Set(evidence.data.flatMap(item => item.sources.map(source => safeSourceUrl(source.url)).filter((url): url is string => !!url)))].slice(0, 3).map(url => `[${new URL(url).hostname}](${url.replaceAll(')', '%29')})`) : [];
+  const sources = links.length ? `\n\n${spanish ? 'Fuentes de apoyo' : 'Supporting sources'}: ${links.join(', ')}.` : '';
   if (native.outcome === 'clarification_required') {
-    return 'question' in native && typeof native.question === 'string' && native.question.trim()
+    const question = 'question' in native && typeof native.question === 'string' && native.question.trim()
       ? native.question : spanish ? 'Indica el alimento, su preparación y la cantidad para calcular la referencia.' : 'Specify the food, preparation and amount to calculate the reference.';
+    return `${question}${sources}`;
   }
   if (native.outcome === 'preparation_mismatch') return spanish
     ? 'La preparación encontrada no coincide con la solicitada. Confirma cómo está preparado el alimento; no se registró nada.'
@@ -28,8 +32,5 @@ export function renderNativeFoodReference(raw: unknown, spanish: boolean): strin
     const portion = `${number(ref.portion.grams)} g${ref.portionBasis === 'model_estimate' ? spanish ? ' aprox.' : ' approx.' : ''}`;
     return `**${ref.name}** — ${portion}: **${number(n.kcal)} kcal**, ${number(n.proteinG)} g ${spanish ? 'proteína' : 'protein'}, ${number(n.carbsG)} g ${spanish ? 'carbohidratos' : 'carbs'}, ${number(n.fatG)} g ${spanish ? 'grasa' : 'fat'}. ${qualifier}.`;
   });
-  const evidence = 'referenceEvidence' in raw ? foodReferenceEvidenceSchema.safeParse(raw.referenceEvidence) : null;
-  const links = evidence?.success ? [...new Set(evidence.data.flatMap(item => item.sources.map(source => safeSourceUrl(source.url)).filter((url): url is string => !!url)))].slice(0, 3).map(url => `[${new URL(url).hostname}](${url.replaceAll(')', '%29')})`) : [];
-  const sources = links.length ? `\n\n${spanish ? 'Fuentes de apoyo' : 'Supporting sources'}: ${links.join(', ')}.` : '';
   return `${rows.join('\n\n')}\n\n${spanish ? 'No registrado. ¿Quieres registrarlo?' : 'Not logged. Would you like to log it?'}${sources}`;
 }
