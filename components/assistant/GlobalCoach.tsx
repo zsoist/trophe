@@ -420,7 +420,19 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
     };
   }, [open]);
   const handleDialogKeyDown = (event: KeyboardEvent<HTMLElement>) => {
-    if (event.key === 'Escape') { event.stopPropagation(); close(); return; }
+    if (event.key === 'Escape') {
+      event.stopPropagation();
+      const previews = panel.current?.querySelectorAll<HTMLDetailsElement>('details[data-sent-photo-preview][open]');
+      const preview = previews?.[previews.length - 1];
+      if (preview) {
+        event.preventDefault();
+        preview.open = false;
+        preview.querySelector('summary')?.focus({ preventScroll: true });
+        return;
+      }
+      close();
+      return;
+    }
     if (event.key !== 'Tab' || !panel.current) return;
     const focusable = Array.from(panel.current.querySelectorAll<HTMLElement>('button:not(:disabled), summary, textarea:not(:disabled), input:not(:disabled):not([hidden]), select:not(:disabled), [tabindex]:not([tabindex="-1"])')).filter(node => {
       // Only real, visible focus targets may anchor the loop. Hidden regions (mobile history hides
@@ -735,7 +747,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
           <p className={styles.question}>{turn.request.message}</p>
 
           {turn.request.attachments?.filter(ref => state.turns.find(item => item.request.attachments?.some(photo => photo.id === ref.id))?.request.turnId === turn.request.turnId).map(ref => <div key={ref.id} className={styles.messagePhoto}>
-            {sentPhotos[ref.id] && <details><summary aria-label={t('global_coach.photo_expand')}>
+            {sentPhotos[ref.id] && <details data-sent-photo-preview><summary aria-label={t('global_coach.photo_expand')}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={sentPhotos[ref.id]} alt={t('global_coach.photos')} width={64} height={64} />
             </summary><div className={styles.expandedPhoto}>

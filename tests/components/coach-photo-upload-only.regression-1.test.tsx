@@ -43,7 +43,7 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.clearAllMocks(); vi.unstubAllEnvs(); });
 
-it('uploads the selected photo even when only the private-attachment capability is available', async () => {
+async function sendPhoto() {
   const create = vi.fn(async () => ({ id, title: 'What is this?', revision: '1', state: 'active' as const, createdAt: new Date().toISOString() }));
   render(<I18nProvider defaultLang="en"><GlobalCoach identity={crypto.randomUUID()} historyTransport={{ create, list: vi.fn(), read: vi.fn() }} /></I18nProvider>);
   fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
@@ -61,5 +61,24 @@ it('uploads the selected photo even when only the private-attachment capability 
 
   await waitFor(() => expect(requestAttachment.upload).toHaveBeenCalledTimes(1));
   await waitFor(() => expect(requestConversation).toHaveBeenCalledTimes(2));
+}
+
+it('uploads the selected photo even when only the private-attachment capability is available', async () => {
+  await sendPhoto();
   expect(vi.mocked(requestConversation).mock.calls[1][0]).toMatchObject({ message: 'What is this?', attachments: [ref] });
+});
+
+it('Escape closes an expanded sent photo first and restores its thumbnail focus', async () => {
+  await sendPhoto();
+  const thumbnail = await screen.findByLabelText('Enlarge photo');
+  const preview = thumbnail.closest('details')!;
+  preview.open = true;
+  const composer = screen.getByRole('textbox', { name: 'Your question' });
+  composer.focus();
+  fireEvent.keyDown(composer, { key: 'Escape' });
+  expect(preview.open).toBe(false);
+  expect(document.activeElement).toBe(thumbnail);
+  expect(screen.getByRole('dialog', { name: 'Ask Trophē' })).toBeTruthy();
+  fireEvent.keyDown(thumbnail, { key: 'Escape' });
+  expect(screen.queryByRole('dialog', { name: 'Ask Trophē' })).toBeNull();
 });
