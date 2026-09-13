@@ -445,8 +445,8 @@ function buildFoodReference(
       signal.throwIfAborted();
       const resolved = await resolve({ foodName: input.name, unit, intentText: input.userText });
       signal.throwIfAborted();
-      // Only genuine food_unit_conversions rows count as validated conversions.
-      if (resolved && resolved.conversionId !== null && Number.isFinite(resolved.gramsPerUnit) && resolved.gramsPerUnit > 0) {
+      // A conversion must belong to the same canonical food as the nutrient basis.
+      if (resolved && catalogueId && resolved.food?.id === catalogueId && resolved.conversionId !== null && Number.isFinite(resolved.gramsPerUnit) && resolved.gramsPerUnit > 0) {
         conversions.push({ unit, gramsPerUnit: resolved.gramsPerUnit, conversionId: resolved.conversionId });
       }
     }

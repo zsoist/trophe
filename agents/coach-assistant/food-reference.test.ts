@@ -96,7 +96,7 @@ it('does not treat a non-portion or empty context as a follow-up',()=>{
 
 // ── Lookup seam: provenance and validated conversions ────────────────────────
 it('attaches only validated food_unit_conversions rows and fails closed',async()=>{
-  const row={food:{nameEn:'Chicken breast, cooked',source:'usda',dataQuality:'lab_verified',kcalPer100g:165,proteinPer100g:31}};
+  const row={food:{id:'chicken-row',nameEn:'Chicken breast, cooked',source:'usda',dataQuality:'lab_verified',kcalPer100g:165,proteinPer100g:31}};
   const resolver=vi.fn(async({unit}:{unit:string})=>unit==='cup'?{...row,conversionId:'conv-cup',gramsPerUnit:158}:{...row,conversionId:null,gramsPerUnit:100});
   const lookup=makeFoodReferenceLookup(resolver);
   const signal=new AbortController().signal;
@@ -195,7 +195,7 @@ it('bounds converted masses and rejects overflow/zero/negative quantities',()=>{
 });
 
 it('preserves the real conversion row id and never fabricates provenance',async()=>{
-  const row={food:{nameEn:'Rice, white, cooked',source:'usda',dataQuality:'verified',kcalPer100g:130,proteinPer100g:2.7}};
+  const row={food:{id:'rice-row',nameEn:'Rice, white, cooked',source:'usda',dataQuality:'verified',kcalPer100g:130,proteinPer100g:2.7}};
   const lookup=makeFoodReferenceLookup(async({unit})=>unit==='cup'?{...row,conversionId:'row-42',gramsPerUnit:158}:{...row,conversionId:null,gramsPerUnit:130});
   const option=await lookup('rice','1 cup of rice',new AbortController().signal);
   expect(option?.conversions).toEqual([{unit:'cup',gramsPerUnit:158,conversionId:'row-42'}]);
