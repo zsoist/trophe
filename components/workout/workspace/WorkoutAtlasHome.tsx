@@ -71,6 +71,11 @@ export function WorkoutAtlasHome({ activations, workedActivations = [], workedAv
   }, [viewerAvailable]);
   const visible = mode === 'planned' ? activations : workedActivations;
   const groups = muscleSections(visible);
+  const visibleTargetLabel = mode === 'planned'
+    ? targetLabel
+    : visible.length
+      ? visible.map(activation => t(anatomyLabelKey(activation))).join(' · ')
+      : t(workedAvailable ? 'anatomy.no_worked' : 'anatomy.worked_unavailable');
   const selectedActivation = selected ? visible.find(a => a.id === selected) : undefined;
   const applied = selectedActivation ? selected : null;
   const selectedLabel = selected ? t(selectedActivation ? anatomyLabelKey(selectedActivation) : muscleLabelKey(selected)) : null;
@@ -115,7 +120,7 @@ export function WorkoutAtlasHome({ activations, workedActivations = [], workedAv
           <button type="button" data-testid="workout-muscle-exercises" onClick={openExercises}>{t('anatomy.exercises_view_all')}</button>
           {!selectedActivation && <p role="status">{t(mode === 'worked' ? 'anatomy.no_worked' : 'anatomy.planned_note')}</p>}
         </div>}
-        <p className="workout-muscle-target-context">{targetLabel}</p>
+        <p className="workout-muscle-target-context">{visibleTargetLabel}</p>
         <h3 className="workout-muscle-section-title">{t('anatomy.involved')}</h3>
         {!visible.length && <p role="status">{t(mode === 'worked' ? workedAvailable ? 'anatomy.no_worked' : 'anatomy.worked_unavailable' : emptyState === 'cardio' ? 'workout.atlas_empty_cardio' : 'workout.atlas_empty_strength')}</p>}
         <div className="workout-muscle-accordions">{groups.map(group => <section className="workout-muscle-section" key={group.id}>

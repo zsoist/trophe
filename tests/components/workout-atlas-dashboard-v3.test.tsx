@@ -170,6 +170,19 @@ describe('curated selection is separate from activation data', () => {
   });
 });
 
+describe('worked view context follows the visible state', () => {
+  it('does not show the planned target when no muscles were recorded today', () => {
+    const { container } = render(
+      <I18nProvider defaultLang="en">
+        <WorkoutAtlasHome activations={worked} workedActivations={[]} workedAvailable targetLabel="Back · Full body · Core" />
+      </I18nProvider>,
+    );
+
+    expect(container.querySelector('.workout-muscle-target-context')?.textContent)
+      .toBe(translations['anatomy.no_worked'].en);
+  });
+});
+
 describe('detail stays outside the stage viewport', () => {
   it('renders the selected-muscle detail below the stage, not over the body', async () => {
     await mountViewer();
