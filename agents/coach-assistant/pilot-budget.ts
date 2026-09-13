@@ -15,6 +15,22 @@ export const TEXT_FOOD_MAX_PHASES=2+2*FOOD_PARSE_MAX_ITEMS;
 export const TEXT_FOOD_ATTEMPT_RESERVATION_NANO_USD=64000*Math.round(Math.max(COACH_PRICING.input,COACH_PRICING.read,COACH_PRICING.write)*1000)+2000*Math.round(COACH_PRICING.output*1000);
 export const STT_ATTEMPT_RESERVATION_NANO_USD=30_000_000;
 export const PHOTO_ATTEMPT_RESERVATION_NANO_USD=80_000_000;
+/** Parallel Search published price for `mode:'fast'`: $0.001 per request, which
+ * includes up to 10 results. One request carries exactly one query (no batch
+ * fan-out), so the reservation is one request. A failed request is not billed,
+ * but a post-dispatch ambiguity must retain the reservation rather than refund
+ * it. See https://docs.parallel.ai/getting-started/pricing (verified 2026-09-13
+ * UTC). This is metered per request, never per token: it must not be priced with
+ * an LLM token tariff or booked as a Luna/OpenAI generation. */
+export const PARALLEL_SEARCH_MODEL='parallel-search';
+export const PARALLEL_SEARCH_PRICING_VERSION='parallel-search-fast-2026-09-13';
+export const PARALLEL_SEARCH_QUERY_RESERVATION_NANO_USD=1_000_000;
+/** Product ceiling: at most two paid searches for one stable server user turn. */
+export const PARALLEL_SEARCH_MAX_SEARCHES_PER_TURN=2;
+/** The verified /v1/search contract accepts one query per request; a batch
+ * payload is not a supported setting and must be unpriced rather than silently
+ * cheap. */
+export const PARALLEL_SEARCH_MAX_QUERIES_PER_REQUEST=1;
 const nano=z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 const bindingBase={
   pilotId:z.string().uuid(),actorId:z.string().uuid(),attemptId:z.string().uuid(),agentRunId:z.string().uuid(),turnId:z.string().uuid(),
@@ -29,11 +45,18 @@ export const pilotAttemptBindingSchema=z.union([
   z.object({...bindingBase,model:z.literal(LUNA_MODEL),pricingVersion:z.literal(PHOTO_PILOT_PRICING_VERSION),reservedNanoUsd:z.literal(PHOTO_ATTEMPT_RESERVATION_NANO_USD)}).strict(),
   z.object({...bindingBase,model:z.literal(TRANSCRIPTION_MODEL),pricingVersion:z.literal('gpt-4o-mini-transcribe-2026-09-09'),reservedNanoUsd:z.literal(STT_ATTEMPT_RESERVATION_NANO_USD)}).strict(),
   z.object({...bindingBase,model:z.literal(HAIKU_MODEL),pricingVersion:z.literal(LEGACY_PHOTO_PILOT_PRICING_VERSION),reservedNanoUsd:z.literal(PHOTO_ATTEMPT_RESERVATION_NANO_USD)}).strict(),
+  // The Parallel Search provider is metered per request, not per token, and
+  // shares the same pilot cap/ledger. Its binding is deliberately separate from
+  // the Luna token bindings so no search can pose as model usage.
+  z.object({...bindingBase,model:z.literal(PARALLEL_SEARCH_MODEL),pricingVersion:z.literal(PARALLEL_SEARCH_PRICING_VERSION),reservedNanoUsd:z.literal(PARALLEL_SEARCH_QUERY_RESERVATION_NANO_USD)}).strict(),
 ]);
 export type PilotAttemptBinding=z.infer<typeof pilotAttemptBindingSchema>;
 const usageSchema=z.object({inputTokens:nano,outputTokens:nano,cacheReadTokens:nano,cacheWriteTokens:nano,reasoningTokens:nano}).strict();
 export type PilotUsage=z.infer<typeof usageSchema>;
-const accountingUsageSchema=z.union([usageSchema,z.object({durationSeconds:nano}).strict()]);
+/** Provider-reported successful Parallel requests for one dispatched call. */
+const parallelSearchUsageSchema=z.object({requests:nano}).strict();
+export type ParallelSearchUsage=z.infer<typeof parallelSearchUsageSchema>;
+const accountingUsageSchema=z.union([usageSchema,z.object({durationSeconds:nano}).strict(),parallelSearchUsageSchema]);
 type AccountingUsage=z.infer<typeof accountingUsageSchema>;
 const providerDiagnostic=z.enum(['invalid_request_error','authentication_error','permission_error','not_found_error','request_too_large','rate_limit_error','api_error','overloaded_error','forbidden','rate_limited','invalid_response','response_validation_error','http_error','insufficient_permissions','invalid_api_key','rate_limit_exceeded','server_error','model_not_found','insufficient_quota','billing_not_active','ETIMEDOUT','ECONNRESET','ENOTFOUND','UND_ERR_CONNECT_TIMEOUT','TimeoutError','TypeError']);
 const providerErrorSchema=z.object({
@@ -73,6 +96,13 @@ export function pricePilotUsageNanoUsd(raw:unknown,model:PilotAttemptBinding['mo
     const duration=z.object({durationSeconds:nano}).strict().safeParse(raw);
     return duration.success?liveMeasuredChargeNanoUsd(duration.data.durationSeconds):null;
   }
+  if(model===PARALLEL_SEARCH_MODEL) {
+    const parsed=parallelSearchUsageSchema.safeParse(raw);
+    // Only a single successful request per dispatch is priced. Zero is not a
+    // free request but an unreported one, so it stays unknown instead of $0.
+    return parsed.success&&parsed.data.requests>=1&&parsed.data.requests<=PARALLEL_SEARCH_MAX_QUERIES_PER_REQUEST
+      ?parsed.data.requests*PARALLEL_SEARCH_QUERY_RESERVATION_NANO_USD:null;
+  }
   const parsed=usageSchema.safeParse(raw);
   if(!parsed.success)return null;
   const u=parsed.data;
@@ -103,11 +133,28 @@ export function pilotRecordActiveCharge(record:PilotAttemptRecord,budgetDay:stri
   return record.chargedNanoUsd;
 }
 
-export function decidePilotBudgetCommand(snapshot:{pilotId:string;budgetDay:string;capNanoUsd:number;chargedNanoUsd:number;turnAttemptCount:number;accountingBlocked:boolean;existing?:PilotAttemptRecord},raw:unknown):PilotBudgetDecision {
+/** One stable server turn is governed by three independent admission profiles,
+ * all drawing on the one shared daily cap: ordinary conversation (which also
+ * keeps the untouched Photo/STT/Live ceiling-2 bucket), the native Food
+ * selector+phase allowance, and metered Parallel search. Each profile counts
+ * only its own persisted rows, so one never consumes another's slot.
+ *
+ * Classification is constant based, never heuristic: an unrecognized binding
+ * stays ordinary (ceiling 2) rather than becoming permissive. Native Food is
+ * Luna-only so a colliding Live/Photo reservation can never widen the ceiling. */
+export type PilotTurnProfile='ordinary_text'|'native_food'|'search';
+export function pilotTurnProfile(binding:PilotAttemptBinding):PilotTurnProfile {
+  if(binding.model===PARALLEL_SEARCH_MODEL)return 'search';
+  if(binding.model===LUNA_MODEL&&binding.reservedNanoUsd===TEXT_FOOD_ATTEMPT_RESERVATION_NANO_USD)return 'native_food';
+  return 'ordinary_text';
+}
+
+export function decidePilotBudgetCommand(snapshot:{pilotId:string;budgetDay:string;capNanoUsd:number;chargedNanoUsd:number;turnAttemptCount:number;textFoodTurnCount?:number;searchTurnCount?:number;accountingBlocked:boolean;existing?:PilotAttemptRecord},raw:unknown):PilotBudgetDecision {
   const parsed=pilotBudgetCommandSchema.safeParse(raw);
   if(!parsed.success)return failure('invalid_input');
   const command=parsed.data;
   if(typeof snapshot.accountingBlocked!=='boolean'||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(snapshot.budgetDay)||snapshot.pilotId!==command.binding.pilotId||![snapshot.capNanoUsd,snapshot.chargedNanoUsd,snapshot.turnAttemptCount].every(n=>Number.isSafeInteger(n)&&n>=0))return failure('invalid_input');
+  for(const count of [snapshot.textFoodTurnCount,snapshot.searchTurnCount])if(count!==undefined&&!(Number.isSafeInteger(count)&&count>=0))return failure('invalid_input');
   let previous:PilotAttemptRecord|undefined;
   if(snapshot.existing) {
     const validated=pilotAttemptRecordSchema.safeParse(snapshot.existing);
@@ -119,7 +166,16 @@ export function decidePilotBudgetCommand(snapshot:{pilotId:string;budgetDay:stri
   if(command.operation==='reserve') {
     if(previous)return unchanged();
     const total=snapshot.chargedNanoUsd+command.binding.reservedNanoUsd;
-    if(snapshot.accountingBlocked||snapshot.turnAttemptCount>=(command.binding.reservedNanoUsd===TEXT_FOOD_ATTEMPT_RESERVATION_NANO_USD?TEXT_FOOD_MAX_PHASES:2)||!Number.isSafeInteger(total)||total>snapshot.capNanoUsd)return failure('budget_blocked');
+    // Each profile has its own ceiling and its own persisted counter. When a
+    // profile-specific counter is absent (old port), fall back to the original
+    // combined turn count instead of zero so a missing count can never disable
+    // a ceiling; the fallback is only ever more restrictive.
+    const profile=pilotTurnProfile(command.binding);
+    const turnLimit=profile==='native_food'?TEXT_FOOD_MAX_PHASES:profile==='search'?PARALLEL_SEARCH_MAX_SEARCHES_PER_TURN:2;
+    const turnCount=profile==='native_food'?(snapshot.textFoodTurnCount??snapshot.turnAttemptCount)
+      :profile==='search'?(snapshot.searchTurnCount??snapshot.turnAttemptCount)
+      :snapshot.turnAttemptCount;
+    if(snapshot.accountingBlocked||turnCount>=turnLimit||!Number.isSafeInteger(total)||total>snapshot.capNanoUsd)return failure('budget_blocked');
     return {ok:true,record:{binding:structuredClone(command.binding),admissionDay:snapshot.budgetDay,state:'reserved',chargedNanoUsd:command.binding.reservedNanoUsd,usage:null,accountingAlert:false},write:'insert',chargeDeltaNanoUsd:command.binding.reservedNanoUsd,dispatchGranted:false};
   }
   if(!previous)return failure('not_found');

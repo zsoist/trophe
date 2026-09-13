@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import type { db } from '@/db/client';
 import {
-  decidePilotBudgetCommand, pilotAttemptRecordSchema, pilotBudgetCommandSchema, pilotRecordActiveCharge,
+  decidePilotBudgetCommand, pilotAttemptRecordSchema, pilotBudgetCommandSchema, pilotRecordActiveCharge, pilotTurnProfile, PARALLEL_SEARCH_MODEL,
   type PilotAttemptRecord, type PilotBudgetResult, type PilotBudgetStore,
 } from '@/agents/coach-assistant/pilot-budget';
 import { COACH_PILOT_BUDGET_USD, COACH_PILOT_TIME_ZONE } from '@/agents/coach-assistant/economics';
@@ -46,14 +46,25 @@ export function createPilotBudgetStore(database: typeof db, actorId: string): Pi
             SELECT id,user_id,organization_id,model,metadata->'coachPilot' AS record FROM public.agent_runs
             WHERE metadata ? 'coachPilot' AND metadata->'coachPilot'->'binding'->>'pilotId'=${binding.pilotId} LIMIT 4097 FOR UPDATE`);
           if (rows.rows.length > 4096 || rows.rows.length !== config.attempt_count) return fail('uncertain');
-          let total = BigInt(0), turnAttemptCount = 0, accountingBlocked = config.accounting_blocked;
+          let total = BigInt(0), turnAttemptCount = 0, textFoodTurnCount = 0, searchTurnCount = 0, accountingBlocked = config.accounting_blocked;
           let existing: PilotAttemptRecord | undefined;
           for (const row of rows.rows) {
             const record = pilotAttemptRecordSchema.safeParse(row.record);
             if (!record.success || record.data.binding.agentRunId !== row.id || record.data.binding.actorId !== row.user_id
               || record.data.binding.pilotId !== binding.pilotId || row.organization_id !== config.organization_id || row.model !== record.data.binding.model) return fail('uncertain');
             total += BigInt(pilotRecordActiveCharge(record.data,config.server_budget_day));
-            if (record.data.binding.turnId === binding.turnId) turnAttemptCount++;
+            if (record.data.binding.turnId === binding.turnId) {
+              // Ordinary conversation, native Food selector/phases and paid
+              // searches are counted independently, from persisted rows under
+              // this same pilot lock. No profile trusts a caller's own tally
+              // and none is counted from a freshly minted turn id, so the
+              // ceilings cannot be evaded by a new service or a replayed turn,
+              // and one profile never consumes another's slot.
+              const profile = pilotTurnProfile(record.data.binding);
+              if (profile === 'search') searchTurnCount++;
+              else if (profile === 'native_food') textFoodTurnCount++;
+              else turnAttemptCount++;
+            }
             accountingBlocked ||= record.data.accountingAlert;
             if (record.data.binding.attemptId === binding.attemptId || row.id === binding.agentRunId) {
               if (existing) return fail('uncertain');
@@ -70,7 +81,7 @@ export function createPilotBudgetStore(database: typeof db, actorId: string): Pi
           }
           if (!existing && rows.rows.length === 4096) return fail('budget_blocked');
           const admissionCap=Math.min(integer(config.cap_nano_usd),integer(config.operating_target_nano_usd),COACH_PILOT_BUDGET_USD*1e9);
-          const decision = decidePilotBudgetCommand({ pilotId: binding.pilotId, budgetDay:config.server_budget_day, capNanoUsd: admissionCap, chargedNanoUsd: Number(total), turnAttemptCount, accountingBlocked, existing }, command);
+          const decision = decidePilotBudgetCommand({ pilotId: binding.pilotId, budgetDay:config.server_budget_day, capNanoUsd: admissionCap, chargedNanoUsd: Number(total), turnAttemptCount, textFoodTurnCount, searchTurnCount, accountingBlocked, existing }, command);
           if (!decision.ok || decision.write === 'none') { signal.throwIfAborted(); return { ...decision, storage: 'database' }; }
           if (total + BigInt(decision.chargeDeltaNanoUsd) > BigInt(Number.MAX_SAFE_INTEGER)) {
             // A measured overrun must stop the pilot even when its aggregate cannot fit the port's integer range.
@@ -80,7 +91,9 @@ export function createPilotBudgetStore(database: typeof db, actorId: string): Pi
           const record = decision.record, metadata = JSON.stringify({ coachPilot: record });
           // Haiku is recognized only while settling legacy ledger rows. New
           // governed bindings are Luna or the dedicated transcription model.
-          const provider = binding.model === HAIKU_MODEL ? 'anthropic' : 'openai';
+          // Metered search reports its real provider; it must never be booked as
+          // an OpenAI/Luna generation or priced with token rates.
+          const provider = binding.model === HAIKU_MODEL ? 'anthropic' : binding.model === PARALLEL_SEARCH_MODEL ? 'parallel' : 'openai';
           // Preserve the existing generation status constraint. Financial state lives in metadata.
           const status = record.state === 'settled' ? 'completed' : record.state === 'released' ? 'failed' : 'pending';
           if (decision.write === 'insert') {
