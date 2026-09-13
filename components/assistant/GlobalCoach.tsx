@@ -40,7 +40,7 @@ import { ProgressPanel } from './ProgressPanel';
 import { requestProgress } from './progress-client';
 import { COACH_PROGRESS_REFRESH } from './progress-events';
 import { PhotoFoodController } from './photo-food-state';
-import type { TextFoodDraft } from '@/agents/coach-assistant/text-food-contract';
+import type { TextFoodDraft, TextFoodReceipt } from '@/agents/coach-assistant/text-food-contract';
 import { TextFoodReview, TextFoodRecoveryNotice } from './TextFoodReview';
 import { requestTextFood, type TextFoodTransport } from './text-food-client';
 import { PhotoFoodPanel } from './PhotoFoodPanel';
@@ -161,7 +161,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   const screenDate=surface==='food'?acceptedScreenDate(publishedDate,path):null;
   const [voice] = useState(() => new VoiceController());
   const foodState = useSyncExternalStore(food.subscribe, food.snapshot, food.snapshot);
-  const [textFoodDraft,setTextFoodDraft]=useState<{conversationId:string;turnId:string;draft:TextFoodDraft}|null>(null);
+  const [textFoodDraft,setTextFoodDraft]=useState<{conversationId:string;turnId:string;draft:TextFoodDraft;receipt?:TextFoodReceipt}|null>(null);
   const [textFoodBlocked,setTextFoodBlocked]=useState(false);
   const [photoFood] = useState(() => new PhotoFoodController());
   const photoFoodState = useSyncExternalStore(photoFood.subscribe, photoFood.snapshot, photoFood.snapshot);
@@ -629,7 +629,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
               {turn.response.output.limitations.map((limitation, index) => <p className={styles.context} key={`${turn.request.turnId}-limitation-${index}`}>{globalCoachTranslations[`global_coach.limit_${limitation}`] ? t(`global_coach.limit_${limitation}`) : limitation.replace(/_/g, ' ')}</p>)}
             </details>}
           </div>}
-          {textFoodDraft?.conversationId===state.conversationId&&textFoodDraft.turnId===turn.request.turnId&&<TextFoodReview key={`${state.conversationId}:${textFoodDraft.draft.id}`} draft={textFoodDraft.draft} conversationId={state.conversationId} transport={textFoodTransport??requestTextFood} onDismiss={()=>{setTextFoodDraft(null);setTextFoodBlocked(false);}} onReceipt={receipt=>{setTextFoodBlocked(false);for(const entryId of receipt.entryIds)window.dispatchEvent(new CustomEvent(COACH_FOOD_REFRESH,{detail:{actorId:identity,entryId}}));}}/>}
+          {textFoodDraft?.conversationId===state.conversationId&&textFoodDraft.turnId===turn.request.turnId&&<TextFoodReview key={`${state.conversationId}:${textFoodDraft.draft.id}`} draft={textFoodDraft.draft} savedReceipt={textFoodDraft.receipt} conversationId={state.conversationId} transport={textFoodTransport??requestTextFood} onDismiss={()=>{setTextFoodDraft(null);setTextFoodBlocked(false);}} onReceipt={receipt=>{setTextFoodDraft(current=>current?.draft.id===textFoodDraft.draft.id?{...current,receipt}:current);setTextFoodBlocked(false);for(const entryId of receipt.entryIds)window.dispatchEvent(new CustomEvent(COACH_FOOD_REFRESH,{detail:{actorId:identity,entryId}}));}}/>}
         </article>)}
         {visibleVoiceRows.map(row => <article className={styles.turn} key={row.id}>
           <p className={styles.context}>{t(row.speaker === 'user' ? 'global_coach.live_you' : 'global_coach.live_assistant')}</p>

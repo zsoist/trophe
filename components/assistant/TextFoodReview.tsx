@@ -17,12 +17,13 @@ export interface TextFoodReviewProps {
   transport: TextFoodTransport;
   onReceipt: (receipt: TextFoodReceipt) => void;
   onDismiss?: () => void;
+  savedReceipt?: TextFoodReceipt;
 }
-export function TextFoodReview({ draft, conversationId, transport, onReceipt, onDismiss }: TextFoodReviewProps) {
+export function TextFoodReview({ draft, conversationId, transport, onReceipt, onDismiss, savedReceipt }: TextFoodReviewProps) {
   const { t } = useGlobalCoachI18n();
   const [grams, setGrams] = useState(() => draft.items.map(item => String(item.grams)));
   const [date, setDate] = useState(localToday), [meal, setMeal] = useState<TextFoodProposal['after']['mealType']>('lunch');
-  const [proposal, setProposal] = useState<TextFoodProposal | null>(null), [receipt, setReceipt] = useState<TextFoodReceipt | null>(null);
+  const [proposal, setProposal] = useState<TextFoodProposal | null>(null), [receipt, setReceipt] = useState<TextFoodReceipt | null>(savedReceipt ?? null);
   const [recovery]=useState(()=>{const value=readTextFoodRecovery(conversationId);return value?.draftId===draft.id&&value.draftHash===draft.hash?value:null;});
   const expectedEntries=useRef<string[]|null>(recovery?.entryIds??null);
   const [submitted,setSubmitted]=useState(Boolean(recovery));
@@ -61,7 +62,7 @@ export function TextFoodReview({ draft, conversationId, transport, onReceipt, on
       ? <div className={styles.receipt}><p role="status">{t('global_coach.text_food_saved')}</p></div>
       : <p>{t('global_coach.text_food_estimate')}</p>}
     {draft.clarification && <p role="status">{draft.clarification}</p>}
-    {!draft.clarification && <>
+    {!draft.clarification && !receipt && <>
       <fieldset disabled={pending || submitted}>
         {values.map((item, index) => <label key={index}>{selectFoodDisplayName(item)} · {item.calories} kcal · {item.protein_g} g {t('global_coach.food_proteinG')}
           <input aria-label={`${selectFoodDisplayName(item)} — ${t('global_coach.food_grams')}`} type="number" min="0.01" max="10000" step="0.01" value={grams[index]} onChange={event => { edit(); setGrams(current => current.map((value, i) => i === index ? event.target.value : value)); }} />

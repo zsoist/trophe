@@ -22,6 +22,15 @@ function fixture(lost = false) {
   return { transport, onReceipt };
 }
 describe('text Food functional review controls', () => {
+  it('reopens an acknowledged receipt without offering another save or stale portions', () => {
+    const transport = vi.fn();
+    const receipt: TextFoodReceipt = { actionId: id(5), proposalId: id(2), hash: 'b'.repeat(64), entryIds: [id(3)], loggedDate: '2026-09-12', recordedAt: '2026-09-12T23:00:00Z', status: 'applied' };
+    render(<I18nProvider defaultLang="en"><TextFoodReview draft={draft} conversationId={id(4)} savedReceipt={receipt} transport={transport} onReceipt={vi.fn()} /></I18nProvider>);
+    expect(screen.getByText('Meal saved. Your food log is refreshing.')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Review food entry' })).toBeNull();
+    expect(screen.queryByRole('spinbutton')).toBeNull();
+    expect(transport).not.toHaveBeenCalled();
+  });
   it('does not write on render or portion edit; review precedes explicit confirmation', async () => {
     const f = fixture(); expect(f.transport).not.toHaveBeenCalled();
     fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '150' } }); expect(f.transport).not.toHaveBeenCalled();
