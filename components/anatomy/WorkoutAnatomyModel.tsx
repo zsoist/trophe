@@ -21,7 +21,7 @@ const empty: string[] = [];
 /** Every curated muscle id whose mapping can be resolved against the source manifest. */
 const SELECTABLE_MUSCLES = Object.keys(ATLAS_MUSCLE_MAPPING) as AnatomyMuscleId[];
 /** Same source meshes, curation and renderer as Muscle Atlas. Public availability follows the existing release gate. */
-export function WorkoutAnatomyModel({ activations, selected, onSelect, view, color, focused, cameraRequest, onManualView, zoom, reset = 0 }: { activations: MuscleActivation[]; selected: AnatomyMuscleId | null; onSelect: (id: AnatomyMuscleId | null) => void; view: AnatomyView; color: string; focused?: AnatomyMuscleId[]; cameraRequest?: number; onManualView?: () => void; zoom?: number; reset?: number }) {
+export function WorkoutAnatomyModel({ activations, selected, onSelect, view, color, focused, cameraRequest, onManualView, zoom, reset = 0, presentation }: { activations: MuscleActivation[]; selected: AnatomyMuscleId | null; onSelect: (id: AnatomyMuscleId | null) => void; view: AnatomyView; color: string; focused?: AnatomyMuscleId[]; cameraRequest?: number; onManualView?: () => void; zoom?: number; reset?: number; presentation?: "workout-premium" }) {
   const source = useContext(WorkoutAnatomySource);
   const release = activeAtlasRelease(process.env.NEXT_PUBLIC_ANATOMY_ATLAS_ENABLED);
   const manifestUrl = source?.manifestUrl ?? (release ? `/anatomy/${release}/manifest.json` : null);
@@ -54,9 +54,13 @@ export function WorkoutAnatomyModel({ activations, selected, onSelect, view, col
     }
     return index;
   }, [manifest]);
+  const presentedColors = useMemo(() => {
+    if (presentation !== 'workout-premium' || !selected) return colors;
+    return { ...colors, ...Object.fromEntries([...selectionIndex].filter(([, muscle]) => muscle === selected).map(([element]) => [element, '#d4b574'])) };
+  }, [colors, presentation, selected, selectionIndex]);
   if (!manifestUrl || failed) return <div className="wk2 workout-model-fallback">{failed && <div className="workout-model-fallback__status"><p role="status">{t("anatomy.model_fallback")}</p><button type="button" data-testid="workout-model-retry" onClick={() => { setFailed(false); setAttempt(current => current + 1); }}>{t('anatomy.retry')}</button></div>}<MuscleAtlas activations={activations} selected={selected} onSelect={onSelect} viewOverride={view} camera={zoom === undefined ? undefined : { zoom }} compact /></div>;
   return <><div className="wk2 workout-anatomy-model anatomy-stage">
-    {context ? <Canvas manifest={context} systems={systems} focusElements={empty} selectedElements={empty} elementColors={colors} hiddenElements={hidden} isolated={false} view={view} reset={reset} zoom={zoom ?? 0} framingScale={0.83} cameraRequest={cameraRequest} onManualView={onManualView} interactive={true} onPick={id => { const hit = mapped.find(item => item.elements.includes(id)); const next = hit ? hit.activation.id : selectionIndex.get(id); if (!next) return; onSelect(next === selected ? null : next); }} onError={() => setFailed(true)} onProgress={(loaded, total) => setProgress(previous => previous[0] === loaded && previous[1] === total ? previous : [loaded, total])} label={t('anatomy.viewer')} /> : <p role="status">{t('anatomy.loading')}</p>}
+    {context ? <Canvas presentation={presentation} manifest={context} systems={systems} focusElements={empty} selectedElements={empty} elementColors={presentedColors} hiddenElements={hidden} isolated={false} view={view} reset={reset} zoom={zoom ?? 0} framingScale={presentation === 'workout-premium' ? 1 : 0.83} cameraRequest={cameraRequest} onManualView={onManualView} interactive={true} onPick={id => { const hit = mapped.find(item => item.elements.includes(id)); const next = hit ? hit.activation.id : selectionIndex.get(id); if (!next) return; onSelect(next === selected ? null : next); }} onError={() => setFailed(true)} onProgress={(loaded, total) => setProgress(previous => previous[0] === loaded && previous[1] === total ? previous : [loaded, total])} label={t('anatomy.viewer')} /> : <p role="status">{t('anatomy.loading')}</p>}
     {context && (progress[1] === 0 || progress[0] < progress[1]) && <p className="workout-model-loading" role="status">{t('anatomy.loading')}</p>}
   </div>{manifest && <AtlasInformation><p>{manifest.license.attribution} · <a href={manifest.license.url}>{manifest.license.id}</a></p>{supplement && <p>{t('anatomy.authored_explanation')} · {supplement.author} · {supplement.license}</p>}<p>{t('anatomy.worked_note')}</p></AtlasInformation>}</>;
 }

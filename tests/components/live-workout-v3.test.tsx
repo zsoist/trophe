@@ -130,6 +130,7 @@ describe('LiveWorkout focused stage', () => {
     expect(await screen.findByText('Exercise 2 of 2')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Exercise 1, completed' }));
     expect(await screen.findByText('Exercise 1 of 2')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /60 kg × 8/ }));
     expect(screen.getByRole('button', { name: 'Undo set' })).toBeTruthy();
     expect(screen.queryByText('Dumbbell Row', { selector: 'h3' })).toBeNull();
   });

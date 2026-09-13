@@ -23,6 +23,7 @@ export interface RenderObservation {
   textures: number;
 }
 export interface CanvasProps {
+  presentation?: "workout-premium";
   onRender?: (value: RenderObservation) => void;
   manifest: AtlasManifest;
   systems: string[];
@@ -76,6 +77,8 @@ export default function AtlasCanvas(props: CanvasProps) {
     }
     renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
+    const premium = props.presentation === 'workout-premium';
+    if (premium) { renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1; }
     container.appendChild(renderer.domElement);
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(32, 1, 0.01, 100);
@@ -89,10 +92,14 @@ export default function AtlasCanvas(props: CanvasProps) {
     renderer.domElement.style.touchAction = latest.current.interactive
       ? "none"
       : "pan-y";
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x62646a, 2.3));
-    const light = new THREE.DirectionalLight(0xffffff, 2);
+    scene.add(new THREE.HemisphereLight(premium ? 0xeef2fa : 0xffffff, premium ? 0x383b43 : 0x62646a, premium ? 0.75 : 2.3));
+    const light = new THREE.DirectionalLight(premium ? 0xfff4e4 : 0xffffff, premium ? 2.4 : 2);
     light.position.set(2, 3, 4);
     scene.add(light);
+    if (premium) {
+      const fill = new THREE.DirectionalLight(0xdce7ff, 0.65); fill.position.set(-3, 1, 2); scene.add(fill);
+      const rim = new THREE.DirectionalLight(0xeef2ff, 1.2); rim.position.set(-2, 2, -3); scene.add(rim);
+    }
     const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
     const residentBytes = new Map<string, number>();
     const geometryBytes = (group: THREE.Object3D) => {
@@ -114,13 +121,15 @@ export default function AtlasCanvas(props: CanvasProps) {
     const requests = new Map<string, AbortController>();
     const materials = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>();
     const highlight = new THREE.MeshStandardMaterial({
-      color: 0xd4a853,
-      roughness: 0.75,
+      color: premium ? 0xd4b574 : 0xd4a853,
+      roughness: premium ? 0.38 : 0.75,
+      metalness: premium ? 0.3 : 0,
       side: THREE.DoubleSide,
     });
     const muted = new THREE.MeshStandardMaterial({
-      color: 0x727875,
-      roughness: 0.85,
+      color: premium ? 0xb7bcc3 : 0x727875,
+      roughness: premium ? 0.42 : 0.85,
+      metalness: premium ? 0.25 : 0,
       side: THREE.DoubleSide,
     });
     const focusMaterials = new Map<string, THREE.MeshStandardMaterial>();
@@ -130,7 +139,8 @@ export default function AtlasCanvas(props: CanvasProps) {
           color,
           new THREE.MeshStandardMaterial({
             color,
-            roughness: 0.75,
+            roughness: premium ? 0.38 : 0.75,
+            metalness: premium ? 0.3 : 0,
             side: THREE.DoubleSide,
           }),
         );
@@ -556,7 +566,7 @@ export default function AtlasCanvas(props: CanvasProps) {
       renderer.forceContextLoss();
       renderer.domElement.remove();
     };
-  }, [props.manifest]);
+  }, [props.manifest, props.presentation]);
   return (
     <div
       ref={host}

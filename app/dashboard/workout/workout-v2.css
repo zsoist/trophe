@@ -107,7 +107,7 @@
 .workout-home .workout-muscle-home header p { margin-top: 4px; font-size: 14px; }
 .workout-home .workout-muscle-body { margin-top: 10px; }
 
-.workout-home .workout-muscle-home { --workout-stage-h: clamp(380px, 58dvh, 640px); }
+.workout-home .workout-muscle-home { --workout-stage-h: clamp(360px, 43dvh, 520px); }
 
 .workout-workspace:has(.live-exercise-stage__header) > .workout-workspace-header {
   margin: 0 12px 8px; min-height: 48px; padding-block: 0; background: transparent; box-shadow: none;

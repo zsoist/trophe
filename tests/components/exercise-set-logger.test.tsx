@@ -48,6 +48,18 @@ async function completeSetWithFakeTimers(props: Partial<React.ComponentProps<typ
 }
 
 describe('ExerciseSetLogger', () => {
+  it('retains unsaved values when a set is collapsed and expanded', () => {
+    const props={exercise:{id:'bench',name:'Bench Press'},setNumber:1,unit:'kg' as const,grouped:true,focusMode:true,collapsible:true,onComplete:vi.fn()};
+    const view=render(<ExerciseSetLogger {...props} current />);
+    const input=screen.getByLabelText('Weight in kg');
+    fireEvent.change(input,{target:{value:'42.5'}});
+    view.rerender(<ExerciseSetLogger {...props} current={false} />);
+    expect(screen.queryByRole('spinbutton',{name:'Weight in kg'})).toBeNull();
+    fireEvent.click(view.container.querySelector('.exercise-set-summary')!);
+    expect(screen.getByRole('spinbutton',{name:'Weight in kg'})).toBe(input);
+    expect((input as HTMLInputElement).value).toBe('42.5');
+  });
+
   it('settles an expired recovered rest while paused without replaying haptics', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-08-25T12:10:00.000Z'));

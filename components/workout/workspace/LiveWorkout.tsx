@@ -741,6 +741,7 @@ function LiveWorkoutSession({ exercises, userId = null }: LiveWorkoutProps) {
               setNumber={row.setNumber}
               unit={unit}
               grouped
+              collapsible
               focusMode
               current={row.id === currentSetRowId}
               paused={state.stage === 'paused'}

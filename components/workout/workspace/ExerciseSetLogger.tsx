@@ -45,6 +45,7 @@ interface ExerciseSetLoggerProps {
   restTargetStorageFailed?: boolean;
   disabled?: boolean;
   grouped?: boolean;
+  collapsible?: boolean;
   showExerciseHeader?: boolean;
   isLastSet?: boolean;
   onComplete(value: SetLoggerValue): Promise<string | null>;
@@ -97,6 +98,7 @@ export function ExerciseSetLogger({
   restTargetStorageFailed = false,
   disabled = false,
   grouped = false,
+  collapsible = false,
   showExerciseHeader = true,
   isLastSet = false,
   onComplete,
@@ -120,6 +122,7 @@ export function ExerciseSetLogger({
   const [setId, setSetId] = useState<string | null>(initialSetId);
   const [completedSetNumber, setCompletedSetNumber] = useState<number | null>(initialSetId ? setNumber : null);
   const [saving, setSaving] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   // Honest failed state: a completion the controller did not acknowledge. The
   // row stays editable for retry; no success state is shown.
@@ -286,6 +289,12 @@ export function ExerciseSetLogger({
         ? `${showExerciseHeader ? 'rounded-t-2xl border-t' : ''} ${isLastSet ? 'rounded-b-2xl' : ''} border-x border-b border-[var(--border-subtle)] bg-[var(--surface-raised)] p-3`
         : 'rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-3'}`}
     >
+      {collapsible && !current ? <button type="button" className="exercise-set-summary" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>
+        <span>{t('workout.set_number', { n: setNumber })}</span>
+        <span>{weight && reps ? `${weight} ${unit} × ${reps}` : t('workout.reps')}</span>
+        {setId ? <Check size={16} aria-hidden="true" /> : <ChevronDown size={16} aria-hidden="true" />}
+      </button> : null}
+      <div hidden={collapsible && !current && !expanded}>
       {showExerciseHeader ? <div className="mb-3 flex items-center justify-between gap-3">
         <div>
           {!focusMode ? <h3 className="font-semibold text-[var(--content-primary)]">{exercise.name}</h3> : null}
@@ -360,6 +369,7 @@ export function ExerciseSetLogger({
         />
       ) : null}
 
+      </div>
       {completed && activeRestSnapshot !== null ? (
         // role="timer" is implicitly aria-live="off": the per-second count is visible but never read aloud.
         <div role="timer" aria-label={t('workout.rest_timer_label')} className="exercise-set-logger__rest mt-2 rounded-xl bg-[var(--status-success-bg)] px-3 py-2 text-sm text-[var(--status-success-fg)]">
@@ -378,7 +388,7 @@ export function ExerciseSetLogger({
         {restAnnouncement === 'started' ? t('workout.rest_started', { n: restTargetSeconds }) : restAnnouncement === 'complete' ? t('workout.rest_complete') : null}
       </p>
 
-      {showExerciseHeader && moreOpen ? (
+      {showExerciseHeader && moreOpen && (!collapsible || current || expanded) ? (
         <div className="exercise-set-logger__more mt-3 grid grid-cols-2 gap-2 border-t border-[var(--border-subtle)] pt-3">
           <button type="button" disabled={disabled} onClick={onTechnique} className="btn-ghost inline-flex min-h-11 items-center gap-2 rounded-xl px-3"><Info size={16} aria-hidden="true" />{t('workout.info_technique')}</button>
           <button type="button" disabled={disabled} onClick={onPain} className="btn-ghost inline-flex min-h-11 items-center gap-2 rounded-xl px-3"><AlertTriangle size={16} aria-hidden="true" />{t('workout.report_pain')}</button>

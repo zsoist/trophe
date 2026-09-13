@@ -908,6 +908,11 @@
 .workout-live-picker .exercise-results article button:last-of-type > span { display: none; }
 
 .workout-editorial-cover figure { margin: 0; }
-.workout-editorial-cover img { width: 100%; max-height: 480px; object-fit: contain; background: #171916; }
+.workout-editorial-cover img { width: 100%; max-height: 320px; object-fit: contain; background: #171916; }
 .workout-editorial-cover figcaption { padding: 8px 12px; font-size: 12px; color: var(--content-secondary); }
 .workout-editorial-cover summary { min-height: 48px; padding: 12px 16px; cursor: pointer; font-weight: 600; }
+
+.live-workout .rest-target__group { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
+.live-workout .rest-target__choice { flex-shrink: 0; }
+.exercise-set-summary { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 44px; gap: 12px; font-size: 14px; color: var(--content-secondary); }
+.live-workout .exercise-set-logger .wsp-action { background: linear-gradient(105deg, #e2c78a, #c5a065); color: #151714; }

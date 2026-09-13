@@ -98,7 +98,7 @@ export function WorkoutAtlasHome({ activations, workedActivations = [], workedAv
         </div>
         {viewerAvailable && !stageVisible
           ? <div className="workout-muscle-lazy" data-testid="workout-atlas-skeleton"><p role="status">{t('anatomy.loading')}</p></div>
-          : <WorkoutAnatomyModel activations={visible} selected={applied} focused={groups.find(group => group.id === openGroup)?.activations.map(a => a.id)} onSelect={choose} view={view} cameraRequest={cameraRequest} onManualView={() => setManual(true)} zoom={zoom} reset={reset} color={mode === 'worked' ? '#78bdb2' : '#d4a853'} />}
+          : <WorkoutAnatomyModel presentation="workout-premium" activations={visible} selected={applied} focused={groups.find(group => group.id === openGroup)?.activations.map(a => a.id)} onSelect={choose} view={view} cameraRequest={cameraRequest} onManualView={() => setManual(true)} zoom={zoom} reset={reset} color="#d4b574" />}
         <div className="workout-muscle-camera" role="group" aria-label={t('anatomy.viewer')}>
           <button type="button" disabled={zoom >= 12} aria-label={t('anatomy.zoom_in')} onClick={() => setZoom(current => Math.min(12, current + 1))}><Plus size={17} aria-hidden="true" /></button>
           <button type="button" disabled={zoom <= 0} aria-label={t('anatomy.zoom_out')} onClick={() => setZoom(current => Math.max(0, current - 1))}><Minus size={17} aria-hidden="true" /></button>
