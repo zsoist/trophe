@@ -6,6 +6,11 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X, Barcode, Loader2, Camera, Keyboard, ChevronLeft, RotateCcw } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useFoodI18n as useI18n } from '@/components/food/useFoodI18n';
+import {
+  isCanonicalMealSlot,
+  mealSlotMatchesMealType,
+  type CanonicalMealSlot,
+} from '@/lib/food/meal-slot';
 import type { MealType } from '@/lib/types';
 
 /**
@@ -21,6 +26,13 @@ interface Props {
   userId: string;
   selectedDate: string;
   defaultMealType?: MealType;
+  /**
+   * Explicit slot token for the context the modal was opened from. Kept in
+   * every direct insert so a barcode log lands in the slot the user tapped
+   * (e.g. `snack_am`/`snack_pm`) instead of a coarse type. When omitted — or
+   * when it would mismatch `defaultMealType` — the coarse meal type is used.
+   */
+  defaultMealSlot?: CanonicalMealSlot;
   isOpen: boolean;
   onClose: () => void;
   onLogged: () => void;
@@ -31,6 +43,29 @@ interface Product { name: string; brand: string | null; barcode: string; per100g
 type Step = 'choose' | 'scan' | 'input' | 'manual';
 
 const MEAL_OPTIONS: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
+
+/**
+ * Coarse meal type → its consistent canonical slot token. Every `MealType` is
+ * itself a canonical slot; a coarse `'snack'` maps to the generic, AM/PM-unknown
+ * `'snack'` slot (never an invented snack_am/snack_pm).
+ */
+function coarseSlotForMealType(mealType: MealType): CanonicalMealSlot {
+  return isCanonicalMealSlot(mealType) ? mealType : 'snack';
+}
+
+/**
+ * The slot a modal context defaults to: an explicit slot wins only when it is
+ * consistent with the coarse meal type; otherwise derive the slot from the meal
+ * type. Never returns a token that would mismatch `meal_type`/`meal_slot`.
+ */
+function resolveDefaultSlot(
+  slot: CanonicalMealSlot | undefined,
+  mealType: MealType,
+): CanonicalMealSlot {
+  if (slot && mealSlotMatchesMealType(slot, mealType)) return slot;
+  return coarseSlotForMealType(mealType);
+}
+
 const focusableSelector = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 function trapFocus(event: ReactKeyboardEvent<HTMLElement>, container: HTMLElement | null) {
   if (event.key !== 'Tab' || !container) return;
@@ -41,13 +76,18 @@ function trapFocus(event: ReactKeyboardEvent<HTMLElement>, container: HTMLElemen
   else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
 }
 
-export default function BarcodeLookupModal({ userId, selectedDate, defaultMealType = 'snack', isOpen, onClose, onLogged }: Props) {
+export default function BarcodeLookupModal({ userId, selectedDate, defaultMealType = 'snack', defaultMealSlot, isOpen, onClose, onLogged }: Props) {
   const { t } = useI18n();
   const [step, setStep] = useState<Step>('choose');
   const [code, setCode] = useState('');
   const [product, setProduct] = useState<Product | null>(null);
   const [grams, setGrams] = useState(100);
   const [mealType, setMealType] = useState<MealType>(defaultMealType);
+  // The persisted slot token that rides along with every direct insert. Starts
+  // from the explicit context slot (or the coarse default) and is re-derived
+  // whenever the user picks another coarse meal, so meal_type/meal_slot stay
+  // consistent.
+  const [mealSlot, setMealSlot] = useState<CanonicalMealSlot>(() => resolveDefaultSlot(defaultMealSlot, defaultMealType));
   // Manual add (per-100g) for barcodes Open Food Facts doesn't have (common for LatAm/Greek products).
   const [manual, setManual] = useState({ name: '', kcal: '', protein: '', carbs: '', fat: '' });
   const [loading, setLoading] = useState(false);
@@ -55,6 +95,11 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
   // A lookup is in flight — Enter in the code field (and rapid decode callbacks
   // from the camera) bypass the disabled button, so guard the request itself.
   const lookupBusyRef = useRef(false);
+  const lookupAbortRef = useRef<AbortController | null>(null);
+  // Monotonic "session" id, bumped on every open/close and on unmount. A lookup
+  // captures it so a late response/finally from a previous modal session can
+  // neither populate the current modal nor release the single-flight lock.
+  const lookupSessionRef = useRef(0);
   const [error, setError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const controlsRef = useRef<{ stop: () => void } | null>(null);
@@ -72,12 +117,38 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
     controlsRef.current = null;
   }, []);
 
+  // End the current modal session: abort any in-flight barcode lookup and drop
+  // the single-flight lock, so the next open starts clean and a stale in-flight
+  // request can't keep a reopened modal locked or write into it.
+  const resetLookupSession = useCallback(() => {
+    lookupSessionRef.current += 1;
+    try { lookupAbortRef.current?.abort(); } catch { /* already settled */ }
+    lookupAbortRef.current = null;
+    lookupBusyRef.current = false;
+  }, []);
+
   // Reset on open; always stop the camera on close/unmount.
   useEffect(() => {
-    if (isOpen) { setStep('choose'); setCode(''); setProduct(null); setError(null); setGrams(100); setLocked(false); setLaserTop(null); }
-    else stopScan();
-    return () => stopScan();
-  }, [isOpen, stopScan]);
+    resetLookupSession();
+    if (isOpen) {
+      setStep('choose'); setCode(''); setProduct(null); setError(null); setGrams(100); setLocked(false); setLaserTop(null); setLoading(false);
+      // A (re)open or a context change (different default meal/slot) resets the
+      // meal defaults to a consistent pair — a barcode logged after switching
+      // slots must not inherit the previous context's meal_type/meal_slot.
+      setMealType(defaultMealType);
+      setMealSlot(resolveDefaultSlot(defaultMealSlot, defaultMealType));
+    } else stopScan();
+    return () => { resetLookupSession(); stopScan(); };
+  }, [isOpen, defaultMealType, defaultMealSlot, resetLookupSession, stopScan]);
+
+  // Choosing a coarse meal re-derives a consistent slot. An explicit
+  // snack_am/snack_pm default is only kept while the user leaves the meal
+  // unchanged; picking the coarse "Snack" option stores the truthful generic
+  // 'snack' rather than guessing AM/PM.
+  const chooseMeal = useCallback((next: MealType) => {
+    setMealType(next);
+    setMealSlot(coarseSlotForMealType(next));
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -96,30 +167,56 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
   const lookup = useCallback(async (barcode: string) => {
     if (lookupBusyRef.current) return;
     if (!/^\d{8,14}$/.test(barcode)) { setError(t('barcode.err_invalid')); return; }
+    const session = lookupSessionRef.current;
     lookupBusyRef.current = true;
+    try { lookupAbortRef.current?.abort(); } catch { /* already settled */ }
+    const controller = new AbortController();
+    lookupAbortRef.current = controller;
     setLoading(true); setError(null); setProduct(null);
     try {
       const res = await fetch('/api/food/barcode', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ barcode }),
+        body: JSON.stringify({ barcode }), signal: controller.signal,
       });
+      // A close/reopen (or unmount) replaces the session; drop the stale result
+      // before it touches state or the spinner.
+      if (session !== lookupSessionRef.current) return;
       const data = (await res.json().catch(() => ({}))) as Partial<Product> & { found?: boolean; error?: string };
-      if (data.found && data.per100g) {
+      // The body read is a second await: the session can change while the
+      // response body is still streaming (close/reopen), so re-check before any
+      // state write — a stale body must not populate the fresh modal or push it
+      // to the manual step.
+      if (session !== lookupSessionRef.current) return;
+      if (res.ok && data.found && data.per100g) {
         stopScan();
         setProduct({ name: data.name!, brand: data.brand ?? null, barcode, per100g: data.per100g, source: data.source ?? 'off' });
         setGrams(100);
-      } else {
-        // Not in Open Food Facts (common for LatAm/Greek products) → let the
-        // coach/client add it from the label rather than dead-ending.
+      } else if (res.status === 404) {
+        // Genuine "not in Open Food Facts" (common for LatAm/Greek products) →
+        // let the coach/client add it from the label rather than dead-ending.
         stopScan();
         setError(null);
         setStep('manual');
+      } else {
+        // Provider failure (502), auth/WAF rejection, or a malformed payload:
+        // recoverable. Keep the code so the user can retry; never masquerade as
+        // a missing product. No automatic retry.
+        setLocked(false); setLaserTop(null);
+        setError(t('barcode.err_lookup'));
       }
     } catch {
+      if (session !== lookupSessionRef.current) return;
       // W12: release the snap-lock so the reticle doesn't sit green on failure
       setLocked(false); setLaserTop(null);
       setError(t('barcode.err_lookup'));
-    } finally { lookupBusyRef.current = false; setLoading(false); }
+    } finally {
+      // Only the request that still owns the session may clear the lock/spinner.
+      if (session === lookupSessionRef.current) {
+        lookupBusyRef.current = false;
+        lookupAbortRef.current = null;
+        setLoading(false);
+      }
+    }
   }, [stopScan, t]);
 
   async function logManual() {
@@ -131,7 +228,7 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
       const f = grams / 100;
       const num = (s: string) => Math.max(0, Number(s) || 0);
       const { data: inserted, error: insErr } = await supabase.from('food_log').insert({
-        user_id: userId, logged_date: selectedDate, meal_type: mealType,
+        user_id: userId, logged_date: selectedDate, meal_type: mealType, meal_slot: mealSlot,
         food_name: manual.name.trim(),
         quantity: grams, unit: 'g',
         calories: Math.round(num(manual.kcal) * f),
@@ -204,7 +301,7 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
     try {
       const f = grams / 100;
       const { data: inserted, error: insErr } = await supabase.from('food_log').insert({
-        user_id: userId, logged_date: selectedDate, meal_type: mealType,
+        user_id: userId, logged_date: selectedDate, meal_type: mealType, meal_slot: mealSlot,
         food_name: product.brand ? `${product.name} — ${product.brand}` : product.name,
         quantity: grams, unit: 'g',
         calories: Math.round(product.per100g.kcal * f),
@@ -321,7 +418,7 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
                 </div>
                 <div className="flex gap-1 mb-3">
                   {MEAL_OPTIONS.map((m) => (
-                    <button key={m} onClick={() => setMealType(m)} className="flex-1 text-xs min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" style={{ padding: '6px 0', borderRadius: 8, textTransform: 'capitalize', cursor: 'pointer', border: '1px solid', borderColor: mealType === m ? 'var(--action-primary)' : 'var(--border-default)', background: mealType === m ? 'var(--action-secondary)' : 'transparent', color: mealType === m ? 'var(--action-primary)' : 'var(--content-secondary)', fontFamily: 'var(--font-mono)' }}>{t(`food.${m}`)}</button>
+                    <button key={m} onClick={() => chooseMeal(m)} className="flex-1 text-xs min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" style={{ padding: '6px 0', borderRadius: 8, textTransform: 'capitalize', cursor: 'pointer', border: '1px solid', borderColor: mealType === m ? 'var(--action-primary)' : 'var(--border-default)', background: mealType === m ? 'var(--action-secondary)' : 'transparent', color: mealType === m ? 'var(--action-primary)' : 'var(--content-secondary)', fontFamily: 'var(--font-mono)' }}>{t(`food.${m}`)}</button>
                   ))}
                 </div>
                 <button onClick={logIt} disabled={logging}
@@ -446,7 +543,7 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
                 </div>
                 <div className="flex gap-1 mb-3">
                   {MEAL_OPTIONS.map((m) => (
-                    <button key={m} onClick={() => setMealType(m)} className="flex-1 text-xs min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" style={{ padding: '6px 0', borderRadius: 8, textTransform: 'capitalize', cursor: 'pointer', border: '1px solid', borderColor: mealType === m ? 'var(--action-primary)' : 'var(--border-default)', background: mealType === m ? 'var(--action-secondary)' : 'transparent', color: mealType === m ? 'var(--action-primary)' : 'var(--content-secondary)', fontFamily: 'var(--font-mono)' }}>{t(`food.${m}`)}</button>
+                    <button key={m} onClick={() => chooseMeal(m)} className="flex-1 text-xs min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" style={{ padding: '6px 0', borderRadius: 8, textTransform: 'capitalize', cursor: 'pointer', border: '1px solid', borderColor: mealType === m ? 'var(--action-primary)' : 'var(--border-default)', background: mealType === m ? 'var(--action-secondary)' : 'transparent', color: mealType === m ? 'var(--action-primary)' : 'var(--content-secondary)', fontFamily: 'var(--font-mono)' }}>{t(`food.${m}`)}</button>
                   ))}
                 </div>
                 <button onClick={logManual} disabled={logging || !manual.name.trim()}

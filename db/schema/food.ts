@@ -39,6 +39,14 @@ export const foodLog = pgTable('food_log', {
   userId: uuid('user_id'),
   loggedDate: date('logged_date').default(sql`CURRENT_DATE`).notNull(),
   mealType: text('meal_type'),
+  /**
+   * Explicit meal slot chosen at log time — migration 0089. Nullable so every
+   * existing row and every not-yet-updated client stays valid. The two default
+   * snack slots persist 'snack_am'/'snack_pm' here while meal_type stays 'snack';
+   * a generic/unspecified snack is 'snack'. The log surface groups on this token
+   * instead of guessing AM/PM from created_at (insert time).
+   */
+  mealSlot: text('meal_slot'),
   foodName: text('food_name').notNull(),
   quantity: real().default(1).notNull(),
   unit: text().default('serving'),
@@ -83,6 +91,11 @@ export const foodLog = pgTable('food_log', {
     using: sql`(user_id = auth.uid())`, withCheck: sql`(user_id = auth.uid())` }),
   pgPolicy('Coaches view client food log', { as: 'permissive', for: 'select', to: ['authenticated'], using: sql`private.is_coach_of(user_id)` }),
   check('food_log_meal_type_check', sql`meal_type = ANY (ARRAY['breakfast'::text, 'lunch'::text, 'dinner'::text, 'snack'::text, 'pre_workout'::text, 'post_workout'::text])`),
+  // `meal_type` is nullable, so a bare combination arm would let a non-null
+  // meal_slot with a NULL meal_type slip through: SQL three-valued logic yields
+  // NULL for `meal_type = meal_slot` and a NULL CHECK result counts as satisfied.
+  // Require `meal_type IS NOT NULL` before any allowed-combination arm.
+  check('food_log_meal_slot_check', sql`meal_slot IS NULL OR (meal_type IS NOT NULL AND ((meal_slot = ANY (ARRAY['breakfast'::text, 'lunch'::text, 'dinner'::text, 'snack'::text, 'pre_workout'::text, 'post_workout'::text]) AND meal_type = meal_slot) OR (meal_slot = ANY (ARRAY['snack_am'::text, 'snack_pm'::text]) AND meal_type = 'snack'::text)))`),
   check('food_log_source_check', sql`source = ANY (ARRAY['usda'::text, 'openfoodfacts'::text, 'custom'::text, 'photo_ai'::text, 'natural_language'::text, 'ai_estimate'::text])`),
 ]);
 

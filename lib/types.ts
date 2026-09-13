@@ -14,6 +14,9 @@ export type HabitCategory = 'nutrition' | 'hydration' | 'movement' | 'sleep' | '
 export type HabitDifficulty = 'beginner' | 'intermediate' | 'advanced';
 export type HabitStatus = 'active' | 'completed' | 'paused' | 'skipped';
 export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'pre_workout' | 'post_workout';
+/** Explicit persisted meal slot (see lib/food/meal-slot.ts). Distinguishes the
+ * two default snack slots without relying on created_at/wall-clock time. */
+export type { CanonicalMealSlot } from '@/lib/food/meal-slot';
 export type FoodSource = 'usda' | 'openfoodfacts' | 'custom' | 'photo_ai' | 'natural_language' | 'ai_estimate';
 export type Mood = 'great' | 'good' | 'okay' | 'tough' | 'struggled';
 export type SessionType = 'check_in' | 'progression' | 'concern' | 'general';
@@ -126,6 +129,8 @@ export interface FoodLogEntry {
   user_id: string;
   logged_date: string;
   meal_type: MealType | null;
+  /** Explicit slot chosen at log time; `null`/absent = legacy/unspecified (never guessed). */
+  meal_slot?: import('@/lib/food/meal-slot').CanonicalMealSlot | null;
   food_name: string;
   quantity: number;
   unit: string;

@@ -44,6 +44,17 @@ export const FOOD_LOG_PERSISTED_COLUMNS = [
 export type FoodLogPersistedColumn = (typeof FOOD_LOG_PERSISTED_COLUMNS)[number];
 
 /**
+ * Persisted columns added AFTER the AG4 "complete row" contract was frozen
+ * (migration 0089 `meal_slot`). They ride through the Undo-restore INSERT so a
+ * restored row keeps its explicitly chosen slot, but stay OUT of
+ * `isSamePersistedRow`'s enumerated comparison: the supplied complete-row
+ * regression pins the historical column set, and a concurrently-changed slot
+ * can never cause an overwrite (a mismatch still only ever degrades to
+ * `'unknown'`, which refetches the authoritative day).
+ */
+export const FOOD_LOG_RESTORE_ONLY_COLUMNS = ['meal_slot'] as const;
+
+/**
  * A complete persisted `food_log` row: the legacy `FoodLogEntry` plus every
  * Phase-4 quantity/reference/provenance column. The delete snapshot, the Undo
  * insert payload and the collision verification all speak this type.
@@ -128,7 +139,7 @@ export function isSamePersistedRow(desired: FoodLogEntry, actual: unknown): bool
 export function persistedInsertPayload(entry: FoodLogRowSnapshot): Record<string, unknown> {
   const record = entry as unknown as Record<string, unknown>;
   const payload: Record<string, unknown> = {};
-  for (const column of FOOD_LOG_PERSISTED_COLUMNS) {
+  for (const column of [...FOOD_LOG_PERSISTED_COLUMNS, ...FOOD_LOG_RESTORE_ONLY_COLUMNS]) {
     if (column in record) payload[column] = record[column];
   }
   return payload;

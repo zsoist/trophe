@@ -8,6 +8,7 @@ import { requestConversation } from './client';
 import { AskTropheMark } from './AskTropheMark';
 import { AskTropheIcon } from './ask-trophe-icons';
 import { ResponseText } from './ResponseText';
+import { MessageReceipt, AskWaitMark } from './MessageReceipt';
 import { globalCoachTranslations } from '@/lib/locales/global-coach';
 import { acceptedScreenSelection, subscribeScreenSelection, screenSelectionSnapshot, emptyScreenSelection } from './screen-selection';
 import { acceptedScreenDate, subscribeScreenDate, screenDateSnapshot, emptyScreenDate } from './screen-date';
@@ -233,6 +234,16 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   const [preferences] = useState(() => new PreferenceController());
   const preferenceState = useSyncExternalStore(preferences.subscribe, preferences.snapshot, preferences.snapshot);
   const state = useSyncExternalStore(controller.subscribe, controller.snapshot, controller.snapshot);
+  // Ask generation wait mark: pause the pixel animation while the tab is hidden. The open/closed
+  // lifecycle is already covered (the portaled panel unmounts), and completion/error/cancel clears
+  // `state.pending`, which unmounts the mark outright.
+  const [pageHidden, setPageHidden] = useState(false);
+  useEffect(() => {
+    const sync = () => setPageHidden(document.visibilityState === 'hidden');
+    sync();
+    document.addEventListener('visibilitychange', sync);
+    return () => document.removeEventListener('visibilitychange', sync);
+  }, []);
   useEffect(() => () => { sentPhotoUrls.current.forEach(url => URL.revokeObjectURL(url)); sentPhotoUrls.current = []; }, [state.conversationId]);
   const [memory] = useState(() => new MemoryController(state.conversationId));
   const memoryState = useSyncExternalStore(memory.subscribe, memory.snapshot, memory.snapshot);
@@ -742,9 +753,9 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
         {messageEnabled && messageState.intentId && <MessagePanel controller={messageController} state={messageState} transport={activeMessageTransport} />}
 
         {!state.turns.length && !state.restored.length && <p className={styles.intro}>{t('global_coach.intro')}</p>}
-        {state.restored.map(item => <article className={styles.turn} key={item.id}><p className={styles.context}>{t('global_coach.saved_message')} · {t(item.role === 'user' ? 'global_coach.you' : 'global_coach.title')}</p><ResponseText text={item.text} assistant={item.role === 'assistant'} userStatement={state.restored.find(message => message.turnId === item.turnId && message.role === 'user')?.text} /></article>)}
+        {state.restored.map(item => <article className={styles.turn} key={item.id}><p className={styles.context}>{t(item.role === 'user' ? 'global_coach.you' : 'global_coach.title')}{item.role === 'user' && <MessageReceipt persistence="confirmed" label={t('global_coach.saved_message')} />}</p><ResponseText text={item.text} assistant={item.role === 'assistant'} userStatement={state.restored.find(message => message.turnId === item.turnId && message.role === 'user')?.text} /></article>)}
         {state.turns.map(turn => <article className={styles.turn} key={turn.request.turnId}>
-          <p className={styles.question}>{turn.request.message}</p>
+          <p className={styles.question}>{turn.request.message}{turn.recovered?.some(row => row.role === 'user' && row.turnId === turn.request.turnId) && <MessageReceipt persistence="confirmed" label={t('global_coach.saved_message')} />}</p>
 
           {turn.request.attachments?.filter(ref => state.turns.find(item => item.request.attachments?.some(photo => photo.id === ref.id))?.request.turnId === turn.request.turnId).map(ref => <div key={ref.id} className={styles.messagePhoto}>
             {sentPhotos[ref.id] && <details data-sent-photo-preview><summary aria-label={t('global_coach.photo_expand')}>
@@ -758,7 +769,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
             {photoFoodState.attachmentId === ref.id && <PhotoFoodPanel onOpenFoodLog={!professionalMode&&!example?close:undefined} controller={photoFood} state={photoFoodState} transport={photoFoodTransport??requestPhotoFood} onReceipt={entryId=>food.select(entryId,state.conversationId,activeFoodTransport)}/>}
           </div>)}
           {String(turn.response?.error?.code) === 'attachment_analysis_failed' && !turn.recovered && <p role="status" className={styles.answer}>{t('global_coach.photo_analysis_failed')}</p>}
-          {turn.recovered && <div className={styles.answer}><ResponseText assistant userStatement={turn.request.message} text={turn.recovered.find(item => item.role === 'assistant')?.text ?? ''} /><p className={styles.context}>{t('global_coach.saved_message')}</p></div>}
+          {turn.recovered && <div className={styles.answer}><ResponseText assistant userStatement={turn.request.message} text={turn.recovered.find(item => item.role === 'assistant' && item.turnId === turn.request.turnId)?.text ?? ''} /></div>}
           {!turn.recovered && turn.response?.output && <div className={styles.answer}>
             <ResponseText assistant userStatement={turn.request.message} text={turn.response.output.answer} />
             {speechByTurn[turn.request.turnId] && <VoiceAnswerPlayback descriptor={speechByTurn[turn.request.turnId]} text={turn.response.output.answer} />}
@@ -775,7 +786,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
           <p className={styles.context}>{t(row.speaker === 'user' ? 'global_coach.live_you' : 'global_coach.live_assistant')}</p>
           <p className={row.speaker === 'user' ? styles.question : styles.answer}>{row.text}</p>
         </article>)}
-        {state.pending && <p className={styles.pending} role="status"><span aria-hidden="true" />{t(state.turns.at(-1)?.request.attachments?.length ? 'global_coach.preparing_photo_answer' : 'global_coach.preparing_answer')}</p>}
+        {state.pending && <p className={styles.pending} role="status"><AskWaitMark paused={pageHidden} />{t(state.turns.at(-1)?.request.attachments?.length ? 'global_coach.preparing_photo_answer' : 'global_coach.preparing_answer')}</p>}
         {state.error && <div role="status"><p>{t(state.recovering ? 'global_coach.history_checking' : state.recoveryRequired ? 'global_coach.history_waiting' : `global_coach.${state.error}`)}</p>{state.recoveryRequired && <button type="button" className={styles.recoveryButton} disabled={state.recovering} onClick={() => { const read = (historyTransport ?? requestHistory).recover; if (read) void controller.recover(read); }}>{t('global_coach.history_check')}</button>}</div>}
       </div>
       {showLatest && <button type="button" className={`${styles.latestButton} min-h-11 px-4 text-sm`} inert={historyOpen || undefined} onClick={() => { followLatest.current = true; setShowLatest(false); log.current?.scrollTo({ top: log.current.scrollHeight }); }}>{t('global_coach.latest')}</button>}

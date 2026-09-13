@@ -624,6 +624,13 @@
       "when": 1789160400000,
       "tag": "0088_coach_chat_turn_recovery",
       "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1789250400000,
+      "tag": "0089_food_log_meal_slot",
+      "breakpoints": true
     }
   ]
 }

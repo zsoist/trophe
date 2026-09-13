@@ -7,6 +7,7 @@ import { useFoodI18n as useI18n } from '@/components/food/useFoodI18n';
 import { supabase } from '@/lib/supabase';
 import { trpcClient } from '@/lib/trpc/client';
 import type { MealType } from '@/lib/types';
+import type { CanonicalMealSlot } from '@/lib/food/meal-slot';
 import type { ParsedFoodItem } from '@/app/api/food/parse/route';
 import { isParsedFoodItem } from '@/agents/schemas/food-parse';
 import { validateManualNutrition } from '@/lib/food/manual-entry';
@@ -36,6 +37,12 @@ import { buildReviewedFoodLogEntries } from '@/lib/food/reviewed-log-entry';
 interface QuickFoodInputProps {
   userId: string;
   mealType: MealType;
+  /**
+   * Explicit slot chosen by the card the user tapped (e.g. 'snack_pm'). Persisted
+   * verbatim so an afternoon snack is never re-derived from created_at. Absent =
+   * the coarse meal type is stored (generic, never guessed).
+   */
+  mealSlot?: CanonicalMealSlot;
   date: string;
   /** Batch-logged row ids (from `.select('id')`) ride along so the page can offer batch undo. */
   onLogged: (ids?: string[]) => void;
@@ -104,7 +111,7 @@ const RECORDING_ERROR_KEYS: Record<RecordingError, string> = {
 type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
 type RetryAction = 'text' | 'photo' | 'voice';
 
-export default function QuickFoodInput({ userId, mealType, date, onLogged, showCalories = false, manualOnly = false }: QuickFoodInputProps) {
+export default function QuickFoodInput({ userId, mealType, mealSlot, date, onLogged, showCalories = false, manualOnly = false }: QuickFoodInputProps) {
   const { t, lang } = useI18n();
   // Unique per-instance prefix so the manual-form labels stay associated with
   // their own inputs even when several QuickFoodInput mounts coexist.
@@ -575,6 +582,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
       user_id: userId,
       logged_date: date,
       meal_type: mealType,
+      meal_slot: mealSlot ?? mealType,
       food_name: value.name || t('food.quick_add_fallback', { kcal: value.calories }),
       quantity: 1,
       unit: 'serving',
@@ -633,6 +641,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
         userId,
         date,
         mealType,
+        mealSlot,
         inputSource,
         items,
       });
@@ -1151,6 +1160,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
           userId={userId}
           selectedDate={date}
           defaultMealType={mealType}
+          defaultMealSlot={mealSlot}
           isOpen={showBarcode}
           onClose={() => setShowBarcode(false)}
           onLogged={onLogged}

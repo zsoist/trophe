@@ -4,7 +4,9 @@ import { TRPCError } from '@trpc/server';
 import { foodLog, foodParseCorrections } from '@/db/schema/food';
 import { foods } from '@/db/schema/foods';
 import type { Context } from '@/lib/trpc/context';
+import type { MealType } from '@/lib/types';
 import { safeErrorMetadata } from '@/lib/security/safe-error-log';
+import { mealSlotMatchesMealType } from './meal-slot';
 
 export type FoodLogRow = typeof foodLog.$inferSelect;
 export type FoodEditDatabase=Pick<Context['db'],'select'|'update'|'insert'|'execute'>;
@@ -55,6 +57,17 @@ export const editFieldsSchema = z.object({
   fatG: z.number().min(0).max(1000).optional(),
   fiberG: z.number().min(0).max(1000).optional(),
   sugarG: z.number().min(0).max(1000).optional(),
+  /** Explicit slot correction (0089). Omitted = leave the row's slot unchanged. */
+  mealSlot: z.enum([
+    'breakfast',
+    'lunch',
+    'dinner',
+    'snack_am',
+    'snack_pm',
+    'snack',
+    'pre_workout',
+    'post_workout',
+  ]).optional(),
 });
 export type EditFields = z.infer<typeof editFieldsSchema>;
 export const foodQuantityChangeSchema=editFieldsSchema.pick({grams:true}).required();
@@ -131,6 +144,18 @@ export async function deriveFoodLogEdit(database:Pick<FoodEditDatabase,'select'>
     return kcal ? Math.round(v * factor) : round1(v * factor);
   };
 
+  // A slot correction must stay consistent with the row's meal type. Reject an
+  // invalid combination before writing; omitted = unchanged.
+  if (
+    input.mealSlot !== undefined &&
+    (existing.mealType == null || !mealSlotMatchesMealType(input.mealSlot, existing.mealType as MealType))
+  ) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'mealSlot must be consistent with the entry meal type',
+    });
+  }
+
   const next = {
     foodName: input.foodName ?? existing.foodName,
     quantity: input.quantity ?? existing.quantity,
@@ -141,6 +166,7 @@ export async function deriveFoodLogEdit(database:Pick<FoodEditDatabase,'select'>
     fatG: input.fatG ?? derived?.fatG ?? scaled(existing.fatG),
     fiberG: input.fiberG ?? derived?.fiberG ?? scaled(existing.fiberG),
     sugarG: input.sugarG ?? derived?.sugarG ?? scaled(existing.sugarG),
+    mealSlot: input.mealSlot ?? existing.mealSlot,
   };
 
   // Keep qty_g consistent with a quantity-only edit. Scaling the macros by the

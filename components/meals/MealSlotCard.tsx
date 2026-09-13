@@ -9,6 +9,7 @@ import { trpc } from '@/lib/trpc/client';
 import type { FoodLogEntry, MealType } from '@/lib/types';
 import { calculateMealScore, getScoreBgColor } from '@/lib/food/meal-score';
 import { validateFoodLogEdit } from '@/lib/food/log-edit-validation';
+import { canonicalSlotForMealSlot } from '@/lib/food/meal-slot';
 import { MACRO_COLORS } from '@/lib/macro-colors';
 import QuickFoodInput from '@/components/food/QuickFoodInput';
 import { COACH_FOOD_SELECT, COACH_FOOD_REFRESH, readFoodSelection } from '@/components/assistant/food-events';
@@ -107,6 +108,9 @@ export default function MealSlotCard({
 }: MealSlotCardProps) {
   const { t } = useI18n();
   const reduceMotion = useReducedMotion();
+  // Persist the slot the user actually tapped. The two default snack slots keep
+  // their AM/PM identity; custom slots store their (stable) meal type.
+  const mealSlot = canonicalSlotForMealSlot(slot);
   const [expanded, setExpanded] = useState(false);
   const [inputActive, setInputActive] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -393,6 +397,7 @@ export default function MealSlotCard({
         <QuickFoodInput
           userId={userId}
           mealType={slot.mealType}
+          mealSlot={mealSlot}
           date={date}
           showCalories={showCalories}
           onLogged={(ids) => {
@@ -715,6 +720,7 @@ export default function MealSlotCard({
                     <QuickFoodInput
                       userId={userId}
                       mealType={slot.mealType}
+                      mealSlot={mealSlot}
                       date={date}
                       showCalories={showCalories}
                       onLogged={(ids) => {

@@ -30,6 +30,12 @@ import { insertEntryForDate } from '@/components/food/log-entry-restore';
 import { useFoodLogDelete } from '@/components/food/use-food-log-delete';
 import type { FoodLogRowSnapshot } from '@/components/food/food-log-row';
 import {
+  groupBySlot,
+  slotIdForEntry as slotIdForEntryOf,
+  fallbackBucketIds,
+  canonicalSlotForMealSlot,
+} from '@/lib/food/meal-slot';
+import {
   createFoodLogDeletePort,
   type FoodLogDeleteClient,
 } from '@/components/food/food-log-delete-port';
@@ -68,34 +74,31 @@ function getLocalizedSlots(t: (key: string) => string): MealSlot[] {
   }));
 }
 
-function groupBySlot(entries: FoodLogEntry[], slots: MealSlot[]): Record<string, FoodLogEntry[]> {
-  const result: Record<string, FoodLogEntry[]> = {};
-  slots.forEach(s => { result[s.id] = []; });
+/** Icons for the truthful generic buckets shown when no slot claims an entry
+ *  (legacy rows, or a custom layout that dropped that meal's slot). */
+const FALLBACK_BUCKET_ICONS: Record<MealType, MealSlot['icon']> = {
+  breakfast: 'i-sun',
+  lunch: 'i-bowl',
+  dinner: 'i-moon',
+  snack: 'i-apple',
+  pre_workout: 'i-zap',
+  post_workout: 'i-dumbbell',
+};
 
-  const snackEntries: FoodLogEntry[] = [];
-
-  for (const entry of entries) {
-    const mt = entry.meal_type || 'snack';
-
-    if (mt === 'snack') {
-      snackEntries.push(entry);
-    } else if (mt === 'pre_workout' || mt === 'post_workout') {
-      result['snack_pm']?.push(entry);
-    } else {
-      const slotId = slots.find(s => s.mealType === mt)?.id;
-      if (slotId && result[slotId]) {
-        result[slotId].push(entry);
-      }
-    }
-  }
-
-  for (const entry of snackEntries) {
-    const hour = new Date(entry.created_at).getHours();
-    const slotId = hour < 14 ? 'snack_am' : 'snack_pm';
-    result[slotId]?.push(entry);
-  }
-
-  return result;
+/**
+ * A truthful, read-only bucket for entries no configured slot claims. It is
+ * never persisted as a slot: the user logs from the real slots. Legacy snack
+ * rows (meal_slot IS NULL) surface here as a generic "Snack" — never relabelled
+ * Morning by created_at, never dropped.
+ */
+function fallbackBucketSlot(mealType: MealType, index: number, t: (key: string) => string): MealSlot {
+  return {
+    id: mealType,
+    mealType,
+    label: t(`food.${mealType}`),
+    icon: FALLBACK_BUCKET_ICONS[mealType],
+    order: 100 + index,
+  };
 }
 
 // F5: Favorites
@@ -409,7 +412,7 @@ export default function FoodLogPage() {
 
   const isToday = selectedDate === today;
   const defaultSlots = getLocalizedSlots(t);
-  const slots = customSlots || defaultSlots;
+  const baseSlots = customSlots || defaultSlots;
 
   const totalCalories = todayLog.reduce((s, f) => s + (f.calories ?? 0), 0);
   const totalProtein = todayLog.reduce((s, f) => s + (f.protein_g ?? 0), 0);
@@ -418,7 +421,14 @@ export default function FoodLogPage() {
   const totalSugar = todayLog.reduce((s, f) => s + (f.sugar_g ?? 0), 0);
   const sugarSummary = summarizeSugar(todayLog);
 
-  const grouped = groupBySlot(todayLog, slots);
+  // Group by the explicit persisted meal_slot (never created_at/hour). Entries no
+  // configured slot claims land in a truthful generic bucket that is rendered
+  // only while non-empty — legacy rows are preserved, not guessed.
+  const grouped = groupBySlot(todayLog, baseSlots);
+  const slots = [
+    ...baseSlots,
+    ...fallbackBucketIds(grouped, baseSlots).map((mealType, index) => fallbackBucketSlot(mealType, index, t)),
+  ];
   const filledCount = slots.filter(s => grouped[s.id].length > 0 || skippedSlots.has(s.id)).length;
 
   // F7: Remaining budget
@@ -601,19 +611,9 @@ export default function FoodLogPage() {
     if (entry) requestDelete(entry);
   };
 
-  // W13: which slot card renders this entry — mirrors groupBySlot's routing.
-  const slotIdForEntry = (entry: FoodLogEntry): string | null => {
-    const mt = entry.meal_type || 'snack';
-    let slotId: string | undefined;
-    if (mt === 'snack') {
-      slotId = new Date(entry.created_at).getHours() < 14 ? 'snack_am' : 'snack_pm';
-    } else if (mt === 'pre_workout' || mt === 'post_workout') {
-      slotId = 'snack_pm';
-    } else {
-      slotId = slots.find(s => s.mealType === mt)?.id;
-    }
-    return slotId && slots.some(s => s.id === slotId) ? slotId : null;
-  };
+  // W13: which slot card renders this entry — the shared, time-free routing.
+  const slotIdForEntry = (entry: FoodLogEntry): string | null =>
+    slotIdForEntryOf(entry, slots);
 
   useEffect(() => {
     if (!mutationError) return;
@@ -700,13 +700,14 @@ export default function FoodLogPage() {
   };
 
   // F5: Quick-log a favorite
-  const logFavorite = async (fav: FavoriteFood, mealType: MealType) => {
+  const logFavorite = async (fav: FavoriteFood, slot: MealSlot) => {
     if (!userId) return;
     setMutationError(null);
     const entry = {
       user_id: userId,
       logged_date: selectedDate,
-      meal_type: mealType,
+      meal_type: slot.mealType,
+      meal_slot: canonicalSlotForMealSlot(slot),
       food_name: fav.food_name,
       quantity: 1,
       unit: 'serving',
@@ -764,6 +765,9 @@ export default function FoodLogPage() {
         user_id: userId,
         logged_date: selectedDate,
         meal_type: e.meal_type,
+        // Copying to another day never re-derives the slot: carry the source
+        // row's explicit slot (null stays null -> honest generic bucket).
+        meal_slot: e.meal_slot ?? null,
         food_name: e.food_name,
         quantity: e.quantity,
         unit: e.unit,
@@ -828,6 +832,9 @@ export default function FoodLogPage() {
         user_id: userId,
         logged_date: selectedDate,
         meal_type: mealType,
+        // Coach quick-log knows the coarse meal only — store it as the generic
+        // slot (no AM/PM guess).
+        meal_slot: mealType,
         food_name: rec.food,
         quantity: 1,
         unit: 'serving',
@@ -1068,7 +1075,7 @@ export default function FoodLogPage() {
                   key={fav.food_name}
                   onClick={() => {
                     const nextSlot = slots.find(s => grouped[s.id].length === 0 && !skippedSlots.has(s.id));
-                    if (nextSlot) logFavorite(fav, nextSlot.mealType);
+                    if (nextSlot) logFavorite(fav, nextSlot);
                   }}
                   className="min-h-11 min-w-11 flex-shrink-0 px-2.5 py-1 rounded-full bg-[var(--surface-2)] hover:bg-[var(--surface-hover)] border border-[var(--border-subtle)] text-[var(--content-secondary)] text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                 >
@@ -1486,7 +1493,7 @@ export default function FoodLogPage() {
       <AnimatePresence>
         {showSlotConfig && (
           <MealSlotConfig
-            slots={slots}
+            slots={baseSlots}
             onSave={(newSlots) => {
               setCustomSlots(newSlots);
               localStorage.setItem('trophe_meal_slots', JSON.stringify(newSlots));

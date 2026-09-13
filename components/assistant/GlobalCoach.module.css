@@ -1,3 +1,16 @@
+/* Ask editorial typography. Source Serif 4 (OFL) subset, shipped only as the Latin subset at
+   /fonts/ask/source-serif4-latin.ttf with its license beside it. Declared inside this Ask CSS
+   module so the face loads lazily with the component chunk (never a global page preload) and the
+   browser swaps it in. Existing UI/heading identity stays on the app UI stack (Jakarta/Inter);
+   only Ask prose, composer, intro and prose headings use the serif. */
+@font-face {
+  font-family: 'AskEditorial';
+  src: url('/fonts/ask/source-serif4-latin.ttf') format('truetype');
+  font-weight: 200 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 .root { color: var(--text-primary); }
 .launcher { display: flex; gap: .5rem; align-items: center; min-height: 44px; padding: .6rem .85rem; border: 1px solid var(--border-default); border-radius: 12px; background: color-mix(in srgb, var(--bg-primary) 88%, transparent); color: var(--text-primary); font-size: .875rem; font-weight: 650; box-shadow: 0 8px 24px rgba(0,0,0,.12); backdrop-filter: blur(18px) saturate(135%); }
 .backdrop { position: fixed; z-index: 54; inset: 0; width: 100%; height: 100%; border: 0; background: rgba(4,6,5,.24); }
@@ -149,8 +162,6 @@
 .messagePhoto details[open] { width: 100%; }
 .messagePhoto details[open] summary { margin-bottom: .5rem; cursor: zoom-out; }
 .pending { display: flex; align-items: center; gap: .6rem; padding-top: 1rem; font-size: .8125rem; color: var(--text-secondary); }
-.pending > span { width: 8px; height: 8px; border-radius: 50%; background: var(--gold-300); animation: coach-pulse 1.2s ease-in-out infinite alternate; }
-@keyframes coach-pulse { to { opacity: .35; transform: scale(.75); } }
 .composeRail { flex-wrap: wrap; }
 .compactVoice { display: contents; }
 .compactVoice .voiceBody { position: static; order: -1; flex: 0 0 100%; width: 100%; max-height: 24dvh; overflow: auto; padding: .4rem; border: 0; box-shadow: none; background: transparent; }
@@ -158,7 +169,6 @@
 .selectedPhotos > li { padding: .25rem; }
 .selectedPhotos > li > div { display: flex; align-items: center; gap: .4rem; }
 .selectedPhotos .fileName { max-width: 7rem; }
-@media (prefers-reduced-motion: reduce) { .pending > span { animation: none; } }
 
 .photoReview { margin-top: .6rem; border: 0; border-top: 1px solid var(--border-default); border-radius: 0; padding: .6rem 0; }
 .photoReviewHeading { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
@@ -192,7 +202,13 @@
   --at-gold: var(--performance-gold, var(--gold-300, #d4a853));
   --at-danger: #f19791;
   --at-ease: cubic-bezier(.22, 1, .36, 1);
+  --ask-serif: 'AskEditorial', 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  --ask-confirmed: #80edbe;
 }
+/* Light-theme confirmed double-check deep green; dark keeps bright mint. Both carry a shape+label,
+   so the state is never encoded by colour alone. The app theme is the html-level `.light` class,
+   and the launcher/panel are portaled outside `.root`, so each portal root is matched directly. */
+:global(.light) .root, :global(.light) .launcher, :global(.light) .panel { --ask-confirmed: #087344; }
 
 .launcher { gap: .55rem; min-height: 44px; padding: .55rem .8rem; border: 1px solid var(--at-line); border-radius: 999px; background: color-mix(in srgb, var(--at-bg) 88%, transparent); color: var(--at-text); font-size: .8125rem; font-weight: 650; box-shadow: 0 10px 30px rgba(0, 0, 0, .18); }
 .launcher svg { color: var(--at-gold); }
@@ -271,3 +287,51 @@
 @media (prefers-reduced-motion: reduce) { .panel { animation: none; } }
 .latestButton { align-self: center; width: fit-content; margin: 0 auto .4rem; border: 1px solid var(--at-line); border-radius: 999px; background: color-mix(in srgb, var(--at-surface) 92%, transparent); color: var(--at-text); }
 .panel[data-history="true"] .latestButton { display: none; }
+
+/* ==========================================================================================
+   AG2 Ask editorial treatment: scoped Source Serif prose, compact persisted-message receipt,
+   pixel waiting mark. Scoped to Ask prose/composer/intro/headings and every Ask portal root; the
+   app UI identity (header, tools, panels, metadata, buttons) is left on the existing UI stack.
+   ========================================================================================== */
+.answer, .responseText, .intro, .question, .composeRail textarea {
+  font-family: var(--ask-serif);
+  font-weight: 400;
+  font-optical-sizing: auto;
+  letter-spacing: 0;
+}
+.answer { max-width: 68ch; font-size: 18px; line-height: 1.6; }
+.responseText { font-size: 18px; line-height: 1.6; }
+.intro { max-width: 68ch; font-size: 18px; line-height: 1.6; }
+.question { font-size: 18px; font-weight: 600; line-height: 1.5; }
+.composeRail textarea { font-size: 18px; line-height: 1.5; }
+/* Prose headings keep the editorial serif and its scale; UI headings (header title, panels) do not. */
+.answer h2, .responseText h2, .intro h2 { font-size: 23px; line-height: 1.3; font-weight: 600; }
+.answer h3, .responseText h3, .intro h3 { font-size: 19px; line-height: 1.35; font-weight: 600; }
+.responseText code, .answer code { font-family: ui-monospace, 'JetBrains Mono', monospace; font-size: .86em; }
+/* Aligned numeric columns stay tabular without turning prose monospace. */
+.foodReview td, .foodReview th { font-variant-numeric: tabular-nums; }
+
+/* Compact 22×17 double-check inside a 24×20 static inline box. Shape + accessible label carry the
+   meaning; colour is a secondary cue. */
+.messageReceipt { display: inline-flex; align-items: center; justify-content: center; inline-size: 24px; block-size: 20px; margin: 0 0 0 .35rem; padding: 0; border: 0; color: var(--at-muted); vertical-align: middle; }
+.messageReceipt svg { width: 22px; height: 17px; display: block; }
+.messageReceipt[data-persistence='confirmed'] { color: var(--ask-confirmed); }
+.messageReceipt[data-persistence='failed'] { color: var(--at-danger); }
+
+/* Pixel V03 derivative waiting mark at 32px, stepped bob 2px/opacity. Transform/opacity only. */
+.waitMark { display: block; flex: 0 0 auto; width: 32px; height: 32px; color: var(--at-gold); animation: ask-wait 1100ms steps(4, end) infinite; }
+.waitMark svg { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+.waitMark[data-paused='true'] { animation-play-state: paused; }
+@keyframes ask-wait { 0%, 100% { transform: translateY(0); opacity: .7; } 50% { transform: translateY(-2px); opacity: 1; } }
+.pending { gap: .65rem; font-size: 13px; line-height: 1.45; }
+
+@media (prefers-reduced-motion: reduce) {
+  .waitMark { animation: none; transform: none; opacity: 1; }
+}
+@media (forced-colors: active) {
+  .messageReceipt[data-persistence] { color: CanvasText; }
+}
+/* At 320px keep the 18px editorial size and let prose wrap naturally instead of squeezing. */
+@media (max-width: 360px) {
+  .answer, .responseText, .intro, .question, .composeRail textarea { font-size: 18px; }
+}
