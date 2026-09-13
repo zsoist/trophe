@@ -5,8 +5,6 @@ import Link from 'next/link';
 import { CheckCircle2, Plus, Square } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import ExerciseInfoSheet from '@/components/workout/ExerciseInfoSheet';
-import PainFlagModal from '@/components/workout/PainFlagModal';
-import PlateCalculator from '@/components/workout/PlateCalculator';
 import { ConfirmSheet } from '@/components/ui/ConfirmSheet';
 import { COACH_WORKOUT_SET_REFRESH, readWorkoutSetRefresh, type CoachWorkoutSetRefresh } from '@/components/assistant/workout-events';
 import { useWorkoutWorkspace } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
@@ -46,6 +44,8 @@ import { displayToKg, kgToDisplay, useWeightUnit } from '@/lib/workout/units';
 import type { PersistedWorkoutSet } from '@/components/workout/workout-persistence';
 
 const ExercisePicker = dynamic(() => import('@/components/workout/ExercisePicker'), { ssr: false });
+const PainFlagModal = dynamic(() => import('@/components/workout/PainFlagModal'), { ssr: false });
+const PlateCalculator = dynamic(() => import('@/components/workout/PlateCalculator'), { ssr: false });
 
 interface LiveWorkoutProps {
   exercises: Exercise[];

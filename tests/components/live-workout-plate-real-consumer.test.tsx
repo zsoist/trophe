@@ -51,6 +51,7 @@ function persisted(setNumber: number, isWarmup: boolean, id = `${isWarmup ? 'war
 async function openCalculatorForRow(index = 0) {
   fireEvent.click((await screen.findAllByRole('button', { name: 'More exercise options' }))[index]);
   fireEvent.click(screen.getByRole('button', { name: 'Plate calculator' }));
+  await screen.findByRole('button', { name: 'Add warm-up sets' });
 }
 
 beforeEach(() => {
