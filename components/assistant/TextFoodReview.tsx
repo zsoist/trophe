@@ -11,6 +11,12 @@ import styles from './GlobalCoach.module.css';
 
 /** Functional contract for the approved visual implementation: all nutrition
  * comes from a server draft/proposal; only a confirmed receipt means saved. */
+/**
+ * Parent-visible lifecycle of the canonical write this review owns.
+ * `pending`/`unknown` mean an apply may still be in flight or may already have committed, so a
+ * host must never replace or unmount this review (or prepare another action) until it resolves.
+ */
+export type TextFoodApplyState = 'idle' | 'pending' | 'unknown' | 'applied';
 export interface TextFoodReviewProps {
   draft: TextFoodDraft;
   conversationId: string;
@@ -18,8 +24,10 @@ export interface TextFoodReviewProps {
   onReceipt: (receipt: TextFoodReceipt) => void;
   onDismiss?: () => void;
   savedReceipt?: TextFoodReceipt;
+  /** Reports the real apply lifecycle so a parent can gate destructive replacement on it. */
+  onApplyState?: (state: TextFoodApplyState) => void;
 }
-export function TextFoodReview({ draft, conversationId, transport, onReceipt, onDismiss, savedReceipt }: TextFoodReviewProps) {
+export function TextFoodReview({ draft, conversationId, transport, onReceipt, onDismiss, savedReceipt, onApplyState }: TextFoodReviewProps) {
   const { t } = useGlobalCoachI18n();
   const [grams, setGrams] = useState(() => draft.items.map(item => String(item.grams)));
   const [date, setDate] = useState(localToday), [meal, setMeal] = useState<TextFoodProposal['after']['mealType']>('lunch');
@@ -31,6 +39,11 @@ export function TextFoodReview({ draft, conversationId, transport, onReceipt, on
   const active = useRef<AbortController | null>(null), apply = useRef<Extract<TextFoodOperation, { operation: 'text.food.apply' }> | null>(recovery?.operation.operation==='text.food.apply'?recovery.operation:null);
   const received = useRef<string | null>(null);
   useEffect(() => () => active.current?.abort(), []);
+  const applyState: TextFoodApplyState = receipt ? 'applied' : submitted ? (pending ? 'pending' : 'unknown') : 'idle';
+  const reportApplyState = useRef(onApplyState);
+  useEffect(() => { reportApplyState.current = onApplyState; }, [onApplyState]);
+  useEffect(() => { onApplyState?.(applyState); }, [applyState, onApplyState]);
+  useEffect(() => () => { reportApplyState.current?.('idle'); }, []);
   const base = () => ({ version: 'coach-assistant.v2' as const, conversationId, turnId: crypto.randomUUID() });
   const after = textFoodPortionsSchema.safeParse({ loggedDate: date, mealType: meal, items: grams.map((value, index) => ({ index, grams: Number(value) })) });
   async function run(operation: TextFoodOperation) {

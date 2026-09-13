@@ -23,21 +23,30 @@ describe('food log load consistency', () => {
       source.indexOf('useEffect(() => {', source.indexOf('const loadTodayLog = useCallback')),
     );
     expect(loadBlock).toContain('const requestId = ++loadRequestRef.current;');
-    expect(loadBlock).toContain('if (requestId !== loadRequestRef.current) return;');
+    // The stale guard reports incompletion (false) so a caller can gate on a settled canonical read.
+    expect(loadBlock).toContain('if (requestId !== loadRequestRef.current) return false;');
   });
 
-  it('rejects partial query results before replacing the visible day', () => {
+  it('consumes the shared canonical snapshot instead of re-deriving partial queries', () => {
     const block = source.slice(
       source.indexOf('const loadTodayLog = useCallback'),
       source.indexOf('useEffect(() => {', source.indexOf('const loadTodayLog = useCallback')),
     );
     expect(block).toContain('setLoadError(false);');
-    expect(block).toContain('const loadFailure = [');
-    expect(block).toContain('if (loadFailure ||');
-    expect(block.indexOf('if (loadFailure ||')).toBeLessThan(
-      block.indexOf('setTodayLog(todayRes.data)'),
+    // The canonical read is the shared reader (real day/week/targets/streak), not a local rebuild.
+    expect(source).toContain("import { readCanonicalFoodState } from '@/lib/food/canonical-food-read'");
+    expect(block).toContain('readCanonicalFoodState<FoodLogRowSnapshot>(user.id, { date: selectedDate })');
+    // A failed canonical read still reports an error rather than replacing the visible day.
+    expect(block).toContain('if (!result.ok || !result.snapshot) {');
+    expect(block.indexOf('if (!result.ok || !result.snapshot) {')).toBeLessThan(
+      block.indexOf('setTodayLog(day?.entries ?? [])'),
     );
+    expect(block).toContain('setTodayLog(day?.entries ?? [])');
+    expect(block).toContain('setWeekData(snapshot.week);');
+    expect(block).toContain('setTargets(snapshot.targets);');
+    expect(block).toContain('setStreak(snapshot.streak);');
     expect(block).toContain('setLoadError(true);');
+    expect(block).toContain('if (result.missingProfile) {');
     expect(block).toContain("router.replace('/onboarding');");
   });
 
@@ -51,8 +60,12 @@ describe('food log load consistency', () => {
 
   it('reloads the visible day when a coach receipt introduces a new food entry', () => {
     expect(source).toContain("window.addEventListener(COACH_FOOD_REFRESH, refreshNewEntry)");
-    expect(source).toContain('selection?.actorId === userId && !todayLog.some(entry => entry.id === selection.entryId)');
-    expect(source).toContain('void loadTodayLog();');
+    expect(source).toContain('if (selection?.actorId !== userId) return;');
+    // No found-only shortcut: the mounted surface must always re-run the canonical read before
+    // reporting the refresh complete, never settle on the entry already being in local state.
+    expect(source).not.toContain('todayLog.some(entry => entry.id === selection.entryId)');
+    expect(source).toContain('void loadTodayLog().then(settle);');
+    expect(source).toContain('COACH_FOOD_REFRESH_DONE');
     expect(source).toContain("window.removeEventListener(COACH_FOOD_REFRESH, refreshNewEntry)");
   });
 });

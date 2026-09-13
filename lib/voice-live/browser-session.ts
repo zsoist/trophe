@@ -1,7 +1,7 @@
 import { VoiceLiveController } from './client-lifecycle';
 import { createBrowserLivePlayback } from './browser-playback';
 import { reservationFor } from './delegation-fragments';
-import type { LiveConnectionAdapter, LiveInputMeterPort, LiveMediaStream, LiveOutputMeterPort, LivePeerConnection, LiveTranscriptCursor } from './client-types';
+import type { LiveCommentaryPort, LiveConnectionAdapter, LiveInputMeterPort, LiveMediaStream, LiveOutputMeterPort, LivePeerConnection, LiveQueryCorrelation, LiveTranscriptCursor } from './client-types';
 
 const endpoint = '/api/coach-assistant/live';
 
@@ -77,9 +77,12 @@ export function createBrowserOutputMeter(): LiveOutputMeterPort {
 export function createBrowserLiveSession(input: {
   audio: HTMLAudioElement;
   prepareConversation(): Promise<string | null>;
-  query(text: string, signal: AbortSignal): Promise<string>;
+  query(text: string, signal: AbortSignal, correlation: LiveQueryCorrelation): Promise<string>;
 }) {
   let peer: RTCPeerConnection | undefined;
+  // The current session's data channel, wrapped so commentary can only be sent to an OPEN,
+  // live channel. Cleared on peer close so a stale handle can never write.
+  let commentaryChannel: { send(data: string): boolean } | undefined;
   let disposed = false;
   let unresolvedRequestId: string | null = null;
   // Bounded RAW-fragment cursor: the monotonic sequence (and last event_id) of the user
@@ -114,6 +117,8 @@ export function createBrowserLiveSession(input: {
       return {
         createDataChannel(label) {
           const channel = current.createDataChannel(label);
+          const sender = { send: (data: string): boolean => { if (channel.readyState !== 'open') return false; channel.send(data); return true; } };
+          commentaryChannel = sender;
           channel.addEventListener('message', event => {
             if (disposed || current !== peer) return;
             let raw: { type?: string; delegation?: { id?: string; target?: string } };
@@ -149,8 +154,8 @@ export function createBrowserLiveSession(input: {
                 if (userCursor === reservation.cursor) userCursor = previousCursor;
                 return;
               }
-              if (disposed || current !== peer || channel.readyState !== 'open') return;
-              channel.send(JSON.stringify({ type: 'session.commentary.append', event_id: crypto.randomUUID(), delegation_id: id, content: result.summary.slice(0, 1000) }));
+              if (disposed || current !== peer) return;
+              sender.send(JSON.stringify({ type: 'session.commentary.append', event_id: crypto.randomUUID(), delegation_id: id, content: result.summary.slice(0, 1000) }));
             });
           });
           return channel;
@@ -162,7 +167,7 @@ export function createBrowserLiveSession(input: {
         addEventListener: (type, listener) => current.addEventListener(type, listener),
         removeEventListener: (type, listener) => current.removeEventListener(type, listener),
         get connectionState() { return current.connectionState; },
-        close() { current.close(); if (peer === current) { peer = undefined; playback.stopOutput(); } },
+        close() { current.close(); if (peer === current) { peer = undefined; commentaryChannel = undefined; playback.stopOutput(); } },
       } satisfies LivePeerConnection;
     },
     async createSession({ signal }) {
@@ -237,7 +242,7 @@ export function createBrowserLiveSession(input: {
       if (request.transcriptTruncated) return { ok: false, summary: 'The request was incomplete. Ask the user to repeat it in a shorter phrase before taking any action.' };
       const text = (request.arguments as { text?: unknown })?.text;
       if (typeof text !== 'string' || !text.trim()) return { ok: false, summary: 'Ask the user to repeat their request.' };
-      return { ok: true, summary: await input.query(text, signal) };
+      return { ok: true, summary: await input.query(text, signal, { sessionId: request.sessionId ?? null, delegationId: request.delegationId }) };
     } },
     reconciler: { async reconcile({ sessionId }) {
       const response = await fetch(`${endpoint}?sessionId=${encodeURIComponent(sessionId)}`, { credentials: 'same-origin', signal: AbortSignal.timeout(5_000) });
@@ -245,7 +250,22 @@ export function createBrowserLiveSession(input: {
       return { accepted: response.ok && body.state === 'settled', reconciledSeconds: typeof body.reconciledSeconds === 'number' ? body.reconciledSeconds : null };
     } },
   });
-  return { controller, dispose() { disposed = true; controller.dispose('unmount'); playback.dispose(); } };
+  const commentary: LiveCommentaryPort = {
+    sessionId() {
+      const state = controller.snapshot();
+      return state.phase === 'live' ? state.sessionId : null;
+    },
+    speak({ delegationId, content }) {
+      if (disposed || !commentaryChannel) return false;
+      const state = controller.snapshot();
+      if (state.phase !== 'live' || !state.sessionId) return false;
+      if (typeof delegationId !== 'string' || !delegationId || delegationId.length > 256) return false;
+      const text = content.replace(/\s+/g, ' ').trim().slice(0, 1_000);
+      if (!text) return false;
+      return commentaryChannel.send(JSON.stringify({ type: 'session.commentary.append', event_id: crypto.randomUUID(), delegation_id: delegationId, content: text }));
+    },
+  };
+  return { controller, commentary, dispose() { disposed = true; commentaryChannel = undefined; controller.dispose('unmount'); playback.dispose(); } };
 }
 
 /** Read the server-admitted deadline (epoch ms) only when it is a positive finite number. */

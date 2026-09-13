@@ -37,13 +37,13 @@ import { localToday, localDateStr } from '../../../lib/utils/dates';
 import {
   CLIENT_VIEW_PANELS,
   isPanelVisible,
-  parseClientViewPrefs,
   type ClientViewPanelId,
 } from '@/lib/display-prefs';
 import DailyMacroStrip from '@/components/nutrition/DailyMacroStrip';
 import { summarizeSugar } from '@/lib/nutrition/daily-summary';
 import { useCoachScreenDate } from '@/components/assistant/screen-date';
-import { COACH_FOOD_REFRESH, readFoodSelection } from '@/components/assistant/food-events';
+import { COACH_FOOD_REFRESH, COACH_FOOD_REFRESH_DONE, readFoodRefreshRequest, readFoodSelection } from '@/components/assistant/food-events';
+import { readCanonicalFoodState } from '@/lib/food/canonical-food-read';
 
 // One stable adapter instance: the persistence classification (what the UI may
 // claim about a delete/restore) lives in food-log-delete-port.ts and is tested
@@ -343,7 +343,7 @@ export default function FoodLogPage() {
     port: foodLogDeletePort,
     onRemove: (ids) => setTodayLog(prev => prev.filter(e => !ids.includes(e.id))),
     onRestore: (entry) => setTodayLog(prev => insertEntryForDate(prev, entry, selectedDateRef.current)),
-    onRefetch: () => loadTodayLog(),
+    onRefetch: () => { void loadTodayLog(); },
     onError: (key) => setMutationError(t(key)),
     onClearError: () => setMutationError(null),
     onRestored: (entry) => {
@@ -498,116 +498,54 @@ export default function FoodLogPage() {
   const dayPillVisible = proteinPillActive || kcalPillActive;
   const proteinDone = targets.protein_g > 0 && totalProtein >= targets.protein_g;
 
-  const loadTodayLog = useCallback(async () => {
+  const loadTodayLog = useCallback(async (): Promise<boolean> => {
     const requestId = ++loadRequestRef.current;
     setLoadError(false);
 
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (requestId !== loadRequestRef.current) return;
+      if (requestId !== loadRequestRef.current) return false;
       if (authError) {
         setLoadError(true);
         setPageLoading(false);
-        return;
+        return false;
       }
       if (!user) {
         router.push('/login');
-        return;
+        return false;
       }
 
-      // Compute week date range upfront for parallel queries
-      const weekDates: string[] = [];
-      const wd = new Date(selectedDate + 'T12:00:00');
-      const dayOfWeek = wd.getDay();
-      const monday = new Date(wd);
-      monday.setDate(wd.getDate() - ((dayOfWeek + 6) % 7));
-      for (let i = 0; i < 7; i++) {
-        const d = new Date(monday);
-        d.setDate(monday.getDate() + i);
-        weekDates.push(localDateStr(d));
+      // Canonical state read: the SAME authorized food_log / client_profiles / streak queries this
+      // page renders, extracted into the shared reader. Other routes can refresh the identical
+      // state, and this page consumes the same derived snapshot (entries, macro totals, week,
+      // targets, preferences, streak) instead of re-deriving from raw rows.
+      const result = await readCanonicalFoodState<FoodLogRowSnapshot>(user.id, { date: selectedDate });
+      if (requestId !== loadRequestRef.current) return false;
+      if (result.missingProfile) {
+        router.replace('/onboarding');
+        return false;
       }
-
-      // Parallel: all 4 queries fire simultaneously (~200ms vs ~800ms sequential)
-      const [todayRes, weekRes, profileRes, streakRes] = await Promise.all([
-        supabase.from('food_log').select('*')
-          .eq('user_id', user.id).eq('logged_date', selectedDate)
-          .order('created_at', { ascending: true }),
-        supabase.from('food_log').select('logged_date, calories')
-          .eq('user_id', user.id)
-          .gte('logged_date', weekDates[0]).lte('logged_date', weekDates[6]),
-        supabase.from('client_profiles')
-          .select('target_calories, target_protein_g, target_carbs_g, target_fat_g, client_view_prefs')
-          .eq('user_id', user.id).maybeSingle(),
-        supabase.from('food_log').select('logged_date')
-          .eq('user_id', user.id)
-          .gte('logged_date', localDateStr(new Date(Date.now() - 60 * 86400000)))
-          .order('logged_date', { ascending: false }),
-      ]);
-
-      if (requestId !== loadRequestRef.current) return;
-      const loadFailure = [
-        todayRes.error,
-        weekRes.error,
-        profileRes.error,
-        streakRes.error,
-      ].find(Boolean);
-      if (loadFailure ||
-        !todayRes.data ||
-        !weekRes.data ||
-        !streakRes.data
-      ) {
+      if (!result.ok || !result.snapshot) {
         setLoadError(true);
         setPageLoading(false);
-        return;
-      }
-      if (!profileRes.data) {
-        router.replace('/onboarding');
-        return;
+        return false;
       }
 
+      const snapshot = result.snapshot;
+      const day = snapshot.days.find(candidate => candidate.date === selectedDate) ?? snapshot.days[0];
       setUserId(user.id);
-      setTodayLog(todayRes.data);
-      setWeekData(weekDates.map(date => {
-        const dayEntries = weekRes.data.filter(e => e.logged_date === date);
-        return {
-          date,
-          calories: dayEntries.reduce((s, e) => s + (e.calories ?? 0), 0),
-          entries: dayEntries.length,
-        };
-      }));
-
-      // F4: Load macro targets from client_profiles
-      setTargets({
-        calories: profileRes.data.target_calories || 0,
-        protein_g: profileRes.data.target_protein_g || 0,
-        carbs_g: profileRes.data.target_carbs_g || 0,
-        fat_g: profileRes.data.target_fat_g || 0,
-      });
-      setViewPrefs(parseClientViewPrefs(profileRes.data.client_view_prefs));
-
-      // F6: Calculate streak (consecutive days with >=3 food entries)
-      const dayCounts = new Map<string, number>();
-      for (const log of streakRes.data) {
-        dayCounts.set(log.logged_date, (dayCounts.get(log.logged_date) || 0) + 1);
-      }
-
-      let s = 0;
-      const d = new Date();
-      for (let i = 0; i < 60; i++) {
-        const dateStr = localDateStr(d);
-        if ((dayCounts.get(dateStr) || 0) >= 3) {
-          s++;
-        } else if (i > 0) {
-          break; // streak broken
-        }
-        d.setDate(d.getDate() - 1);
-      }
-      setStreak(s);
+      setTodayLog(day?.entries ?? []);
+      setWeekData(snapshot.week);
+      setTargets(snapshot.targets);
+      setViewPrefs(snapshot.viewPrefs);
+      setStreak(snapshot.streak);
       setPageLoading(false);
+      return true;
     } catch {
-      if (requestId !== loadRequestRef.current) return;
+      if (requestId !== loadRequestRef.current) return false;
       setLoadError(true);
       setPageLoading(false);
+      return false;
     }
   }, [selectedDate, router]);
 
@@ -620,15 +558,24 @@ export default function FoodLogPage() {
 
   useEffect(() => {
     if ((process.env.NEXT_PUBLIC_COACH_FOOD_ACTIONS_ENABLED !== '1' && process.env.NEXT_PUBLIC_COACH_TEXT_FOOD_ACTIONS_ENABLED !== '1') || !userId) return;
+    // The canonical re-read is the SAME authorized food_log query that renders this page; when a
+    // caller attached a request id, report back only after that read actually settles so a host can
+    // gate an acknowledgment on the canonical view — never on the request event alone.
     const refreshNewEntry = (event: Event) => {
       const selection = readFoodSelection(event);
-      if (selection?.actorId === userId && !todayLog.some(entry => entry.id === selection.entryId)) {
-        void loadTodayLog();
-      }
+      if (selection?.actorId !== userId) return;
+      const request = readFoodRefreshRequest(event);
+      const settle = (ok: boolean) => {
+        if (request) window.dispatchEvent(new CustomEvent(COACH_FOOD_REFRESH_DONE, { detail: { actorId: userId, entryId: selection.entryId, requestId: request.requestId, ok } }));
+      };
+      // Always re-run the canonical read — never settle on a found-only shortcut. The mounted
+      // surface must actually consume the refreshed snapshot (or finish a successful reload)
+      // before a host may report the log as up to date.
+      void loadTodayLog().then(settle);
     };
     window.addEventListener(COACH_FOOD_REFRESH, refreshNewEntry);
     return () => window.removeEventListener(COACH_FOOD_REFRESH, refreshNewEntry);
-  }, [loadTodayLog, todayLog, userId]);
+  }, [loadTodayLog, userId]);
 
   const [copying, setCopying] = useState(false);
   const [showRecipeModal, setShowRecipeModal] = useState(false);

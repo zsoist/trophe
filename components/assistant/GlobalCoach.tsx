@@ -21,7 +21,7 @@ import { VoiceController } from './voice-state';
 import { FoodQuantityController, type FoodTransport } from './food-state';
 import { FoodQuantityPanel } from './FoodQuantityPanel';
 import { requestFoodQuantity } from './food-client';
-import { COACH_FOOD_SELECT, COACH_FOOD_REFRESH, readFoodSelection } from './food-events';
+import { COACH_FOOD_SELECT, COACH_FOOD_REFRESH, COACH_FOOD_REFRESH_DONE, readFoodRefreshDone, readFoodSelection, wasFoodRefreshRequestObserved } from './food-events';
 import { AttachmentPicker } from './AttachmentPicker';
 import { ContextCards } from './ContextCards';
 import { PreferenceController, type PreferenceTransport, type PreferenceState } from './preference-state';
@@ -41,13 +41,15 @@ import { requestProgress } from './progress-client';
 import { COACH_PROGRESS_REFRESH } from './progress-events';
 import { PhotoFoodController } from './photo-food-state';
 import type { TextFoodDraft, TextFoodReceipt } from '@/agents/coach-assistant/text-food-contract';
-import { TextFoodReview, TextFoodRecoveryNotice } from './TextFoodReview';
+import { TextFoodReview, TextFoodRecoveryNotice, type TextFoodApplyState } from './TextFoodReview';
 import { requestTextFood, type TextFoodTransport } from './text-food-client';
+import { confirmCanonicalFoodEntry } from '@/lib/food/canonical-food-read';
 import { PhotoFoodPanel } from './PhotoFoodPanel';
 import { requestPhotoFood, type PhotoFoodTransport } from './photo-food-client';
 import type { CoachConversationResponse, CoachContextHint, CoachSurface as CoachSurfaceName } from '@/agents/coach-assistant/contracts';
-import type { LiveTranscriptRow } from '@/lib/voice-live/client-types';
-import { mergeVoiceTurns, voiceRowVisible, type VoiceChatEntry } from './LiveVoiceControl';
+import type { LiveQueryCorrelation, LiveTranscriptRow } from '@/lib/voice-live/client-types';
+import { mergeVoiceTurns, voiceRowVisible, type LiveVoiceCommentaryHandle, type VoiceChatEntry } from './LiveVoiceControl';
+import { classifyLiveFoodFollowup, resolveLiveFoodFollowupMessage } from './live-food-followup';
 import type { CoachVoiceResult } from '@/agents/coach-assistant/voice-contract';
 import type { CoachSpeechDescriptor } from '@/agents/coach-assistant/voice-turn';
 import type { ReviewedVoiceTransport, VoiceTranscriptionTransport } from './voice-client';
@@ -131,11 +133,40 @@ export function resetGlobalCoachSessionsForActor(actorId: string) {
   for (const scope of scopes) {
     if (scope.startsWith(prefix)) resetGlobalCoachSession(scope);
   }
+  // The canonical Food read retains no per-actor state (pure read), so switching/leaving an actor
+  // needs no cache invalidation here: there is no stale snapshot to drop.
 }
 
+/** Bounded wait for the canonical Food refresh to settle. Absence of any producer (e.g. the Food
+ * surface is not mounted) resolves `false` instead of hanging, so the acknowledgment is skipped
+ * rather than claimed against an unconfirmed refresh. */
+// Bounded wait for the actor-bound canonical read to settle. When no read settles in time the
+// acknowledgment is skipped and an explicit reload is offered, rather than claiming an
+// unconfirmed refresh. Overridable via `foodRefreshTimeoutMs` for tests; production uses 8s.
+const LIVE_FOOD_REFRESH_TIMEOUT_MS = 8_000;
+
+/** Bounded request id for a canonical Food refresh (matches the food-events request-id shape). */
+function randomLiveId(): string {
+  const api = typeof globalThis === 'undefined' ? undefined : (globalThis.crypto as Crypto | undefined);
+  if (api?.randomUUID) return api.randomUUID();
+  const hex = '0123456789abcdef';
+  let out = '';
+  for (let index = 0; index < 36; index += 1) {
+    out += index === 8 || index === 13 || index === 18 || index === 23 ? '-' : hex[Math.floor(Math.random() * 16)];
+  }
+  return out;
+}
+
+/** One in-flight acknowledgment gate: enough identity to re-run the SAME actor-bound read on an
+ * explicit reload, and to bind the eventual spoken acknowledgment to the exact live session. */
+interface FoodRefreshRequest { actionId: string; entryIds: string[]; conversationId: string; sessionId: string | null; delegationId: string; actorId: string }
+
 export type CoachContextSlot = (props: { identity: string; controller: PreferenceController; state: PreferenceState; conversationId: string; turnId: string; surface: CoachSurfaceName; response: CoachConversationResponse; transport: PreferenceTransport }) => ReactNode;
-export type CoachVoiceSlot = (props: { onQuery: (text: string, signal: AbortSignal) => Promise<string>; conversationId: string; prepareConversation?: () => Promise<string | null>; onUse: (text: string) => boolean; onSend?: (result: Extract<CoachVoiceResult, { ok: true }>, text: string) => Promise<'sent' | 'ambiguous' | 'failed'>; onTranscript?: (row: LiveTranscriptRow) => void }) => ReactNode;
-type Props = { identity: string; subjectId?: string; professional?: boolean; example?: ConversationTransport; preferenceTransport?: PreferenceTransport; memoryTransport?: MemoryTransport; dietTransport?: DietTransport; progressTransport?: ProgressTransport; foodTransport?:FoodTransport; photoFoodTransport?:PhotoFoodTransport; textFoodTransport?:TextFoodTransport; workoutSetTransport?:WorkoutSetTransport; messageTransport?:MessageTransport; historyTransport?: HistoryTransport; contextSlot?: CoachContextSlot; voiceSlot?: CoachVoiceSlot; voiceTranscriptionTransport?: VoiceTranscriptionTransport; reviewedVoiceTransport?: ReviewedVoiceTransport; workspaceHint?: CoachContextHint['workspace'] };
+export type CoachVoiceSlot = (props: { onQuery: (text: string, signal: AbortSignal, correlation: LiveQueryCorrelation) => Promise<string>; conversationId: string; prepareConversation?: () => Promise<string | null>; onUse: (text: string) => boolean; onSend?: (result: Extract<CoachVoiceResult, { ok: true }>, text: string) => Promise<'sent' | 'ambiguous' | 'failed'>; onTranscript?: (row: LiveTranscriptRow) => void; onLiveCommentary?: (handle: LiveVoiceCommentaryHandle | null) => void }) => ReactNode;
+type Props = { identity: string; subjectId?: string; professional?: boolean; example?: ConversationTransport; preferenceTransport?: PreferenceTransport; memoryTransport?: MemoryTransport; dietTransport?: DietTransport; progressTransport?: ProgressTransport; foodTransport?:FoodTransport; photoFoodTransport?:PhotoFoodTransport; textFoodTransport?:TextFoodTransport; workoutSetTransport?:WorkoutSetTransport; messageTransport?:MessageTransport; historyTransport?: HistoryTransport; contextSlot?: CoachContextSlot; voiceSlot?: CoachVoiceSlot; voiceTranscriptionTransport?: VoiceTranscriptionTransport; reviewedVoiceTransport?: ReviewedVoiceTransport; workspaceHint?: CoachContextHint['workspace']; /** Injectable actor-bound canonical Food read; defaults to the shared authenticated reader. */ foodRefreshTransport?: CanonicalFoodRefreshTransport; /** Bounded wait for the canonical read to settle; defaults to 8s. */ foodRefreshTimeoutMs?: number };
+
+/** Injectable actor-bound canonical Food read used to confirm a committed entry is visible. */
+export type CanonicalFoodRefreshTransport = (actorId: string, entryId: string) => Promise<{ ok: boolean; found: boolean }>;
 
 export default function GlobalCoach(props: Props) {
   const [workoutSet] = useState(() => new WorkoutSetController());
@@ -151,7 +182,7 @@ export default function GlobalCoach(props: Props) {
   }, [foodScope]);
   return <CoachSurface key={`${foodScope}:${props.professional ? 'professional' : 'self'}`} {...props} sessionScope={foodScope} conversationController={controller} foodController={food} workoutSetController={workoutSet} messageController={message} />;
 }
-function CoachSurface({ identity, subjectId, professional = false, example, preferenceTransport, memoryTransport, dietTransport, progressTransport, foodTransport, photoFoodTransport, textFoodTransport, workoutSetTransport, messageTransport, historyTransport, contextSlot, voiceSlot, voiceTranscriptionTransport, reviewedVoiceTransport, workspaceHint, sessionScope, conversationController: controller, foodController: food, workoutSetController, messageController }: Props & { sessionScope: string; conversationController: ConversationController; foodController: FoodQuantityController; workoutSetController: WorkoutSetController; messageController: MessageController }) {
+function CoachSurface({ identity, subjectId, professional = false, example, preferenceTransport, memoryTransport, dietTransport, progressTransport, foodTransport, photoFoodTransport, textFoodTransport, workoutSetTransport, messageTransport, historyTransport, contextSlot, voiceSlot, voiceTranscriptionTransport, reviewedVoiceTransport, workspaceHint, foodRefreshTransport, foodRefreshTimeoutMs, sessionScope, conversationController: controller, foodController: food, workoutSetController, messageController }: Props & { sessionScope: string; conversationController: ConversationController; foodController: FoodQuantityController; workoutSetController: WorkoutSetController; messageController: MessageController }) {
   const { t } = useGlobalCoachI18n();
   const path = usePathname();
   const surface = coachSurface(path);
@@ -161,8 +192,29 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   const screenDate=surface==='food'?acceptedScreenDate(publishedDate,path):null;
   const [voice] = useState(() => new VoiceController());
   const foodState = useSyncExternalStore(food.subscribe, food.snapshot, food.snapshot);
-  const [textFoodDraft,setTextFoodDraft]=useState<{conversationId:string;turnId:string;draft:TextFoodDraft;receipt?:TextFoodReceipt}|null>(null);
+  const [textFoodDraft,setTextFoodDraft]=useState<{conversationId:string;turnId:string;draft:TextFoodDraft;receipt?:TextFoodReceipt;correlation?:LiveQueryCorrelation}|null>(null);
   const [textFoodBlocked,setTextFoodBlocked]=useState(false);
+  // Explicit, bounded local correlation for the live vertical: the currently published live
+  // commentary handle, the correlation of the live query in flight, and the receipts already
+  // acknowledged to voice (so a duplicate event can never replay a spoken acknowledgment).
+  const liveCommentary = useRef<LiveVoiceCommentaryHandle | null>(null);
+  const liveQueryCorrelation = useRef<LiveQueryCorrelation | null>(null);
+  const acknowledgedLiveReceipts = useRef<Set<string>>(new Set());
+  const registerLiveCommentary = useCallback((handle: LiveVoiceCommentaryHandle | null) => { liveCommentary.current = handle; }, []);
+  // The real apply lifecycle of the open review (`idle`/`pending`/`unknown`/`applied`). While an
+  // apply is pending or may already have committed, the review is unresolved: a live revision must
+  // not replace/unmount it, re-parse, hide its recovery, or prepare another action.
+  const liveFoodApplyState = useRef<TextFoodApplyState>('idle');
+  // A live save whose authoritative canonical read has not yet completed. Kept so an explicit
+  // "Reload food log" can re-arm the SAME actor-bound read (never a bare event) instead of the
+  // acknowledgment being silently dropped; cleared the moment the read settles or resolves `ok`.
+  const [liveFoodRefreshPending, setLiveFoodRefreshPending] = useState<FoodRefreshRequest | null>(null);
+  const liveFoodRefreshPendingRef = useRef<FoodRefreshRequest | null>(null);
+  const confirm = foodRefreshTransport ?? confirmCanonicalFoodEntry;
+  const registerTextFoodApplyState = useCallback((next: TextFoodApplyState) => {
+    liveFoodApplyState.current = next;
+    if (next === 'idle') setLiveFoodRefreshPending(null);
+  }, []);
   const [photoFood] = useState(() => new PhotoFoodController());
   const photoFoodState = useSyncExternalStore(photoFood.subscribe, photoFood.snapshot, photoFood.snapshot);
   const voiceState = useSyncExternalStore(voice.subscribe, voice.snapshot, voice.snapshot);
@@ -409,10 +461,86 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   const receiveTextFood=(response:CoachConversationResponse)=>{
     const result=response.textFood;
     if(process.env.NEXT_PUBLIC_COACH_TEXT_FOOD_ACTIONS_ENABLED!=='1'||example&&!textFoodTransport||subjectId&&subjectId!==identity||response.snapshot?.subjectId!==identity||!result?.ok||!('draft'in result))return;
-    setTextFoodDraft({conversationId:response.conversationId,turnId:response.turnId,draft:result.draft});setTextFoodBlocked(!result.draft.clarification);
+    // Link the bounded live correlation (session + real delegation id) captured when THIS turn was
+    // dispatched, so a later validated receipt can be spoken back to the exact session it came from.
+    const correlation=liveQueryCorrelation.current??undefined;
+    setTextFoodDraft({conversationId:response.conversationId,turnId:response.turnId,draft:result.draft,...(correlation?{correlation}:{})});setTextFoodBlocked(!result.draft.clarification);
+    liveFoodApplyState.current='idle';setLiveFoodRefreshPending(null);liveFoodRefreshPendingRef.current=null;
   };
-  const send = async () => {
-    if (voiceActive || voiceBusy || missingProfessionalSubject || composerSubmitBlocked || preparingPhotosRef.current || controller.snapshot().pending || controller.snapshot().recoveryRequired || !controller.snapshot().draft.trim()) return;
+  // After a validated receipt the acknowledgment waits for a REAL actor-bound canonical read to
+  // settle — never for the refresh request and never for the Food page to be mounted. The read is
+  // issued through the shared authenticated client (`foodRefreshTransport`), so it works on Home or
+  // Workout with the Food surface absent. Only once the read confirms the committed entry is
+  // visible do we speak a concise, reviewed acknowledgment into the STILL-CURRENT live session,
+  // exactly once per receipt. A delayed/failed/absent read announces nothing, keeps the visible
+  // truthful saved receipt, and offers an explicit reload that re-issues the same read. It never
+  // re-applies, retries, or writes. A mismatched/ended/replaced session is silently skipped.
+  const completeCanonicalRefresh=(request:FoodRefreshRequest,found:boolean)=>{
+    // Drop stale completions: a newer request (or an explicit reload) owns the pending slot.
+    if(liveFoodRefreshPendingRef.current!==request)return;
+    if(!found){setLiveFoodRefreshPending(request);return;}
+    setLiveFoodRefreshPending(null);
+    liveFoodRefreshPendingRef.current=null;
+    if(acknowledgedLiveReceipts.current.has(request.actionId))return;
+    const handle=liveCommentary.current;
+    if(!handle||handle.conversationId!==request.conversationId||request.sessionId===null||handle.sessionId()!==request.sessionId)return;
+    if(!handle.speak({delegationId:request.delegationId,content:t('global_coach.text_food_updated')}))return;
+    acknowledgedLiveReceipts.current.add(request.actionId);
+  };
+  const runCanonicalRefresh=(request:FoodRefreshRequest)=>{
+    liveFoodRefreshPendingRef.current=request;
+    // Ask a mounted canonical Food surface to re-read and re-render. The dispatch is synchronous,
+    // so we can tell whether a mounted reader actually consumed the request (`observed`). A
+    // mounted reader that never completes its own re-read MUST NOT be reported as refreshed just
+    // because the independent entry-exists read succeeded.
+    const refreshId=randomLiveId();
+    const refreshEvent=new CustomEvent(COACH_FOOD_REFRESH,{detail:{actorId:request.actorId,entryId:request.entryIds[0],entryIds:request.entryIds,requestId:refreshId}});
+    let observed=false;
+    let readSettled=false;let readOk=false;
+    let doneSettled=false;let doneOk=false;
+    let finished=false;
+    let timer=0;
+    const finish=(ok:boolean)=>{
+      if(finished)return;finished=true;
+      window.clearTimeout(timer);
+      window.removeEventListener(COACH_FOOD_REFRESH_DONE,onDone);
+      completeCanonicalRefresh(request,ok);
+    };
+    const maybeFinish=()=>{
+      if(!readSettled)return;
+      // A mounted canonical reader owns the truth: wait for its completion signal. Only when no
+      // reader is mounted does the independent actor-bound read stand alone (Home/Workout).
+      if(observed&&!doneSettled)return;
+      finish(readOk&&(!observed||doneOk));
+    };
+    const onDone=(event:Event)=>{
+      const done=readFoodRefreshDone(event);
+      if(!done||done.requestId!==refreshId||done.actorId!==request.actorId)return;
+      doneSettled=true;doneOk=done.ok;
+      maybeFinish();
+    };
+    window.addEventListener(COACH_FOOD_REFRESH_DONE,onDone);
+    window.dispatchEvent(refreshEvent);
+    observed=wasFoodRefreshRequestObserved(refreshEvent);
+    timer=window.setTimeout(()=>finish(false),(foodRefreshTimeoutMs ?? LIVE_FOOD_REFRESH_TIMEOUT_MS));
+    // The canonical state read covers EVERY receipt entry (not just the first): a multi-entry
+    // receipt is only "refreshed" when the whole committed set is visible in the authorized read.
+    const entryIds=[...new Set(request.entryIds)];
+    void Promise.all(entryIds.map(entryId=>confirm(identity,entryId)))
+      .then(results=>{if(finished)return;readSettled=true;readOk=results.length>0&&results.every(result=>Boolean(result.ok&&result.found));maybeFinish();})
+      .catch(()=>{if(finished)return;readSettled=true;readOk=false;maybeFinish();});
+  };
+  const acknowledgeLiveFoodSaved=(receipt:TextFoodReceipt,draft:{conversationId:string;correlation?:LiveQueryCorrelation}|null|undefined)=>{
+    const correlation=draft?.correlation;
+    if(!correlation||!draft||receipt.status!=='applied')return;
+    if(acknowledgedLiveReceipts.current.has(receipt.actionId))return;
+    if(receipt.entryIds.length===0)return;
+    runCanonicalRefresh({actionId:receipt.actionId,entryIds:[...receipt.entryIds],conversationId:draft.conversationId,sessionId:correlation.sessionId,delegationId:correlation.delegationId,actorId:identity});
+  };
+  // `liveRevision` lets a bounded live follow-up replace an open meal review instead of being
+  // blocked forever by it. It never bypasses the writer: it only re-prepares a review.
+  const send = async (liveRevision = false) => {
+    if (voiceActive || voiceBusy || missingProfessionalSubject || (!liveRevision && composerSubmitBlocked) || preparingPhotosRef.current || controller.snapshot().pending || controller.snapshot().recoveryRequired || !controller.snapshot().draft.trim()) return;
     if (voiceDraft && hasAmbiguousSpokenNumber(controller.snapshot().draft)) { setVoiceDraftError(true); return; }
     const selectedPhotos = attachments.snapshot().items;
     if (selectedPhotos.length) {
@@ -629,7 +757,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
               {turn.response.output.limitations.map((limitation, index) => <p className={styles.context} key={`${turn.request.turnId}-limitation-${index}`}>{globalCoachTranslations[`global_coach.limit_${limitation}`] ? t(`global_coach.limit_${limitation}`) : limitation.replace(/_/g, ' ')}</p>)}
             </details>}
           </div>}
-          {textFoodDraft?.conversationId===state.conversationId&&textFoodDraft.turnId===turn.request.turnId&&<TextFoodReview key={`${state.conversationId}:${textFoodDraft.draft.id}`} draft={textFoodDraft.draft} savedReceipt={textFoodDraft.receipt} conversationId={state.conversationId} transport={textFoodTransport??requestTextFood} onDismiss={()=>{setTextFoodDraft(null);setTextFoodBlocked(false);}} onReceipt={receipt=>{setTextFoodDraft(current=>current?.draft.id===textFoodDraft.draft.id?{...current,receipt}:current);setTextFoodBlocked(false);for(const entryId of receipt.entryIds)window.dispatchEvent(new CustomEvent(COACH_FOOD_REFRESH,{detail:{actorId:identity,entryId}}));}}/>}
+          {textFoodDraft?.conversationId===state.conversationId&&textFoodDraft.turnId===turn.request.turnId&&<><TextFoodReview key={`${state.conversationId}:${textFoodDraft.draft.id}`} draft={textFoodDraft.draft} savedReceipt={textFoodDraft.receipt} conversationId={state.conversationId} transport={textFoodTransport??requestTextFood} onApplyState={registerTextFoodApplyState} onDismiss={()=>{setTextFoodDraft(null);setTextFoodBlocked(false);liveFoodApplyState.current='idle';setLiveFoodRefreshPending(null);liveFoodRefreshPendingRef.current=null;}} onReceipt={receipt=>{setTextFoodDraft(current=>current?.draft.id===textFoodDraft.draft.id?{...current,receipt}:current);setTextFoodBlocked(false);if(textFoodDraft.correlation)acknowledgeLiveFoodSaved(receipt,textFoodDraft);else for(const entryId of receipt.entryIds)window.dispatchEvent(new CustomEvent(COACH_FOOD_REFRESH,{detail:{actorId:identity,entryId}}));}}/>{liveFoodRefreshPending&&<div><p role="status">{t('global_coach.text_food_refresh_failed')}</p><button type="button" onClick={()=>runCanonicalRefresh(liveFoodRefreshPending)}>{t('global_coach.text_food_refresh')}</button></div>}</>}
         </article>)}
         {visibleVoiceRows.map(row => <article className={styles.turn} key={row.id}>
           <p className={styles.context}>{t(row.speaker === 'user' ? 'global_coach.live_you' : 'global_coach.live_assistant')}</p>
@@ -664,22 +792,49 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
           if (combined.length > 2000) return false;
           controller.setDraft(combined); return true;
         }} onSend={reviewedVoiceTransport || !example && process.env.NEXT_PUBLIC_COACH_VOICE_REVIEW_ENABLED === '1' ? sendVoice : undefined} />
-        {voiceSlot?.({ onQuery: async (text, signal) => {
+        {voiceSlot?.({ onQuery: async (text, signal, correlation) => {
           const before = controller.snapshot();
           signal.throwIfAborted();
-          if (before.pending || before.recoveryRequired || before.draft.trim() || voiceActive || voiceBusy || coachActionBlocked || text.length > 2000) throw new Error('conversation_busy');
-          controller.setDraft(text);
+          // Bounded follow-up: only an explicitly reviewed live draft (same conversation) is used
+          // as context, and a bare save/confirm reference NEVER authorizes a write.
+          const currentDraft = textFoodDraft?.conversationId === before.conversationId ? textFoodDraft : null;
+          const draftContext = {
+            currentDraftText: currentDraft?.draft.rawText ?? null,
+            currentDraftSaved: currentDraft?.receipt?.status === 'applied',
+          };
+          const followup = classifyLiveFoodFollowup(text, draftContext);
+          if (followup?.kind === 'confirm_reference') {
+            // Points at the existing review; the explicit UI confirmation is the only writer.
+            if (before.pending || before.recoveryRequired || before.draft.trim() || voiceActive || voiceBusy) throw new Error('conversation_busy');
+            return t('global_coach.text_food_estimate');
+          }
+          // An open review must not block the live voice channel forever: any live utterance in
+          // this conversation may still converse (planning/negation) or, when additive/corrective,
+          // replace the review. It bypasses ONLY the open-review block, never the other pending
+          // action guards; the writer still requires the explicit UI confirmation.
+          // A pending or unknown apply is unresolved: the original envelope/recovery must stay put,
+          // so no live revision may replace it, re-parse, hide recovery, or prepare another action.
+          const applyUnresolved = liveFoodApplyState.current === 'pending' || liveFoodApplyState.current === 'unknown';
+          const liveRevision = Boolean(currentDraft && textFoodBlocked && !applyUnresolved);
+          const otherActionBlocked = preparingPhotos || workoutSetBlocked || foodBlocked || messageBlocked;
+          if (before.pending || before.recoveryRequired || before.draft.trim() || voiceActive || voiceBusy || otherActionBlocked || (!liveRevision && coachActionBlocked) || text.length > 2000) throw new Error('conversation_busy');
+          // A resolved follow-up is the ONLY bounded context that may REPLACE the utterance; when
+          // the reviewed meal is already saved it prepares just the added food (never the old
+          // rawText), and a correction/other utterance follows the normal path as-is.
+          const combined = followup ? resolveLiveFoodFollowupMessage(followup, draftContext) : null;
+          controller.setDraft(combined ?? text);
           const cancel = () => { if (controller.snapshot().conversationId === before.conversationId) controller.cancel(); };
           signal.addEventListener('abort', cancel, { once: true });
+          liveQueryCorrelation.current = { sessionId: correlation?.sessionId ?? null, delegationId: correlation?.delegationId ?? '' };
           try {
-            await send();
+            await send(liveRevision);
             signal.throwIfAborted();
             const after = controller.snapshot();
             if (after.conversationId !== before.conversationId) throw new Error('conversation_changed');
             const response = after.turns.at(-1)?.response;
             if (!response?.ok || !response.output?.answer) throw new Error('response_unavailable');
             return response.output.answer;
-          } finally { signal.removeEventListener('abort', cancel); }
+          } finally { signal.removeEventListener('abort', cancel); liveQueryCorrelation.current = null; }
         }, conversationId: state.conversationId, prepareConversation: prepareVoiceConversation, onUse: text => {
           if (voiceActive || state.pending || coachActionBlocked) return false;
           const current = controller.snapshot().draft;
@@ -687,7 +842,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
           if (combined.length > 2000) return false;
           controller.setDraft(combined);
           return true;
-        }, onSend: reviewedVoiceTransport || !example && process.env.NEXT_PUBLIC_COACH_VOICE_REVIEW_ENABLED === '1' ? sendVoice : undefined, onTranscript: appendVoiceRow })}
+        }, onSend: reviewedVoiceTransport || !example && process.env.NEXT_PUBLIC_COACH_VOICE_REVIEW_ENABLED === '1' ? sendVoice : undefined, onTranscript: appendVoiceRow, onLiveCommentary: registerLiveCommentary })}
         <button type={state.pending ? 'button' : 'submit'} className={styles.sendButton} onClick={state.pending ? () => controller.cancel() : undefined} disabled={preparingPhotos || !state.pending && (missingProfessionalSubject || state.recoveryRequired || !state.draft.trim() || attachmentState.pending || voiceActive || voiceBusy || composerSubmitBlocked)} aria-label={t(state.pending ? 'global_coach.cancel' : 'global_coach.send')}><AskTropheIcon name={state.pending ? 'end' : 'send'} size={17} /></button>
         </div>
       </form>

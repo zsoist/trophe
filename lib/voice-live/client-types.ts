@@ -183,6 +183,34 @@ export interface LiveDelegationOutcome {
 }
 
 /**
+ * Explicit, bounded local correlation handed to the delegated `query` callback: which live
+ * session and which real provider delegation id produced this backend turn. It is the ONLY
+ * linkage a host may use to send a later acknowledgment back to the same session — it is never
+ * an authoritative backend id and is never forged from display caption grouping.
+ */
+export interface LiveQueryCorrelation {
+  /** Live session the delegation ran against, or null when the engine has not published one. */
+  sessionId: string | null;
+  /** Real provider `delegation.id` carried by `session.delegation.created` (never invented). */
+  delegationId: string;
+}
+
+/**
+ * Client-to-provider commentary sender bound to the CURRENT live session. Implemented by the
+ * browser session (the only owner of the data channel). Every method is inert once the session
+ * is no longer live, so a late caller can never speak into a reopened or old session.
+ */
+export interface LiveCommentaryPort {
+  /** The live session id currently bound to the channel, or null when not live. */
+  sessionId(): string | null;
+  /**
+   * Append one bounded piece of server-reviewed text to the same live session. Returns `true`
+   * only when it was actually written to an open channel of a live session.
+   */
+  speak(input: { delegationId: string; content: string }): boolean;
+}
+
+/**
  * Injected backend work port (client delegation). Permissions, confirmations and
  * business records stay on that side; this package only schedules and cancels.
  */

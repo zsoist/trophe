@@ -19,7 +19,7 @@
  */
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { AudioLines } from 'lucide-react';
-import type { LiveTranscriptRow } from '@/lib/voice-live/client-types';
+import type { LiveCommentaryPort, LiveQueryCorrelation, LiveTranscriptRow } from '@/lib/voice-live/client-types';
 import { useGlobalCoachI18n } from './useGlobalCoachI18n';
 import { AskTropheIcon } from './ask-trophe-icons';
 import { mountAskTropheWave, type AskTropheWaveHandle } from './ask-trophe-wave';
@@ -223,14 +223,33 @@ export interface LiveVoiceControllerPort {
 
 export interface LiveVoiceRuntimePort {
   controller: LiveVoiceControllerPort;
+  /**
+   * Optional client-to-provider commentary binding for the CURRENT live session. Absent for
+   * engines that do not publish one; the rail then simply offers no saved-acknowledgment path.
+   */
+  commentary?: LiveCommentaryPort;
   dispose(): void;
+}
+
+/**
+ * Host-visible handle to the CURRENT live session's commentary channel. The host uses it to
+ * speak a server-reviewed acknowledgment into the same session it came from. `sessionId()` is
+ * read live (null once the session is no longer live), and `speak` is inert off-session, so a
+ * retained handle can never write into a reopened or replaced session.
+ */
+export interface LiveVoiceCommentaryHandle {
+  conversationId: string;
+  sessionId(): string | null;
+  speak(input: { delegationId: string; content: string }): boolean;
 }
 
 type LiveVoiceProps = {
   conversationId: string;
   prepareConversation?: () => Promise<string | null>;
-  onQuery: (text: string, signal: AbortSignal) => Promise<string>;
+  onQuery: (text: string, signal: AbortSignal, correlation: LiveQueryCorrelation) => Promise<string>;
   onTranscript?: (row: LiveTranscriptRow) => void;
+  /** Published when the live session's commentary channel becomes available/removed. */
+  onLiveCommentary?: (handle: LiveVoiceCommentaryHandle | null) => void;
 };
 
 export function LiveVoiceControl(props: LiveVoiceProps) {
@@ -258,11 +277,11 @@ export function LiveVoiceControl(props: LiveVoiceProps) {
         if (id) { setActiveConversationId(id); setExpanded(true); }
       } finally { setPreparing(false); }
     }} aria-label={t('global_coach.live_title')} aria-expanded={expanded}><AudioLines size={19} aria-hidden="true" /></button>
-    {expanded && activeConversationId && <LiveSession conversationId={activeConversationId} onQuery={props.onQuery} onTranscript={props.onTranscript} onClose={() => setExpanded(false)} />}
+    {expanded && activeConversationId && <LiveSession conversationId={activeConversationId} onQuery={props.onQuery} onTranscript={props.onTranscript} onLiveCommentary={props.onLiveCommentary} onClose={() => setExpanded(false)} />}
   </>;
 }
 
-function LiveSession(props: { conversationId: string; onQuery: LiveVoiceProps['onQuery']; onTranscript?: LiveVoiceProps['onTranscript']; onClose(): void }) {
+function LiveSession(props: { conversationId: string; onQuery: LiveVoiceProps['onQuery']; onTranscript?: LiveVoiceProps['onTranscript']; onLiveCommentary?: LiveVoiceProps['onLiveCommentary']; onClose(): void }) {
   const { t } = useGlobalCoachI18n();
   const latest = useRef(props);
   useEffect(() => { latest.current = props; });
@@ -279,12 +298,23 @@ function LiveSession(props: { conversationId: string; onQuery: LiveVoiceProps['o
       instance = createBrowserLiveSession({
         audio: audio.current,
         prepareConversation: async () => latest.current.conversationId,
-        query: (text, signal) => latest.current.onQuery(text, signal),
+        query: (text, signal, correlation) => latest.current.onQuery(text, signal, correlation),
       });
       setRuntime(instance);
     }).catch(() => { if (active) setLoadFailed(true); });
     return () => { active = false; instance?.dispose(); };
   }, []);
+  // Publish the commentary handle for the lifetime of THIS mounted session only. Unmount,
+  // conversation change or a replacement session clears it, so the host cannot speak into a
+  // session it no longer owns.
+  useEffect(() => {
+    const publish = props.onLiveCommentary;
+    const port = runtime?.commentary;
+    if (!publish) return;
+    if (!port) { publish(null); return () => publish(null); }
+    publish({ conversationId: props.conversationId, sessionId: () => port.sessionId(), speak: input => port.speak(input) });
+    return () => publish(null);
+  }, [runtime, props.conversationId, props.onLiveCommentary]);
   return <section className={styles.rail} aria-label={t('global_coach.live_title')}>
     <header className={styles.railHeader}>
       <span className={styles.railTitle}><AudioLines size={16} aria-hidden="true" />{t('global_coach.live_title')}</span>
