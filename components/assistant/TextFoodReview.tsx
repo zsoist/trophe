@@ -17,6 +17,20 @@ import styles from './GlobalCoach.module.css';
  * host must never replace or unmount this review (or prepare another action) until it resolves.
  */
 export type TextFoodApplyState = 'idle' | 'pending' | 'unknown' | 'applied';
+function initialMeal(rawText: string): TextFoodProposal['after']['mealType'] {
+  // Only explicit meal language seeds the editable review; never use the clock.
+  const text = rawText.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const mentions = [
+    ['breakfast', /\b(?:breakfast|desayuno|desayune)\b/],
+    ['lunch', /\b(?:lunch|almuerzo|almorce)\b/],
+    ['dinner', /\b(?:dinner|cena|cene|cenar)\b/],
+    ['snack', /\b(?:snack|merienda|merende)\b/],
+    ['pre_workout', /\b(?:pre[ -]?workout|preentreno)\b/],
+    ['post_workout', /\b(?:post[ -]?workout|postentreno)\b/],
+  ] as const;
+  const matches = mentions.filter(([, pattern]) => pattern.test(text));
+  return matches.length === 1 ? matches[0][0] : 'lunch';
+}
 export interface TextFoodReviewProps {
   draft: TextFoodDraft;
   conversationId: string;
@@ -30,7 +44,7 @@ export interface TextFoodReviewProps {
 export function TextFoodReview({ draft, conversationId, transport, onReceipt, onDismiss, savedReceipt, onApplyState }: TextFoodReviewProps) {
   const { t } = useGlobalCoachI18n();
   const [grams, setGrams] = useState(() => draft.items.map(item => String(item.grams)));
-  const [date, setDate] = useState(localToday), [meal, setMeal] = useState<TextFoodProposal['after']['mealType']>('lunch');
+  const [date, setDate] = useState(localToday), [meal, setMeal] = useState<TextFoodProposal['after']['mealType']>(() => initialMeal(draft.rawText));
   const [proposal, setProposal] = useState<TextFoodProposal | null>(null), [receipt, setReceipt] = useState<TextFoodReceipt | null>(savedReceipt ?? null);
   const [recovery]=useState(()=>{const value=readTextFoodRecovery(conversationId);return value?.draftId===draft.id&&value.draftHash===draft.hash?value:null;});
   const expectedEntries=useRef<string[]|null>(recovery?.entryIds??null);
