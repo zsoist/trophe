@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { CheckCircle2, Plus, Square } from 'lucide-react';
-import ExercisePicker from '@/components/workout/ExercisePicker';
+import dynamic from 'next/dynamic';
 import ExerciseInfoSheet from '@/components/workout/ExerciseInfoSheet';
 import PainFlagModal from '@/components/workout/PainFlagModal';
 import PlateCalculator from '@/components/workout/PlateCalculator';
@@ -44,6 +44,8 @@ import './workout-session-premium.css';
 import { supersetGroupFor } from '@/lib/workout/supersets';
 import { displayToKg, kgToDisplay, useWeightUnit } from '@/lib/workout/units';
 import type { PersistedWorkoutSet } from '@/components/workout/workout-persistence';
+
+const ExercisePicker = dynamic(() => import('@/components/workout/ExercisePicker'), { ssr: false });
 
 interface LiveWorkoutProps {
   exercises: Exercise[];

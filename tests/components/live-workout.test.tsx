@@ -119,8 +119,8 @@ describe('LiveWorkout', () => {
     await waitFor(() => expect(add.hasAttribute('disabled')).toBe(false));
     expect(screen.queryByText('workout.finish_ready_title')).toBeNull();
     fireEvent.click(add);
-    fireEvent.click(screen.getByRole('button', { name: 'Pick Squat' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Pick Squat' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Pick Squat' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Pick Squat' }));
     expect(harness.updateLiveStructure).toHaveBeenCalledTimes(1);
     expect(harness.commitLiveStrengthStructure).not.toHaveBeenCalled();
     expect(harness.updateLiveStructure).toHaveBeenCalledWith('session-1', [{ exerciseId: 'squat', targetSets: 3, targetReps: '8-12', supersetGroup: null }], 0);
@@ -137,7 +137,7 @@ describe('LiveWorkout', () => {
     const add = await screen.findByRole('button', { name: 'workout.add_exercise' });
     await waitFor(() => expect(add.hasAttribute('disabled')).toBe(false));
     fireEvent.click(add);
-    fireEvent.click(screen.getByRole('button', { name: 'Pick Squat' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Pick Squat' }));
     await screen.findByText('A workout change could not be saved. Retry that change before finishing.');
     expect(add.hasAttribute('disabled')).toBe(true);
     expect(harness.commitLiveStrengthStructure).not.toHaveBeenCalled();
@@ -153,7 +153,7 @@ describe('LiveWorkout', () => {
     const input = await screen.findByRole('textbox', { name: 'Draft reps Bench Press' });
     fireEvent.change(input, { target: { value: '13' } });
     fireEvent.click(screen.getByRole('button', { name: 'workout.add_exercise' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Pick Squat' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Pick Squat' }));
     await waitFor(() => expect(harness.commitLiveStrengthStructure).toHaveBeenCalledTimes(1));
     const added = harness.commitLiveStrengthStructure.mock.calls[0][0];
     harness.loadLiveStructure.mockResolvedValue({ ok: true, version: 1, structure: [
@@ -175,7 +175,7 @@ describe('LiveWorkout', () => {
     const add = await screen.findByRole('button', { name: 'workout.add_exercise' });
     await waitFor(() => expect(add.hasAttribute('disabled')).toBe(false));
     fireEvent.click(add);
-    fireEvent.click(screen.getByRole('button', { name: 'Pick Squat' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Pick Squat' }));
     view.unmount();
     await act(async () => resolve({ ok: true, version: 1 }));
     expect(harness.commitLiveStrengthStructure).not.toHaveBeenCalled();
