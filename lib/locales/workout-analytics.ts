@@ -15,4 +15,3 @@ export const workoutAnalyticsCopy: Record<Language, WorkoutAnalyticsLocale> = {
   pt: workoutAnalyticsPt,
   nl: workoutAnalyticsNl,
 };
-

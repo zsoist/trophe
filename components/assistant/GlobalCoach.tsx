@@ -161,7 +161,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   const screenDate=surface==='food'?acceptedScreenDate(publishedDate,path):null;
   const [voice] = useState(() => new VoiceController());
   const foodState = useSyncExternalStore(food.subscribe, food.snapshot, food.snapshot);
-  const [textFoodDraft,setTextFoodDraft]=useState<{conversationId:string;draft:TextFoodDraft}|null>(null);
+  const [textFoodDraft,setTextFoodDraft]=useState<{conversationId:string;turnId:string;draft:TextFoodDraft}|null>(null);
   const [textFoodBlocked,setTextFoodBlocked]=useState(false);
   const [photoFood] = useState(() => new PhotoFoodController());
   const photoFoodState = useSyncExternalStore(photoFood.subscribe, photoFood.snapshot, photoFood.snapshot);
@@ -409,7 +409,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   const receiveTextFood=(response:CoachConversationResponse)=>{
     const result=response.textFood;
     if(process.env.NEXT_PUBLIC_COACH_TEXT_FOOD_ACTIONS_ENABLED!=='1'||example&&!textFoodTransport||subjectId&&subjectId!==identity||response.snapshot?.subjectId!==identity||!result?.ok||!('draft'in result))return;
-    setTextFoodDraft({conversationId:response.conversationId,draft:result.draft});setTextFoodBlocked(!result.draft.clarification);
+    setTextFoodDraft({conversationId:response.conversationId,turnId:response.turnId,draft:result.draft});setTextFoodBlocked(!result.draft.clarification);
   };
   const send = async () => {
     if (voiceActive || voiceBusy || missingProfessionalSubject || composerSubmitBlocked || preparingPhotosRef.current || controller.snapshot().pending || controller.snapshot().recoveryRequired || !controller.snapshot().draft.trim()) return;
@@ -597,7 +597,6 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
         if (followLatest.current) setShowLatest(false);
       }}>
         {process.env.NEXT_PUBLIC_COACH_TEXT_FOOD_ACTIONS_ENABLED==='1'&&(!example||textFoodTransport)&&(!subjectId||subjectId===identity)&&textFoodDraft?.conversationId!==state.conversationId&&<TextFoodRecoveryNotice key={state.conversationId} conversationId={state.conversationId} transport={textFoodTransport??requestTextFood} onReceipt={receipt=>{for(const entryId of receipt.entryIds)window.dispatchEvent(new CustomEvent(COACH_FOOD_REFRESH,{detail:{actorId:identity,entryId}}));}}/>}
-        {textFoodDraft?.conversationId===state.conversationId&&<TextFoodReview key={`${state.conversationId}:${textFoodDraft.draft.id}`} draft={textFoodDraft.draft} conversationId={state.conversationId} transport={textFoodTransport??requestTextFood} onDismiss={()=>{setTextFoodDraft(null);setTextFoodBlocked(false);}} onReceipt={receipt=>{setTextFoodBlocked(false);for(const entryId of receipt.entryIds)window.dispatchEvent(new CustomEvent(COACH_FOOD_REFRESH,{detail:{actorId:identity,entryId}}));}}/>}
         {(foodState.intentId || foodState.entryId) && <FoodQuantityPanel key={foodState.intentId ?? foodState.entryId} controller={food} state={foodState} transport={activeFoodTransport} />}
         {workoutSetSelf && workoutSetState.intentId && <WorkoutSetPanel controller={workoutSetController} state={workoutSetState} transport={activeWorkoutSetTransport} />}
         {messageEnabled && messageState.intentId && <MessagePanel controller={messageController} state={messageState} transport={activeMessageTransport} />}
@@ -630,6 +629,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
               {turn.response.output.limitations.map((limitation, index) => <p className={styles.context} key={`${turn.request.turnId}-limitation-${index}`}>{globalCoachTranslations[`global_coach.limit_${limitation}`] ? t(`global_coach.limit_${limitation}`) : limitation.replace(/_/g, ' ')}</p>)}
             </details>}
           </div>}
+          {textFoodDraft?.conversationId===state.conversationId&&textFoodDraft.turnId===turn.request.turnId&&<TextFoodReview key={`${state.conversationId}:${textFoodDraft.draft.id}`} draft={textFoodDraft.draft} conversationId={state.conversationId} transport={textFoodTransport??requestTextFood} onDismiss={()=>{setTextFoodDraft(null);setTextFoodBlocked(false);}} onReceipt={receipt=>{setTextFoodBlocked(false);for(const entryId of receipt.entryIds)window.dispatchEvent(new CustomEvent(COACH_FOOD_REFRESH,{detail:{actorId:identity,entryId}}));}}/>}
         </article>)}
         {visibleVoiceRows.map(row => <article className={styles.turn} key={row.id}>
           <p className={styles.context}>{t(row.speaker === 'user' ? 'global_coach.live_you' : 'global_coach.live_assistant')}</p>

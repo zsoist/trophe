@@ -27,6 +27,7 @@ afterEach(() => {
   publishScreenDate(null)();
   vi.useRealTimers();
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
   route.path = '/dashboard/workout';
   if (originalPhotoFoodFlag === undefined) delete process.env.NEXT_PUBLIC_COACH_PHOTO_FOOD_ACTIONS_ENABLED;
   else process.env.NEXT_PUBLIC_COACH_PHOTO_FOOD_ACTIONS_ENABLED = originalPhotoFoodFlag;
@@ -36,6 +37,27 @@ afterEach(() => {
 function mounted(transport: (request: CoachConversationRequest, signal: AbortSignal) => Promise<CoachConversationResponse>, identity = 'A', subjectId?: string) {
   return <I18nProvider defaultLang="en"><GlobalCoach identity={identity} subjectId={subjectId} example={transport} /></I18nProvider>;
 }
+it('keeps the Food review after the meal message and its answer in the same turn', async () => {
+  vi.stubEnv('NEXT_PUBLIC_COACH_TEXT_FOOD_ACTIONS_ENABLED', '1');
+  HTMLElement.prototype.scrollTo = vi.fn();
+  const transport = vi.fn(async (request: CoachConversationRequest): Promise<CoachConversationResponse> => ({
+    ...response(request, 'Review this meal before saving.'),
+    snapshot: { id: crypto.randomUUID(), capturedAt: new Date().toISOString(), subjectId: 'A', organizationId: crypto.randomUUID(), screenIncluded: false, actorRole: 'client', access: 'self', scopeKey: 'a'.repeat(64), surface: null, capabilities: [], language: 'en', units: { weight: 'kg', energy: 'kcal', protein: 'g' }, window: { start: '2026-09-12', end: '2026-09-12', days: 1, timezone: 'America/Bogota' } },
+    textFood: { ok: true, draft: { kind: 'parsed', id: crypto.randomUUID(), hash: 'a'.repeat(64), action: 'food.text.create', rawText: request.message, items: [{ raw_text: '100g rice', food_name: 'Rice', name_localized: 'Rice', quantity: 100, unit: 'g', grams: 100, calories: 130, protein_g: 2.7, carbs_g: 28, fat_g: 0.3, fiber_g: 0.4, sugar_g: 0, confidence: 0.9, source: 'ai_estimate' }], clarification: null, warnings: [], expiresAt: '2099-09-12T23:00:00Z' } },
+  }));
+  const foodTransport = vi.fn(async () => ({ ok: false as const, error: 'not_found' as const }));
+  render(<I18nProvider defaultLang="en"><GlobalCoach identity="A" example={transport} textFoodTransport={foodTransport} /></I18nProvider>);
+  fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
+  fireEvent.change(screen.getByRole('textbox', { name: 'Your question' }), { target: { value: 'I ate 100g rice.' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
+  const review = await screen.findByRole('button', { name: 'Review food entry' });
+  const question = screen.getByText('I ate 100g rice.');
+  const answer = screen.getByText('Review this meal before saving.');
+  expect(question.compareDocumentPosition(review) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(answer.compareDocumentPosition(review) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(review.closest('article')).toBe(question.closest('article'));
+  expect(foodTransport).not.toHaveBeenCalled();
+});
 it('keeps the same conversation and editable draft across real Food and Workout routes without automatic inference', async () => {
   HTMLElement.prototype.scrollTo = vi.fn();
   const transport = vi.fn(async (request: CoachConversationRequest) => response(request));
