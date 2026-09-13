@@ -7,6 +7,7 @@ import { ConversationController, coachSurface, type ConversationTransport } from
 import { requestConversation } from './client';
 import { AskTropheMark } from './AskTropheMark';
 import { AskTropheIcon } from './ask-trophe-icons';
+import { conversationStatusText } from './conversation-status-text';
 import { ResponseText } from './ResponseText';
 import { MessageReceipt, AskWaitMark } from './MessageReceipt';
 import { globalCoachTranslations } from '@/lib/locales/global-coach';
@@ -184,7 +185,7 @@ export default function GlobalCoach(props: Props) {
   return <CoachSurface key={`${foodScope}:${props.professional ? 'professional' : 'self'}`} {...props} sessionScope={foodScope} conversationController={controller} foodController={food} workoutSetController={workoutSet} messageController={message} />;
 }
 function CoachSurface({ identity, subjectId, professional = false, example, preferenceTransport, memoryTransport, dietTransport, progressTransport, foodTransport, photoFoodTransport, textFoodTransport, workoutSetTransport, messageTransport, historyTransport, contextSlot, voiceSlot, voiceTranscriptionTransport, reviewedVoiceTransport, workspaceHint, foodRefreshTransport, foodRefreshTimeoutMs, sessionScope, conversationController: controller, foodController: food, workoutSetController, messageController }: Props & { sessionScope: string; conversationController: ConversationController; foodController: FoodQuantityController; workoutSetController: WorkoutSetController; messageController: MessageController }) {
-  const { t } = useGlobalCoachI18n();
+  const { t, lang } = useGlobalCoachI18n();
   const path = usePathname();
   const surface = coachSurface(path);
   const publishedSelection = useSyncExternalStore(subscribeScreenSelection, screenSelectionSnapshot, emptyScreenSelection);
@@ -388,7 +389,17 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
   }, []);
   useEffect(() => {
     const node=input.current;if(!open||!node)return;
-    node.style.height='auto';node.style.height=`${Math.min(node.scrollHeight,112)}px`;
+    let alive=true;
+    const resize=()=>{if(!alive)return;node.style.height='auto';node.style.height=`${Math.min(node.scrollHeight,112)}px`;};
+    resize();
+    let width=node.getBoundingClientRect().width;
+    const observer=typeof ResizeObserver==='undefined'?null:new ResizeObserver(()=>{
+      const next=node.getBoundingClientRect().width;
+      if(next!==width){width=next;resize();}
+    });
+    observer?.observe(node);
+    void document.fonts?.ready.then(resize);
+    return ()=>{alive=false;observer?.disconnect();};
   },[open,state.draft]);
   useEffect(() => {
     if (!open) return;
@@ -787,7 +798,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
           <p className={row.speaker === 'user' ? styles.question : styles.answer}>{row.text}</p>
         </article>)}
         {state.pending && <p className={styles.pending} role="status"><AskWaitMark paused={pageHidden} />{t(state.turns.at(-1)?.request.attachments?.length ? 'global_coach.preparing_photo_answer' : 'global_coach.preparing_answer')}</p>}
-        {state.error && <div role="status"><p>{t(state.recovering ? 'global_coach.history_checking' : state.recoveryRequired ? 'global_coach.history_waiting' : `global_coach.${state.error}`)}</p>{state.recoveryRequired && <button type="button" className={styles.recoveryButton} disabled={state.recovering} onClick={() => { const read = (historyTransport ?? requestHistory).recover; if (read) void controller.recover(read); }}>{t('global_coach.history_check')}</button>}</div>}
+        {state.error && <div role="status"><p>{conversationStatusText(state.recovering ? 'global_coach.history_checking' : state.recoveryRequired ? 'global_coach.history_waiting' : `global_coach.${state.error}`, state.turns.at(-1)?.request.message ?? state.draft, lang)}</p>{state.recoveryRequired && <button type="button" className={styles.recoveryButton} disabled={state.recovering} onClick={() => { const read = (historyTransport ?? requestHistory).recover; if (read) void controller.recover(read); }}>{t('global_coach.history_check')}</button>}</div>}
       </div>
       {showLatest && <button type="button" className={`${styles.latestButton} min-h-11 px-4 text-sm`} inert={historyOpen || undefined} onClick={() => { followLatest.current = true; setShowLatest(false); log.current?.scrollTo({ top: log.current.scrollHeight }); }}>{t('global_coach.latest')}</button>}
       <form className={styles.composer} inert={threadInert || undefined} onSubmit={event => { event.preventDefault(); void send(); }}>
