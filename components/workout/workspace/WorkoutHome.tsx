@@ -5,7 +5,7 @@ import { WorkoutCoachEntry } from '@/components/workout/coach/WorkoutCoachEntry'
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Activity, BarChart3, ChevronRight, History, Search } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ConfirmSheet } from '@/components/ui/ConfirmSheet';
 import { exerciseDisplayName, muscleLabelKey } from '@/components/workout/muscle-groups';
 import { WorkoutAtlasHome } from '@/components/workout/workspace/WorkoutAtlasHome';
@@ -131,6 +131,17 @@ export function WorkoutHome({
   const [startIntent, setStartIntent] = useState(false);
   const [startError, setStartError] = useState(false);
   const startingRef = useRef(false);
+  const continuation = useRef(0);
+  useLayoutEffect(() => {
+    const scope = continuation;
+    scope.current++;
+    startingRef.current = false;
+    // Reset the UI once at an identity boundary; the durable request remains owned by its original account.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setStartIntent(false);
+    setStartError(false);
+    return () => { scope.current++; };
+  }, [workspace.ownerId]);
   // Localized display names (house rule: Spanish gets name_es, Greek keeps English). Draft
   // rows store the canonical English name, so the catalogue lookup comes first.
   const exerciseNames = useMemo(() => new Map(exercises.map((exercise) => [exercise.id, exerciseDisplayName(exercise, lang)])), [exercises, lang]);
@@ -141,10 +152,14 @@ export function WorkoutHome({
   useEffect(() => {
     if (!startIntent || !hasDraft || startingRef.current) return;
     startingRef.current = true;
+    const generation = continuation.current;
+    const current = () => generation === continuation.current;
     void startLive().then(ok => {
+      if (!current()) return;
       if (ok) pushWorkoutRoute(router, WORKOUT_ROUTES.live);
       else setStartError(true);
-    }).catch(() => setStartError(true)).finally(() => {
+    }).catch(() => { if (current()) setStartError(true); }).finally(() => {
+      if (!current()) return;
       startingRef.current = false;
       setStartIntent(false);
     });

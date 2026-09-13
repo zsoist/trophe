@@ -36,6 +36,7 @@ import { localToday } from '@/lib/utils/dates';
 
 export interface WorkoutWorkspaceContextValue {
   ready: boolean;
+  ownerId?: string | null;
   state: WorkoutWorkspaceState;
   createDraft(input: { name: string; kind: WorkoutKind; templateKey?: string; templateId?: string | null }): void;
   replaceDraft(input: { name: string; kind: WorkoutKind; templateKey?: string; templateId?: string | null }): void;
@@ -528,6 +529,7 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
 
     const pending = startLiveSession(request)
       .then((result) => {
+        if (currentOwner.current !== ownerId) return false;
         if (!result.ok) {
           if (result.kind === 'rejected') {
             // Definitive refusal: the envelope can never be accepted, so release
@@ -554,12 +556,12 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
         }
         const normalizedSessionId = result.sessionId.trim();
         if (!normalizedSessionId) return false;
-        setState((latest) => (latest.stage === 'draft' || latest.stage === 'review') && latest.draft && !latest.sessionId
+        setState((latest) => currentOwner.current === ownerId && (latest.stage === 'draft' || latest.stage === 'review') && latest.draft && !latest.sessionId
           ? workoutWorkspaceReducer(latest, { type: 'live.started', payload: { sessionId: normalizedSessionId, now: Date.now() } })
           : latest);
         return true;
       })
-      .finally(() => { startPromiseRef.current = null; });
+      .finally(() => { if (startPromiseRef.current === pending) startPromiseRef.current = null; });
     startPromiseRef.current = pending;
     return pending;
   }, [ensureLiveStartRequest, ownerId, resolvedStorage, state]);
@@ -690,6 +692,7 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
 
   const value = useMemo<WorkoutWorkspaceContextValue>(() => ({
     ready: !loading && ownerId !== undefined,
+    ownerId,
     state,
     createDraft,
     replaceDraft,

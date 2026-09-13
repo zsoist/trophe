@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import React from 'react';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const { push, startLiveSession } = vi.hoisted(() => ({
@@ -357,4 +357,31 @@ describe('Workout home v3', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Resume workout' }));
     await waitFor(() => expect(push).toHaveBeenCalledWith('/dashboard/workout/live'));
   });
+});
+
+it.each(['accepted', 'rejected'] as const)('ignores a late %s start after leaving Home while preserving the start request', async outcome => {
+  let settle!: (value: unknown) => void;
+  startLiveSession.mockImplementation(() => new Promise(resolve => { settle = resolve; }));
+  const view = renderHome();
+  fireEvent.click(screen.getByTestId('workout-primary-action'));
+  await waitFor(() => expect(startLiveSession).toHaveBeenCalledTimes(1));
+  const envelope = structuredClone(startLiveSession.mock.calls[0][0]);
+  view.unmount();
+  await act(async () => settle(outcome === 'accepted' ? { ok: true, sessionId: 'late' } : { ok: false, kind: 'transient' }));
+  expect(push).not.toHaveBeenCalled();
+  expect(startLiveSession).toHaveBeenCalledTimes(1);
+  expect(startLiveSession.mock.calls[0][0]).toEqual(envelope);
+});
+
+it('retries a transient empty start with the same durable envelope after an explicit click', async () => {
+  startLiveSession.mockResolvedValueOnce({ ok: false, kind: 'transient' }).mockResolvedValueOnce({ ok: true, sessionId: 'retry-accepted' });
+  renderHome();
+  fireEvent.click(screen.getByTestId('workout-primary-action'));
+  const retry = await screen.findByRole('button', { name: 'Retry same start' });
+  await waitFor(() => expect(retry.hasAttribute('disabled')).toBe(false));
+  expect(push).not.toHaveBeenCalled();
+  fireEvent.click(retry);
+  await waitFor(() => expect(push).toHaveBeenCalledWith('/dashboard/workout/live'));
+  expect(startLiveSession).toHaveBeenCalledTimes(2);
+  expect(startLiveSession.mock.calls[1][0]).toEqual(startLiveSession.mock.calls[0][0]);
 });

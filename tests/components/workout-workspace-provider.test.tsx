@@ -519,3 +519,21 @@ it('persists an empty strength start before transport and becomes live only afte
   await act(async () => resolve({ ok: true, sessionId: 'empty-strength-session' }));
   expect(screen.getByText('Live')).toBeTruthy();
 });
+
+it('does not apply an old owner start acknowledgment to a replacement owner draft', async () => {
+  let resolve!: (value: { ok: true; sessionId: string }) => void;
+  startLiveSession.mockImplementation(() => new Promise(done => { resolve = done; }));
+  const storage = new MemoryStorage();
+  const view = render(<ProviderHarness userId="nik" storage={storage} />);
+  await screen.findByRole('button', { name: 'Create Push draft' });
+  fireEvent.click(screen.getByRole('button', { name: 'Create Push draft' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Start live workout' }));
+  await waitFor(() => expect(startLiveSession).toHaveBeenCalledTimes(1));
+  view.rerender(<ProviderHarness userId="peer" storage={storage} />);
+  await screen.findByRole('button', { name: 'Create Push draft' });
+  fireEvent.click(screen.getByRole('button', { name: 'Create Push draft' }));
+  await act(async () => resolve({ ok: true, sessionId: 'nik-session' }));
+  expect(screen.queryByText('Live')).toBeNull();
+  expect(loadWorkspaceState(storage, 'peer')?.sessionId).toBeNull();
+  expect(loadWorkspaceState(storage, 'nik')?.startRequest).toBeTruthy();
+});
