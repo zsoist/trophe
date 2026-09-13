@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import React from 'react';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WorkoutWorkspaceState } from '@/lib/workout/workspace-state';
 
@@ -24,6 +24,9 @@ const liveState: WorkoutWorkspaceState = {
 let workspace = { state: liveState, pause: vi.fn(), resume: vi.fn(), ...harness };
 
 vi.mock('@/components/workout/workspace/WorkoutWorkspaceProvider', () => ({ useWorkoutWorkspace: () => workspace }));
+vi.mock('@/components/workout/ExercisePicker', () => ({ default: ({ exercises, onSelect, onClose }: { exercises: import('@/lib/types').Exercise[]; onSelect: (exercise: import('@/lib/types').Exercise) => void; onClose: () => void }) => <div role="dialog">
+  {exercises.map((exercise) => <button key={exercise.id} onClick={() => { onSelect(exercise); onClose(); }}>Pick {exercise.name}</button>)}
+</div> }));
 vi.mock('@/components/workout/ExerciseInfoSheet', () => ({ default: ({ playbackDisabled }: { playbackDisabled?: boolean }) => (
   <div role="status">{playbackDisabled ? 'Exercise media paused by workout' : 'Exercise media active'}</div>
 ) }));
@@ -38,6 +41,7 @@ vi.mock('framer-motion', () => ({ AnimatePresence: ({ children }: { children: Re
 vi.mock('@/components/workout/workspace/ExerciseSetLogger', () => ({
   ExerciseSetLogger: ({ exercise, disabled, onComplete, onSuperset, onRemove, onPain, onPlateCalculator, onTechnique }: { exercise: { name: string }; disabled?: boolean; onComplete: (value: { weight: number; reps: number; rpe: number | null; isWarmup: boolean }) => Promise<string | null>; onSuperset?: () => void; onRemove?: () => void; onPain?: () => void; onPlateCalculator?: (weight: number) => void; onTechnique?: () => void }) => (
     <div>
+      <input aria-label={`Draft reps ${exercise.name}`} defaultValue="8" />
       <button type="button" disabled={disabled} onClick={() => void onComplete({ weight: 60, reps: 8, rpe: null, isWarmup: false })}>Complete {exercise.name}</button>
       <button type="button" disabled={disabled} onClick={onSuperset}>Superset {exercise.name}</button>
       <button type="button" disabled={disabled} onClick={onRemove}>Remove {exercise.name}</button>
@@ -103,6 +107,80 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.clearAllMocks(); workspace = { state: liveState, pause: vi.fn(), resume: vi.fn(), ...harness }; });
 
 describe('LiveWorkout', () => {
+  const pickExercise = { id: 'squat', name: 'Squat', muscle_group: 'quads', is_compound: true } as import('@/lib/types').Exercise;
+
+  it('starts empty without false finish and appends only after the canonical mutation accepts', async () => {
+    workspace = { ...workspace, state: { ...liveState, draft: { ...liveState.draft!, kind: 'strength', exercises: [] } } };
+    harness.loadLiveStructure.mockResolvedValue({ ok: true, version: 0, structure: [] });
+    let resolve!: (value: { ok: true; version: number }) => void;
+    harness.updateLiveStructure.mockReturnValue(new Promise((done) => { resolve = done; }));
+    render(<LiveWorkout exercises={[pickExercise]} />);
+    const add = await screen.findByRole('button', { name: 'workout.add_exercise' });
+    await waitFor(() => expect(add.hasAttribute('disabled')).toBe(false));
+    expect(screen.queryByText('workout.finish_ready_title')).toBeNull();
+    fireEvent.click(add);
+    fireEvent.click(screen.getByRole('button', { name: 'Pick Squat' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Pick Squat' }));
+    expect(harness.updateLiveStructure).toHaveBeenCalledTimes(1);
+    expect(harness.commitLiveStrengthStructure).not.toHaveBeenCalled();
+    expect(harness.updateLiveStructure).toHaveBeenCalledWith('session-1', [{ exerciseId: 'squat', targetSets: 3, targetReps: '8-12', supersetGroup: null }], 0);
+    await act(async () => resolve({ ok: true, version: 1 }));
+    expect(harness.commitLiveStrengthStructure).toHaveBeenCalledWith([expect.objectContaining({ exerciseId: 'squat' })]);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(workspace.pause).not.toHaveBeenCalled();
+    expect(workspace.resume).not.toHaveBeenCalled();
+  });
+
+  it('blocks a second append after an uncertain response until canonical recovery', async () => {
+    harness.updateLiveStructure.mockRejectedValueOnce(new Error('connection lost'));
+    render(<LiveWorkout exercises={[pickExercise]} />);
+    const add = await screen.findByRole('button', { name: 'workout.add_exercise' });
+    await waitFor(() => expect(add.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(add);
+    fireEvent.click(screen.getByRole('button', { name: 'Pick Squat' }));
+    await screen.findByText('A workout change could not be saved. Retry that change before finishing.');
+    expect(add.hasAttribute('disabled')).toBe(true);
+    expect(harness.commitLiveStrengthStructure).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry recovery' }));
+    await waitFor(() => expect(add.hasAttribute('disabled')).toBe(false));
+    expect(harness.updateLiveStructure).toHaveBeenCalledTimes(1);
+    expect(harness.loadLiveStructure).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps the current logger inputs mounted and the paused clock unchanged when adding another exercise', async () => {
+    workspace = { ...workspace, state: { ...liveState, stage: 'paused', clock: { runningSince: null, accumulatedMs: 30_000 } } };
+    const view = render(<LiveWorkout exercises={[pickExercise]} />);
+    const input = await screen.findByRole('textbox', { name: 'Draft reps Bench Press' });
+    fireEvent.change(input, { target: { value: '13' } });
+    fireEvent.click(screen.getByRole('button', { name: 'workout.add_exercise' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Pick Squat' }));
+    await waitFor(() => expect(harness.commitLiveStrengthStructure).toHaveBeenCalledTimes(1));
+    const added = harness.commitLiveStrengthStructure.mock.calls[0][0];
+    harness.loadLiveStructure.mockResolvedValue({ ok: true, version: 1, structure: [
+      { exercise_id: 'bench', target_sets: 1, target_reps: '8', superset_group: null },
+      { exercise_id: 'squat', target_sets: 3, target_reps: '8-12', superset_group: null },
+    ] });
+    workspace = { ...workspace, state: { ...workspace.state, draft: { ...workspace.state.draft!, kind: 'strength', exercises: added } } };
+    view.rerender(<LiveWorkout exercises={[pickExercise]} />);
+    expect(screen.getByRole('textbox', { name: 'Draft reps Bench Press' })).toBe(input);
+    expect((input as HTMLInputElement).value).toBe('13');
+    expect(workspace.state.clock).toEqual({ runningSince: null, accumulatedMs: 30_000 });
+    expect(workspace.resume).not.toHaveBeenCalled();
+  });
+
+  it('ignores an accepted append after the session view unmounts', async () => {
+    let resolve!: (value: { ok: true; version: number }) => void;
+    harness.updateLiveStructure.mockReturnValue(new Promise((done) => { resolve = done; }));
+    const view = render(<LiveWorkout exercises={[pickExercise]} />);
+    const add = await screen.findByRole('button', { name: 'workout.add_exercise' });
+    await waitFor(() => expect(add.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(add);
+    fireEvent.click(screen.getByRole('button', { name: 'Pick Squat' }));
+    view.unmount();
+    await act(async () => resolve({ ok: true, version: 1 }));
+    expect(harness.commitLiveStrengthStructure).not.toHaveBeenCalled();
+  });
+
   it('keeps a recovered completed set reachable for correction instead of treating it as a fresh stage', async () => {
     harness.loadLiveSessionSets.mockResolvedValue({ ok: true, sets: [{
       id: 'set-1', session_id: 'session-1', exercise_id: 'bench', set_number: 1,

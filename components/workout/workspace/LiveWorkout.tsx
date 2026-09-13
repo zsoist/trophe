@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { CheckCircle2, Plus, Square } from 'lucide-react';
+import ExercisePicker from '@/components/workout/ExercisePicker';
 import ExerciseInfoSheet from '@/components/workout/ExerciseInfoSheet';
 import PainFlagModal from '@/components/workout/PainFlagModal';
 import PlateCalculator from '@/components/workout/PlateCalculator';
@@ -54,7 +55,13 @@ interface ExtraLoggerRow {
   exerciseId: string;
 }
 
-export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
+export function LiveWorkout(props: LiveWorkoutProps) {
+  const { state } = useWorkoutWorkspace();
+  // Transient edits, clocks and pending continuations belong to one actor/session.
+  return <LiveWorkoutSession key={`${props.userId ?? ''}:${state.sessionId ?? ''}`} {...props} />;
+}
+
+function LiveWorkoutSession({ exercises, userId = null }: LiveWorkoutProps) {
   const { t, lang } = useI18n();
   const workspace = useWorkoutWorkspace();
   const { state } = workspace;
@@ -67,6 +74,16 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
   const [painFlags, setPainFlags] = useState<PainFlag[]>([]);
   const [prMap, setPrMap] = useState<Record<string, number>>({});
   const [painExerciseId, setPainExerciseId] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [addingExercise, setAddingExercise] = useState(false);
+  const addInFlight = useRef(false);
+  const addTrigger = useRef<HTMLButtonElement>(null);
+  const addLifetime = useRef(0);
+  useLayoutEffect(() => {
+    addLifetime.current += 1;
+    addInFlight.current = false;
+    return () => { addLifetime.current += 1; };
+  }, [userId, state.sessionId]);
   const [infoExercise, setInfoExercise] = useState<Exercise | null>(null);
   const [plateContext, setPlateContext] = useState<{ exerciseId: string; weightKg: number } | null>(null);
   const warmupNumbersRef = useRef(new Map<string, { fingerprint: string; numbers: number[] }>());
@@ -588,7 +605,44 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
     workspace.commitLiveStrengthStructure(nextExercises);
   };
 
-  const allExercisesComplete = firstIncompleteIndex === -1;
+  const appendExercise = async (exercise: Exercise) => {
+    if (addInFlight.current || mutationBlocked || structureVersion === null
+      || draft.exercises.some((item) => item.exerciseId === exercise.id)
+      || !exerciseById.has(exercise.id)) return;
+    const lifetime = addLifetime.current;
+    addInFlight.current = true;
+    setAddingExercise(true);
+    const nextExercises = [...draft.exercises, {
+      exerciseId: exercise.id, exerciseName: exerciseDisplayName(exercise, lang),
+      targetSets: 3, targetReps: '8-12', restSeconds: 90, targetRpe: null, notes: '',
+    }];
+    setPendingMutations((count) => count + 1);
+    try {
+      const result = await updateLiveStructure(sessionId, structureFor(nextExercises), structureVersion);
+      if (lifetime !== addLifetime.current) return;
+      if (!result.ok) throw new Error('structure-unconfirmed');
+      setStructureVersion(result.version);
+      // Keep the current logger mounted: adding another exercise must not erase
+      // its in-progress inputs or rest clock. The path exposes the new exercise.
+      setSelectedExerciseId(draft.exercises[activeExerciseIndex]?.exerciseId ?? exercise.id);
+      workspace.commitLiveStrengthStructure(nextExercises);
+    } catch {
+      if (lifetime !== addLifetime.current) return;
+      // An uncertain response may already be committed. Reconcile the canonical
+      // structure before permitting another append, rather than replaying it.
+      setFailedMutations((current) => new Set(current).add('append-exercise'));
+    } finally {
+      if (lifetime === addLifetime.current) {
+        addInFlight.current = false;
+        setAddingExercise(false);
+        setPendingMutations((count) => Math.max(0, count - 1));
+        setPickerOpen(false);
+        requestAnimationFrame(() => addTrigger.current?.focus());
+      }
+    }
+  };
+
+  const allExercisesComplete = draft.exercises.length > 0 && firstIncompleteIndex === -1;
   const activeDraftExercise = allExercisesComplete && selectedExerciseIndex < 0 ? null : draft.exercises[activeExerciseIndex] ?? null;
   const activeExercise = activeDraftExercise ? exerciseById.get(activeDraftExercise.exerciseId) : undefined;
   const activeResolved = activeExercise ?? (activeDraftExercise ? {
@@ -625,7 +679,11 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
         onSelect={setSelectedExerciseId}
       /> : null}
 
-      {!recoveryLoaded ? <div role="status" className="min-h-24 animate-pulse rounded-xl bg-[var(--surface-subtle)]" aria-label={t('workout.loading_live_session')} /> : allExercisesComplete && !activeDraftExercise ? (
+      {!recoveryLoaded ? <div role="status" className="min-h-24 animate-pulse rounded-xl bg-[var(--surface-subtle)]" aria-label={t('workout.loading_live_session')} /> : draft.exercises.length === 0 ? (
+        <section className="border-y border-[var(--border-subtle)] py-5">
+          <h1 className="text-2xl font-semibold">{t('workout.add_exercise')}</h1>
+        </section>
+      ) : allExercisesComplete && !activeDraftExercise ? (
         <section aria-labelledby="finish-ready-title" className="wsp-finish-ready border-y border-[var(--border-subtle)] py-5">
           <h1 id="finish-ready-title" className="text-2xl font-bold tracking-[-0.02em] text-[var(--content-primary)]">{t('workout.finish_ready_title')}</h1>
           <p className="mt-2 text-sm text-[var(--content-secondary)]">{t('workout.finish_ready_message')}</p>
@@ -758,6 +816,17 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
         </LiveExerciseStage>
       )}
 
+      <button ref={addTrigger} type="button" disabled={mutationBlocked || addingExercise} onClick={() => setPickerOpen(true)} className="btn-primary inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl disabled:opacity-50">
+        <Plus size={18} aria-hidden="true" />{t('workout.add_exercise')}
+      </button>
+      {pickerOpen ? <ExercisePicker
+        exercises={exercises} recentIds={[]} lang={lang}
+        addedExerciseIds={draft.exercises.map((exercise) => exercise.exerciseId)}
+        selectionPending={addingExercise}
+        onSelect={(exercise) => { void appendExercise(exercise); }}
+        onClose={() => { if (!addInFlight.current) setPickerOpen(false); }}
+      /> : null}
+
       {recoveryError ? (
         <div role="alert" className="rounded-xl bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]">
           <p>{t('workout.recovery_failed')}</p>
@@ -767,7 +836,7 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
       {failedMutations.size > 0 ? (
         <div role="alert" className="rounded-xl bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]">
           <p>{t('workout.mutation_failed')}</p>
-          <button type="button" onClick={retryRecovery} className="mt-2 min-h-11 underline">{t('workout.retry_recovery')}</button>
+          <button type="button" onClick={() => { if (failedMutations.has('append-exercise')) setRecoveryAttempt((attempt) => attempt + 1); else retryRecovery(); }} className="mt-2 min-h-11 underline">{t('workout.retry_recovery')}</button>
         </div>
       ) : null}
 

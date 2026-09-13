@@ -370,7 +370,9 @@ export default function ExercisePicker({
   replacementExerciseName,
   atlasContext,
   initialAtlasFilter,
+  selectionPending = false,
 }: {
+  selectionPending?: boolean;
   exercises: Exercise[];
   recentIds: string[];
   onSelect: (ex: Exercise) => void;
@@ -484,7 +486,7 @@ export default function ExercisePicker({
     });
 
   const pick = (ex: Exercise) => {
-    if (addedIds.has(ex.id)) return;
+    if (selectionPending || addedIds.has(ex.id)) return;
     if (presentation === 'page' && onAddToDraft) {
       setOptimisticAddedIds((current) => new Set(current).add(ex.id));
       onAddToDraft(ex.id);
@@ -545,6 +547,7 @@ export default function ExercisePicker({
       reducedMotion={reducedMotion}
       label={t('workout.add_exercise')}
     >
+      {selectionPending ? <p role="status" className="px-4 py-3">{t('workout.saving')}</p> : null}
       <div className="sticky top-0 z-10 border-b border-[var(--border-subtle)] bg-[var(--surface-overlay)]/95 backdrop-blur-xl">
         <div className="mx-auto w-full max-w-3xl px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
           <div className="flex items-center gap-3">
