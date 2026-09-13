@@ -301,3 +301,25 @@ it('preserves a reviewed voice turn id when it enters the ordinary text transpor
   expect(controller.snapshot().turns[0].response?.ok).toBe(true);
 });
 it.each([['/dashboard/log', 'food'], ['/dashboard/workout/build', 'plan'], ['/dashboard/workout/live', 'live'], ['/dashboard/checkin', 'habits'], ['/dashboard/workout/atlas', 'atlas']])('maps %s to its actual surface', (path, expected) => expect(coachSurface(path)).toBe(expected));
+
+it('keeps a failed meal preparation visible and permits only a new explicit turn without a food write', async () => {
+  vi.stubEnv('NEXT_PUBLIC_COACH_TEXT_FOOD_ACTIONS_ENABLED', '1');
+  HTMLElement.prototype.scrollTo = vi.fn();
+  const transport = vi.fn(async (request: CoachConversationRequest): Promise<CoachConversationResponse> => ({ ...response(request, 'Meal preparation failed. Nothing was saved.'), textFood: { ok: false, error: 'uncertain' } }));
+  const foodTransport = vi.fn();
+  render(<I18nProvider defaultLang="en"><GlobalCoach identity="A" example={transport} textFoodTransport={foodTransport} /></I18nProvider>);
+  fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
+  fireEvent.change(screen.getByRole('textbox', { name: 'Your question' }), { target: { value: 'I ate 80g banana.' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
+  await screen.findByText('Meal preparation failed. Nothing was saved.');
+  expect(screen.getByText('I ate 80g banana.')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Review food entry' })).toBeNull();
+  expect(foodTransport).not.toHaveBeenCalled();
+  expect(transport).toHaveBeenCalledTimes(1);
+  fireEvent.change(screen.getByRole('textbox', { name: 'Your question' }), { target: { value: 'I ate 90g banana.' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
+  await screen.findByText('I ate 90g banana.');
+  expect(transport).toHaveBeenCalledTimes(2);
+  expect(transport.mock.calls[1][0].turnId).not.toBe(transport.mock.calls[0][0].turnId);
+  expect(foodTransport).not.toHaveBeenCalled();
+});

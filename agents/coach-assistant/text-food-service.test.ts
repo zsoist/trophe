@@ -12,7 +12,7 @@ function fixture() {
   type ReceiptRow = { actor: string; subject: string; organization: string; conversation: string; actionId: string; proposal_id: string; request_hash: string; result: unknown };
   let proposals: ProposalRow[] = [], receipts: ReceiptRow[] = [], foods: Record<string, unknown>[] = [], audits = 0;
   let cataloguePresent = true; const catalogueLocks: string[] = [];
-  let authorized = true, connected = true, expired = false, failReceipt = false, failAudit = false, corrupt = false;
+  let authorized = true, connected = true, expired = false, failReceipt = false, failAudit = false, corrupt = false, failDraft = false;
   const controller = new AbortController(), dialect = new PgDialect();
   const parser = vi.fn(async (): Promise<FoodParseOutput> => ({ items: [structuredClone(rice)] }));
   const scope = { actorId: id(1), subjectId: id(1), organizationId: id(2), signal: controller.signal };
@@ -34,6 +34,7 @@ function fixture() {
         return rows([]);
       }
       if (query.startsWith('UPDATE private.coach_action_proposals')) {
+        if (failDraft) throw Object.assign(new Error('private database detail'), { code: '57014' });
         const row = proposals.find(row => row.id === p[3] && row.actor === p[4] && row.request_hash === p[5]);
         if (!row) throw Error('missing claim');
         row.request_hash = String(p[0]); row.envelope = JSON.parse(String(p[1])); row.expires = String(p[2]); return rows([]);
@@ -73,7 +74,7 @@ function fixture() {
     if (!r.ok || !('proposal' in r)) throw Error(JSON.stringify(r)); return r.proposal;
   }
   const applyOp = (p: TextFoodProposal, actionId = id(6)) => ({ ...base, operation: 'text.food.apply', proposalId: p.id, hash: p.hash, actionId, reviewed: true });
-  return { catalogueLocks, removeCatalogue: () => { cataloguePresent = false; }, parser, execute, parse, propose, parseOp, applyOp, state: () => ({ proposals, receipts, foods, audits }), revoke: () => { authorized = false; }, disconnect: () => { connected = false; }, expire: () => { expired = true; }, breakReceipt: () => { failReceipt = true; }, breakAudit: () => { failAudit = true; }, corrupt: () => { corrupt = true; }, abort: () => controller.abort() };
+  return { breakDraft: () => { failDraft = true; }, catalogueLocks, removeCatalogue: () => { cataloguePresent = false; }, parser, execute, parse, propose, parseOp, applyOp, state: () => ({ proposals, receipts, foods, audits }), revoke: () => { authorized = false; }, disconnect: () => { connected = false; }, expire: () => { expired = true; }, breakReceipt: () => { failReceipt = true; }, breakAudit: () => { failAudit = true; }, corrupt: () => { corrupt = true; }, abort: () => controller.abort() };
 }
 describe('actor-bound text Food review service — offline transactions', () => {
   it('parses once, scales a review with native Food rules, and writes only on confirmation', async () => {
@@ -155,4 +156,28 @@ describe('actor-bound text Food review service — offline transactions', () => 
     expect(f.state().foods).toHaveLength(0);
   });
 
+});
+
+describe('post-parser failure boundary without provider calls', () => {
+  it.each(['native-processing', 'invalid-contract', 'expired-claim', 'draft-transaction'] as const)('keeps %s failure non-writing and never replays the claimed parse', async scenario => {
+    const f = fixture();
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      f.parser.mockImplementationOnce(async () => {
+        if (scenario === 'native-processing') throw Error('private meal processing detail');
+        if (scenario === 'expired-claim') f.expire();
+        if (scenario === 'draft-transaction') f.breakDraft();
+        return { items: [{ ...rice, ...(scenario === 'invalid-contract' ? { confidence: 2 } : {}) }] };
+      });
+      expect(await f.execute(f.parseOp)).toMatchObject({ ok: false });
+      expect(log.mock.calls[0]?.[1]).toMatchObject({ phase: scenario === 'native-processing' ? 'native_parser' : 'draft_validation' });
+      expect(JSON.stringify(log.mock.calls)).not.toContain('private meal');
+      expect(JSON.stringify(log.mock.calls)).not.toContain('private database');
+      expect(f.state()).toMatchObject({ foods: [], receipts: [], audits: 0 });
+      expect(f.state().proposals[0].envelope.kind).toBe('parsing');
+      expect(await f.execute(f.parseOp)).toMatchObject({ ok: false });
+      expect(f.parser).toHaveBeenCalledTimes(1);
+      expect(f.state()).toMatchObject({ foods: [], receipts: [], audits: 0 });
+    } finally { log.mockRestore(); }
+  });
 });
