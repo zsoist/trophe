@@ -192,3 +192,9 @@ it('keeps exact reference decimals through unchanged review, receipt and duplica
  expect(f.state().foods[0]).toMatchObject({calories:247.5,proteinG:46.5,qtyG:'150'});
  expect(await f.execute(operation)).toEqual(first);expect(f.state().foods).toHaveLength(1);expect(f.parser).toHaveBeenCalledTimes(1);
 });
+
+it('AG4 applies a reviewed estimate with unknown fiber and sugar as null',async()=>{
+ const f=fixture();f.parser.mockResolvedValueOnce({items:[{...rice,fiber_g:0,sugar_g:0,unavailable_nutrients:['fiber_g','sugar_g']}]});
+ const d=await f.parse();const proposal=await f.propose(d,100);const result=await f.execute(f.applyOp(proposal));
+ expect(result).toMatchObject({ok:true});expect(f.state().foods[0]).toMatchObject({fiberG:null,sugarG:null});expect(f.state().receipts).toHaveLength(1);
+});
