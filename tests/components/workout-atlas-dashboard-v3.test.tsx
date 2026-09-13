@@ -178,8 +178,8 @@ describe('worked view context follows the visible state', () => {
       </I18nProvider>,
     );
 
-    expect(container.querySelector('.workout-muscle-target-context')?.textContent)
-      .toBe(translations['anatomy.no_worked'].en);
+    expect(container.querySelector('.workout-muscle-target-context')).toBeNull();
+    expect(screen.getByRole('status').textContent).toBe(translations['anatomy.no_worked'].en);
   });
 });
 
