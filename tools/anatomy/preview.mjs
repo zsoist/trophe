@@ -55,8 +55,8 @@ assets.set("/anatomy/muscle-atlas-mark.webp", {
 });
 // Serve only media resolved by the production catalogue; never candidate or AG2 review media.
 const { resolveExerciseMedia } = await tsImport('../../lib/workout/exercise-media.ts', import.meta.url);
-const { ATLAS_EXERCISES } = await tsImport('../../lib/anatomy/exercises.ts', import.meta.url);
-for (const exercise of ATLAS_EXERCISES) {
+const { reviewExercises } = await tsImport('./workout-review/store.ts', import.meta.url);
+for (const exercise of reviewExercises) {
   const media = resolveExerciseMedia({ name: exercise.name, equipment: exercise.equipment, muscleGroup: exercise.muscle_group });
   for (const url of [media.posterSrc, media.motionSrc, media.mobileMotionSrc].filter(Boolean)) {
     if (!/^\/workout(?:-v[23])?\//.test(url) || url.includes('..')) throw Error('Unexpected catalogue media path');
