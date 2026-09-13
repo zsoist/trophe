@@ -1,4 +1,5 @@
 import { lockTextFoodCatalogue } from './text-food-catalogue';
+import { safeErrorMetadata } from '@/lib/security/safe-error-log';
 import { createHash, randomUUID } from 'node:crypto';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
@@ -103,8 +104,10 @@ export function createTextFoodService(database: Database, parser: TextFoodParser
     if (!checked.success) return fail('invalid_input');
     if (!z.string().uuid().safeParse(scope.actorId).success || !z.string().uuid().safeParse(scope.organizationId).success || scope.actorId !== scope.subjectId) return fail('forbidden');
     const op = checked.data, s: Scope = { ...scope, operation: op };
+    let phase = 'action';
     try {
       if (op.operation === 'text.food.parse') {
+        phase = 'parse_claim';
         const requestHash = scopedHash(s, { text: op.text, language: op.language, requestId: op.requestId });
         const existing = await transaction(s, async tx => {
           // Fail before any paid parsing while the reviewed SQL extension is on HOLD.
@@ -125,7 +128,9 @@ export function createTextFoodService(database: Database, parser: TextFoodParser
           return null;
         });
         if (existing) return { ok: true, draft: existing };
+        phase = 'native_parser';
         const output = await parser({ text: op.text, language: op.language }, { actorId: s.actorId, requestId: op.requestId, signal: s.signal });
+        phase = 'draft_validation';
         return await transaction(s, async tx => {
           const claim = await tx.execute<{ envelope: { kind?: string }; expired: boolean }>(sql`SELECT envelope,expires_at<=clock_timestamp() AS expired FROM private.coach_action_proposals WHERE id=${op.requestId}::uuid AND actor_id=${s.actorId}::uuid AND request_hash=${requestHash} AND action=${action} FOR UPDATE`);
           if (claim.rows.length !== 1 || claim.rows[0].envelope.kind !== 'parsing') throw new Rejected('conflict');
@@ -189,6 +194,13 @@ export function createTextFoodService(database: Database, parser: TextFoodParser
         return result;
       });
     } catch (error) {
+      // Stage and schema paths only: never log meal content or native provider output.
+      console.error('[text-food] operation failed', {
+        phase,
+        ...safeErrorMetadata(error),
+        ...(error instanceof Rejected ? { code: error.code } : {}),
+        ...(error instanceof z.ZodError ? { issues: error.issues.map(issue => ({ code: issue.code, path: issue.path })) } : {}),
+      });
       if (error instanceof Rejected) return fail(error.code);
       if (error instanceof z.ZodError || error instanceof Error && error.message === 'invalid_input') return fail('invalid_input');
       return fail('uncertain');
