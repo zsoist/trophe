@@ -247,13 +247,16 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
       const historyTurn=foodPreferenceTurn??memoryTurn;
       let capabilityRegistry:ReturnType<typeof createCoachCapabilityRegistry>|undefined;
       if(conversational&&!synthetic) {
-        if(clientId&&clientId!==guard.userId)return fail('forbidden',403);
         const messagesEnabled=deps.env.COACH_ASSISTANT_MESSAGE_ACTIONS_ENABLED==='1';
-        if(messagesEnabled&&!deps.createMessageService)return fail('provider_unavailable',503);
-        capabilityRegistry=createCoachCapabilityRegistry({
-          message:messagesEnabled?await deps.createMessageService!():undefined,
-          foodReference:lookupFoodReference,
-        });
+        const selfScope=!clientId||clientId===guard.userId;
+        if(messagesEnabled&&!selfScope)return fail('forbidden',403);
+        if(selfScope) {
+          if(messagesEnabled&&!deps.createMessageService)return fail('provider_unavailable',503);
+          capabilityRegistry=createCoachCapabilityRegistry({
+            message:messagesEnabled?await deps.createMessageService!():undefined,
+            foodReference:lookupFoodReference,
+          });
+        }
       }
       const isolatedRequested=conversational&&deps.env.COACH_ASSISTANT_ISOLATED_ENGINE_ENABLED==='1';
       const candidateRequested=conversational&&deps.env.COACH_ASSISTANT_CANDIDATE_EVALUATION_ENABLED==='1';
