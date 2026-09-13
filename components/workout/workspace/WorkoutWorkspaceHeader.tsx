@@ -54,21 +54,21 @@ function WorkoutWorkspaceHeaderContent({ stage, onBack, backDisabled = false }: 
   }, [pathname]);
 
   return (
-    <header className="flex min-h-16 items-center gap-2 border-b border-[var(--workout-rail)] px-3 py-2 min-[375px]:gap-3 min-[375px]:px-4">
+    <header className="workout-workspace-header flex min-h-16 items-center gap-2 border-b border-[var(--workout-rail)] px-3 py-2 min-[375px]:gap-3 min-[375px]:px-4">
       {!isHome && (
         backDisabled ? (
           <button type="button" disabled aria-label={t('workout.edit_locked')} className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1 rounded-xl text-sm font-medium opacity-40 min-[375px]:px-2">
-            <ChevronLeft size={18} strokeWidth={2} aria-hidden="true" />
+            <ChevronLeft size={18} strokeWidth={1.25} aria-hidden="true" />
             <span className="hidden min-[430px]:inline">{t('workout.workspace_back')}</span>
           </button>
         ) : (
           <Link href={backHref} onClick={() => { onBack?.(); resetWorkoutScroll(); }} aria-label={t('workout.workspace_back')} className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1 rounded-xl text-sm font-medium hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] min-[375px]:px-2">
-            <ChevronLeft size={18} strokeWidth={2} aria-hidden="true" />
+            <ChevronLeft size={18} strokeWidth={1.25} aria-hidden="true" />
             <span className="hidden min-[430px]:inline">{t('workout.workspace_back')}</span>
           </Link>
         )
       )}
-      <Dumbbell className="hidden shrink-0 min-[430px]:block" size={18} strokeWidth={2} aria-hidden="true" />
+      <Dumbbell className="hidden shrink-0 min-[430px]:block" size={18} strokeWidth={1.25} aria-hidden="true" />
       <h1 className="min-w-0 flex-1 truncate text-sm font-semibold min-[375px]:text-base">{title}</h1>
       {isHome && (
         <button
@@ -76,14 +76,14 @@ function WorkoutWorkspaceHeaderContent({ stage, onBack, backDisabled = false }: 
           onClick={() => setUnit(nextUnit)}
           aria-label={t('workout.weight_unit_label', { unit })}
           title={t('workout.weight_unit_switch', { unit: nextUnit })}
-          className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl border border-[var(--workout-rail)] bg-[var(--surface-subtle)] px-2 font-mono text-xs font-semibold lowercase tabular-nums text-[var(--content-primary)] hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+          className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl border border-[var(--workout-rail)] bg-[var(--surface-subtle)] px-2 text-xs font-semibold lowercase tabular-nums text-[var(--content-primary)] hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
         >
           {unit}
         </button>
       )}
       {!isHome && (
         <Link href={WORKOUT_ROUTES.home} onClick={resetWorkoutScroll} aria-label={t('workout.workspace_home_title')} className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1 rounded-xl text-sm font-medium hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] min-[375px]:px-2">
-          <House size={17} strokeWidth={2} aria-hidden="true" />
+          <House size={17} strokeWidth={1.25} aria-hidden="true" />
           <span className="hidden min-[430px]:inline">{t('workout.workspace_home_title')}</span>
         </Link>
       )}

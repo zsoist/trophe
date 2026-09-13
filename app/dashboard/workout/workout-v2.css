@@ -1,0 +1,82 @@
+@font-face {
+  font-family: 'Workout Jakarta';
+  src: url('/fonts/workout/jakarta-variable.ttf') format('truetype');
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Workout owns these tokens. Ask keeps its existing theme and typography. */
+.workout-workspace {
+  --wk-bg: #101211;
+  --wk-surface: #191c1a;
+  --wk-tray: #242925;
+  --wk-text: #f3f4ef;
+  --wk-muted: #a7aea7;
+  --wk-line: #ffffff0c;
+  --wk-gold: #c6ad7b;
+  --wk-on-gold: #181c16;
+  --wk-tint: #29291f;
+  --wk-danger: #ed9c96;
+  --wk-success: #91b9a4;
+  --wk-radius: 22px;
+  --wk-ease: cubic-bezier(.32,.72,0,1);
+  --wk-route: 220ms;
+  --wk-sheet: 420ms;
+  --wk-press: 120ms;
+  --wk-font: 'Workout Jakarta', system-ui, sans-serif;
+  background: var(--wk-bg);
+}
+.light .workout-workspace {
+  --wk-bg: #f4f5f2;
+  --wk-surface: #ffffff;
+  --wk-tray: #e8ece6;
+  --wk-text: #20281f;
+  --wk-muted: #626d61;
+  --wk-line: #2638210d;
+  --wk-gold: #74602f;
+  --wk-on-gold: #ffffff;
+  --wk-tint: #e9eadf;
+  --wk-danger: #a6322e;
+  --wk-success: #276951;
+}
+.workout-workspace > .workout-route-transition,
+.workout-workspace > .workout-workspace-header,
+.workout-workspace.workout-dialog {
+  font-family: var(--wk-font);
+  color: var(--wk-text);
+  --font-ui: var(--wk-font);
+  --content-primary: var(--wk-text);
+  --content-muted: var(--wk-muted);
+  --workout-canvas: var(--wk-bg);
+  --workout-rail: var(--wk-line);
+  --surface-subtle: var(--wk-surface);
+  --surface-hover: var(--wk-tray);
+  --action-primary: var(--wk-gold);
+  --focus-ring: var(--wk-gold);
+}
+.workout-workspace > .workout-workspace-header {
+  margin: 12px 16px 20px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 28px;
+  background: var(--wk-surface);
+  gap: 8px;
+}
+.workout-workspace-header :where(a, button):focus-visible {
+  outline: 2px solid var(--wk-gold);
+  outline-offset: 3px;
+}
+.workout-workspace-header :where(a, button) {
+  transition: transform var(--wk-press) var(--wk-ease), background-color 180ms var(--wk-ease);
+}
+.workout-workspace-header :where(a, button):not(:disabled):active {
+  transform: scale(.975);
+}
+@media (min-width: 768px) {
+  .workout-workspace > .workout-workspace-header { margin: 20px 24px 28px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .workout-workspace-header :where(a, button) { transition: none; }
+  .workout-workspace-header :where(a, button):not(:disabled):active { transform: none; }
+}
