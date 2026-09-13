@@ -77,3 +77,18 @@ describe('durable turn orchestration', () => {
     expect(f.execute).not.toHaveBeenCalled(); expect(f.empty).not.toHaveBeenCalled();
   });
 });
+
+it('loads prior structured reference through the authenticated service and persists a deterministic follow-up',async()=>{
+ const f=setup();f.request.message='and 200 g';const previousTurn=crypto.randomUUID(),assistantId=crypto.randomUUID();
+ f.execute.mockResolvedValueOnce({version:'coach-assistant.chat.v1',storage:'database',ok:true,value:{message:{sequence:5},replayed:false,current:true}} as never);
+ f.execute.mockResolvedValueOnce({version:'coach-assistant.chat.v1',storage:'database',ok:true,value:{thread:{id:f.request.conversationId},messages:[{role:'user',text:'150g chicken',sequence:3,turnId:previousTurn},{id:assistantId,role:'assistant',text:'Prior reference',sequence:4,turnId:previousTurn}]}} as never);
+ const lookupFoodReference=vi.fn(async()=>({ok:true,value:{kind:'catalogue',options:[{referenceId:'chicken',name:'Chicken breast, cooked',brand:null,source:'usda',quality:'lab_verified',preparation:'cooked',kcalPer100g:165,proteinPer100g:31,conversions:[]}]}}));
+ const service={...f.service,lookupFoodReference} as unknown as ReturnType<typeof createCoachChatService>;
+ const result=await runDurableChatTurn(f.request,f.options,service);
+ expect(lookupFoodReference).toHaveBeenCalledWith(expect.objectContaining({actorId:f.options.actorId}),f.request.conversationId,assistantId,f.options.signal);
+ expect(result.saved&&result.response.output?.answer).toContain('330 kcal');
+ expect(result.saved&&result.response.telemetry.modelCalls).toBe(0);
+ expect(f.appendFinal).toHaveBeenCalledTimes(1);
+ const proof=(f.appendFinal.mock.calls as unknown[][])[0][2];
+ expect(readVerifiedChatFinal(proof as Parameters<typeof readVerifiedChatFinal>[0])?.foodReference?.kind).toBe('catalogue');
+});

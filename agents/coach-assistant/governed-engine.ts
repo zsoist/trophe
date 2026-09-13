@@ -81,7 +81,11 @@ export function createGovernedCoachEngineBinding(input: {
       if (governed.attempts.length > 0) {
         response.telemetry.model = 'gpt-5.6-luna';
         response.telemetry.provider = 'openai';
-        if (governed.attempts.every(attempt => attempt.state === 'settled' && attempt.pricedUsageNanoUsd !== null)) {
+        if (response.capabilityResult?.tool === 'food.reference' && response.capabilityResult.result && typeof response.capabilityResult.result === 'object' && 'native' in response.capabilityResult.result) {
+          // Native Food and search settle separately in the same ledger. The selector
+          // trace alone is not the total cost of this composed turn.
+          response.telemetry.costUsd = null;
+        } else if (governed.attempts.every(attempt => attempt.state === 'settled' && attempt.pricedUsageNanoUsd !== null)) {
           response.telemetry.costUsd = governed.attempts.reduce(
             (total, attempt) => total + attempt.pricedUsageNanoUsd!, 0,
           ) / USD_IN_NANODOLLARS;

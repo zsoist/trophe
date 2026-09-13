@@ -1,10 +1,11 @@
+import { foodReferenceToolSchema, type FoodReferenceSnapshot } from './food-reference-continuity';
 import {randomUUID} from 'node:crypto';
 import {sql} from 'drizzle-orm';
 import {z} from 'zod';
 import type {db} from '@/db/client';
 import {coachMessageInputSchema} from './message-input';
 import {COACH_CHAT_VERSION,type CoachChatScope,type CoachChatResult,type CoachChatThread,type CoachChatMessage,type CoachChatTurnRecovery,type CoachChatError} from './chat-contract';
-import {chatTextHash,readVerifiedChatFinal,bindVerifiedChatFinal,type VerifiedChatFinal} from './chat-final';
+import {chatTextHash,chatStoredContentHash,readVerifiedChatFinal,bindVerifiedChatFinal,type VerifiedChatFinal} from './chat-final';
 import type {CoachSpeechTextPort} from './chat-ports';
 export const COACH_CHAT_NAMESPACE='coach-assistant-global-v1';
 type Tx=Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -23,13 +24,13 @@ const operationSchema=z.discriminatedUnion('operation',[
 const dbTimestamp=z.string().refine(v=>Number.isFinite(Date.parse(v))).transform(v=>new Date(v).toISOString());
 const threadSchema=z.object({access_revoked:z.boolean(),id:uuid,title:z.string(),created_at:dbTimestamp,revision,request_id:uuid,create_hash:z.string(),state:z.enum(['active','cleanup_pending','deleted']),next_sequence:z.number().int().nonnegative()});
 type Thread=z.infer<typeof threadSchema>;
-const messageSchema=z.object({id:uuid,turn_id:uuid,role:z.enum(['user','assistant']),content:z.string(),sequence:z.number().int().positive(),revision:uuid,created_at:dbTimestamp,request_id:uuid,content_hash:z.string(),current:z.boolean(),pipeline_version:z.string().nullable(),outcome:z.enum(['inflight','failed','settled'])});
+const messageSchema=z.object({id:uuid,turn_id:uuid,role:z.enum(['user','assistant']),content:z.string(),tool_calls:z.unknown().optional(),sequence:z.number().int().positive(),revision:uuid,created_at:dbTimestamp,request_id:uuid,content_hash:z.string(),current:z.boolean(),pipeline_version:z.string().nullable(),outcome:z.enum(['inflight','failed','settled'])});
 type Message=z.infer<typeof messageSchema>;
 class Rejected extends Error{constructor(readonly code:CoachChatError){super(code);}}
 const fail=<T>(error:CoachChatError):CoachChatResult<T>=>({version:COACH_CHAT_VERSION,storage:'database',ok:false,error});
 const success=<T>(value:T):CoachChatResult<T>=>({version:COACH_CHAT_VERSION,storage:'database',ok:true,value});
 const threadView=(t:Thread):CoachChatThread=>({id:t.id,title:t.title,createdAt:t.created_at,revision:t.revision,state:t.state});
-function messageView(m:Message):CoachChatMessage{if(chatTextHash(m.content)!==m.content_hash)throw new Rejected('uncertain');return {id:m.id,turnId:m.turn_id,role:m.role,text:m.content,sequence:m.sequence,revision:m.revision,createdAt:m.created_at};}
+function messageView(m:Message):CoachChatMessage{if(chatStoredContentHash(m.content,m.tool_calls)!==m.content_hash)throw new Rejected('uncertain');return {id:m.id,turnId:m.turn_id,role:m.role,text:m.content,sequence:m.sequence,revision:m.revision,createdAt:m.created_at};}
 export interface CoachChatCleanup {cleanup(scope:CoachChatScope,threadId:string,signal:AbortSignal):Promise<{complete:boolean}>}
 export type ChatOperationValue={thread:CoachChatThread;cleanup?:'complete'|'pending'}|{threads:CoachChatThread[];nextCursor:{createdAt:string;id:string}|null}|{thread:CoachChatThread;messages:CoachChatMessage[];nextSequence:number|null}|CoachChatTurnRecovery|{message:CoachChatMessage;replayed:boolean;current:boolean};
 /** Current actor, membership roles, subject and assignment are locked on EVERY operation.
@@ -70,13 +71,14 @@ export function createCoachChatService(database:typeof db,cleanup?:CoachChatClea
   if(!includeDeleted&&(t.state!=='active'||t.access_revoked))throw new Rejected('not_found');return t;
  }
  async function messages(tx:Tx,scope:CoachChatScope,id:string,condition:ReturnType<typeof sql>,limit:number){
-  const r=await tx.execute(sql`SELECT c.id,t.turn_id,t.role,c.content,t.sequence,t.revision,c.created_at::text,t.request_id,t.content_hash,t.current,t.pipeline_version,t.outcome
+  const r=await tx.execute(sql`SELECT c.id,t.turn_id,t.role,c.content,c.tool_calls,t.sequence,t.revision,c.created_at::text,t.request_id,t.content_hash,t.current,t.pipeline_version,t.outcome
  FROM (SELECT * FROM private.coach_chat_turns WHERE thread_id=${id}::uuid) t LEFT JOIN public.agent_conversation c ON c.id=t.content_id
  AND c.user_id=${scope.actorId}::uuid AND c.session_id=${id} AND c.agent_name=${COACH_CHAT_NAMESPACE} AND c.role=t.role WHERE ${condition}
  ORDER BY t.sequence LIMIT ${limit}`);return r.rows.map(row=>messageSchema.parse(row));
  }
- async function append(tx:Tx,scope:CoachChatScope,t:Thread,input:{requestId:string;turnId:string;role:'user'|'assistant';text:string;pipelineVersion:string|null;expectedAssistantRevision?:string}){
-  const hash=chatTextHash(input.text),prior=await messages(tx,scope,t.id,sql`t.request_id=${input.requestId}::uuid`,1);
+ async function append(tx:Tx,scope:CoachChatScope,t:Thread,input:{requestId:string;turnId:string;role:'user'|'assistant';text:string;pipelineVersion:string|null;foodReference?:FoodReferenceSnapshot|null;expectedAssistantRevision?:string}){
+  const toolCalls=input.foodReference?[{name:'food.reference',input:{},output:input.foodReference}]:null;
+  const hash=chatStoredContentHash(input.text,toolCalls),prior=await messages(tx,scope,t.id,sql`t.request_id=${input.requestId}::uuid`,1);
   if(prior.length){const p=prior[0];if(p.turn_id!==input.turnId||p.role!==input.role||p.content_hash!==hash||p.pipeline_version!==input.pipelineVersion)throw new Rejected('idempotency_conflict');return {message:messageView(p),replayed:true,current:p.current};}
   const existing=await messages(tx,scope,t.id,sql`t.turn_id=${input.turnId}::uuid AND t.role=${input.role} AND t.current=true`,1);
   if(input.role==='user'&&existing.length)throw new Rejected('idempotency_conflict');
@@ -91,7 +93,7 @@ export function createCoachChatService(database:typeof db,cleanup?:CoachChatClea
    ?await tx.execute<{sequence:number}>(sql`UPDATE private.coach_chat_threads SET next_sequence=next_sequence+1,revision=revision+1 WHERE id=${t.id}::uuid RETURNING next_sequence AS sequence`)
    :await tx.execute<{sequence:number}>(sql`UPDATE private.coach_chat_threads SET next_sequence=next_sequence+1,revision=revision+1,title=${firstTitle} WHERE id=${t.id}::uuid RETURNING next_sequence AS sequence`);
   const n=sequence.rows[0]?.sequence;if(!Number.isSafeInteger(n)||n!==t.next_sequence+1)throw new Rejected('uncertain');
-  await tx.execute(sql`INSERT INTO public.agent_conversation(id,user_id,agent_name,session_id,role,content) VALUES (${id}::uuid,${scope.actorId}::uuid,${COACH_CHAT_NAMESPACE},${t.id},${input.role},${input.text})`);
+  await tx.execute(sql`INSERT INTO public.agent_conversation(id,user_id,agent_name,session_id,role,content,tool_calls) VALUES (${id}::uuid,${scope.actorId}::uuid,${COACH_CHAT_NAMESPACE},${t.id},${input.role},${input.text},${toolCalls?JSON.stringify(toolCalls):null}::jsonb)`);
   await tx.execute(sql`INSERT INTO private.coach_chat_turns(thread_id,content_id,turn_id,request_id,role,sequence,revision,content_hash,pipeline_version,current,outcome)
    VALUES (${t.id}::uuid,${id}::uuid,${input.turnId}::uuid,${input.requestId}::uuid,${input.role},${n},${version}::uuid,${hash},${input.pipelineVersion},true,${input.role==='user'?'inflight':'settled'})`);
   if(input.role==='assistant'){
@@ -171,7 +173,18 @@ export function createCoachChatService(database:typeof db,cleanup?:CoachChatClea
    return transaction(scope,signal,async tx=>{
     const t=await thread(tx,scope,op.data.threadId),user=await messages(tx,scope,t.id,sql`t.turn_id=${final.turnId}::uuid AND t.role='user' AND t.current=true`,1);
     if(user.length!==1||user[0].content_hash!==final.userTextHash)throw new Rejected('idempotency_conflict');
-    return append(tx,scope,t,{requestId:op.data.requestId,turnId:final.turnId,role:'assistant',text:final.text,pipelineVersion:final.pipelineVersion,expectedAssistantRevision:op.data.expectedAssistantRevision});
+    return append(tx,scope,t,{requestId:op.data.requestId,turnId:final.turnId,role:'assistant',text:final.text,pipelineVersion:final.pipelineVersion,foodReference:final.foodReference,expectedAssistantRevision:op.data.expectedAssistantRevision});
+   });
+  },
+  async lookupFoodReference(scope:CoachChatScope,threadId:string,responseId:string,signal:AbortSignal){
+   if(!uuid.safeParse(threadId).success||!uuid.safeParse(responseId).success)return fail<FoodReferenceSnapshot>('invalid_input');
+   return transaction(scope,signal,async tx=>{
+    await thread(tx,scope,threadId);
+    const rows=await messages(tx,scope,threadId,sql`t.content_id=${responseId}::uuid AND t.role='assistant' AND t.current=true AND t.outcome='settled' AND t.pipeline_version='coach-assistant.v2'`,1);
+    if(rows.length!==1)throw new Rejected('not_found');
+    messageView(rows[0]);
+    const parsed=foodReferenceToolSchema.safeParse(rows[0].tool_calls);if(!parsed.success)throw new Rejected('not_found');
+    return parsed.data[0].output;
    });
   },
   async lookupFinal(scope:CoachChatScope,threadId:string,responseId:string,signal:AbortSignal){

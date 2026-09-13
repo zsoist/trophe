@@ -14,6 +14,14 @@ export async function POST(request: NextRequest) {
       const { createIsolatedCoachEngineBinding } = await import('@/agents/coach-assistant/isolated-engine');
       return createIsolatedCoachEngineBinding(process.env);
     },
+    createReferenceReviewService: async reference => {
+      const [{db},{createTextFoodService},{foodReferenceReviewOutput}]=await Promise.all([import('@/db/client'),import('@/agents/coach-assistant/text-food-service'),import('@/agents/coach-assistant/food-reference-review')]);
+      return createTextFoodService(db,async()=>{const output=foodReferenceReviewOutput(reference);if(!output)throw new Error('invalid_input');return output;});
+    },
+    createFoodReferenceFallback: async (actorId, turnId) => {
+      const { createPrivateFoodReferenceFallback } = await import('@/agents/coach-assistant/private-food-reference-runtime');
+      return createPrivateFoodReferenceFallback(process.env, actorId, turnId);
+    },
     createGovernedEngine: async (actorId: string) => {
       const [{ db }, { invokeStructuredProvider }, { createPilotBudgetStore }, { createGovernedCoachEngineBinding }] = await Promise.all([
         import('@/db/client'),

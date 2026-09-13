@@ -1,3 +1,4 @@
+import { foodReferenceReviewIntent } from './food-reference-review';
 import { isFoodPortionFollowUp } from './food-reference';
 import { randomUUID } from 'node:crypto';
 import type { CoachConversationRequest } from './contracts';
@@ -18,7 +19,8 @@ export async function runDurableChatTurn(request: CoachConversationRequest, opti
   const user = await service.execute(scope, { version: 'coach-assistant.chat.v1', operation: 'append_user', threadId: request.conversationId, turnId: request.turnId, requestId: request.turnId, text: request.message }, options.signal);
   if (!user.ok || !('message' in user.value) || user.value.replayed) return { saved: false as const };
   let scopedRequest = request;
-  if (isFoodPortionFollowUp(request.message)) {
+  let generationOptions=options;
+  if (isFoodPortionFollowUp(request.message)||foodReferenceReviewIntent(request.message)) {
     // Client history never binds a bare quantity to a food. Read only the
     // immediately preceding settled pair in this authenticated thread instead.
     scopedRequest = { ...request, history: [] };
@@ -30,15 +32,19 @@ export async function runDurableChatTurn(request: CoachConversationRequest, opti
         const previousAssistant = prior.value.messages.find(message => message.sequence === sequence - 1);
         if (previousUser?.role === 'user' && previousAssistant?.role === 'assistant' && previousUser.turnId === previousAssistant.turnId) {
           scopedRequest.history = [{ role: 'user', text: previousUser.text.slice(0, 500) }];
+          if(service.lookupFoodReference){
+            const reference=await service.lookupFoodReference(scope,request.conversationId,previousAssistant.id,options.signal);
+            if(reference.ok)generationOptions={...options,foodReferenceFollowUp:reference.value};
+          }
         }
       }
     }
   }
   const generated = engine
-    ? await runVerifiedChatFinalWithIsolatedEngine(scopedRequest, options, scope, engine)
+    ? await runVerifiedChatFinalWithIsolatedEngine(scopedRequest, generationOptions, scope, engine)
     : governedEngine
-      ? await runVerifiedChatFinalWithGovernedEngine(scopedRequest, options, scope, governedEngine)
-      : await runVerifiedChatFinal(scopedRequest, options, scope);
+      ? await runVerifiedChatFinalWithGovernedEngine(scopedRequest, generationOptions, scope, governedEngine)
+      : await runVerifiedChatFinal(scopedRequest, generationOptions, scope);
   if (!generated.final) {
     // An abort can race a provider completion and durable append in another
     // request. Keep the claim inflight; only a conclusive local terminal result

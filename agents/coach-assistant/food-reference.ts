@@ -1,3 +1,4 @@
+import { isParsedFoodItem, type ParsedFoodItem } from '@/agents/schemas/food-parse';
 import { z } from 'zod';
 
 /** One catalogue reference option, always normalised to per-100 g with explicit
@@ -22,6 +23,7 @@ export const foodReferenceSchema = z.object({
   /** Validated food_unit_conversions rows for units the user actually mentioned
    * in the latest message. Empty when no validated conversion exists; the
    * renderer then asks for grams instead of inventing one. */
+  reviewBasis: z.custom<ParsedFoodItem>(isParsedFoodItem).optional(),
   conversions: z.array(z.object({
     unit: z.string().min(1).max(20),
     gramsPerUnit: z.number().finite().gt(0).max(10_000),
@@ -43,6 +45,10 @@ interface FoodReferenceRow {
     dataQuality?: string | null;
     kcalPer100g?: number | null;
     proteinPer100g?: number | null;
+    carbPer100g?: number | null;
+    fatPer100g?: number | null;
+    fiberPer100g?: number | null;
+    sugarPer100g?: number | null;
   };
   conversionId: string | null;
   gramsPerUnit: number;
@@ -451,7 +457,10 @@ function buildFoodReference(
       }
     }
 
+    const candidateBasis = {raw_text:name,food_name:name,name_localized:name,quantity:100,unit:'g',grams:100,calories:kcal,protein_g:protein,carbs_g:base.food.carbPer100g,fat_g:base.food.fatPer100g,fiber_g:base.food.fiberPer100g,sugar_g:base.food.sugarPer100g,confidence:1,source:'local_db',portion_explicit:true,brand,db_source:base.food.source,data_quality:base.food.dataQuality,db_food_id:catalogueId};
+    const reviewBasis = isParsedFoodItem(candidateBasis) ? candidateBasis : undefined;
     const parsed = foodReferenceSchema.safeParse({
+      ...(reviewBasis ? { reviewBasis } : {}),
       referenceId: makeReferenceId(name, String(base.food.source ?? ''), preparation),
       name,
       brand,

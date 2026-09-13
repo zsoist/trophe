@@ -1,3 +1,4 @@
+import { snapshotFoodReference, type FoodReferenceSnapshot } from './food-reference-continuity';
 import {createHash} from 'node:crypto';
 import {conversationRequestSchema} from './schema';
 import {runConversation} from './conversation';
@@ -6,17 +7,22 @@ import {isIsolatedCoachEngineBinding,verifyIsolatedCoachEngineExecution,type Iso
 import {isGovernedCoachEngineBinding,verifyGovernedCoachEngineExecution,type GovernedCoachEngineBinding} from './governed-engine';
 /** Opaque process-local proof. There is no constructor accepting arbitrary final text. */
 export interface VerifiedChatFinal {readonly kind:'verified_coach_chat_final'}
-interface FinalData {scope:CoachChatScope;threadId:string;turnId:string;text:string;hash:string;pipelineVersion:string;userTextHash:string}
+interface FinalData {scope:CoachChatScope;threadId:string;turnId:string;text:string;hash:string;pipelineVersion:string;userTextHash:string;foodReference:FoodReferenceSnapshot|null}
 const finals=new WeakMap<VerifiedChatFinal,FinalData>();
 const requests=new WeakMap<VerifiedChatFinal,string>();
 export function bindVerifiedChatFinal(proof:VerifiedChatFinal,requestId:string):boolean{if(!finals.has(proof))return false;const prior=requests.get(proof);if(prior&&prior!==requestId)return false;requests.set(proof,requestId);return true;}
 export const chatTextHash=(text:string)=>createHash('sha256').update(text).digest('hex');
 export function readVerifiedChatFinal(proof:VerifiedChatFinal):FinalData|null{return finals.has(proof)?structuredClone(finals.get(proof)!):null;}
+export function chatStoredContentHash(text:string,toolCalls:unknown):string{
+ if(toolCalls==null)return chatTextHash(text);
+ const stable=(value:unknown):unknown=>Array.isArray(value)?value.map(stable):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).sort(([a],[b])=>a<b?-1:a>b?1:0).map(([key,item])=>[key,stable(item)])):value;
+ return chatTextHash(JSON.stringify(stable({text,toolCalls})));
+}
 function issueFinal(request:ReturnType<typeof conversationRequestSchema.parse>,response:Awaited<ReturnType<typeof runConversation>>,scope:CoachChatScope){
  if(!response.ok||!response.output||!response.snapshot)return {response,final:null};
  if(response.snapshot.subjectId!==scope.subjectId||response.snapshot.organizationId!==scope.organizationId)throw new Error('forbidden');
  const proof:VerifiedChatFinal=Object.freeze({kind:'verified_coach_chat_final'});
- finals.set(proof,{scope:structuredClone(scope),threadId:request.conversationId,turnId:request.turnId,text:response.output.answer,hash:chatTextHash(response.output.answer),pipelineVersion:response.version,userTextHash:chatTextHash(request.message)});
+ finals.set(proof,{scope:structuredClone(scope),threadId:request.conversationId,turnId:request.turnId,text:response.output.answer,hash:chatTextHash(response.output.answer),pipelineVersion:response.version,userTextHash:chatTextHash(request.message),foodReference:response.capabilityResult?.tool==='food.reference'?snapshotFoodReference(response.capabilityResult.result,request.message):null});
  return {response,final:proof};
 }
 /** Runs the existing verified pipeline unchanged. The browser cannot mark text final.

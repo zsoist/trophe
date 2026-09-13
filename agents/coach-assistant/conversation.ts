@@ -1,3 +1,6 @@
+import { foodReferenceReviewIntent } from './food-reference-review';
+import { recalculateFoodReference } from './food-reference-continuity';
+import { renderNativeFoodReference } from './food-reference-native-render';
 import { TEXT_FOOD_SERVER_DEADLINE_MS } from './text-food-deadline';
 import { textFoodIntakeIntent } from './text-food-intent';
 import { renderFoodReferences } from './food-reference';
@@ -62,6 +65,24 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
         if(JSON.stringify(fresh)!==JSON.stringify(authorized)) throw new Error('forbidden');
         return fresh;
       }};
+      if(options.foodReferenceFollowUp&&authorized.actorId===authorized.subjectId){
+        const recalculated=recalculateFoodReference(options.foodReferenceFollowUp,scopedInput.message,authorized.language.startsWith('es'));
+        if(recalculated){
+          response.snapshot={id:randomUUID(),capturedAt:options.now.toISOString(),subjectId:subject,organizationId:authorized.organizationId,...scope,surface:scopedInput.context?.includeScreen?scopedInput.context.surface:null,screenIncluded:!!scopedInput.context?.includeScreen,language:authorized.language,units:{weight:'kg',energy:'kcal',protein:'g'},window:windowForConversation(scopedInput,'today','food',authorized.timezone,options.now),capabilities:[]};
+          response.capabilityResult={tool:'food.reference',status:'read',result:recalculated.result,applied:false};
+          response.output={answer:recalculated.answer,evidenceRefs:[],limitations:[],suggestions:[],escalation:{required:false,reason:null,draft:null}};
+          await authorizedRepository.authorize(options.actorId,subject,controller.signal);controller.signal.throwIfAborted();response.ok=true;return;
+        }
+      }
+      if(authorized.actorId===authorized.subjectId&&options.foodReferenceFollowUp&&options.prepareFoodReferenceReview&&foodReferenceReviewIntent(scopedInput.message)&&!scopedInput.attachments?.length){
+        const intake=await options.prepareFoodReferenceReview(scopedInput,options.foodReferenceFollowUp,controller.signal);
+        if(intake){
+          response.snapshot={id:randomUUID(),capturedAt:options.now.toISOString(),subjectId:subject,organizationId:authorized.organizationId,...scope,surface:scopedInput.context?.includeScreen?scopedInput.context.surface:null,screenIncluded:!!scopedInput.context?.includeScreen,language:authorized.language,units:{weight:'kg',energy:'kcal',protein:'g'},window:windowForConversation(scopedInput,'today','food',authorized.timezone,options.now),capabilities:[]};
+          response.textFood=intake;
+          response.output={answer:authorized.language.startsWith('es')?intake.ok?'Revisa la misma referencia, la porción y la fecha antes de confirmar. Todavía no se ha registrado.':'No pude preparar la revisión. No se registró nada.':intake.ok?'Review the same reference, portion and date before confirming. It has not been logged yet.':'I could not prepare the review. Nothing was logged.',evidenceRefs:[],limitations:['text_food_review_required'],suggestions:[],escalation:{required:false,reason:null,draft:null}};
+          await authorizedRepository.authorize(options.actorId,subject,controller.signal);controller.signal.throwIfAborted();response.ok=true;return;
+        }
+      }
       let photoObservations:ConversationPhotoObservation[]=[];
       if(scopedInput.attachments?.length){
         diagnosticStage.value='photo_read';
@@ -96,7 +117,7 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
         response.output={answer:'',evidenceRefs:[],limitations:['capability_turn_no_aggregate_reads'],suggestions:[],escalation:{required:false,reason:null,draft:null}};
         await prepareConversationCapability(selectorInput,response,options.offlineConversationProvider!,options.capabilityRegistry,authorizedRepository,authorized,controller.signal);
         if(response.capabilityResult?.tool==='food.reference'){
-          response.output={answer:renderFoodReferences(response.capabilityResult.result,authorized.language.startsWith('es'),scopedInput.message),evidenceRefs:[],limitations:[],suggestions:[],escalation:{required:false,reason:null,draft:null}};
+          response.output={answer:renderNativeFoodReference(response.capabilityResult.result,authorized.language.startsWith('es'))??renderFoodReferences(response.capabilityResult.result,authorized.language.startsWith('es'),scopedInput.message),evidenceRefs:[],limitations:[],suggestions:[],escalation:{required:false,reason:null,draft:null}};
           await authorizedRepository.authorize(options.actorId,subject,controller.signal);controller.signal.throwIfAborted();response.ok=true;return;
         }
         if(response.capabilityResult?.tool!=='none'){

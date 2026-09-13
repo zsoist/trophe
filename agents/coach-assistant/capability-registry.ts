@@ -1,4 +1,5 @@
 import {z} from 'zod';
+import type { FoodReferenceFallback } from './private-food-reference-runtime';
 import { foodReferenceSchema, type FoodReferenceLookup } from './food-reference';
 import type {AuthorizedContext} from './context';
 import type {CoachConversationRequest} from './contracts';
@@ -16,7 +17,7 @@ export type CapabilityResult={tool:CapabilityChoice['tool'];status:'read'|'revie
 
 /** Server-created message registry. The model can prepare exact review content;
  * recipient identity, versions, apply and receipts remain server/UI owned. */
-export function createCoachCapabilityRegistry(services:{message?:CoachMessageService;foodReference?:FoodReferenceLookup}){
+export function createCoachCapabilityRegistry(services:{message?:CoachMessageService;foodReference?:FoodReferenceLookup;foodReferenceFallback?:FoodReferenceFallback}){
  return {
   available():ReadonlyArray<Exclude<CapabilityChoice['tool'],'none'>>{return [...(services.message?['coach.message.recipient','coach.message.propose'] as const:[]),...(services.foodReference?['food.reference'] as const:[])];},
   async execute(choice:CapabilityChoice,input:CoachConversationRequest,repository:CoachRepository,context:AuthorizedContext,signal:AbortSignal,onRead:()=>void):Promise<CapabilityResult>{
@@ -27,9 +28,15 @@ export function createCoachCapabilityRegistry(services:{message?:CoachMessageSer
    await verify();
    if(choice.tool==='food.reference'){
     const options=[];
+    const misses:string[]=[];
     for(const query of [...new Set(choice.args.queries)]){
       onRead();const result=await services.foodReference!(query,input.message,signal);await verify();
-      if(result){const parsed=foodReferenceSchema.safeParse(result);if(parsed.success)options.push(parsed.data);}
+      if(result){const parsed=foodReferenceSchema.safeParse(result);if(parsed.success)options.push(parsed.data);else throw new Error('invalid_output');}else misses.push(query);
+    }
+    if(misses.length&&services.foodReferenceFallback){
+      const fallback=await services.foodReferenceFallback({queries:misses,text:input.message,language:context.language,signal});
+      await verify();
+      return {tool:choice.tool,status:'read',result:{options,...fallback},applied:false};
     }
     return {tool:choice.tool,status:'read',result:{options},applied:false};
   }

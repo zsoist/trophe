@@ -76,7 +76,9 @@ async function reviewedItems(tx: Tx, draft: TextFoodDraft, after: TextFoodPropos
     const item = draft.items[portion.index];
     if (!item || item.grams <= 0) throw new Rejected('invalid_input');
     const basis = { foodName: selectFoodDisplayName(item), foodId: item.db_food_id ?? null, quantity: item.quantity, qtyG: String(item.grams), calories: item.calories, proteinG: item.protein_g, carbsG: item.carbs_g, fatG: item.fat_g, fiberG: item.fiber_g, sugarG: item.sugar_g } as FoodLogRow;
-    const scaled = await deriveFoodLogEdit(tx, basis, { grams: portion.grams });
+    // An unchanged reviewed portion must retain its exact reference numbers.
+    // Catalogue access is still locked above; edited grams keep the normal Food derivation.
+    const scaled = portion.grams===item.grams?{calories:item.calories,proteinG:item.protein_g,carbsG:item.carbs_g,fatG:item.fat_g,fiberG:item.fiber_g,sugarG:item.sugar_g}:await deriveFoodLogEdit(tx, basis, { grams: portion.grams });
     const confirmed = { ...item, quantity: portion.grams, unit: 'g', grams: portion.grams, calories: scaled.calories!, protein_g: scaled.proteinG!, carbs_g: scaled.carbsG!, fat_g: scaled.fatG!, fiber_g: scaled.fiberG!, sugar_g: scaled.sugarG!, portion_explicit: true };
     validateReviewedTextFood(confirmed, after.loggedDate, after.mealType);
     result.push(confirmed);

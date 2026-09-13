@@ -181,3 +181,12 @@ describe('post-parser failure boundary without provider calls', () => {
     } finally { log.mockRestore(); }
   });
 });
+
+it('keeps exact reference decimals through unchanged review, receipt and duplicate confirmation',async()=>{
+ const f=fixture();f.parser.mockResolvedValueOnce({items:[{...rice,quantity:150,grams:150,calories:247.5,protein_g:46.5,carbs_g:0,fat_g:5.4,source:'llm_cot'}]});
+ const draft=await f.parse();const proposal=await f.propose(draft,150);
+ expect(proposal.items[0]).toMatchObject({calories:247.5,protein_g:46.5});expect(f.state().foods).toHaveLength(0);
+ const operation=f.applyOp(proposal);const first=await f.execute(operation);expect(first).toMatchObject({ok:true,receipt:{status:'applied'},refresh:'refetch'});
+ expect(f.state().foods[0]).toMatchObject({calories:247.5,proteinG:46.5,qtyG:'150'});
+ expect(await f.execute(operation)).toEqual(first);expect(f.state().foods).toHaveLength(1);expect(f.parser).toHaveBeenCalledTimes(1);
+});

@@ -1,3 +1,4 @@
+import type { FoodReferenceFallback } from './private-food-reference-runtime';
 import { TEXT_FOOD_SERVER_DEADLINE_MS } from './text-food-deadline';
 import { textFoodIntakeIntent } from './text-food-intent';
 import { executeTextFoodAction, type TextFoodService } from './text-food-actions';
@@ -43,6 +44,8 @@ interface HandlerDependencies {
   createChatService?:()=>ReturnType<typeof createCoachChatService>|Promise<ReturnType<typeof createCoachChatService>>;
   createAttachmentService?:()=>ReturnType<typeof createPrivateAttachmentService>|Promise<ReturnType<typeof createPrivateAttachmentService>>;
   createFoodService?:()=>FoodQuantityService|Promise<FoodQuantityService>;
+  createReferenceReviewService?:(reference:import('./food-reference-continuity').FoodReferenceSnapshot)=>Promise<TextFoodService>;
+  createFoodReferenceFallback?:(actorId:string,turnId:string)=>Promise<FoodReferenceFallback>;
   createTextFoodService?:(actorId:string)=>TextFoodService|Promise<TextFoodService>;
   createPhotoFoodService?:(operation:unknown,actorId:string)=>PhotoFoodService|Promise<PhotoFoodService>;
   createProgressService?:()=>ProgressService|Promise<ProgressService>;
@@ -255,6 +258,8 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
           capabilityRegistry=createCoachCapabilityRegistry({
             message:messagesEnabled?await deps.createMessageService!():undefined,
             foodReference:lookupFoodReference,
+            foodReferenceFallback:deps.env.COACH_ASSISTANT_LIVE_PILOT_ENABLED==='1'&&deps.createFoodReferenceFallback
+              ?await deps.createFoodReferenceFallback(guard.userId,(parsed.data as import('./contracts').CoachConversationRequest).turnId):undefined,
           });
         }
       }
@@ -324,7 +329,13 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
           return executeTextFoodAction(guard.userId,{version:'coach-assistant.v2',operation:'text.food.parse',conversationId:input.conversationId,turnId:input.turnId,requestId:input.turnId,text:intent.text,language:intent.language},repository,await deps.createTextFoodService!(guard.userId),signal);
         }:undefined;
       if(resolveTextFoodIntake&&conversationInput&&textFoodIntakeIntent(conversationInput.message)){requestDeadlineMs=TEXT_FOOD_SERVER_DEADLINE_MS;clearTimeout(timer);timer=setTimeout(()=>controller.abort(new Error('deadline')),Math.max(1,requestDeadlineMs-(performance.now()-start)));}
+      const prepareFoodReferenceReview=live&&durableChat&&deps.env.COACH_ASSISTANT_TEXT_FOOD_ACTIONS_ENABLED==='1'&&deps.createReferenceReviewService
+        ?async(input:import('./contracts').CoachConversationRequest,reference:import('./food-reference-continuity').FoodReferenceSnapshot,signal:AbortSignal)=>{
+          if(input.attachments?.length||input.context?.clientId&&input.context.clientId!==guard.userId)return null;
+          return executeTextFoodAction(guard.userId,{version:'coach-assistant.v2',operation:'text.food.parse',conversationId:input.conversationId,turnId:input.turnId,requestId:input.turnId,text:input.message,language:'en'},repository,await deps.createReferenceReviewService!(reference),signal);
+        }:undefined;
       const runOptions={
+        prepareFoodReferenceReview,
         resolveTextFoodIntake,
         capabilityRegistry,
         filterMemoryHistory:historyTurn?.filterHistory,
