@@ -17,6 +17,7 @@ async function privateAttachmentRuntime(env: Environment) {
     serviceKey: env.SUPABASE_SERVICE_ROLE_KEY ?? '',
     bucket: env.COACH_ASSISTANT_PRIVATE_ATTACHMENTS_BUCKET ?? '',
     deploymentEnvironment: env.VERCEL_ENV,
+    productionCohort:env.VERCEL_ENV==='production'&&env.COACH_ASSISTANT_PRODUCTION_PILOT_ENABLED==='1'&&env.COACH_ASSISTANT_ENABLED==='1'&&env.COACH_ASSISTANT_DATA_SOURCE==='authorized_records'?(env.COACH_ASSISTANT_PRODUCTION_USER_IDS??'').split(',').map(id=>id.trim()).filter(Boolean):undefined,
   });
   return {
     db,

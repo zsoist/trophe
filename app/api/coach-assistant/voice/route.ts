@@ -9,6 +9,7 @@ import { transcribeCoachAudio, type OfflineCoachTranscriber } from '@/agents/coa
 import type { CoachRepository } from '@/agents/coach-assistant/repository';
 import {createHash} from 'node:crypto';
 import {TRANSCRIPTION_MODEL} from '@/agents/router/policies';
+import { previewCohortAdmitted, productionCohortAdmitted, productionCohortConfigured } from '@/lib/workout/shared-pilot-budget';
 
 export const runtime = 'nodejs';
 
@@ -25,16 +26,20 @@ const reply = (body: unknown, status: number) => Response.json(body, { status, h
 /** CI fixture or explicitly gated Preview STT. Both issue the same review token;
  * only the live path dispatches, after shared durable admission. */
 export async function PUT(request: NextRequest) {
-  const fixture=process.env.COACH_ASSISTANT_VOICE_FIXTURE_ENABLED==='1'&&process.env.CI==='true'&&process.env.GITHUB_ACTIONS==='true';
-  const live=process.env.COACH_ASSISTANT_VOICE_LIVE_ENABLED==='1'&&process.env.COACH_ASSISTANT_LIVE_PILOT_ENABLED==='1'&&process.env.TROPHE_ALLOW_PAID_AI==='1'&&process.env.VERCEL_ENV==='preview';
-  if (process.env.COACH_ASSISTANT_ENABLED !== '1' || (!fixture&&!live) || process.env.VERCEL_ENV === 'production') {
+  const production=process.env.VERCEL_ENV==='production';
+  // The CI fixture path is never available in production, even with the production flag.
+  const fixture=!production&&process.env.COACH_ASSISTANT_VOICE_FIXTURE_ENABLED==='1'&&process.env.CI==='true'&&process.env.GITHUB_ACTIONS==='true';
+  const voiceLive=process.env.COACH_ASSISTANT_VOICE_LIVE_ENABLED==='1'&&process.env.COACH_ASSISTANT_LIVE_PILOT_ENABLED==='1'&&process.env.TROPHE_ALLOW_PAID_AI==='1';
+  // Production takes only the real STT path, and only through the reviewed cohort; preview keeps its own boundary.
+  const realPath=voiceLive&&(process.env.VERCEL_ENV==='preview'||(production&&productionCohortConfigured(process.env)));
+  if (process.env.COACH_ASSISTANT_ENABLED !== '1' || (!fixture&&!realPath)) {
     return reply({ ok: false, status: 'error', error: 'not_connected' }, 404);
   }
   const { guardAiRoute } = await import('@/lib/security/api-guard');
   const guard = await guardAiRoute(request);
   if (!guard.ok) return guard.response;
-  const allowed = (process.env.COACH_ASSISTANT_PREVIEW_USER_IDS ?? '').split(',').map(value => value.trim()).filter(Boolean);
-  if (!allowed.includes(guard.userId)) return reply({ ok: false, status: 'error', error: 'forbidden' }, 403);
+  const admitted=production?productionCohortAdmitted(process.env,guard.userId):previewCohortAdmitted(process.env,guard.userId);
+  if (!admitted) return reply({ ok: false, status: 'error', error: 'forbidden' }, 403);
   let file: File;
   let metadata: { conversationId: string; turnId: string; locale: string; durationMs: number };
   try {
@@ -76,14 +81,16 @@ export async function PUT(request: NextRequest) {
 
 /** Reviewed text continuation only. Raw audio and provider transcription never enter this route. */
 export async function POST(request: NextRequest) {
-  if (process.env.COACH_ASSISTANT_ENABLED !== '1' || process.env.COACH_ASSISTANT_VOICE_REVIEW_ENABLED !== '1' || process.env.COACH_ASSISTANT_CHAT_HISTORY_ENABLED !== '1' || process.env.VERCEL_ENV === 'production') {
+  if (process.env.COACH_ASSISTANT_ENABLED !== '1' || process.env.COACH_ASSISTANT_VOICE_REVIEW_ENABLED !== '1' || process.env.COACH_ASSISTANT_CHAT_HISTORY_ENABLED !== '1') {
     return reply({ ok: false, status: 'error', error: 'not_connected' }, 404);
   }
+  const production=process.env.VERCEL_ENV==='production';
+  if (production&&!productionCohortConfigured(process.env)) return reply({ ok: false, status: 'error', error: 'not_connected' }, 404);
   const { guardAiRoute } = await import('@/lib/security/api-guard');
   const guard = await guardAiRoute(request);
   if (!guard.ok) return guard.response;
-  const allowed = (process.env.COACH_ASSISTANT_PREVIEW_USER_IDS ?? '').split(',').map(value => value.trim()).filter(Boolean);
-  if (!allowed.includes(guard.userId)) return reply({ ok: false, status: 'error', error: 'forbidden' }, 403);
+  const admitted=production?productionCohortAdmitted(process.env,guard.userId):previewCohortAdmitted(process.env,guard.userId);
+  if (!admitted) return reply({ ok: false, status: 'error', error: 'forbidden' }, 403);
   let input: Input;
   try {
     const raw: unknown = await request.json();
@@ -95,7 +102,7 @@ export async function POST(request: NextRequest) {
   const { pool } = await import('@/db/client');
   const repository = createServerRepository(pool);
   try {
-    const live=process.env.COACH_ASSISTANT_VOICE_LIVE_ENABLED==='1'&&process.env.COACH_ASSISTANT_LIVE_PILOT_ENABLED==='1'&&process.env.TROPHE_ALLOW_PAID_AI==='1'&&process.env.VERCEL_ENV==='preview';
+    const live=process.env.COACH_ASSISTANT_VOICE_LIVE_ENABLED==='1'&&process.env.COACH_ASSISTANT_LIVE_PILOT_ENABLED==='1'&&process.env.TROPHE_ALLOW_PAID_AI==='1'&&(process.env.VERCEL_ENV==='preview'||production);
     const chatService=await (async()=>{
       const [{db},{createCoachChatService},{createCoachChatCleanup}]=await Promise.all([import('@/db/client'),import('@/agents/coach-assistant/chat-service'),import('@/agents/coach-assistant/chat-cleanup')]);
       const attachments=process.env.COACH_ASSISTANT_PRIVATE_ATTACHMENTS_ENABLED==='1'

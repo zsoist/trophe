@@ -33,6 +33,7 @@ import { COACH_IMAGE_LIMITS, type CoachErrorCode, type CoachResponse } from './c
 import type { CoachRepository } from './repository';
 import { COACH_PRICING_VERSION } from './economics';
 import { COACH_PROMPT_VERSION } from './prompt.v3';
+import { previewCohortAdmitted, productionCohortAdmitted, productionCohortConfigured } from '@/lib/workout/shared-pilot-budget';
 
 interface HandlerDependencies {
   env: Record<string,string|undefined>;
@@ -93,7 +94,13 @@ async function readBody(request:Request,signal:AbortSignal):Promise<unknown> {
 }
 
 export async function handleCoachRequest(request: Request,deps: HandlerDependencies): Promise<Response> {
-  if(deps.env.COACH_ASSISTANT_ENABLED!=='1'||deps.env.VERCEL_ENV==='production')return fail('disabled',404);
+  if(deps.env.COACH_ASSISTANT_ENABLED!=='1')return fail('disabled',404);
+  const production=deps.env.VERCEL_ENV==='production';
+  // Production is opt-in only for the reviewed cohort: the exact server flag,
+  // the authoritative data source and a nonempty production allowlist are
+  // required before authentication. Isolated/fixture compositions can never be
+  // promoted to production by that flag.
+  if(production&&(!productionCohortConfigured(deps.env)||deps.env.COACH_ASSISTANT_ISOLATED_ENGINE_ENABLED==='1'))return fail('disabled',404);
   const controller=new AbortController();
   const cancel=()=>controller.abort(new Error('cancelled'));
   if(request.signal.aborted)cancel();else request.signal.addEventListener('abort',cancel,{once:true});
@@ -117,8 +124,9 @@ export async function handleCoachRequest(request: Request,deps: HandlerDependenc
         }
         return fail('provider_unavailable',503);
       }
-      const allowed=(deps.env.COACH_ASSISTANT_PREVIEW_USER_IDS??'').split(',').map(s=>s.trim()).filter(Boolean);
-      if(!allowed.includes(guard.userId))return fail('forbidden',403);
+      // Production admits only the exact production allowlist; preview ids never inherit into production.
+      const admitted=production?productionCohortAdmitted(deps.env,guard.userId):previewCohortAdmitted(deps.env,guard.userId);
+      if(!admitted)return fail('forbidden',403);
       if(request.method==='PUT') {
         const privateAttachments=deps.env.COACH_ASSISTANT_PRIVATE_ATTACHMENTS_ENABLED==='1';
         if(!privateAttachments&&deps.env.COACH_ASSISTANT_ISOLATED_ATTACHMENTS_ENABLED!=='1')return fail('disabled',404);

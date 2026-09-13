@@ -22,6 +22,8 @@ function fixture(){
  return {storage:createPrivateCoachImageStorage({url:'http://127.0.0.1:54321',serviceKey:'isolated-fixture-key',bucket,fetchImpl}),fetchImpl,objects,public:()=>{publicBucket=true;},afterUpload:(callback:()=>void)=>{afterUpload=callback;}};
 }
 describe('concrete Supabase private image SDK adapter',()=>{
+ it('binds production storage to the explicit project and cohort, rejecting QA and foreign actors',async()=>{const config={url:'https://iwbpzwmidzvpiofnqexd.supabase.co',serviceKey:'fixture',bucket,fetchImpl:vi.fn(),deploymentEnvironment:'production'};expect(()=>createPrivateCoachImageStorage(config)).toThrow();const storage=createPrivateCoachImageStorage({...config,productionCohort:[scope.actorId]});expect(()=>createPrivateCoachImageStorage({...config,url:'https://nhawdvqqxscwxbpngaql.supabase.co',productionCohort:[scope.actorId]})).toThrow();await expect(storage.assertStored({...scope,actorId:'00000000-0000-4000-8000-000000000099',subjectId:'00000000-0000-4000-8000-000000000099'},'0'.repeat(64),new AbortController().signal,async()=>{})).rejects.toThrow('forbidden');expect(config.fetchImpl).not.toHaveBeenCalled();});
+
  it('allows only the explicit private QA project in preview and keeps production/other remote projects closed',()=>{
   const qa='https://nhawdvqqxscwxbpngaql.supabase.co';
   expect(()=>createPrivateCoachImageStorage({url:qa,serviceKey:'qa-service-key',bucket,fetchImpl:vi.fn(),deploymentEnvironment:'preview'})).not.toThrow();
