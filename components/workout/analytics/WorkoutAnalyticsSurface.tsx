@@ -16,6 +16,7 @@ import { MuscleLoadChart, type MuscleLoadRange } from './MuscleLoadChart';
 import { WorkoutSummaryMetrics } from './WorkoutSummaryMetrics';
 import { kgToDisplay, useWeightUnit } from '@/lib/workout/units';
 import { localToday } from '@/lib/utils/dates';
+import '../workout-exploration-v2.css';
 import {
   expandScheduledDates,
   loadWorkoutAnalyticsData,
@@ -120,7 +121,7 @@ export default function WorkoutAnalyticsSurface() {
   const date = useMemo(() => new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'short', day: 'numeric' }), [locale]);
   const ranges: MuscleLoadRange[] = ['last', 'week', 'month', 'all'];
 
-  return <div data-testid="training-progress-canvas" className="min-h-screen bg-[var(--workout-canvas)] pb-[calc(7rem+env(safe-area-inset-bottom))]">
+  return <div data-testid="training-progress-canvas" className="wk2 workout-analytics min-h-screen bg-[var(--workout-canvas)] pb-[calc(7rem+env(safe-area-inset-bottom))]">
     <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:py-8">
       <header className="mb-7 flex items-end justify-between gap-4 lg:mb-9">
         <div>

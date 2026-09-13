@@ -34,6 +34,7 @@ import {
 import { ExerciseResults } from './ExerciseResults';
 import { MuscleAtlas } from './MuscleAtlas';
 import { WorkoutPlanTray } from './WorkoutPlanTray';
+import './workout-exploration-v2.css';
 
 // Discovery regions are body-area selectors: each stands for a muscle group, so they
 // are labelled by group and never presented as a specific primary muscle.
@@ -118,7 +119,7 @@ function PickerFrame({
         initial={reducedMotion ? false : { opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={reducedMotion ? undefined : { opacity: 0 }}
-        className="fixed inset-0 z-[var(--z-modal,60)] flex flex-col safe-bottom bg-[var(--canvas)] outline-none"
+        className="wk2 fixed inset-0 z-[var(--z-modal,60)] flex flex-col safe-bottom bg-[var(--canvas)] outline-none"
         style={{ isolation: 'isolate' }}
       >
         {children}
@@ -134,7 +135,7 @@ function PickerFrame({
       initial={reducedMotion ? false : { opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={reducedMotion ? undefined : { opacity: 0 }}
-      className="flex min-h-[calc(100dvh-8rem)] flex-col bg-[var(--canvas)] outline-none"
+      className="wk2 flex min-h-[calc(100dvh-8rem)] flex-col bg-[var(--canvas)] outline-none"
       style={{ isolation: 'isolate' }}
     >
       {children}

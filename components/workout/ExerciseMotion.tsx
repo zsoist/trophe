@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { Pause, Play } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import type { ExerciseMediaRecord } from '@/lib/workout/exercise-media';
+import './workout-exploration-v2.css';
 
 export interface ExerciseMotionProps {
   media: ExerciseMediaRecord | (Omit<ExerciseMediaRecord, 'tier'> & { tier: 'candidate-preview' });
@@ -102,7 +103,7 @@ function ExerciseMotionPlayer({ media, alt, autoplay = false, className = '', pl
           ? 'workout.motion_group_estimate'
           : 'workout.motion_no_exact';
     return (
-      <figure className={`exercise-motion exercise-motion--poster ${className}`}>
+      <figure className={`wk2 exercise-motion exercise-motion--poster ${className}`}>
         {/* The poster is intentionally a plain image so it remains the complete reduced-motion experience. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={media.posterSrc} alt={alt} className="exercise-motion__poster" />
@@ -113,7 +114,7 @@ function ExerciseMotionPlayer({ media, alt, autoplay = false, className = '', pl
   }
 
   return (
-    <figure className={`exercise-motion ${className}`}>
+    <figure className={`wk2 exercise-motion ${className}`}>
       <video
         ref={videoRef}
         poster={media.posterSrc}

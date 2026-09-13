@@ -18,7 +18,7 @@ export function WorkoutAtlasEntry({ muscle, context }: { muscle?: string | null;
     <Link
       prefetch={false}
       href={atlasEntryHref(muscle, context)}
-      className="my-3 flex min-h-14 items-center gap-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3 text-[var(--text-primary)]"
+      className="wk2 atlas-entry-card my-3 flex min-h-14 items-center gap-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-3 text-[var(--text-primary)]"
     >
       <Image
         unoptimized

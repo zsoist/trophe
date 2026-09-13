@@ -6,6 +6,7 @@ import type { Exercise } from '@/lib/types';
 import { exercisePosterAltKey, resolveExerciseMedia } from '@/lib/workout/exercise-media';
 import { ExerciseMediaBadge } from './ExerciseMediaBadge';
 import { equipmentLabel, exerciseDisplayName } from './muscle-groups';
+import './workout-exploration-v2.css';
 
 export interface ExerciseResultsProps {
   exercises: Exercise[];
@@ -21,7 +22,7 @@ export function ExerciseResults({ exercises, lang, selectedIds, onAdd, onInfo, a
   const { t } = useI18n();
 
   return (
-    <div className="mt-5 divide-y divide-[var(--border-subtle)] overflow-hidden rounded-[0.875rem] border border-[var(--border-subtle)] bg-[var(--surface-1)]">
+    <div className="wk2 exercise-results mt-5 divide-y divide-[var(--border-subtle)] overflow-hidden rounded-[0.875rem] border border-[var(--border-subtle)] bg-[var(--surface-1)]">
       {exercises.map((exercise) => {
         const name = exerciseDisplayName(exercise, lang);
         const selected = selectedIds.has(exercise.id);

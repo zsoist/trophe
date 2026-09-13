@@ -7,6 +7,7 @@ import { useI18n } from '@/lib/i18n';
 import type { Exercise } from '@/lib/types';
 import { WORKOUT_ROUTES, workoutRouteForStage } from '@/lib/workout/workspace-routes';
 import { exerciseDisplayName } from '@/components/workout/muscle-groups';
+import '@/components/workout/workout-exploration-v2.css';
 
 export function RoutedExerciseDetail({ exercise, userId, replaceExerciseId, returnRoute }: { exercise: Exercise; userId: string | null; replaceExerciseId?: string; returnRoute?: 'build' | 'review' }) {
   const router = useRouter();
@@ -23,7 +24,7 @@ export function RoutedExerciseDetail({ exercise, userId, replaceExerciseId, retu
     && workspace.state.draft.exercises.some((item) => item.exerciseId === exercise.id);
   const canCreate = workspace.state.stage === 'home';
   return (
-    <main className="exercise-detail-route">
+    <main className="wk2 exercise-detail-route">
       <ExerciseDetail
         atlasContext={{ replaceExerciseId, returnRoute }}
         exercise={exercise}

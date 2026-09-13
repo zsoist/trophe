@@ -77,10 +77,10 @@ export function MuscleLoadChart({
     const message = range === 'last' && latestCompletedSessionId
       ? t('workout.analytics_muscle_load_last_empty')
       : t('workout.analytics_muscle_load_empty');
-    return <section className="rounded-xl bg-[var(--surface-subtle)] p-4" aria-labelledby="muscle-load-title"><h2 id="muscle-load-title" className="text-base font-semibold text-[var(--content-primary)]">{t('workout.analytics_muscle_load_title')}</h2><p className="mt-3 text-sm text-[var(--content-muted)]">{message}</p></section>;
+    return <section className="wk2 wk2-analytics-card rounded-xl bg-[var(--surface-subtle)] p-4" aria-labelledby="muscle-load-title"><h2 id="muscle-load-title" className="text-base font-semibold text-[var(--content-primary)]">{t('workout.analytics_muscle_load_title')}</h2><p className="mt-3 text-sm text-[var(--content-muted)]">{message}</p></section>;
   }
 
-  return <section className="rounded-xl bg-[var(--surface-subtle)] p-4" aria-labelledby="muscle-load-title">
+  return <section className="wk2 wk2-analytics-card rounded-xl bg-[var(--surface-subtle)] p-4" aria-labelledby="muscle-load-title">
     <div className="mb-4 flex items-center gap-2"><BarChart3 size={17} className="text-[var(--action-primary)]" /><h2 id="muscle-load-title" className="text-base font-semibold text-[var(--content-primary)]">{t('workout.analytics_muscle_load_title')}</h2></div>
     <div role="img" aria-label={t('workout.analytics_muscle_load_chart', { range: rangeName })} className="space-y-3">{values.map(([id, value]) => {
       const label = t(muscleCopyKey(id));

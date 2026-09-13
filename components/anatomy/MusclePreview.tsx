@@ -39,7 +39,7 @@ export function MusclePreview({ id, color }: { id: string; color: string }) {
   ].includes(id);
   return (
     <svg
-      className="anatomy-muscle-preview"
+      className="wk2 anatomy-muscle-preview"
       viewBox={`${view === "front" ? -2 : 35} ${lower ? 39 : 8} 39 52`}
       aria-hidden="true"
       focusable="false"

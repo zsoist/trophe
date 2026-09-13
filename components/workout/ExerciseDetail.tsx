@@ -14,6 +14,7 @@ import { equipmentLabel, exerciseDisplayName } from './muscle-groups';
 import { ExerciseMediaBadge } from './ExerciseMediaBadge';
 import { ExerciseMotion } from './ExerciseMotion';
 import { MuscleAtlas } from './MuscleAtlas';
+import './workout-exploration-v2.css';
 
 interface HistoryEntry { date: string; topWeightKg: number | null; topReps: number | null; sets: number }
 interface GuidanceSections { setup: string[]; execution: string[]; breathing: string[]; mistakes: string[] }
@@ -189,10 +190,12 @@ export function ExerciseDetail({
   }, [exercise.id, historyRequest, requestKey, userId]);
 
   return (
-    <article className={`exercise-detail exercise-detail--${presentation} ${className}`}>
+    <article className={`wk2 exercise-detail exercise-detail--${presentation} ${className}`}>
       <section className="exercise-detail__hero" aria-label={t('workout.detail_instruction_title')}>
         <div className="exercise-detail__media-meta"><ExerciseMediaBadge media={media} /></div>
-        <ExerciseMotion media={media} alt={mediaAlt} autoplay={hasExactMotion} playbackDisabled={playbackDisabled} />
+        {/* V2: the poster is the resting state. Exact motion starts only on an
+            explicit user play — never on route mount or selection. */}
+        <ExerciseMotion media={media} alt={mediaAlt} playbackDisabled={playbackDisabled} />
       </section>
 
       <header className="exercise-detail__identity">
@@ -287,14 +290,17 @@ export function ExerciseDetail({
       {onAdd || alternateAction ? (
         <div className="exercise-detail__action">
           {onAdd ? (
-            <button type="button" disabled={isAdded} aria-label={isAdded ? t('workout.exercise_added_named', { name }) : actionAriaLabel ?? t('workout.picker_add_named', { name })} onClick={() => onAdd(exercise)} className="btn-gold">
-              {isAdded ? <Check size={18} aria-hidden="true" /> : <Plus size={18} aria-hidden="true" />}
-              {isAdded ? t('workout.exercise_added') : actionLabel ?? t('workout.picker_add')}
+            <button type="button" disabled={isAdded} aria-label={isAdded ? t('workout.exercise_added_named', { name }) : actionAriaLabel ?? t('workout.picker_add_named', { name })} onClick={() => onAdd(exercise)} className="wk2-cta">
+              <span>{isAdded ? t('workout.exercise_added') : actionLabel ?? t('workout.picker_add')}</span>
+              <span className="wk2-cta__core" aria-hidden="true">{isAdded ? <Check size={18} aria-hidden="true" /> : <Plus size={18} aria-hidden="true" />}</span>
             </button>
           ) : (
             <div>
               <p>{alternateAction?.message ?? t('workout.exercise_requires_strength_draft')}</p>
-              <button type="button" onClick={alternateAction?.onClick} className="btn-gold">{alternateAction?.label}</button>
+              <button type="button" onClick={alternateAction?.onClick} className="wk2-cta">
+                <span>{alternateAction?.label}</span>
+                <span className="wk2-cta__core" aria-hidden="true"><Plus size={18} aria-hidden="true" /></span>
+              </button>
             </div>
           )}
         </div>

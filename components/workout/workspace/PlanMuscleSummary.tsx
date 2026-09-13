@@ -7,6 +7,7 @@ import { calculateCombinedMuscleLoad } from '@/lib/workout/muscle-load';
 import type { DraftExercise } from '@/lib/workout/workspace-state';
 import type { WorkoutExerciseOption } from '@/components/workout/workspace/WorkoutBuilder';
 import { DEFAULT_PLAN_REST_SECONDS } from '@/components/workout/workspace/PlanExerciseCard';
+import '@/components/workout/workout-exploration-v2.css';
 
 interface PlanMuscleSummaryProps { draftExercises: DraftExercise[]; exercises: WorkoutExerciseOption[] }
 
@@ -47,7 +48,7 @@ export function PlanMuscleSummary({ draftExercises, exercises }: PlanMuscleSumma
   const topLoads = summary.muscleLoads.slice(0, 4);
   const maxLoad = topLoads[0]?.load ?? 1;
   return (
-    <section className="plan-muscle-summary" role="region" aria-label={t('workout.plan_muscle_balance')}>
+    <section className="wk2 plan-muscle-summary" role="region" aria-label={t('workout.plan_muscle_balance')}>
       <div className="plan-muscle-summary__facts"><strong>{t('workout.plan_summary_line', { exercises: summary.exerciseCount, sets: summary.workingSets })}</strong><span>{t('workout.plan_estimated_duration', { minutes: summary.estimatedMinutes })}</span></div>
       <div className="plan-muscle-summary__heading"><h2>{t('workout.plan_muscle_balance')}</h2><span>{t('workout.plan_load_basis')}</span></div>
       {topLoads.length > 0 ? <ol className="plan-muscle-summary__loads">{topLoads.map((item) => <li key={item.id}><span>{t(`workout.atlas_muscle_${item.id.replaceAll('-', '_')}`) || item.label}</span><span aria-label={t('workout.plan_load_value', { value: item.load })}><i style={{ width: `${Math.max(8, Math.round((item.load / maxLoad) * 100))}%` }} /></span><strong>{item.load}</strong></li>)}</ol> : <p className="plan-muscle-summary__empty">{t('workout.plan_no_muscle_evidence')}</p>}

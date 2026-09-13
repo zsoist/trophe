@@ -1,13 +1,13 @@
 'use client';
 
 import type { KeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
-import type { CSSProperties } from 'react';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Minus, Plus, RotateCcw } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { ATLAS_GEOMETRY, atlasPathsFor, atlasViewportFor, resolveAtlasHit, silhouettePathsFor } from '@/lib/workout/atlas-geometry';
 import type { AtlasViewport } from '@/lib/workout/atlas-geometry';
 import { anatomyLabelKey, type AnatomyMuscleId, type AnatomyView, type MuscleActivation, type MuscleRole } from '@/lib/workout/anatomy';
+import { IconMinus, IconPlus, IconReset } from './exploration-icons';
+import './workout-exploration-v2.css';
 
 export interface MuscleAtlasProps {
   activations: MuscleActivation[];
@@ -16,6 +16,8 @@ export interface MuscleAtlasProps {
   compact?: boolean;
   homeCompact?: boolean;
   viewOverride?: AnatomyView;
+  /** A parent camera owns controls in both 3D and fallback modes. */
+  camera?: { zoom: number };
 }
 
 const ROLE_LABEL_KEYS: Record<MuscleRole, string> = { primary: 'workout.info_primary', secondary: 'workout.info_secondary', stabilizer: 'workout.info_stabilizer' };
@@ -36,8 +38,6 @@ function zoomViewport(base: AtlasViewport, steps: number): AtlasViewport {
     height,
   };
 }
-const atlasToolsStyle: CSSProperties = { display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '0.5rem' };
-const atlasToolButtonStyle: CSSProperties = { display: 'inline-flex', minHeight: '2.75rem', minWidth: '2.75rem', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--workout-rail)', borderRadius: '0.75rem', background: 'var(--workout-surface-raised)', color: 'var(--content-muted)', cursor: 'pointer' };
 // A group estimate highlights the same region but is named by its muscle group and
 // never described as a specific primary muscle.
 const isGroupEstimate = (activation: ActivationCopy) => activation.confidence === 'group';
@@ -84,11 +84,12 @@ function pointerToAtlasPoint(svg: SVGSVGElement, event: ReactPointerEvent<SVGSVG
   ];
 }
 
-export function MuscleAtlas({ activations, selected = null, onSelect, compact = false, homeCompact = false, viewOverride }: MuscleAtlasProps) {
+export function MuscleAtlas({ activations, selected = null, onSelect, compact = false, homeCompact = false, viewOverride, camera }: MuscleAtlasProps) {
   const { t } = useI18n();
   const selectedActivation = activations.find((activation) => activation.id === selected);
   const [internalView, setView] = useState<AnatomyView>(() => selected ? ATLAS_GEOMETRY[selected].view : 'front');
-  const [zoom, setZoom] = useState(0);
+  const [internalZoom, setZoom] = useState(0);
+  const zoom = camera ? Math.max(0, Math.min(12, camera.zoom)) : internalZoom;
   const view = viewOverride ?? internalView;
   const appliedSelected = useRef<AnatomyMuscleId | null>(selected);
   const visibleActivations = useMemo(() => activations.filter((activation) => ATLAS_GEOMETRY[activation.id].view === view), [activations, view]);
@@ -137,8 +138,8 @@ export function MuscleAtlas({ activations, selected = null, onSelect, compact = 
     }
   }, [selected]);
 
-  return <section className={`muscle-atlas${compact ? ' muscle-atlas--compact' : ''}${homeCompact ? ' muscle-atlas--home-compact' : ''}`} aria-label={t('workout.atlas_label')}>
-    {!compact ? <div className="muscle-atlas__header"><div><h2>{t('workout.atlas_focus_title')}</h2><p>{t('workout.atlas_focus_hint')}</p></div><ViewControls view={view} setView={setView} t={t} /></div> : <ViewControls view={view} setView={setView} t={t} compact />}
+  return <section className={`wk2 muscle-atlas${compact ? ' muscle-atlas--compact' : ''}${homeCompact ? ' muscle-atlas--home-compact' : ''}`} aria-label={t('workout.atlas_label')}>
+    {!camera && (!compact ? <div className="muscle-atlas__header"><div><h2>{t('workout.atlas_focus_title')}</h2><p>{t('workout.atlas_focus_hint')}</p></div><ViewControls view={view} setView={setView} t={t} /></div> : <ViewControls view={view} setView={setView} t={t} compact />)}
     {!compact ? <p id={summaryId} className="muscle-atlas__summary" aria-live="polite">{atlasSummary}</p> : <p id={summaryId} className="muscle-atlas__screen-reader-table" aria-live="polite">{atlasSummary}</p>}
     {selectedActivation && selectedGeometry?.view !== view ? <p role="status" className="muscle-atlas__summary">{t('anatomy.other_view_selection')}</p> : null}
     <div className="muscle-atlas__figure-wrap" {...(homeCompact ? { 'data-atlas-wide-pair': 'true' } : {})}><svg key={view} className={`muscle-atlas__figure muscle-atlas__figure--${view}`} height={homeCompact ? 228 : 296} viewBox={`${viewport.minX} ${viewport.minY} ${viewport.width} ${viewport.height}`} role="group" aria-describedby={summaryId} aria-label={t(view === 'front' ? 'workout.atlas_front_map' : 'workout.atlas_back_map')} onPointerUp={handleAtlasPointer}>
@@ -153,11 +154,11 @@ export function MuscleAtlas({ activations, selected = null, onSelect, compact = 
           : atlasPathsFor(activation.id).map((path) => <path key={path.id} d={path.path} />)}
       </g>)}
     </svg> : null}</div>
-    <div className="muscle-atlas__tools" style={atlasToolsStyle}>
-      <button type="button" style={atlasToolButtonStyle} disabled={zoom >= MAX_ZOOM_STEPS} aria-label={t('anatomy.zoom_in')} onClick={() => setZoom((current) => Math.min(MAX_ZOOM_STEPS, current + 1))}><Plus size={18} aria-hidden="true" /></button>
-      <button type="button" style={atlasToolButtonStyle} disabled={zoom <= 0} aria-label={t('anatomy.zoom_out')} onClick={() => setZoom((current) => Math.max(0, current - 1))}><Minus size={18} aria-hidden="true" /></button>
-      <button type="button" style={atlasToolButtonStyle} aria-label={t('anatomy.reset')} onClick={resetView}><RotateCcw size={17} aria-hidden="true" /></button>
-    </div>
+    {!camera && <div className="muscle-atlas__tools" role="group" aria-label={t('workout.atlas_view_label')}>
+      <button type="button" disabled={zoom >= MAX_ZOOM_STEPS} aria-label={t('anatomy.zoom_in')} onClick={() => setZoom((current) => Math.min(MAX_ZOOM_STEPS, current + 1))}><IconPlus size={18} /></button>
+      <button type="button" disabled={zoom <= 0} aria-label={t('anatomy.zoom_out')} onClick={() => setZoom((current) => Math.max(0, current - 1))}><IconMinus size={18} /></button>
+      <button type="button" aria-label={t('anatomy.reset')} onClick={resetView}><IconReset size={17} /></button>
+    </div>}
     <ul className="muscle-atlas__roles" aria-label={t('workout.atlas_roles_label')}>
       {roleActivations.map((activation) => {
         const side = t(ATLAS_GEOMETRY[activation.id].view === 'front' ? 'workout.atlas_side_front' : 'workout.atlas_side_back');

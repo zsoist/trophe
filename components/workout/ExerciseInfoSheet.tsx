@@ -7,6 +7,7 @@ import { X } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import type { Exercise } from '@/lib/types';
 import { ExerciseDetail } from './ExerciseDetail';
+import './workout-exploration-v2.css';
 
 const focusableSelector = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
@@ -80,7 +81,7 @@ export default function ExerciseInfoSheet({
         animate={{ y: 0, opacity: 1 }}
         exit={reducedMotion ? undefined : { y: 80, opacity: 0 }}
         transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-        className="safe-bottom h-[100dvh] max-h-[100dvh] w-full max-w-5xl overscroll-contain overflow-y-auto bg-[var(--canvas)] px-4 pt-3 outline-none sm:h-auto sm:max-h-[92dvh] sm:rounded-t-3xl sm:px-5"
+        className="wk2 safe-bottom h-[100dvh] max-h-[100dvh] w-full max-w-5xl overscroll-contain overflow-y-auto bg-[var(--canvas)] px-4 pt-3 outline-none sm:h-auto sm:max-h-[92dvh] sm:rounded-t-3xl sm:px-5"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="sticky top-0 z-20 flex justify-end bg-[var(--canvas)]/95 py-1 backdrop-blur-xl">
