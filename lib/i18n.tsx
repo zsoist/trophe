@@ -622,6 +622,7 @@ export const translations: Record<string, Record<CoreLanguage, string>> = {
 
   // ── Guided workout — client rebuild (overhaul/workout-branded-premium) ──
   'workout.program_today':    { en: '{program} · Today', es: '{program} · Hoy', el: '{program} · Σήμερα' },
+  'workout.train_now': { en: 'Train now', es: 'Entrenar ahora', el: 'Προπονήσου τώρα' },
   'workout.start_workout':    { en: 'Start workout', es: 'Iniciar entreno', el: 'Έναρξη προπόνησης' },
   'workout.loading':          { en: 'Loading…', es: 'Cargando…', el: 'Φόρτωση…' },
   'workout.also_today':       { en: 'Also today', es: 'También hoy', el: 'Επίσης σήμερα' },

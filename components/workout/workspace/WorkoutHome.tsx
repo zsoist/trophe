@@ -5,7 +5,7 @@ import { WorkoutCoachEntry } from '@/components/workout/coach/WorkoutCoachEntry'
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Activity, BarChart3, ChevronRight, History, Search } from 'lucide-react';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ConfirmSheet } from '@/components/ui/ConfirmSheet';
 import { exerciseDisplayName, muscleLabelKey } from '@/components/workout/muscle-groups';
 import { WorkoutAtlasHome } from '@/components/workout/workspace/WorkoutAtlasHome';
@@ -125,8 +125,12 @@ export function WorkoutHome({
   const router = useRouter();
   const { lang, t } = useI18n();
   const workspace = useWorkoutWorkspace();
+  const { startLive } = workspace;
   const [preview, setPreview] = useState<WorkoutHomeTemplate | null>(null);
   const [replacement, setReplacement] = useState<ReplacementChoice | null>(null);
+  const [startIntent, setStartIntent] = useState(false);
+  const [startError, setStartError] = useState(false);
+  const startingRef = useRef(false);
   // Localized display names (house rule: Spanish gets name_es, Greek keeps English). Draft
   // rows store the canonical English name, so the catalogue lookup comes first.
   const exerciseNames = useMemo(() => new Map(exercises.map((exercise) => [exercise.id, exerciseDisplayName(exercise, lang)])), [exercises, lang]);
@@ -134,6 +138,26 @@ export function WorkoutHome({
   const assignedTemplate = program?.todayTemplate ?? (recommendation?.source === 'coach' ? recommendedTemplate : null);
   const offeredTemplate = assignedTemplate ?? recommendedTemplate;
   const hasDraft = (workspace.state.stage === 'draft' || workspace.state.stage === 'review') && Boolean(workspace.state.draft);
+  useEffect(() => {
+    if (!startIntent || !hasDraft || startingRef.current) return;
+    startingRef.current = true;
+    void startLive().then(ok => {
+      if (ok) pushWorkoutRoute(router, WORKOUT_ROUTES.live);
+      else setStartError(true);
+    }).catch(() => setStartError(true)).finally(() => {
+      startingRef.current = false;
+      setStartIntent(false);
+    });
+  }, [startIntent, hasDraft, startLive, router]);
+  const trainNow = () => {
+    if (startIntent || startingRef.current) return;
+    setStartError(false);
+    if (!hasDraft) {
+      if (offeredTemplate) workspace.createDraftFromTemplate(offeredTemplate);
+      else workspace.createDraft({ name: t('workout.title'), kind: 'strength' });
+    }
+    setStartIntent(true);
+  };
   const activeStage = workspace.state.stage === 'live' || workspace.state.stage === 'paused' || workspace.state.stage === 'finishing';
   const recoveryStage = activeStage || workspace.state.stage === 'completed';
   const recoveredTemplate = workspaceTemplate(workspace.state, t('workout.home_workout_draft'));
@@ -172,15 +196,13 @@ export function WorkoutHome({
     if (hasDraft) setReplacement(choice);
     else finishChoice(choice, false);
   };
-  const buildStrength = () => choose({ name: t('workout.title'), destination: 'exercises', input: { type: 'draft', value: { name: t('workout.title'), kind: 'strength' } } });
   const buildCardio = () => choose({ name: t('workout.cardio'), destination: 'build', input: { type: 'draft', value: { name: t('workout.cardio'), kind: 'cardio' } } });
-  const reviewTemplate = (template: WorkoutHomeTemplate) => choose({ name: template.name, destination: 'review', input: { type: 'template', value: template } });
 
   if (hasDraft && workspace.state.retrospectiveRequest && workspace.state.draft) {
     return <main className="mx-auto max-w-2xl px-4 py-5"><section className="rounded-2xl border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] p-5"><p className="text-sm leading-6 text-[var(--content-primary)]">{t('workout.retrospective_request_locked')}</p><h2 className="mt-1 text-xl font-semibold text-[var(--content-primary)]">{workspace.state.draft.name}</h2><button type="button" disabled={workspace.retrospectiveSaving} onClick={() => void workspace.retryRetrospective().then((ok) => { if (ok) pushWorkoutRoute(router, WORKOUT_ROUTES.live); })} className="btn-gold mt-4 min-h-11 w-full rounded-xl px-4 font-semibold disabled:opacity-50">{workspace.retrospectiveSaving ? t('workout.saving') : t('workout.retry_same_save')}</button></section></main>;
   }
   if (hasDraft && workspace.state.startRequest && workspace.state.draft) {
-    return <main className="mx-auto max-w-2xl px-4 py-5"><section className="rounded-2xl border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] p-5"><p className="text-sm leading-6 text-[var(--content-primary)]">{t('workout.start_request_locked')}</p><h2 className="mt-1 text-xl font-semibold text-[var(--content-primary)]">{workspace.state.draft.name}</h2><button type="button" onClick={() => pushWorkoutRoute(router, WORKOUT_ROUTES.review)} className="btn-gold mt-4 min-h-11 w-full rounded-xl px-4 font-semibold">{t('workout.continue_review')}</button></section></main>;
+    return <main className="mx-auto max-w-2xl px-4 py-5"><section className="rounded-2xl border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] p-5"><p className="text-sm leading-6 text-[var(--content-primary)]">{t('workout.start_request_locked')}</p><h2 className="mt-1 text-xl font-semibold text-[var(--content-primary)]">{workspace.state.draft.name}</h2><button type="button" disabled={startIntent} aria-busy={startIntent} onClick={trainNow} className="btn-gold mt-4 min-h-11 w-full rounded-xl px-4 font-semibold">{t('workout.retry_same_start')}</button>{startError ? <p role="alert">{t('workout.start_live_failed')}</p> : null}</section></main>;
   }
 
   const primaryAction = workspace.state.stage === 'live' || workspace.state.stage === 'paused'
@@ -189,11 +211,7 @@ export function WorkoutHome({
       ? { label: t('workout.continue_active'), action: () => pushWorkoutRoute(router, WORKOUT_ROUTES.live) }
       : workspace.state.stage === 'completed'
         ? { label: t('workout.view_completed_summary'), action: () => pushWorkoutRoute(router, WORKOUT_ROUTES.live) }
-        : hasDraft
-          ? { label: workspace.state.stage === 'review' ? t('workout.continue_review') : t('workout.continue_editing'), action: () => pushWorkoutRoute(router, workspace.state.stage === 'review' ? WORKOUT_ROUTES.review : WORKOUT_ROUTES.build) }
-          : offeredTemplate
-            ? { label: t('workout.home_review_plan'), action: () => reviewTemplate(offeredTemplate) }
-            : { label: t('workout.home_build_workout'), action: buildStrength };
+        : { label: t('workout.train_now'), action: trainNow };
   const showLoading = !hasDraft && !recoveryStage && (programLoading || recommendationLoading);
 
   if (showLoading) {
@@ -213,6 +231,9 @@ export function WorkoutHome({
       {hasDraft || recoveryStage ? <p className="rounded-xl border border-[var(--workout-rail)] bg-[var(--workout-surface)] px-3 py-2 text-xs text-[var(--content-secondary)]">{activeStage ? t('workout.home_recovered_active') : workspace.state.stage === 'completed' ? t('workout.home_recovered_completed') : t('workout.home_recovered_draft')}</p> : null}
 
       <div data-testid="workout-home-first-view" className="workout-home-first-view">
+        <button type="button" data-testid="workout-primary-action" onClick={primaryAction.action} aria-busy={startIntent} disabled={startIntent || (disabled && !recoveryStage && !hasDraft)} className="btn-gold min-h-11 w-full rounded-xl px-4 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50">{primaryAction.label}</button>
+        {startError ? <p role="alert">{t('workout.start_live_failed')}</p> : null}
+        {hasDraft && !startIntent ? <Link href={WORKOUT_ROUTES.build}>{t('workout.continue_editing')}</Link> : null}
         <WorkoutTodayRail title={displayedWorkoutName ?? t('workout.home_build_today')} source={source} readiness={readiness} workSummary={isCardioDraft ? t('workout.home_cardio_session') : displayedTemplate?.exercises.length ? t('workout.exercise_count', { n: displayedTemplate.exercises.length }) : t('workout.home_choose_exercises')} nextAction={primaryAction.label} estimatedDurationMinutes={estimatedDuration} />
 
         {(programError || recommendationError) && !offeredTemplate ? <div role="alert" className="rounded-xl border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]">{t('workout.program_load_failed')}</div> : null}
@@ -225,7 +246,7 @@ export function WorkoutHome({
           workedAvailable={workedExerciseIds !== null}
           targetLabel={targetLabel}
           emptyState={isCardioDraft ? 'cardio' : 'strength'}
-          action={<button type="button" data-testid="workout-primary-action" onClick={primaryAction.action} disabled={disabled && !recoveryStage && !hasDraft} className="btn-gold min-h-11 w-full rounded-xl px-4 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50">{primaryAction.label}</button>}
+
         />
       </div>
 

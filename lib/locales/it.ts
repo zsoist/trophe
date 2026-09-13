@@ -762,6 +762,7 @@ export const it: Record<string, string> = {
 
   // ── Guided workout ──
   'workout.program_today': '{program} · Oggi',
+  'workout.train_now': 'Allenati ora',
   'workout.start_workout': 'Inizia allenamento',
   'workout.loading': 'Caricamento…',
   'workout.also_today': 'Anche oggi',

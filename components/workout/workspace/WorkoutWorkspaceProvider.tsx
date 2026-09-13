@@ -520,7 +520,6 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
       return Boolean(state.sessionId);
     }
     if (!ownerId || !state.draft || state.retrospectiveRequest || !state.draft.name.trim() || (state.stage !== 'draft' && state.stage !== 'review')) return false;
-    if (state.draft.kind === 'strength' && state.draft.exercises.length === 0) return false;
     if (startPromiseRef.current) return startPromiseRef.current;
     const request = ensureLiveStartRequest();
     if (!request) return false;
