@@ -1,26 +1,11 @@
 // @vitest-environment jsdom
 
-// Regression — the Food surface's initial/warm load must not dead-end on the
-// auth *verification* round-trip.
-//
-// Reproduced user-visible counterexample (warm reload, session already in cookie
-// storage): `loadTodayLog` first awaited `supabase.auth.getUser()`. getUser()
-// performs a network `/user` request while holding Supabase Auth's Navigator
-// lock, so a stalled auth fetch surfaced as "auth lock not released within
-// 5000ms" / "AbortError lock stolen" / "Failed to fetch" and every such failure
-// was turned into the terminal `food.log_load_failed` screen — even though the
-// session was valid and the RLS-protected canonical read would have succeeded.
-// The only recovery was a manual Retry.
-//
-// The load now resolves the actor from the persisted session (getSession reads
-// cookie storage; it does not hold the auth lock across a network call) and the
-// canonical read — scoped to that actor and gated by RLS — is the real
-// authorization boundary. These tests drive the actual page component:
-//   1. a valid cached session renders the log even when auth.getUser() fails
-//      (the lock/fetch failure above);
-//   2. a genuine session-resolution failure still shows the recoverable error
-//      + Retry, and Retry re-reads and renders (no fabricated success);
-//   3. a superseded read from a previous date never applies its stale snapshot.
+// Warm Food reads reuse the persisted session to avoid an extra /user request.
+// getSession still acquires the Auth lock and can refresh an expired token over
+// the network. These injected tests do not establish the cause of the observed
+// browser lock/fetch errors or certify recovery from every such failure.
+// Client IDs scope requests; authenticated RLS remains the authorization boundary.
+// Verify cached-session load, explicit failure + Retry, and stale-date exclusion.
 
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
