@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus } from 'lucide-react';
+import { ChevronRight, Plus } from 'lucide-react';
 import { PlanExerciseCard } from '@/components/workout/workspace/PlanExerciseCard';
 import { PlanMuscleSummary } from '@/components/workout/workspace/PlanMuscleSummary';
 import { useWorkoutWorkspace } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
@@ -11,6 +11,7 @@ import type { MuscleGroup } from '@/lib/types';
 import { isWorkoutDraftReady, type WorkoutDraft } from '@/lib/workout/workspace-state';
 import { pushWorkoutRoute, WORKOUT_ROUTES } from '@/lib/workout/workspace-routes';
 import { useWorkoutRouteFocusSuppressed } from '@/components/workout/workspace/WorkoutRouteFocusContext';
+import './workout-session-premium.css';
 
 export interface WorkoutExerciseOption {
   id: string;
@@ -39,6 +40,9 @@ export function WorkoutBuilder({ exercises, onSavePlan, saveState = 'idle', save
   const workspace = useWorkoutWorkspace();
   const draft = workspace.state.draft;
   const mainRef = useRef<HTMLElement>(null);
+  // Which inline row is featured/open. `null` = the first row; a stable sentinel
+  // lets the user close the first row too without losing the draft.
+  const [expandedExerciseId, setExpandedExerciseId] = useState<string | null>(null);
   const suppressRouteFocus = useWorkoutRouteFocusSuppressed();
   const exerciseById = new Map(exercises.map((exercise) => [exercise.id, exercise]));
 
@@ -54,6 +58,12 @@ export function WorkoutBuilder({ exercises, onSavePlan, saveState = 'idle', save
   const hasContent = draft.kind === 'strength' ? draft.exercises.length > 0 : draft.durationMinutes > 0;
   const validPrescription = draft.kind !== 'strength' || draft.exercises.every((exercise) => Number.isInteger(exercise.targetSets) && exercise.targetSets > 0 && exercise.targetReps.trim().length > 0);
   const canReview = isWorkoutDraftReady(draft);
+  const strengthExercises = draft.kind === 'strength' ? draft.exercises : [];
+  const expandedId = expandedExerciseId === '__none__'
+    ? null
+    : strengthExercises.some((exercise) => exercise.exerciseId === expandedExerciseId)
+      ? expandedExerciseId
+      : strengthExercises[0]?.exerciseId ?? null;
 
   return (
     <main ref={mainRef} tabIndex={-1} aria-label={t('workout.workspace_build_title')} className="workout-plan-editor">
@@ -68,7 +78,7 @@ export function WorkoutBuilder({ exercises, onSavePlan, saveState = 'idle', save
         <>
           <PlanMuscleSummary draftExercises={draft.exercises} exercises={exercises} />
           <section className="workout-plan-editor__sequence" aria-label={t('workout.plan_sequence')}>
-            {draft.exercises.map((draftExercise, index) => <PlanExerciseCard key={draftExercise.exerciseId} draftExercise={draftExercise} exercise={exerciseById.get(draftExercise.exerciseId)} index={index} total={draft.exercises.length} onUpdate={(patch) => workspace.updateDraftExercise(draftExercise.exerciseId, patch)} onMove={(direction) => workspace.reorderDraftExercise(draftExercise.exerciseId, direction)} onReplace={() => pushWorkoutRoute(router, `${WORKOUT_ROUTES.exercises}?replace=${encodeURIComponent(draftExercise.exerciseId)}&return=build`)} onRemove={() => workspace.removeDraftExercise(draftExercise.exerciseId)} onTechnique={() => pushWorkoutRoute(router, `${WORKOUT_ROUTES.exercises}/${encodeURIComponent(draftExercise.exerciseId)}?return=build`)} />)}
+            {draft.exercises.map((draftExercise, index) => <PlanExerciseCard key={draftExercise.exerciseId} draftExercise={draftExercise} exercise={exerciseById.get(draftExercise.exerciseId)} index={index} total={draft.exercises.length} expanded={draftExercise.exerciseId === expandedId} onToggle={() => setExpandedExerciseId(draftExercise.exerciseId === expandedId ? '__none__' : draftExercise.exerciseId)} onUpdate={(patch) => workspace.updateDraftExercise(draftExercise.exerciseId, patch)} onMove={(direction) => workspace.reorderDraftExercise(draftExercise.exerciseId, direction)} onReplace={() => pushWorkoutRoute(router, `${WORKOUT_ROUTES.exercises}?replace=${encodeURIComponent(draftExercise.exerciseId)}&return=build`)} onRemove={() => workspace.removeDraftExercise(draftExercise.exerciseId)} onTechnique={() => pushWorkoutRoute(router, `${WORKOUT_ROUTES.exercises}/${encodeURIComponent(draftExercise.exerciseId)}?return=build`)} />)}
             {draft.exercises.length === 0 ? <p className="workout-plan-editor__empty-state">{t('workout.empty_strength_hint')}</p> : null}
             <button type="button" onClick={() => pushWorkoutRoute(router, WORKOUT_ROUTES.exercises)} className="workout-plan-editor__add"><Plus size={17} aria-hidden="true" />{t('workout.add_exercise')}</button>
           </section>
@@ -90,7 +100,7 @@ export function WorkoutBuilder({ exercises, onSavePlan, saveState = 'idle', save
       {saveState === 'success' ? <p role="status" className="workout-plan-editor__notice workout-plan-editor__notice--success">{t('workout.save_plan_success_limited')}</p> : null}
       <div className="workout-plan-editor__footer">
         <button type="button" disabled={!hasName || draft.kind !== 'strength' || !hasContent || !validPrescription || saveDisabled || saveState === 'pending'} onClick={() => void onSavePlan(draft)} className="btn-ghost">{t(saveState === 'pending' ? 'workout.save_plan_pending' : 'workout.save_plan')}</button>
-        <button type="button" disabled={!canReview} onClick={() => { workspace.goToReview(); pushWorkoutRoute(router, WORKOUT_ROUTES.review); }} className="btn-gold">{t('workout.review_workout')}</button>
+        <button type="button" disabled={!canReview} onClick={() => { workspace.goToReview(); pushWorkoutRoute(router, WORKOUT_ROUTES.review); }} className="btn-gold wsp-action"><span>{t('workout.review_workout')}</span><span className="wsp-disc" aria-hidden="true"><ChevronRight size={18} /></span></button>
       </div>
     </main>
   );

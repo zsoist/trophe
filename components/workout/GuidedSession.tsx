@@ -30,6 +30,7 @@ import { muscleColor, exerciseDisplayName } from './muscle-groups';
 import { useWeightUnit, kgToDisplay, displayToKg } from '@/lib/workout/units';
 import { RestTargetControl } from '@/components/workout/workspace/RestTargetControl';
 import { useRestTarget } from '@/components/workout/workspace/useRestTarget';
+import '@/components/workout/workspace/workout-session-premium.css';
 import {
   createWorkoutSession,
   deleteWorkoutSet,
@@ -549,7 +550,7 @@ export default function GuidedSession({
   // ═══ Finish screen ═════════════════════════════════════════════════════
   if (phase === 'finish' && finishStats) {
     return (
-      <div className="max-w-md lg:max-w-2xl mx-auto px-4 pt-6 pb-8">
+      <div className="guided-session max-w-md lg:max-w-2xl mx-auto px-4 pt-6 pb-8">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -655,7 +656,7 @@ export default function GuidedSession({
   const firstOpenIdx = ex.sets.findIndex((s) => !s.completed);
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--canvas)' }}>
+    <div className="guided-session min-h-screen" style={{ background: 'var(--canvas)' }}>
       {/* Sticky guided header: exit + name + elapsed + progress */}
       <div className="sticky top-0 z-40 glass-elevated px-4 pt-3 pb-2">
         <div className="max-w-md lg:max-w-2xl mx-auto">
@@ -983,8 +984,8 @@ export default function GuidedSession({
               className="btn-gold flex-1 rounded-2xl flex items-center justify-center gap-2 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
               style={{ height: 52, fontSize: 14, fontWeight: 800, opacity: finishing ? 0.7 : 1 }}
             >
-              <Trophy size={16} />
-              {finishing ? t('workout.saving') : t('workout.finish')}
+              <span className="wsp-disc" aria-hidden="true"><Trophy size={16} /></span>
+              <span>{finishing ? t('workout.saving') : t('workout.finish')}</span>
             </motion.button>
           ) : (
             <motion.button
@@ -993,8 +994,8 @@ export default function GuidedSession({
               className="btn-gold flex-1 rounded-2xl flex items-center justify-center gap-2 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
               style={{ height: 52, fontSize: 14, fontWeight: 800 }}
             >
-              {t('workout.next_exercise')}
-              <ChevronRight size={18} />
+              <span>{t('workout.next_exercise')}</span>
+              <span className="wsp-disc" aria-hidden="true"><ChevronRight size={18} /></span>
             </motion.button>
           )}
           {!isLast && completedCount > 0 && (

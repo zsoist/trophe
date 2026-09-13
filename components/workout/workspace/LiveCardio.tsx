@@ -59,7 +59,7 @@ export function LiveCardio({ draft, mode, paused = false, elapsedMs = 0, saving 
   };
 
   return (
-    <section className="space-y-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4">
+    <section className="wsp-log-panel space-y-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4">
       <div className="border-b border-[var(--border-subtle)] pb-3">
         <p className="text-xs font-semibold uppercase tracking-wide text-[var(--action-primary)]">{t(`workout.cardio_${draft.activity}`)}</p>
         <h2 className="mt-1 text-xl font-bold text-[var(--content-primary)]">{draft.name}</h2>

@@ -74,12 +74,12 @@ export function RestTargetControl({
   };
 
   return (
-    <div className="mt-3">
+    <div className="rest-target mt-3">
       <div
         ref={groupRef}
         role="radiogroup"
         aria-label={t('workout.rest_seconds_named', { name: exerciseName })}
-        className="flex flex-wrap items-center gap-1.5"
+        className="rest-target__group flex flex-wrap items-center gap-1.5"
       >
         <span aria-hidden="true" className="mr-0.5 text-xs font-medium text-[var(--content-muted)]">
           {t('workout.rest_target')}
@@ -97,7 +97,7 @@ export function RestTargetControl({
               disabled={disabled}
               onClick={() => onSelect(seconds)}
               onKeyDown={(event) => onKeyDown(event, index)}
-              className={`${selected ? 'btn-gold' : 'btn-ghost'} inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl px-3 font-mono text-sm tabular-nums disabled:opacity-50`}
+              className={`rest-target__choice ${selected ? 'btn-gold' : 'btn-ghost'} inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl px-3 font-mono text-sm tabular-nums disabled:opacity-50`}
             >
               {seconds}s
             </button>

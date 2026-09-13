@@ -43,8 +43,8 @@ export function LiveExerciseStage({
 
   return (
     <section aria-labelledby="live-exercise-title" className="space-y-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+      <div className="live-exercise-stage__header flex items-start justify-between gap-3">
+        <div className="live-exercise-stage__face min-w-0">
           <p className="text-sm font-semibold text-[var(--content-secondary)]">
             {sessionName ? <span className="live-exercise-stage__session-name">{sessionName} · </span> : null}
             {t('workout.exercise_position', { current: position, total })}
@@ -52,23 +52,24 @@ export function LiveExerciseStage({
           </p>
           <h1 id="live-exercise-title" className="mt-1 text-2xl font-bold tracking-[-0.02em] text-[var(--content-primary)]">{shownName}</h1>
         </div>
-        <button type="button" onClick={() => { if (paused) onResume(); else onPause(); }} className="btn-ghost inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl px-3" aria-label={t(paused ? 'workout.resume_workout' : 'workout.pause_workout')}>
-          {paused ? <Play size={17} aria-hidden="true" /> : <Pause size={17} aria-hidden="true" />}
+        <button type="button" onClick={() => { if (paused) onResume(); else onPause(); }} className="live-exercise-stage__pause btn-ghost inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl px-3" aria-label={t(paused ? 'workout.resume_workout' : 'workout.pause_workout')}>
+          <span className="wsp-disc" aria-hidden="true">{paused ? <Play size={18} /> : <Pause size={18} />}</span>
           <span className="hidden sm:inline">{t(paused ? 'workout.resume' : 'workout.pause')}</span>
         </button>
       </div>
 
-      <div className="live-exercise-stage__logger">{children}</div>
+      <div className="live-exercise-stage__logger wsp-stage"><div className="wsp-stage__inner">{children}</div></div>
 
       {sessionPath}
 
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-3 border-y border-[var(--border-subtle)] py-3 text-sm">
+      <dl className="live-exercise-stage__facts grid grid-cols-2 gap-x-4 gap-y-3 border-y border-[var(--border-subtle)] py-3 text-sm">
         <div><dt className="text-[var(--content-muted)]">{t('workout.current_target_label')}</dt><dd className="mt-0.5 font-semibold text-[var(--content-primary)]">{t('workout.current_target', { sets: targetSets, reps: targetReps })}</dd></div>
         <div><dt className="text-[var(--content-muted)]">{t('workout.previous_values_label')}</dt><dd className="mt-0.5 font-semibold text-[var(--content-primary)]">{previous}</dd></div>
       </dl>
 
-      <div className="overflow-hidden rounded-2xl bg-[var(--surface-subtle)]">
-        <ExerciseMotion media={media} alt={mediaAlt} autoplay={!paused} playbackDisabled={paused} className="live-exercise-motion" />
+      <div className="live-exercise-stage__media overflow-hidden rounded-2xl bg-[var(--surface-subtle)]">
+        {/* Explicit play only: the stage never autoplays before user intent. Session pause still disables playback. */}
+        <ExerciseMotion media={media} alt={mediaAlt} playbackDisabled={paused} className="live-exercise-motion" />
       </div>
 
       {nextExerciseName ? <p className="border-t border-[var(--border-subtle)] pt-3 text-sm text-[var(--content-secondary)]">{t('workout.up_next_named', { name: nextExerciseName })}</p> : null}

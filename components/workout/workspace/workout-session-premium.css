@@ -1,0 +1,527 @@
+/*
+ * Workout Session Premium (V2) — scoped visual layer for the real
+ * builder / review / active-session / logging / rest / pause / finish
+ * surfaces owned by DS1.
+ *
+ * Authority: VISUAL-REFERENCE-V2 (IMPLEMENTATION.md / tokens.css / demo.css).
+ * Design: soft structuralism — calm rows, one featured shell, inset action
+ * discs, thin real-elapsed rest track, coherent sheets. All colour resolves
+ * through existing semantic theme tokens (dark + .light) so the surface
+ * follows the app theme; V2 values are kept as fallbacks only.
+ *
+ * Everything here is additive: existing roles, labels, counters and durable
+ * behaviour are untouched. Reduced motion collapses every transform.
+ */
+
+.workout-workspace {
+  /* V2 fallback tokens (used only when a semantic token is missing). */
+  --wsp-radius: 22px;
+  --wsp-radius-lg: 28px;
+  --wsp-radius-sheet: 30px;
+  --wsp-shell: 5px;
+  --wsp-tray: var(--workout-surface-subtle, #242925);
+  --wsp-ease: cubic-bezier(.32, .72, 0, 1);
+  --wsp-press: 120ms;
+  --wsp-sheet: 420ms;
+  --wsp-gold: var(--action-primary, #c6ad7b);
+  --wsp-on-gold: var(--action-on-primary, #181c16);
+  --wsp-surface: var(--workout-surface, #191c1a);
+  --wsp-raised: var(--workout-surface-raised, #191c1a);
+  --wsp-line: var(--workout-rail, #ffffff0c);
+  --wsp-text: var(--content-primary, #f3f4ef);
+  --wsp-muted: var(--content-secondary, #a7aea7);
+  --wsp-faint: var(--content-muted, #a7aea7);
+  --wsp-danger: var(--status-danger-fg, #ed9c96);
+  --wsp-success: var(--status-success-fg, #91b9a4);
+  --wsp-tint: color-mix(in srgb, var(--wsp-gold) 12%, transparent);
+}
+
+/* ── Shared: featured shell + primary action disc ─────────────────────── */
+.workout-workspace .wsp-shell {
+  padding: var(--wsp-shell);
+  border-radius: var(--wsp-radius-lg);
+  background: var(--wsp-tray);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--wsp-text) 6%, transparent);
+}
+
+.workout-workspace .wsp-shell__inner {
+  border-radius: calc(var(--wsp-radius-lg) - var(--wsp-shell));
+  background: var(--wsp-surface);
+  box-shadow: inset 0 0 0 1px var(--wsp-line);
+  overflow: hidden;
+}
+
+.workout-workspace .btn-gold.wsp-action,
+.workout-workspace .wsp-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 54px;
+  padding: 7px 7px 7px 22px;
+  border-radius: 28px;
+  background: var(--wsp-gold);
+  color: var(--wsp-on-gold);
+  font-weight: 650;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--wsp-text) 12%, transparent);
+  transition: transform 180ms var(--wsp-ease), background-color 200ms var(--wsp-ease);
+}
+
+.workout-workspace .wsp-action--ghost {
+  background: var(--wsp-surface);
+  color: var(--wsp-text);
+  box-shadow: inset 0 0 0 1px var(--wsp-line);
+}
+
+.workout-workspace .wsp-disc {
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--wsp-on-gold) 8%, transparent);
+  transition: transform 300ms var(--wsp-ease);
+}
+
+.workout-workspace .wsp-action--ghost .wsp-disc {
+  background: color-mix(in srgb, var(--wsp-text) 7%, transparent);
+}
+
+/* Discs on ghost/secondary controls inherit the control's own ink. */
+.workout-workspace .btn-ghost .wsp-disc {
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .workout-workspace .wsp-action:hover .wsp-disc {
+    transform: translateX(2px) rotate(-8deg);
+  }
+}
+
+.workout-workspace .wsp-action:active {
+  transform: scale(.975);
+}
+
+.workout-workspace .wsp-action:disabled {
+  opacity: .5;
+}
+
+.workout-workspace .wsp-eyebrow {
+  font-size: 12px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--wsp-faint);
+}
+
+.workout-workspace .wsp-spin {
+  animation: wsp-turn 900ms cubic-bezier(.45, .05, .55, .95) infinite;
+}
+
+@keyframes wsp-turn {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Builder / review ─────────────────────────────────────────────────── */
+.workout-workspace .workout-plan-editor,
+.workout-workspace .workout-plan-review {
+  padding-bottom: calc(var(--client-shell-nav-base-height, 4.5rem) + env(safe-area-inset-bottom, 0px) + 2rem);
+}
+
+.workout-workspace .workout-plan-editor__header h1,
+.workout-workspace .workout-plan-review__header h1 {
+  font-weight: 650;
+  letter-spacing: -.03em;
+}
+
+.workout-workspace .plan-muscle-summary {
+  border: 0;
+  border-radius: var(--wsp-radius);
+  background: var(--wsp-surface);
+  box-shadow: inset 0 0 0 1px var(--wsp-line);
+}
+
+.workout-workspace .workout-plan-editor__sequence,
+.workout-workspace .workout-plan-review__sequence {
+  border: 0;
+  border-radius: var(--wsp-radius);
+  background: var(--wsp-surface);
+  box-shadow: inset 0 0 0 1px var(--wsp-line);
+}
+
+/* Calm row baseline: spacing + a single tonal hairline, no nested shell. */
+.workout-workspace .plan-exercise-card {
+  background: transparent;
+  padding: 18px 16px;
+  box-shadow: inset 0 -1px var(--wsp-line);
+  transition: background-color 200ms var(--wsp-ease);
+}
+
+.workout-workspace .plan-exercise-card:last-child {
+  box-shadow: none;
+}
+
+/* The active/expanded row is the one featured surface. */
+.workout-workspace .plan-exercise-card--featured {
+  margin: 6px;
+  padding: 16px;
+  border-radius: var(--wsp-radius);
+  background: var(--wsp-raised);
+  box-shadow: inset 0 0 0 1px var(--wsp-line), 0 10px 24px color-mix(in srgb, var(--wsp-text) 3%, transparent);
+}
+
+.workout-workspace .plan-exercise-card__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.workout-workspace .plan-exercise-card__toggle {
+  display: inline-flex;
+  min-width: 44px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border-radius: 12px;
+  color: var(--wsp-muted);
+}
+
+.workout-workspace .plan-exercise-card__toggle svg {
+  transition: transform 220ms var(--wsp-ease);
+}
+
+.workout-workspace .plan-exercise-card__toggle[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+.workout-workspace .plan-exercise-card__title h2 {
+  font-weight: 650;
+  letter-spacing: -.015em;
+}
+
+.workout-workspace .plan-exercise-card__prescription,
+.workout-workspace .plan-exercise-card__notes {
+  animation: wsp-reveal 200ms var(--wsp-ease);
+}
+
+@keyframes wsp-reveal {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Prescription fields: input radius 13px, unit stays outside the value. */
+.workout-workspace .plan-exercise-card__field {
+  position: relative;
+  display: block;
+}
+
+.workout-workspace .plan-exercise-card__field .wsp-unit {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  pointer-events: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--wsp-faint);
+}
+
+.workout-workspace .plan-exercise-card__prescription input,
+.workout-workspace .plan-exercise-card__notes textarea,
+.workout-workspace .workout-plan-editor__header input {
+  border: 0;
+  border-radius: 13px;
+  background: var(--wsp-tray);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--wsp-text) 5%, transparent);
+}
+
+.workout-workspace .plan-exercise-card__prescription input:focus-visible {
+  outline: 2px solid var(--wsp-gold);
+  outline-offset: 1px;
+  box-shadow: none;
+}
+
+.workout-workspace .plan-exercise-card__prescription input {
+  padding-right: 34px;
+}
+
+.workout-workspace .plan-exercise-card__actions button,
+.workout-workspace .plan-exercise-card__review button {
+  border-radius: 12px;
+  transition: background-color 160ms var(--wsp-ease), color 160ms var(--wsp-ease);
+}
+
+.workout-workspace .workout-plan-editor__add {
+  justify-content: flex-start;
+  gap: 10px;
+  padding-inline: 16px;
+  min-height: 52px;
+  border-top: 0;
+  box-shadow: inset 0 1px var(--wsp-line);
+}
+
+/* ── Live stage / current set ─────────────────────────────────────────── */
+.workout-workspace .wsp-stage {
+  padding: var(--wsp-shell);
+  border-radius: var(--wsp-radius-lg);
+  background: var(--wsp-tray);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--wsp-text) 6%, transparent);
+  animation: wsp-reveal 220ms var(--wsp-ease);
+}
+
+.workout-workspace .wsp-stage__inner {
+  padding: 4px;
+  border-radius: calc(var(--wsp-radius-lg) - var(--wsp-shell));
+  background: var(--wsp-surface);
+  box-shadow: inset 0 0 0 1px var(--wsp-line);
+}
+
+.workout-workspace .live-exercise-stage__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.workout-workspace .live-exercise-stage__face {
+  min-width: 0;
+}
+
+.workout-workspace .live-exercise-stage__session-name {
+  color: var(--wsp-faint);
+}
+
+.workout-workspace .live-exercise-stage__facts {
+  border-block: 1px solid var(--wsp-line);
+}
+
+.workout-workspace .live-exercise-stage__media {
+  padding: var(--wsp-shell);
+  border-radius: var(--wsp-radius);
+  background: var(--wsp-tray);
+}
+
+.workout-workspace .live-exercise-stage__media > figure,
+.workout-workspace .live-exercise-stage__media img,
+.workout-workspace .live-exercise-stage__media video {
+  border-radius: calc(var(--wsp-radius) - var(--wsp-shell));
+}
+
+.workout-workspace .wsp-finish-ready {
+  padding-inline: 4px;
+}
+
+/* Current set: featured inner surface, secondary rows stay quiet. */
+.workout-workspace [data-set-row] {
+  padding: 14px;
+}
+
+.workout-workspace [data-set-row][data-current="true"] {
+  border-radius: 20px;
+  background: var(--wsp-raised);
+  box-shadow: inset 0 0 0 var(--wsp-shell) var(--wsp-tray), inset 0 0 0 1px var(--wsp-line);
+}
+
+.workout-workspace .exercise-set-logger__grid input,
+.workout-workspace .exercise-set-logger__grid .input-dark {
+  border-radius: 13px;
+  background: var(--wsp-tray);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--wsp-text) 5%, transparent);
+}
+
+.workout-workspace .exercise-set-logger__grid input:focus-visible {
+  outline: 2px solid var(--wsp-gold);
+  outline-offset: 1px;
+}
+
+.workout-workspace .exercise-set-logger__field {
+  position: relative;
+  display: block;
+}
+
+.workout-workspace .exercise-set-logger__field .wsp-unit {
+  position: absolute;
+  right: 12px;
+  bottom: 14px;
+  pointer-events: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--wsp-faint);
+}
+
+.workout-workspace .exercise-set-logger__field input {
+  padding-right: 42px;
+}
+
+/* Thin rest track — width derives from the real snapshot, never a new clock. */
+.workout-workspace .exercise-set-logger__rest {
+  display: grid;
+  gap: 8px;
+}
+
+.workout-workspace .exercise-set-logger__rest-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--wsp-line);
+  overflow: hidden;
+}
+
+.workout-workspace .exercise-set-logger__rest-fill {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--wsp-gold);
+}
+
+.workout-workspace .exercise-set-logger__rest-values {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.workout-workspace .rest-target__choice {
+  border-radius: 999px;
+}
+
+.workout-workspace .rest-target__choice[aria-checked="true"] {
+  background: var(--wsp-tint);
+  color: var(--wsp-gold);
+  box-shadow: inset 0 0 0 1px var(--wsp-gold);
+}
+
+/* ── Session path ─────────────────────────────────────────────────────── */
+.workout-workspace .live-session-path {
+  border-block: 1px solid var(--wsp-line);
+}
+
+.workout-workspace .live-session-path__name {
+  max-width: 8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+/* ── Sheets: finish + pause ───────────────────────────────────────────── */
+.workout-workspace .wsp-sheet-backdrop {
+  background: var(--scrim);
+  backdrop-filter: blur(5px);
+}
+
+.workout-workspace .wsp-sheet {
+  padding: 6px;
+  border: 0;
+  border-radius: var(--wsp-radius-sheet) var(--wsp-radius-sheet) 0 0;
+  background: var(--wsp-tray);
+  box-shadow: 0 24px 100px color-mix(in srgb, var(--wsp-text) 8%, transparent);
+  animation: wsp-sheet 420ms var(--wsp-ease);
+}
+
+.workout-workspace .wsp-sheet__inner {
+  border-radius: calc(var(--wsp-radius-sheet) - 6px) calc(var(--wsp-radius-sheet) - 6px) 0 0;
+  background: var(--wsp-surface);
+  padding: 22px;
+}
+
+.workout-workspace .wsp-sheet__stat {
+  border-radius: 16px;
+  background: var(--wsp-tray);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--wsp-text) 4%, transparent);
+}
+
+.workout-workspace .wsp-sheet:focus-visible {
+  outline: 2px solid var(--wsp-gold);
+  outline-offset: 2px;
+}
+
+@keyframes wsp-sheet {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (min-width: 640px) {
+  .workout-workspace .wsp-sheet,
+  .workout-workspace .wsp-sheet__inner {
+    border-radius: var(--wsp-radius-sheet);
+  }
+}
+
+/* ── Cardio + retrospective logging ───────────────────────────────────── */
+.workout-workspace .wsp-log-panel {
+  border: 0;
+  border-radius: var(--wsp-radius);
+  background: var(--wsp-surface);
+  box-shadow: inset 0 0 0 1px var(--wsp-line);
+  padding: 18px;
+}
+
+.workout-workspace .wsp-log-panel input,
+.workout-workspace .wsp-log-panel select {
+  border-radius: 13px;
+}
+
+/* ── Narrow viewports ─────────────────────────────────────────────────── */
+@media (max-width: 430px) {
+  .workout-workspace .wsp-action {
+    min-height: 50px;
+    gap: 12px;
+    padding-left: 18px;
+  }
+
+  .workout-workspace .wsp-disc {
+    width: 34px;
+    height: 34px;
+  }
+
+  .workout-workspace .plan-exercise-card {
+    padding: 16px 12px;
+  }
+}
+
+/* ── Reduced motion: static equivalents, no transforms ────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .workout-workspace .wsp-action,
+  .workout-workspace .wsp-disc,
+  .workout-workspace .wsp-sheet,
+  .workout-workspace .wsp-stage,
+  .workout-workspace .plan-exercise-card__toggle svg,
+  .workout-workspace .plan-exercise-card__prescription,
+  .workout-workspace .plan-exercise-card__notes {
+    animation: none;
+    transition: none;
+    transform: none;
+  }
+
+  .workout-workspace .wsp-spin {
+    animation: none;
+  }
+}
+
+/* GuidedSession renders outside .workout-workspace; share the V2 surface voice. */
+.guided-session {
+  --wsp-ease: cubic-bezier(.32, .72, 0, 1);
+}
+
+.guided-session .glass-elevated {
+  border-radius: 24px;
+}
+
+.guided-session .wsp-disc {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--action-on-primary, #181c16) 8%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guided-session .wsp-disc {
+    animation: none;
+    transition: none;
+    transform: none;
+  }
+}

@@ -38,6 +38,7 @@ import {
 } from '@/lib/workout/live-session';
 import { elapsedActiveMs } from '@/lib/workout/workspace-state';
 import { resetWorkoutScroll } from '@/lib/workout/workspace-routes';
+import './workout-session-premium.css';
 
 import { supersetGroupFor } from '@/lib/workout/supersets';
 import { displayToKg, kgToDisplay, useWeightUnit } from '@/lib/workout/units';
@@ -598,6 +599,9 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
     muscle_group: 'full_body',
   } : null);
   const activeRows = activeDraftExercise ? rows.filter((row) => row.exerciseId === activeDraftExercise.exerciseId) : [];
+  // The single set the athlete is on right now: the first row without a persisted
+  // set. Drives the featured current-set surface; other rows stay quiet.
+  const currentSetRowId = activeRows.find((row) => !persistedSets.some((set) => set.exercise_id === row.exerciseId && set.set_number === row.setNumber))?.id ?? null;
   const latestActiveSet = activeDraftExercise
     ? persistedSets.filter((set) => set.exercise_id === activeDraftExercise.exerciseId && !set.is_warmup)
       .sort((left, right) => Date.parse(right.created_at ?? '') - Date.parse(left.created_at ?? ''))[0]
@@ -622,7 +626,7 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
       /> : null}
 
       {!recoveryLoaded ? <div role="status" className="min-h-24 animate-pulse rounded-xl bg-[var(--surface-subtle)]" aria-label={t('workout.loading_live_session')} /> : allExercisesComplete && !activeDraftExercise ? (
-        <section aria-labelledby="finish-ready-title" className="border-y border-[var(--border-subtle)] py-5">
+        <section aria-labelledby="finish-ready-title" className="wsp-finish-ready border-y border-[var(--border-subtle)] py-5">
           <h1 id="finish-ready-title" className="text-2xl font-bold tracking-[-0.02em] text-[var(--content-primary)]">{t('workout.finish_ready_title')}</h1>
           <p className="mt-2 text-sm text-[var(--content-secondary)]">{t('workout.finish_ready_message')}</p>
         </section>
@@ -672,6 +676,7 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
               unit={unit}
               grouped
               focusMode
+              current={row.id === currentSetRowId}
               paused={state.stage === 'paused'}
               showExerciseHeader={showExerciseHeader}
               isLastSet={isLastSet}
@@ -766,7 +771,7 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
         </div>
       ) : null}
 
-      <button type="button" onClick={() => requestFinish()} disabled={savingFinish || mutationBlocked} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[var(--status-danger-bg)] font-semibold text-[var(--status-danger-fg)] disabled:opacity-50"><Square size={17} aria-hidden="true" />{t('workout.finish')}</button>
+      <button type="button" onClick={() => requestFinish()} disabled={savingFinish || mutationBlocked} className="live-workout__finish inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[var(--status-danger-bg)] font-semibold text-[var(--status-danger-fg)] disabled:opacity-50"><Square size={17} aria-hidden="true" />{t('workout.finish')}</button>
       {blockedReason === 'pending' && !finishOpen ? <p role="status" className="text-center text-xs leading-5 text-[var(--content-secondary)]">{t('workout.finish_blocked_pending')}</p> : null}
 
       {finishOpen ? (
