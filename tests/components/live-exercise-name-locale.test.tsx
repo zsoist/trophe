@@ -111,7 +111,7 @@ describe('live exercise names follow the shared locale resolver', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
     fireEvent.click(screen.getByRole('button', { name: 'Pain Press en el suelo' }));
-    expect(screen.getByTestId('pain-modal-name').textContent).toBe('Press en el suelo');
+    expect((await screen.findByTestId('pain-modal-name')).textContent).toBe('Press en el suelo');
 
     expect(liveState.draft?.kind === 'strength' && liveState.draft.exercises[0].exerciseName).toBe('Floor Press');
   });

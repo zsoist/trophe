@@ -288,17 +288,17 @@ describe('LiveWorkout', () => {
       equipment: 'barbell', is_compound: true, is_template: true, created_by: null, created_at: '',
     }]} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Plate Bench Press' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Add warm-up sets' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Add warm-up sets' }));
     expect(screen.getByRole('button', { name: 'Finish workout' }).hasAttribute('disabled')).toBe(true);
     await screen.findAllByRole('alert');
     const firstAttempt = harness.completeLiveSet.mock.calls.map(([input]) => input.setNumber);
     expect(firstAttempt).toEqual([1, 2]);
     fireEvent.change(screen.getByLabelText('Total weight (kg)'), { target: { value: '120' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Add warm-up sets' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Add warm-up sets' }));
     await vi.waitFor(() => expect(screen.getByRole('button', { name: 'Add warm-up sets' })).toBeTruthy());
     expect(harness.completeLiveSet.mock.calls).toHaveLength(2);
     fireEvent.change(screen.getByLabelText('Total weight (kg)'), { target: { value: '100' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Add warm-up sets' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Add warm-up sets' }));
     await vi.waitFor(() => expect(harness.completeLiveSet.mock.calls.length).toBeGreaterThan(2));
     expect(harness.completeLiveSet.mock.calls[2][0].setNumber).toBe(1);
   });
@@ -364,14 +364,14 @@ describe('LiveWorkout', () => {
     harness.appendLivePainFlag.mockReturnValueOnce(new Promise((resolve) => { resolvePain = resolve; }));
     render(<LiveWorkout exercises={[]} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Pain Bench Press' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Save pain note' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Save pain note' }));
     expect(screen.getByRole('button', { name: 'Finish workout' }).hasAttribute('disabled')).toBe(true);
     resolvePain({ ok: false });
     expect((await screen.findByRole('alert')).textContent).toContain('could not be saved');
     expect(screen.getByRole('button', { name: 'Save pain note' })).toBeTruthy();
 
     harness.appendLivePainFlag.mockResolvedValueOnce({ ok: true, flags: [{ exercise_id: 'bench', body_part: 'shoulder', severity: 2 }] });
-    fireEvent.click(screen.getByRole('button', { name: 'Save pain note' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Save pain note' }));
     await vi.waitFor(() => expect(screen.getByRole('button', { name: 'Finish workout' }).hasAttribute('disabled')).toBe(false));
   });
 
@@ -379,7 +379,7 @@ describe('LiveWorkout', () => {
     harness.appendLivePainFlag.mockResolvedValueOnce({ ok: true, flags: [{ exercise_id: 'bench', body_part: 'lower back', severity: 5 }] });
     render(<LiveWorkout exercises={[]} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Pain Bench Press' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Save severe pain note' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Save severe pain note' }));
     await vi.waitFor(() => expect(workspace.pause).toHaveBeenCalledTimes(1));
   });
 
