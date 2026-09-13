@@ -109,16 +109,23 @@ it('acceptance opens the same native reference as a review without another estim
  expect(second.receipts).toEqual([]);expect(prepare).toHaveBeenCalledTimes(1);expect(h.provider).toHaveBeenCalledTimes(calls);expect(second.telemetry.modelCalls).toBe(0);
 });
 
- it('does not turn foreign search results into a Colombia reference or reviewable draft',async()=>{
-  const result=await run(false,'Search calories in 150 g Whopper Burger King in Colombia');
-  expect(result.ok).toBe(true);expect(result.output?.answer).toContain('could not verify');
-  expect(result.output?.answer).not.toContain('247.5');
-  expect(snapshotFoodReference(result.capabilityResult?.result)).toBeNull();
-  expect(h.provider).toHaveBeenCalledTimes(1);expect(fetch).toHaveBeenCalledTimes(1);
-  expect([...records.values()].map(row=>pilotTurnProfile(row.binding)).sort()).toEqual(['ordinary_text','search']);
- });
- it('does not use an unqualified catalogue hit as country-specific evidence',async()=>{
-  const result=await run(true,'Calories in 150 g chicken breast in Colombia');
-  expect(result.output?.answer).toContain('could not verify');expect(result.output?.answer).not.toContain('247.5');
-  expect(snapshotFoodReference(result.capabilityResult?.result)).toBeNull();
- });
+
+it('keeps an explicit-market estimate generic through portion continuity and review',async()=>{
+ const original=h.provider.getMockImplementation()!;
+ h.provider.mockImplementation(async(...args)=>{const result=await original(...args);if(result.output.items)result.output.items=result.output.items.map((item:typeof candidate)=>({...item,food_name:'Chicken breast, cooked Colombia',name_localized:'Chicken breast, cooked Colombia'}));return result;});
+ const result=await run(false,'Search calories in 150 g chicken breast in Colombia');
+ expect(result.output?.answer).toContain('Generic reference');expect(result.output?.answer).toContain('not verified');
+ const snapshot=snapshotFoodReference(result.capabilityResult?.result)!;
+ expect(snapshot).toMatchObject({kind:'native',unverifiedMarkets:['CO'],references:[{name:'Chicken breast, cooked (generic estimate)'}]});
+ const calls=h.provider.mock.calls.length;
+ const second=await run(false,'and 200 g',snapshot);
+ expect(second.output?.answer).toContain('Generic reference');expect(second.output?.answer).toContain('330 kcal');
+ const review=foodReferenceReviewOutput(snapshotFoodReference(second.capabilityResult?.result)!);
+ expect(review?.items[0]).toMatchObject({food_name:'Chicken breast, cooked (generic estimate)',grams:200,calories:330});
+ expect(h.provider).toHaveBeenCalledTimes(calls);
+});
+it('does not use an unqualified catalogue hit as country-specific evidence',async()=>{
+ const result=await run(true,'Calories in 150 g chicken breast in Colombia');
+ expect(result.output?.answer).toContain('Generic reference');expect(result.output?.answer).toContain('not verified');
+ expect(snapshotFoodReference(result.capabilityResult?.result)).toMatchObject({kind:'native',unverifiedMarkets:['CO']});
+});

@@ -2,13 +2,15 @@ import { memo, Fragment, type ReactNode } from 'react';
 import { safeSourceUrl } from '@/lib/food/nutrition-search-transport';
 import styles from './GlobalCoach.module.css';
 
-// React escapes all text. Only validated public HTTP(S) links are interactive;
+// React escapes all text. Only HTTPS domain links passing the literal-host checks are interactive;
 // HTML and images remain inert, including in saved messages.
 function inline(text: string): ReactNode {
   return text.split(/(\*\*[^*\n]+\*\*|\[[^\]\n]+\]\([^\s)]+\))/g).map((part, index) => {
     if (part.startsWith('**') && part.endsWith('**')) return <strong key={index}>{part.slice(2, -2)}</strong>;
     const link = /^\[([^\]\n]+)\]\(([^\s)]+)\)$/.exec(part);
-    const href = link ? safeSourceUrl(link[2]) : null;
+    const candidate = link ? safeSourceUrl(link[2]) : null;
+    const host = candidate ? new URL(candidate).hostname.replace(/\.$/, '') : '';
+    const href = candidate && /\.[a-z]{2,}$/i.test(host) && !/(?:^|\.)(?:localhost|local|internal|lan|home|test|invalid)$/i.test(host) ? candidate : null;
     if (link && href) return <a key={index} href={href} target="_blank" rel="noopener noreferrer">{link[1]}</a>;
     return <Fragment key={index}>{part}</Fragment>;
   });

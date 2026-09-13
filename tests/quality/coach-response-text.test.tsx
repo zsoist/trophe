@@ -26,7 +26,7 @@ it('hides only recognized assistant wrappers and an exact repeated user statemen
 });
 
 it('makes public supporting sources usable while rejecting unsafe URLs',()=>{
- const {container}=render(<ResponseText text={'Sources: [label](https://example.com/food%29). [bad](javascript:alert) [private](http://127.0.0.1/admin) [credentials](https://user:pass@example.com)'} />);
+ const {container}=render(<ResponseText text={'Sources: [label](https://example.com/food%29). [bad](javascript:alert) [private](https://127.0.0.1/admin) [lan](https://192.168.1.1/admin) [localhost](https://localhost/admin) [internal](https://service.internal/admin) [ip](https://2130706433/admin) [credentials](https://user:pass@example.com)'} />);
  const links=screen.getAllByRole('link');expect(links).toHaveLength(1);
  expect(links[0].getAttribute('href')).toBe('https://example.com/food%29');
  expect(links[0].getAttribute('rel')).toBe('noopener noreferrer');

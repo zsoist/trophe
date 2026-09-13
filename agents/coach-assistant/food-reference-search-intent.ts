@@ -20,3 +20,7 @@ export function foodReferenceSearchIntent(product: string, text: string, languag
   const lang = language.split('-')[0];
   return { product, brand, locale: markets.length ? `${lang}-${markets[0]}` : lang };
 }
+
+export function withoutRequestedFoodMarkets(text: string): string {
+  return MARKETS.reduce((value, [pattern]) => value.replace(new RegExp(pattern.source, 'gi'), ''), text).replace(/\s+/g, ' ').trim();
+}

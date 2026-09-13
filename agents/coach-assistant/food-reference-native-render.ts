@@ -32,5 +32,6 @@ export function renderNativeFoodReference(raw: unknown, spanish: boolean): strin
     const portion = `${number(ref.portion.grams)} g${ref.portionBasis === 'model_estimate' ? spanish ? ' aprox.' : ' approx.' : ''}`;
     return `**${ref.name}** — ${portion}: **${number(n.kcal)} kcal**, ${number(n.proteinG)} g ${spanish ? 'proteína' : 'protein'}, ${number(n.carbsG)} g ${spanish ? 'carbohidratos' : 'carbs'}, ${number(n.fatG)} g ${spanish ? 'grasa' : 'fat'}. ${qualifier}.`;
   });
-  return `${rows.join('\n\n')}\n\n${spanish ? 'No registrado. ¿Quieres registrarlo?' : 'Not logged. Would you like to log it?'}${sources}`;
+  const marketNote = 'unverifiedMarkets' in raw && Array.isArray(raw.unverifiedMarkets) && raw.unverifiedMarkets.length ? spanish ? 'Referencia genérica; no se verificó una etiqueta del país solicitado. Las fuentes no acreditan ese mercado.' : 'Generic reference; a label for the requested country was not verified. Sources do not establish that market.' : '';
+  return `${marketNote ? `${marketNote}\n\n` : ''}${rows.join('\n\n')}\n\n${spanish ? 'No registrado. ¿Quieres registrarlo?' : 'Not logged. Would you like to log it?'}${sources}`;
 }
