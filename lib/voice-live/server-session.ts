@@ -90,6 +90,38 @@ function raceBounded(promise: Promise<unknown>, ms: number): Promise<void> {
 }
 
 /**
+ * Sentinel for a bounded store await that did NOT settle with a usable value
+ * (timed out) or failed. Never a fabricated `SessionBudgetResult`: a caller
+ * must treat it as UNCONFIRMED, never as success and never as a zero charge.
+ */
+const BOUNDED_TIMEOUT = Symbol('bounded_timeout');
+
+/**
+ * Bound an awaited store/ledger operation by `ms`, yielding its value on settle
+ * or `BOUNDED_TIMEOUT` on timeout/rejection — whichever is first. Never rejects,
+ * so a late rejection is observed (no unhandled rejection) and a late success
+ * after the bound is discarded: it can neither settle twice nor trigger any
+ * further ledger action or dispatch. Mirrors `raceBounded`, but keeps the value.
+ */
+async function raceBoundedResult<T>(promise: Promise<T>, ms: number): Promise<T | typeof BOUNDED_TIMEOUT> {
+  return new Promise<T | typeof BOUNDED_TIMEOUT>((resolve) => {
+    const timer = setTimeout(() => resolve(BOUNDED_TIMEOUT), ms);
+    const t = timer as unknown as { unref?: () => void };
+    if (typeof t.unref === 'function') t.unref();
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      () => {
+        clearTimeout(timer);
+        resolve(BOUNDED_TIMEOUT);
+      },
+    );
+  });
+}
+
+/**
  * Best-effort cancellation of a stream iterator. Deliberately NOT awaited: a
  * misbehaving `return()` (e.g. a QUIET sideband stream) must never block
  * shutdown, and a rejected `return()` must not become an unhandled rejection.
@@ -255,6 +287,18 @@ export async function openLiveSession(input: OpenLiveSessionInput): Promise<Open
 
   const reservation = await reserveSessionAttempt(binding, breakdown.value.totalNanoUsd, input.budget, input.signal);
   if (!reservation.ok) {
+    if (reservation.error === 'uncertain') {
+      // The persistent store may have COMMITTED a `reserved` row (with the full
+      // charge) before losing its answer — e.g. a caller cancel racing the
+      // write. Returning `store_uncertain` without reconciling would leave that
+      // reservation charged but stuck in `reserved` forever (lost accounting).
+      // The canonical ledger has NO `reserved -> unknown` transition; the only
+      // legal reconciliation of a never-dispatched reservation is
+      // `release_unstarted`, which itself refuses (`invalid_transition`) any row
+      // that has moved on. Definite failures (budget_blocked) never wrote, so
+      // they are not reconciled here.
+      await bestEffortReleaseUnstarted(binding, input.budget);
+    }
     return {
       ok: false,
       error: reservation.error === 'uncertain' ? 'store_uncertain' : 'budget_blocked',
@@ -265,7 +309,7 @@ export async function openLiveSession(input: OpenLiveSessionInput): Promise<Open
   const claim = await claimSessionDispatch(binding, input.budget, input.signal);
   if (!claim.ok || claim.dispatchGranted !== true) {
     // Reserved but never dispatched: release, best-effort, no automatic retry.
-    await releaseSessionUnstarted(binding, input.budget, input.signal);
+    await bestEffortReleaseUnstarted(binding, input.budget);
     return {
       ok: false,
       error: 'dispatch_not_granted',
@@ -313,6 +357,50 @@ export async function openLiveSession(input: OpenLiveSessionInput): Promise<Open
   };
 }
 
+/**
+ * Reconcile a reservation that was never dispatched.
+ *
+ * The canonical ledger exposes exactly one transition for this: the atomic,
+ * conditional `release_unstarted`, which zeroes a row ONLY while it is still
+ * `reserved` and answers `invalid_transition` for `dispatched`/`unknown`/
+ * `settled`. That conditionality is the safety we need:
+ *   - `reserved`   -> released, charge 0 (never dispatched => no cost, no
+ *                     undercharge);
+ *   - `dispatched` -> refused, row left untouched => the full charge is
+ *                     PRESERVED whenever the dispatch outcome is unknown
+ *                     (concurrent/duplicate claim, uncertain claim response);
+ *   - `not_found`  -> no row was visible at release time; a late reserve could
+ *                     still commit, so nothing is zeroed (never a false release);
+ *   - otherwise    -> release unconfirmed; leave the row conservative (a
+ *                     `reserved` row keeps its full charge). Never `unknown`
+ *                     (illegal from `reserved`), never retried.
+ *
+ * Bounded and *independent* of the caller signal: the abort that brought us
+ * here must not poison the reconciliation. The bound applies to the AWAITED
+ * cleanup itself, not just to its signal: a store that ignores `AbortSignal`
+ * must not be able to keep admission pending forever. No automatic retry/loop.
+ */
+async function bestEffortReleaseUnstarted(
+  binding: SessionAttemptBinding,
+  budget: PersistentSessionBudgetStore,
+): Promise<void> {
+  const { signal, clear } = boundedCleanupSignal();
+  try {
+    // `raceBounded` resolves on settle OR the bound and attaches a rejection
+    // handler, so a store that ignores the abort neither hangs admission nor
+    // produces an unhandled rejection when it fails late. A timed-out (or
+    // failed) release is left UNCONFIRMED: any committed `reserved` row keeps
+    // its full charge (conservative over-retention), and we never report the
+    // row as released.
+    await raceBounded(releaseSessionUnstarted(binding, budget, signal), CLEANUP_TIMEOUT_MS);
+  } catch {
+    // Unconfirmed release: a committed `reserved` row stays fully charged
+    // (conservative over-retention) rather than being silently zeroed.
+  } finally {
+    clear();
+  }
+}
+
 /** Reconciliation retains the full reserve; bounded and never uses a poisoned signal. */
 async function bestEffortUnknown(
   binding: SessionAttemptBinding,
@@ -321,7 +409,10 @@ async function bestEffortUnknown(
 ): Promise<void> {
   const { signal, clear } = boundedCleanupSignal();
   try {
-    await markSessionAttemptUnknown(binding, reason, budget, signal);
+    // Bound the AWAIT, not just the signal: a store that ignores `AbortSignal`
+    // must not keep admission pending. A timeout leaves the row untouched
+    // (still `reserved`, full charge), never a fabricated terminal state.
+    await raceBounded(markSessionAttemptUnknown(binding, reason, budget, signal), CLEANUP_TIMEOUT_MS);
   } catch {
     // Retaining is best-effort here; the attempt stays reserved (never released).
   } finally {
@@ -332,7 +423,9 @@ async function bestEffortUnknown(
 async function bestEffortClose(transport: LiveSessionTransport, sessionId: string): Promise<void> {
   const { signal, clear } = boundedCleanupSignal();
   try {
-    await transport.closeSession(sessionId, signal);
+    // Bound the AWAIT, not just the signal: a provider close that ignores abort
+    // must not keep admission pending. A timeout still retains the reserve.
+    await raceBounded(transport.closeSession(sessionId, signal), CLEANUP_TIMEOUT_MS);
   } catch {
     // A late success we cannot close still retains the reserve (no fabricated usage).
   } finally {
@@ -446,12 +539,24 @@ function createRuntime(args: {
               : 'no_session_closed'
             : 'closed_without_valid_usage';
           if (!closedSignal || !hasValidUsage) {
-            const { signal, clear } = boundedCleanupSignal();
-            let retained: SessionBudgetResult;
+            const { signal, clear } = boundedCleanupSignal(cleanupTimeoutMs);
+            let retained: SessionBudgetResult | typeof BOUNDED_TIMEOUT;
             try {
-              retained = await markSessionAttemptUnknown(binding, unconfirmedReason, input.budget, signal);
+              // Bound the AWAIT, not just the signal: a store that ignores
+              // `AbortSignal` must not keep finalization (and therefore
+              // `close`/End) pending forever.
+              retained = await raceBoundedResult(
+                markSessionAttemptUnknown(binding, unconfirmedReason, input.budget, signal),
+                cleanupTimeoutMs,
+              );
             } finally {
               clear();
+            }
+            // Unconfirmed retention (timeout or a lost/uncertain answer) keeps
+            // the FULL reserve and is reported as `unknown`: never settled,
+            // never a zero charge, no second ledger action, no retry.
+            if (retained === BOUNDED_TIMEOUT) {
+              return { status: 'unknown', retainedNanoUsd: binding.reservedNanoUsd, reason: 'usage_unconfirmed' };
             }
             if (!retained.ok && retained.error !== 'uncertain') {
               return { status: 'store_error', error: retained.error };
@@ -462,17 +567,27 @@ function createRuntime(args: {
           if (!charge.ok) return { status: 'store_error', error: 'uncertain' };
           // Independent bounded cleanup signal: never the (possibly aborted)
           // caller signal, which would poison reconciliation.
-          const { signal, clear } = boundedCleanupSignal();
-          let settled: SessionBudgetResult;
+          const { signal, clear } = boundedCleanupSignal(cleanupTimeoutMs);
+          let settled: SessionBudgetResult | typeof BOUNDED_TIMEOUT;
           try {
-            settled = await settleSessionAttempt(
-              binding,
-              { usageSeconds: cumulativeSeconds, finalChargeNanoUsd: charge.value, providerTrusted: true },
-              input.budget,
-              signal,
+            settled = await raceBoundedResult(
+              settleSessionAttempt(
+                binding,
+                { usageSeconds: cumulativeSeconds, finalChargeNanoUsd: charge.value, providerTrusted: true },
+                input.budget,
+                signal,
+              ),
+              cleanupTimeoutMs,
             );
           } finally {
             clear();
+          }
+          // The settlement could not be confirmed within the bound. Never claim
+          // `settled`/`confirmed:true` and never assume zero: report the FULL
+          // reserve retained as `unknown` (conservative), with no second ledger
+          // action and no retry. A late settlement answer is discarded above.
+          if (settled === BOUNDED_TIMEOUT) {
+            return { status: 'unknown', retainedNanoUsd: binding.reservedNanoUsd, reason: 'settlement_unconfirmed' };
           }
           if (!settled.ok) return { status: 'store_error', error: settled.error };
           return {
