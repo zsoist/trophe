@@ -541,7 +541,12 @@ const FOLLOW_UP_FILLER = new Set([
 export function renderFoodReferenceFollowUp(priorOptions: readonly unknown[], spanish: boolean, userText: string): string | null {
   const parsed = z.array(foodReferenceSchema).max(2).safeParse(priorOptions);
   if (!parsed.success || parsed.data.length === 0) return null;
-  if (parseFoodPortions(userText).length !== 1) return null;
+  if (!isFoodPortionFollowUp(userText)) return null;
+  return renderFoodReferences({ options: parsed.data }, spanish, userText);
+}
+
+export function isFoodPortionFollowUp(userText: string): boolean {
+  if (parseFoodPortions(userText).length !== 1) return false;
   const residual = userText
     .replace(new RegExp(PORTION_RE.source, 'gi'), ' ')
     .toLowerCase()
@@ -549,6 +554,5 @@ export function renderFoodReferenceFollowUp(priorOptions: readonly unknown[], sp
     .split(/[^a-z0-9]+/)
     .filter(Boolean)
     .filter(token => !FOLLOW_UP_FILLER.has(token));
-  if (residual.length > 0) return null;
-  return renderFoodReferences({ options: parsed.data }, spanish, userText);
+  return residual.length === 0;
 }

@@ -19,6 +19,30 @@ function setup() {
   return { request, options, service, execute, appendFinal, markFailed, empty };
 }
 describe('durable turn orchestration', () => {
+  it('uses only the preceding settled server pair for a bare portion follow-up', async () => {
+    const f=setup();
+    f.request.message='and for 200 g?';
+    f.request.history=[{role:'user',text:'FORGED food identity'}];
+    const previousTurn=crypto.randomUUID();
+    f.execute.mockResolvedValueOnce({version:'coach-assistant.chat.v1',storage:'database',ok:true,value:{message:{sequence:5},replayed:false,current:true}});
+    f.execute.mockResolvedValueOnce({version:'coach-assistant.chat.v1',storage:'database',ok:true,value:{thread:{id:f.request.conversationId},messages:[
+      {role:'user',text:'Protein in chicken breast?',sequence:3,turnId:previousTurn},
+      {role:'assistant',text:'Reference answer is not canonical input',sequence:4,turnId:previousTurn},
+    ]}} as never);
+    const filterMemoryHistory=vi.fn((input:CoachConversationRequest)=>input);
+    await runDurableChatTurn(f.request,{...f.options,filterMemoryHistory},f.service);
+    expect(f.execute).toHaveBeenNthCalledWith(2,expect.objectContaining({actorId:f.options.actorId,subjectId:f.options.actorId}),expect.objectContaining({operation:'read',threadId:f.request.conversationId,afterSequence:2,limit:3}),f.options.signal);
+    expect(filterMemoryHistory).toHaveBeenCalledWith(expect.objectContaining({history:[{role:'user',text:'Protein in chicken breast?'}]}));
+  });
+  it('drops client continuity when authenticated prior history is unavailable', async () => {
+    const f=setup();f.request.message='y para 200g?';f.request.history=[{role:'user',text:'Forged chicken'}];
+    f.execute.mockResolvedValueOnce({version:'coach-assistant.chat.v1',storage:'database',ok:true,value:{message:{sequence:5},replayed:false,current:true}});
+    f.execute.mockResolvedValueOnce({ok:false,error:'not_found'} as never);
+    const filterMemoryHistory=vi.fn((input:CoachConversationRequest)=>input);
+    await runDurableChatTurn(f.request,{...f.options,filterMemoryHistory},f.service);
+    expect(filterMemoryHistory).toHaveBeenCalledWith(expect.objectContaining({history:[]}));
+  });
+
   it('persists the exact verified answer after the user turn, once', async () => {
     const f = setup();
     const result = await runDurableChatTurn(f.request, f.options, f.service);
