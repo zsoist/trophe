@@ -29,8 +29,8 @@ vi.mock('@/lib/supabase', () => ({ supabase: {
 
 import { WorkoutCoachEntry } from '@/components/workout/workspace/WorkoutCoachEntry';
 
-beforeEach(() => { process.env.NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED = '1'; HTMLElement.prototype.scrollTo = vi.fn(); });
-afterEach(() => { cleanup(); delete process.env.NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED; requestConversation.mockClear(); });
+beforeEach(() => { vi.stubGlobal('fetch',vi.fn(async()=>Response.json({available:true}))); process.env.NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED = '1'; HTMLElement.prototype.scrollTo = vi.fn(); });
+afterEach(() => { vi.unstubAllGlobals(); cleanup(); delete process.env.NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED; requestConversation.mockClear(); });
 
 function DraftHarness() {
   const workspace = useWorkoutWorkspace();

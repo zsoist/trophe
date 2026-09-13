@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { act, cleanup, render, screen } from '@testing-library/react';
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 const auth = vi.hoisted(() => ({
   callbacks: [] as Array<(event: string, session: { user: { id: string } } | null) => void>,
@@ -35,7 +35,9 @@ vi.mock('next/navigation', () => ({ usePathname: () => '/dashboard/log' }));
 import AccountCoach from '@/components/assistant/AccountCoach';
 import { requestReviewedVoiceTurn, requestVoiceTranscript } from '@/components/assistant/voice-client';
 
+beforeEach(()=>{vi.stubGlobal('fetch',vi.fn(async()=>Response.json({available:true})));});
 afterEach(() => {
+  vi.unstubAllGlobals();
   cleanup();
   auth.callbacks.length = 0;
   auth.unsubscribe.mockClear();
@@ -75,4 +77,14 @@ it('passes voice transports only when the public durable-history gate is also en
 
   expect(coach.props.at(-1)?.voiceTranscriptionTransport).toBe(requestVoiceTranscript);
   expect(coach.props.at(-1)?.reviewedVoiceTransport).toBe(requestReviewedVoiceTurn);
+});
+
+it('ignores stale admission after identity changes and hides denied actors',async()=>{
+ let resolveA:(value:Response)=>void=()=>{};
+ vi.stubGlobal('fetch',vi.fn().mockImplementationOnce(()=>new Promise<Response>(resolve=>{resolveA=resolve;})).mockResolvedValueOnce(Response.json({available:false})));
+ render(<AccountCoach />);
+ await act(async()=>auth.callbacks[0]('SIGNED_IN',{user:{id:'actor-a'}}));
+ await act(async()=>auth.callbacks[0]('SIGNED_IN',{user:{id:'actor-b'}}));
+ await act(async()=>resolveA(Response.json({available:true})));
+ expect(screen.queryByText(/Coach for/)).toBeNull();
 });

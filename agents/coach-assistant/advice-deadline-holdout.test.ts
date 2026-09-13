@@ -355,13 +355,19 @@ describe('nutrition advice estimator — optional diet-pattern constraints', () 
 });
 
 it('AG4 inner deadline returns completed options if pending transport ignores abort',async()=>{
+ vi.useFakeTimers();
+ const timeoutSpy=vi.spyOn(AbortSignal,'timeout').mockImplementation(ms=>{const controller=new AbortController();setTimeout(()=>controller.abort(new DOMException('Timeout','TimeoutError')),ms);return controller.signal;});
+ try {
  const normal=h.provider.getMockImplementation()!;let release:(()=>void)|undefined;
  h.provider.mockImplementation(async(request)=>{
   if(request.prompt?.includes('Greek yogurt'))return new Promise(resolve=>{release=()=>resolve(wired({items:[],needs_clarification:true,clarification_question:'Which yogurt?'}));});
   return normal(request);
  });
  const estimator=await estimatorFor();const pending=estimator(THREE,'en',new AbortController().signal,{timeoutMs:100});
- const outcome=await Promise.race([pending.then(meals=>({kind:'completed',count:meals.length}),()=>({kind:'rejected',count:0})),new Promise<{kind:string;count:number}>(resolve=>setTimeout(()=>resolve({kind:'still_pending',count:0}),300))]);
+ const raced=Promise.race([pending.then(meals=>({kind:'completed',count:meals.length}),()=>({kind:'rejected',count:0})),new Promise<{kind:string;count:number}>(resolve=>setTimeout(()=>resolve({kind:'still_pending',count:0}),300))]);
+ await vi.advanceTimersByTimeAsync(300);
+ const outcome=await raced;
  release?.();await pending.catch(()=>undefined);
  expect(outcome).toEqual({kind:'completed',count:1});expect(h.provider).toHaveBeenCalledTimes(2);
+ }finally{timeoutSpy.mockRestore();vi.useRealTimers();}
 });
