@@ -142,7 +142,10 @@ async function searchLocal(query: string): Promise<{ foods: Record<string, unkno
 
   // Bump popularity for returned results
   const ids = data.map(d => d.id);
-  supabase.rpc('increment_food_popularity', { food_ids: ids }).then(() => {});
+  // Best-effort, fire-and-forget: a rejected transport call here must never escape
+  // as an unhandled promise rejection (Node's default `throw` mode terminates the
+  // invocation, failing a search whose results were already computed).
+  supabase.rpc('increment_food_popularity', { food_ids: ids }).then(() => {}, () => {});
 
   const foods = data.map(food => ({
     fdcId: food.id,

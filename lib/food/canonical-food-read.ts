@@ -65,7 +65,6 @@ export interface CanonicalFoodReadResult<TEntry = Record<string, unknown>> {
 }
 
 const STREAK_LOOKBACK_DAYS = 60;
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 function macroSum(entries: Array<Record<string, unknown>>, column: string): number {
   return entries.reduce((sum, entry) => {
@@ -86,16 +85,32 @@ function weekDates(date: string): string[] {
   });
 }
 
-/** Consecutive days (from today) with >= 3 entries. Mirrors the Food surface's streak rule. */
+/**
+ * Consecutive days (from today) with >= 3 entries. Mirrors the Food surface's streak rule.
+ *
+ * Stepping must be *calendar* days, not fixed 24h spans. A 24h subtraction skips a
+ * local date across a spring-forward DST transition (e.g. Athens 2026-03-29:
+ * 2026-03-30T00:30 local minus 24h lands on 2026-03-28), so a qualifying day is
+ * never inspected and the user's streak is silently broken/undercounted. `setDate`
+ * keeps the same local wall-clock day, matching `weekDates` and the previously
+ * shipped page rule.
+ */
 function streakFromDates(counts: Map<string, number>): number {
   let streak = 0;
   const cursor = new Date();
   for (let i = 0; i < STREAK_LOOKBACK_DAYS; i++) {
     if ((counts.get(localDateStr(cursor)) ?? 0) >= 3) streak++;
     else if (i > 0) break; // today may still be empty without breaking the streak
-    cursor.setTime(cursor.getTime() - DAY_MS);
+    cursor.setDate(cursor.getDate() - 1);
   }
   return streak;
+}
+
+/** Calendar start of the streak lookback window (today minus 60 local days). */
+function streakLookbackStart(): string {
+  const start = new Date();
+  start.setDate(start.getDate() - STREAK_LOOKBACK_DAYS);
+  return localDateStr(start);
 }
 
 /**
@@ -138,7 +153,7 @@ export async function readCanonicalFoodState<TEntry = Record<string, unknown>>(
         .eq('user_id', actorId).maybeSingle(),
       supabase.from('food_log').select('logged_date')
         .eq('user_id', actorId)
-        .gte('logged_date', localDateStr(new Date(Date.now() - STREAK_LOOKBACK_DAYS * DAY_MS)))
+        .gte('logged_date', streakLookbackStart())
         .order('logged_date', { ascending: false }),
     ]);
 

@@ -53,14 +53,40 @@ export async function POST(request: NextRequest) {
   try {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), OFF_TIMEOUT_MS);
-    const res = await fetch(
-      `https://world.openfoodfacts.org/api/v2/product/${barcode}.json?fields=product_name,product_name_en,brands,nutriments`,
-      { signal: ctrl.signal, headers: { 'User-Agent': 'Trophe/1.0 (https://trophe.app)' } },
-    );
-    clearTimeout(timer);
-    const data = (await res.json().catch(() => ({}))) as {
-      status?: number; product?: { product_name?: string; product_name_en?: string; brands?: string; nutriments?: Record<string, number> };
-    };
+    let res: Response;
+    try {
+      res = await fetch(
+        `https://world.openfoodfacts.org/api/v2/product/${barcode}.json?fields=product_name,product_name_en,brands,nutriments`,
+        { signal: ctrl.signal, headers: { 'User-Agent': 'Trophe/1.0 (https://trophe.app)' } },
+      );
+    } finally {
+      clearTimeout(timer);
+    }
+
+    // Distinguish a provider failure from a product verdict. The v2 product API
+    // answers HTTP 404 for an unknown barcode — that is a real "not found". Any
+    // other non-2xx (401/403 block, 429 rate limit, 5xx outage) is the provider
+    // failing us, NOT proof the product is absent: reporting those as 404 told the
+    // client a widely-scanned product was "not in Open Food Facts" and pushed the
+    // user to hand-type macros during a transient outage. Surface 502 instead.
+    if (!res.ok && res.status !== 404) {
+      return NextResponse.json(
+        { found: false, barcode, error: 'Open Food Facts unavailable' },
+        { status: 502 },
+      );
+    }
+
+    // A body we cannot parse is not evidence that the product is absent (an
+    // HTML/WAF interstitial can come back 2xx), so it is a provider failure too.
+    let data: { status?: number; product?: { product_name?: string; product_name_en?: string; brands?: string; nutriments?: Record<string, number> } };
+    try {
+      data = await res.json();
+    } catch {
+      return NextResponse.json(
+        { found: false, barcode, error: 'Open Food Facts unavailable' },
+        { status: 502 },
+      );
+    }
 
     const p = data.product;
     const n = p?.nutriments;
