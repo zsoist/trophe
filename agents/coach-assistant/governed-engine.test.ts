@@ -61,7 +61,8 @@ function fixture() {
   };
   const transport = vi.fn<GovernedCoachTransport>(async input => {
     events.push('provider');
-    const payload = JSON.parse(input.prompt) as { evidence: Array<{ id: string }> };
+    const payload = JSON.parse(input.prompt) as { evidence: Array<{ id: string }>; available?: string[] };
+    if (payload.available) return { requestId: 'req_capability_none', responseModel: 'gpt-5.6-luna', output: { tool: 'none' }, usage: { inputTokens: 200, outputTokens: 20, reasoningTokens: 0 }, latencyMs: 1, rawStatus: 200 };
     return {
       requestId: 'req_private_pilot',
       responseModel: 'gpt-5.6-luna',

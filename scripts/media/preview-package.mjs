@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /** Loopback-only reviewer tool. Does not deploy or expose candidate files in public/. */
-import { tsImport } from 'tsx/esm/api';
+import { require as tsxRequire } from 'tsx/cjs/api';
 import { build } from 'esbuild';
 import { createServer } from 'node:http';
 import { readFile, mkdtemp } from 'node:fs/promises';
@@ -17,7 +17,7 @@ while (args.length) {
   if (flag === '--before') beforePath = value; else evidencePath = value;
 }
 if (!packagePath) { console.error('Usage: node scripts/media/preview-package.mjs PRIVATE_PACKAGE'); process.exit(2); }
-const { validateMediaPackage } = await tsImport('../../lib/workout/media-package.ts', import.meta.url);
+const { validateMediaPackage } = tsxRequire('../../lib/workout/media-package.ts', import.meta.url);
 const root = resolve(new URL('../..', import.meta.url).pathname);
 const temp = await mkdtemp(join(tmpdir(), 'trophe-local-preview-'));
 const assets = new Map();

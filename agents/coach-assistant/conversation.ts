@@ -87,7 +87,9 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
         }
       }
       diagnosticStage.value='context_preparation';
-      if(options.capabilityRegistry&&options.mode==='model'&&!Object.values(medicalBoundary(scopedInput.message)).some(Boolean)){
+      const foodContextReady = Boolean(options.foodSelection || options.foodChange || photoObservations.length);
+      const onlyFoodReference = options.capabilityRegistry?.available().every(tool => tool === 'food.reference');
+      if(options.capabilityRegistry&&!(foodContextReady&&onlyFoodReference)&&options.mode==='model'&&!Object.values(medicalBoundary(scopedInput.message)).some(Boolean)){
         const selectorInput=options.filterMemoryHistory?.(scopedInput)??{...scopedInput,history:scopedInput.history?.filter(item=>item.role==='user'&&item.kind!=='memory_summary')};
         const selectedScope=selectConversationScope(selectorInput);
         response.snapshot={id:randomUUID(),capturedAt:options.now.toISOString(),subjectId:subject,organizationId:authorized.organizationId,...scope,surface:scopedInput.context?.includeScreen?scopedInput.context.surface:null,screenIncluded:!!scopedInput.context?.includeScreen,language:authorized.language,units:{weight:'kg',energy:'kcal',protein:'g'},window:windowForConversation(scopedInput,selectedScope.intent,selectedScope.domain,authorized.timezone,options.now),capabilities:[]};

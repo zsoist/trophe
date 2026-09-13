@@ -12,6 +12,7 @@ const harness = vi.hoisted(() => ({
   push: vi.fn(),
   replace: vi.fn(),
   createWorkoutSession: vi.fn(),
+  startWorkoutSessionAtomic: vi.fn().mockResolvedValue({ ok: true, sessionId: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee' }),
   queries: [] as Array<{ table: string; filters: Array<[string, unknown]> }>,
   userId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
   repeatedSessionId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
@@ -35,7 +36,7 @@ vi.mock('@/lib/trpc/client', () => ({
     recommendation: { mine: { useQuery: () => ({ data: null, isLoading: false, error: null }) } },
   } },
 }));
-vi.mock('@/components/workout/workout-persistence', () => ({ createWorkoutSession: harness.createWorkoutSession }));
+vi.mock('@/components/workout/workout-persistence', () => ({ createWorkoutSession: harness.createWorkoutSession, startWorkoutSessionAtomic: harness.startWorkoutSessionAtomic }));
 vi.mock('@/lib/i18n', () => ({
   useI18n: () => ({ t: (key: string, params?: Record<string, string | number>) => ({
     'workout.program_today': `${params?.program} · Today`,
@@ -293,7 +294,7 @@ describe('Workout home data flows', () => {
     expect(harness.createWorkoutSession).not.toHaveBeenCalled();
   });
 
-  it('carries fully resolved tRPC coach exercise metadata into the program draft', async () => {
+  it('carries resolved coach exercise metadata into a directly started workout', async () => {
     harness.programData = {
       program: { name: 'Coach block' },
       exercises: [{ id: customExerciseId, name: 'Coach Tempo Press', nameEs: null, nameEl: null, muscleGroup: 'chest', equipment: 'barbell', isCompound: true }],
@@ -307,11 +308,11 @@ describe('Workout home data flows', () => {
       }],
     };
     renderPage();
-    const reviewPlan = await screen.findByRole('button', { name: 'Review plan' });
+    const reviewPlan = await screen.findByRole('button', { name: 'workout.train_now' });
     await waitFor(() => expect(reviewPlan.hasAttribute('disabled')).toBe(false));
     fireEvent.click(reviewPlan);
 
-    await waitFor(() => expect(harness.push).toHaveBeenCalledWith('/dashboard/workout/review'));
+    await waitFor(() => expect(harness.push).toHaveBeenCalledWith('/dashboard/workout/live'));
     const state = JSON.parse(screen.getByLabelText('Draft state').textContent ?? '{}');
     expect(state.draft.exercises[0]).toMatchObject({
       exerciseId: customExerciseId,
@@ -335,7 +336,7 @@ describe('Workout home data flows', () => {
 
     renderPage();
 
-    expect(await screen.findByRole('button', { name: 'Review plan' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'workout.train_now' })).toBeTruthy();
     expect((await screen.findByRole('alert')).textContent).toContain('workout.support_data_load_failed');
     expect(screen.queryByText('workout.program_load_failed')).toBeNull();
   });

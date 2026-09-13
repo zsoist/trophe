@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /** Stage only. Never merges, deploys, or copies candidates into public/. */
-import { tsImport } from 'tsx/esm/api';
+import { require as tsxRequire } from 'tsx/cjs/api';
 import { readFile, writeFile, mkdir, mkdtemp, rename, lstat } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 const [packagePath, evidencePath, outputPath] = process.argv.slice(2);
 if (!packagePath || !evidencePath || !outputPath) { console.error('Usage: node scripts/media/prepare-release.mjs PACKAGE PRIVATE_EVIDENCE NEW_OUTPUT_DIRECTORY'); process.exit(2); }
 try {
-  const { validateMediaPackage } = await tsImport('../../lib/workout/media-package.ts', import.meta.url);
+  const { validateMediaPackage } = tsxRequire('../../lib/workout/media-package.ts', import.meta.url);
   const manifest = await validateMediaPackage(packagePath, { publication: true, evidence: JSON.parse(await readFile(evidencePath, 'utf8')) });
   const destination = resolve(outputPath);
   try { await lstat(destination); throw new Error('Output already exists; immutable releases cannot be overwritten'); } catch (error) { if (error.code !== 'ENOENT') throw error; }

@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { lstat, readFile, readdir, realpath } from 'node:fs/promises';
 import { resolve, join, relative, extname } from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
-import Ajv2020 from 'ajv/dist/2020';
+import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import sharp from 'sharp';
 import schema from '@/contracts/media/v1/manifest.schema.json';

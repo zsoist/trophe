@@ -123,7 +123,7 @@ describe('progressive single render owner', () => {
 });
 
 describe('curated selection is separate from activation data', () => {
-  it('selects an unworked curated muscle without adding it to the activation colours', async () => {
+  it('selects an unworked curated muscle without adding it to activation colours', async () => {
     await mountViewer();
     expect(observed.props!.elementColors).toHaveProperty('EL_TRICEPS');
     expect(observed.props!.elementColors).not.toHaveProperty('EL_BICEPS');
@@ -133,14 +133,14 @@ describe('curated selection is separate from activation data', () => {
     // The curated mapping selects the named muscle…
     const detail = screen.getByTestId('workout-muscle-detail');
     expect(detail.textContent).toContain(bicepsLabel);
-    // …but worked data is untouched: no biceps colour, triceps still coloured.
+    // Worked muscles remain gold; selection does not fabricate recorded work.
     expect(observed.props!.elementColors).not.toHaveProperty('EL_BICEPS');
-    expect(observed.props!.elementColors).toHaveProperty('EL_TRICEPS', '#78bdb2');
+    expect(observed.props!.elementColors).toHaveProperty('EL_TRICEPS', '#d4b574');
     // …and the camera keeps framing the whole body: selection never targets a
     // region, so the renderer still fits manifest.bounds rather than zooming in.
     expect(observed.props!.selectedElements).toEqual([]);
     expect(observed.props!.focusElements).toEqual([]);
-    expect(observed.props!.framingScale).toBe(0.83);
+    expect(observed.props!.framingScale).toBe(0.85);
     expect(typeof observed.props!.onManualView).toBe('function');
     // Honest status: it is not presented as recorded work.
     expect(detail.textContent).toContain(translations['anatomy.no_worked'].en);

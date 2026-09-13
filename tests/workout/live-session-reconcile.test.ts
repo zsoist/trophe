@@ -56,8 +56,15 @@ describe('live start propagates the definitive/transient distinction', () => {
   });
 
   it('rejects an envelope the RPC could never accept before any transport', async () => {
-    await expect(startLiveSession({ ...request, liveStructure: [] })).resolves.toMatchObject({ ok: false, kind: 'rejected' });
+    await expect(startLiveSession({ ...request, idempotencyKey: '' })).resolves.toMatchObject({ ok: false, kind: 'rejected' });
     expect(persistence.startWorkoutSessionAtomic).not.toHaveBeenCalled();
+  });
+
+  it('accepts an empty strength session for direct Train now', async () => {
+    persistence.startWorkoutSessionAtomic.mockResolvedValue({ ok: true, sessionId: 'session-empty' });
+    const empty = { ...request, liveStructure: [] };
+    await expect(startLiveSession(empty)).resolves.toEqual({ ok: true, sessionId: 'session-empty' });
+    expect(persistence.startWorkoutSessionAtomic).toHaveBeenCalledWith(empty);
   });
 });
 

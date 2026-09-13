@@ -3,12 +3,12 @@
 import React from 'react';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const motionPreference = vi.hoisted(() => ({ reduced: true }));
 const authHarness = vi.hoisted(() => ({ getUser: vi.fn() }));
-const workoutPersistence = vi.hoisted(() => ({ createWorkoutSession: vi.fn().mockResolvedValue('session-1') }));
+const workoutPersistence = vi.hoisted(() => ({ createWorkoutSession: vi.fn().mockResolvedValue('session-1'), startWorkoutSessionAtomic: vi.fn().mockResolvedValue({ ok: true, sessionId: 'session-1' }) }));
 const workoutNavigation = vi.hoisted(() => ({ pathname: '/dashboard/workout', push: vi.fn() }));
 const authenticatedUser = { data: { user: { id: 'user-1' } } };
 authHarness.getUser.mockResolvedValue(authenticatedUser);
@@ -47,6 +47,7 @@ vi.mock('@/lib/trpc/client', () => ({
 vi.mock('@/lib/workout/units', () => ({ useWeightUnit: () => ['kg', vi.fn()], kgToDisplay: (value: number) => value, displayToKg: (value: number) => value }));
 vi.mock('@/components/workout/workout-persistence', () => ({
   createWorkoutSession: workoutPersistence.createWorkoutSession,
+  startWorkoutSessionAtomic: workoutPersistence.startWorkoutSessionAtomic,
   deleteWorkoutSet: vi.fn(), deleteWorkoutSets: vi.fn(),
   finishWorkoutSession: vi.fn().mockResolvedValue(true),
   insertWorkoutSet: vi.fn().mockResolvedValue('set-1'),
@@ -252,7 +253,7 @@ describe('client secondary theme and accessibility contract', () => {
     authHarness.getUser.mockReturnValueOnce(new Promise((resolve) => { resolveUser = resolve; }));
     renderWorkoutPage();
 
-    const start = await screen.findByRole('button', { name: 'workout.home_build_workout' });
+    const start = await screen.findByRole('button', { name: 'workout.train_now' });
     expect(start.hasAttribute('disabled')).toBe(true);
     const cardio = screen.getByRole('button', { name: 'workout.home_plan_cardio' });
     expect(cardio.hasAttribute('disabled')).toBe(true);
@@ -261,7 +262,7 @@ describe('client secondary theme and accessibility contract', () => {
     await waitFor(() => expect(start.hasAttribute('disabled')).toBe(false));
     expect(cardio.hasAttribute('disabled')).toBe(false);
     fireEvent.click(start);
-    await waitFor(() => expect(screen.getByLabelText('Workspace stage').textContent).toBe('draft'));
+    await waitFor(() => expect(screen.getByLabelText('Workspace stage').textContent).toBe('live'));
     expect(workoutPersistence.createWorkoutSession).not.toHaveBeenCalled();
   });
 
@@ -415,8 +416,11 @@ describe('client secondary theme and accessibility contract', () => {
     renderRoutedWorkoutJourney();
 
     expect((await screen.findByLabelText('Workout URL')).textContent).toBe('/dashboard/workout');
-    fireEvent.click(await screen.findByRole('button', { name: 'workout.home_build_workout' }));
+    const browse = await screen.findByRole('link', { name: 'workout.home_find_exercise' });
+    expect(browse.getAttribute('href')).toBe('/dashboard/workout/exercises');
+    act(() => workoutNavigation.push('/dashboard/workout/exercises'));
     await waitFor(() => expect(screen.getByLabelText('Workout URL').textContent).toBe('/dashboard/workout/exercises'));
+    fireEvent.click(await screen.findByRole('button', { name: 'workout.create_strength_draft' }));
     expect(screen.getByRole('heading', { name: 'workout.picker_choose_area' })).toBeTruthy();
     expect(screen.getByLabelText('Workspace stage').textContent).toBe('draft');
 
