@@ -69,6 +69,7 @@ function mapAcquireError(error: unknown): RecordingError {
   if (error instanceof Error && (error.name === 'NotAllowedError' || error.name === 'SecurityError')) {
     return 'permission-denied';
   }
+  if (error instanceof Error && error.name === 'NotSupportedError') return 'unsupported';
   return 'start-failed';
 }
 

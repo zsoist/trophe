@@ -68,7 +68,7 @@ it('labels local capture honestly and provides permission failure recovery witho
   expect(screen.getByText(/Transcription and audio upload are not connected/)).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Record audio' }));
   act(() => callbacks.onError('permission-denied'));
-  expect(screen.getByText(/Microphone permission was denied/)).toBeTruthy();
+  expect(screen.getByText(/Microphone permission was denied/).getAttribute('data-capture-error')).toBe('permission-denied');
   expect(fetch).not.toHaveBeenCalled();
 });
 it('labels governed transcription accurately when a transport is connected', () => {
@@ -91,4 +91,14 @@ it('stops answer playback before requesting the microphone and again on reset', 
   expect(stopPlayback).toHaveBeenCalledTimes(1);
   controller.reset();
   expect(stopPlayback).toHaveBeenCalledTimes(2);
+});
+
+it.each(['permission-denied', 'unsupported', 'no-audio', 'recorder-error', 'start-failed'] as const)('preserves local capture category %s without retaining audio or uploading', error => {
+  const { controller } = fixture();
+  controller.start();
+  callbacks.onError(error);
+  expect(controller.snapshot()).toMatchObject({ phase: 'idle', captureError: error, recording: null });
+  expect(fetch).not.toHaveBeenCalled();
+  controller.reset();
+  expect(controller.snapshot().captureError).toBeNull();
 });

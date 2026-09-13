@@ -74,7 +74,7 @@ export function VoiceCapture({ controller, state, disabled, conversationId, tran
       <button type="button" onClick={() => void start()}><RotateCcw size={14} aria-hidden="true" />{t('global_coach.voice_rerecord')}</button>
       <button type="button" onClick={reset}>{t('global_coach.voice_discard')}</button>
     </div>}
-    {state.error && <p role="status">{t(`global_coach.voice_error_${state.error}`)}</p>}
+    {state.error && <p role="status" data-capture-error={state.captureError ?? undefined}>{t(`global_coach.voice_error_${state.error}`)}</p>}
     {flowError && <p role="alert">{t('global_coach.voice_processing_failed')}</p>}
     </div>;
   if(compact && statusHost) return <>

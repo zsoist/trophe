@@ -1,13 +1,14 @@
 import { COACH_AUDIO_LIMITS, startCoachAudioRecording } from '@/agents/coach-assistant/voice-capture';
-import type { AudioRecordingSession } from '@/lib/microphone/recording-session';
+import type { AudioRecordingSession, RecordingError } from '@/lib/microphone/recording-session';
 import { stopCoachVoicePlayback } from './voice-playback';
 export interface VoiceState {
   phase: 'idle' | 'requesting' | 'recording' | 'stopping' | 'ready';
   recording: { blob: Blob; url: string; durationMs: number } | null;
   error: 'permission' | 'unsupported' | 'failed' | 'limit' | null;
   elapsedMs: number;
+  captureError?: RecordingError | null;
 }
-const empty = (): VoiceState => ({ phase: 'idle', recording: null, error: null, elapsedMs: 0 });
+const empty = (): VoiceState => ({ phase: 'idle', recording: null, error: null, captureError: null, elapsedMs: 0 });
 /** Local capture only. No upload, transcription, message submission or memory writes. */
 export class VoiceController {
   private state = empty();
@@ -59,12 +60,12 @@ export class VoiceController {
           if (!valid()) return;
           this.clearTimer();
           this.session = null;
-          this.publish({ ...empty(), error: error === 'permission-denied' ? 'permission' : error === 'unsupported' ? 'unsupported' : 'failed' });
+          this.publish({ ...empty(), captureError: error, error: error === 'permission-denied' ? 'permission' : error === 'unsupported' ? 'unsupported' : 'failed' });
         },
       });
       if (session.active && valid()) this.session = session;
       else session.cancel();
-    } catch { if (valid()) { this.clearTimer(); this.publish({ ...empty(), error: 'failed' }); } }
+    } catch { if (valid()) { this.clearTimer(); this.publish({ ...empty(), captureError: 'start-failed', error: 'failed' }); } }
   }
   stop() {
     if (this.state.phase !== 'recording') return;
