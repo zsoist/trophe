@@ -14,6 +14,7 @@ import { FinishWorkoutDialog, type FinishBlockedReason } from '@/components/work
 import { LiveCardio, type CardioLogValues } from '@/components/workout/workspace/LiveCardio';
 import { LiveExerciseStage } from '@/components/workout/workspace/LiveExerciseStage';
 import { LiveSessionPath } from '@/components/workout/workspace/LiveSessionPath';
+import { useRestTarget } from '@/components/workout/workspace/useRestTarget';
 import { exerciseDisplayName } from '@/components/workout/muscle-groups';
 import { useI18n } from '@/lib/i18n';
 import type { Exercise, PainFlag } from '@/lib/types';
@@ -37,7 +38,6 @@ import {
 } from '@/lib/workout/live-session';
 import { elapsedActiveMs } from '@/lib/workout/workspace-state';
 import { resetWorkoutScroll } from '@/lib/workout/workspace-routes';
-import { getRestTarget } from '@/lib/workout/rest-targets';
 
 import { supersetGroupFor } from '@/lib/workout/supersets';
 import { displayToKg, kgToDisplay, useWeightUnit } from '@/lib/workout/units';
@@ -386,6 +386,13 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
     ? draft.exercises.findIndex((exercise) => exercise.exerciseId === selectedExerciseId)
     : -1;
   const activeExerciseIndex = selectedExerciseIndex >= 0 ? selectedExerciseIndex : firstIncompleteIndex;
+  // Per-exercise rest override. Must run before the stage guards below so the
+  // hook order is stable across live/paused/finishing/completed renders. The
+  // plan prescription stays the fallback; an explicit override wins.
+  const activeRestExerciseId = draft?.kind === 'strength' ? draft.exercises[activeExerciseIndex]?.exerciseId ?? null : null;
+  const activeRestIsCompound = activeRestExerciseId ? exerciseById.get(activeRestExerciseId)?.is_compound ?? null : null;
+  const activeRestPlanSeconds = draft?.kind === 'strength' ? draft.exercises[activeExerciseIndex]?.restSeconds ?? null : null;
+  const restTarget = useRestTarget(activeRestExerciseId, activeRestIsCompound, activeRestPlanSeconds);
 
   if (!draft || !sessionId || (state.stage !== 'live' && state.stage !== 'paused' && state.stage !== 'finishing' && state.stage !== 'completed')) {
     return <main className="mx-auto max-w-2xl px-4 py-8"><p className="text-[var(--content-secondary)]">{t('workout.no_live_session')}</p></main>;
@@ -678,7 +685,9 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
                 : pendingInput
                   ? { weight: pendingInput.weightKg === null ? null : kgToDisplay(pendingInput.weightKg, unit), reps: pendingInput.reps, rpe: pendingInput.rpe, isWarmup: pendingInput.isWarmup }
                   : undefined}
-              restTargetSeconds={draftExercise?.restSeconds ?? getRestTarget(resolved.id, resolved.is_compound)}
+              restTargetSeconds={restTarget.seconds}
+              onRestTargetChange={restTarget.choose}
+              restTargetStorageFailed={restTarget.failed}
               onComplete={async (value: SetLoggerValue) => {
                 const weightKg = value.weight === null ? null : displayToKg(value.weight, unit);
                 const isPr = Boolean(resolved.is_compound) && !value.isWarmup && weightKg !== null && weightKg > (prMap[row.exerciseId] ?? 0);

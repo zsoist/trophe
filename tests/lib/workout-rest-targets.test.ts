@@ -95,4 +95,35 @@ describe('rest targets', () => {
     expect(() => setRestTarget('rest-e', 150)).not.toThrow();
     expect(getRestTarget('rest-e', false)).toBe(90);
   });
+
+  it('distinguishes a stored override equal to the default from no override', async () => {
+    // Compound default is 150. An explicit 150 must read back as present, not
+    // be collapsed into "no override" by equality with the default.
+    const { getRestTarget, getRestTargetOverride, hasRestTargetOverride, setRestTarget } = await loadModule();
+    expect(hasRestTargetOverride('bench')).toBe(false);
+    expect(getRestTargetOverride('bench')).toBeUndefined();
+    expect(getRestTarget('bench', true)).toBe(150);
+
+    setRestTarget('bench', 150);
+    expect(hasRestTargetOverride('bench')).toBe(true);
+    expect(getRestTargetOverride('bench')).toBe(150);
+    expect(getRestTarget('bench', true)).toBe(150);
+  });
+
+  it('reports no override for invalid or zero stored values', async () => {
+    storage.setItem(STORAGE_KEY, JSON.stringify({ zero: 0, small: 10, frac: 90.5, huge: 99999, bad: 'x' }));
+    const { getRestTargetOverride, hasRestTargetOverride } = await loadModule();
+    for (const id of ['zero', 'small', 'frac', 'huge', 'bad', 'absent']) {
+      expect(getRestTargetOverride(id)).toBeUndefined();
+      expect(hasRestTargetOverride(id)).toBe(false);
+    }
+  });
+
+  it('does not expose a failed write as a present override', async () => {
+    storage.failWrites = true;
+    const { getRestTargetOverride, hasRestTargetOverride, setRestTarget } = await loadModule();
+    setRestTarget('rest-f', 150);
+    expect(hasRestTargetOverride('rest-f')).toBe(false);
+    expect(getRestTargetOverride('rest-f')).toBeUndefined();
+  });
 });

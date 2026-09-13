@@ -4,6 +4,8 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { AlertTriangle, Calculator, Check, ChevronDown, Info, Link2, Trash2, Undo2 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import type { WeightUnit } from '@/lib/workout/units';
+import { RestTargetControl } from '@/components/workout/workspace/RestTargetControl';
+import './exercise-set-logger.css';
 
 export interface SetLoggerExercise {
   id: string;
@@ -33,6 +35,14 @@ interface ExerciseSetLoggerProps {
   initialSetId?: string | null;
   initialCompletedAt?: string | null;
   restTargetSeconds?: number;
+  /**
+   * When provided, a per-exercise rest picker renders on the exercise's header
+   * row (one control per exercise). The parent persists the choice against
+   * `exercise.id` via the canonical setRestTarget/getRestTarget storage.
+   */
+  onRestTargetChange?: (seconds: number) => void;
+  /** Honest state: the last rest selection could not be durably stored. */
+  restTargetStorageFailed?: boolean;
   disabled?: boolean;
   grouped?: boolean;
   showExerciseHeader?: boolean;
@@ -81,6 +91,8 @@ export function ExerciseSetLogger({
   initialSetId = null,
   initialCompletedAt = null,
   restTargetSeconds = 90,
+  onRestTargetChange,
+  restTargetStorageFailed = false,
   disabled = false,
   grouped = false,
   showExerciseHeader = true,
@@ -106,6 +118,9 @@ export function ExerciseSetLogger({
   const [completedSetNumber, setCompletedSetNumber] = useState<number | null>(initialSetId ? setNumber : null);
   const [saving, setSaving] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  // Honest failed state: a completion the controller did not acknowledge. The
+  // row stays editable for retry; no success state is shown.
+  const [completeFailed, setCompleteFailed] = useState(false);
   const [restComplete, setRestComplete] = useState(false);
   const [restAnnouncement, setRestAnnouncement] = useState<RestAnnouncement>(null);
   const [undoCooldown, setUndoCooldown] = useState(false);
@@ -210,6 +225,7 @@ export function ExerciseSetLogger({
   const toggleComplete = async () => {
     if (saving || disabled || (setId && undoCooldown)) return;
     setSaving(true);
+    setCompleteFailed(false);
     try {
       if (setId) {
         const removed = onUndo ? await onUndo(setId) : false;
@@ -239,7 +255,8 @@ export function ExerciseSetLogger({
         commitRestSnapshot({ elapsedMs: 0, capturedAt: Date.now(), running: !paused }, savedId);
       }
     } catch {
-      // The row remains editable and retryable.
+      // The row remains editable and retryable; surface the failure explicitly.
+      setCompleteFailed(true);
     } finally {
       setSaving(false);
     }
@@ -301,18 +318,34 @@ export function ExerciseSetLogger({
           </button>
         )}
       </div>
+      {completeFailed ? (
+        <p role="alert" className="exercise-set-logger__failed mt-2 inline-flex items-center gap-2 rounded-xl border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] px-3 py-2 text-sm text-[var(--status-danger-fg)]">
+          <AlertTriangle size={16} aria-hidden="true" />
+          {t('workout.save_failed')}
+        </p>
+      ) : null}
       <label className="mt-3 inline-flex min-h-11 items-center gap-2 text-sm text-[var(--content-secondary)]">
         <input type="checkbox" disabled={completed || disabled} checked={isWarmup} onChange={(event) => setIsWarmup(event.target.checked)} />
         {t('workout.warmup')}
       </label>
 
+      {onRestTargetChange && showExerciseHeader ? (
+        <RestTargetControl
+          exerciseName={exercise.name}
+          value={restTargetSeconds}
+          disabled={disabled}
+          storageFailed={restTargetStorageFailed}
+          onSelect={onRestTargetChange}
+        />
+      ) : null}
+
       {completed && activeRestSnapshot !== null ? (
         // role="timer" is implicitly aria-live="off": the per-second count is visible but never read aloud.
-        <p role="timer" aria-label={t('workout.rest_timer_label')} className="mt-2 rounded-xl bg-[var(--status-success-bg)] px-3 py-2 text-sm text-[var(--status-success-fg)]">
+        <p role="timer" aria-label={t('workout.rest_timer_label')} className="exercise-set-logger__rest mt-2 rounded-xl bg-[var(--status-success-bg)] px-3 py-2 text-sm text-[var(--status-success-fg)]">
           {t('workout.resting')} · <span className="font-mono tabular-nums">{Math.floor(activeRestSnapshot.elapsedMs / 1_000)}s / {restTargetSeconds}s</span>
         </p>
       ) : completed && restComplete ? (
-        <p className="mt-2 rounded-xl bg-[var(--status-success-bg)] px-3 py-2 text-sm font-medium text-[var(--status-success-fg)]">{t('workout.rest_complete')}</p>
+        <p className="exercise-set-logger__rest mt-2 rounded-xl bg-[var(--status-success-bg)] px-3 py-2 text-sm font-medium text-[var(--status-success-fg)]">{t('workout.rest_complete')}</p>
       ) : null}
       {/* One polite announcement on rest start and one at the target; the region exists before it changes so it is reliably read. */}
       <p className="sr-only" aria-live="polite" aria-atomic="true">
@@ -320,7 +353,7 @@ export function ExerciseSetLogger({
       </p>
 
       {showExerciseHeader && moreOpen ? (
-        <div className="mt-3 grid grid-cols-2 gap-2 border-t border-[var(--border-subtle)] pt-3">
+        <div className="exercise-set-logger__more mt-3 grid grid-cols-2 gap-2 border-t border-[var(--border-subtle)] pt-3">
           <button type="button" disabled={disabled} onClick={onTechnique} className="btn-ghost inline-flex min-h-11 items-center gap-2 rounded-xl px-3"><Info size={16} aria-hidden="true" />{t('workout.info_technique')}</button>
           <button type="button" disabled={disabled} onClick={onPain} className="btn-ghost inline-flex min-h-11 items-center gap-2 rounded-xl px-3"><AlertTriangle size={16} aria-hidden="true" />{t('workout.report_pain')}</button>
           {exercise.equipment === 'barbell' ? <button type="button" disabled={disabled} onClick={() => onPlateCalculator?.(parsedNumber(weight))} className="btn-ghost inline-flex min-h-11 items-center gap-2 rounded-xl px-3"><Calculator size={16} aria-hidden="true" />{t('workout.plate_title')}</button> : null}

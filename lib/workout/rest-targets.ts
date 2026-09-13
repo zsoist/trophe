@@ -51,11 +51,30 @@ function readMap(): Record<string, number> {
   return cachedMap;
 }
 
-export function getRestTarget(exerciseId: string, isCompound?: boolean | null): number {
+function isValidRestSeconds(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= MIN_REST_SECONDS && value <= MAX_REST_SECONDS;
+}
+
+/**
+ * The stored per-exercise override, or `undefined` when none is present.
+ *
+ * Consumers that must distinguish "no override" from "override equal to the
+ * default" (e.g. a compound exercise whose default is 150s but whose stored
+ * override is also 150s while the plan prescribes 90s) need this presence read.
+ * Never infer presence by comparing `getRestTarget()` against the fallback.
+ */
+export function getRestTargetOverride(exerciseId: string): number | undefined {
   const stored = readMap()[exerciseId];
-  return typeof stored === 'number' && Number.isInteger(stored) && stored >= MIN_REST_SECONDS && stored <= MAX_REST_SECONDS
-    ? stored
-    : defaultRestSeconds(isCompound);
+  return isValidRestSeconds(stored) ? stored : undefined;
+}
+
+/** True when a valid stored override exists for the exercise. */
+export function hasRestTargetOverride(exerciseId: string): boolean {
+  return getRestTargetOverride(exerciseId) !== undefined;
+}
+
+export function getRestTarget(exerciseId: string, isCompound?: boolean | null): number {
+  return getRestTargetOverride(exerciseId) ?? defaultRestSeconds(isCompound);
 }
 
 export function setRestTarget(exerciseId: string, seconds: number): void {
