@@ -93,17 +93,20 @@ export function WorkoutAtlasHome({ activations, workedActivations = [], workedAv
     </div>
     <div className="workout-muscle-body">
       <div className="workout-muscle-figure" data-testid="workout-atlas-stage" ref={stageRef}>
+        <div className="workout-muscle-toolbar">
         <div className="workout-muscle-tools" role="group" aria-label={t('anatomy.orientation')}>
           {(['front', 'back'] as const).map(side => <button key={side} aria-pressed={!manual && view === side} onClick={() => requestView(side)}>{t(`anatomy.${side}`)}</button>)}
         </div>
-        {viewerAvailable && !stageVisible
-          ? <div className="workout-muscle-lazy" data-testid="workout-atlas-skeleton"><p role="status">{t('anatomy.loading')}</p></div>
-          : <WorkoutAnatomyModel presentation="workout-premium" activations={visible} selected={applied} focused={groups.find(group => group.id === openGroup)?.activations.map(a => a.id)} onSelect={choose} view={view} cameraRequest={cameraRequest} onManualView={() => setManual(true)} zoom={zoom} reset={reset} color="#d4b574" />}
         <div className="workout-muscle-camera" role="group" aria-label={t('anatomy.viewer')}>
           <button type="button" disabled={zoom >= 12} aria-label={t('anatomy.zoom_in')} onClick={() => setZoom(current => Math.min(12, current + 1))}><Plus size={17} aria-hidden="true" /></button>
           <button type="button" disabled={zoom <= 0} aria-label={t('anatomy.zoom_out')} onClick={() => setZoom(current => Math.max(0, current - 1))}><Minus size={17} aria-hidden="true" /></button>
           <button type="button" aria-label={t('anatomy.reset')} onClick={() => { setZoom(0); setView('front'); setManual(false); setReset(n => n + 1); setCameraRequest(n => n + 1); }}><RotateCcw size={16} aria-hidden="true" /></button>
         </div>
+        </div>
+        {viewerAvailable && !stageVisible
+          ? <div className="workout-muscle-lazy" data-testid="workout-atlas-skeleton"><p role="status">{t('anatomy.loading')}</p></div>
+          : <WorkoutAnatomyModel presentation="workout-premium" activations={visible} selected={applied} focused={groups.find(group => group.id === openGroup)?.activations.map(a => a.id)} onSelect={choose} view={view} cameraRequest={cameraRequest} onManualView={() => setManual(true)} zoom={zoom} reset={reset} color="#d4b574" />}
+
       </div>
       <div className="workout-muscle-groups">
         {selected && <div className="workout-muscle-detail" data-testid="workout-muscle-detail">
