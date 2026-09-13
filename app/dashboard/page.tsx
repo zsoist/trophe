@@ -353,6 +353,15 @@ export default function DashboardPage() {
     setWaterLog(p => p.slice(0, -1));
   };
 
+  // The compact Water summary is a navigation affordance. Logging is explicit
+  // through the tracker controls below, so tapping the summary never mutates data.
+  const scrollToWaterTracker = useCallback(() => {
+    document.getElementById('water-tracker')?.scrollIntoView({
+      behavior: reducedMotion ? 'auto' : 'smooth',
+      block: 'center',
+    });
+  }, [reducedMotion]);
+
   // ─── Loading state ────────────────────────────────────────────
   if (loading) return <DashboardSkeleton />;
 
@@ -585,6 +594,7 @@ export default function DashboardPage() {
         <motion.div
           initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.16 }}
+          id="water-tracker"
           className="card p-3 mb-3"
           style={{ background: 'linear-gradient(135deg,rgba(125,163,217,.08) 0%,rgba(125,163,217,.02) 100%)', border: '1px solid rgba(125,163,217,.18)' }}
         >
@@ -725,7 +735,7 @@ export default function DashboardPage() {
           {/* Secondary: Water / Supps / Progress / Check-in — 4-col */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
             {([
-              { icon: 'i-drop',     labelKey: 'home.water_short', action: () => addWater(), sub: `${waterGlasses}/${targetGlasses}` },
+              { icon: 'i-drop',     labelKey: 'home.water_short', action: scrollToWaterTracker, sub: `${waterGlasses}/${targetGlasses}` },
               { icon: 'i-sparkle',  labelKey: 'home.supps',       action: () => router.push('/dashboard/supplements'), sub: null },
               { icon: 'i-chart',    labelKey: 'home.progress',    action: () => router.push('/dashboard/progress'), sub: null },
               { icon: 'i-calendar', labelKey: 'home.check_in',    action: () => router.push('/dashboard/checkin'), sub: null },
