@@ -29,12 +29,13 @@ export function createPilotBudgetStore(database: typeof db, actorId: string): Pi
       try {
         return await database.transaction(async transaction => {
           await transaction.execute(sql`SET LOCAL statement_timeout = '5s'`);
-          const configRows = await transaction.execute<{ organization_id: string; cap_nano_usd: string; operating_target_nano_usd:string; budget_day:string; server_budget_day:string; charged_nano_usd: string; attempt_count: number; accounting_blocked: boolean; allowed: boolean }>(sql`
+          const configRows = await transaction.execute<{ organization_id: string; cap_nano_usd: string; operating_target_nano_usd:string; budget_day:string; server_budget_day:string; charged_nano_usd: string; attempt_count: number; accounting_blocked: boolean; allowed: boolean; carryover_records?: unknown }>(sql`
             SELECT organization_id, cap_nano_usd::text, operating_target_nano_usd::text, budget_day::text,
               ((statement_timestamp() AT TIME ZONE ${COACH_PILOT_TIME_ZONE})::date)::text AS server_budget_day,
               charged_nano_usd::text, attempt_count, accounting_blocked,
+              COALESCE(to_jsonb(b)->'carryover_records','[]'::jsonb) AS carryover_records,
               ${actorId}::uuid=ANY(allowed_actor_ids) AS allowed
-            FROM private.coach_pilot_budgets WHERE id=${binding.pilotId}::uuid FOR UPDATE`);
+            FROM private.coach_pilot_budgets b WHERE id=${binding.pilotId}::uuid FOR UPDATE`);
           const config = configRows.rows[0];
           if (!config?.allowed) return fail('budget_blocked');
           const auth = await transaction.execute(sql`SELECT p.id FROM public.profiles p JOIN public.organization_members m ON m.user_id=p.id
@@ -45,12 +46,30 @@ export function createPilotBudgetStore(database: typeof db, actorId: string): Pi
           const rows = await transaction.execute<{ id: string; user_id: string; organization_id: string; model: string; record: unknown }>(sql`
             SELECT id,user_id,organization_id,model,metadata->'coachPilot' AS record FROM public.agent_runs
             WHERE metadata ? 'coachPilot' AND metadata->'coachPilot'->'binding'->>'pilotId'=${binding.pilotId} LIMIT 4097 FOR UPDATE`);
-          if (rows.rows.length > 4096 || rows.rows.length !== config.attempt_count) return fail('uncertain');
+          const carried = config.carryover_records ?? [];
+          if (!Array.isArray(carried) || carried.length > 4096 || rows.rows.length + carried.length > 4096 || rows.rows.length + carried.length !== config.attempt_count) return fail('uncertain');
           let total = BigInt(0), turnAttemptCount = 0, textFoodTurnCount = 0, searchTurnCount = 0, accountingBlocked = config.accounting_blocked;
+          const carriedAttemptIds = new Set<string>(), carriedRunIds = new Set<string>();
+          // Immutable financial history only. Source identities remain audit metadata;
+          // no QA profile, food record, or authority is recreated in this database.
+          for (const rawRecord of carried) {
+            const parsedRecord = pilotAttemptRecordSchema.safeParse(rawRecord);
+            if (!parsedRecord.success) return fail('uncertain');
+            const record = parsedRecord.data;
+            if (record.binding.pilotId !== binding.pilotId || carriedAttemptIds.has(record.binding.attemptId) || carriedRunIds.has(record.binding.agentRunId)) return fail('uncertain');
+            carriedAttemptIds.add(record.binding.attemptId); carriedRunIds.add(record.binding.agentRunId);
+            if (record.binding.attemptId === binding.attemptId || record.binding.agentRunId === binding.agentRunId) return fail('idempotency_conflict');
+            total += BigInt(pilotRecordActiveCharge(record,config.server_budget_day));
+            accountingBlocked ||= record.accountingAlert;
+            if (record.binding.turnId === binding.turnId) {
+              const profile=pilotTurnProfile(record.binding);
+              if(profile==='search')searchTurnCount++;else if(profile==='native_food')textFoodTurnCount++;else turnAttemptCount++;
+            }
+          }
           let existing: PilotAttemptRecord | undefined;
           for (const row of rows.rows) {
             const record = pilotAttemptRecordSchema.safeParse(row.record);
-            if (!record.success || record.data.binding.agentRunId !== row.id || record.data.binding.actorId !== row.user_id
+            if (!record.success || carriedAttemptIds.has(record.data.binding.attemptId) || carriedRunIds.has(row.id) || record.data.binding.agentRunId !== row.id || record.data.binding.actorId !== row.user_id
               || record.data.binding.pilotId !== binding.pilotId || row.organization_id !== config.organization_id || row.model !== record.data.binding.model) return fail('uncertain');
             total += BigInt(pilotRecordActiveCharge(record.data,config.server_budget_day));
             if (record.data.binding.turnId === binding.turnId) {
@@ -79,7 +98,7 @@ export function createPilotBudgetStore(database: typeof db, actorId: string): Pi
             // still-open reservation. Historical rows remain untouched and auditable.
             await transaction.execute(sql`UPDATE private.coach_pilot_budgets SET budget_day=${config.server_budget_day}::date,charged_nano_usd=${total}::bigint WHERE id=${binding.pilotId}::uuid`);
           }
-          if (!existing && rows.rows.length === 4096) return fail('budget_blocked');
+          if (!existing && rows.rows.length + carried.length === 4096) return fail('budget_blocked');
           const admissionCap=Math.min(integer(config.cap_nano_usd),integer(config.operating_target_nano_usd),COACH_PILOT_BUDGET_USD*1e9);
           const decision = decidePilotBudgetCommand({ pilotId: binding.pilotId, budgetDay:config.server_budget_day, capNanoUsd: admissionCap, chargedNanoUsd: Number(total), turnAttemptCount, textFoodTurnCount, searchTurnCount, accountingBlocked, existing }, command);
           if (!decision.ok || decision.write === 'none') { signal.throwIfAborted(); return { ...decision, storage: 'database' }; }

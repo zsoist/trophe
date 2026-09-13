@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { bigint, boolean, check, date, integer, pgSchema, text, unique, uuid } from 'drizzle-orm/pg-core';
+import { bigint, boolean, check, date, integer, jsonb, pgSchema, text, unique, uuid } from 'drizzle-orm/pg-core';
 import { organizations } from './organizations';
 
 const privateSchema = pgSchema('private');
@@ -15,9 +15,11 @@ export const coachPilotBudgets = privateSchema.table('coach_pilot_budgets', {
   operatingTargetNanoUsd: bigint('operating_target_nano_usd', { mode: 'number' }).notNull().default(0),
   budgetDay: date('budget_day').notNull().default(sql`((statement_timestamp() AT TIME ZONE 'America/Bogota')::date)`),
   chargedNanoUsd: bigint('charged_nano_usd', { mode: 'number' }).notNull().default(0),
+  carryoverRecords: jsonb('carryover_records').notNull().default([]),
   attemptCount: integer('attempt_count').notNull().default(0),
   accountingBlocked: boolean('accounting_blocked').notNull().default(false),
 }, (table) => [
+  check('coach_pilot_budget_carryover_array', sql`jsonb_typeof(${table.carryoverRecords}) = 'array' AND jsonb_array_length(${table.carryoverRecords}) <= 4096`),
   unique('coach_pilot_budgets_scope_key_key').on(table.scopeKey),
   check('coach_pilot_budgets_scope_key_check', sql`${table.scopeKey} = 'ask-trophe-shared'`),
   check('coach_pilot_budgets_allowed_actor_ids_check', sql`cardinality(${table.allowedActorIds}) BETWEEN 0 AND 16`),
