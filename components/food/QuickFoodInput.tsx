@@ -143,6 +143,7 @@ export default function QuickFoodInput({ userId, mealType, mealSlot, date, onLog
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lastTextRef = useRef('');
+  const textOperationRef = useRef<{ text: string; language: string; id: string } | null>(null);
   const lastFileRef = useRef<File | null>(null);
   const photoOperationRef = useRef<{ file: File; conversationId: string; turnId: string } | null>(null);
   /** Snapshot of the parse result at confirm-entry — flywheel diffs confirmed values against it. */
@@ -217,9 +218,12 @@ export default function QuickFoodInput({ userId, mealType, mealSlot, date, onLog
       const controller = new AbortController();
       requestTimeout = setTimeout(() => controller.abort(), 45000); // 45s — composites need more time
 
+      if (textOperationRef.current?.text !== value || textOperationRef.current.language !== lang) {
+        textOperationRef.current = { text: value, language: lang, id: crypto.randomUUID() };
+      }
       const res = await fetch('/api/food/parse', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-request-id': textOperationRef.current.id },
         body: JSON.stringify({ text: value, language: PARSE_LANGUAGES.has(lang) ? lang : 'en' }),
         signal: controller.signal,
       });
@@ -774,6 +778,7 @@ export default function QuickFoodInput({ userId, mealType, mealSlot, date, onLog
     reviewContextRef.current = context;
     parseEpochRef.current += 1;
     photoOperationRef.current = null;
+    textOperationRef.current = null;
     lastFileRef.current = null;
     voiceSessionRef.current?.cancel();
     voiceSessionRef.current = null;

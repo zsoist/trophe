@@ -86,12 +86,10 @@ export async function POST(request: NextRequest) {
         },
       }),
     });
-    const pilotActor=(process.env.COACH_ASSISTANT_PREVIEW_USER_IDS??'').split(',').map(value=>value.trim()).includes(guard.userId);
-    const livePilot=process.env.VERCEL_ENV==='preview'&&process.env.COACH_ASSISTANT_LIVE_PILOT_ENABLED==='1'&&process.env.TROPHE_ALLOW_PAID_AI==='1'&&pilotActor;
     let result:Awaited<ReturnType<typeof execute>>;
     // Production never falls back to an unbudgeted provider call, including
     // disabled flags, foreign actors, or unavailable shared authority.
-    if(process.env.VERCEL_ENV==='production'||livePilot){
+    if(process.env.VERCEL_ENV==='production'||process.env.VERCEL_ENV==='preview'){
       const conversationId=request.headers.get('x-coach-conversation-id')??'',turnId=request.headers.get('x-coach-turn-id')??'';
       const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
       if(!uuid.test(conversationId)||!uuid.test(turnId))return NextResponse.json({error:'Photo analysis context is invalid'},{status:400});

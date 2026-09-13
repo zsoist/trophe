@@ -4,6 +4,7 @@ import { run } from '@/agents/food-parse';
 import { annotateGenerationMetadata } from '@/agents/runtime/persistence';
 import { safeErrorMetadata } from '@/lib/security/safe-error-log';
 import { z } from 'zod';
+import { randomUUID, createHash } from 'node:crypto';
 
 export type { ParsedFoodItem } from '@/agents/schemas/food-parse';
 
@@ -114,6 +115,27 @@ export async function POST(request: NextRequest) {
     telemetryMetadata = requestTelemetryMetadata(request, guard.rateLimitBypassed);
     const requestId = request.headers.get('x-request-id') ?? undefined;
 
+    // Deployed Food parsing shares Ask's durable authority. Every native phase
+    // is admitted independently; disabling the pilot never exposes a fallback.
+    let governedOptions: Partial<NonNullable<Parameters<typeof run>[1]>> = {};
+    let assertAdmitted: (() => void) | undefined;
+    if (process.env.VERCEL_ENV === 'production' || process.env.VERCEL_ENV === 'preview') {
+      const [{ db }, { createPilotBudgetStore }, { createSharedPilotBudgetRuntime }, { createGovernedCoachTransport }, { createTextFoodParserTransport, TEXT_FOOD_PROMPT_VERSION }, { invokeStructuredProvider }] = await Promise.all([
+        import('@/db/client'), import('@/lib/workout/pilot-budget-service'), import('@/lib/workout/shared-pilot-budget'), import('@/agents/coach-assistant/governed-transport'), import('@/agents/coach-assistant/text-food-parser'), import('@/agents/runtime/providers/structured'),
+      ]);
+      const runtime = createSharedPilotBudgetRuntime(process.env, guard.userId, createPilotBudgetStore(db, guard.userId));
+      if (!runtime.ok) return NextResponse.json({ code: 'ai_busy', error: 'Food analysis is unavailable. You can enter food manually.', items: [] }, { status: 503 });
+      const turnId = z.string().uuid().safeParse(requestId);
+      const operationId = turnId.success ? turnId.data : randomUUID();
+      const { transport } = createGovernedCoachTransport({ pilotId: runtime.pilotId, actorId: guard.userId, turnId: operationId,
+        identityParts: [runtime.pilotId, guard.userId, 'food-input', operationId, createHash('sha256').update(JSON.stringify({text,language})).digest('hex')],
+        mode: 'live', store: runtime.store, signal: request.signal, transport: invokeStructuredProvider,
+        allowedPromptVersions: [TEXT_FOOD_PROMPT_VERSION], reservationProfile: 'food_parse' });
+      const admitted = createTextFoodParserTransport(transport, request.signal);
+      governedOptions = { providerTransport: admitted.providerTransport, maxProviderAttempts: 1, allowSchemaRepair: false };
+      assertAdmitted = admitted.assertComplete;
+    }
+
     const result = await run(
       { text, language },
       {
@@ -121,11 +143,13 @@ export async function POST(request: NextRequest) {
         ...(requestId ? { requestId } : {}),
         metadata: telemetryMetadata,
         // Frozen/watch-list probes measure one Luna attempt per request ID.
-        // Normal production traffic keeps the SDK-compatible retry policy.
+        // Deployed traffic is overridden below by the shared no-retry transport.
         ...(typeof telemetryMetadata.evalSuite === 'string' ? { maxProviderAttempts: 1 } : {}),
         onGenerationId: (id) => { generationId = id; },
+        ...governedOptions,
       },
     );
+    assertAdmitted?.();
     const t = result.telemetry;
 
     if (!result.ok) {
