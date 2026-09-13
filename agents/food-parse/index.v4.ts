@@ -264,6 +264,53 @@ function isNegatedPrefix(prefix: string): boolean {
   return last ? NEGATION_WORDS.has(last) : false;
 }
 
+/** Articles/connectors that may sit between a negation cue and the noun it
+ *  negates ("without the cheese", "sin la salsa", "χωρίς την πίτα"). Any OTHER
+ *  intervening word breaks the association, so "sin azúcar coca cola" negates
+ *  the sugar — not the cola. */
+const ITEM_NEGATION_FILLERS = new Set([
+  'de', 'del', 'la', 'el', 'los', 'las', 'un', 'una', 'unos', 'unas', 'al',
+  'the', 'a', 'an', 'of', 'my', 'your',
+  'le', 'les', 'du', 'des', 'mon', 'ma', 'mes', 'une', 'au', 'aux',
+  'der', 'die', 'das', 'dem', 'den', 'ein', 'eine', 'einen',
+  'il', 'lo', 'i', 'gli', 'uno', 'della', 'dello',
+  'o', 'os', 'as', 'um', 'uma', 'do', 'da', 'dos',
+  'het', 'een',
+  'την', 'τον', 'το', 'τη', 'τα', 'του', 'της', 'ενα', 'μια', 'εναν',
+]);
+
+/**
+ * True when the food item whose anchor starts at `anchorIndex` is denied by an
+ * explicit negation cue immediately before it ("burger sin queso" → the cheese
+ * item; "σουβλάκι κοτόπουλο χωρίς πίτα" → the pita item).
+ *
+ * This mirrors the metric-amount negation predicate for whole *items*: the
+ * prompt alone ("χωρίς" / "without" / "sin" = exclude that component) is not a
+ * sufficient control, so a model slip that still returns the denied component
+ * must not log its macros. Only the negation word directly preceding the anchor
+ * (optionally through an article) fires, and a following modifier blocks the
+ * match so "sin azúcar" never drops the sweetened drink itself.
+ */
+function isNegatedItemAnchor(lowerSource: string, anchorIndex: number): boolean {
+  const before = lowerSource
+    .slice(Math.max(0, anchorIndex - 32), anchorIndex)
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '');
+  const tokens = before.match(/[\p{L}]+/gu) ?? [];
+  let index = tokens.length - 1;
+  let skipped = 0;
+  while (index >= 0 && skipped < 4) {
+    const token = tokens[index];
+    if (ITEM_NEGATION_FILLERS.has(token)) {
+      index--;
+      skipped++;
+      continue;
+    }
+    return NEGATION_WORDS.has(token);
+  }
+  return false;
+}
+
 /** Every `<number><metric-unit>` pair present in the raw text, with its
  *  position, resolved conversion, and negation already filtered out. */
 function scanSourceMetricMatches(lower: string): SourceMetricMatch[] {
@@ -1394,6 +1441,49 @@ export async function run(
       estimation_confidence: undefined,
     };
   });
+
+  // ── Step 1a1: Deterministic item negation ─────────────────────────────────
+  // "burger sin queso" / "σουβλάκι κοτόπουλο χωρίς πίτα" / "salad without
+  // dressing": the user explicitly DENIED a component. The prompt tells the
+  // model to exclude it, but a slip that still returns the item would log the
+  // denied food's macros (often with a hallucinated portion). Drop an item only
+  // when EVERY occurrence of its own anchor is immediately preceded by a
+  // negation cue — an affirmative mention elsewhere keeps it
+  // ("sin queso en la hamburguesa, 30g de queso aparte" keeps the 30 g cheese).
+  {
+    const lowerSource = sanitizedText.toLowerCase();
+    const kept = v4Parsed.items.filter((item) => {
+      const spans = candidateAnchorSpans(lowerSource, item);
+      if (spans.length === 0) return true;
+      // Affirmative if at least one occurrence of the item's own surface text
+      // is NOT negated; drop only when all of them are denied.
+      return !spans.every((span) => isNegatedItemAnchor(lowerSource, span.start));
+    });
+    if (kept.length !== v4Parsed.items.length) {
+      if (kept.length > 0) {
+        v4Parsed.items = kept;
+      } else {
+        // EVERY item the model returned was explicitly denied ("sin queso").
+        // Keeping the denied items just to avoid an empty meal would log food
+        // the user removed — the opposite of their intent — so route through
+        // the established empty-input contract instead: surface the model's
+        // own question if it asked one, otherwise ask what they actually ate.
+        // No denied item, and no synthesized replacement food, is ever logged.
+        const question = v4Parsed.clarification_question?.trim();
+        return {
+          ok: true,
+          output: {
+            items: [],
+            needs_clarification: true,
+            clarification_question: v4Parsed.needs_clarification && question
+              ? question
+              : clarificationQuestion(language),
+          },
+          telemetry,
+        };
+      }
+    }
+  }
 
   // ── Step 1a2: Single-word input override ──────────────────────────────────
   // When the user types a single word like "chicken", the LLM sometimes

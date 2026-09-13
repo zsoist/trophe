@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase';
 import type { MealType } from '@/lib/types';
 import { MACRO_COLORS } from '@/lib/macro-colors';
 import type { RecipeAnalyzeOutput } from '@/agents/schemas/recipe-analyze';
+import { RECIPE_ANALYZE_MAX_INPUT_CHARS } from '@/agents/schemas/recipe-analyze';
 
 interface RecipeAnalyzerModalProps {
   userId: string;
@@ -28,6 +29,17 @@ const MEAL_OPTIONS: { value: MealType; icon: string }[] = [
 ];
 /** /api/food/recipe-analyze accepts these language hints; anything else → 'en'. */
 const RECIPE_LANGUAGES = new Set(['en', 'es', 'el', 'fr']);
+/**
+ * Stable error codes from /api/food/recipe-analyze → localized copy. Raw
+ * pipeline internals stay server-side; the client renders friendly text only.
+ */
+const RECIPE_ERROR_KEYS: Record<string, string> = {
+  ai_busy: 'food.err_ai_busy',
+  try_rephrase: 'food.err_try_rephrase',
+  too_long: 'food.err_too_long',
+  rate_limited: 'food.err_rate_limited',
+  timeout: 'food.err_timeout',
+};
 const focusableSelector = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 function trapFocus(event: ReactKeyboardEvent<HTMLElement>, container: HTMLElement | null) {
   if (event.key !== 'Tab' || !container) return;
@@ -62,6 +74,13 @@ export default function RecipeAnalyzerModal({
 
   async function analyze() {
     if (!text.trim() || analyzing) return;
+    // The server refuses (never truncates) text past its supported bound; mirror
+    // it here so an over-long recipe gets localized copy instead of a silently
+    // different (smaller) recipe's nutrition.
+    if (text.trim().length > RECIPE_ANALYZE_MAX_INPUT_CHARS) {
+      setError(t('food.err_too_long', { max: RECIPE_ANALYZE_MAX_INPUT_CHARS }));
+      return;
+    }
     setAnalyzing(true);
     setError(null);
     setResult(null);
@@ -76,8 +95,9 @@ export default function RecipeAnalyzerModal({
         signal: controller.signal,
       });
       if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(body.error || t('food.recipe_analysis_failed'));
+        const body = (await res.json().catch(() => ({}))) as { code?: string; error?: string };
+        const key = body.code ? RECIPE_ERROR_KEYS[body.code] : undefined;
+        throw new Error(key ? t(key, { max: RECIPE_ANALYZE_MAX_INPUT_CHARS }) : (body.error || t('food.recipe_analysis_failed')));
       }
       const data = (await res.json()) as RecipeAnalyzeOutput;
       setResult(data);
@@ -204,11 +224,16 @@ export default function RecipeAnalyzerModal({
                     </label>
                     <textarea
                       value={text}
+                      maxLength={RECIPE_ANALYZE_MAX_INPUT_CHARS}
                       onChange={(e) => setText(e.target.value)}
                       placeholder={'Greek chicken salad\nServes: 4\n\nIngredients:\n- 500g chicken breast\n- 200g feta\n- 2 tomatoes\n- 2 tbsp olive oil'}
                       className="input-dark w-full min-h-[180px] font-mono text-[13px] resize-none text-base"
                       disabled={analyzing}
                     />
+                    {/* Live counter — the server refuses (not truncates) past the limit. */}
+                    <div className="mt-1 text-right text-xs tabular-nums text-[var(--content-muted)]">
+                      {text.length}/{RECIPE_ANALYZE_MAX_INPUT_CHARS}
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-3">

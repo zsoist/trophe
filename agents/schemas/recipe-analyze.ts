@@ -1,3 +1,12 @@
+/**
+ * Maximum recipe text (characters) the recipe-analyze pipeline processes in
+ * full. This is the single source of truth shared by the agent (which must
+ * REFUSE, never silently truncate, text past it), the API route (pre-dispatch
+ * validation) and the client textarea limit — so the UI bound can never drift
+ * from the server bound and produce nutrition for a silently-trimmed recipe.
+ */
+export const RECIPE_ANALYZE_MAX_INPUT_CHARS = 4000;
+
 export interface RecipeIngredient {
   raw_text: string;
   food_name: string;
