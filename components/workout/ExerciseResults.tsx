@@ -38,18 +38,18 @@ export function ExerciseResults({ exercises, lang, selectedIds, onAdd, onInfo, a
             key={exercise.id}
             data-testid={`exercise-result-${exercise.id}`}
             data-media-tier={media.tier}
-            className="flex min-h-[5.5rem] items-center gap-2.5 px-2.5 py-2.5"
+            className="flex min-h-[4.5rem] items-center gap-2.5 px-3 py-2"
           >
             {/* These reviewed local posters are static list thumbnails, not decorative motion. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={media.posterSrc}
               alt={posterAlt}
-              width={72}
-              height={72}
+              width={64}
+              height={64}
               loading="lazy"
               decoding="async"
-              className="h-[4.5rem] w-[4.5rem] shrink-0 rounded-[0.625rem] bg-[var(--workout-visual-surface)] object-contain"
+              className="h-16 w-16 shrink-0 rounded-[0.625rem] bg-[var(--workout-visual-surface)] object-contain"
             />
 
             <div className="min-w-0 flex-1">
@@ -78,16 +78,15 @@ export function ExerciseResults({ exercises, lang, selectedIds, onAdd, onInfo, a
                   <span className="hidden min-[360px]:inline">{selected ? t('workout.exercise_added') : actionLabel?.(exercise) ?? t('workout.picker_add')}</span>
                 </button>
               </div>
-              <p className="mt-0.5 truncate text-xs text-[var(--content-muted)]">
-                {exercise.equipment ? equipmentLabel(t, exercise.equipment) : t('workout.picker_all_equipment')}
+              <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-[var(--content-muted)]">
+                <span className="truncate">{exercise.equipment ? equipmentLabel(t, exercise.equipment) : t('workout.picker_all_equipment')}</span>
+                <span aria-hidden="true">·</span>
+                <span className="truncate">{t('workout.info_primary')}: {t(muscleLabelKey(exercise.muscle_group))}</span>
               </p>
-              <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-1.5">
-                <span className="shrink-0 rounded-full border border-[var(--border-subtle)] px-1.5 py-0.5 text-xs font-medium text-[var(--content-secondary)]">
-                  {t('workout.info_primary')}: {t(muscleLabelKey(exercise.muscle_group))}
-                </span>
+              <div className="mt-0.5 flex min-w-0 items-center">
                 {media.tier === 'verified-technique' ? (
                   <span
-                    className="exercise-media-badge exercise-media-badge--verified-technique"
+                    className="exercise-media-badge exercise-media-badge--verified-technique truncate"
                     title={t('workout.picker_exact_poster_detail')}
                   >
                     {t('workout.picker_exact_poster')}

@@ -298,12 +298,15 @@ function EquipmentFilter({
   onChange,
   label,
   allLabel,
+  compact = false,
 }: {
   value: string;
   options: string[];
   onChange: (value: string) => void;
   label: string;
   allLabel: string;
+  /** Compact variant for the picker utility row: the label stays as the accessible name only. */
+  compact?: boolean;
 }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
@@ -312,8 +315,8 @@ function EquipmentFilter({
     : equipmentLabel(t, value);
 
   return (
-    <div className="equipment-filter">
-      <span className="equipment-filter__label">{label}</span>
+    <div className={compact ? 'equipment-filter equipment-filter--compact' : 'equipment-filter'}>
+      {compact ? null : <span className="equipment-filter__label">{label}</span>}
       <div className="equipment-filter__control">
         <button
           type="button"
@@ -555,15 +558,20 @@ export default function ExercisePicker({
     >
       {selectionPending ? <p role="status" className="px-4 py-3">{t('workout.saving')}</p> : null}
       <div className="sticky top-0 z-10 border-b border-[var(--border-subtle)] bg-[var(--surface-overlay)]/95 backdrop-blur-xl">
-        <div className="mx-auto w-full max-w-3xl px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
+        <div className="mx-auto w-full max-w-3xl px-4 pb-2.5 pt-[calc(0.75rem+env(safe-area-inset-top))]">
           <div className="flex items-center gap-3">
             <button onClick={onClose} aria-label={t('workout.picker_close')} className="flex min-h-11 min-w-11 items-center justify-center rounded-xl bg-[var(--action-secondary)] text-[var(--content-secondary)] transition-colors hover:bg-[var(--surface-active)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] motion-reduce:transition-none">
               <X size={20} style={{ color: 'var(--content-secondary)' }} />
             </button>
             <h2 className="text-base font-semibold text-[var(--content-primary)]">{t('workout.picker_title')}</h2>
           </div>
-          <div className="relative mt-3">
-            <Search size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--content-muted)]" />
+          <div className="workout-picker-search relative mt-2.5">
+            {/* 22px icon inset at 16px; the input reserves 48px inline-start so typed text never sits under it. */}
+            <Search
+              size={22}
+              aria-hidden="true"
+              className="workout-picker-search__icon pointer-events-none absolute top-1/2 -translate-y-1/2 text-[var(--content-muted)]"
+            />
             <input
               ref={inputRef}
               type="search"
@@ -574,7 +582,7 @@ export default function ExercisePicker({
                 setSearch(event.target.value);
                 setEquipmentFilter('all');
               }}
-              className="input-dark min-h-12 pl-10 pr-11 text-base"
+              className="workout-picker-search__input input-dark min-h-12 text-base"
             />
             {search && (
               <button
@@ -675,7 +683,8 @@ export default function ExercisePicker({
             </>
           ) : (
             <>
-              <div className="flex items-start gap-3">
+              {/* One compact utility row: title + live count on the left, equipment filter on the right. */}
+              <div className="workout-picker-utility">
                 {selectedArea && !q && (
                   <button
                     type="button"
@@ -686,24 +695,34 @@ export default function ExercisePicker({
                     <ArrowLeft size={20} />
                   </button>
                 )}
-                <div className="min-w-0 flex-1 pt-1.5">
+                <div className="workout-picker-utility__summary">
                   <h1
                     ref={resultHeadingRef}
                     tabIndex={-1}
-                    className="text-xl font-semibold tracking-[-0.02em] text-[var(--content-primary)] outline-none sm:text-2xl"
+                    className="workout-picker-utility__title"
                   >
                     {q || !selectedArea
                       ? t('workout.picker_search_results')
                       : t('workout.picker_result_title', { area: t(bodyAreaLabelKey(selectedArea!.key)) })}
                   </h1>
-                  <p aria-live="polite" className="mt-1 text-sm tabular-nums text-[var(--content-muted)]">
+                  <p aria-live="polite" className="workout-picker-utility__count">
                     {t('workout.picker_result_count', { n: filtered.length })}
                   </p>
                 </div>
+                {equipmentOptions.length > 1 && (
+                  <EquipmentFilter
+                    compact
+                    value={equipmentFilter}
+                    options={equipmentOptions}
+                    onChange={setEquipmentFilter}
+                    label={t('workout.picker_equipment')}
+                    allLabel={t('workout.picker_all_equipment')}
+                  />
+                )}
               </div>
 
               {selectedArea && !q && selectedArea.muscles.length > 1 && (
-                <div className="-mx-1 mt-5 flex gap-2 overflow-x-auto px-1 pb-1 scrollbar-hide" role="group" aria-label={t('workout.picker_muscle_filter')}>
+                <div className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-1 scrollbar-hide" role="group" aria-label={t('workout.picker_muscle_filter')}>
                   <button
                     type="button"
                     onClick={() => {
@@ -740,16 +759,6 @@ export default function ExercisePicker({
                     </button>
                   ))}
                 </div>
-              )}
-
-              {equipmentOptions.length > 1 && (
-                <EquipmentFilter
-                  value={equipmentFilter}
-                  options={equipmentOptions}
-                  onChange={setEquipmentFilter}
-                  label={t('workout.picker_equipment')}
-                  allLabel={t('workout.picker_all_equipment')}
-                />
               )}
 
               {filtered.length === 0 ? (
