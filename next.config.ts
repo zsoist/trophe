@@ -28,10 +28,14 @@ export const nextConfig: NextConfig = {
   // Worktrees can sit beside another lockfile. Pin tracing to the checkout
   // actually being built so Next never guesses a parent/sibling workspace.
   outputFileTracingRoot: process.cwd(),
-  // The governed photo path loads its reviewed prompt from disk at runtime.
-  // Keep that asset in the existing Coach function's serverless bundle.
+  // Photo and native Text Food load prompts from disk at runtime. The latter
+  // is dynamically imported, so include its versioned and decomposition assets.
   outputFileTracingIncludes: {
-    '/api/coach-assistant': ['./agents/prompts/photo-analyze.v3.md'],
+    '/api/coach-assistant': [
+      './agents/prompts/photo-analyze.v3.md',
+      './agents/prompts/food-parse.*.md',
+      './agents/prompts/food-decompose.md',
+    ],
   },
   // Serwist injects a webpack config; Next 16 (Turbopack default) errors on a
   // webpack config with no turbopack config. An empty turbopack config lets
