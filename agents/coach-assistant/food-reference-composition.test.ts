@@ -36,12 +36,12 @@ beforeEach(()=>{
  h.provider.mockImplementation(async(request)=>({output:request.policy?.promptVersion===CAPABILITY_PROMPT_VERSION?request.validator.parse({choice:{tool:'food.reference',args:{queries:['Chicken breast, cooked']}}}):{items:[candidate],needs_clarification:false,clarification_question:null},responseModel:'gpt-5.6-luna',requestId:'req_injected',rawStatus:200,latencyMs:1,usage:{inputTokens:100,outputTokens:20}}));
  vi.stubGlobal('fetch',vi.fn(async()=>new Response(JSON.stringify({search_id:'injected-search',results:[{url:'https://example.com/chicken',title:'Nutrition',publish_date:null,excerpts:['Cooked chicken breast reference.']}]}),{status:200,headers:{'content-type':'application/json'}})));
 });
-async function run(catalogueHit=false,message='Check online: calories and protein in 150 g cooked chicken breast?',foodReferenceFollowUp?:FoodReferenceSnapshot,prepareFoodReferenceReview?:import('./index').RunOptions['prepareFoodReferenceReview']){
+async function run(catalogueHit=false,message='Check online: calories and protein in 150 g cooked chicken breast?',foodReferenceFollowUp?:FoodReferenceSnapshot,prepareFoodReferenceReview?:import('./index').RunOptions['prepareFoodReferenceReview'],history:Array<{role:'user';text:string}>=[]){
  const repository=fixtureRepository({nutrition:[],workouts:[],plans:[]});repository.dataSource='authorized_records';
  repository.authorize=async()=>({actorId:actor,subjectId:actor,organizationId:id(2),timezone:'UTC',language:'en'});
  const fallback=await createPrivateFoodReferenceFallback(env,actor,turn);
  const engine=createGovernedCoachEngineBinding({env,actorId:actor,persistentStore:h.store as PilotBudgetStore,transport:h.provider});
- return engine.run({version:'coach-assistant.v2',conversationId:id(3),turnId:foodReferenceFollowUp?id(5):turn,message},{actorId:actor,mode:'model',repository,foodReferenceFollowUp,prepareFoodReferenceReview,signal:new AbortController().signal,now:new Date('2026-09-13T12:00:00Z'),capabilityRegistry:createCoachCapabilityRegistry({foodReference:async()=>catalogueHit?{referenceId:'chicken',name:'Chicken breast, cooked',brand:null,source:'usda',quality:'lab_verified',preparation:'cooked',kcalPer100g:165,proteinPer100g:31,conversions:[]}:null,foodReferenceFallback:fallback})});
+ return engine.run({version:'coach-assistant.v2',conversationId:id(3),turnId:foodReferenceFollowUp?id(5):turn,message,history},{actorId:actor,mode:'model',repository,foodReferenceFollowUp,prepareFoodReferenceReview,signal:new AbortController().signal,now:new Date('2026-09-13T12:00:00Z'),capabilityRegistry:createCoachCapabilityRegistry({foodReference:async()=>catalogueHit?{referenceId:'chicken',name:'Chicken breast, cooked',brand:null,source:'usda',quality:'lab_verified',preparation:'cooked',kcalPer100g:165,proteinPer100g:31,conversions:[]}:null,foodReferenceFallback:fallback})});
 }
 it('composes selector, Parallel and real native parser under one turn and cumulative cap',async()=>{
  const result=await run();expect(result.ok,JSON.stringify(result.error)).toBe(true);
@@ -128,4 +128,13 @@ it('does not use an unqualified catalogue hit as country-specific evidence',asyn
  const result=await run(true,'Calories in 150 g chicken breast in Colombia');
  expect(result.output?.answer).toContain('Generic reference');expect(result.output?.answer).toContain('not verified');
  expect(snapshotFoodReference(result.capabilityResult?.result)).toMatchObject({kind:'native',unverifiedMarkets:['CO']});
+});
+
+it('neutral reference selection retains Spanish user history with an English profile',async()=>{
+ const first=await run(false,'Calories in 150 g cooked chicken breast?');const reference=snapshotFoodReference(first.capabilityResult?.result)!;
+ const prepare=vi.fn(async(_input:unknown,snapshot:FoodReferenceSnapshot)=>({ok:true as const,draft:{kind:'parsed' as const,id:id(9),hash:'a'.repeat(64),action:'food.text.create' as const,rawText:'La 1',items:foodReferenceReviewOutput(snapshot)!.items,clarification:null,warnings:[],expiresAt:'2026-09-13T13:00:00Z'}}));
+ const calls=h.provider.mock.calls.length;
+ const result=await run(false,'La 1',reference,prepare,[{role:'user',text:'Dame sugerencias con proteína'}]);
+ expect(result.output?.answer).toMatch(/^Revisa la misma referencia/);
+ expect(result.receipts).toEqual([]);expect(h.provider).toHaveBeenCalledTimes(calls);
 });

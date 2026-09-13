@@ -90,3 +90,10 @@ describe('text Food functional review controls', () => {
   });
 
 });
+
+it('inherits an explicit dinner for a neutral advice selection without writing',()=>{
+ const transport=vi.fn<TextFoodTransport>();
+ render(<I18nProvider defaultLang="en"><TextFoodReview draft={{...draft,rawText:'La 1'}} contextMessages={['Qué debería comer de cenar','Dame sugerencias con proteína','La 1']} conversationId={id(4)} transport={transport} onReceipt={vi.fn()}/></I18nProvider>);
+ expect((screen.getByRole('combobox') as HTMLSelectElement).value).toBe('dinner');
+ expect(transport).not.toHaveBeenCalled();
+});

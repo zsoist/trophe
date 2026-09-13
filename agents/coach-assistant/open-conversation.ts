@@ -1,3 +1,4 @@
+import { renderAdviceContextSummary } from './advice-context-summary';
 import { nutritionFactText } from './nutrition-context';
 import { nutritionIntent } from './nutrition-intent';
 import { mealAdviceChoiceSchema,renderMealAdvice,mealAdviceUnavailableMessage,mealAdviceDietUnavailableMessage,type EstimateMealAdvice } from './nutrition-advice';
@@ -402,7 +403,8 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
     const language=/[¿¡]|\b(?:que|como|podria|comida|semana)\b/i.test(input.message.normalize('NFKD').replace(/\p{M}/gu,''))||response.snapshot?.language.startsWith('es')?'es':'en';
     response.explanations=[...new Set(candidate.generalExplanationRefs)].map(id=>({kind:'curated_general',id,text:GENERAL_EXPLANATIONS[id][language],source:GENERAL_EXPLANATION_VERSION}));
   }
-  const canonicalFacts=[...new Set(boundedOutput.facts.map(fragment=>fragment.evidenceId))].map(id=>nutritionFactText(facts.find(f=>f.id===id)!,response.snapshot?.language??'en'));
+  const adviceSummary=advising&&response.snapshot?renderAdviceContextSummary(response.evidence,response.snapshot.window,response.snapshot.language):null;
+  const canonicalFacts=[...new Set(boundedOutput.facts.map(fragment=>fragment.evidenceId))].filter(id=>!adviceSummary?.evidenceRefs.includes(id)).map(id=>nutritionFactText(facts.find(f=>f.id===id)!,response.snapshot?.language??'en'));
   const factsHeading=response.snapshot?.language.startsWith('el')?'Καταγεγραμμένα στοιχεία:':spanish?'Datos registrados:':'Recorded facts:';
   const limitationCodes=[...(response.output?.limitations??[]).filter(value=>value!=='open_ended_interpretation_not_connected'),...boundedOutput.limitations];
   const visibleLimitations=[...new Set(limitationCodes.flatMap(code=>{
@@ -415,9 +417,10 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
   const photoSummary=photoNames.length?(spanish
     ?`Revisión de la foto: ${photoNames.join(', ')}. La identificación visual es una estimación y todavía no se ha guardado en Food.`
     :`Photo review: ${photoNames.join(', ')}. The visual identification is an estimate and has not been saved to Food.`):'';
-  response.output={answer:`${photoSummary}${photoSummary?'\n\n':''}${boundedOutput.answer}${canonicalFacts.length?`\n\n${factsHeading}\n${canonicalFacts.join('\n')}`:''}`,evidenceRefs:boundedOutput.evidenceRefs,
+  response.output={answer:`${photoSummary}${photoSummary?'\n\n':''}${boundedOutput.answer}${canonicalFacts.length?`\n\n${factsHeading}\n${canonicalFacts.join('\n')}`:''}`,evidenceRefs:[...new Set([...boundedOutput.evidenceRefs,...(adviceSummary?.evidenceRefs??[])])],
     limitations:visibleLimitations,
     suggestions:boundedOutput.followUp?[boundedOutput.followUp]:[],escalation:{required:boundedOutput.escalation,reason:boundedOutput.escalation?'coach_review':null,draft:null}};
+  if(adviceSummary)response.output.answer+=`\n\n${adviceSummary.text}`;
   if(advising&&estimateMealAdvice&&'mealAdviceChoices' in output){
     const choices=z.array(mealAdviceChoiceSchema).length(3).parse(output.mealAdviceChoices);
     // The model proposes foods/portions only. Food owns nutrition; no writer exists here.

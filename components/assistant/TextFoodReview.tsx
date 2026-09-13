@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {CANONICAL_MEAL_SLOTS,type CanonicalMealSlot} from '@/lib/food/meal-slot';
 import { textFoodPortionsSchema, textFoodResultSchema, type TextFoodDraft, type TextFoodOperation, type TextFoodProposal, type TextFoodReceipt } from '@/agents/coach-assistant/text-food-contract';
+import { suggestedMeal } from './suggested-meal';
 import { localToday } from '@/lib/utils/dates';
 import { selectFoodDisplayName } from '@/lib/food/display-name';
 import type { TextFoodTransport } from './text-food-client';
@@ -35,6 +36,7 @@ function initialMeal(rawText: string): TextFoodProposal['after']['mealType'] {
 }
 export interface TextFoodReviewProps {
   draft: TextFoodDraft;
+  contextMessages?: readonly string[];
   conversationId: string;
   transport: TextFoodTransport;
   onReceipt: (receipt: TextFoodReceipt) => void;
@@ -43,10 +45,10 @@ export interface TextFoodReviewProps {
   /** Reports the real apply lifecycle so a parent can gate destructive replacement on it. */
   onApplyState?: (state: TextFoodApplyState) => void;
 }
-export function TextFoodReview({ draft, conversationId, transport, onReceipt, onDismiss, savedReceipt, onApplyState }: TextFoodReviewProps) {
+export function TextFoodReview({ draft, contextMessages = [], conversationId, transport, onReceipt, onDismiss, savedReceipt, onApplyState }: TextFoodReviewProps) {
   const { t } = useGlobalCoachI18n();
   const [grams, setGrams] = useState(() => draft.items.map(item => String(item.grams)));
-  const [date, setDate] = useState(localToday), [meal, setMeal] = useState<CanonicalMealSlot>(() => initialMeal(draft.rawText));
+  const [date, setDate] = useState(localToday), [meal, setMeal] = useState<CanonicalMealSlot>(() => suggestedMeal(contextMessages) ?? initialMeal(draft.rawText));
   const [proposal, setProposal] = useState<TextFoodProposal | null>(null), [receipt, setReceipt] = useState<TextFoodReceipt | null>(savedReceipt ?? null);
   const [recovery]=useState(()=>{const value=readTextFoodRecovery(conversationId);return value?.draftId===draft.id&&value.draftHash===draft.hash?value:null;});
   const expectedEntries=useRef<string[]|null>(recovery?.entryIds??null);

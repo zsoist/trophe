@@ -16,4 +16,13 @@ async function fixture(empty=false){
  return {result,reference,estimate,provider};
 }
 it('advice bypasses Food parsing while gathering authorized today, targets and preferences',async()=>{const f=await fixture();expect(f.result.error).toBeUndefined();expect(f.result.ok).toBe(true);expect(f.reference).not.toHaveBeenCalled();expect(f.provider).toHaveBeenCalledTimes(1);expect(f.estimate).toHaveBeenCalledWith(choices,'es',expect.any(AbortSignal),expect.objectContaining({dietPattern:'vegan',timeoutMs:expect.any(Number)}));expect(f.result.receipts).toEqual([]);});
-it('missing profile does not turn advice into a request to parse an absent food',async()=>{const f=await fixture(true);expect(f.result.error).toBeUndefined();expect(f.result.output?.answer).toContain('Opciones de comida');expect(f.result.output?.answer).not.toContain('900');expect(f.result.output?.answer).not.toContain('registrado');expect(f.estimate).toHaveBeenCalledTimes(1);expect(f.result.textFood).toBeUndefined();});
+it('missing profile does not turn advice into a request to parse an absent food',async()=>{const f=await fixture(true);expect(f.result.error).toBeUndefined();expect(f.result.output?.answer).toContain('Opciones de comida');expect(f.result.output?.answer).not.toContain('900');expect(f.result.output?.answer).not.toContain('he registrado');expect(f.estimate).toHaveBeenCalledTimes(1);expect(f.result.textFood).toBeUndefined();});
+
+it('shows authorized targets and daily balance even when the model selects no facts',async()=>{
+ const f=await fixture();
+ expect(f.result.output?.answer).toContain('2300 kcal');
+ expect(f.result.output?.answer).toContain('120 g de proteína');
+ expect(f.result.output?.answer).toContain('1700 kcal');
+ expect(f.result.output?.evidenceRefs).toEqual(expect.arrayContaining(['nutrition.target.calories','nutrition.target.proteinG','nutrition.calories']));
+ expect(f.result.receipts).toEqual([]);
+});

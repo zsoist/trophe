@@ -18,10 +18,11 @@ export function nutritionIntent(input:Pick<CoachConversationRequest,'message'|'h
  if(followsAdvice&&text.length<=220&&!/\b(?:workout|training|exercise|entren|ejercicio|series|reps|chat|clima|weather)\b/.test(text)&&/\b(?:cena|cenar|dinner|proteina|protein|carne|meat|pollo|chicken|pescado|fish|vegetarian\w*|vegano?|sin|con|with|without|prefiero|prefer|tambien|also)\b/.test(text))return 'advise';
  return 'chat';
 }
-export function conversationLanguage(message:string,fallback:string):string {
+export function conversationLanguage(message:string,fallback:string,history:CoachConversationRequest['history']=[]):string {
+ const prior=(history??[]).filter(item=>item.role==='user').slice(-4).reduce((language,item)=>conversationLanguage(item.text,language),fallback);
  const text=normalize(message);
  if(/\p{Script=Greek}/u.test(message))return 'el';
  if(/[¿¡]/.test(message)||/\b(?:que|como|deberia|cenar|cena|dame|sugerencias|conoces|perfil|carne|proteina|almuerzo|comer|registra|calorias|fuente)\b/.test(text))return 'es';
  if(/\b(?:what|how|should|give|suggestions|profile|dinner|protein|chicken|calories|please|with|without)\b/.test(text))return 'en';
- return fallback;
+ return prior;
 }

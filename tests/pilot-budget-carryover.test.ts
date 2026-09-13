@@ -30,7 +30,7 @@ it('fails closed on missing carried attempts or incorrect aggregate',async()=>{
 });
 it('rejects malformed, foreign-pilot, duplicate and replayed source attempts',async()=>{
  const record=carried();
- for(const records of [[{}],[{...record,binding:{...record.binding,pilotId:randomUUID()}}],[record,record]])expect((await run(records)).result.ok).toBe(false);
+ for(const records of [[{}],[{...record,binding:{...record.binding,pilotId:randomUUID()}}],[record,record]])expect((await run(records)).result).toMatchObject({ok:false});
  expect((await run([record],{request:{...record.binding,actorId:actor}})).result).toMatchObject({ok:false,error:'idempotency_conflict'});
 });
 it('does not reset the lifetime attempt ceiling at transfer',async()=>{
