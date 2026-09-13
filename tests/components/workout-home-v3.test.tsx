@@ -132,7 +132,7 @@ describe('Workout home v3', () => {
   });
   it('separates recorded muscles from the planned workout and switches to their view', () => {
     renderHome({ program: coachProgram, workedExerciseIds: ['row'] });
-    const home = screen.getByRole('region', { name: "Today's target" });
+    const home = screen.getByRole('region', { name: "Your muscle map" });
     fireEvent.click(within(home).getByRole('button', { name: /Worked today/ }));
     expect(within(home).queryByRole('button', { name: /^Latissimus dorsi primary muscle$/i })).toBeNull();
     fireEvent.click(within(home).getByRole('button', { name: /^Back \d/ }));
@@ -284,7 +284,7 @@ describe('Workout home v3', () => {
 
   it('separates the model, muscle controls and primary action in normal flow', () => {
     renderHome({ program: coachProgram });
-    const home = screen.getByRole('region', { name: "Today's target" });
+    const home = screen.getByRole('region', { name: "Your muscle map" });
     expect(within(home).getByRole('group', { name: 'Training view' })).toBeTruthy();
     expect(within(home).getByRole('button', { name: /^Chest \d/ })).toBeTruthy();
     expect(home.querySelector('.workout-muscle-body')).toBeTruthy();
@@ -292,12 +292,13 @@ describe('Workout home v3', () => {
     expect(action.compareDocumentPosition(home) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('marks the readiness, atlas, and primary action as one mobile first-viewport composition', () => {
+  it('puts the primary action and atlas before the secondary readiness context', () => {
     renderHome({ program: coachProgram });
 
     const composition = screen.getByTestId('workout-home-first-view');
     expect(composition.className).toContain('workout-home-first-view');
-    expect(within(composition).getByRole('region', { name: "Today's workout status" })).toBeTruthy();
+    const context = screen.getByRole('region', { name: "Today's workout status" });
+    expect(composition.compareDocumentPosition(context) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(within(composition).getByLabelText('Muscle activation atlas')).toBeTruthy();
     expect(within(composition).getByTestId('workout-primary-action')).toBeTruthy();
   });

@@ -39,7 +39,7 @@ function WorkoutWorkspaceHeaderContent({ stage, onBack, backDisabled = false }: 
   const titleKey = pathname.startsWith(`${WORKOUT_ROUTES.exercises}/`)
     ? 'workout.workspace_exercises_title'
     : titleKeys[pathname] ?? 'workout.title';
-  const title = t(titleKey);
+  const title = t(pathname === WORKOUT_ROUTES.home ? 'workout.your_workout' : titleKey);
   const isHome = pathname === WORKOUT_ROUTES.home;
   const backHref = workoutBackRoute(pathname, stage, {
     returnToExercises: searchParams.get('from') === 'exercises',

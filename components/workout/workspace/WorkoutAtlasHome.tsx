@@ -2,7 +2,7 @@
 import type { ReactNode } from 'react';
 import { useContext, useEffect, useId, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { Check, ChevronDown, Layers, Minus, Plus, RotateCcw } from 'lucide-react';
+import { Check, ChevronDown, Minus, Plus, RotateCcw } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { activeAtlasRelease } from '@/lib/anatomy/release';
 import { WORKOUT_FOCUS_GROUPS, type WorkoutFocusGroup } from '@/lib/anatomy/workout-focus';
@@ -87,7 +87,7 @@ export function WorkoutAtlasHome({ activations, workedActivations = [], workedAv
   };
   const requestView = (side: AnatomyView) => { setView(side); setManual(false); setCameraRequest(n => n + 1); };
   return <section className="wk2 workout-muscle-home" data-mode={mode} aria-labelledby={headingId}>
-    <header><div><span className="workout-muscle-eyebrow"><Layers size={14} aria-hidden="true" />{t('anatomy.workout_title')}</span><h2 id={headingId}>{t('workout.atlas_today_target')}</h2><p>{targetLabel}</p></div></header>
+    <header><div><h2 id={headingId}>{t('workout.muscle_map')}</h2><p>{targetLabel}</p></div></header>
     <div className="workout-muscle-tabs" role="group" aria-label={t('anatomy.training_state')}>
       {(['worked', 'planned'] as const).map(item => <button key={item} aria-pressed={mode === item} onClick={() => { setMode(item); setSelected(null); setOpenGroup(null); }}><span>{t(`anatomy.${item}`)}</span><small>{item === 'planned' ? muscleSections(activations).length : workedAvailable ? muscleSections(workedActivations).length : '—'}</small></button>)}
     </div>

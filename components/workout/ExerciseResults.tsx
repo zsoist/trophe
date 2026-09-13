@@ -5,7 +5,7 @@ import { useI18n } from '@/lib/i18n';
 import type { Exercise } from '@/lib/types';
 import { exercisePosterAltKey, resolveExerciseMedia } from '@/lib/workout/exercise-media';
 import { ExerciseMediaBadge } from './ExerciseMediaBadge';
-import { equipmentLabel, exerciseDisplayName } from './muscle-groups';
+import { equipmentLabel, exerciseDisplayName, muscleLabelKey } from './muscle-groups';
 import './workout-exploration-v2.css';
 
 export interface ExerciseResultsProps {
@@ -83,7 +83,7 @@ export function ExerciseResults({ exercises, lang, selectedIds, onAdd, onInfo, a
               </p>
               <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-1.5">
                 <span className="shrink-0 rounded-full border border-[var(--border-subtle)] px-1.5 py-0.5 text-xs font-medium text-[var(--content-secondary)]">
-                  {t('workout.info_primary')}
+                  {t('workout.info_primary')}: {t(muscleLabelKey(exercise.muscle_group))}
                 </span>
                 {media.tier === 'verified-technique' ? (
                   <span

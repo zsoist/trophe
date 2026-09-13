@@ -4,7 +4,7 @@ import { WorkoutCoachEntry } from '@/components/workout/coach/WorkoutCoachEntry'
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Activity, BarChart3, ChevronRight, History, Search } from 'lucide-react';
+import { Activity, BarChart3, ChevronRight, History, Play, Search } from 'lucide-react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ConfirmSheet } from '@/components/ui/ConfirmSheet';
 import { exerciseDisplayName, muscleLabelKey } from '@/components/workout/muscle-groups';
@@ -241,20 +241,19 @@ export function WorkoutHome({
   }
 
   return (
-    <main className="mx-auto max-w-2xl space-y-4 px-4 py-4 sm:py-5">
+    <main className="workout-home mx-auto max-w-2xl space-y-4 px-4 py-4 sm:py-5">
       {workspace.liveReconciliation?.outcome === 'missing' ? <p role="status" className="rounded-xl border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-sm leading-6 text-[var(--content-primary)]">{t('workout.live_session_missing')}</p> : null}
       {hasDraft || recoveryStage ? <p className="rounded-xl border border-[var(--workout-rail)] bg-[var(--workout-surface)] px-3 py-2 text-xs text-[var(--content-secondary)]">{activeStage ? t('workout.home_recovered_active') : workspace.state.stage === 'completed' ? t('workout.home_recovered_completed') : t('workout.home_recovered_draft')}</p> : null}
 
       <div data-testid="workout-home-first-view" className="workout-home-first-view">
-        <button type="button" data-testid="workout-primary-action" onClick={primaryAction.action} aria-busy={startIntent} disabled={startIntent || (disabled && !recoveryStage && !hasDraft)} className="btn-gold min-h-11 w-full rounded-xl px-4 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50">{primaryAction.label}</button>
+        <button type="button" data-testid="workout-primary-action" onClick={primaryAction.action} aria-busy={startIntent} disabled={startIntent || (disabled && !recoveryStage && !hasDraft)} className="workout-train-action btn-gold min-h-11 w-full rounded-xl px-4 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50"><span aria-hidden="true"><Play size={18} fill="currentColor" /></span>{primaryAction.label}</button>
         {startError ? <p role="alert">{t('workout.start_live_failed')}</p> : null}
         {hasDraft && !startIntent ? <Link href={WORKOUT_ROUTES.build}>{t('workout.continue_editing')}</Link> : null}
-        <WorkoutTodayRail title={displayedWorkoutName ?? t('workout.home_build_today')} source={source} readiness={readiness} workSummary={isCardioDraft ? t('workout.home_cardio_session') : displayedTemplate?.exercises.length ? t('workout.exercise_count', { n: displayedTemplate.exercises.length }) : t('workout.home_choose_exercises')} nextAction={primaryAction.label} estimatedDurationMinutes={estimatedDuration} />
+
 
         {(programError || recommendationError) && !offeredTemplate ? <div role="alert" className="rounded-xl border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]">{t('workout.program_load_failed')}</div> : null}
         {supportError ? <div role="alert" className="rounded-xl border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] p-3 text-sm text-[var(--content-primary)]">{t('workout.support_data_load_failed')}</div> : null}
 
-        <WorkoutAtlasEntry />
         <WorkoutAtlasHome
           activations={activations}
           workedActivations={workedActivations}
@@ -263,6 +262,11 @@ export function WorkoutHome({
           emptyState={isCardioDraft ? 'cardio' : 'strength'}
 
         />
+      </div>
+
+      <div className="workout-home-context">
+        <WorkoutTodayRail title={displayedWorkoutName ?? t('workout.home_build_today')} source={source} readiness={readiness} workSummary={isCardioDraft ? t('workout.home_cardio_session') : displayedTemplate?.exercises.length ? t('workout.exercise_count', { n: displayedTemplate.exercises.length }) : t('workout.home_choose_exercises')} nextAction={primaryAction.label} estimatedDurationMinutes={estimatedDuration} />
+        <WorkoutAtlasEntry />
       </div>
 
       {!recoveryStage ? <WorkoutScheduleStrip program={program} todayName={displayedWorkoutName} todaySource={source} /> : null}

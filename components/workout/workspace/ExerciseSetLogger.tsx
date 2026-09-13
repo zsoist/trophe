@@ -201,6 +201,12 @@ export function ExerciseSetLogger({
     const currentSnapshot = snapshotRef.current;
     if (!setId || !currentSnapshot) return;
     const now = Date.now();
+    // A recovered timer may already have reached its target, even while paused.
+    if (elapsedAt(currentSnapshot, now) >= restTargetSeconds * 1_000) {
+      commitRestSnapshot(null);
+      setRestComplete(true);
+      return;
+    }
     if (paused && currentSnapshot.running) {
       commitRestSnapshot({ elapsedMs: elapsedAt(currentSnapshot, now), capturedAt: now, running: false });
       return;
@@ -297,21 +303,25 @@ export function ExerciseSetLogger({
         </button>
       </div> : <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--content-muted)]">{t('workout.set_number', { n: setNumber })}</p>}
 
-      <div className={`exercise-set-logger__grid ${grouped ? 'grid grid-cols-3 gap-2' : 'grid grid-cols-2 gap-3'}`}>
+      <div className={`exercise-set-logger__grid ${grouped && !focusMode ? 'grid grid-cols-3 gap-2' : 'grid grid-cols-2 gap-3'}`}>
         <label className="exercise-set-logger__field text-sm font-medium text-[var(--content-secondary)]">
           {t('workout.weight_in_unit', { unit })}
-          <input type="number" min="0" step="any" inputMode="decimal" disabled={completed || disabled} aria-label={t('workout.weight_in_unit', { unit })} value={weight} onChange={(event) => setWeight(event.target.value)} className={`input-dark mt-1 w-full font-mono tabular-nums ${focusMode ? 'min-h-14 text-lg' : 'min-h-12 text-base'}`} />
+          <input type="number" min="0" step="any" inputMode="decimal" disabled={completed || disabled} aria-label={t('workout.weight_in_unit', { unit })} value={weight} onChange={(event) => setWeight(event.target.value)} className={`input-dark mt-1 w-full font-mono tabular-nums ${focusMode ? 'min-h-16 text-3xl' : 'min-h-12 text-base'}`} />
           <span className="wsp-unit" aria-hidden="true">{unit}</span>
         </label>
         <label className="text-sm font-medium text-[var(--content-secondary)]">
           {t('workout.reps')}
-          <input type="number" min="1" step="1" inputMode="numeric" disabled={completed || disabled} aria-label={t('workout.reps')} value={reps} onChange={(event) => setReps(event.target.value)} className={`input-dark mt-1 w-full font-mono tabular-nums ${focusMode ? 'min-h-14 text-lg' : 'min-h-12 text-base'}`} />
+          <input type="number" min="1" step="1" inputMode="numeric" disabled={completed || disabled} aria-label={t('workout.reps')} value={reps} onChange={(event) => setReps(event.target.value)} className={`input-dark mt-1 w-full font-mono tabular-nums ${focusMode ? 'min-h-16 text-3xl' : 'min-h-12 text-base'}`} />
         </label>
-        {grouped ? <label className="text-sm font-medium text-[var(--content-secondary)]">
+        {grouped && !focusMode ? <label className="text-sm font-medium text-[var(--content-secondary)]">
           {t('workout.rpe_optional')}
           <input type="number" min="1" max="10" step="0.5" inputMode="decimal" disabled={completed || disabled} aria-label={t('workout.rpe_optional')} value={rpe} onChange={(event) => setRpe(event.target.value)} className="input-dark mt-1 min-h-12 w-full font-mono text-base tabular-nums" />
         </label> : null}
       </div>
+      {grouped && focusMode ? <details className="mt-2 text-sm text-[var(--content-secondary)]">
+        <summary className="min-h-11 cursor-pointer py-3">{t('workout.rpe_optional')}{rpe ? ` · ${rpe}` : ''}</summary>
+        <input type="number" min="1" max="10" step="0.5" inputMode="decimal" disabled={completed || disabled} aria-label={t('workout.rpe_optional')} value={rpe} onChange={(event) => setRpe(event.target.value)} className="input-dark min-h-12 w-full font-mono text-base tabular-nums" />
+      </details> : null}
       <div className={grouped ? 'mt-2' : 'mt-3 grid grid-cols-[minmax(0,1fr)_minmax(9rem,1.4fr)] gap-3'}>
         {!grouped ? (
         <label className="text-sm font-medium text-[var(--content-secondary)]">

@@ -80,3 +80,39 @@
   .workout-workspace-header :where(a, button) { transition: none; }
   .workout-workspace-header :where(a, button):not(:disabled):active { transform: none; }
 }
+
+/* V3: the muscle map leads; workout provenance follows in normal flow. */
+.workout-home .workout-home-first-view { display: grid; gap: 16px; }
+.workout-home .workout-train-action {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  min-height: 56px; border-radius: 999px; font-size: 18px;
+  background: linear-gradient(135deg, #ead3a0, #c3a05f); color: #151714;
+  box-shadow: inset 0 1px 0 #fff5;
+}
+.workout-home .workout-train-action > span {
+  display: grid; place-items: center; width: 30px; height: 30px;
+  border-radius: 50%; background: #151714; color: #ead3a0;
+}
+.workout-home-context { display: grid; gap: 12px; }
+.workout-workspace:has(.workout-home) > .workout-workspace-header {
+  margin-bottom: 0; background: transparent; border-radius: 0;
+}
+.workout-workspace:has(.workout-home) > .workout-workspace-header h1 {
+  font-size: clamp(26px, 6vw, 32px); font-weight: 650; letter-spacing: -.035em;
+}
+.workout-home .workout-muscle-home { padding: 12px; }
+.workout-home .workout-muscle-home header { padding-bottom: 8px; }
+.workout-home .workout-muscle-home h2 { margin: 0; font-size: 20px; }
+.workout-home .workout-muscle-eyebrow { display: none; }
+.workout-home .workout-muscle-home header p { margin-top: 4px; font-size: 14px; }
+.workout-home .workout-muscle-body { margin-top: 10px; }
+
+.workout-home .workout-muscle-home { --workout-stage-h: clamp(380px, 58dvh, 640px); }
+
+.workout-workspace:has(.live-exercise-stage__header) > .workout-workspace-header {
+  margin: 0 12px 8px; min-height: 48px; padding-block: 0; background: transparent; box-shadow: none;
+}
+.workout-workspace .live-exercise-stage__header { padding: 0; gap: 8px; }
+.workout-workspace .live-exercise-stage__header h1 { font-size: clamp(20px, 5.5vw, 28px); line-height: 1.2; }
+.workout-workspace .live-exercise-stage__logger.wsp-stage { padding: 0; background: transparent; box-shadow: none; border: 0; }
+.workout-workspace .live-exercise-stage__logger .wsp-stage__inner { padding: 0; }

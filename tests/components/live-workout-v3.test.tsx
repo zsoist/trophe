@@ -90,7 +90,10 @@ describe('LiveWorkout focused stage', () => {
     workspace = { ...workspace, state: { ...state, draft: { ...state.draft, exercises: state.draft.exercises.map(exercise => ({ ...exercise, restSeconds })) } } };
     render(<LiveWorkout exercises={[bench, row]} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Complete set' }));
-    expect(await screen.findByText(new RegExp(`/ ${restSeconds}s`))).toBeTruthy();
+    if (restSeconds === 0) {
+      expect(await screen.findByText('workout.rest_complete')).toBeTruthy();
+      expect(screen.queryByRole('timer')).toBeNull();
+    } else expect(await screen.findByText(new RegExp(`/ ${restSeconds}s`))).toBeTruthy();
   });
 
   it('keeps one current exercise in view with progress, target, set completion, rest, and the next exercise', async () => {

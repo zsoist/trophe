@@ -36,8 +36,8 @@ describe('WorkoutAtlasHome localization', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /^Planificados/ }));
     fireEvent.click(screen.getByRole('button', { name: /^Pecho \d/ }));
-    expect(screen.getByRole('heading', { name: 'Objetivo de hoy' })).toBeTruthy();
-    const home = screen.getByRole('region', { name: 'Objetivo de hoy' });
+    expect(screen.getByRole('heading', { name: 'Tu mapa muscular' })).toBeTruthy();
+    const home = screen.getByRole('region', { name: 'Tu mapa muscular' });
     expect(within(home).getByRole('button', { name: 'Pectoral mayor músculo principal' })).toBeTruthy();
 
     fireEvent.click(within(home).getByRole('button', { name: /^Tríceps \d/ }));

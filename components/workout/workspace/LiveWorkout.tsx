@@ -666,6 +666,11 @@ function LiveWorkoutSession({ exercises, userId = null }: LiveWorkoutProps) {
     ? `${latestActiveSet.weight_kg === null ? '—' : `${kgToDisplay(latestActiveSet.weight_kg, unit)} ${unit}`} × ${latestActiveSet.reps}`
     : t('workout.previous_values');
   const elapsedText = `${Math.floor(elapsedMs / 60_000)}:${String(Math.floor(elapsedMs / 1_000) % 60).padStart(2, '0')}`;
+  const addAction = (
+      <button ref={addTrigger} type="button" disabled={mutationBlocked || addingExercise} onClick={() => setPickerOpen(true)} className="btn-primary inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl disabled:opacity-50">
+        <Plus size={18} aria-hidden="true" />{t('workout.add_exercise')}
+      </button>
+  );
   return (
     <main className="live-workout mx-auto max-w-2xl space-y-5 px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-5">
       {!activeDraftExercise ? <section className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] pb-3">
@@ -692,6 +697,7 @@ function LiveWorkoutSession({ exercises, userId = null }: LiveWorkoutProps) {
         </section>
       ) : !activeDraftExercise || !activeResolved ? <div role="status" className="min-h-24 animate-pulse rounded-xl bg-[var(--surface-subtle)]" aria-label={t('workout.loading_live_session')} /> : (
         <LiveExerciseStage
+          action={addAction}
           exercise={activeResolved}
           displayName={displayNameFor(activeResolved.id, activeResolved.name)}
           position={activeExerciseIndex + 1}
@@ -818,12 +824,11 @@ function LiveWorkoutSession({ exercises, userId = null }: LiveWorkoutProps) {
         </LiveExerciseStage>
       )}
 
-      <button ref={addTrigger} type="button" disabled={mutationBlocked || addingExercise} onClick={() => setPickerOpen(true)} className="btn-primary inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl disabled:opacity-50">
-        <Plus size={18} aria-hidden="true" />{t('workout.add_exercise')}
-      </button>
+      {!activeDraftExercise ? addAction : null}
       {pickerOpen ? <ExercisePicker
         exercises={exercises} recentIds={[]} lang={lang}
         addedExerciseIds={draft.exercises.map((exercise) => exercise.exerciseId)}
+        liveSession
         selectionPending={addingExercise}
         onSelect={(exercise) => { void appendExercise(exercise); }}
         onClose={() => { if (!addInFlight.current) setPickerOpen(false); }}

@@ -96,12 +96,14 @@ function trapFocus(event: ReactKeyboardEvent<HTMLElement>, container: HTMLElemen
 
 function PickerFrame({
   presentation,
+  liveSession = false,
   pickerRef,
   reducedMotion,
   label,
   children,
 }: {
   presentation: 'dialog' | 'page';
+  liveSession?: boolean;
   pickerRef: RefObject<HTMLDivElement | null>;
   reducedMotion: boolean | null;
   label: string;
@@ -119,7 +121,7 @@ function PickerFrame({
         initial={reducedMotion ? false : { opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={reducedMotion ? undefined : { opacity: 0 }}
-        className="wk2 fixed inset-0 z-[var(--z-modal,60)] flex flex-col safe-bottom bg-[var(--canvas)] outline-none"
+        className={`wk2 workout-dialog fixed inset-0 z-[var(--z-modal,60)] flex flex-col safe-bottom bg-[var(--canvas)] outline-none ${liveSession ? "workout-live-picker" : ""}`}
         style={{ isolation: 'isolate' }}
       >
         {children}
@@ -371,8 +373,10 @@ export default function ExercisePicker({
   atlasContext,
   initialAtlasFilter,
   selectionPending = false,
+  liveSession = false,
 }: {
   selectionPending?: boolean;
+  liveSession?: boolean;
   exercises: Exercise[];
   recentIds: string[];
   onSelect: (ex: Exercise) => void;
@@ -442,16 +446,16 @@ export default function ExercisePicker({
 
   useEffect(() => {
     if (!canUseDom) return;
-    const frame = requestAnimationFrame(() => firstAreaRef.current?.focus({ preventScroll: true }));
+    const frame = requestAnimationFrame(() => (liveSession ? inputRef.current : firstAreaRef.current)?.focus({ preventScroll: true }));
     return () => cancelAnimationFrame(frame);
-  }, [canUseDom]);
+  }, [canUseDom, liveSession]);
 
   const nameOf = (ex: Exercise) => exerciseDisplayName(ex, lang);
   const addedIds = new Set([...addedExerciseIds, ...optimisticAddedIds]);
 
   const q = search.trim().toLowerCase();
   const selectedArea = WORKOUT_BODY_AREAS.find((area) => area.key === selectedAreaKey) ?? null;
-  const isLanding = q === '' && selectedArea === null;
+  const isLanding = !liveSession && q === '' && selectedArea === null;
   const recentRank = new Map(recentIds.map((id, index) => [id, index]));
   const matchesSearch = (ex: Exercise) => [
     nameOf(ex),
@@ -461,11 +465,12 @@ export default function ExercisePicker({
     ex.equipment,
   ].some((value) => value?.toLowerCase().includes(q));
 
+  const catalogue = liveSession ? exercises.filter(exercise => exercise.muscle_group !== 'cardio') : exercises;
   const areaPool = q !== ''
-    ? exercises.filter(matchesSearch)
+    ? catalogue.filter(matchesSearch)
     : selectedArea
-      ? exercises.filter((ex) => selectedArea.muscles.includes(ex.muscle_group))
-      : [];
+      ? catalogue.filter((ex) => selectedArea.muscles.includes(ex.muscle_group))
+      : liveSession ? catalogue : [];
   const musclePool = filterMuscle === 'all'
     ? areaPool
     : areaPool.filter((ex) => ex.muscle_group === filterMuscle);
@@ -543,6 +548,7 @@ export default function ExercisePicker({
   const picker = (
     <PickerFrame
       presentation={presentation}
+      liveSession={liveSession}
       pickerRef={pickerRef}
       reducedMotion={reducedMotion}
       label={t('workout.add_exercise')}
@@ -594,6 +600,10 @@ export default function ExercisePicker({
           className="mx-auto w-full max-w-3xl px-4 pt-6"
           style={{ paddingBottom: scrollPadding }}
         >
+          {liveSession && <div className="workout-live-picker__groups" role="group" aria-label={t('workout.picker_muscle_filter')}>
+            <button type="button" aria-pressed={selectedArea === null} onClick={returnToAreas}>{t('workout.all')}</button>
+            {WORKOUT_BODY_AREAS.filter(area => area.key !== 'cardio').map(area => <button type="button" key={area.key} aria-pressed={selectedAreaKey === area.key} onClick={() => chooseArea(area.key)}>{t(bodyAreaLabelKey(area.key))}</button>)}
+          </div>}
           {isLanding ? (
             <>
               {replacementExerciseName ? <p role="status" className="mb-4 rounded-xl border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] p-3 text-sm text-[var(--content-primary)]">{t('workout.replacement_active', { name: replacementExerciseName })}</p> : null}
@@ -682,7 +692,7 @@ export default function ExercisePicker({
                     tabIndex={-1}
                     className="text-xl font-semibold tracking-[-0.02em] text-[var(--content-primary)] outline-none sm:text-2xl"
                   >
-                    {q
+                    {q || !selectedArea
                       ? t('workout.picker_search_results')
                       : t('workout.picker_result_title', { area: t(bodyAreaLabelKey(selectedArea!.key)) })}
                   </h1>
@@ -762,14 +772,14 @@ export default function ExercisePicker({
             </>
           )}
 
-          <button
+          {(!liveSession || onCustomCreated) && <button
             onClick={() => setShowCustomModal(true)}
             aria-label={t('workout.picker_custom')}
             className="mt-8 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--border-default)] bg-transparent px-4 text-sm font-semibold text-[var(--action-primary)] transition-colors hover:border-[var(--border-focus)] hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] motion-reduce:transition-none"
           >
             <Plus size={16} />
             <span><span className="font-normal text-[var(--content-muted)]">{t('workout.picker_custom_hint')} </span>{t('workout.picker_custom')}</span>
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -794,6 +804,7 @@ export default function ExercisePicker({
           />
         )}
       </AnimatePresence>
+      {liveSession && <button type="button" className="workout-live-picker__return" disabled={selectionPending} onClick={onClose}>{t('workout.keep_training')}</button>}
     </PickerFrame>
   );
 

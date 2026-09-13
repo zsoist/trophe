@@ -126,7 +126,8 @@ describe('LiveExerciseStage explicit media play', () => {
     const play = vi.mocked(HTMLMediaElement.prototype.play);
     renderStage(true);
 
-    expect(await screen.findByRole('button', { name: 'Resume workout to play demonstration' })).toBeTruthy();
+    expect(await screen.findByText('Workout paused. Demonstration paused.')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Resume workout to play demonstration' })).toBeNull();
     expect(play).not.toHaveBeenCalled();
   });
 });

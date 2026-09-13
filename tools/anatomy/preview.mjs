@@ -6,7 +6,11 @@ import { createHash } from "node:crypto";
 import { createServer } from "node:http";
 import { build } from "esbuild";
 import { gzipSync } from "node:zlib";
-import { tsImport } from "tsx/esm/api";
+import { tsImport as importTypescript } from "tsx/esm/api";
+const tsImport = async (...args) => {
+  const loadedModule = await importTypescript(...args);
+  return { ...loadedModule.default, ...loadedModule };
+};
 import postcss from "postcss";
 import tailwind from "@tailwindcss/postcss";
 const exportAt = process.argv.indexOf("--export-review");
@@ -65,7 +69,16 @@ for (const exercise of ATLAS_EXERCISES) {
 const styles = await postcss([tailwind({ base: root })]).process(await readFile(join(root, 'app/globals.css'), 'utf8'), { from: join(root, 'app/globals.css') });
 assets.set('/_qa/workout.css', { bytes: Buffer.from(styles.css), mime: 'text/css' });
 assets.set('/device-check.txt', { bytes: await readFile(join(root, 'tools/anatomy/workout-review/DEVICE_CHECK.md')), mime: 'text/plain; charset=utf-8' });
+const editorialAt = process.argv.indexOf('--editorial');
+if (editorialAt >= 0) {
+  const editorialDirectory = resolve(process.argv[editorialAt + 1]);
+  for (const width of [144, 480, 768]) {
+    const name = `smith-flat-bench-${width}.webp`;
+    assets.set(`/private-editorial/${name}`, { bytes: await readFile(join(editorialDirectory, name)), mime: 'image/webp' });
+  }
+}
 assets.set('/sprite.svg', { bytes: await readFile(join(root, 'public/sprite.svg')), mime: 'image/svg+xml' });
+assets.set('/fonts/workout/jakarta-variable.ttf', { bytes: await readFile(join(root, 'public/fonts/workout/jakarta-variable.ttf')), mime: 'font/ttf' });
 const fontDirectory = join(root, 'public/fonts/workout-review');
 const fontSources = JSON.parse(await readFile(join(fontDirectory, 'sources.json'), 'utf8'));
 for (const font of fontSources.fonts) assets.set('/fonts/workout-review/' + font.file, { bytes: await readFile(join(fontDirectory, font.file)), mime: 'font/woff2' });
@@ -110,7 +123,7 @@ if (manifest.poster)
 const temp = await mkdtemp(join(directory, "preview-"));
 const result = await build({
   stdin: {
-    contents: `import React from 'react';import {createRoot} from 'react-dom/client';import {PrivateAtlasReview} from './tools/anatomy/private-review';import {I18nProvider} from './lib/i18n';import {ThemeModeProvider} from './components/shared/ThemeMode';createRoot(document.getElementById('root')).render(<I18nProvider defaultLang="en"><ThemeModeProvider><PrivateAtlasReview manifestUrl="${prefix}manifest.json" authoredSupplement={${JSON.stringify(authoredSupplement) ?? "undefined"}} identity={${JSON.stringify({ codeSha, manifestSha256: createHash("sha256").update(manifestBytes).digest("hex"), release: manifest.release, authoredSha256: authoredSupplement?.chunk.sha256 ?? null })}}/></ThemeModeProvider></I18nProvider>);`,
+    contents: `import React from 'react';import {createRoot} from 'react-dom/client';import {PrivateAtlasReview} from './tools/anatomy/private-review';import {WorkoutEditorialSource} from './components/workout/WorkoutEditorialSource';import {I18nProvider} from './lib/i18n';import {ThemeModeProvider} from './components/shared/ThemeMode';createRoot(document.getElementById('root')).render(<I18nProvider defaultLang="en"><ThemeModeProvider><WorkoutEditorialSource.Provider value={${editorialAt >= 0 ? '"/private-editorial"' : "null"}}><PrivateAtlasReview manifestUrl="${prefix}manifest.json" authoredSupplement={${JSON.stringify(authoredSupplement) ?? "undefined"}} identity={${JSON.stringify({ codeSha, manifestSha256: createHash("sha256").update(manifestBytes).digest("hex"), release: manifest.release, authoredSha256: authoredSupplement?.chunk.sha256 ?? null })}}/></WorkoutEditorialSource.Provider></ThemeModeProvider></I18nProvider>);`,
     resolveDir: root,
     loader: "tsx",
   },
@@ -124,6 +137,7 @@ const result = await build({
     };
     build.onResolve({ filter: /^(next\/(navigation|link)|@\/lib\/(supabase|trpc\/client|workout\/analytics-data)|@\/components\/workout\/workout-persistence)$/ }, args => ({ path: join(root, 'tools/anatomy/workout-review', aliases[args.path]) }));
   } }],
+  external: ["/fonts/workout/jakarta-variable.ttf"],
   metafile: true,
   bundle: true,
   write: false,

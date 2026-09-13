@@ -12,6 +12,7 @@ export interface ExerciseMotionProps {
   autoplay?: boolean;
   className?: string;
   playbackDisabled?: boolean;
+  compactPaused?: boolean;
   /** Only for the loopback candidate reviewer; never enabled by catalogue consumers. */
   previewOnly?: boolean;
 }
@@ -20,7 +21,7 @@ export function ExerciseMotion(props: ExerciseMotionProps) {
   return <ExerciseMotionPlayer key={`${props.media.slug}:${props.media.motionSrc ?? ''}:${props.media.mobileMotionSrc ?? ''}`} {...props} />;
 }
 
-function ExerciseMotionPlayer({ media, alt, autoplay = false, className = '', playbackDisabled = false, previewOnly = false }: ExerciseMotionProps) {
+function ExerciseMotionPlayer({ media, alt, autoplay = false, className = '', playbackDisabled = false, compactPaused = false, previewOnly = false }: ExerciseMotionProps) {
   const { t } = useI18n();
   const [phaseKey, setPhaseKey] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
@@ -136,10 +137,10 @@ function ExerciseMotionPlayer({ media, alt, autoplay = false, className = '', pl
       </video>
       <figcaption className="exercise-motion__controls">
         {phaseKey ? <span>{t(phaseKey)}</span> : null}
-        <button type="button" disabled={playbackDisabled} onClick={isPlaying ? pause : play} aria-label={t(playbackDisabled ? 'workout.motion_session_paused_action' : isPlaying ? 'workout.motion_pause' : 'workout.motion_play')}>
+        {!(compactPaused && playbackDisabled) && <button type="button" disabled={playbackDisabled} onClick={isPlaying ? pause : play} aria-label={t(playbackDisabled ? 'workout.motion_session_paused_action' : isPlaying ? 'workout.motion_pause' : 'workout.motion_play')}>
           {playbackDisabled || !isPlaying ? <Play size={16} aria-hidden="true" /> : <Pause size={16} aria-hidden="true" />}
           {t(playbackDisabled ? 'workout.motion_session_paused_action' : isPlaying ? 'workout.motion_pause' : 'workout.motion_play')}
-        </button>
+        </button>}
         <span aria-live="polite">{t(playbackDisabled ? 'workout.motion_session_paused' : isPlaying ? 'workout.motion_playing' : 'workout.motion_paused')}</span>
       </figcaption>
     </figure>

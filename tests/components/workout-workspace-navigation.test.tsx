@@ -40,6 +40,7 @@ vi.mock('@/lib/i18n', () => ({
         'workout.workspace_back': back,
         'workout.workspace_review_title': review,
         'workout.workspace_home_title': home,
+        'workout.your_workout': 'Your workout',
         'workout.workspace_status_paused': paused,
         'workout.back_home': backHome,
         'workout.workspace_live_title': liveTitle,
@@ -145,7 +146,7 @@ describe('workout workspace navigation', () => {
 
     expect(screen.queryByRole('link', { name: /Back/i })).toBeNull();
     expect(screen.queryByRole('link', { name: 'Workout Home' })).toBeNull();
-    expect(screen.getByRole('heading', { name: 'Workout Home' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Your workout' })).toBeTruthy();
     expect(screen.queryByText('Draft')).toBeNull();
     expect(screen.queryByLabelText('Draft')).toBeNull();
   });

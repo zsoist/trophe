@@ -88,6 +88,7 @@ vi.mock('@/lib/i18n', () => ({
     'workout.continue_editing': 'Continue editing', 'workout.continue_review': 'Continue review',
     'workout.replace_choice_title': 'Replace this draft?',
     'workout.replace_choice_message': `Replace ${params?.current} with ${params?.next}? Your current draft will be removed.`,
+    'workout.train_now': 'Train now', 'workout.retry_same_start': 'Retry same start',
     'workout.replace_choice_confirm': 'Replace draft', 'workout.replace_choice_cancel': 'Keep current draft',
   }[key] ?? key) }),
 }));
@@ -197,13 +198,14 @@ describe('WorkoutHome', () => {
     expect(screen.queryByRole('dialog', { name: 'Add exercise' })).toBeNull();
   });
 
-  it('opens the body-area exercise browser before showing an empty strength draft', async () => {
-    render(<WorkoutHomeHarness />);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Build workout' }));
-
-    expect(push).toHaveBeenLastCalledWith('/dashboard/workout/exercises');
-    expect(startLiveSession).not.toHaveBeenCalled();
+  it('starts an explicit empty strength session directly', async () => {
+    startLiveSession.mockResolvedValue({ ok: true, sessionId: 'empty-session' });
+    render(<WorkoutHomeHarness forceHome />);
+    const start = await screen.findByRole('button', { name: 'Train now' });
+    await waitFor(() => expect(start.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(start);
+    await waitFor(() => expect(startLiveSession).toHaveBeenCalledWith(expect.objectContaining({ kind: 'strength', liveStructure: [] })));
+    await waitFor(() => expect(push).toHaveBeenLastCalledWith('/dashboard/workout/live'));
   });
 
   it('keeps Push on Cancel and replaces it with Pull only after named confirmation', async () => {
@@ -212,7 +214,7 @@ describe('WorkoutHome', () => {
       draft: { version: 2, name: 'Push', kind: 'strength', updatedAt: 1, exercises: [{ exerciseId: 'bench', targetSets: 3, targetReps: '8' }] },
     };
     render(<WorkoutHomeHarness initialState={initialState} forceHome />);
-    expect(await screen.findByRole('button', { name: 'Continue editing' })).toBeTruthy();
+    expect(await screen.findByRole('link', { name: 'Continue editing' })).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Preview Pull' }));
     fireEvent.click(screen.getByRole('button', { name: 'Use this template' }));
@@ -228,7 +230,7 @@ describe('WorkoutHome', () => {
     expect(push).toHaveBeenLastCalledWith('/dashboard/workout/build');
   });
 
-  it('offers only the immutable review path while an ambiguous start request is pending', async () => {
+  it('retries only the immutable request while an ambiguous start is pending', async () => {
     const initialState: WorkoutWorkspaceState = {
       stage: 'review', sessionId: null, clock: null,
       clientRequestId: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
@@ -245,8 +247,10 @@ describe('WorkoutHome', () => {
     expect(screen.queryByRole('button', { name: 'Build workout' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Plan cardio' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Preview Pull' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Continue review' }));
-    expect(push).toHaveBeenCalledWith('/dashboard/workout/review');
+    startLiveSession.mockResolvedValue({ ok: true, sessionId: 'retry-session' });
+    fireEvent.click(screen.getByRole('button', { name: 'Retry same start' }));
+    await waitFor(() => expect(startLiveSession).toHaveBeenCalledWith(initialState.startRequest));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/dashboard/workout/live'));
   });
 
   it('offers only an exact retrospective retry while an ambiguous save is pending', async () => {
@@ -282,11 +286,13 @@ describe('WorkoutHome', () => {
       draft: { version: 2, name: 'My routine', kind: 'strength', updatedAt: 1, exercises: [{ exerciseId: 'bench', targetSets: 3, targetReps: '8' }] },
     };
     render(<WorkoutHomeHarness initialState={initialState} forceHome program={coachProgram} />);
-    const continueReview = await screen.findByRole('button', { name: 'Continue review' });
+    startLiveSession.mockResolvedValue({ ok: true, sessionId: 'existing-draft' });
+    const continueReview = await screen.findByRole('button', { name: 'Train now' });
     expect(screen.queryByRole('button', { name: 'Review plan' })).toBeNull();
     expect(screen.queryByRole('alertdialog', { name: 'Replace this draft?' })).toBeNull();
     fireEvent.click(continueReview);
-    expect(push).toHaveBeenCalledWith('/dashboard/workout/review');
+    await waitFor(() => expect(startLiveSession).toHaveBeenCalledWith(expect.objectContaining({ name: 'My routine' })));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/dashboard/workout/live'));
   });
 
   it('creates the template draft only after the user confirms the preview', async () => {
@@ -315,16 +321,16 @@ describe('WorkoutHome', () => {
     expect(startLiveSession).toHaveBeenCalledWith(expect.objectContaining({ name: 'Push', templateId: null }));
   });
 
-  it('turns a coach program into a reviewable draft instead of auto-starting guided mode', async () => {
-    render(<WorkoutHomeHarness program={coachProgram} />);
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Review plan' }).hasAttribute('disabled')).toBe(false));
-    fireEvent.click(screen.getByRole('button', { name: 'Review plan' }));
-
-    expect(await screen.findByRole('heading', { name: 'Coach Push' })).toBeTruthy();
+  it('starts the offered coach program only after explicit Train now', async () => {
+    startLiveSession.mockResolvedValue({ ok: true, sessionId: 'coach-session' });
+    render(<WorkoutHomeHarness program={coachProgram} forceHome />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Train now' }).hasAttribute('disabled')).toBe(false));
     expect(startLiveSession).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Train now' }));
+    await waitFor(() => expect(startLiveSession).toHaveBeenCalledWith(expect.objectContaining({ name: 'Coach Push' })));
   });
 
-  it('keeps coach-resolved exercise metadata through review when the client library cannot resolve the id', async () => {
+  it('preserves coach exercise identity and targets when the client library cannot resolve the id', async () => {
     const customProgram: WorkoutHomeProgram = {
       programName: 'Custom block',
       todayTemplate: {
@@ -342,13 +348,11 @@ describe('WorkoutHome', () => {
       },
       alsoToday: [],
     };
-    render(<WorkoutHomeHarness program={customProgram} />);
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Review plan' }).hasAttribute('disabled')).toBe(false));
-
-    fireEvent.click(screen.getByRole('button', { name: 'Review plan' }));
-
-    expect(await screen.findByText('Coach Tempo Press')).toBeTruthy();
-    expect(screen.queryByText('33333333-3333-4333-8333-333333333333')).toBeNull();
+    startLiveSession.mockResolvedValue({ ok: true, sessionId: 'custom-session' });
+    render(<WorkoutHomeHarness program={customProgram} forceHome />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Train now' }).hasAttribute('disabled')).toBe(false));
+    fireEvent.click(screen.getByRole('button', { name: 'Train now' }));
+    await waitFor(() => expect(startLiveSession).toHaveBeenCalledWith(expect.objectContaining({ templateId: customProgram.todayTemplate?.templateId, liveStructure: [expect.objectContaining({ exerciseId: '33333333-3333-4333-8333-333333333333', targetSets: 3, targetReps: '10' })] })));
   });
 
   it('builds cardio as an editable draft', async () => {
@@ -365,6 +369,6 @@ describe('WorkoutHome', () => {
   it('keeps a deterministic browse surface during program errors', async () => {
     render(<WorkoutHomeHarness programError />);
     expect((await screen.findByRole('alert')).textContent).toMatch(/program/i);
-    expect(screen.getByRole('button', { name: 'Build workout' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Train now' })).toBeTruthy();
   });
 });
