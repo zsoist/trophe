@@ -22,6 +22,10 @@ function fixture(lost = false, rawText = draft.rawText) {
   return { transport, onReceipt };
 }
 describe('text Food functional review controls', () => {
+  it.each(['I ate 100g dinner rolls', 'I ate 100g breakfast cereal'])('does not interpret food names as a meal: %s', rawText => {
+    fixture(false, rawText);
+    expect((screen.getByRole('combobox') as HTMLSelectElement).value).toBe('lunch');
+  });
   it.each(['I ate 90 g banana for dinner today.', 'Cené 90 g de banana hoy.'])('preselects an explicit dinner without writing: %s', async rawText => {
     const f = fixture(false, rawText);
     expect((screen.getByRole('combobox') as HTMLSelectElement).value).toBe('dinner');

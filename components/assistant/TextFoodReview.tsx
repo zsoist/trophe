@@ -20,13 +20,14 @@ export type TextFoodApplyState = 'idle' | 'pending' | 'unknown' | 'applied';
 function initialMeal(rawText: string): TextFoodProposal['after']['mealType'] {
   // Only explicit meal language seeds the editable review; never use the clock.
   const text = rawText.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (/\b(?:breakfast|lunch|dinner|snack|desayuno|almuerzo|cena|merienda)\s+(?:and|or|y|o)\s+(?:breakfast|lunch|dinner|snack|desayuno|almuerzo|cena|merienda)\b/.test(text)) return 'lunch';
   const mentions = [
-    ['breakfast', /\b(?:breakfast|desayuno|desayune)\b/],
-    ['lunch', /\b(?:lunch|almuerzo|almorce)\b/],
-    ['dinner', /\b(?:dinner|cena|cene|cenar)\b/],
-    ['snack', /\b(?:snack|merienda|merende)\b/],
-    ['pre_workout', /\b(?:pre[ -]?workout|preentreno)\b/],
-    ['post_workout', /\b(?:post[ -]?workout|postentreno)\b/],
+    ['breakfast', /\b(?:(?:for|at) breakfast|(?:para|en) (?:el )?desayuno|desayune)\b|^breakfast\s*:/],
+    ['lunch', /\b(?:(?:for|at) lunch|(?:para|en) (?:el )?almuerzo|almorce)\b|^lunch\s*:/],
+    ['dinner', /\b(?:(?:for|at) dinner|(?:para|en) (?:la )?cena|para cenar|cene)\b|^dinner\s*:/],
+    ['snack', /\b(?:(?:for|as) (?:a )?snack|(?:para|en) (?:la )?merienda|merende)\b|^snack\s*:/],
+    ['pre_workout', /\b(?:before (?:my |a )?workout|antes de entrenar)\b/],
+    ['post_workout', /\b(?:after (?:my |a )?workout|despues de entrenar)\b/],
   ] as const;
   const matches = mentions.filter(([, pattern]) => pattern.test(text));
   return matches.length === 1 ? matches[0][0] : 'lunch';

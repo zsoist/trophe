@@ -93,6 +93,39 @@ it('stops answer playback before requesting the microphone and again on reset', 
   expect(stopPlayback).toHaveBeenCalledTimes(2);
 });
 
+it('keeps pending capture and cancellation visible after the conversation remounts', () => {
+  const { controller, cancel } = fixture();
+  const host = document.createElement('div'); document.body.appendChild(host);
+  function Harness() {
+    const state = React.useSyncExternalStore(controller.subscribe, controller.snapshot);
+    return <I18nProvider defaultLang="en"><VoiceCapture key={state.phase === 'idle' ? 'local' : 'durable'} compact statusHost={host} controller={controller} state={state} disabled={false} /></I18nProvider>;
+  }
+  render(<Harness />);
+  fireEvent.click(screen.getByRole('button', { name: 'Voice' }));
+  fireEvent.click(screen.getByRole('button', { name: /Cancel/ }));
+  expect(cancel).toHaveBeenCalledOnce();
+  expect(controller.snapshot().phase).toBe('idle');
+  expect(fetch).not.toHaveBeenCalled();
+  host.remove();
+});
+
+it('times out unresolved acquisition, releases capture and permits retry without accepting late audio', () => {
+  vi.useFakeTimers();
+  const { controller, cancel, start } = fixture();
+  controller.start();
+  const oldCallbacks = callbacks;
+  act(() => vi.advanceTimersByTime(15_000));
+  expect(cancel).toHaveBeenCalledOnce();
+  expect(controller.snapshot()).toMatchObject({ phase: 'idle', error: 'failed', captureError: 'acquisition-timeout' });
+  oldCallbacks.onRecording();
+  expect(controller.snapshot().phase).toBe('idle');
+  controller.start(); callbacks.onRecording();
+  expect(start).toHaveBeenCalledTimes(2);
+  expect(controller.snapshot().phase).toBe('recording');
+  controller.reset();
+  expect(vi.getTimerCount()).toBe(0);
+});
+
 it.each(['permission-denied', 'unsupported', 'no-audio', 'recorder-error', 'start-failed'] as const)('preserves local capture category %s without retaining audio or uploading', error => {
   const { controller } = fixture();
   controller.start();

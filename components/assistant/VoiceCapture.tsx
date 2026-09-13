@@ -77,9 +77,12 @@ export function VoiceCapture({ controller, state, disabled, conversationId, tran
     {state.error && <p role="status" data-capture-error={state.captureError ?? undefined}>{t(`global_coach.voice_error_${state.error}`)}</p>}
     {flowError && <p role="alert">{t('global_coach.voice_processing_failed')}</p>}
     </div>;
+  // Creating the durable conversation remounts this keyed view while capture can remain active.
+  // Its cancellation/status must follow the controller, not only local expansion state.
+  const showStatus = expanded || active || processing || Boolean(state.recording) || Boolean(state.error);
   if(compact && statusHost) return <>
-    <button type="button" className={styles.iconButton} disabled={disabled || processing} aria-label={t('global_coach.voice')} aria-expanded={expanded} onClick={()=>active?controller.stop():void start()}><AskTropheIcon name="mic" size={19} /></button>
-    {expanded&&createPortal(<div className={`${styles.attachments} ${styles.inlineVoice}`}>{body}</div>,statusHost)}
+    <button type="button" className={styles.iconButton} disabled={!active && (disabled || processing)} aria-label={t('global_coach.voice')} aria-expanded={showStatus} onClick={()=>state.phase === 'requesting' || state.phase === 'stopping' ? reset() : active ? controller.stop() : void start()}><AskTropheIcon name="mic" size={19} /></button>
+    {showStatus&&createPortal(<div className={`${styles.attachments} ${styles.inlineVoice}`}>{body}</div>,statusHost)}
   </>;
   return <details data-coach-popover className={`${styles.attachments} ${compact ? styles.compactVoice : ''}`} onToggle={event => { if (!event.currentTarget.open && (active || processing)) reset(); }}>
     <summary aria-label={t('global_coach.voice')}><AskTropheIcon name="mic" size={19} /><span className={compact ? 'sr-only' : undefined}>{t('global_coach.voice')}</span></summary>
