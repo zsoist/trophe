@@ -344,6 +344,7 @@ export const fr: Record<string, string> = {
   'food.photo_invalid_type': "Veuillez choisir un fichier image.",
   'food.answer_aria': "Répondez à la question de clarification",
   'food.answer_submit_aria': "Envoyer la réponse et relancer l’analyse",
+  'food.quick_submit_aria': "Analyser le repas",
   'food.add_more': "Ajouter plus",
   'food.add_note_placeholder': "Ajouter une note sur ce repas...",
   'food.add_note_aria': "Ajouter une note",

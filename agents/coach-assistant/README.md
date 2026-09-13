@@ -8,6 +8,7 @@ This slice supports current plan versus recorded work, a rolling seven-calendar-
 
 - `COACH_ASSISTANT_ENABLED=1`: explicitly enable the endpoint outside Vercel production. Production always returns 404 in this wave.
 - `COACH_ASSISTANT_PREVIEW_USER_IDS`: comma-separated verified user IDs allowed to access the private slice. Empty denies everyone.
+- `COACH_ASSISTANT_PREVIEW_EXTRA_USER_IDS`: optional preview-only additive allowlist for a newly approved QA account. It is unioned with the primary secret without replacing unknown existing values and is never consulted in production.
 - `COACH_ASSISTANT_DATA_SOURCE=synthetic`: explicit server-only example fixture with fixed date 2026-09-06 in America/Bogota. User body fixtures and client selectors are rejected in synthetic mode. No real-query failure falls back to it.
 - Otherwise read authorized records using the server-derived subject identity/timezone. A professional must be the currently assigned coach and share an organization; there is no global administrator bypass.
 - `COACH_ASSISTANT_MODE=model`: deliberately returns `budget_blocked`. Default is a clearly labelled offline deterministic summary. AG1's account UI rejects synthetic responses and uses a separate, explicitly injected example adapter for UI previews.

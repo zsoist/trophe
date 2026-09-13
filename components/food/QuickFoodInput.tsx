@@ -1125,6 +1125,7 @@ export default function QuickFoodInput({ userId, mealType, mealSlot, date, onLog
         <button
           onClick={() => handleParseText()}
           disabled={!text.trim() || mode !== 'idle'}
+          aria-label={t('food.quick_submit_aria')}
           className="btn-gold px-4 text-sm flex items-center gap-1 self-end min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
         >
           {mode === 'parsing' || mode === 'photo_analyzing' ? (

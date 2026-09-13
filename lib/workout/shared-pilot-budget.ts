@@ -21,6 +21,18 @@ const splitIds = (value: string | undefined): string[] =>
   (value ?? '').split(',').map((entry) => entry.trim()).filter(Boolean);
 
 /**
+ * Preview-only cohort composition. The primary allowlist is managed as a
+ * reviewed secret; the additive list lets QA admit a newly approved account
+ * without reading, rewriting, or dropping unknown ids already in that secret.
+ * This helper is intentionally never used by the production cohort path.
+ */
+const previewCohortIds = (env: Record<string, string | undefined>): string[] =>
+  [...new Set([
+    ...splitIds(env.COACH_ASSISTANT_PREVIEW_USER_IDS),
+    ...splitIds(env.COACH_ASSISTANT_PREVIEW_EXTRA_USER_IDS),
+  ])];
+
+/**
  * Legacy isolated-engine and fixture switches. A production cohort must never
  * be composed with any of these, so rather than allow-listing the few names
  * that exist today we disqualify the whole `COACH_ASSISTANT_ISOLATED_*`
@@ -68,7 +80,7 @@ export function previewCohortAdmitted(
   actorId: string,
 ): boolean {
   return env.VERCEL_ENV !== 'production'
-    && splitIds(env.COACH_ASSISTANT_PREVIEW_USER_IDS).includes(actorId);
+    && previewCohortIds(env).includes(actorId);
 }
 
 const failure = (error: 'budget_blocked'): PilotBudgetResult => ({
@@ -94,7 +106,7 @@ export function sharedPilotRuntimeGate(
     if (!productionCohortConfigured(env)) return { ok: false, error: 'disabled' };
     if (!productionCohortAdmitted(env, actorId)) return { ok: false, error: 'forbidden' };
   } else if (env.VERCEL_ENV === 'preview') {
-    if (!splitIds(env.COACH_ASSISTANT_PREVIEW_USER_IDS).includes(actorId)) return { ok: false, error: 'forbidden' };
+    if (!previewCohortIds(env).includes(actorId)) return { ok: false, error: 'forbidden' };
   } else {
     return { ok: false, error: 'disabled' };
   }

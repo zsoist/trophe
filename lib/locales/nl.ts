@@ -344,6 +344,7 @@ export const nl: Record<string, string> = {
   'food.photo_invalid_type': "Kies een afbeeldingsbestand.",
   'food.answer_aria': "Beantwoord de verduidelijkingsvraag",
   'food.answer_submit_aria': "Antwoord verzenden en opnieuw analyseren",
+  'food.quick_submit_aria': "Maaltijd analyseren",
   'food.add_more': "Meer toevoegen",
   'food.add_note_placeholder': "Notitie over deze maaltijd toevoegen...",
   'food.add_note_aria': "Notitie toevoegen",

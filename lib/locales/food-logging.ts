@@ -10,6 +10,7 @@ export const foodLoggingTranslations: Record<string, Record<CoreLanguage, string
   'food.photo_invalid_type': { en: "Please choose an image file.", es: "Elige un archivo de imagen.", el: "Διάλεξε αρχείο εικόνας." },
   'food.answer_aria': { en: "Answer the clarification question", es: "Responde la pregunta de aclaración", el: "Απάντησε στην ερώτηση διευκρίνισης" },
   'food.answer_submit_aria': { en: "Submit answer and re-analyze", es: "Enviar respuesta y volver a analizar", el: "Υποβολή απάντησης και νέα ανάλυση" },
+  'food.quick_submit_aria': { en: "Analyze meal", es: "Analizar comida", el: "Ανάλυση γεύματος" },
   'food.add_more': { en: "Add more", es: "Añadir más", el: "Προσθήκη κι άλλων" },
   'food.add_note_placeholder': { en: "Add a note about this meal...", es: "Añade una nota sobre esta comida...", el: "Πρόσθεσε σημείωση για αυτό το γεύμα..." },
   'food.add_note_aria': { en: "Add a note", es: "Añadir una nota", el: "Προσθήκη σημείωσης" },

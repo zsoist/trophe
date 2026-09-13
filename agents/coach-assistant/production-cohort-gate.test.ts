@@ -75,6 +75,25 @@ describe('production cohort admission helper', () => {
     expect(previewCohortAdmitted(previewEnv({ VERCEL_ENV: 'production' }), actor)).toBe(false);
   });
 
+  it('supports an additive preview QA allowlist without widening production', () => {
+    const preview = previewEnv({
+      COACH_ASSISTANT_PREVIEW_USER_IDS: actor,
+      COACH_ASSISTANT_PREVIEW_EXTRA_USER_IDS: ` ${otherActor},${actor} `,
+    });
+    expect(previewCohortAdmitted(preview, actor)).toBe(true);
+    expect(previewCohortAdmitted(preview, otherActor)).toBe(true);
+    expect(sharedPilotRuntimeGate({
+      ...preview,
+      VERCEL_ENV: 'production',
+      COACH_ASSISTANT_PRODUCTION_PILOT_ENABLED: '1',
+      COACH_ASSISTANT_PRODUCTION_USER_IDS: actor,
+      COACH_ASSISTANT_DATA_SOURCE: 'authorized_records',
+      COACH_ASSISTANT_LIVE_PILOT_ENABLED: '1',
+      TROPHE_ALLOW_PAID_AI: '1',
+      OPENAI_API_KEY: 'injected-only',
+    }, otherActor)).toEqual({ ok: false, error: 'forbidden' });
+  });
+
   it('keeps preview fixtures working when legacy isolated switches are on', () => {
     const preview = previewEnv({ COACH_ASSISTANT_ISOLATED_ENGINE_ENABLED: '1', COACH_ASSISTANT_ISOLATED_ACTIONS_ENABLED: '1', COACH_ASSISTANT_VOICE_FIXTURE_ENABLED: '1' });
     expect(previewCohortAdmitted(preview, actor)).toBe(true);
@@ -103,6 +122,16 @@ describe('shared pilot runtime gate with the production cohort', () => {
     const preview = previewEnv({ COACH_ASSISTANT_LIVE_PILOT_ENABLED: '1', TROPHE_ALLOW_PAID_AI: '1', OPENAI_API_KEY: 'injected-only' });
     expect(sharedPilotRuntimeGate(preview, actor)).toEqual({ ok: true });
     expect(sharedPilotRuntimeGate({ ...preview, COACH_ASSISTANT_PREVIEW_USER_IDS: '' }, actor)).toEqual({ ok: false, error: 'forbidden' });
+  });
+
+  it('admits an additive preview actor through the shared runtime gate', () => {
+    const preview = previewEnv({
+      COACH_ASSISTANT_LIVE_PILOT_ENABLED: '1',
+      TROPHE_ALLOW_PAID_AI: '1',
+      OPENAI_API_KEY: 'injected-only',
+      COACH_ASSISTANT_PREVIEW_EXTRA_USER_IDS: otherActor,
+    });
+    expect(sharedPilotRuntimeGate(preview, otherActor)).toEqual({ ok: true });
   });
 
   it('binds production to the same code-owned pilot id and authority', async () => {

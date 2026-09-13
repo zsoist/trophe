@@ -23,6 +23,7 @@ const keys = [
   'food.barcode_scan_aria',
   'food.answer_aria',
   'food.answer_submit_aria',
+  'food.quick_submit_aria',
   'food.add_more',
   'food.add_note_placeholder',
   'food.add_note_aria',
