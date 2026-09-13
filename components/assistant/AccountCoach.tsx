@@ -13,6 +13,16 @@ export default function AccountCoach({ professional = false, contextSlot, worksp
   const path = usePathname();
   const subjectId = professional ? professionalCoachSubject(path) : undefined;
   const [identity, setIdentity] = useState<string | null>(null);
+  const [admittedIdentity, setAdmittedIdentity] = useState<string | null>(null);
+  useEffect(() => {
+    if (!identity) return;
+    const controller = new AbortController();
+    void fetch('/api/coach-assistant', {cache:'no-store', signal:controller.signal})
+      .then(async response => response.ok ? response.json() : null)
+      .then(result => {if (!controller.signal.aborted) setAdmittedIdentity(result?.available === true ? identity : null);})
+      .catch(() => {if (!controller.signal.aborted) setAdmittedIdentity(null);});
+    return () => controller.abort();
+  }, [identity]);
   const currentIdentity = useRef<string | null>(null);
   const currentScope = useRef<string | null>(null);
   useEffect(() => {
@@ -42,7 +52,7 @@ export default function AccountCoach({ professional = false, contextSlot, worksp
   }, [identity, subjectId]);
   // The key synchronously discards the old subject's surface and pending response.
   const durableVoice = process.env.NEXT_PUBLIC_COACH_CHAT_HISTORY_ENABLED === '1';
-  return identity ? <GlobalCoach key={`${identity}:${subjectId ?? identity}`} professional={professional} identity={identity} subjectId={subjectId} contextSlot={contextSlot} workspaceHint={workspaceHint}
+  return identity && admittedIdentity === identity ? <GlobalCoach key={`${identity}:${subjectId ?? identity}`} professional={professional} identity={identity} subjectId={subjectId} contextSlot={contextSlot} workspaceHint={workspaceHint}
     voiceSlot={durableVoice && !professional ? props => <LiveVoiceControl conversationId={props.conversationId} prepareConversation={props.prepareConversation} onQuery={props.onQuery} onTranscript={props.onTranscript} onLiveCommentary={props.onLiveCommentary} /> : undefined}
     voiceTranscriptionTransport={durableVoice && coachVoiceTranscriptionEnabled({
       fixture: process.env.NEXT_PUBLIC_COACH_VOICE_FIXTURE_ENABLED,

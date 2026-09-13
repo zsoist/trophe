@@ -309,7 +309,9 @@ export async function generateOpenConversation(input:CoachConversationRequest,re
   const output=parsed.data!;
   if(output.evidenceRefs.some(id=>!facts.some(f=>f.id===id))||output.entityRefs.some(alias=>!entities.some(e=>e.alias===alias&&e.evidenceRefs.some(id=>output.evidenceRefs.includes(id)))))rejectOutput('evidence_reference');
   if(output.facts.some(fragment=>!facts.some(f=>f.id===fragment.evidenceId&&output.evidenceRefs.includes(f.id))))rejectOutput('fact_reference');
-  let boundedOutput=output;
+  // Advice prose is presentation only, like quantity-review introductions.
+  // Publish only canonical context and Food options, never model quantities or claims.
+  let boundedOutput=advising?{...output,answer:response.snapshot?.language.startsWith('es')?'Opciones de comida para comparar:':response.snapshot?.language.startsWith('el')?'Επιλογές γευμάτων για σύγκριση:':'Meal options to compare:',followUp:null,limitations:[],...('generalExplanationRefs'in output?{generalExplanationRefs:[]}:{}),actionIntent:null}:output;
   if(output.actionIntent?.action==='food.quantity.update'&&foodIntentAvailable) {
     const expected=foodBinding.kind==='target'?foodBinding.target:foodBinding.kind==='clarification'?foodBinding.target:null;
     if(!expected||output.actionIntent.target.grams!==expected.grams||('previousGrams'in expected&&(!('previousGrams'in output.actionIntent.target)||output.actionIntent.target.previousGrams!==expected.previousGrams)))rejectOutput('food_target_mismatch');

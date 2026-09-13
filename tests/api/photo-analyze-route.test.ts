@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
   executeAiTask: vi.fn(),
   invokePrivatePhotoFoodProvider: vi.fn(),
   createPilotBudgetStore: vi.fn(()=>({execute:vi.fn()})),
-  createSharedPilotBudgetRuntime: vi.fn(()=>({ok:true,pilotId:'a857fa8d-2bb8-4a7e-a190-5f8f1cf66229',store:{execute:vi.fn()}})),
+  createSharedPilotBudgetRuntime: vi.fn<( ...args: unknown[]) => {ok:boolean;pilotId?:string;store?:{execute:ReturnType<typeof vi.fn>};error?:string}>(()=>({ok:true,pilotId:'a857fa8d-2bb8-4a7e-a190-5f8f1cf66229',store:{execute:vi.fn()}})),
   runGovernedPilotModality: vi.fn(async(input:{run:()=>Promise<unknown>})=>input.run()),
 }));
 
@@ -78,6 +78,24 @@ describe('POST /api/ai/photo-analyze', () => {
     }));
     expect(body.foods).toEqual([{...rice,identity_status:'unassessed'}]);
     expect(mocks.invokePrivatePhotoFoodProvider).not.toHaveBeenCalled();
+  });
+  it('routes production through shared authority without a preview allowlist', async()=>{
+    vi.stubEnv('VERCEL_ENV','production');
+    vi.stubEnv('COACH_ASSISTANT_PREVIEW_USER_IDS','');
+    expect((await POST(pilotRequest())).status).toBe(200);
+    expect(mocks.createSharedPilotBudgetRuntime).toHaveBeenCalled();
+    expect(mocks.runGovernedPilotModality).toHaveBeenCalledOnce();
+  });
+  it.each(['disabled','forbidden','provider_unavailable'])('never falls back when production authority rejects %s', async(error)=>{
+    vi.stubEnv('VERCEL_ENV','production');
+    mocks.createSharedPilotBudgetRuntime.mockReturnValueOnce({ok:false,error});
+    expect((await POST(pilotRequest())).status).toBe(503);
+    expect(mocks.executeAiTask).not.toHaveBeenCalled();
+  });
+  it('requires production turn identity before invoking a provider', async()=>{
+    vi.stubEnv('VERCEL_ENV','production');
+    expect((await POST(request())).status).toBe(400);
+    expect(mocks.executeAiTask).not.toHaveBeenCalled();
   });
   it('routes a preview pilot photo through the shared durable modality admission',async()=>{
     const actor='00000000-0000-4000-8000-000000000001';mocks.guardAiRoute.mockResolvedValue({ok:true,userId:actor,rateLimitBypassed:false});
