@@ -315,6 +315,9 @@ export default function FoodLogPage() {
   const [loadError, setLoadError] = useState(false);
   const [mutationError, setMutationError] = useState<string | null>(null);
   const loadRequestRef = useRef(0);
+  // A completed load must never touch state (or route) after the surface unmounts —
+  // e.g. a slow read settling after the client navigates away from the log.
+  const isMountedRef = useRef(true);
   // The full persisted row (select('*') below) — the delete snapshot must keep
   // every quantity/reference/provenance column, not just the legacy fields.
   const [todayLog, setTodayLog] = useState<FoodLogRowSnapshot[]>([]);
@@ -503,13 +506,19 @@ export default function FoodLogPage() {
     setLoadError(false);
 
     try {
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      // Reuse the persisted session to avoid an extra /user verification on a valid
+      // warm session. getSession still acquires the auth lock and may refresh an expired
+      // token; this is not a general lock or network-failure fix. The canonical queries
+      // remain authenticated and RLS-protected; the cached id scopes the requested rows.
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       if (requestId !== loadRequestRef.current) return false;
-      if (authError) {
+      if (!isMountedRef.current) return false;
+      if (sessionError) {
         setLoadError(true);
         setPageLoading(false);
         return false;
       }
+      const user = sessionData?.session?.user ?? null;
       if (!user) {
         router.push('/login');
         return false;
@@ -521,6 +530,7 @@ export default function FoodLogPage() {
       // targets, preferences, streak) instead of re-deriving from raw rows.
       const result = await readCanonicalFoodState<FoodLogRowSnapshot>(user.id, { date: selectedDate });
       if (requestId !== loadRequestRef.current) return false;
+      if (!isMountedRef.current) return false;
       if (result.missingProfile) {
         router.replace('/onboarding');
         return false;
@@ -543,6 +553,7 @@ export default function FoodLogPage() {
       return true;
     } catch {
       if (requestId !== loadRequestRef.current) return false;
+      if (!isMountedRef.current) return false;
       setLoadError(true);
       setPageLoading(false);
       return false;
@@ -607,10 +618,16 @@ export default function FoodLogPage() {
     return () => window.clearTimeout(timer);
   }, [mutationError]);
 
-  useEffect(() => () => {
-    if (pillDeltaTimerRef.current) clearTimeout(pillDeltaTimerRef.current);
-    if (slotFlashTimerRef.current) clearTimeout(slotFlashTimerRef.current);
-    if (emberTimerRef.current) clearTimeout(emberTimerRef.current);
+  useEffect(() => {
+    // Re-assert on (re)mount: React Strict Mode runs the cleanup between the two
+    // dev-mode mounts, so a one-way flag would permanently disable loading.
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (pillDeltaTimerRef.current) clearTimeout(pillDeltaTimerRef.current);
+      if (slotFlashTimerRef.current) clearTimeout(slotFlashTimerRef.current);
+      if (emberTimerRef.current) clearTimeout(emberTimerRef.current);
+    };
   }, []);
 
   // W8: the streak-qualifying event — TODAY's entry count crossing ≥3 — ignites
