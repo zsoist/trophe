@@ -143,7 +143,7 @@ describe('native reference fallback over the real Food pipeline', () => {
     expect(reference.preparation).toBe('cooked');
     expect(reference.portionBasis).toBe('measured_mass');
     expect(reference.portion).toMatchObject({ quantity: 150, unit: 'g', grams: 150, explicit: true });
-    expect(reference.nutrients).toEqual({ kcal: 247.5, proteinG: 46.5, carbsG: 0, fatG: 5.4, fiberG: 0, sugarG: 0 });
+    expect(reference.nutrients).toEqual({ kcal: 247.5, proteinG: 46.5, carbsG: 0, fatG: 5.4, fiberG: null, sugarG: null });
     expect(reference.per100g).toEqual({ kcal: 165, proteinG: 31, carbsG: 0, fatG: 3.6 });
 
     // Exactly one model pipeline run, one admitted provider phase, no retry.
@@ -159,7 +159,7 @@ describe('native reference fallback over the real Food pipeline', () => {
     if (!outcome.ok || outcome.outcome !== 'reference') throw new Error('expected reference');
 
     const scaled = rescaleNativeFoodReference(outcome.references[0], 200);
-    expect(scaled?.nutrients).toEqual({ kcal: 330, proteinG: 62, carbsG: 0, fatG: 7.2, fiberG: 0, sugarG: 0 });
+    expect(scaled?.nutrients).toEqual({ kcal: 330, proteinG: 62, carbsG: 0, fatG: 7.2, fiberG: null, sugarG: null });
     expect(scaled?.portion).toMatchObject({ quantity: 200, unit: 'g', grams: 200 });
     expect(scaled?.estimate).toBe(true);
     // No new provider phase for the arithmetic.
