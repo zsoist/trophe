@@ -70,4 +70,25 @@ describe('memory reviewed action lifecycle', () => {
     });
     expect(controller.snapshot().uncertain).toBe(true);
   });
+
+  it('does not clear a reviewed proposal when the post-receipt refetch has different content', async () => {
+    const controller = new MemoryController(conversationId);
+    await controller.read(async () => read([]));
+    await controller.propose(card.text, async () => ({ version: 'coach-assistant.v2', storage: 'database', ok: true, proposal }));
+    const transport: MemoryTransport = async operation => {
+      if (operation.operation === 'memory.apply') {
+        return {
+          version: 'coach-assistant.v2', storage: 'database', ok: true,
+          receipt: { id, actionId: operation.actionId, proposalId: proposal.id, status: 'applied', resourceVersion: '0', recordedAt: new Date().toISOString() },
+          refresh: { conversationId, strategy: 'refetch', discardDerivedContext: true, invalidatedMemoryVersions: [] },
+        };
+      }
+      if (operation.operation === 'memory.read') {
+        return read([{ ...card, text: 'Changed concurrently', version: '1' }]);
+      }
+      throw new Error('unexpected');
+    };
+    await controller.apply(transport);
+    expect(controller.snapshot()).toMatchObject({ proposal, receipt: expect.any(Object), error: 'uncertain' });
+  });
 });

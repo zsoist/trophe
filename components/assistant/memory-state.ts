@@ -7,6 +7,16 @@ export interface MemoryState {
   receipt: Receipt | null; pending: boolean; uncertain: boolean; error: string | null;
 }
 const empty = (): MemoryState => ({ memories: [], loaded: false, proposal: null, receipt: null, pending: false, uncertain: false, error: null });
+/** A receipt proves that the server accepted the action, while the refetch
+ * proves that the UI is looking at the same confirmed content. Versions may
+ * advance because another reviewed change completed after this action, but a
+ * different text must never be presented as this proposal's result. */
+const matchesConfirmedAfter = (memory: PersistentMemoryCard | undefined, after: PersistentMemoryProposal['after']) =>
+  Boolean(memory && after
+    && memory.text === after.text
+    && memory.source === after.source
+    && memory.retention === after.retention
+    && memory.confirmation === 'confirmed');
 /** A cancelled or lost write keeps its identity until receipt recovery and refetch. */
 export class MemoryController {
   private state = empty();
@@ -105,7 +115,9 @@ export class MemoryController {
       if (!fresh.ok || !('memories' in fresh) || fresh.memories.some(item => item.conversationId !== this.conversationId)) throw new Error('refresh_failed');
       const proposal = this.state.proposal!;
       const current = fresh.memories.find(item => item.id === proposal.resource.id);
-      if (proposal.action === 'memory.delete' ? Boolean(current) : !current || BigInt(current.version) < BigInt(result.receipt.resourceVersion)) throw new Error('refresh_stale');
+      if (proposal.action === 'memory.delete'
+        ? Boolean(current)
+        : !matchesConfirmedAfter(current, proposal.after) || BigInt(current!.version) < BigInt(result.receipt.resourceVersion)) throw new Error('refresh_stale');
       this.action = null;
       this.publish({ ...this.state, pending: false, loaded: true, memories: fresh.memories, proposal: null, error: null });
     } catch { fail(); }
