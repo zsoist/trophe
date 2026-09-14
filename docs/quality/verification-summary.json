@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-13T03:00:50.686Z",
+  "generatedAt": "2026-09-14T21:38:16.065Z",
   "status": "passed",
   "preflight": {
     "status": "healthy",
@@ -11,7 +11,7 @@
       "status": "passed",
       "exitCode": 0,
       "signal": null,
-      "durationMs": 2820,
+      "durationMs": 2729,
       "stdoutBytes": 42,
       "stderrBytes": 0,
       "stdoutDigest": "d054cb0541388e2606ca0b02cdd8b93c8caf01a88d2dffdb756a8be94a952c37",
@@ -23,10 +23,10 @@
       "status": "passed",
       "exitCode": 0,
       "signal": null,
-      "durationMs": 20125,
+      "durationMs": 19097,
       "stdoutBytes": 65536,
       "stderrBytes": 0,
-      "stdoutDigest": "03c5a7f2d94507f2a3eb9d7913a2de340f0ff7a5ceebeeddc76c2259f19f0fcb",
+      "stdoutDigest": "32995a2b29e210b08f15066c15d3b1e27aced07c1abd65fb606d991b1891ffc7",
       "stderrDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "spawnError": null
     },
@@ -35,11 +35,11 @@
       "status": "passed",
       "exitCode": 0,
       "signal": null,
-      "durationMs": 35645,
+      "durationMs": 32236,
       "stdoutBytes": 65536,
       "stderrBytes": 65536,
-      "stdoutDigest": "70e857454d30193c4a206f503f97eb8d6e6809a3fc7b5d511910dc8b5671918c",
-      "stderrDigest": "c250756097bfdeccc02c6b7f805bf4931f3c3508cc7f2d2d1ce86b732c40b983",
+      "stdoutDigest": "61b35e59e1eeebf85f9fcfe9f9d657f642c7dfe2a21d80f61c06c56cf8a6cc0d",
+      "stderrDigest": "d2414905ba3a60b079c1a4f3f6a53f2cb639acfd3eae55c4a5caf7c41ccf7aa0",
       "spawnError": null
     },
     {
@@ -47,11 +47,11 @@
       "status": "passed",
       "exitCode": 0,
       "signal": null,
-      "durationMs": 36302,
+      "durationMs": 30972,
       "stdoutBytes": 6931,
-      "stderrBytes": 191,
-      "stdoutDigest": "58c283712132fef9159a8d69c06735b97d1f2ba041717466247ec642045a7e4a",
-      "stderrDigest": "b3f6c106135714db7bc85104bed7df82b9eb33976a4e00d5e8feb965a707f2fd",
+      "stderrBytes": 190,
+      "stdoutDigest": "6cb9d3b59baf2af39c606244dc9c070755dfc2b4960d1386d64f0f4f8af663f5",
+      "stderrDigest": "53a1332c4f36868b9fb6e8607cb626055911cac5e269a560cff8a0f33a0caa0b",
       "spawnError": null
     }
   ]
