@@ -4,6 +4,10 @@ export type NutritionIntent = 'log' | 'advise' | 'analyze' | 'chat';
 const normalize=(text:string)=>text.normalize('NFKD').replace(/\p{M}/gu,'').toLowerCase();
 const advice=/\b(?:suggest(?:ions?)?|recommend(?:ations?)?|ideas?|what (?:should|could|can) i (?:eat|have)|que (?:deberia|puedo|podria) (?:comer|cenar|desayunar|almorzar)|sugerencias?|recomiend\w*|aconsej\w*|opciones? (?:para|de)|ayudame a (?:elegir|comer))\b/;
 const profile=/\b(?:mi perfil|me conoces|mis (?:objetivos|metas|preferencias)|my profile|my (?:goals|targets|preferences)|about me)\b/;
+// Planning requests are advice even when the user does not use "suggest" or
+// mention a meal slot. Keep the grammar narrow so explicit intake phrases
+// ("I ate…", "quiero registrar…") remain governed by the log detector below.
+const mealPlanning=/\b(?:quiero|quisiera|necesito|busco|me\s+gustaria)\s+(?:algo|comer|cenar|almorzar|desayunar|una?\s+(?:comida|cena|almuerzo|desayuno))\b|\b(?:i\s+(?:want|would\s+like|need))\s+(?:something|to\s+eat|a\s+(?:meal|dinner|lunch|breakfast)|dinner|lunch|breakfast)\b/i;
 const analysis=/\b(?:cuantas? (?:calorias|proteinas)|how (?:many|much) (?:calories|protein)|macros? (?:in|of|de)|calorias (?:de|en)|calories (?:in|of))\b|\b\d+(?:[.,]\d+)?\s*(?:g|kg|grams?|gramos?)\b/;
 /** Narrow routing guard over the existing intake detector and capability selector.
  * It never authorizes identity, writes, or promotes historical text to records. */
@@ -11,7 +15,7 @@ export function nutritionIntent(input:Pick<CoachConversationRequest,'message'|'h
  const text=normalize(input.message);
  if(/τι (?:να|πρεπει να) φαω|προτεινε|προτασεις|το προφιλ μου/u.test(text))return 'advise';
  if(textFoodIntakeIntent(input.message))return 'log';
- if(advice.test(text)||profile.test(text))return 'advise';
+ if(advice.test(text)||profile.test(text)||mealPlanning.test(text))return 'advise';
  if(analysis.test(text))return 'analyze';
  const history=(input.history??[]).filter(item=>item.role==='user').slice(-4);
  const followsAdvice=history.some(item=>advice.test(normalize(item.text))||profile.test(normalize(item.text)));
