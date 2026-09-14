@@ -10,27 +10,35 @@ the corresponding server-side gate are all proven together.
 ## Current release
 
 - Branch: `codex/ag1-hotfix-ask-workout`
-- Runtime changes represented in the latest production deployment: `698da756`
-  (`fix(coach): route meal planning phrases to advice`), including the AG2
-  attachment zoom and launcher/Atlas interaction polish (`438ec058`,
-  `92843904`, `341a84d4`), the reflexive Spanish intent fix (`77e2df9f`),
-  the bounded time-prefixed Spanish intake fast path (`b4bb5b17`) and the
-  neutral Workout empty state (`8ab66da4`)
+- Runtime changes represented in the latest production deployment: `fdb98b62`
+  (`polish(ask): animate coach panel close lifecycle`), including the
+  memory receipt-content verification (`b965be61`), meal-planning intent
+  routing (`698da756`), AG2 attachment zoom and launcher/Atlas interaction
+  polish (`438ec058`, `92843904`, `341a84d4`), the reflexive Spanish intent
+  fix (`77e2df9f`), the bounded time-prefixed Spanish intake fast path
+  (`b4bb5b17`) and the neutral Workout empty state (`8ab66da4`)
 - Production alias: `https://trophe.app`
-- Latest runtime production deployment: `dpl_Ae2VZ1kXrsvccDYSM2aEcdLRW9sG`
+- Latest runtime production deployment: `dpl_E9Zv4xMNpUWAsAYvVRTEBnzYNa6s`
+- Preview/deployment URL: `https://trophe-nyjmka52q-2p6y54z6w9-4465s-projects.vercel.app`
 - Health canary: HTTP 200, database connected; no production 5xx logs in the
   post-deploy window
-- Release verification: focused Ask/Food/Workout suites **105 files, 952
-  tests passed, 2 skipped across 106 files**, typecheck and remote Vercel build
-  passed. The
+- Release verification: focused Ask/Food/Workout suites **106 files, 973
+  tests passed, 2 skipped**, typecheck and remote Vercel build passed. The
   repository-wide verification still has one intentionally isolated PostgreSQL
   suite that cannot run without a local database; it is not claimed as passed.
+- Post-deploy route checks: `/api/health` returned 200 with `db: connected`,
+  `/api/coach-assistant` returned the expected unauthenticated `available:false`,
+  `/api/food/parse` rejected an unauthenticated POST with 401, protected
+  dashboard/coach routes redirected to login, and the production 5xx log query
+  returned no entries.
 - Final independent DS4 recheck: **21 files, 245 tests passed** across advice,
   Food/Search and voice lifecycle, with no paid calls. This is a narrower
   repeat of the recorded focused run above; it does not replace the required
   authenticated production smoke.
-- Latest DS follow-up checks: AG2 attachment zoom **6/6**, AG3 intent-routing
-  **61/61**, TypeScript, ESLint focal and diff checks passed; no paid calls.
+- Latest DS follow-up checks: AG2 attachment zoom **6/6** plus panel lifecycle
+  coverage (global coach suite and attachment suite **27/27**), AG3
+  intent-routing **61/61** plus memory receipt verification **11/11**,
+  TypeScript, ESLint focal and diff checks passed; no paid calls.
 - Production environment inventory was rechecked read-only: the cohort
   allowlist variable exists, while the private history/action/reviewed-voice
   and attachment flags are not present. The variable's secret value and the
