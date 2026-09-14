@@ -16,7 +16,7 @@ the corresponding server-side gate are all proven together.
   Spanish intent fix (`77e2df9f`), the bounded time-prefixed Spanish intake
   fast path (`b4bb5b17`) and the neutral Workout empty state (`8ab66da4`)
 - Production alias: `https://trophe.app`
-- Latest runtime production deployment: `dpl_56bNtFDi8rGPGUGr43F4gcYqXySs`
+- Latest runtime production deployment: `dpl_HBS4oWFiyiRXC5UiyFd6Mp1z1HGQ`
 - Health canary: HTTP 200, database connected; no production 5xx logs in the
   post-deploy window
 - Release verification: focused Ask/Food/Workout suites **103 files, 937
