@@ -18,9 +18,16 @@ export function isNonIntakeUtterance(text: string): boolean {
  * when they mention something already eaten (for example, "I had breakfast,
  * how am I doing today?"). Voice transcripts often omit punctuation, so the
  * interrogative markers are intentionally matched without requiring a `?`.
+ *
+ * A status question can also put the auxiliary AFTER the food clause
+ * ("I drank a sugary soda is that bad", "I ate chicken am I on track"). Those
+ * inversions are matched anywhere in the utterance, but only when the subject
+ * follows the auxiliary AND more words follow the subject, so a plain
+ * statement tail ("I had a burger and that was it") is not re-read as a
+ * question. This is a bounded question detector, not a semantic classifier.
  */
 export const ADVICE_OR_QUESTION_PATTERN =
-  /\?|\b(?:how|why|whether|which|who|whose|cu[aá]nt[oa]s?|c[oó]mo|qu[eé]|cu[aá]l(?:es)?|cu[aá]ndo|d[oó]nde|qui[eé]n(?:es)?)\b|(?:^|[,.;:!?]\s*|\b(?:and|but|so|or|y|pero|entonces)\s+)(?:what|is|are|was|were|do|does|did|can|could|am|debo|deber[ií]a|puedo)\b/i;
+  /\?|\b(?:how|why|whether|which|who|whose|cu[aá]nt[oa]s?|c[oó]mo|qu[eé]|cu[aá]l(?:es)?|cu[aá]ndo|d[oó]nde|qui[eé]n(?:es)?)\b|(?:^|[,.;:!?]\s*|\b(?:and|but|so|or|y|pero|entonces)\s+)(?:what|is|are|was|were|do|does|did|can|could|am|debo|deber[ií]a|puedo)\b|\b(?:is|are|was|were|am|do|does|did|can|could)\s+(?:that|this|it|those|these|i)\b(?=\s+\S)|\b(?:puedo|puede|debo|deber[ií]a)\b(?=\s+\S)/i;
 
 export function isAdviceOrQuestionUtterance(text: string): boolean {
   return ADVICE_OR_QUESTION_PATTERN.test(text);

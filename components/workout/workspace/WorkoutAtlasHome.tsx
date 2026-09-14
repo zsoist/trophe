@@ -83,6 +83,24 @@ export function WorkoutAtlasHome({ activations, workedActivations = [], workedAv
     setSelected(id === selected ? null : id);
     if (id) { setView(ATLAS_GEOMETRY[id].view); setOpenGroup(groups.find(group => group.muscles.includes(id))?.id ?? null); setManual(false); setCameraRequest(n => n + 1); }
   };
+  // A training-state tab switch swaps the whole activation set. The camera side
+  // is stateful, so a back-side orientation left over from the previous tab can
+  // point at tissue the new set never highlights. Keep the current side only when
+  // the incoming set actually has muscles on it; otherwise frame the side that
+  // carries the new state (majority side, ties toward front).
+  const sideForState = (list: MuscleActivation[]): AnatomyView | null => {
+    if (!list.length) return null;
+    if (list.some(activation => ATLAS_GEOMETRY[activation.id].view === view)) return null;
+    const front = list.filter(activation => ATLAS_GEOMETRY[activation.id].view === 'front').length;
+    return front >= list.length - front ? 'front' : 'back';
+  };
+  const switchMode = (next: 'worked' | 'planned') => {
+    setMode(next);
+    setSelected(null);
+    setOpenGroup(null);
+    const side = sideForState(next === 'planned' ? activations : workedActivations);
+    if (side) { setView(side); setManual(false); setCameraRequest(n => n + 1); }
+  };
   const openExercises = () => {
     if (!selected) return;
     const group = (Object.keys(WORKOUT_FOCUS_GROUPS) as WorkoutFocusGroup[]).find(key => (WORKOUT_FOCUS_GROUPS[key] as readonly string[]).includes(selected)) ?? '';
@@ -94,7 +112,7 @@ export function WorkoutAtlasHome({ activations, workedActivations = [], workedAv
   return <section className="wk2 workout-muscle-home" data-mode={mode} aria-labelledby={headingId}>
     <header className="workout-muscle-heading"><h2 id={headingId}>{t('workout.muscle_map')}</h2>
     <div className="workout-muscle-tabs" role="group" aria-label={t('anatomy.training_state')}>
-      {(['worked', 'planned'] as const).map(item => <button key={item} aria-pressed={mode === item} onClick={() => { setMode(item); setSelected(null); setOpenGroup(null); }}><span>{t(`anatomy.${item}`)}</span><small>{item === 'planned' ? muscleSections(activations).length : workedAvailable ? muscleSections(workedActivations).length : '—'}</small></button>)}
+      {(['worked', 'planned'] as const).map(item => <button key={item} aria-pressed={mode === item} onClick={() => switchMode(item)}><span>{t(`anatomy.${item}`)}</span><small>{item === 'planned' ? muscleSections(activations).length : workedAvailable ? muscleSections(workedActivations).length : '—'}</small></button>)}
     </div>
     </header>
     <div className="workout-muscle-body">

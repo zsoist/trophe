@@ -274,7 +274,12 @@ export class VoiceLiveController {
       activeActions: this.delegation.active,
       busy: this.delegation.busy || patch.busy === true,
     };
-    this.state = { ...next, canInterrupt: next.phase === 'live' && !next.interrupted && Boolean(this.deps.playback) };
+    // The honest "paused" (barge-in) presentation belongs to a LIVE session only: once the
+    // session leaves `live` (End/closing, provider close, logout/actor change) the interrupted
+    // flag is cleared here, so a stale Resume control/frame can never resurrect output and the
+    // phase-based visual state (`closing`/`ended`) is never contradicted by a lingering pause.
+    const interrupted = next.phase === 'live' ? next.interrupted === true : false;
+    this.state = { ...next, interrupted, canInterrupt: next.phase === 'live' && !interrupted && Boolean(this.deps.playback) };
     for (const listener of this.listeners) listener();
   }
 
@@ -435,6 +440,9 @@ export class VoiceLiveController {
   /** Barge-in: stop local playback only. Session and delegated work continue. */
   interrupt(): void {
     if (this.state.phase !== 'live') return;
+    // Idempotent: a repeated barge-in (double tap, retried gesture) must not stop the output
+    // port again or re-enter the paused state.
+    if (this.state.interrupted) return;
     const playback = this.deps.playback;
     // No real stop port: refuse rather than report a broken boolean success. The UI already
     // disables the control because `canInterrupt` stays false.
@@ -451,7 +459,9 @@ export class VoiceLiveController {
 
   /** Clear the barge-in flag once the caller has resumed output. */
   clearInterruption(): void {
-    if (!this.state.interrupted) return;
+    // Resume is a playback gesture for the CURRENT live session only. Mirror `resumePlayback`:
+    // a stale frame after End/close/logout must never call the real output port or re-open audio.
+    if (this.disposed || this.state.phase !== 'live' || !this.state.interrupted) return;
     try {
       this.deps.playback?.resumeOutput();
     } catch {

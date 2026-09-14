@@ -258,6 +258,11 @@ export function LiveVoiceControl(props: LiveVoiceProps) {
   const [expanded, setExpanded] = useState(false);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [preparing, setPreparing] = useState(false);
+  const launcher = useRef<HTMLButtonElement>(null);
+  // Closing the rail unmounts the control the user activated (its own close button), so focus
+  // would otherwise be dropped on `document.body`. Return it to the launcher that opened the rail,
+  // without scrolling the composer, so keyboard and assistive users keep their place.
+  const closeRail = () => { setExpanded(false); launcher.current?.focus({ preventScroll: true }); };
   useEffect(() => {
     if (expanded && activeConversationId && props.conversationId !== activeConversationId) setExpanded(false);
   }, [props.conversationId, activeConversationId, expanded]);
@@ -269,15 +274,15 @@ export function LiveVoiceControl(props: LiveVoiceProps) {
   }, []);
   if (!available) return null;
   return <>
-    <button type="button" className={styles.launcher} disabled={preparing} onClick={async () => {
-      if (expanded) { setExpanded(false); return; }
+    <button ref={launcher} type="button" className={styles.launcher} disabled={preparing} onClick={async () => {
+      if (expanded) { closeRail(); return; }
       setPreparing(true);
       try {
         const id = props.prepareConversation ? await props.prepareConversation() : props.conversationId;
         if (id) { setActiveConversationId(id); setExpanded(true); }
       } finally { setPreparing(false); }
     }} aria-label={t('global_coach.live_title')} aria-expanded={expanded}><AudioLines size={19} aria-hidden="true" /></button>
-    {expanded && activeConversationId && <LiveSession conversationId={activeConversationId} onQuery={props.onQuery} onTranscript={props.onTranscript} onLiveCommentary={props.onLiveCommentary} onClose={() => setExpanded(false)} />}
+    {expanded && activeConversationId && <LiveSession conversationId={activeConversationId} onQuery={props.onQuery} onTranscript={props.onTranscript} onLiveCommentary={props.onLiveCommentary} onClose={closeRail} />}
   </>;
 }
 
