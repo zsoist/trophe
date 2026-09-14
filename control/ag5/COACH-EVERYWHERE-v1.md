@@ -10,13 +10,14 @@ the corresponding server-side gate are all proven together.
 ## Current release
 
 - Branch: `codex/ag1-hotfix-ask-workout`
-- Runtime changes represented in the latest production deployment: `4e64a648`
-  (`docs(ag5): record launcher and local food polish`), including the AG2
-  launcher/Atlas interaction polish (`92843904`, `341a84d4`), the reflexive
-  Spanish intent fix (`77e2df9f`), the bounded time-prefixed Spanish intake
-  fast path (`b4bb5b17`) and the neutral Workout empty state (`8ab66da4`)
+- Runtime changes represented in the latest production deployment: `698da756`
+  (`fix(coach): route meal planning phrases to advice`), including the AG2
+  attachment zoom and launcher/Atlas interaction polish (`438ec058`,
+  `92843904`, `341a84d4`), the reflexive Spanish intent fix (`77e2df9f`),
+  the bounded time-prefixed Spanish intake fast path (`b4bb5b17`) and the
+  neutral Workout empty state (`8ab66da4`)
 - Production alias: `https://trophe.app`
-- Latest runtime production deployment: `dpl_HBS4oWFiyiRXC5UiyFd6Mp1z1HGQ`
+- Latest runtime production deployment: `dpl_Ae2VZ1kXrsvccDYSM2aEcdLRW9sG`
 - Health canary: HTTP 200, database connected; no production 5xx logs in the
   post-deploy window
 - Release verification: focused Ask/Food/Workout suites **103 files, 937
@@ -27,6 +28,8 @@ the corresponding server-side gate are all proven together.
   Food/Search and voice lifecycle, with no paid calls. This is a narrower
   repeat of the recorded focused run above; it does not replace the required
   authenticated production smoke.
+- Latest DS follow-up checks: AG2 attachment zoom **6/6**, AG3 intent-routing
+  **61/61**, TypeScript, ESLint focal and diff checks passed; no paid calls.
 
 ## Capability matrix
 
