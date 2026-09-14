@@ -260,8 +260,57 @@ export async function executePilotBudgetCommand(raw:unknown,store:PilotBudgetSto
   } catch {return fail('uncertain');}
 }
 
+/**
+ * Bound a persistent budget await without ever turning a late answer into
+ * permission. The store receives a derived signal, while the caller's abort
+ * remains authoritative for admission. A store that ignores AbortSignal can
+ * therefore not hold a request open forever; its late answer is observed and
+ * discarded as uncertain. Callers must preserve the reservation on uncertain
+ * results and only use a separate reconciliation command when a prior claim
+ * was definitively denied.
+ */
+export async function executePilotBudgetCommandBounded(
+  raw:unknown,
+  store:PilotBudgetStore,
+  parentSignal:AbortSignal,
+  timeoutMs=5_000,
+):Promise<PilotBudgetResult> {
+  const uncertain: PilotBudgetResult={ok:false,error:'uncertain',storage:'database'};
+  const cancelled: PilotBudgetResult={ok:false,error:'cancelled',storage:'database'};
+  return new Promise(resolve=>{
+    const controller=new AbortController();
+    let timer:ReturnType<typeof setTimeout>|undefined;
+    let settled=false;
+    let onAbort:()=>void=()=>{};
+    const cleanup=()=>{
+      if(timer!==undefined)clearTimeout(timer);
+      parentSignal.removeEventListener('abort',onAbort);
+    };
+    const finish=(result:PilotBudgetResult)=>{
+      if(settled)return;
+      settled=true;
+      cleanup();
+      resolve(result);
+    };
+    const complete=(result:PilotBudgetResult)=>{
+      if(settled)return;
+      finish(result);
+    };
+    onAbort=()=>{controller.abort(parentSignal.reason);complete(cancelled);};
+    timer=setTimeout(()=>{
+      controller.abort(new Error('budget_deadline'));
+      complete(uncertain);
+    },timeoutMs);
+    const nodeTimer=timer as unknown as {unref?:()=>void};
+    if(typeof nodeTimer.unref==='function')nodeTimer.unref();
+    if(parentSignal.aborted){controller.abort(parentSignal.reason);complete(cancelled);return;}
+    parentSignal.addEventListener('abort',onAbort,{once:true});
+    void executePilotBudgetCommand(raw,store,controller.signal).then(complete,()=>complete(uncertain));
+  });
+}
+
 /** Server-facing reservation delegates every admission to the persistent store. */
 export async function reserveCoachPilotAttempt(binding:PilotAttemptBinding,store:PilotBudgetStore,signal:AbortSignal):Promise<PilotBudgetResult> {
   if(COACH_PILOT_BUDGET_USD<=0)return {ok:false,error:'budget_blocked',storage:'database'};
-  return executePilotBudgetCommand({operation:'reserve',binding},store,signal);
+  return executePilotBudgetCommandBounded({operation:'reserve',binding},store,signal);
 }
