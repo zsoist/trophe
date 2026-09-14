@@ -20,7 +20,8 @@ function failureOf(error:unknown):ProviderFailureDiagnostic {
  const telemetry=providerErrorTelemetry(error),providerError=telemetry.metadata?.providerError;
  return providerFailureDiagnosticSchema.parse({category:timeout?'timeout':'unknown',...(timeout&&telemetry.timeoutPhase?{phase:telemetry.timeoutPhase}:{}),rawStatus:telemetry.rawStatus,...(providerError?{providerError}:{}),hasUsage:telemetry.usage!==undefined});
 }
-async function persistAfterDispatch(command:Parameters<typeof executePilotBudgetCommand>[0],store:PilotBudgetStore){const controller=new AbortController(),timer=setTimeout(()=>controller.abort(new Error('accounting_deadline')),5000);try{return await executePilotBudgetCommand(command,store,controller.signal);}finally{clearTimeout(timer);}}
+async function persistAfterDispatch(command:Parameters<typeof executePilotBudgetCommand>[0],store:PilotBudgetStore){const controller=new AbortController(),timer=setTimeout(()=>controller.abort(new Error('accounting_deadline')),5000);try{const pending=executePilotBudgetCommand(command,store,controller.signal).catch(()=>null);return await Promise.race([pending,new Promise<null>(resolve=>setTimeout(()=>resolve(null),5000))]);}finally{clearTimeout(timer);}}
+async function releaseUnstartedAfterDeniedClaim(binding:PilotAttemptBinding,store:PilotBudgetStore){try{await persistAfterDispatch({operation:'release_unstarted',binding},store);}catch{} }
 
 /** One shared-ledger admission around one existing modality runtime. The caller
  * supplies a server-derived identity and the existing task invocation. */
@@ -30,8 +31,8 @@ export async function runGovernedPilotModality<Result extends GovernedResult>(in
  const binding:PilotAttemptBinding=contract.model===TRANSCRIPTION_MODEL
   ?{...common,model:contract.model,pricingVersion:'gpt-4o-mini-transcribe-2026-09-09',reservedNanoUsd:STT_ATTEMPT_RESERVATION_NANO_USD}
   :{...common,model:LUNA_MODEL,pricingVersion:PHOTO_PILOT_PRICING_VERSION,reservedNanoUsd:PHOTO_ATTEMPT_RESERVATION_NANO_USD};
- const reserve=await reserveCoachPilotAttempt(binding,input.store,input.signal);if(!reserve.ok)throw new Error('budget_blocked');
- const claim=await executePilotBudgetCommand({operation:'claim_dispatch',binding},input.store,input.signal);if(!claim.ok||!claim.dispatchGranted)throw new Error('budget_blocked');
+ const reserve=await reserveCoachPilotAttempt(binding,input.store,input.signal);if(!reserve.ok){if(reserve.error==='uncertain')await releaseUnstartedAfterDeniedClaim(binding,input.store);throw new Error('budget_blocked');}
+ const claim=await executePilotBudgetCommand({operation:'claim_dispatch',binding},input.store,input.signal);if(!claim.ok||!claim.dispatchGranted){await releaseUnstartedAfterDeniedClaim(binding,input.store);throw new Error('budget_blocked');}
  try{
   const result=await input.run(Object.freeze(structuredClone(binding))),usage=usageOf(result.usage);
   const photoModelVerified=input.task!=='photo_analyze'||result.responseModel===contract.model;
@@ -40,7 +41,7 @@ export async function runGovernedPilotModality<Result extends GovernedResult>(in
   // its ledger contract stable; Photo uses the observed Luna model as proof.
   const ledgerModel=input.task==='photo_analyze'?result.responseModel:binding.model;
   const settled=await persistAfterDispatch({operation:'settle',binding,usage,providerSuccess:{responseModel:ledgerModel,requestId:result.requestId??null}},input.store);
-  if(!settled.ok||settled.record.state!=='settled')throw new Error('accounting_uncertain');
+  if(!settled||!settled.ok||settled.record.state!=='settled')throw new Error('accounting_uncertain');
   return result;
  }catch(error){
   const knownUsage=providerErrorTelemetry(error).usage;
@@ -50,7 +51,7 @@ export async function runGovernedPilotModality<Result extends GovernedResult>(in
     // Settle measured provider consumption without treating the failed product
     // request as a successful observation or reconstructing its output.
     const settled=await persistAfterDispatch({operation:'settle',binding,usage},input.store);
-    if(settled.ok&&settled.record.state==='settled')throw new Error('provider_unavailable');
+    if(settled&&settled.ok&&settled.record.state==='settled')throw new Error('provider_unavailable');
    }
   }
   await persistAfterDispatch({operation:'mark_unknown',binding,failure:failureOf(error)},input.store);

@@ -53,6 +53,19 @@ function providerFailure(error:unknown):{
   return {diagnostic,usage,latencyMs:telemetry.latencyMs??null};
 }
 
+async function releaseUnstartedAfterDeniedClaim(binding:PilotAttemptBinding,store:PilotBudgetStore):Promise<void>{
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(new Error('accounting_deadline')),5000);
+  try {
+    const pending=executePilotBudgetCommand({operation:'release_unstarted',binding},store,controller.signal).catch(()=>undefined);
+    await Promise.race([
+      pending,
+      new Promise<void>(resolve=>setTimeout(resolve,5000)),
+    ]);
+  }
+  finally { clearTimeout(timer); }
+}
+
 /** Shared server-only dispatch adapter for the existing Coach runtime.
  * `pilotId` and `actorId` must come from the authenticated composition root,
  * never request JSON. One HTTP attempt is allowed per reserved invocation.
@@ -76,10 +89,17 @@ export function createGovernedCoachTransport(input:{
       model:'gpt-5.6-luna',pricingVersion:COACH_PRICING_VERSION,requestHash:digest({policy:request.policy,system:request.system,prompt:request.prompt,schema:request.schema,maxTokens:request.maxTokens}),reservedNanoUsd:reservation};
     const trace:GovernedAttemptTrace={attemptId:binding.attemptId,agentRunId:binding.agentRunId,requestId:null,requestedModel:'gpt-5.6-luna',returnedModel:null,reservationNanoUsd:binding.reservedNanoUsd,usage:null,pricedUsageNanoUsd:null,latencyMs:null,state:'blocked',providerCalled:false,error:null,providerFailure:null};attempts.push(trace);
     const reserve=input.mode==='live'?await reserveCoachPilotAttempt(binding,input.store,request.signal):await executePilotBudgetCommand({operation:'reserve',binding},input.store,request.signal);
-    if(!reserve.ok){trace.state=reserve.error==='uncertain'?'unknown':'blocked';trace.error=reserve.error;throw new Error('budget_blocked');}
+    if(!reserve.ok){
+      if(reserve.error==='uncertain')await releaseUnstartedAfterDeniedClaim(binding,input.store);
+      trace.state=reserve.error==='uncertain'?'unknown':'blocked';trace.error=reserve.error;throw new Error('budget_blocked');
+    }
     trace.state='reserved';
     const claim=await executePilotBudgetCommand({operation:'claim_dispatch',binding},input.store,request.signal);
-    if(!claim.ok||!claim.dispatchGranted){trace.state=claim.ok?'recovered':claim.error==='uncertain'?'unknown':'blocked';trace.error=claim.ok?'dispatch_not_granted':claim.error;throw new Error('budget_blocked');}
+    if(!claim.ok||!claim.dispatchGranted){
+      trace.state=claim.ok?'recovered':claim.error==='uncertain'?'unknown':'blocked';trace.error=claim.ok?'dispatch_not_granted':claim.error;
+      await releaseUnstartedAfterDeniedClaim(binding,input.store);
+      throw new Error('budget_blocked');
+    }
     trace.state='dispatched';trace.providerCalled=true;const started=performance.now();
     try {
       const generated=await input.transport(request);trace.latencyMs=Math.round(performance.now()-started);trace.requestId=generated.requestId??null;
