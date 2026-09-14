@@ -85,6 +85,32 @@ describe('local food parse fast path', () => {
     ]);
   });
 
+  it('strips conversational meal lead-ins and preserves a branded drink size', () => {
+    expect(extractLocalFoodCandidates(
+      'I just ate two Big Macs and one Coca-Cola medium',
+    )).toEqual([
+      expect.objectContaining({
+        foodName: 'big mac',
+        quantity: 2,
+        unit: 'piece',
+        portionExplicit: true,
+      }),
+      expect.objectContaining({
+        foodName: 'coca cola',
+        quantity: 1,
+        unit: '500ml',
+        portionExplicit: true,
+      }),
+    ]);
+  });
+
+  it('accepts a Spanish conversational lead-in without broadening the vocabulary', () => {
+    expect(extractLocalFoodCandidates('Me comí dos Big Macs y una empanada')).toEqual([
+      expect.objectContaining({ foodName: 'big mac', quantity: 2, unit: 'piece', portionExplicit: true }),
+      expect.objectContaining({ foodName: 'empanada', quantity: 1, unit: 'piece', portionExplicit: true }),
+    ]);
+  });
+
   it('accepts Spanish count words and common restaurant aliases', () => {
     expect(extractLocalFoodCandidates('dos Big Macs y una cerveza')).toEqual([
       expect.objectContaining({ foodName: 'big mac', quantity: 2, unit: 'piece', portionExplicit: true }),

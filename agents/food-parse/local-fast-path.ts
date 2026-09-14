@@ -24,6 +24,24 @@ interface Segment {
 const COMPOUND_DISH_PATTERN =
   /\b(?:mac(?:aroni)?\s+and\s+cheese|peanut\s+butter\s+and\s+jelly|fish\s+and\s+chips|ham\s+and\s+cheese|chicken\s+and\s+waffles|rice\s+and\s+beans)\b/i;
 
+/**
+ * Conversational prefixes are not food. Keeping this list deliberately small
+ * lets a natural sentence reach the same deterministic catalogue grammar while
+ * still refusing free-form prose and unsupported dishes.
+ */
+const CONVERSATIONAL_LEAD_IN = /^(?:i\s+(?:just\s+)?(?:ate|had|have|consumed|am\s+eating)|just\s+(?:ate|had)|me\s+com[ií]|(?:yo\s+)?com[ií]|acabo\s+de\s+comer)\s+/i;
+
+/** Branded cola size words map to the reviewed catalogue conversions. */
+const COLA_SIZE_UNITS: Record<string, string> = {
+  small: '355ml',
+  medium: '500ml',
+  large: '600ml',
+  mediano: '500ml',
+  mediana: '500ml',
+  grande: '600ml',
+  grandes: '600ml',
+};
+
 const FOOD_ALIASES = new Map<string, string>([
   ['egg', 'egg'],
   ['eggs', 'egg'],
@@ -170,6 +188,8 @@ function parseSegment(segment: Segment): LocalFoodCandidate | null {
     .replace(/[.!?]+$/g, '')
     .trim();
 
+  remainder = remainder.replace(CONVERSATIONAL_LEAD_IN, '').trim();
+
   const quantityMatch = remainder.match(new RegExp(`^(${[...COUNT_WORDS.keys()].sort((a, b) => b.length - a.length).join('|')}|\\d+(?:\\.\\d+)?|\\d+\\/\\d+)(?:\\s+|(?=[a-z]))`, 'i'));
   const quantityWasExplicit = quantityMatch !== null;
   let quantity = quantityMatch ? parseQuantity(quantityMatch[1]) : 1;
@@ -187,6 +207,20 @@ function parseSegment(segment: Segment): LocalFoodCandidate | null {
   remainder = remainder
     .replace(/^(?:of\s+|a\s+|an\s+|the\s+|some\s+)/, '')
     .trim();
+
+  let sizeUnit: string | null = null;
+  // Recognize only sizes attached to a known cola alias. This avoids turning
+  // an arbitrary adjective into a measured serving for unrelated foods.
+  const sizeMatch = remainder.match(/^(?:(small|medium|large|mediano|mediana|grande|grandes)\s+)?(.+?)(?:\s+(small|medium|large|mediano|mediana|grande|grandes))?$/i);
+  if (sizeMatch) {
+    const size = sizeMatch[1] ?? sizeMatch[3];
+    const base = sizeMatch[2]?.trim() ?? '';
+    const alias = FOOD_ALIASES.get(base);
+    if (size && alias === 'coca cola') {
+      remainder = base;
+      sizeUnit = COLA_SIZE_UNITS[size.toLowerCase()] ?? null;
+    }
+  }
   const genericCookedSteak = GENERIC_COOKED_STEAK_PATTERN.test(remainder);
   const foodName = genericCookedSteak
     ? 'beef steak grilled'
@@ -205,6 +239,7 @@ function parseSegment(segment: Segment): LocalFoodCandidate | null {
     quantity = 30;
     unit = 'ml';
   }
+  if (sizeUnit) unit = sizeUnit;
 
   return {
     rawText,
@@ -215,7 +250,7 @@ function parseSegment(segment: Segment): LocalFoodCandidate | null {
     // A numeric piece count (for example, "1 steak") is explicit, but the
     // piece-to-gram mass is still estimated. Only an explicit unit makes the
     // portion mass exact enough to suppress the review range/clarification.
-    portionExplicit: quantityWasExplicit && (!genericCookedSteak || unitMatch !== null),
+    portionExplicit: Boolean(sizeUnit) || (quantityWasExplicit && (!genericCookedSteak || unitMatch !== null)),
   };
 }
 
