@@ -20,8 +20,9 @@ the corresponding server-side gate are all proven together.
 - Latest runtime production deployment: `dpl_Ae2VZ1kXrsvccDYSM2aEcdLRW9sG`
 - Health canary: HTTP 200, database connected; no production 5xx logs in the
   post-deploy window
-- Release verification: focused Ask/Food/Workout suites **103 files, 937
-  tests passed, 2 skipped**, typecheck and remote Vercel build passed. The
+- Release verification: focused Ask/Food/Workout suites **105 files, 952
+  tests passed, 2 skipped across 106 files**, typecheck and remote Vercel build
+  passed. The
   repository-wide verification still has one intentionally isolated PostgreSQL
   suite that cannot run without a local database; it is not claimed as passed.
 - Final independent DS4 recheck: **21 files, 245 tests passed** across advice,
