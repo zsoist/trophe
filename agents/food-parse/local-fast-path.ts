@@ -29,7 +29,7 @@ const COMPOUND_DISH_PATTERN =
  * lets a natural sentence reach the same deterministic catalogue grammar while
  * still refusing free-form prose and unsupported dishes.
  */
-const CONVERSATIONAL_LEAD_IN = /^(?:i\s+(?:just\s+)?(?:ate|had|have|consumed|am\s+eating)|just\s+(?:ate|had)|me\s+com[ií]|(?:yo\s+)?com[ií]|acabo\s+de\s+comer)\s+/i;
+const CONVERSATIONAL_LEAD_IN = /^(?:i\s+(?:just\s+)?(?:ate|had|have|consumed|am\s+eating)|just\s+(?:ate|had)|(?:(?:hoy|ayer|anoche|esta\s+(?:mañana|manana|tarde|noche)|en\s+(?:la\s+)?(?:mañana|manana|tarde|noche))\s+)?(?:(?:yo\s+)?me\s+|yo\s+)?(?:com[ií]|almorc[eé]|cen[eé]|desayun[eé]|beb[ií])|acabo\s+de\s+(?:comer|beber))\s+/i;
 
 /** Branded cola size words map to the reviewed catalogue conversions. */
 const COLA_SIZE_UNITS: Record<string, string> = {
@@ -45,6 +45,8 @@ const COLA_SIZE_UNITS: Record<string, string> = {
 const FOOD_ALIASES = new Map<string, string>([
   ['egg', 'egg'],
   ['eggs', 'egg'],
+  ['huevo', 'egg'],
+  ['huevos', 'egg'],
   ['banana', 'banana'],
   ['bananas', 'banana'],
   ['apple', 'apple'],

@@ -111,6 +111,16 @@ describe('local food parse fast path', () => {
     ]);
   });
 
+  it.each([
+    'Hoy comí dos Big Macs',
+    'Anoche me comí dos Big Macs',
+    'Esta mañana desayuné dos huevos',
+  ])('accepts a bounded Spanish time-prefixed meal statement: %s', text => {
+    expect(extractLocalFoodCandidates(text)).toEqual([
+      expect.objectContaining({ quantity: 2, unit: 'piece', portionExplicit: true }),
+    ]);
+  });
+
   it('accepts Spanish count words and common restaurant aliases', () => {
     expect(extractLocalFoodCandidates('dos Big Macs y una cerveza')).toEqual([
       expect.objectContaining({ foodName: 'big mac', quantity: 2, unit: 'piece', portionExplicit: true }),
