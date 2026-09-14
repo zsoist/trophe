@@ -10,15 +10,16 @@ the corresponding server-side gate are all proven together.
 ## Current release
 
 - Branch: `codex/ag1-hotfix-ask-workout`
-- Commit: `b4bb5b17` (`fix(food): parse Spanish time-prefixed meals locally`),
-  including the AG2 launcher/Atlas interaction polish (`92843904`, `341a84d4`),
-  the reflexive Spanish intent fix (`77e2df9f`) and the neutral Workout empty
-  state (`8ab66da4`)
+- Runtime changes represented in the latest production deployment: `4e64a648`
+  (`docs(ag5): record launcher and local food polish`), including the AG2
+  launcher/Atlas interaction polish (`92843904`, `341a84d4`), the reflexive
+  Spanish intent fix (`77e2df9f`), the bounded time-prefixed Spanish intake
+  fast path (`b4bb5b17`) and the neutral Workout empty state (`8ab66da4`)
 - Production alias: `https://trophe.app`
-- Latest production deployment: `dpl_1H6fPFWsACbet6S2PCarWXENi7bb`
+- Latest runtime production deployment: `dpl_56bNtFDi8rGPGUGr43F4gcYqXySs`
 - Health canary: HTTP 200, database connected; no production 5xx logs in the
   post-deploy window
-- Release verification: focused Ask/Food/Workout suites **101 files, 905
+- Release verification: focused Ask/Food/Workout suites **103 files, 937
   tests passed, 2 skipped**, typecheck and remote Vercel build passed. The
   repository-wide verification still has one intentionally isolated PostgreSQL
   suite that cannot run without a local database; it is not claimed as passed.
