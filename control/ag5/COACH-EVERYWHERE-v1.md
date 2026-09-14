@@ -38,6 +38,9 @@ the corresponding server-side gate are all proven together.
 - Route coverage contract `05193d9e` now enumerates the dashboard, workout and
   coach layouts and prevents a future route from bypassing its single Coach
   entry point; its two tests pass.
+- An authenticated smoke was attempted without exposing credentials: both
+  local QA/super account records returned Supabase `401`, so Ask/Food/Workout
+  production behavior remains unverified for a real identity.
 
 ## Capability matrix
 
