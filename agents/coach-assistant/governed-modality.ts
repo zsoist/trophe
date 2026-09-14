@@ -1,6 +1,6 @@
 import {createHash} from 'node:crypto';
 import type {AiUsage} from '@/agents/runtime';
-import {executePilotBudgetCommand,PHOTO_ATTEMPT_RESERVATION_NANO_USD,pricePilotUsageNanoUsd,providerFailureDiagnosticSchema,reserveCoachPilotAttempt,STT_ATTEMPT_RESERVATION_NANO_USD,type PilotAttemptBinding,type PilotBudgetStore,type PilotUsage,type ProviderFailureDiagnostic} from './pilot-budget';
+import {executePilotBudgetCommandBounded,PHOTO_ATTEMPT_RESERVATION_NANO_USD,pricePilotUsageNanoUsd,providerFailureDiagnosticSchema,reserveCoachPilotAttempt,STT_ATTEMPT_RESERVATION_NANO_USD,type PilotAttemptBinding,type PilotBudgetStore,type PilotUsage,type ProviderFailureDiagnostic} from './pilot-budget';
 import {LUNA_MODEL,TRANSCRIPTION_MODEL} from '@/agents/router/policies';
 import {PHOTO_PILOT_PRICING_VERSION} from '@/agents/router/pricing';
 import {providerErrorTelemetry} from '@/agents/runtime/provider-error';
@@ -20,7 +20,7 @@ function failureOf(error:unknown):ProviderFailureDiagnostic {
  const telemetry=providerErrorTelemetry(error),providerError=telemetry.metadata?.providerError;
  return providerFailureDiagnosticSchema.parse({category:timeout?'timeout':'unknown',...(timeout&&telemetry.timeoutPhase?{phase:telemetry.timeoutPhase}:{}),rawStatus:telemetry.rawStatus,...(providerError?{providerError}:{}),hasUsage:telemetry.usage!==undefined});
 }
-async function persistAfterDispatch(command:Parameters<typeof executePilotBudgetCommand>[0],store:PilotBudgetStore){const controller=new AbortController(),timer=setTimeout(()=>controller.abort(new Error('accounting_deadline')),5000);let boundTimer:ReturnType<typeof setTimeout>|undefined;try{const pending=executePilotBudgetCommand(command,store,controller.signal).catch(()=>null);return await Promise.race([pending,new Promise<null>(resolve=>{boundTimer=setTimeout(()=>resolve(null),5000);})]);}finally{clearTimeout(timer);if(boundTimer)clearTimeout(boundTimer);}}
+async function persistAfterDispatch(command:Parameters<typeof executePilotBudgetCommandBounded>[0],store:PilotBudgetStore){return executePilotBudgetCommandBounded(command,store,new AbortController().signal);}
 async function releaseUnstartedAfterDeniedClaim(binding:PilotAttemptBinding,store:PilotBudgetStore){try{await persistAfterDispatch({operation:'release_unstarted',binding},store);}catch{} }
 
 /** One shared-ledger admission around one existing modality runtime. The caller
@@ -32,7 +32,7 @@ export async function runGovernedPilotModality<Result extends GovernedResult>(in
   ?{...common,model:contract.model,pricingVersion:'gpt-4o-mini-transcribe-2026-09-09',reservedNanoUsd:STT_ATTEMPT_RESERVATION_NANO_USD}
   :{...common,model:LUNA_MODEL,pricingVersion:PHOTO_PILOT_PRICING_VERSION,reservedNanoUsd:PHOTO_ATTEMPT_RESERVATION_NANO_USD};
  const reserve=await reserveCoachPilotAttempt(binding,input.store,input.signal);if(!reserve.ok)throw new Error('budget_blocked');
- const claim=await executePilotBudgetCommand({operation:'claim_dispatch',binding},input.store,input.signal);if(!claim.ok||!claim.dispatchGranted){await releaseUnstartedAfterDeniedClaim(binding,input.store);throw new Error('budget_blocked');}
+ const claim=await executePilotBudgetCommandBounded({operation:'claim_dispatch',binding},input.store,input.signal);if(!claim.ok||!claim.dispatchGranted){await releaseUnstartedAfterDeniedClaim(binding,input.store);throw new Error('budget_blocked');}
  try{
   const result=await input.run(Object.freeze(structuredClone(binding))),usage=usageOf(result.usage);
   const photoModelVerified=input.task!=='photo_analyze'||result.responseModel===contract.model;

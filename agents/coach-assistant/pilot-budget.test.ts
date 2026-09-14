@@ -1,5 +1,5 @@
 import { describe,it,expect,vi } from 'vitest';
-import { COACH_ATTEMPT_RESERVATION_NANO_USD as amount, PHOTO_ATTEMPT_RESERVATION_NANO_USD, STT_ATTEMPT_RESERVATION_NANO_USD, decidePilotBudgetCommand, executePilotBudgetCommand, reserveCoachPilotAttempt, pricePilotUsageNanoUsd, pilotRecordActiveCharge, type PilotAttemptBinding, type PilotAttemptRecord, type PilotBudgetCommand, type PilotBudgetStore } from './pilot-budget';
+import { COACH_ATTEMPT_RESERVATION_NANO_USD as amount, PHOTO_ATTEMPT_RESERVATION_NANO_USD, STT_ATTEMPT_RESERVATION_NANO_USD, decidePilotBudgetCommand, executePilotBudgetCommand, executePilotBudgetCommandBounded, reserveCoachPilotAttempt, pricePilotUsageNanoUsd, pilotRecordActiveCharge, type PilotAttemptBinding, type PilotAttemptRecord, type PilotBudgetCommand, type PilotBudgetStore } from './pilot-budget';
 import {HAIKU_MODEL,TRANSCRIPTION_MODEL} from '@/agents/router/policies';
 import {LEGACY_PHOTO_PILOT_PRICING_VERSION} from '@/agents/router/pricing';
 const uuid=(n:number)=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
@@ -119,4 +119,15 @@ describe('pilot budget pure core and injected persistent port',()=>{
     vi.mocked(store.execute).mockClear();
     expect(await reserveCoachPilotAttempt(binding(),store,signal)).toMatchObject({ok:false,error:'uncertain'});expect(store.execute).toHaveBeenCalledOnce();
   });
+  it('bounds a store that ignores abort without fabricating budget permission',async()=>{
+    const store:PilotBudgetStore={execute:vi.fn(()=>new Promise(() => {}))};
+    const started=Date.now();
+    const result=await executePilotBudgetCommandBounded(commandForTest('reserve'),store,new AbortController().signal,10);
+    expect(result).toMatchObject({ok:false,error:'uncertain',storage:'database'});
+    expect(Date.now()-started).toBeLessThan(250);
+  });
 });
+
+function commandForTest(operation:PilotBudgetCommand['operation']):PilotBudgetCommand {
+  return {operation,binding:binding()} as PilotBudgetCommand;
+}

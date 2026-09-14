@@ -74,4 +74,16 @@ describe('Reserve Luna claim-denial reconciliation', () => {
     expect(operations).toEqual(['reserve']);
     expect(record).toMatchObject({ state: 'reserved', chargedNanoUsd: 4_400_000 });
   });
+
+  it('resolves cancellation when reserve is still pending', async () => {
+    const controller = new AbortController();
+    const store: PilotBudgetStore = { execute: vi.fn(() => new Promise(() => {})) };
+    const governed = createGovernedCoachTransport({
+      pilotId: id(1), actorId: id(2), turnId: id(4), identityParts: ['reserve-abort-regression'],
+      mode: 'injected', store, signal: controller.signal, transport: vi.fn(), allowedPromptVersions: ['reserve-abort-v1'],
+    });
+    const pending = governed.transport(request('reserve-abort-v1'));
+    setTimeout(() => controller.abort(), 10);
+    await expect(pending).rejects.toThrow('budget_blocked');
+  });
 });

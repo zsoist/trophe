@@ -8,7 +8,7 @@ import {
   TEXT_FOOD_ATTEMPT_RESERVATION_NANO_USD,
   TEXT_FOOD_MAX_PHASES,
   USD_IN_NANODOLLARS,
-  executePilotBudgetCommand,
+  executePilotBudgetCommandBounded,
   providerFailureDiagnosticSchema,
   pricePilotUsageNanoUsd,
   reserveCoachPilotAttempt,
@@ -54,16 +54,7 @@ function providerFailure(error:unknown):{
 }
 
 async function releaseUnstartedAfterDeniedClaim(binding:PilotAttemptBinding,store:PilotBudgetStore):Promise<void>{
-  const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(new Error('accounting_deadline')),5000);
-  let boundTimer:ReturnType<typeof setTimeout>|undefined;
-  try {
-    const pending=executePilotBudgetCommand({operation:'release_unstarted',binding},store,controller.signal).catch(()=>undefined);
-    await Promise.race([
-      pending,
-      new Promise<void>(resolve=>{boundTimer=setTimeout(resolve,5000);}),
-    ]);
-  } finally { clearTimeout(timer); if(boundTimer)clearTimeout(boundTimer); }
+  await executePilotBudgetCommandBounded({operation:'release_unstarted',binding},store,new AbortController().signal);
 }
 
 /** Shared server-only dispatch adapter for the existing Coach runtime.
@@ -88,10 +79,11 @@ export function createGovernedCoachTransport(input:{
       attemptId:stableId([...input.identityParts,`attempt-${invocation}`]),agentRunId:stableId([...input.identityParts,`agent-run-${invocation}`]),turnId:input.turnId,
       model:'gpt-5.6-luna',pricingVersion:COACH_PRICING_VERSION,requestHash:digest({policy:request.policy,system:request.system,prompt:request.prompt,schema:request.schema,maxTokens:request.maxTokens}),reservedNanoUsd:reservation};
     const trace:GovernedAttemptTrace={attemptId:binding.attemptId,agentRunId:binding.agentRunId,requestId:null,requestedModel:'gpt-5.6-luna',returnedModel:null,reservationNanoUsd:binding.reservedNanoUsd,usage:null,pricedUsageNanoUsd:null,latencyMs:null,state:'blocked',providerCalled:false,error:null,providerFailure:null};attempts.push(trace);
-    const reserve=input.mode==='live'?await reserveCoachPilotAttempt(binding,input.store,request.signal):await executePilotBudgetCommand({operation:'reserve',binding},input.store,request.signal);
+    const admissionSignal=AbortSignal.any([input.signal,request.signal]);
+    const reserve=input.mode==='live'?await reserveCoachPilotAttempt(binding,input.store,admissionSignal):await executePilotBudgetCommandBounded({operation:'reserve',binding},input.store,admissionSignal);
     if(!reserve.ok){trace.state=reserve.error==='uncertain'?'unknown':'blocked';trace.error=reserve.error;throw new Error('budget_blocked');}
     trace.state='reserved';
-    const claim=await executePilotBudgetCommand({operation:'claim_dispatch',binding},input.store,request.signal);
+    const claim=await executePilotBudgetCommandBounded({operation:'claim_dispatch',binding},input.store,admissionSignal);
     if(!claim.ok||!claim.dispatchGranted){
       trace.state=claim.ok?'recovered':claim.error==='uncertain'?'unknown':'blocked';trace.error=claim.ok?'dispatch_not_granted':claim.error;
       await releaseUnstartedAfterDeniedClaim(binding,input.store);
@@ -103,11 +95,11 @@ export function createGovernedCoachTransport(input:{
       trace.returnedModel=typeof generated.responseModel==='string'&&generated.responseModel.trim()?generated.responseModel:null;trace.usage=usageOf(generated.usage);
       if(trace.returnedModel!=='gpt-5.6-luna'){
         trace.state='unknown';trace.error='model_pricing_unverified';
-        await executePilotBudgetCommand({operation:'mark_pricing_unknown',binding,usage:trace.usage,responseModel:trace.returnedModel},input.store,request.signal);
+        await executePilotBudgetCommandBounded({operation:'mark_pricing_unknown',binding,usage:trace.usage,responseModel:trace.returnedModel},input.store,new AbortController().signal);
         throw new Error('model_pricing_unverified');
       }
       trace.pricedUsageNanoUsd=pricePilotUsageNanoUsd(trace.usage,binding.model);
-      const settled=await executePilotBudgetCommand({operation:'settle',binding,usage:trace.usage,providerSuccess:{responseModel:trace.returnedModel,requestId:trace.requestId}},input.store,request.signal);
+      const settled=await executePilotBudgetCommandBounded({operation:'settle',binding,usage:trace.usage,providerSuccess:{responseModel:trace.returnedModel,requestId:trace.requestId}},input.store,new AbortController().signal);
       if(!settled.ok||settled.record.state!=='settled'){trace.state='unknown';trace.error='accounting_uncertain';throw new Error('accounting_uncertain');}
       trace.state='settled';return generated;
     } catch (error) {
@@ -116,7 +108,7 @@ export function createGovernedCoachTransport(input:{
       trace.requestId=failure.diagnostic.providerError?.requestId??null;trace.usage=failure.usage;trace.providerFailure=failure.diagnostic;
       console.warn(JSON.stringify({event:'coach_pilot_provider_failure',attemptId:trace.attemptId,agentRunId:trace.agentRunId,
         provider:'openai',requestedModel:trace.requestedModel,...failure.diagnostic,latencyMs:trace.latencyMs}));
-      if(trace.state!=='settled'){trace.state='unknown';trace.error??='provider_outcome_unknown';await executePilotBudgetCommand({operation:'mark_unknown',binding,failure:failure.diagnostic},input.store,request.signal);}
+      if(trace.state!=='settled'){trace.state='unknown';trace.error??='provider_outcome_unknown';await executePilotBudgetCommandBounded({operation:'mark_unknown',binding,failure:failure.diagnostic},input.store,new AbortController().signal);}
       throw new Error('provider_unavailable');
     }
   };

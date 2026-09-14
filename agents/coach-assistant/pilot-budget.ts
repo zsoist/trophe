@@ -279,7 +279,6 @@ export async function executePilotBudgetCommandBounded(
   const cancelled: PilotBudgetResult={ok:false,error:'cancelled',storage:'database'};
   return new Promise(resolve=>{
     const controller=new AbortController();
-    let timer:ReturnType<typeof setTimeout>|undefined;
     let settled=false;
     let onAbort:()=>void=()=>{};
     const cleanup=()=>{
@@ -297,7 +296,7 @@ export async function executePilotBudgetCommandBounded(
       finish(result);
     };
     onAbort=()=>{controller.abort(parentSignal.reason);complete(cancelled);};
-    timer=setTimeout(()=>{
+    const timer=setTimeout(()=>{
       controller.abort(new Error('budget_deadline'));
       complete(uncertain);
     },timeoutMs);
