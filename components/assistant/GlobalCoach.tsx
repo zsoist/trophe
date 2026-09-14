@@ -146,6 +146,9 @@ export function resetGlobalCoachSessionsForActor(actorId: string) {
 // acknowledgment is skipped and an explicit reload is offered, rather than claiming an
 // unconfirmed refresh. Overridable via `foodRefreshTimeoutMs` for tests; production uses 8s.
 const LIVE_FOOD_REFRESH_TIMEOUT_MS = 8_000;
+// Keep the closing portal alive long enough for the visual exit, but never leave an inert
+// overlay behind if a browser does not dispatch CSS animation events (jsdom/background tabs).
+const COACH_CLOSE_FALLBACK_MS = 280;
 
 /** Bounded request id for a canonical Food refresh (matches the food-events request-id shape). */
 function randomLiveId(): string {
@@ -297,11 +300,44 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
     openCoachScopes.set(sessionScope, path);
     return true;
   });
+  // `open` is the logical/a11y state exposed by the launcher. `present` is a separate visual
+  // presence bit: it lets the panel finish its exit animation after a close without keeping the
+  // dialog focus trap or capabilities active. The initializer observes the map after the `open`
+  // initializer has resolved route handoff state.
+  const [present, setPresentState] = useState(() => openCoachScopes.has(sessionScope));
+  const openRef = useRef(open);
+  const closeTimer = useRef<number | null>(null);
+  const clearCloseTimer = useCallback(() => {
+    if (closeTimer.current === null) return;
+    window.clearTimeout(closeTimer.current);
+    closeTimer.current = null;
+  }, []);
+  const setPresent = useCallback((next: boolean) => {
+    setPresentState(next);
+  }, []);
   const setOpen = useCallback((next: boolean) => {
-    if (next) openCoachScopes.set(sessionScope, path);
-    else openCoachScopes.delete(sessionScope);
+    openRef.current = next;
+    clearCloseTimer();
+    if (next) {
+      openCoachScopes.set(sessionScope, path);
+      setPresent(true);
+    } else {
+      openCoachScopes.delete(sessionScope);
+      // Reduced-motion users should never wait for an exit animation. All other clients get a
+      // bounded fallback in case animationend is suppressed by a hidden tab or a browser quirk.
+      const reduced = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+        && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (reduced) setPresent(false);
+      else {
+        closeTimer.current = window.setTimeout(() => {
+          closeTimer.current = null;
+          if (!openRef.current) setPresent(false);
+        }, COACH_CLOSE_FALLBACK_MS);
+      }
+    }
     setOpenState(next);
-  }, [path, sessionScope]);
+  }, [clearCloseTimer, path, sessionScope, setPresent]);
+  useEffect(() => () => clearCloseTimer(), [clearCloseTimer]);
   useEffect(() => {
     if (open) openCoachScopes.set(sessionScope, path);
   }, [open, path, sessionScope]);
@@ -442,6 +478,7 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
     };
   }, [open]);
   const handleDialogKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    if (!open) return;
     if (event.key === 'Escape') {
       event.stopPropagation();
       const previews = panel.current?.querySelectorAll<HTMLDetailsElement>('details[data-sent-photo-preview][open]');
@@ -710,14 +747,19 @@ function CoachSurface({ identity, subjectId, professional = false, example, pref
       ...state.restored.filter(message => message.role === 'assistant').map(message => message.text),
     ],
   }));
+  const finishClose = (event: React.AnimationEvent<HTMLElement>) => {
+    if (event.animationName !== 'coach-dismiss' || openRef.current) return;
+    clearCloseTimer();
+    setPresent(false);
+  };
   const launch = <button ref={launcher} type="button" className={styles.launcher} aria-expanded={open} aria-controls="global-coach" onClick={() => open ? close() : setOpen(true)}>
       <AskTropheMark size={32} />{t('global_coach.open')}
     </button>;
   return <div className={styles.root}>
     {anchor ? createPortal(launch, anchor) : launch}
-    {open && createPortal(<>
-      <button ref={backdrop} type="button" className={styles.backdrop} onClick={close} aria-hidden="true" tabIndex={-1} />
-      <section ref={panel} id="global-coach" className={styles.panel} data-history={historyOpen ? 'true' : 'false'} style={panelStyle} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="global-coach-title" onKeyDown={handleDialogKeyDown}>
+    {present && createPortal(<>
+      <button ref={backdrop} type="button" className={styles.backdrop} data-state={open ? 'open' : 'closing'} onClick={close} aria-hidden="true" tabIndex={-1} />
+      <section ref={panel} id="global-coach" className={styles.panel} data-state={open ? 'open' : 'closing'} data-history={historyOpen ? 'true' : 'false'} style={panelStyle} tabIndex={-1} role="dialog" aria-modal="true" aria-hidden={!open || undefined} inert={!open || undefined} aria-labelledby="global-coach-title" onAnimationEnd={finishClose} onKeyDown={handleDialogKeyDown}>
       <header className={styles.header}>
         <div className={styles.identity}><span className={styles.mark}><AskTropheMark size={32} /></span><div><h2 id="global-coach-title">{t('global_coach.title')}</h2><p>{t(example ? 'global_coach.example' : 'global_coach.identity')}</p>{subjectId && subjectId !== identity && <p className={styles.subject}>{t('global_coach.professional_subject', { subject: subjectId.slice(0, 8) })}</p>}</div></div>
         <div className={styles.headerActions}>

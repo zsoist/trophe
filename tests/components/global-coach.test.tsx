@@ -58,6 +58,54 @@ it('keeps the Food review after the meal message and its answer in the same turn
   expect(review.closest('article')).toBe(question.closest('article'));
   expect(foodTransport).not.toHaveBeenCalled();
 });
+it('keeps the panel present through a bounded close animation and restores focus', async () => {
+  vi.useFakeTimers();
+  HTMLElement.prototype.scrollTo = vi.fn();
+  const transport = vi.fn(async (request: CoachConversationRequest) => response(request));
+  render(mounted(transport));
+
+  const launcher = screen.getByRole('button', { name: 'Ask Trophē' });
+  fireEvent.click(launcher);
+  const panel = screen.getByRole('dialog');
+  expect(panel.getAttribute('data-state')).toBe('open');
+
+  fireEvent.click(screen.getByRole('button', { name: 'Close Ask Trophē' }));
+  expect(launcher.getAttribute('aria-expanded')).toBe('false');
+  const closingPanel = document.getElementById('global-coach')!;
+  expect(closingPanel.getAttribute('data-state')).toBe('closing');
+  expect(closingPanel.hasAttribute('inert')).toBe(true);
+
+  // A real browser finishes from animationend; this fallback is bounded for hidden/background tabs.
+  await act(async () => { vi.advanceTimersByTime(281); });
+  expect(document.getElementById('global-coach')).toBeNull();
+  expect(document.activeElement).toBe(launcher);
+});
+it('removes the panel immediately when reduced motion is requested', () => {
+  vi.useFakeTimers();
+  HTMLElement.prototype.scrollTo = vi.fn();
+  vi.stubGlobal('matchMedia', vi.fn((query: string) => ({ matches: query === '(prefers-reduced-motion: reduce)', media: query, onchange: null, addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() })));
+  const transport = vi.fn(async (request: CoachConversationRequest) => response(request));
+  render(mounted(transport));
+  const launcher = screen.getByRole('button', { name: 'Ask Trophē' });
+  fireEvent.click(launcher);
+  fireEvent.click(screen.getByRole('button', { name: 'Close Ask Trophē' }));
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(document.activeElement).toBe(launcher);
+});
+it('does not leave the deferred portal behind when its host unmounts during close', () => {
+  vi.useFakeTimers();
+  HTMLElement.prototype.scrollTo = vi.fn();
+  const transport = vi.fn(async (request: CoachConversationRequest) => response(request));
+  const view = render(mounted(transport));
+  const launcher = screen.getByRole('button', { name: 'Ask Trophē' });
+  fireEvent.click(launcher);
+  fireEvent.click(screen.getByRole('button', { name: 'Close Ask Trophē' }));
+  expect(document.getElementById('global-coach')).not.toBeNull();
+
+  view.unmount();
+  expect(document.getElementById('global-coach')).toBeNull();
+  vi.advanceTimersByTime(281);
+});
 it('keeps the same conversation and editable draft across real Food and Workout routes without automatic inference', async () => {
   HTMLElement.prototype.scrollTo = vi.fn();
   const transport = vi.fn(async (request: CoachConversationRequest) => response(request));

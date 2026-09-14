@@ -16,6 +16,10 @@
 .backdrop { position: fixed; z-index: 54; inset: 0; width: 100%; height: 100%; border: 0; background: rgba(4,6,5,.24); }
 .panel { position: fixed; z-index: 55; top: var(--coach-viewport-top, 0px); inset-inline: 0; display: flex; flex-direction: column; width: 100%; height: var(--coach-viewport-height, 100dvh); overflow: hidden; border-radius: 18px; background: color-mix(in srgb, var(--bg-primary) 94%, transparent); box-shadow: 0 24px 72px rgba(0,0,0,.32); backdrop-filter: blur(20px); animation: coach-rise 190ms cubic-bezier(.2,.75,.25,1); outline: none; }
 @keyframes coach-rise { from { transform: translateY(14px); opacity: .82; } to { transform: translateY(0); opacity: 1; } }
+.panel[data-state='closing'] { pointer-events: none; animation: coach-dismiss 220ms var(--at-ease, cubic-bezier(.22, 1, .36, 1)) both; }
+.backdrop[data-state='closing'] { animation: coach-backdrop-out 220ms var(--at-ease, cubic-bezier(.22, 1, .36, 1)) both; }
+@keyframes coach-dismiss { from { transform: translateY(0); opacity: 1; } to { transform: translateY(10px); opacity: 0; } }
+@keyframes coach-backdrop-out { from { opacity: 1; } to { opacity: 0; } }
 .header { position: relative; z-index: 4; display: flex; justify-content: space-between; gap: .75rem; align-items: center; flex-shrink: 0; min-height: 64px; padding: max(.65rem, env(safe-area-inset-top, 0px)) .7rem .65rem .9rem; border-bottom: 1px solid color-mix(in srgb, var(--text-primary) 11%, transparent); background: color-mix(in srgb, var(--bg-primary) 68%, transparent); }
 .identity { display: flex; min-width: 0; align-items: center; gap: .65rem; }
 .mark { display: grid; flex: 0 0 auto; width: 34px; height: 34px; place-items: center; border-radius: 10px; background: color-mix(in srgb, var(--gold-300) 14%, transparent); color: var(--performance-gold, var(--gold-300)); }
