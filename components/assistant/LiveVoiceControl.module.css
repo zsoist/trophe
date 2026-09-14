@@ -1,0 +1,84 @@
+/* In-flow focused voice dock, anchored inside the Ask composer. Never an overlay on the thread.
+   Gold follows the theme-aware product token (`--performance-gold`: #D4A853 dark, #765A1D light)
+   so the voice matches the header; `--gold-300` stays only as a pre-theme fallback. */
+.launcher { display:grid; place-items:center; min-width:44px; min-height:44px; color:var(--text-primary, #f5f2ec); background:transparent; border:0; border-radius:12px; }
+.launcher[aria-expanded="true"] { background:color-mix(in srgb, var(--performance-gold, var(--gold-300, #d4a853)) 14%, transparent); color:var(--performance-gold, var(--gold-300, #d4a853)); }
+.launcher:disabled { opacity:.45; cursor:default; }
+
+/* Session shell: the rail is in-flow in the composer, never an overlay over the thread. */
+.rail { --at-gold:var(--performance-gold, var(--gold-300, #d4a853)); display:flex; flex-direction:column; gap:.2rem; }
+.railHeader { display:flex; align-items:center; justify-content:space-between; gap:.5rem; min-height:44px; }
+.railTitle { display:inline-flex; align-items:center; gap:.45rem; font-size:.8125rem; font-weight:650; }
+
+.dock {
+  --at-gold:var(--performance-gold, var(--gold-300, #d4a853));
+  --at-danger:#f19791;
+  --at-ease:cubic-bezier(.22,1,.36,1);
+  position:relative;
+  isolation:isolate;
+  flex:1 0 100%;
+  margin:.15rem 0 .3rem;
+  padding:.25rem .45rem;
+  border:1px solid color-mix(in srgb, var(--text-primary, #f5f2ec) 16%, transparent);
+  border-radius:24px;
+  background:color-mix(in srgb, var(--bg-input, #141414) 92%, var(--bg-primary, #0a0a0a));
+  color:var(--text-primary, #f5f2ec);
+  overflow:hidden;
+}
+/* Theme-aware danger: the approved package pairs #f19791 with the dark surface and #a6322e with the
+   light one. The end control is a filled danger affordance, so it follows the surface theme. */
+:global(.light) .dock { --at-danger:#a6322e; }
+/* One low-opacity radial ambient light. No blur filters, no raster or particle layers. */
+.dock::before { content:''; position:absolute; z-index:-1; inset:0; background:radial-gradient(ellipse at 50% 50%, color-mix(in srgb, var(--at-gold) 16%, transparent), transparent 68%); opacity:.5; pointer-events:none; }
+
+/* Compact head: a 44px control plus the real status line. Present in every state. */
+.dockHead { display:flex; align-items:center; gap:.5rem; min-height:48px; padding:.1rem .2rem; }
+.dockGlyph { display:grid; flex:0 0 auto; width:32px; height:32px; place-items:center; color:var(--at-gold); }
+.iconButton { display:grid; flex:0 0 auto; width:44px; height:44px; place-items:center; border:1px solid color-mix(in srgb, var(--at-gold) 34%, transparent); border-radius:50%; background:transparent; color:var(--at-gold); }
+.status { margin:0 0 0 auto; font-size:.8125rem; line-height:1.4; text-align:right; }
+.deadline, .mutedNotice { margin:.25rem 0 0; color:var(--text-secondary, #aaa69e); font-size:.75rem; font-variant-numeric:tabular-nums; }
+.alert { margin:.35rem 0 0; padding:.5rem .6rem; border-radius:10px; background:color-mix(in srgb, var(--at-gold) 12%, transparent); font-size:.8125rem; line-height:1.45; }
+
+/* Approved compact idle -> expanded conversation tween: grid rows 340ms, opacity 220ms. */
+.dockBody { display:grid; grid-template-rows:0fr; opacity:0; transition:grid-template-rows 340ms var(--at-ease), opacity 220ms ease; }
+.dock[data-expanded="true"] .dockBody { grid-template-rows:1fr; opacity:1; }
+.dockBodyInner { overflow:hidden; min-height:0; padding:0 .35rem .15rem; }
+
+.waveWrap { position:relative; height:80px; margin:.1rem 0 0; color:var(--at-gold); }
+.waveHost { width:100%; height:100%; }
+.waveHost svg { width:100%; height:100%; display:block; }
+.thinkingArc { display:none; position:absolute; inset:12px 0; width:100%; height:56px; fill:none; stroke:var(--at-gold); stroke-width:1.1; }
+
+/* Flat, dimmed traces whenever the session is not producing real audio. */
+.dock[data-state=muted] .waveWrap,
+.dock[data-state=paused] .waveWrap,
+.dock[data-state=error] .waveWrap,
+.dock[data-state=ended] .waveWrap,
+.dock[data-state=thinking] .waveWrap { opacity:.4; }
+/* Thinking is decorative progress: a separate travelling arc, never an audio-level display. */
+.dock[data-state=thinking]::before { animation:at-thought 2.4s ease-in-out infinite; }
+.dock[data-state=thinking] .thinkingArc { display:block; }
+.dock[data-state=thinking] .waveHost { opacity:0; }
+.dock[data-state=thinking] .thinkingArc path { stroke-dasharray:140 440; animation:at-trace 2.8s linear infinite; }
+
+/* Compact 44px circular controls with accessible labels; never a wrapping row of text buttons. */
+.controls { display:flex; flex-wrap:wrap; align-items:center; gap:.4rem; padding:.2rem 0 .35rem; }
+.controls button, .controlButton { display:grid; width:44px; height:44px; place-items:center; padding:0; border:1px solid var(--border-default, #2a2a2a); border-radius:50%; background:transparent; color:var(--text-primary, #f5f2ec); }
+.endButton { color:var(--at-danger) !important; border-color:color-mix(in srgb, var(--at-danger) 45%, transparent) !important; }
+.controls button[aria-pressed="true"] { border-color:var(--at-gold); background:color-mix(in srgb, var(--at-gold) 12%, transparent); color:var(--at-gold); }
+
+.audio { display:none; }
+
+.dock button:focus-visible, .rail button:focus-visible { outline:2px solid var(--at-gold); outline-offset:2px; }
+@keyframes at-thought { 0%,100% { opacity:.25; } 50% { opacity:.65; } }
+@keyframes at-trace { to { stroke-dashoffset:-580; } }
+@media (hover: hover) and (pointer: fine) { .dock button:hover:not(:disabled) { background-color:color-mix(in srgb, var(--at-gold) 10%, transparent); } }
+/* Short viewports collapse the voice visual area but keep the status line and every control. */
+@media (max-height:560px) { .waveWrap { display:none; } }
+@media (prefers-reduced-motion: reduce) {
+  .dockBody { transition:none !important; }
+  .dock::before, .thinkingArc path { animation:none !important; }
+  /* A stopped dashed tracer would leave a partial segment; the approved static curve is whole. */
+  .thinkingArc path { stroke-dasharray:none !important; }
+}
+@media (prefers-reduced-transparency: reduce) { .dock { background:var(--bg-primary, #0a0a0a); } }

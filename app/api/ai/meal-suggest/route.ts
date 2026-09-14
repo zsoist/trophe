@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
     const userMessage = `Remaining macro budget: ${macroContext}.${preferencesNote}${mealTypeNote} Suggest 3 meal options.`;
 
     // Provider-agnostic structured output — routes through policy.provider
-    // (DeepSeek primary → Anthropic fallback via taskFallbacks in execute.ts)
+    // The selected Luna policy is authoritative; product fallbacks are disabled.
     const result = await executeAiTask<MealSuggestionOutput>({
       task: 'meal_suggest',
       prompt: userMessage,

@@ -8,7 +8,7 @@ describe('generic cooked steak nutrition contract', () => {
 
   it('routes both text providers through a versioned steak-safe prompt', () => {
     expect(taskPolicies.food_parse.promptVersion).toBe('food-parse-v9-luna');
-    expect(taskFallbacks.food_parse?.promptVersion).toBe('food-parse-v9-haiku-fallback');
+    expect(taskFallbacks.food_parse).toBeUndefined();
     expect(existsSync(promptPath)).toBe(true);
   });
 

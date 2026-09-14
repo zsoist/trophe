@@ -47,7 +47,7 @@ describe('concrete Food transaction service through an injected SQL transaction'
     expect(f.state().row.qtyG).toBe('250');
     const apply={...base,operation:'food.apply' as const,proposalId:proposed.proposal.id,hash:proposed.proposal.hash,actionId:id(6),resourceVersion:'1',reviewed:true as const};
     const first=await f.execute(apply);
-    expect(first).toMatchObject({ok:true,receipt:{status:'applied',resourceVersion:'2'},refresh:{entryId:entry,strategy:'refetch'}});
+    expect(first).toMatchObject({ok:true,receipt:{status:'applied',resourceVersion:'2'},refresh:{entryId:entry,strategy:'refetch'},change:{beforeGrams:250,afterGrams:150}});
     expect(f.state().row).toMatchObject({qtyG:'150',calories:300,proteinG:6});
     expect(await f.execute(apply)).toEqual(first);expect(f.state().revision).toBe(2);
     expect(await f.execute({...base,operation:'food.read'})).toMatchObject({ok:true,snapshot:{entryId:entry,grams:150,calories:300,version:'2',sourceId:'turn:fixture'}});
@@ -55,6 +55,10 @@ describe('concrete Food transaction service through an injected SQL transaction'
   it('resolves only one authorized saved entry matching the prior amount hint',async()=>{
     const f=fixture();expect(await f.execute({version:base.version,conversationId:base.conversationId,turnId:base.turnId,operation:'food.resolve',entryHintId:entry,expectedPreviousGrams:250})).toMatchObject({ok:true,snapshot:{entryId:entry,grams:250,source:'natural_language'}});
     f.candidates([{id:entry},{id:id(9)}]);expect(await f.execute({version:base.version,conversationId:base.conversationId,turnId:base.turnId,operation:'food.resolve',expectedPreviousGrams:250})).toMatchObject({ok:false,error:'ambiguous_selection'});
+  });
+  it('resolves an exact selected entry and returns its authoritative current quantity without a prior hint',async()=>{
+    const f=fixture();
+    expect(await f.execute({version:base.version,conversationId:base.conversationId,turnId:base.turnId,operation:'food.resolve',entryHintId:entry})).toMatchObject({ok:true,snapshot:{entryId:entry,grams:250,version:'1'}});
   });
   it('rolls back the shared update when receipt insertion fails in the test transaction',async()=>{
     const f=fixture();const proposed=await f.execute({...base,operation:'food.propose',resourceVersion:'1',after:{grams:150}}) as {proposal:{id:string;hash:string}};
@@ -72,7 +76,7 @@ describe('concrete Food transaction service through an injected SQL transaction'
     const f=fixture();const p=await f.execute({...base,operation:'food.propose',resourceVersion:'1',after:{grams:150}}) as {proposal:{id:string;hash:string}};
     const apply={...base,operation:'food.apply' as const,proposalId:p.proposal.id,hash:p.proposal.hash,actionId:id(6),resourceVersion:'1',reviewed:true as const};
     f.loseCommit();expect(await f.execute(apply)).toMatchObject({ok:false,error:'uncertain'});expect(f.state()).toMatchObject({row:{qtyG:'150'},revision:2});
-    const receipt=await f.execute({...base,operation:'food.receipt',actionId:id(6)});expect(receipt).toMatchObject({ok:true,receipt:{status:'applied'}});expect(await f.execute(apply)).toEqual(receipt);expect(f.state().revision).toBe(2);
+    const receipt=await f.execute({...base,operation:'food.receipt',actionId:id(6)});expect(receipt).toMatchObject({ok:true,receipt:{status:'applied'},change:{beforeGrams:250,afterGrams:150}});expect(await f.execute(apply)).toEqual(receipt);expect(f.state().revision).toBe(2);
   });
   it('reauthorizes immediately before the writer and rolls back a revoked apply',async()=>{
     const f=fixture();const p=await f.execute({...base,operation:'food.propose',resourceVersion:'1',after:{grams:150}}) as {proposal:{id:string;hash:string}};

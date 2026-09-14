@@ -26,15 +26,36 @@ import MealPhotoGallery from '@/components/meals/MealPhotoGallery';
 import DayComparison from '@/components/progress/DayComparison';
 import CoachFoodRecs from '@/components/food/CoachFoodRecs';
 import RecipeAnalyzerModal from '@/components/food/RecipeAnalyzerModal';
+import { insertEntryForDate } from '@/components/food/log-entry-restore';
+import { useFoodLogDelete } from '@/components/food/use-food-log-delete';
+import type { FoodLogRowSnapshot } from '@/components/food/food-log-row';
+import {
+  groupBySlot,
+  slotIdForEntry as slotIdForEntryOf,
+  fallbackBucketIds,
+  canonicalSlotForMealSlot,
+} from '@/lib/food/meal-slot';
+import {
+  createFoodLogDeletePort,
+  type FoodLogDeleteClient,
+} from '@/components/food/food-log-delete-port';
 import { localToday, localDateStr } from '../../../lib/utils/dates';
 import {
   CLIENT_VIEW_PANELS,
   isPanelVisible,
-  parseClientViewPrefs,
   type ClientViewPanelId,
 } from '@/lib/display-prefs';
 import DailyMacroStrip from '@/components/nutrition/DailyMacroStrip';
 import { summarizeSugar } from '@/lib/nutrition/daily-summary';
+import { useCoachScreenDate } from '@/components/assistant/screen-date';
+import { COACH_FOOD_REFRESH, COACH_FOOD_REFRESH_DONE, readFoodRefreshRequest, readFoodSelection } from '@/components/assistant/food-events';
+import { readCanonicalFoodState } from '@/lib/food/canonical-food-read';
+
+// One stable adapter instance: the persistence classification (what the UI may
+// claim about a delete/restore) lives in food-log-delete-port.ts and is tested
+// against a fake PostgREST client. `supabase` is cast because the port types only
+// the query shapes it actually issues.
+const foodLogDeletePort = createFoodLogDeletePort(supabase as unknown as FoodLogDeleteClient);
 
 const DEFAULT_MEAL_SLOTS: MealSlot[] = [
   { id: 'breakfast', mealType: 'breakfast', label: 'Breakfast', icon: 'i-sun', order: 0 },
@@ -53,34 +74,31 @@ function getLocalizedSlots(t: (key: string) => string): MealSlot[] {
   }));
 }
 
-function groupBySlot(entries: FoodLogEntry[], slots: MealSlot[]): Record<string, FoodLogEntry[]> {
-  const result: Record<string, FoodLogEntry[]> = {};
-  slots.forEach(s => { result[s.id] = []; });
+/** Icons for the truthful generic buckets shown when no slot claims an entry
+ *  (legacy rows, or a custom layout that dropped that meal's slot). */
+const FALLBACK_BUCKET_ICONS: Record<MealType, MealSlot['icon']> = {
+  breakfast: 'i-sun',
+  lunch: 'i-bowl',
+  dinner: 'i-moon',
+  snack: 'i-apple',
+  pre_workout: 'i-zap',
+  post_workout: 'i-dumbbell',
+};
 
-  const snackEntries: FoodLogEntry[] = [];
-
-  for (const entry of entries) {
-    const mt = entry.meal_type || 'snack';
-
-    if (mt === 'snack') {
-      snackEntries.push(entry);
-    } else if (mt === 'pre_workout' || mt === 'post_workout') {
-      result['snack_pm']?.push(entry);
-    } else {
-      const slotId = slots.find(s => s.mealType === mt)?.id;
-      if (slotId && result[slotId]) {
-        result[slotId].push(entry);
-      }
-    }
-  }
-
-  for (const entry of snackEntries) {
-    const hour = new Date(entry.created_at).getHours();
-    const slotId = hour < 14 ? 'snack_am' : 'snack_pm';
-    result[slotId]?.push(entry);
-  }
-
-  return result;
+/**
+ * A truthful, read-only bucket for entries no configured slot claims. It is
+ * never persisted as a slot: the user logs from the real slots. Legacy snack
+ * rows (meal_slot IS NULL) surface here as a generic "Snack" — never relabelled
+ * Morning by created_at, never dropped.
+ */
+function fallbackBucketSlot(mealType: MealType, index: number, t: (key: string) => string): MealSlot {
+  return {
+    id: mealType,
+    mealType,
+    label: t(`food.${mealType}`),
+    icon: FALLBACK_BUCKET_ICONS[mealType],
+    order: 100 + index,
+  };
 }
 
 // F5: Favorites
@@ -91,7 +109,10 @@ interface FavoriteFood {
   carbs_g: number;
   fat_g: number;
   fiber_g: number;
-  sugar_g: number;
+  // Null is a valid canonical "unknown sugar" (manual entries) and must survive
+  // the favorite round trip. Coercing it to 0 here made an unknown read as a
+  // measured zero after favorite → re-log. Historical stored 0s stay 0.
+  sugar_g: number | null;
 }
 
 function loadFavorites(): FavoriteFood[] {
@@ -300,20 +321,48 @@ export default function FoodLogPage() {
   const [loadError, setLoadError] = useState(false);
   const [mutationError, setMutationError] = useState<string | null>(null);
   const loadRequestRef = useRef(0);
-  const [todayLog, setTodayLog] = useState<FoodLogEntry[]>([]);
+  // A completed load must never touch state (or route) after the surface unmounts —
+  // e.g. a slow read settling after the client navigates away from the log.
+  const isMountedRef = useRef(true);
+  // The full persisted row (select('*') below) — the delete snapshot must keep
+  // every quantity/reference/provenance column, not just the legacy fields.
+  const [todayLog, setTodayLog] = useState<FoodLogRowSnapshot[]>([]);
   const today = localToday();
   const [selectedDate, setSelectedDate] = useState(today);
+  useCoachScreenDate(selectedDate);
   const selectedDateRef = useRef(today);
   const [skippedSlots, setSkippedSlots] = useState<Set<string>>(() => loadStoredSet(`trophe_skipped_${today}`));
   const [lockedSlots, setLockedSlots] = useState<Set<string>>(() => loadStoredSet(`trophe_locked_${today}`));
 
-  // F3: Undo delete
-  const [pendingDelete, setPendingDelete] = useState<{ id: string; entry: FoodLogEntry } | null>(null);
-  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Batch undo — a multi-item AI log hands its inserted ids up; one tap deletes them all.
-  const [pendingBatch, setPendingBatch] = useState<{ ids: string[]; key: number } | null>(null);
-  const batchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // F3 + batch undo. Durable delete/undo lives in a hook so the persistence
+  // ordering (immediate delete, verified restore, date-scoped batch) is unit
+  // testable: an in-memory soft delete was resurrected by a reload, and a shared
+  // timer ref let a second delete swallow the first one's commit.
+  const slotFlashKeyRef = useRef(0);
+  const {
+    pendingDelete,
+    pendingBatch,
+    requestDelete,
+    undoDelete,
+    registerBatch,
+    undoBatch,
+    clearPending,
+  } = useFoodLogDelete({
+    selectedDateRef,
+    port: foodLogDeletePort,
+    onRemove: (ids) => setTodayLog(prev => prev.filter(e => !ids.includes(e.id))),
+    onRestore: (entry) => setTodayLog(prev => insertEntryForDate(prev, entry, selectedDateRef.current)),
+    onRefetch: () => { void loadTodayLog(); },
+    onError: (key) => setMutationError(t(key)),
+    onClearError: () => setMutationError(null),
+    onRestored: (entry) => {
+      const slotId = slotIdForEntry(entry);
+      if (!slotId) return;
+      if (slotFlashTimerRef.current) clearTimeout(slotFlashTimerRef.current);
+      setSlotFlash({ slotId, key: ++slotFlashKeyRef.current });
+      slotFlashTimerRef.current = setTimeout(() => setSlotFlash(null), 900);
+    },
+  });
 
   // Macro changes also drive the compact narrative date pill.
   const reducedMotion = useReducedMotion();
@@ -363,7 +412,7 @@ export default function FoodLogPage() {
 
   const isToday = selectedDate === today;
   const defaultSlots = getLocalizedSlots(t);
-  const slots = customSlots || defaultSlots;
+  const baseSlots = customSlots || defaultSlots;
 
   const totalCalories = todayLog.reduce((s, f) => s + (f.calories ?? 0), 0);
   const totalProtein = todayLog.reduce((s, f) => s + (f.protein_g ?? 0), 0);
@@ -372,7 +421,14 @@ export default function FoodLogPage() {
   const totalSugar = todayLog.reduce((s, f) => s + (f.sugar_g ?? 0), 0);
   const sugarSummary = summarizeSugar(todayLog);
 
-  const grouped = groupBySlot(todayLog, slots);
+  // Group by the explicit persisted meal_slot (never created_at/hour). Entries no
+  // configured slot claims land in a truthful generic bucket that is rendered
+  // only while non-empty — legacy rows are preserved, not guessed.
+  const grouped = groupBySlot(todayLog, baseSlots);
+  const slots = [
+    ...baseSlots,
+    ...fallbackBucketIds(grouped, baseSlots).map((mealType, index) => fallbackBucketSlot(mealType, index, t)),
+  ];
   const filledCount = slots.filter(s => grouped[s.id].length > 0 || skippedSlots.has(s.id)).length;
 
   // F7: Remaining budget
@@ -409,10 +465,15 @@ export default function FoodLogPage() {
     setSelectedDate(date);
     setSkippedSlots(loadStoredSet(`trophe_skipped_${date}`));
     setLockedSlots(loadStoredSet(`trophe_locked_${date}`));
+    // A pending delete/undo belongs to the day it was made on. The deletion is
+    // already persisted, but the undo affordance and any pending batch must not
+    // survive the date change — otherwise Undo/batch could touch the old day's
+    // rows (and inject totals) while the newly selected day is displayed.
+    clearPending();
     // W6: a lingering delta expansion belongs to the previous day's story
     if (pillDeltaTimerRef.current) clearTimeout(pillDeltaTimerRef.current);
     setPillDelta(null);
-  }, []);
+  }, [clearPending]);
 
   const saveSkipped = (newSkipped: Set<string>) => {
     setSkippedSlots(newSkipped);
@@ -453,116 +514,62 @@ export default function FoodLogPage() {
   const dayPillVisible = proteinPillActive || kcalPillActive;
   const proteinDone = targets.protein_g > 0 && totalProtein >= targets.protein_g;
 
-  const loadTodayLog = useCallback(async () => {
+  const loadTodayLog = useCallback(async (): Promise<boolean> => {
     const requestId = ++loadRequestRef.current;
     setLoadError(false);
 
     try {
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (requestId !== loadRequestRef.current) return;
-      if (authError) {
+      // Reuse the persisted session to avoid an extra /user verification on a valid
+      // warm session. getSession still acquires the auth lock and may refresh an expired
+      // token; this is not a general lock or network-failure fix. The canonical queries
+      // remain authenticated and RLS-protected; the cached id scopes the requested rows.
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (requestId !== loadRequestRef.current) return false;
+      if (!isMountedRef.current) return false;
+      if (sessionError) {
         setLoadError(true);
         setPageLoading(false);
-        return;
+        return false;
       }
+      const user = sessionData?.session?.user ?? null;
       if (!user) {
         router.push('/login');
-        return;
+        return false;
       }
 
-      // Compute week date range upfront for parallel queries
-      const weekDates: string[] = [];
-      const wd = new Date(selectedDate + 'T12:00:00');
-      const dayOfWeek = wd.getDay();
-      const monday = new Date(wd);
-      monday.setDate(wd.getDate() - ((dayOfWeek + 6) % 7));
-      for (let i = 0; i < 7; i++) {
-        const d = new Date(monday);
-        d.setDate(monday.getDate() + i);
-        weekDates.push(localDateStr(d));
+      // Canonical state read: the SAME authorized food_log / client_profiles / streak queries this
+      // page renders, extracted into the shared reader. Other routes can refresh the identical
+      // state, and this page consumes the same derived snapshot (entries, macro totals, week,
+      // targets, preferences, streak) instead of re-deriving from raw rows.
+      const result = await readCanonicalFoodState<FoodLogRowSnapshot>(user.id, { date: selectedDate });
+      if (requestId !== loadRequestRef.current) return false;
+      if (!isMountedRef.current) return false;
+      if (result.missingProfile) {
+        router.replace('/onboarding');
+        return false;
       }
-
-      // Parallel: all 4 queries fire simultaneously (~200ms vs ~800ms sequential)
-      const [todayRes, weekRes, profileRes, streakRes] = await Promise.all([
-        supabase.from('food_log').select('*')
-          .eq('user_id', user.id).eq('logged_date', selectedDate)
-          .order('created_at', { ascending: true }),
-        supabase.from('food_log').select('logged_date, calories')
-          .eq('user_id', user.id)
-          .gte('logged_date', weekDates[0]).lte('logged_date', weekDates[6]),
-        supabase.from('client_profiles')
-          .select('target_calories, target_protein_g, target_carbs_g, target_fat_g, client_view_prefs')
-          .eq('user_id', user.id).maybeSingle(),
-        supabase.from('food_log').select('logged_date')
-          .eq('user_id', user.id)
-          .gte('logged_date', localDateStr(new Date(Date.now() - 60 * 86400000)))
-          .order('logged_date', { ascending: false }),
-      ]);
-
-      if (requestId !== loadRequestRef.current) return;
-      const loadFailure = [
-        todayRes.error,
-        weekRes.error,
-        profileRes.error,
-        streakRes.error,
-      ].find(Boolean);
-      if (loadFailure ||
-        !todayRes.data ||
-        !weekRes.data ||
-        !streakRes.data
-      ) {
+      if (!result.ok || !result.snapshot) {
         setLoadError(true);
         setPageLoading(false);
-        return;
-      }
-      if (!profileRes.data) {
-        router.replace('/onboarding');
-        return;
+        return false;
       }
 
+      const snapshot = result.snapshot;
+      const day = snapshot.days.find(candidate => candidate.date === selectedDate) ?? snapshot.days[0];
       setUserId(user.id);
-      setTodayLog(todayRes.data);
-      setWeekData(weekDates.map(date => {
-        const dayEntries = weekRes.data.filter(e => e.logged_date === date);
-        return {
-          date,
-          calories: dayEntries.reduce((s, e) => s + (e.calories ?? 0), 0),
-          entries: dayEntries.length,
-        };
-      }));
-
-      // F4: Load macro targets from client_profiles
-      setTargets({
-        calories: profileRes.data.target_calories || 0,
-        protein_g: profileRes.data.target_protein_g || 0,
-        carbs_g: profileRes.data.target_carbs_g || 0,
-        fat_g: profileRes.data.target_fat_g || 0,
-      });
-      setViewPrefs(parseClientViewPrefs(profileRes.data.client_view_prefs));
-
-      // F6: Calculate streak (consecutive days with >=3 food entries)
-      const dayCounts = new Map<string, number>();
-      for (const log of streakRes.data) {
-        dayCounts.set(log.logged_date, (dayCounts.get(log.logged_date) || 0) + 1);
-      }
-
-      let s = 0;
-      const d = new Date();
-      for (let i = 0; i < 60; i++) {
-        const dateStr = localDateStr(d);
-        if ((dayCounts.get(dateStr) || 0) >= 3) {
-          s++;
-        } else if (i > 0) {
-          break; // streak broken
-        }
-        d.setDate(d.getDate() - 1);
-      }
-      setStreak(s);
+      setTodayLog(day?.entries ?? []);
+      setWeekData(snapshot.week);
+      setTargets(snapshot.targets);
+      setViewPrefs(snapshot.viewPrefs);
+      setStreak(snapshot.streak);
       setPageLoading(false);
+      return true;
     } catch {
-      if (requestId !== loadRequestRef.current) return;
+      if (requestId !== loadRequestRef.current) return false;
+      if (!isMountedRef.current) return false;
       setLoadError(true);
       setPageLoading(false);
+      return false;
     }
   }, [selectedDate, router]);
 
@@ -573,114 +580,40 @@ export default function FoodLogPage() {
     return () => window.clearTimeout(refreshTimer);
   }, [loadTodayLog]);
 
+  useEffect(() => {
+    if ((process.env.NEXT_PUBLIC_COACH_FOOD_ACTIONS_ENABLED !== '1' && process.env.NEXT_PUBLIC_COACH_TEXT_FOOD_ACTIONS_ENABLED !== '1') || !userId) return;
+    // The canonical re-read is the SAME authorized food_log query that renders this page; when a
+    // caller attached a request id, report back only after that read actually settles so a host can
+    // gate an acknowledgment on the canonical view — never on the request event alone.
+    const refreshNewEntry = (event: Event) => {
+      const selection = readFoodSelection(event);
+      if (selection?.actorId !== userId) return;
+      const request = readFoodRefreshRequest(event);
+      const settle = (ok: boolean) => {
+        if (request) window.dispatchEvent(new CustomEvent(COACH_FOOD_REFRESH_DONE, { detail: { actorId: userId, entryId: selection.entryId, requestId: request.requestId, ok } }));
+      };
+      // Always re-run the canonical read — never settle on a found-only shortcut. The mounted
+      // surface must actually consume the refreshed snapshot (or finish a successful reload)
+      // before a host may report the log as up to date.
+      void loadTodayLog().then(settle);
+    };
+    window.addEventListener(COACH_FOOD_REFRESH, refreshNewEntry);
+    return () => window.removeEventListener(COACH_FOOD_REFRESH, refreshNewEntry);
+  }, [loadTodayLog, userId]);
+
   const [copying, setCopying] = useState(false);
   const [showRecipeModal, setShowRecipeModal] = useState(false);
 
-  const restoreDeletedEntry = (entry: FoodLogEntry) => {
-    if (entry.logged_date === selectedDateRef.current) {
-      setTodayLog(prev => (
-        prev.some(existing => existing.id === entry.id)
-          ? prev
-          : [...prev, entry].sort(
-            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
-          )
-      ));
-    }
-    setMutationError(t('food.delete_failed'));
-  };
-
-  const commitDelete = async ({ id, entry }: { id: string; entry: FoodLogEntry }) => {
-    try {
-      const { data, error } = await supabase
-        .from('food_log')
-        .delete()
-        .eq('id', id)
-        .select('id')
-        .maybeSingle();
-      if (error || !data) {
-        restoreDeletedEntry(entry);
-      }
-    } catch {
-      restoreDeletedEntry(entry);
-    }
-  };
-
-  // F3: Undo delete — soft delete with 5s timeout
+  // F3: Undo delete. MealSlotCard hands us an id; resolve it to the row snapshot
+  // the durable delete hook needs (persist now, verified Undo restores).
   const deleteEntry = (id: string) => {
     const entry = todayLog.find(e => e.id === id);
-    if (!entry) return;
-    setMutationError(null);
-
-    // Cancel any previous pending delete
-    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
-    if (pendingDelete) {
-      void commitDelete(pendingDelete);
-    }
-
-    // Soft-delete from UI
-    setTodayLog(prev => prev.filter(e => e.id !== id));
-    setPendingDelete({ id, entry });
-
-    // Hard-delete after 5 seconds
-    undoTimerRef.current = setTimeout(() => {
-      setPendingDelete(cur => (cur?.id === id ? null : cur));
-      void commitDelete({ id, entry });
-    }, 5000);
+    if (entry) requestDelete(entry);
   };
 
-  // W13: which slot card renders this entry — mirrors groupBySlot's routing.
-  const slotIdForEntry = (entry: FoodLogEntry): string | null => {
-    const mt = entry.meal_type || 'snack';
-    let slotId: string | undefined;
-    if (mt === 'snack') {
-      slotId = new Date(entry.created_at).getHours() < 14 ? 'snack_am' : 'snack_pm';
-    } else if (mt === 'pre_workout' || mt === 'post_workout') {
-      slotId = 'snack_pm';
-    } else {
-      slotId = slots.find(s => s.mealType === mt)?.id;
-    }
-    return slotId && slots.some(s => s.id === slotId) ? slotId : null;
-  };
-
-  const undoDelete = () => {
-    if (!pendingDelete) return;
-    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
-    setTodayLog(prev => [...prev, pendingDelete.entry].sort(
-      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-    ));
-    // W13: flash the restored entry's slot card gold once (flywheel-editor vocabulary)
-    const slotId = slotIdForEntry(pendingDelete.entry);
-    if (slotId) {
-      if (slotFlashTimerRef.current) clearTimeout(slotFlashTimerRef.current);
-      setSlotFlash({ slotId, key: Date.now() });
-      slotFlashTimerRef.current = setTimeout(() => setSlotFlash(null), 900);
-    }
-    setPendingDelete(null);
-  };
-
-  // Batch undo — "Logged N items — Undo" for 10s after a multi-item AI log.
-  const registerBatch = useCallback((ids: string[]) => {
-    if (batchTimerRef.current) clearTimeout(batchTimerRef.current);
-    setPendingBatch({ ids, key: Date.now() });
-    batchTimerRef.current = setTimeout(() => setPendingBatch(null), 10000);
-  }, []);
-
-  const undoBatch = async () => {
-    if (!pendingBatch) return;
-    if (batchTimerRef.current) clearTimeout(batchTimerRef.current);
-    const ids = pendingBatch.ids;
-    setPendingBatch(null);
-    setMutationError(null);
-    const { data, error } = await supabase
-      .from('food_log')
-      .delete()
-      .in('id', ids)
-      .select('id');
-    if (error || !data || data.length !== ids.length) {
-      setMutationError(t('food.delete_failed'));
-    }
-    await loadTodayLog();
-  };
+  // W13: which slot card renders this entry — the shared, time-free routing.
+  const slotIdForEntry = (entry: FoodLogEntry): string | null =>
+    slotIdForEntryOf(entry, slots);
 
   useEffect(() => {
     if (!mutationError) return;
@@ -688,11 +621,16 @@ export default function FoodLogPage() {
     return () => window.clearTimeout(timer);
   }, [mutationError]);
 
-  useEffect(() => () => {
-    if (batchTimerRef.current) clearTimeout(batchTimerRef.current);
-    if (pillDeltaTimerRef.current) clearTimeout(pillDeltaTimerRef.current);
-    if (slotFlashTimerRef.current) clearTimeout(slotFlashTimerRef.current);
-    if (emberTimerRef.current) clearTimeout(emberTimerRef.current);
+  useEffect(() => {
+    // Re-assert on (re)mount: React Strict Mode runs the cleanup between the two
+    // dev-mode mounts, so a one-way flag would permanently disable loading.
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (pillDeltaTimerRef.current) clearTimeout(pillDeltaTimerRef.current);
+      if (slotFlashTimerRef.current) clearTimeout(slotFlashTimerRef.current);
+      if (emberTimerRef.current) clearTimeout(emberTimerRef.current);
+    };
   }, []);
 
   // W8: the streak-qualifying event — TODAY's entry count crossing ≥3 — ignites
@@ -754,7 +692,7 @@ export default function FoodLogPage() {
         carbs_g: entry.carbs_g ?? 0,
         fat_g: entry.fat_g ?? 0,
         fiber_g: entry.fiber_g ?? 0,
-        sugar_g: entry.sugar_g ?? 0,
+        sugar_g: entry.sugar_g ?? null,
       }];
     }
     setFavorites(newFavs);
@@ -762,13 +700,14 @@ export default function FoodLogPage() {
   };
 
   // F5: Quick-log a favorite
-  const logFavorite = async (fav: FavoriteFood, mealType: MealType) => {
+  const logFavorite = async (fav: FavoriteFood, slot: MealSlot) => {
     if (!userId) return;
     setMutationError(null);
     const entry = {
       user_id: userId,
       logged_date: selectedDate,
-      meal_type: mealType,
+      meal_type: slot.mealType,
+      meal_slot: canonicalSlotForMealSlot(slot),
       food_name: fav.food_name,
       quantity: 1,
       unit: 'serving',
@@ -826,6 +765,9 @@ export default function FoodLogPage() {
         user_id: userId,
         logged_date: selectedDate,
         meal_type: e.meal_type,
+        // Copying to another day never re-derives the slot: carry the source
+        // row's explicit slot (null stays null -> honest generic bucket).
+        meal_slot: e.meal_slot ?? null,
         food_name: e.food_name,
         quantity: e.quantity,
         unit: e.unit,
@@ -890,6 +832,9 @@ export default function FoodLogPage() {
         user_id: userId,
         logged_date: selectedDate,
         meal_type: mealType,
+        // Coach quick-log knows the coarse meal only — store it as the generic
+        // slot (no AM/PM guess).
+        meal_slot: mealType,
         food_name: rec.food,
         quantity: 1,
         unit: 'serving',
@@ -1130,7 +1075,7 @@ export default function FoodLogPage() {
                   key={fav.food_name}
                   onClick={() => {
                     const nextSlot = slots.find(s => grouped[s.id].length === 0 && !skippedSlots.has(s.id));
-                    if (nextSlot) logFavorite(fav, nextSlot.mealType);
+                    if (nextSlot) logFavorite(fav, nextSlot);
                   }}
                   className="min-h-11 min-w-11 flex-shrink-0 px-2.5 py-1 rounded-full bg-[var(--surface-2)] hover:bg-[var(--surface-hover)] border border-[var(--border-subtle)] text-[var(--content-secondary)] text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                 >
@@ -1548,7 +1493,7 @@ export default function FoodLogPage() {
       <AnimatePresence>
         {showSlotConfig && (
           <MealSlotConfig
-            slots={slots}
+            slots={baseSlots}
             onSave={(newSlots) => {
               setCustomSlots(newSlots);
               localStorage.setItem('trophe_meal_slots', JSON.stringify(newSlots));

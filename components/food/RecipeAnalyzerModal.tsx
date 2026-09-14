@@ -5,11 +5,12 @@ import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X, ChefHat, Loader2, Check } from 'lucide-react';
 import { Icon } from '@/components/ui';
-import { useI18n } from '@/lib/i18n';
+import { useFoodI18n as useI18n } from '@/components/food/useFoodI18n';
 import { supabase } from '@/lib/supabase';
 import type { MealType } from '@/lib/types';
 import { MACRO_COLORS } from '@/lib/macro-colors';
 import type { RecipeAnalyzeOutput } from '@/agents/schemas/recipe-analyze';
+import { RECIPE_ANALYZE_MAX_INPUT_CHARS } from '@/agents/schemas/recipe-analyze';
 
 interface RecipeAnalyzerModalProps {
   userId: string;
@@ -20,12 +21,25 @@ interface RecipeAnalyzerModalProps {
   onLogged: () => void;
 }
 
-const MEAL_OPTIONS: { value: MealType; label: string; icon: string }[] = [
-  { value: 'breakfast', label: 'Breakfast', icon: 'i-sun'    },
-  { value: 'lunch',     label: 'Lunch',     icon: 'i-bowl'   },
-  { value: 'dinner',    label: 'Dinner',    icon: 'i-moon'   },
-  { value: 'snack',     label: 'Snack',     icon: 'i-apple'  },
+const MEAL_OPTIONS: { value: MealType; icon: string }[] = [
+  { value: 'breakfast', icon: 'i-sun'    },
+  { value: 'lunch',     icon: 'i-bowl'   },
+  { value: 'dinner',    icon: 'i-moon'   },
+  { value: 'snack',     icon: 'i-apple'  },
 ];
+/** /api/food/recipe-analyze accepts these language hints; anything else → 'en'. */
+const RECIPE_LANGUAGES = new Set(['en', 'es', 'el', 'fr']);
+/**
+ * Stable error codes from /api/food/recipe-analyze → localized copy. Raw
+ * pipeline internals stay server-side; the client renders friendly text only.
+ */
+const RECIPE_ERROR_KEYS: Record<string, string> = {
+  ai_busy: 'food.err_ai_busy',
+  try_rephrase: 'food.err_try_rephrase',
+  too_long: 'food.err_too_long',
+  rate_limited: 'food.err_rate_limited',
+  timeout: 'food.err_timeout',
+};
 const focusableSelector = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 function trapFocus(event: ReactKeyboardEvent<HTMLElement>, container: HTMLElement | null) {
   if (event.key !== 'Tab' || !container) return;
@@ -44,7 +58,7 @@ export default function RecipeAnalyzerModal({
   onClose,
   onLogged,
 }: RecipeAnalyzerModalProps) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const reducedMotion = useReducedMotion();
   const dialogRef = useRef<HTMLDivElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
@@ -60,6 +74,13 @@ export default function RecipeAnalyzerModal({
 
   async function analyze() {
     if (!text.trim() || analyzing) return;
+    // The server refuses (never truncates) text past its supported bound; mirror
+    // it here so an over-long recipe gets localized copy instead of a silently
+    // different (smaller) recipe's nutrition.
+    if (text.trim().length > RECIPE_ANALYZE_MAX_INPUT_CHARS) {
+      setError(t('food.err_too_long', { max: RECIPE_ANALYZE_MAX_INPUT_CHARS }));
+      return;
+    }
     setAnalyzing(true);
     setError(null);
     setResult(null);
@@ -70,12 +91,13 @@ export default function RecipeAnalyzerModal({
       const res = await fetch('/api/food/recipe-analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, servings, language: 'en' }),
+        body: JSON.stringify({ text, servings, language: RECIPE_LANGUAGES.has(lang) ? lang : 'en' }),
         signal: controller.signal,
       });
       if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(body.error || `Analyzer returned ${res.status}`);
+        const body = (await res.json().catch(() => ({}))) as { code?: string; error?: string };
+        const key = body.code ? RECIPE_ERROR_KEYS[body.code] : undefined;
+        throw new Error(key ? t(key, { max: RECIPE_ANALYZE_MAX_INPUT_CHARS }) : (body.error || t('food.recipe_analysis_failed')));
       }
       const data = (await res.json()) as RecipeAnalyzeOutput;
       setResult(data);
@@ -84,7 +106,7 @@ export default function RecipeAnalyzerModal({
       if (err instanceof DOMException && err.name === 'AbortError') {
         setError(t('food.recipe_timeout'));
       } else {
-        setError(err instanceof Error ? err.message : 'Analysis failed');
+        setError(err instanceof Error ? err.message : t('food.recipe_analysis_failed'));
       }
     } finally {
       clearTimeout(timeout);
@@ -101,7 +123,7 @@ export default function RecipeAnalyzerModal({
         user_id: userId,
         logged_date: selectedDate,
         meal_type: mealType,
-        food_name: `${result.recipe_name} (${logServings} serving${logServings !== 1 ? 's' : ''})`,
+        food_name: `${result.recipe_name} (${logServings} ${t(logServings === 1 ? 'food.unit.serving_one' : 'food.unit.serving_other')})`,
         quantity: logServings,
         unit: 'serving',
         calories: Math.round(ps.calories * logServings),
@@ -173,7 +195,7 @@ export default function RecipeAnalyzerModal({
             ref={dialogRef}
             role="dialog"
             aria-modal="true"
-            aria-label="Analyze recipe"
+            aria-label={t('food.analyze_recipe')}
             tabIndex={-1}
             onKeyDown={(event) => trapFocus(event, dialogRef.current)}
             initial={reducedMotion ? false : { opacity: 0, y: 40 }}
@@ -185,9 +207,9 @@ export default function RecipeAnalyzerModal({
             <div className="sticky top-0 z-10 flex items-center justify-between p-4 border-b border-[var(--border-default)]" style={{ background: 'var(--surface-overlay)' }}>
               <div className="flex items-center gap-2">
                 <ChefHat size={18} className="text-[var(--action-primary)]" />
-                <h3 className="font-semibold text-[var(--content-primary)]">Analyze recipe</h3>
+                <h3 className="font-semibold text-[var(--content-primary)]">{t('food.analyze_recipe')}</h3>
               </div>
-              <button onClick={handleClose} aria-label="Close recipe analyzer" className="text-[var(--content-muted)] hover:text-[var(--content-secondary)] min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
+              <button onClick={handleClose} aria-label={t('food.recipe_close_aria')} className="text-[var(--content-muted)] hover:text-[var(--content-secondary)] min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
                 <X size={18} />
               </button>
             </div>
@@ -198,20 +220,25 @@ export default function RecipeAnalyzerModal({
                 <>
                   <div>
                     <label className="text-xs text-[var(--content-muted)] mb-1.5 block uppercase tracking-wider">
-                      Paste recipe
+                      {t('food.recipe_paste_label')}
                     </label>
                     <textarea
                       value={text}
+                      maxLength={RECIPE_ANALYZE_MAX_INPUT_CHARS}
                       onChange={(e) => setText(e.target.value)}
                       placeholder={'Greek chicken salad\nServes: 4\n\nIngredients:\n- 500g chicken breast\n- 200g feta\n- 2 tomatoes\n- 2 tbsp olive oil'}
                       className="input-dark w-full min-h-[180px] font-mono text-[13px] resize-none text-base"
                       disabled={analyzing}
                     />
+                    {/* Live counter — the server refuses (not truncates) past the limit. */}
+                    <div className="mt-1 text-right text-xs tabular-nums text-[var(--content-muted)]">
+                      {text.length}/{RECIPE_ANALYZE_MAX_INPUT_CHARS}
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-3">
                     <label htmlFor="recipe-servings-yielded" className="text-xs text-[var(--content-muted)] uppercase tracking-wider">
-                      Servings yielded
+                      {t('food.recipe_servings_yielded')}
                     </label>
                     <input
                       id="recipe-servings-yielded"
@@ -239,10 +266,10 @@ export default function RecipeAnalyzerModal({
                     {analyzing ? (
                       <>
                         <Loader2 size={16} className="animate-spin" />
-                        Analyzing…
+                        {t('food.recipe_analyzing')}
                       </>
                     ) : (
-                      'Analyze recipe'
+                      t('food.recipe_analyze_action')
                     )}
                   </button>
                 </>
@@ -252,35 +279,35 @@ export default function RecipeAnalyzerModal({
               {result && (
                 <>
                   <div className="space-y-1">
-                    <p className="text-xs text-[var(--content-muted)] uppercase tracking-wider">Recipe</p>
+                    <p className="text-xs text-[var(--content-muted)] uppercase tracking-wider">{t('food.recipe_heading')}</p>
                     <h4 className="text-base font-semibold text-[var(--content-primary)]">{result.recipe_name}</h4>
                     <p className="text-xs text-[var(--content-muted)]">
-                      {result.servings} serving{result.servings !== 1 ? 's' : ''} · {result.ingredients.length} ingredient{result.ingredients.length !== 1 ? 's' : ''}
+                      {t('food.recipe_meta', { servings: result.servings, ingredients: result.ingredients.length })}
                     </p>
                   </div>
 
                   {/* Per-serving card — the hero */}
                   <div className="rounded-xl p-4 border border-[var(--border-focus)]/20" style={{ background: 'var(--surface-1)' }}>
                     <div className="flex items-baseline justify-between mb-2">
-                      <span className="text-xs text-[var(--content-muted)] uppercase tracking-wider">Per serving</span>
-                      <span className="text-xl font-bold text-[var(--action-primary)]">{result.per_serving.calories}<span className="text-xs text-[var(--content-muted)] font-normal ml-1">kcal</span></span>
+                      <span className="text-xs text-[var(--content-muted)] uppercase tracking-wider">{t('food.per_serving')}</span>
+                      <span className="text-xl font-bold text-[var(--action-primary)]">{result.per_serving.calories}<span className="text-xs text-[var(--content-muted)] font-normal ml-1">{t('general.kcal')}</span></span>
                     </div>
                     <div className="grid grid-cols-4 gap-2 text-center">
                       <div>
                         <div className="text-sm font-bold" style={{ color: MACRO_COLORS.protein }}>{result.per_serving.protein_g}g</div>
-                        <div className="text-xs text-[var(--content-muted)]">Protein</div>
+                        <div className="text-xs text-[var(--content-muted)]">{t('food.edit.protein')}</div>
                       </div>
                       <div>
                         <div className="text-sm font-bold" style={{ color: MACRO_COLORS.carbs }}>{result.per_serving.carbs_g}g</div>
-                        <div className="text-xs text-[var(--content-muted)]">Carbs</div>
+                        <div className="text-xs text-[var(--content-muted)]">{t('food.edit.carbs')}</div>
                       </div>
                       <div>
                         <div className="text-sm font-bold" style={{ color: MACRO_COLORS.fat }}>{result.per_serving.fat_g}g</div>
-                        <div className="text-xs text-[var(--content-muted)]">Fat</div>
+                        <div className="text-xs text-[var(--content-muted)]">{t('food.edit.fat')}</div>
                       </div>
                       <div>
                         <div className="text-sm font-bold" style={{ color: MACRO_COLORS.fiber }}>{result.per_serving.fiber_g}g</div>
-                        <div className="text-xs text-[var(--content-muted)]">Fiber</div>
+                        <div className="text-xs text-[var(--content-muted)]">{t('food.edit.fiber')}</div>
                       </div>
                     </div>
                   </div>
@@ -288,7 +315,7 @@ export default function RecipeAnalyzerModal({
                   {/* Total recipe — secondary */}
                   <details className="rounded-lg border border-[var(--border-default)] bg-[var(--surface-2)]">
                     <summary className="cursor-pointer px-3 py-2 text-xs text-[var(--content-secondary)] flex items-center justify-between">
-                      <span>Total ({result.servings} servings)</span>
+                      <span>{t('food.recipe_total', { n: result.servings })}</span>
                       <span className="text-[var(--content-secondary)]">{result.total.calories} kcal · P{result.total.protein_g} C{result.total.carbs_g} F{result.total.fat_g}</span>
                     </summary>
                   </details>
@@ -298,7 +325,7 @@ export default function RecipeAnalyzerModal({
                     onClick={() => setShowIngredients(!showIngredients)}
                     className="w-full text-left text-xs text-[var(--content-muted)] hover:text-[var(--content-secondary)] flex items-center justify-between min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                   >
-                    <span>{showIngredients ? 'Hide' : 'Show'} ingredient breakdown</span>
+                    <span>{t(showIngredients ? 'food.recipe_hide_breakdown' : 'food.recipe_show_breakdown')}</span>
                     <span>{showIngredients ? '▲' : '▼'}</span>
                   </button>
                   {showIngredients && (
@@ -318,7 +345,7 @@ export default function RecipeAnalyzerModal({
                   <div className="pt-3 border-t border-[var(--border-default)] space-y-3">
                     <div>
                       <label className="text-xs text-[var(--content-muted)] uppercase tracking-wider mb-1.5 block">
-                        How many servings did you eat?
+                        {t('food.recipe_servings_question')}
                       </label>
                       <div className="flex items-center gap-3">
                         <input
@@ -341,7 +368,7 @@ export default function RecipeAnalyzerModal({
 
                     <div>
                       <label className="text-xs text-[var(--content-muted)] uppercase tracking-wider mb-1.5 block">
-                        Meal
+                        {t('food.recipe_meal_label')}
                       </label>
                       <div className="grid grid-cols-4 gap-1.5">
                         {MEAL_OPTIONS.map((opt) => (
@@ -355,7 +382,7 @@ export default function RecipeAnalyzerModal({
                             }`}
                           >
                             <div><Icon name={opt.icon as Parameters<typeof Icon>[0]['name']} size={16} /></div>
-                            <div>{opt.label}</div>
+                            <div>{t(`food.${opt.value}`)}</div>
                           </button>
                         ))}
                       </div>
@@ -373,7 +400,7 @@ export default function RecipeAnalyzerModal({
                         className="btn-ghost text-xs min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                         disabled={logging}
                       >
-                        Edit recipe
+                        {t('food.recipe_edit')}
                       </button>
                       <button
                         onClick={logRecipe}
@@ -381,7 +408,7 @@ export default function RecipeAnalyzerModal({
                         className="btn-gold text-xs flex items-center justify-center gap-2 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                       >
                         {logging ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-                        Log
+                        {t('food.recipe_log')}
                       </button>
                     </div>
                   </div>

@@ -1,6 +1,8 @@
-import { workoutAnalyticsNl } from './workout-analytics';
+import { workoutAnalyticsNl } from './workout-analytics-overlays';
 
 export const nl: Record<string, string> = {
+  'food.restore_failed': 'Het herstel kon niet worden bevestigd. Controleer het bijgewerkte voedingsdagboek.',
+  'food.recipe_analysis_failed': 'De analyse is mislukt — probeer het opnieuw',
   'install.faster_access': 'Installeer voor snellere toegang.',
   'workout.home_status_label': 'Status van de training van vandaag', 'workout.home_source_label': 'Bron', 'workout.home_readiness_label': 'Gereedheid', 'workout.home_next_step_label': 'Volgende stap', 'workout.home_schedule': 'Schema', 'workout.home_schedule_empty': 'Er staat geen coachsessie gepland. Stel een training samen die vandaag past.', 'workout.home_explore_plan': 'Verkennen en plannen', 'workout.home_find_exercise': 'Oefening zoeken', 'workout.home_plan_cardio': 'Cardio plannen', 'workout.home_training_progress': 'Trainingsvoortgang', 'workout.home_saved_plans': 'Opgeslagen plannen', 'workout.home_recent_progress': 'Recente voortgang',
   'workout.home_loading_title': 'Training van vandaag laden', 'workout.home_loading_body': 'Coachtoewijzing en aanbeveling worden gecontroleerd voordat acties beschikbaar zijn.', 'workout.home_recovered_active': 'Je actieve sessie is hersteld. Je vastgelegde werk staat er nog.', 'workout.home_recovered_completed': 'Je voltooide sessie kan worden bekeken.', 'workout.home_recovered_draft': 'Je opgeslagen concept is beschikbaar op dit apparaat.', 'workout.home_build_today': 'Training voor vandaag maken', 'workout.home_source_in_progress': 'Training bezig', 'workout.home_source_completed': 'Voltooide training', 'workout.home_source_saved': 'Je opgeslagen concept', 'workout.home_source_coach': 'Toegewezen door coach', 'workout.home_source_recommended': 'Aanbevolen door Trophē', 'workout.home_source_open': 'Vrije training', 'workout.home_ready_resume': 'Klaar om te hervatten', 'workout.home_ready_recovered': 'Sessie hersteld', 'workout.home_ready_draft': 'Concept opgeslagen', 'workout.home_ready_review': 'Klaar om te bekijken', 'workout.home_ready_build': 'Klaar om te maken', 'workout.home_cardio_session': 'Cardiosessie', 'workout.home_choose_exercises': 'Kies je oefeningen', 'workout.home_review_plan': 'Plan bekijken', 'workout.home_build_workout': 'Training samenstellen', 'workout.home_coach_schedule': 'Coachschema', 'workout.home_adaptive_plan': 'Adaptief plan', 'workout.home_later_today': 'Later vandaag', 'workout.home_next': 'Volgende', 'workout.home_coach_workout': 'Coachtraining', 'workout.home_recommended_workout': 'Aanbevolen training', 'workout.home_workout_draft': 'Trainingsconcept',
@@ -334,6 +336,22 @@ export const nl: Record<string, string> = {
   'food.invalid_entry': 'Deze maaltijd bevat een ongeldige waarde — controleer hem en probeer opnieuw',
   'food.manual_entry': 'Handmatig invoeren',
   'food.quick_add': 'Snel toevoegen',
+  'food.manual_name_placeholder': "Naam van het voedsel (optioneel)",
+  'food.manual_kcal_label': "kcal *",
+  'food.parse_failed_connection': "Voedsel kon niet worden geanalyseerd — controleer je verbinding",
+  'food.photo_timeout': "Foto-analyse duurde te lang — probeer opnieuw",
+  'food.photo_failed_connection': "Foto kon niet worden geanalyseerd — controleer je verbinding",
+  'food.photo_invalid_type': "Kies een afbeeldingsbestand.",
+  'food.answer_aria': "Beantwoord de verduidelijkingsvraag",
+  'food.answer_submit_aria': "Antwoord verzenden en opnieuw analyseren",
+  'food.quick_submit_aria': "Maaltijd analyseren",
+  'food.add_more': "Meer toevoegen",
+  'food.add_note_placeholder': "Notitie over deze maaltijd toevoegen...",
+  'food.add_note_aria': "Notitie toevoegen",
+  'food.community_data': "Communitygegevens",
+  'food.photo_pick_aria': "Foto maken of uploaden",
+  'food.barcode_scan_aria': "Streepjescode scannen",
+  'food.quick_add_fallback': "Snel toegevoegd — {kcal} kcal",
   'food.remaining': '{n} kcal over',
   'food.over_budget': '{n} kcal te veel',
   'food.streak': '{n} dagen reeks',
@@ -745,6 +763,10 @@ export const nl: Record<string, string> = {
 
   // ── Guided workout ──
   'workout.program_today': '{program} · Vandaag',
+  'workout.your_workout': 'Je training',
+  'workout.editorial_equipment': 'Illustratie van apparatuur',
+  'workout.muscle_map': 'Je spierkaart',
+  'workout.train_now': 'Nu trainen',
   'workout.start_workout': 'Training starten',
   'workout.loading': 'Laden…',
   'workout.also_today': 'Ook vandaag',
@@ -1142,6 +1164,7 @@ export const nl: Record<string, string> = {
   'food.edit.sugar': 'Suiker',
   'food.edit.save': 'Opslaan',
   'food.edit.saveQuantity': 'Hoeveelheid opslaan',
+  'food.edit.quantity_aria': 'Hoeveelheid in {unit}',
   'food.edit.invalid': 'Controleer de gewijzigde waarden voordat je opslaat',
   'food.edit.failed': 'Deze wijziging is niet opgeslagen — probeer opnieuw',
   'food.edit.decreaseGrams': 'Gram verlagen',

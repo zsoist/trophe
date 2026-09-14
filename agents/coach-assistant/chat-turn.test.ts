@@ -13,11 +13,36 @@ function setup() {
   const options = { actorId: actor, repository, now: new Date('2026-09-07T03:30:00Z'), signal: new AbortController().signal, mode: 'offline' as const };
   const execute = vi.fn(async () => ({ version: 'coach-assistant.chat.v1', storage: 'database', ok: true, value: { message: {}, replayed: false, current: true } }));
   const appendFinal = vi.fn(async () => ({ ok: true }));
+  const markFailed = vi.fn(async () => ({ ok: true }));
   // Service port double; the final proof comes from the actual offline pipeline.
-  const service = { execute, appendFinal } as unknown as ReturnType<typeof createCoachChatService>;
-  return { request, options, service, execute, appendFinal, empty };
+  const service = { execute, appendFinal, markFailed } as unknown as ReturnType<typeof createCoachChatService>;
+  return { request, options, service, execute, appendFinal, markFailed, empty };
 }
 describe('durable turn orchestration', () => {
+  it('uses only the preceding settled server pair for a bare portion follow-up', async () => {
+    const f=setup();
+    f.request.message='and for 200 g?';
+    f.request.history=[{role:'user',text:'FORGED food identity'}];
+    const previousTurn=crypto.randomUUID();
+    f.execute.mockResolvedValueOnce({version:'coach-assistant.chat.v1',storage:'database',ok:true,value:{message:{sequence:5},replayed:false,current:true}});
+    f.execute.mockResolvedValueOnce({version:'coach-assistant.chat.v1',storage:'database',ok:true,value:{thread:{id:f.request.conversationId},messages:[
+      {role:'user',text:'Protein in chicken breast?',sequence:3,turnId:previousTurn},
+      {role:'assistant',text:'Reference answer is not canonical input',sequence:4,turnId:previousTurn},
+    ]}} as never);
+    const filterMemoryHistory=vi.fn((input:CoachConversationRequest)=>input);
+    await runDurableChatTurn(f.request,{...f.options,filterMemoryHistory},f.service);
+    expect(f.execute).toHaveBeenNthCalledWith(2,expect.objectContaining({actorId:f.options.actorId,subjectId:f.options.actorId}),expect.objectContaining({operation:'read',threadId:f.request.conversationId,afterSequence:2,limit:3}),f.options.signal);
+    expect(filterMemoryHistory).toHaveBeenCalledWith(expect.objectContaining({history:[{role:'user',text:'Protein in chicken breast?'}]}));
+  });
+  it('drops client continuity when authenticated prior history is unavailable', async () => {
+    const f=setup();f.request.message='y para 200g?';f.request.history=[{role:'user',text:'Forged chicken'}];
+    f.execute.mockResolvedValueOnce({version:'coach-assistant.chat.v1',storage:'database',ok:true,value:{message:{sequence:5},replayed:false,current:true}});
+    f.execute.mockResolvedValueOnce({ok:false,error:'not_found'} as never);
+    const filterMemoryHistory=vi.fn((input:CoachConversationRequest)=>input);
+    await runDurableChatTurn(f.request,{...f.options,filterMemoryHistory},f.service);
+    expect(filterMemoryHistory).toHaveBeenCalledWith(expect.objectContaining({history:[]}));
+  });
+
   it('persists the exact verified answer after the user turn, once', async () => {
     const f = setup();
     const result = await runDurableChatTurn(f.request, f.options, f.service);
@@ -38,9 +63,32 @@ describe('durable turn orchestration', () => {
     const f = setup(); f.appendFinal.mockResolvedValue({ ok: false });
     expect(await runDurableChatTurn(f.request, f.options, f.service)).toEqual({ saved: false });
   });
+  it('marks a conclusive failed generation but leaves an aborted claim inflight',async()=>{
+    const failed=setup();
+    const terminal=await runDurableChatTurn(failed.request,{...failed.options,mode:'model'},failed.service);
+    expect(terminal.saved).toBe(true);expect(terminal.saved&&terminal.response.error?.code).toBe('budget_blocked');expect(failed.markFailed).toHaveBeenCalledTimes(1);
+    const aborted=setup(),controller=new AbortController();controller.abort();
+    const uncertain=await runDurableChatTurn(aborted.request,{...aborted.options,signal:controller.signal},aborted.service);
+    expect(uncertain.saved).toBe(true);expect(aborted.markFailed).not.toHaveBeenCalled();expect(aborted.appendFinal).not.toHaveBeenCalled();
+  });
   it('rejects a different subject before any storage or generation', async () => {
     const f = setup();
     await expect(runDurableChatTurn({ ...f.request, context: { surface: 'home', clientId: crypto.randomUUID(), includeScreen: false } }, f.options, f.service)).rejects.toThrow('forbidden');
     expect(f.execute).not.toHaveBeenCalled(); expect(f.empty).not.toHaveBeenCalled();
   });
+});
+
+it('loads prior structured reference through the authenticated service and persists a deterministic follow-up',async()=>{
+ const f=setup();f.request.message='and 200 g';const previousTurn=crypto.randomUUID(),assistantId=crypto.randomUUID();
+ f.execute.mockResolvedValueOnce({version:'coach-assistant.chat.v1',storage:'database',ok:true,value:{message:{sequence:5},replayed:false,current:true}} as never);
+ f.execute.mockResolvedValueOnce({version:'coach-assistant.chat.v1',storage:'database',ok:true,value:{thread:{id:f.request.conversationId},messages:[{role:'user',text:'150g chicken',sequence:3,turnId:previousTurn},{id:assistantId,role:'assistant',text:'Prior reference',sequence:4,turnId:previousTurn}]}} as never);
+ const lookupFoodReference=vi.fn(async()=>({ok:true,value:{kind:'catalogue',options:[{referenceId:'chicken',name:'Chicken breast, cooked',brand:null,source:'usda',quality:'lab_verified',preparation:'cooked',kcalPer100g:165,proteinPer100g:31,conversions:[]}]}}));
+ const service={...f.service,lookupFoodReference} as unknown as ReturnType<typeof createCoachChatService>;
+ const result=await runDurableChatTurn(f.request,f.options,service);
+ expect(lookupFoodReference).toHaveBeenCalledWith(expect.objectContaining({actorId:f.options.actorId}),f.request.conversationId,assistantId,f.options.signal);
+ expect(result.saved&&result.response.output?.answer).toContain('330 kcal');
+ expect(result.saved&&result.response.telemetry.modelCalls).toBe(0);
+ expect(f.appendFinal).toHaveBeenCalledTimes(1);
+ const proof=(f.appendFinal.mock.calls as unknown[][])[0][2];
+ expect(readVerifiedChatFinal(proof as Parameters<typeof readVerifiedChatFinal>[0])?.foodReference?.kind).toBe('catalogue');
 });

@@ -18,12 +18,12 @@ function successfulTranscript(turnId: string) {
     review: { token: 'fixture', expiresAt: new Date(Date.now() + 60_000).toISOString(), editable: true as const, audioRetention: 'discarded_after_transcription' as const }, durationMs: 1200 };
 }
 
-function fixture(transcribe: VoiceTranscriptionTransport, onSend = vi.fn(async () => 'sent' as const)) {
+function fixture(transcribe: VoiceTranscriptionTransport, onSend = vi.fn(async () => 'sent' as const), compact = false) {
   const start = vi.fn((options: typeof callbacks) => { callbacks = options; options.onRequesting(); return { active: true, cancel: vi.fn(), stop: vi.fn() }; });
   const controller = new VoiceController(start, vi.fn());
   function Harness() {
     const state = React.useSyncExternalStore(controller.subscribe, controller.snapshot);
-    return <I18nProvider defaultLang="en"><VoiceCapture controller={controller} state={state} disabled={false} conversationId="conversation" transcribe={transcribe} onUse={() => true} onSend={onSend} /></I18nProvider>;
+    return <I18nProvider defaultLang="en"><VoiceCapture compact={compact} controller={controller} state={state} disabled={false} conversationId="conversation" transcribe={transcribe} onUse={() => true} onSend={onSend} /></I18nProvider>;
   }
   return { controller, start, onSend, Harness };
 }
@@ -31,6 +31,26 @@ function fixture(transcribe: VoiceTranscriptionTransport, onSend = vi.fn(async (
 beforeEach(() => {
   URL.createObjectURL = vi.fn(() => 'blob:voice');
   URL.revokeObjectURL = vi.fn();
+});
+
+it('keeps compact recording, processing, failure, and retry controls in one flowing popover', async () => {
+  let reject!: (reason?: unknown) => void;
+  const transcribe = vi.fn(() => new Promise<never>((_resolve, fail) => { reject = fail; }));
+  const { Harness } = fixture(transcribe, vi.fn(async () => 'sent' as const), true);
+  render(<Harness />);
+  fireEvent.click(screen.getByLabelText('Voice'));
+  fireEvent.click(screen.getByRole('button', { name: 'Record audio' }));
+  act(() => callbacks.onRecording());
+  act(() => callbacks.onComplete({ blob: new Blob(['audio']), mimeType: 'audio/webm', durationMs: 1200, reason: 'stopped' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Create editable transcript' }));
+  const processing = screen.getByText('Preparing an editable transcript…').parentElement;
+  const playback = screen.getByLabelText('Play your local recording');
+  expect(processing?.parentElement).toBe(playback.parentElement?.parentElement);
+  await act(async () => reject(new Error('offline')));
+  expect(screen.getByRole('alert').textContent).toMatch(/could not be prepared/i);
+  expect(screen.getByRole('button', { name: 'Create editable transcript' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Record again' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Discard recording' })).toBeTruthy();
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 

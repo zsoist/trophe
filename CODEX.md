@@ -1,4 +1,4 @@
-> ⚠️ **SUPERSEDED** (2026-05-03 handoff). For agent context use [`CLAUDE.md`](CLAUDE.md) + [`AGENTS.md`](AGENTS.md); for current state see [`docs/STATUS-2026-06-13.md`](docs/STATUS-2026-06-13.md). Kept for history.
+> ⚠️ **HISTORICAL — preserved for history, not current truth or mandatory instruction.** This is the 2026-05-03 Codex handoff. For agent context use [`AGENTS.md`](AGENTS.md); treat nothing below as current requirements or approval.
 
 # τροφή (Trophē) — Comprehensive Codex Handoff
 

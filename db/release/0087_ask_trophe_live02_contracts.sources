@@ -1,0 +1,6 @@
+1b069b4a2cacbe9766a417c161001ad6df1ab2abe743c73553ce9f5f92685722  db/isolated/coach-durable-actions.sql
+145bb2f708ddf844f7cb25e0c3c0aeb6d843eaa210388207e8e224baadac89a2  db/isolated/coach-food-actions.sql
+b36bd277fb05ce1319845eb83bfb714ca6405d3e4b79f1432ccfce65a25b0eb0  db/isolated/coach-private-attachments.sql
+1d6b4791df3a5818142399d111d4153cde2b606cd45dfa831ea473c7b81a74b2  db/isolated/coach-chat.sql
+9ce2f803e6e79b2b012b5ee9b26f66aeef8e45cc18487dca3cf53ebdac256d6d  db/isolated/coach-photo-food-actions.sql
+e674ffa26d5de62295416a8f2aee5805ccd38c694f78ef4744428eb5e7f4c766  db/isolated/coach-photo-food-observations.sql

@@ -90,7 +90,8 @@ describe('ExerciseInfoSheet', () => {
     render(React.createElement(ExerciseInfoSheet, { exercise, userId: null, onClose: vi.fn() }));
 
     expect(screen.getByLabelText('Barbell Bench Press technique demonstration')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Pause demonstration' })).toBeTruthy();
+    // V2: the sheet opens on the poster; playback requires an explicit action.
+    expect(screen.getByRole('button', { name: 'Play demonstration' })).toBeTruthy();
     expect(screen.queryByText('No exact demo yet')).toBeNull();
     expect(screen.getByRole('heading', { name: 'Technique guidance' })).toBeTruthy();
     expect(screen.getByText(/Plant your feet/)).toBeTruthy();

@@ -19,6 +19,12 @@ const validFood = {
 };
 
 describe('photo analysis normalization', () => {
+  it('reads legacy identity as unassessed without modifying the original and rejects malformed statuses', () => {
+    expect(normalizePhotoAnalysisFoods([validFood])[0].identity_status).toBe('unassessed');
+    expect(validFood).not.toHaveProperty('identity_status');
+    expect(normalizePhotoAnalysisFoods(['confirmed', 1, {toString:()=> 'identified'}].map(identity_status=>({...validFood,identity_status})))).toEqual([]);
+    expect(normalizePhotoAnalysisFoods([{...validFood,identity_status:'uncertain',accuracy_note:'Could be pear or potato; please clarify.'}])[0]).toMatchObject({identity_status:'uncertain',accuracy_note:'Could be pear or potato; please clarify.'});
+  });
   it('drops malformed items independently and clamps unanchored confidence', () => {
     expect(normalizePhotoAnalysisFoods([
       null,
@@ -29,6 +35,7 @@ describe('photo analysis normalization', () => {
     ])).toEqual([
       {
         ...validFood,
+        identity_status: 'unassessed',
         confidence: 0.75,
       },
     ]);

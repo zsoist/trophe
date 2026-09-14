@@ -21,6 +21,7 @@ export class FoodQuantityController {
   private deadline: ReturnType<typeof setTimeout> | null = null;
   private conversationId = '';
   private action: Extract<FoodQuantityOperation, { operation: 'food.apply' }> | null = null;
+  private dismissedIntents = new Set<string>();
   snapshot = () => this.state;
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   private publish(state: FoodState) { this.state = state; this.listeners.forEach(listener => listener()); }
@@ -45,6 +46,7 @@ export class FoodQuantityController {
   }
   async activate(intentId: string, conversationId: string, previousGrams: number, targetGrams: number, transport: FoodTransport, entryHintId?: string | null, loggedDateHint?: string | null) {
     if (this.action || this.state.pending) return false;
+    if (this.dismissedIntents.has(intentId)) return false;
     if (this.state.intentId === intentId) return true;
     if (!/^[a-f0-9]{64}$/.test(intentId) || ![previousGrams, targetGrams].every(value => Number.isFinite(value) && value > 0 && value <= 10_000)
       || previousGrams === targetGrams || entryHintId !== undefined && entryHintId !== null && !exactUuid(entryHintId)
@@ -80,7 +82,14 @@ export class FoodQuantityController {
     this.publish({ ...this.state, proposal: null, receipt: null });
     await this.execute({ ...this.header(), operation: 'food.propose', entryId: this.state.entry.entryId, resourceVersion: this.state.entry.version, after: { grams } }, transport);
   }
-  discard() { if (!this.state.pending && !this.action) this.publish({ ...this.state, proposal: null, error: null }); }
+  discard() {
+    if (this.state.pending || this.action) return;
+    if (this.state.proposal && this.state.intentId) {
+      this.dismissedIntents.add(this.state.intentId);
+      if (this.dismissedIntents.size > 32) this.dismissedIntents.delete(this.dismissedIntents.values().next().value!);
+    }
+    this.publish({ ...this.state, proposal: null, error: null });
+  }
   async apply(transport: FoodTransport) {
     const proposal = this.state.proposal;
     if (!proposal || this.state.pending || this.action || this.state.receipt) return;

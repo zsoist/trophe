@@ -1,6 +1,8 @@
-import { workoutAnalyticsFr } from './workout-analytics';
+import { workoutAnalyticsFr } from './workout-analytics-overlays';
 
 export const fr: Record<string, string> = {
+  'food.restore_failed': 'La restauration n’a pas pu être confirmée. Consultez le journal alimentaire actualisé.',
+  'food.recipe_analysis_failed': 'L’analyse a échoué — veuillez réessayer',
   'install.faster_access': 'Installez-la pour un accès plus rapide.',
   'workout.home_status_label': 'État de l’entraînement du jour', 'workout.home_source_label': 'Source', 'workout.home_readiness_label': 'Préparation', 'workout.home_next_step_label': 'Étape suivante', 'workout.home_schedule': 'Programme', 'workout.home_schedule_empty': 'Aucune séance du coach n’est prévue. Créez un entraînement adapté à aujourd’hui.', 'workout.home_explore_plan': 'Explorer et planifier', 'workout.home_find_exercise': 'Trouver un exercice', 'workout.home_plan_cardio': 'Planifier le cardio', 'workout.home_training_progress': 'Progression', 'workout.home_saved_plans': 'Plans enregistrés', 'workout.home_recent_progress': 'Progression récente',
   'workout.home_loading_title': 'Chargement de l’entraînement du jour', 'workout.home_loading_body': 'Vérification de l’affectation du coach et de la recommandation avant d’activer les actions.', 'workout.home_recovered_active': 'Votre séance active a été restaurée. Vos données sont toujours là.', 'workout.home_recovered_completed': 'Votre séance terminée est prête à être consultée.', 'workout.home_recovered_draft': 'Votre brouillon enregistré est disponible sur cet appareil.', 'workout.home_build_today': 'Créer l’entraînement du jour', 'workout.home_source_in_progress': 'Entraînement en cours', 'workout.home_source_completed': 'Entraînement terminé', 'workout.home_source_saved': 'Votre brouillon enregistré', 'workout.home_source_coach': 'Attribué par le coach', 'workout.home_source_recommended': 'Recommandé par Trophē', 'workout.home_source_open': 'Entraînement libre', 'workout.home_ready_resume': 'Prêt à reprendre', 'workout.home_ready_recovered': 'Séance restaurée', 'workout.home_ready_draft': 'Brouillon enregistré', 'workout.home_ready_review': 'Prêt à vérifier', 'workout.home_ready_build': 'Prêt à créer', 'workout.home_cardio_session': 'Séance cardio', 'workout.home_choose_exercises': 'Choisissez vos exercices', 'workout.home_review_plan': 'Vérifier le plan', 'workout.home_build_workout': 'Créer un entraînement', 'workout.home_coach_schedule': 'Programme du coach', 'workout.home_adaptive_plan': 'Plan adaptatif', 'workout.home_later_today': 'Plus tard aujourd’hui', 'workout.home_next': 'Suivant', 'workout.home_coach_workout': 'Entraînement du coach', 'workout.home_recommended_workout': 'Entraînement recommandé', 'workout.home_workout_draft': 'Brouillon d’entraînement',
@@ -334,6 +336,22 @@ export const fr: Record<string, string> = {
   'food.invalid_entry': 'Ce repas contient une valeur non valide — vérifie-le et réessaie',
   'food.manual_entry': 'Saisir manuellement',
   'food.quick_add': 'Ajout rapide',
+  'food.manual_name_placeholder': "Nom de l’aliment (facultatif)",
+  'food.manual_kcal_label': "kcal *",
+  'food.parse_failed_connection': "Impossible d’analyser l’aliment — vérifiez votre connexion",
+  'food.photo_timeout': "L’analyse de la photo a expiré — réessayez",
+  'food.photo_failed_connection': "Impossible d’analyser la photo — vérifiez votre connexion",
+  'food.photo_invalid_type': "Veuillez choisir un fichier image.",
+  'food.answer_aria': "Répondez à la question de clarification",
+  'food.answer_submit_aria': "Envoyer la réponse et relancer l’analyse",
+  'food.quick_submit_aria': "Analyser le repas",
+  'food.add_more': "Ajouter plus",
+  'food.add_note_placeholder': "Ajouter une note sur ce repas...",
+  'food.add_note_aria': "Ajouter une note",
+  'food.community_data': "Données communautaires",
+  'food.photo_pick_aria': "Prendre ou importer une photo",
+  'food.barcode_scan_aria': "Scanner un code-barres",
+  'food.quick_add_fallback': "Ajout rapide — {kcal} kcal",
   'food.remaining': '{n} kcal restantes',
   'food.over_budget': '{n} kcal en excès',
   'food.streak': 'Série de {n} jours',
@@ -745,6 +763,10 @@ export const fr: Record<string, string> = {
 
   // ── Guided workout ──
   'workout.program_today': "{program} · Aujourd'hui",
+  'workout.your_workout': 'Ton entraînement',
+  'workout.editorial_equipment': 'Illustration du matériel',
+  'workout.muscle_map': 'Ta carte musculaire',
+  'workout.train_now': 'S’entraîner maintenant',
   'workout.start_workout': "Démarrer l'entraînement",
   'workout.loading': 'Chargement…',
   'workout.also_today': "Aussi aujourd'hui",
@@ -1142,6 +1164,7 @@ export const fr: Record<string, string> = {
   'food.edit.sugar': 'Sucre',
   'food.edit.save': 'Enregistrer',
   'food.edit.saveQuantity': 'Enregistrer la quantité',
+  'food.edit.quantity_aria': 'Quantité en {unit}',
   'food.edit.invalid': 'Vérifie les valeurs modifiées avant d’enregistrer',
   'food.edit.failed': 'Cette modification n’a pas été enregistrée — réessaie',
   'food.edit.decreaseGrams': 'Réduire les grammes',

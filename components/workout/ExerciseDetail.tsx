@@ -14,6 +14,7 @@ import { equipmentLabel, exerciseDisplayName } from './muscle-groups';
 import { ExerciseMediaBadge } from './ExerciseMediaBadge';
 import { ExerciseMotion } from './ExerciseMotion';
 import { MuscleAtlas } from './MuscleAtlas';
+import './workout-exploration-v2.css';
 
 interface HistoryEntry { date: string; topWeightKg: number | null; topReps: number | null; sets: number }
 interface GuidanceSections { setup: string[]; execution: string[]; breathing: string[]; mistakes: string[] }
@@ -105,10 +106,13 @@ export function ExerciseDetail({
 }: ExerciseDetailProps) {
   const { t, lang } = useI18n();
   const [unit] = useWeightUnit();
-  const [history, setHistory] = useState<HistoryEntry[] | null>(userId ? null : []);
-  const [historyError, setHistoryError] = useState(false);
   const [historyRequest, setHistoryRequest] = useState(0);
   const requestKey = `${userId ?? 'guest'}:${exercise.id}:${historyRequest}`;
+  // Evidence is keyed by the request identity so a late response never paints the
+  // previous exercise's history while the new one is still loading.
+  const [historyState, setHistoryState] = useState<{ requestKey: string; entries: HistoryEntry[] | null; error: boolean }>({ requestKey, entries: userId ? null : [], error: false });
+  const history = historyState.requestKey === requestKey ? historyState.entries : userId ? null : [];
+  const historyError = historyState.requestKey === requestKey ? historyState.error : false;
   const [prState, setPrState] = useState<{ requestKey: string; value: number | null }>({ requestKey, value: null });
   const pr = prState.requestKey === requestKey ? prState.value : null;
   const name = exerciseDisplayName(exercise, lang);
@@ -140,8 +144,7 @@ export function ExerciseDetail({
     let active = true;
     queueMicrotask(() => {
       if (!active) return;
-      setHistory(null);
-      setHistoryError(false);
+      setHistoryState({ requestKey, entries: null, error: false });
       setPrState({ requestKey, value: null });
     });
     void (async () => {
@@ -158,8 +161,7 @@ export function ExerciseDetail({
         .limit(120);
       if (!active) return;
       if (error) {
-        setHistoryError(true);
-        setHistory([]);
+        setHistoryState({ requestKey, entries: [], error: true });
         setPrState({ requestKey, value: null });
         return;
       }
@@ -174,8 +176,7 @@ export function ExerciseDetail({
         byDate.set(date, [...(byDate.get(date) ?? []), row]);
       }
       setPrState({ requestKey, value: best > 0 ? best : null });
-      setHistoryError(false);
-      setHistory([...byDate.entries()]
+      setHistoryState({ requestKey, error: false, entries: [...byDate.entries()]
         .sort(([a], [b]) => b.localeCompare(a))
         .slice(0, 3)
         .map(([date, dateRows]) => {
@@ -183,16 +184,18 @@ export function ExerciseDetail({
             row.weight_kg !== null && (current === null || row.weight_kg > (current.weight_kg ?? 0)) ? row : current
           ), null);
           return { date, topWeightKg: top?.weight_kg ?? null, topReps: top?.reps ?? null, sets: dateRows.length };
-        }));
+        })});
     })();
     return () => { active = false; };
   }, [exercise.id, historyRequest, requestKey, userId]);
 
   return (
-    <article className={`exercise-detail exercise-detail--${presentation} ${className}`}>
+    <article className={`wk2 exercise-detail exercise-detail--${presentation} ${className}`}>
       <section className="exercise-detail__hero" aria-label={t('workout.detail_instruction_title')}>
         <div className="exercise-detail__media-meta"><ExerciseMediaBadge media={media} /></div>
-        <ExerciseMotion media={media} alt={mediaAlt} autoplay={hasExactMotion} playbackDisabled={playbackDisabled} />
+        {/* V2: the poster is the resting state. Exact motion starts only on an
+            explicit user play — never on route mount or selection. */}
+        <ExerciseMotion media={media} alt={mediaAlt} playbackDisabled={playbackDisabled} />
       </section>
 
       <header className="exercise-detail__identity">
@@ -287,14 +290,17 @@ export function ExerciseDetail({
       {onAdd || alternateAction ? (
         <div className="exercise-detail__action">
           {onAdd ? (
-            <button type="button" disabled={isAdded} aria-label={isAdded ? t('workout.exercise_added_named', { name }) : actionAriaLabel ?? t('workout.picker_add_named', { name })} onClick={() => onAdd(exercise)} className="btn-gold">
-              {isAdded ? <Check size={18} aria-hidden="true" /> : <Plus size={18} aria-hidden="true" />}
-              {isAdded ? t('workout.exercise_added') : actionLabel ?? t('workout.picker_add')}
+            <button type="button" disabled={isAdded} aria-label={isAdded ? t('workout.exercise_added_named', { name }) : actionAriaLabel ?? t('workout.picker_add_named', { name })} onClick={() => onAdd(exercise)} className="wk2-cta">
+              <span>{isAdded ? t('workout.exercise_added') : actionLabel ?? t('workout.picker_add')}</span>
+              <span className="wk2-cta__core" aria-hidden="true">{isAdded ? <Check size={18} aria-hidden="true" /> : <Plus size={18} aria-hidden="true" />}</span>
             </button>
           ) : (
             <div>
               <p>{alternateAction?.message ?? t('workout.exercise_requires_strength_draft')}</p>
-              <button type="button" onClick={alternateAction?.onClick} className="btn-gold">{alternateAction?.label}</button>
+              <button type="button" onClick={alternateAction?.onClick} className="wk2-cta">
+                <span>{alternateAction?.label}</span>
+                <span className="wk2-cta__core" aria-hidden="true"><Plus size={18} aria-hidden="true" /></span>
+              </button>
             </div>
           )}
         </div>

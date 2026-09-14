@@ -1,9 +1,13 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
 const mocks = vi.hoisted(() => ({
   guardAiRoute: vi.fn(),
   run: vi.fn(),
+  gate: vi.fn(() => ({ok:true,pilotId:'pilot',store:{}})),
+  transport: vi.fn(),
+  provider: vi.fn(),
+  complete: vi.fn(),
   annotateGenerationMetadata: vi.fn(),
 }));
 
@@ -12,6 +16,14 @@ vi.mock('@/agents/food-parse', () => ({ run: mocks.run }));
 vi.mock('@/agents/runtime/persistence', () => ({
   annotateGenerationMetadata: mocks.annotateGenerationMetadata,
 }));
+
+vi.mock('@/db/client',()=>({db:{}}));
+vi.mock('@/lib/workout/pilot-budget-service',()=>({createPilotBudgetStore:vi.fn(()=>({}))}));
+vi.mock('@/lib/workout/shared-pilot-budget',()=>({createSharedPilotBudgetRuntime:mocks.gate}));
+vi.mock('@/agents/coach-assistant/governed-transport',()=>({createGovernedCoachTransport:mocks.transport}));
+vi.mock('@/agents/runtime/providers/structured',()=>({invokeStructuredProvider:vi.fn()}));
+vi.mock('@/agents/coach-assistant/text-food-parser',()=>({TEXT_FOOD_PROMPT_VERSION:'test-food',createTextFoodParserTransport:()=>({providerTransport:mocks.provider,assertComplete:mocks.complete})}));
+afterEach(()=>vi.unstubAllEnvs());
 
 import { POST } from '@/app/api/food/parse/route';
 
@@ -192,4 +204,24 @@ describe('POST /api/food/parse', () => {
       apiOutcome: 'malformed',
     });
   });
+});
+
+
+it.each(['production','preview'])('admits deployed %s Food through shared per-phase transport', async environment => {
+ vi.stubEnv('VERCEL_ENV',environment);
+ mocks.guardAiRoute.mockResolvedValue({ok:true,userId:'actor',rateLimitBypassed:false});
+ mocks.transport.mockReturnValue({transport:mocks.provider});
+ mocks.run.mockResolvedValue({ok:true,output:{items:[]},telemetry:{rawStatus:200}});
+ const response=await POST(request({text:'egg',language:'en'},{'x-request-id':'00000000-0000-4000-8000-000000000003'}));
+ expect(response.status).toBe(200);
+ expect(mocks.transport).toHaveBeenCalledWith(expect.objectContaining({turnId:'00000000-0000-4000-8000-000000000003',reservationProfile:'food_parse'}));
+ expect(mocks.run).toHaveBeenCalledWith(expect.anything(),expect.objectContaining({providerTransport:mocks.provider,maxProviderAttempts:1,allowSchemaRepair:false}));
+ expect(mocks.complete).toHaveBeenCalled();
+});
+it('rejects denied deployed Food before invoking its parser', async()=>{
+ vi.clearAllMocks();vi.stubEnv('VERCEL_ENV','production');
+ mocks.guardAiRoute.mockResolvedValue({ok:true,userId:'actor',rateLimitBypassed:false});
+ mocks.gate.mockReturnValueOnce({ok:false,pilotId:'',store:{}});
+ expect((await POST(request({text:'egg',language:'en'}))).status).toBe(503);
+ expect(mocks.run).not.toHaveBeenCalled();
 });

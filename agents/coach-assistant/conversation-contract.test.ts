@@ -5,6 +5,8 @@ const input = { version:'coach-assistant.v2',conversationId:'a2c5ec63-6f35-4671-
 describe('shared conversation contract', () => {
   it('accepts open text and a bounded follow-up without a legacy intent', () => {
     expect(conversationRequestSchema.safeParse({...input,history:[{role:'user',text:'What did I record today?'}],context:{surface:'food',includeScreen:true}}).success).toBe(true);
+    expect(conversationRequestSchema.safeParse({...input,context:{surface:'food',includeScreen:true,screenDate:'2026-09-10'}}).success).toBe(true);
+    expect(conversationRequestSchema.safeParse({...input,context:{surface:'food',includeScreen:true,screenDate:'2026-02-30'}}).success).toBe(false);
     expect(requestSchema.safeParse({message:'Week?',intent:'week'}).success).toBe(true);
   });
   it.each(['messages','intake','booking','supplements','form_check'] as const)('accepts the additive %s surface without executable fields',surface=>{

@@ -51,6 +51,7 @@ function persisted(setNumber: number, isWarmup: boolean, id = `${isWarmup ? 'war
 async function openCalculatorForRow(index = 0) {
   fireEvent.click((await screen.findAllByRole('button', { name: 'More exercise options' }))[index]);
   fireEvent.click(screen.getByRole('button', { name: 'Plate calculator' }));
+  await screen.findByRole('button', { name: 'Add warm-up sets' });
 }
 
 beforeEach(() => {
@@ -71,6 +72,13 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
+function expandSetRows() {
+  for (const button of document.querySelectorAll<HTMLButtonElement>('.exercise-set-summary[aria-expanded="false"]')) fireEvent.click(button);
+}
+function setLabels() {
+  return screen.getAllByRole('article').map(row => row.querySelector('p')?.textContent);
+}
+
 describe('LiveWorkout warm-up real consumer', () => {
   it('keeps the real completed working set reachable through its compact path', async () => {
     api.loadWorkoutSessionSets.mockResolvedValueOnce({ ok: true, sets: [persisted(1, false)] });
@@ -78,6 +86,7 @@ describe('LiveWorkout warm-up real consumer', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Exercise 1, completed' }));
     const current = await screen.findByRole('button', { name: 'Exercise 1, current' });
     expect(current.closest('li')?.getAttribute('aria-current')).toBe('step');
+    expandSetRows();
     expect(screen.getByRole('button', { name: 'Undo set' })).toBeTruthy();
   });
 
@@ -93,8 +102,13 @@ describe('LiveWorkout warm-up real consumer', () => {
       fireEvent.change(screen.getByLabelText('Weight in lb'), { target: { value: '220' } });
       fireEvent.change(screen.getByLabelText('Reps'), { target: { value: '8' } });
       fireEvent.click(screen.getByRole('button', { name: 'Complete set' }));
+      // The accepted-set UI is produced by a promise continuation. Fake timers
+      // do not flush React's scheduler, so settle that continuation inside act
+      // (same idiom as the resume step below) before asserting the row state.
+      await act(async () => {});
       await vi.advanceTimersByTimeAsync(0);
-      expect(screen.getByRole('button', { name: 'Undo set' })).toBeTruthy();
+      expandSetRows();
+    expect(screen.getByRole('button', { name: 'Undo set' })).toBeTruthy();
 
       await vi.advanceTimersByTimeAsync(7_000);
       const elapsedBeforePause = Number(screen.getByRole('timer').textContent?.match(/· (\d+)s/)?.[1]);
@@ -152,6 +166,7 @@ describe('LiveWorkout warm-up real consumer', () => {
     // The transport invocation precedes the component's mutation-barrier
     // release; wait for the accepted-set UI before opening another control.
     fireEvent.click(await screen.findByRole('button', { name: 'Exercise 1, completed' }));
+    expandSetRows();
     await screen.findByRole('button', { name: 'Undo set' });
     await openCalculatorForRow();
     fireEvent.click(screen.getByRole('button', { name: 'Add warm-up sets' }));
@@ -184,7 +199,7 @@ describe('LiveWorkout warm-up real consumer', () => {
     await vi.waitFor(() => expect(screen.getAllByRole('article')).toHaveLength(5));
     expect(screen.getAllByLabelText('Weight in lb').slice(-2).map((input) => (input as HTMLInputElement).value)).toEqual(['220', '150']);
     expect(screen.getAllByLabelText('Reps').slice(-2).map((input) => (input as HTMLInputElement).value)).toEqual(['8', '6']);
-    expect(screen.getAllByText(/Set [1-5]/).map((item) => item.textContent)).toEqual(['Set 1', 'Set 2', 'Set 3', 'Set 4', 'Set 5']);
+    expect(setLabels()).toEqual(['Set 1', 'Set 2', 'Set 3', 'Set 4', 'Set 5']);
   });
 
   it('materializes a manually completed warm-up without lending its database identity to shifted work rows', async () => {
@@ -199,6 +214,7 @@ describe('LiveWorkout warm-up real consumer', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'Complete set' })[0]);
 
     await vi.waitFor(() => expect(screen.getAllByRole('article')).toHaveLength(3));
+    expandSetRows();
     expect(screen.getAllByRole('button', { name: 'Undo set' })).toHaveLength(1);
     expect(screen.getAllByRole('button', { name: 'Complete set' })).toHaveLength(2);
     expect((screen.getAllByLabelText('Weight in lb')[1] as HTMLInputElement).value).toBe('');
@@ -212,7 +228,7 @@ describe('LiveWorkout warm-up real consumer', () => {
       { setNumber: 1, isWarmup: true },
       { setNumber: 2, isWarmup: false },
     ]);
-    await vi.waitFor(() => expect(screen.getAllByRole('button', { name: 'Undo set' })).toHaveLength(2));
+    await vi.waitFor(() => { expandSetRows(); expect(screen.getAllByRole('button', { name: 'Undo set' })).toHaveLength(2); });
     // Undo is locked for a short cooldown right after completion so a double-tap cannot undo the set just logged.
     await vi.waitFor(() => expect(screen.getAllByRole('button', { name: 'Undo set' })[1].hasAttribute('disabled')).toBe(false), { timeout: 2_000 });
     fireEvent.click(screen.getAllByRole('button', { name: 'Undo set' })[1]);
@@ -222,6 +238,7 @@ describe('LiveWorkout warm-up real consumer', () => {
     api.loadWorkoutSessionSets.mockResolvedValueOnce({ ok: true, sets: [persisted(1, true, 'warmup-1'), persisted(2, false, 'work-2')] });
     render(<LiveWorkout exercises={[bench]} />);
     await vi.waitFor(() => expect(screen.getAllByRole('article')).toHaveLength(3));
+    expandSetRows();
     expect(screen.getAllByRole('button', { name: 'Undo set' })).toHaveLength(2);
     expect(screen.getAllByRole('button', { name: 'Complete set' })).toHaveLength(1);
     expect(screen.getByRole('button', { name: 'Finish workout' }).hasAttribute('disabled')).toBe(false);
@@ -232,7 +249,7 @@ describe('LiveWorkout warm-up real consumer', () => {
     render(<LiveWorkout exercises={[bench]} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Exercise 1, completed' }));
     await vi.waitFor(() => expect(screen.getAllByRole('article')).toHaveLength(4));
-    expect(screen.getAllByText(/Set [1-4]/).map((item) => item.textContent)).toEqual(['Set 1', 'Set 2', 'Set 3', 'Set 4']);
+    expect(setLabels()).toEqual(['Set 1', 'Set 2', 'Set 3', 'Set 4']);
   });
 
   it('uses real recovery to retain genuine extra set five after the warm-up-prefixed work', async () => {
@@ -240,6 +257,6 @@ describe('LiveWorkout warm-up real consumer', () => {
     render(<LiveWorkout exercises={[bench]} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Exercise 1, completed' }));
     await vi.waitFor(() => expect(screen.getAllByRole('article')).toHaveLength(5));
-    expect(screen.getAllByText(/Set [1-5]/).map((item) => item.textContent)).toEqual(['Set 1', 'Set 2', 'Set 3', 'Set 4', 'Set 5']);
+    expect(setLabels()).toEqual(['Set 1', 'Set 2', 'Set 3', 'Set 4', 'Set 5']);
   });
 });

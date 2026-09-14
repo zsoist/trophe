@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X, Check, Minus, Plus, AlertTriangle, Camera, CornerDownLeft, PencilLine } from 'lucide-react';
-import { useI18n } from '@/lib/i18n';
+import { useFoodI18n as useI18n } from '@/components/food/useFoodI18n';
 import { MACRO_COLORS } from '@/lib/macro-colors';
 import { AnimatedValue } from '@/components/ui/AnimatedValue';
 import { ProvenanceRing, resolveTier, type ProvenanceTier } from '@/components/food/ProvenanceRing';
@@ -44,7 +44,18 @@ interface ParsedFoodListProps {
 }
 
 /** Volume units where we display ml/L/cl instead of grams */
-const VOLUME_UNITS = new Set(['ml', 'l', 'cl', 'fl_oz', 'fl oz']);
+const VOLUME_UNITS = new Set(['ml', 'l', 'cl', 'dl', 'fl_oz', 'fl oz']);
+/** Millilitres per display unit — the row's own unit sets the edit scale. */
+const VOLUME_ML_PER_UNIT: Record<string, number> = {
+  ml: 1,
+  cl: 10,
+  dl: 100,
+  l: 1_000,
+  fl_oz: 29.5735,
+  'fl oz': 29.5735,
+};
+/** One stepper tap moves ~50 ml, expressed in the row's display unit. */
+const VOLUME_STEP_ML = 50;
 const MAX_EDITABLE_GRAMS = 15_000;
 const subscribeToClient = () => () => {};
 const getClientSnapshot = () => true;
@@ -93,13 +104,36 @@ export function isVolumeUnit(unit: string): boolean {
   return VOLUME_UNITS.has(unit.toLowerCase());
 }
 
+/**
+ * Stepper increment in the row's own display unit. Millilitre rows step 50,
+ * centilitre rows 5, litre rows 0.05 — all ≈50 ml. The old code hard-coded 50
+ * display units, so a litre row stepped 50 L (collapsing to the 5 g floor).
+ */
+export function getVolumeStepAmount(unit: string): number {
+  const mlPerUnit = VOLUME_ML_PER_UNIT[unit.toLowerCase()] ?? 1;
+  const step = VOLUME_STEP_ML / mlPerUnit;
+  return step >= 1
+    ? Math.round(step * 100) / 100
+    : Math.round(step * 1_000) / 1_000;
+}
+
+/** Round a volume amount without flattening sub-unit values (0.33 l stays 0.33). */
+function roundVolumeDisplay(amount: number): number {
+  if (!Number.isFinite(amount)) return amount;
+  if (amount >= 10) return Math.round(amount);
+  if (amount >= 1) return Math.round(amount * 10) / 10;
+  return Math.round(amount * 100) / 100;
+}
+
 /** Get the display quantity for volume items (derived from gram ratio) */
 export function getDisplayQuantity(item: ParsedFoodItem): number {
   if (!isVolumeUnit(item.unit)) return item.grams;
   // Preserve the original quantity-to-grams ratio
   // e.g. 450ml coke → grams=450 (density ~1), display=450ml
   const gramsPerInputUnit = item.quantity > 0 ? item.grams / item.quantity : 1;
-  return Math.round(item.grams / gramsPerInputUnit);
+  // Sub-unit volumes (0.5 l, 0.33 l) must survive display — integer rounding
+  // used to turn a half-litre row into "1 l".
+  return roundVolumeDisplay(item.grams / gramsPerInputUnit);
 }
 
 // ── W4 "provenance passport" helpers ──
@@ -436,7 +470,7 @@ export default function ParsedFoodList({
       <div className="glass p-4 text-center">
         <p className="text-[var(--content-muted)] text-sm mb-3">{t('food.no_items')}</p>
         <button onClick={onCancel} className="btn-ghost text-sm px-4 py-2 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
-          Back
+          {t('food.back')}
         </button>
       </div>
     );
@@ -487,13 +521,15 @@ export default function ParsedFoodList({
               <motion.div
               key={`${item.food_name}-${index}`}
               layout
-              initial={{ opacity: 0, y: 14, scale: 0.97 }}
+              initial={reduceMotion ? false : { opacity: 0, y: 14, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, x: 24, height: 0, marginBottom: 0 }}
-              transition={{
-                type: 'spring', stiffness: 420, damping: 32,
-                delay: Math.min(index * 0.045, 0.35),
-              }}
+              exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: 24, height: 0, marginBottom: 0 }}
+              transition={reduceMotion
+                ? { duration: 0 }
+                : {
+                    type: 'spring', stiffness: 420, damping: 32,
+                    delay: Math.min(index * 0.045, 0.35),
+                  }}
               className={`portion-review-item glass${!item.portion_explicit ? ' border-l-2 border-[var(--status-warning-border)]' : ''}`}
             >
               <div className="flex items-start justify-between gap-2">
@@ -557,7 +593,7 @@ export default function ParsedFoodList({
                           </span>
                         )}
                         {item.db_source === 'off' && (
-                          <span className="text-xs text-[var(--content-muted)]">community data</span>
+                          <span className="text-xs text-[var(--content-muted)]">{t('food.community_data')}</span>
                         )}
                       </div>
                     );
@@ -578,7 +614,7 @@ export default function ParsedFoodList({
                   const vol = isVolumeUnit(item.unit);
                   const natural = naturalPortion;
                   const humanUnit = vol || natural;
-                  const step = vol ? 50 : natural ? 0.25 : 25;
+                  const step = vol ? getVolumeStepAmount(item.unit) : natural ? 0.25 : 25;
                   const displayVal = vol
                     ? getDisplayQuantity(item)
                     : natural
@@ -594,7 +630,8 @@ export default function ParsedFoodList({
                   const maxDisplay = humanUnit
                     ? getPortionDisplayAmount(MAX_EDITABLE_GRAMS, gramsPerDisplayUnit)
                     : MAX_EDITABLE_GRAMS;
-                  const minDisplay = natural ? 0.01 : 1;
+                  // Volume rows must accept sub-unit values (0.5 l, 0.33 l).
+                  const minDisplay = humanUnit ? 0.01 : 1;
 
                   // W5: only the stepper-touched row rolls its grams figure —
                   // typing (focus) suspends the overlay so the caret stays visible.
@@ -621,8 +658,8 @@ export default function ParsedFoodList({
                           <input
                             ref={(node) => { amountInputRefs.current[index] = node; }}
                             type="number"
-                            inputMode={natural ? 'decimal' : 'numeric'}
-                            step={natural ? 0.25 : 1}
+                            inputMode={humanUnit ? 'decimal' : 'numeric'}
+                            step={natural ? 0.25 : vol ? step : 1}
                             value={typingIndex === index
                               ? (amountDrafts[index] ?? String(displayVal))
                               : displayVal}
@@ -664,7 +701,7 @@ export default function ParsedFoodList({
                             >
                               <AnimatedValue
                               value={displayVal}
-                              decimals={natural ? 2 : 0}
+                              decimals={natural || vol ? 2 : 0}
                               duration={220}
                                 grouped={false}
                                 startAt={touchSeed}
@@ -847,13 +884,13 @@ export default function ParsedFoodList({
                   placeholder={t('food.answer_refine_placeholder')}
                   disabled={logging}
                   className="input-dark flex-1 text-xs py-1.5 text-base"
-                  aria-label="Answer the clarification question"
+                  aria-label={t('food.answer_aria')}
                 />
                 <button
                   onClick={submitClarification}
                   disabled={!clarifyAnswer.trim() || logging}
                   className="px-2.5 rounded-lg border border-[var(--status-warning-border)] text-[var(--status-warning-fg)] hover:bg-[var(--status-warning-bg)] disabled:opacity-40 transition-colors flex items-center min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-                  aria-label="Submit answer and re-analyze"
+                  aria-label={t('food.answer_submit_aria')}
                 >
                   <CornerDownLeft size={13} />
                 </button>
@@ -888,9 +925,9 @@ export default function ParsedFoodList({
 
       {/* F1: Body-level Save Bar — transformed meal cards must not capture fixed positioning. */}
       {canUseDom && createPortal(<motion.div
-        initial={{ y: 100, opacity: 0 }}
+        initial={reduceMotion ? false : { y: 100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+        transition={reduceMotion ? { duration: 0 } : { type: 'spring', damping: 25, stiffness: 300 }}
         className="portion-review-save-shell fixed bottom-24 left-0 right-0 z-50"
       >
         <div ref={saveBarRef} className="portion-review-save max-w-md mx-auto glass-elevated rounded-2xl border border-[#D4A853]/20 shadow-[0_-4px_24px_rgba(212,168,83,0.15)]">
@@ -900,31 +937,31 @@ export default function ParsedFoodList({
               <p className="portion-review-total-value portion-review-total-calories font-bold gold-text">
                 <AnimatedValue value={Math.round(totalCalories)} duration={220} grouped={false} />
               </p>
-              <p className="portion-review-total-label text-[var(--content-muted)]">kcal</p>
+              <p className="portion-review-total-label text-[var(--content-muted)]">{t('general.kcal')}</p>
             </div>
             <div>
               <p className="portion-review-total-value portion-review-total-protein font-bold" style={{ color: MACRO_COLORS.protein }}>
                 <AnimatedValue value={Math.round(totalProtein)} duration={220} grouped={false} />g
               </p>
-              <p className="portion-review-total-label text-[var(--content-muted)]">Protein</p>
+              <p className="portion-review-total-label text-[var(--content-muted)]">{t('food.edit.protein')}</p>
             </div>
             <div>
               <p className="portion-review-total-value portion-review-total-carbs font-bold" style={{ color: MACRO_COLORS.carbs }}>
                 <AnimatedValue value={Math.round(totalCarbs)} duration={220} grouped={false} />g
               </p>
-              <p className="portion-review-total-label text-[var(--content-muted)]">Carbs</p>
+              <p className="portion-review-total-label text-[var(--content-muted)]">{t('food.edit.carbs')}</p>
             </div>
             <div>
               <p className="portion-review-total-value portion-review-total-fat font-bold" style={{ color: MACRO_COLORS.fat }}>
                 <AnimatedValue value={Math.round(totalFat)} duration={220} grouped={false} />g
               </p>
-              <p className="portion-review-total-label text-[var(--content-muted)]">Fat</p>
+              <p className="portion-review-total-label text-[var(--content-muted)]">{t('food.edit.fat')}</p>
             </div>
             <div>
               <p className="portion-review-total-value portion-review-total-fiber font-bold" style={{ color: MACRO_COLORS.fiber }}>
                 <AnimatedValue value={Math.round(totalFiber)} duration={220} grouped={false} />g
               </p>
-              <p className="portion-review-total-label text-[var(--content-muted)]">Fiber</p>
+              <p className="portion-review-total-label text-[var(--content-muted)]">{t('food.edit.fiber')}</p>
             </div>
           </div>
 
@@ -944,7 +981,8 @@ export default function ParsedFoodList({
           <div className="flex gap-2">
             <button
               onClick={onCancel}
-              className="btn-ghost flex-shrink-0 py-3 px-4 text-sm min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+              disabled={logging}
+              className="btn-ghost flex-shrink-0 py-3 px-4 text-sm min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {t('general.cancel')}
             </button>

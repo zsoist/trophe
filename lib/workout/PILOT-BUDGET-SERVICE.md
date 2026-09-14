@@ -1,10 +1,22 @@
 # Persistent pilot accounting — isolated candidate
 
+LIVE-01 now evaluates a US$3 authorized ceiling and a US$2.70 admission target on
+the America/Bogota server day. The writer records an admission day per attempt,
+recomputes the active ledger atomically when the date changes, excludes only prior
+day settled usage, and retains every open reservation. The isolated configuration
+permits one shared Ask Trophē authority row. AG1 owns the canonical migration and
+hosted provisioning; AG3's isolated acceptance owns generated rows only and never
+drops the table or indexes.
+
 `createPilotBudgetStore` implements the coach port with the shared `agent_runs` table and one private configuration row per pilot. The caller identity comes from the server factory; the command cannot choose that authority. Each transaction locks configuration, rechecks allowed actors and current organization membership, validates every pilot record, and compares count/charge against the persisted aggregate before deciding. Missing or reclassified rows fail closed. Attempt IDs are globally unique; `agentRunId` is the same row ID/generation ID later used for reconciliation.
 
-The isolated configuration defaults to a zero cap. It is never provisioned from a request. Productive migrations, provider wiring and paid dispatch are absent. The pure entry point still denies at the effective US$0 cap.
+The isolated configuration defaults to a zero cap and is provisioned only by the
+guarded test/operator path. It is never provisioned from a request. Productive
+migrations and hosted provider wiring remain absent.
 
 Financial states remain in `metadata.coachPilot.state`. Existing `agent_runs.status` stays within its current constraint: reserved/dispatched/unknown → pending; settled measured usage → completed; released before dispatch → failed with `pilot_cancelled_before_dispatch` and zero estimated cost. Settlement here concerns usage accounting, not answer quality or approval. Other metadata is preserved. The measured runner must reuse this row rather than create a second generation.
+
+The `coach_pilot` row is the financial carrier for one governed modality attempt. Its `provider` mirrors the provider implied by the immutable model binding: OpenAI for Luna vision or transcription. Historical Haiku Photo rows remain parseable and settleable for audit/recovery, but the live router cannot issue them. The linked task-specific row remains the authoritative provider execution record. Rows created before this rule may retain the legacy `openai` carrier label; their model, binding metadata, linked task row, usage, and settlement establish the actual modality and provider.
 
 Unknown results retain their reservation. Supported measured overruns are charged and quarantine the pilot; unsupported usage is retained with an accounting alert. If the aggregate cannot fit the port's safe integer range, the transaction persists a pilot block and retains the prior reservation. That overflow branch does not claim the new usage/cost was recorded. No expiry or restart frees unknown charges.
 

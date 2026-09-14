@@ -1,4 +1,5 @@
 'use client';
+import '../../../app/dashboard/workout/workout-v2.css';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { AppHeader } from '../../../components/shared/AppHeader';
 import { ClientShell } from '../../../components/shared/ClientShell';

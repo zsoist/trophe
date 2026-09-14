@@ -38,7 +38,7 @@ const copy: Record<LandingLang, {
     hero_h1_accent: 'Eat better.',
     hero_sub: 'AI-powered food logging, personalized macro targets, and habit coaching — all in one app. Powered by science, built for athletes.',
     cta: 'Get Started Free',
-    cta2: 'I\'m a Coach',
+    cta2: 'Log in',
     features_tag: 'What you get today',
     features_title: 'Everything you need to master nutrition',
     how_tag: 'How it works',
@@ -57,7 +57,7 @@ const copy: Record<LandingLang, {
     hero_h1_accent: 'Come mejor.',
     hero_sub: 'Registro de comidas con IA, macros personalizados y coaching de hábitos — todo en una app. Basado en ciencia, hecho para atletas.',
     cta: 'Comenzar Gratis',
-    cta2: 'Soy Coach',
+    cta2: 'Iniciar sesión',
     features_tag: 'Lo que obtienes hoy',
     features_title: 'Todo lo que necesitas para dominar tu nutrición',
     how_tag: 'Cómo funciona',
@@ -76,7 +76,7 @@ const copy: Record<LandingLang, {
     hero_h1_accent: 'Τρώτε καλύτερα.',
     hero_sub: 'Καταγραφή τροφίμων με AI, εξατομικευμένοι στόχοι μακροθρεπτικών και coaching συνηθειών — όλα σε μία εφαρμογή.',
     cta: 'Ξεκινήστε Δωρεάν',
-    cta2: 'Είμαι Coach',
+    cta2: 'Σύνδεση',
     features_tag: 'Τι αποκτάτε σήμερα',
     features_title: 'Ό,τι χρειάζεστε για να κατακτήσετε τη διατροφή',
     how_tag: 'Πώς λειτουργεί',
@@ -265,39 +265,41 @@ export default function LandingPage({ lang }: { lang: LandingLang }) {
     >
       {/* ─── Navbar ─── */}
       <nav className="fixed left-0 right-0 top-0 z-50 border-b border-[var(--border-subtle)] bg-[var(--surface-overlay)]/95 backdrop-blur-xl">
-        <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between gap-2 px-3 sm:px-6">
+        <div className="mx-auto flex min-h-16 max-w-6xl items-center flex-wrap justify-between gap-2 px-3 py-2 sm:flex-nowrap sm:px-6">
           {/* Logo */}
           <span className="font-serif italic text-[#D4A853] text-xl tracking-tight select-none" aria-label="trophē">
             trophē
           </span>
 
           {/* Right side */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="ml-auto flex items-center gap-2 sm:gap-3">
             {/* Language */}
             <div className="[&_nav]:border-[var(--border-default)] [&_nav]:bg-[var(--surface-2)] [&_a]:inline-flex [&_a]:min-h-11 [&_a]:min-w-11 [&_a]:items-center [&_a]:justify-center [&_a]:text-xs [&_a]:text-[var(--content-muted)]">
               <LanguageLinks current={lang} />
             </div>
             <StandaloneThemeModeToggle />
+          </div>
+          <div className="flex w-full items-center gap-2 sm:w-auto sm:gap-3">
             <Link
               href="/login"
               prefetch={false}
-              className="hidden min-h-11 min-w-11 items-center justify-center px-2 text-sm font-medium text-[var(--content-secondary)] transition-colors hover:text-[var(--content-primary)] no-underline sm:inline-flex"
+              className="inline-flex min-h-11 min-w-11 flex-1 items-center justify-center rounded-lg border border-[var(--border-default)] px-4 text-sm font-medium text-[var(--content-primary)] transition-colors hover:bg-[var(--surface-2)] no-underline sm:flex-none"
             >
-              Log in
+              {{ en: 'Log in', es: 'Iniciar sesión', el: 'Σύνδεση' }[lang]}
             </Link>
             <Link
               href="/login?mode=signup"
               prefetch={false}
-              className="btn-gold inline-flex min-h-11 items-center rounded-lg px-3 text-center text-xs no-underline sm:px-4"
+              className="btn-gold inline-flex min-h-11 flex-1 items-center justify-center rounded-lg px-3 text-center text-sm no-underline sm:flex-none sm:px-4"
             >
-              {t.cta}
+              {{ en: 'Create account', es: 'Crear cuenta', el: 'Δημιουργία λογαριασμού' }[lang]}
             </Link>
           </div>
         </div>
       </nav>
 
       {/* ─── Hero ─── */}
-      <section className="relative pt-24 sm:pt-32 pb-8 sm:pb-12 px-6">
+      <section className="relative pt-36 sm:pt-32 pb-8 sm:pb-12 px-6">
         {/* Ambient glow */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[#D4A853] rounded-full opacity-[0.03] blur-[150px]" />

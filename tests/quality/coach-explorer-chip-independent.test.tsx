@@ -28,6 +28,7 @@ async function mount(mappings:string[]){
  const view=render(<I18nProvider defaultLang="en"><AnatomyExplorer workout initialGroup="chest" manifestUrl="/fixture-manifest.json"/><GlobalCoach identity="fixture-actor" example={transport}/></I18nProvider>);
  await screen.findByRole('button',{name:'Fixture mesh pick'});
  fireEvent.click(screen.getByRole('button',{name:'Ask Trophē'}));
+ fireEvent.click(screen.getByRole('button',{name:'Saved conversations'}));
  return {view,transport};
 }
 it('links real Explorer controls to emitted selection and the real removable chip, then clears whole body',async()=>{
@@ -36,20 +37,19 @@ it('links real Explorer controls to emitted selection and the real removable chi
  await waitFor(()=>expect((serratus as HTMLButtonElement).disabled).toBe(false));
  fireEvent.click(serratus);
  expect(screenSelectionSnapshot()?.anatomy).toMatchObject({group:'chest',subgroup:'serratus-anterior'});
- const chip=screen.getByRole('button',{name:'Remove screen selection: Serratus anterior'});expect(chip).toBeTruthy();
+ const chip=screen.getByRole('checkbox', { name: 'Include this screen · Serratus anterior' });expect(chip).toBeTruthy();
  fireEvent.click(chip);
- expect(screen.queryByRole('button',{name:'Remove screen selection: Serratus anterior'})).toBeNull();
- expect((screen.getByRole('checkbox',{name:/Include this screen/}) as HTMLInputElement).checked).toBe(false);
+ expect((chip as HTMLInputElement).checked).toBe(false);
  expect(transport).not.toHaveBeenCalled();
- fireEvent.click(screen.getByRole('checkbox',{name:/Include this screen/}));
+ fireEvent.click(chip);
  fireEvent.click(screen.getByRole('button',{name:'Groups'}));fireEvent.click(screen.getByRole('button',{name:'Whole body'}));
- expect(screenSelectionSnapshot()).toBeNull();expect(screen.queryByRole('button',{name:/Remove screen selection:/})).toBeNull();
+ expect(screenSelectionSnapshot()).toBeNull();expect(screen.getByRole('checkbox', { name: 'Include this screen · Muscle Atlas' })).toBeTruthy();
 });
 it.each([{mappings:[]},{mappings:['FMA13397','FMA34687']}])('clears emitted hint and chip when mesh callback resolves zero or multiple muscles: %j',async ({mappings})=>{
  const {transport}=await mount(mappings);
- expect(screen.getByRole('button',{name:'Remove screen selection: Chest'})).toBeTruthy();
+ expect(screen.getByRole('checkbox', { name: 'Include this screen · Chest' })).toBeTruthy();
  fireEvent.click(screen.getByRole('button',{name:'Fixture mesh pick'}));
  await waitFor(()=>expect(screenSelectionSnapshot()).toBeNull());
- expect(screen.queryByRole('button',{name:/Remove screen selection:/})).toBeNull();
+ expect(screen.getByRole('checkbox', { name: 'Include this screen · Muscle Atlas' })).toBeTruthy();
  expect(transport).not.toHaveBeenCalled();
 });

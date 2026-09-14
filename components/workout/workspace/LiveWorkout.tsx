@@ -3,9 +3,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { CheckCircle2, Plus, Square } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import ExerciseInfoSheet from '@/components/workout/ExerciseInfoSheet';
-import PainFlagModal from '@/components/workout/PainFlagModal';
-import PlateCalculator from '@/components/workout/PlateCalculator';
 import { ConfirmSheet } from '@/components/ui/ConfirmSheet';
 import { COACH_WORKOUT_SET_REFRESH, readWorkoutSetRefresh, type CoachWorkoutSetRefresh } from '@/components/assistant/workout-events';
 import { useWorkoutWorkspace } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
@@ -14,6 +13,7 @@ import { FinishWorkoutDialog, type FinishBlockedReason } from '@/components/work
 import { LiveCardio, type CardioLogValues } from '@/components/workout/workspace/LiveCardio';
 import { LiveExerciseStage } from '@/components/workout/workspace/LiveExerciseStage';
 import { LiveSessionPath } from '@/components/workout/workspace/LiveSessionPath';
+import { useRestTarget } from '@/components/workout/workspace/useRestTarget';
 import { exerciseDisplayName } from '@/components/workout/muscle-groups';
 import { useI18n } from '@/lib/i18n';
 import type { Exercise, PainFlag } from '@/lib/types';
@@ -37,11 +37,15 @@ import {
 } from '@/lib/workout/live-session';
 import { elapsedActiveMs } from '@/lib/workout/workspace-state';
 import { resetWorkoutScroll } from '@/lib/workout/workspace-routes';
-import { getRestTarget } from '@/lib/workout/rest-targets';
+import './workout-session-premium.css';
 
 import { supersetGroupFor } from '@/lib/workout/supersets';
 import { displayToKg, kgToDisplay, useWeightUnit } from '@/lib/workout/units';
 import type { PersistedWorkoutSet } from '@/components/workout/workout-persistence';
+
+const ExercisePicker = dynamic(() => import('@/components/workout/ExercisePicker'), { ssr: false });
+const PainFlagModal = dynamic(() => import('@/components/workout/PainFlagModal'), { ssr: false });
+const PlateCalculator = dynamic(() => import('@/components/workout/PlateCalculator'), { ssr: false });
 
 interface LiveWorkoutProps {
   exercises: Exercise[];
@@ -53,7 +57,13 @@ interface ExtraLoggerRow {
   exerciseId: string;
 }
 
-export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
+export function LiveWorkout(props: LiveWorkoutProps) {
+  const { state } = useWorkoutWorkspace();
+  // Transient edits, clocks and pending continuations belong to one actor/session.
+  return <LiveWorkoutSession key={`${props.userId ?? ''}:${state.sessionId ?? ''}`} {...props} />;
+}
+
+function LiveWorkoutSession({ exercises, userId = null }: LiveWorkoutProps) {
   const { t, lang } = useI18n();
   const workspace = useWorkoutWorkspace();
   const { state } = workspace;
@@ -66,6 +76,16 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
   const [painFlags, setPainFlags] = useState<PainFlag[]>([]);
   const [prMap, setPrMap] = useState<Record<string, number>>({});
   const [painExerciseId, setPainExerciseId] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [addingExercise, setAddingExercise] = useState(false);
+  const addInFlight = useRef(false);
+  const addTrigger = useRef<HTMLButtonElement>(null);
+  const addLifetime = useRef(0);
+  useLayoutEffect(() => {
+    addLifetime.current += 1;
+    addInFlight.current = false;
+    return () => { addLifetime.current += 1; };
+  }, [userId, state.sessionId]);
   const [infoExercise, setInfoExercise] = useState<Exercise | null>(null);
   const [plateContext, setPlateContext] = useState<{ exerciseId: string; weightKg: number } | null>(null);
   const warmupNumbersRef = useRef(new Map<string, { fingerprint: string; numbers: number[] }>());
@@ -386,6 +406,13 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
     ? draft.exercises.findIndex((exercise) => exercise.exerciseId === selectedExerciseId)
     : -1;
   const activeExerciseIndex = selectedExerciseIndex >= 0 ? selectedExerciseIndex : firstIncompleteIndex;
+  // Per-exercise rest override. Must run before the stage guards below so the
+  // hook order is stable across live/paused/finishing/completed renders. The
+  // plan prescription stays the fallback; an explicit override wins.
+  const activeRestExerciseId = draft?.kind === 'strength' ? draft.exercises[activeExerciseIndex]?.exerciseId ?? null : null;
+  const activeRestIsCompound = activeRestExerciseId ? exerciseById.get(activeRestExerciseId)?.is_compound ?? null : null;
+  const activeRestPlanSeconds = draft?.kind === 'strength' ? draft.exercises[activeExerciseIndex]?.restSeconds ?? null : null;
+  const restTarget = useRestTarget(activeRestExerciseId, activeRestIsCompound, activeRestPlanSeconds);
 
   if (!draft || !sessionId || (state.stage !== 'live' && state.stage !== 'paused' && state.stage !== 'finishing' && state.stage !== 'completed')) {
     return <main className="mx-auto max-w-2xl px-4 py-8"><p className="text-[var(--content-secondary)]">{t('workout.no_live_session')}</p></main>;
@@ -580,7 +607,44 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
     workspace.commitLiveStrengthStructure(nextExercises);
   };
 
-  const allExercisesComplete = firstIncompleteIndex === -1;
+  const appendExercise = async (exercise: Exercise) => {
+    if (addInFlight.current || mutationBlocked || structureVersion === null
+      || draft.exercises.some((item) => item.exerciseId === exercise.id)
+      || !exerciseById.has(exercise.id)) return;
+    const lifetime = addLifetime.current;
+    addInFlight.current = true;
+    setAddingExercise(true);
+    const nextExercises = [...draft.exercises, {
+      exerciseId: exercise.id, exerciseName: exerciseDisplayName(exercise, lang),
+      targetSets: 3, targetReps: '8-12', restSeconds: 90, targetRpe: null, notes: '',
+    }];
+    setPendingMutations((count) => count + 1);
+    try {
+      const result = await updateLiveStructure(sessionId, structureFor(nextExercises), structureVersion);
+      if (lifetime !== addLifetime.current) return;
+      if (!result.ok) throw new Error('structure-unconfirmed');
+      setStructureVersion(result.version);
+      // Keep the current logger mounted: adding another exercise must not erase
+      // its in-progress inputs or rest clock. The path exposes the new exercise.
+      setSelectedExerciseId(draft.exercises[activeExerciseIndex]?.exerciseId ?? exercise.id);
+      workspace.commitLiveStrengthStructure(nextExercises);
+    } catch {
+      if (lifetime !== addLifetime.current) return;
+      // An uncertain response may already be committed. Reconcile the canonical
+      // structure before permitting another append, rather than replaying it.
+      setFailedMutations((current) => new Set(current).add('append-exercise'));
+    } finally {
+      if (lifetime === addLifetime.current) {
+        addInFlight.current = false;
+        setAddingExercise(false);
+        setPendingMutations((count) => Math.max(0, count - 1));
+        setPickerOpen(false);
+        requestAnimationFrame(() => addTrigger.current?.focus());
+      }
+    }
+  };
+
+  const allExercisesComplete = draft.exercises.length > 0 && firstIncompleteIndex === -1;
   const activeDraftExercise = allExercisesComplete && selectedExerciseIndex < 0 ? null : draft.exercises[activeExerciseIndex] ?? null;
   const activeExercise = activeDraftExercise ? exerciseById.get(activeDraftExercise.exerciseId) : undefined;
   const activeResolved = activeExercise ?? (activeDraftExercise ? {
@@ -591,6 +655,9 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
     muscle_group: 'full_body',
   } : null);
   const activeRows = activeDraftExercise ? rows.filter((row) => row.exerciseId === activeDraftExercise.exerciseId) : [];
+  // The single set the athlete is on right now: the first row without a persisted
+  // set. Drives the featured current-set surface; other rows stay quiet.
+  const currentSetRowId = activeRows.find((row) => !persistedSets.some((set) => set.exercise_id === row.exerciseId && set.set_number === row.setNumber))?.id ?? null;
   const latestActiveSet = activeDraftExercise
     ? persistedSets.filter((set) => set.exercise_id === activeDraftExercise.exerciseId && !set.is_warmup)
       .sort((left, right) => Date.parse(right.created_at ?? '') - Date.parse(left.created_at ?? ''))[0]
@@ -599,6 +666,11 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
     ? `${latestActiveSet.weight_kg === null ? '—' : `${kgToDisplay(latestActiveSet.weight_kg, unit)} ${unit}`} × ${latestActiveSet.reps}`
     : t('workout.previous_values');
   const elapsedText = `${Math.floor(elapsedMs / 60_000)}:${String(Math.floor(elapsedMs / 1_000) % 60).padStart(2, '0')}`;
+  const addAction = (
+      <button ref={addTrigger} type="button" disabled={mutationBlocked || addingExercise} onClick={() => setPickerOpen(true)} className="btn-primary inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl disabled:opacity-50">
+        <Plus size={18} aria-hidden="true" />{t('workout.add_exercise')}
+      </button>
+  );
   return (
     <main className="live-workout mx-auto max-w-2xl space-y-5 px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-5">
       {!activeDraftExercise ? <section className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] pb-3">
@@ -614,13 +686,18 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
         onSelect={setSelectedExerciseId}
       /> : null}
 
-      {!recoveryLoaded ? <div role="status" className="min-h-24 animate-pulse rounded-xl bg-[var(--surface-subtle)]" aria-label={t('workout.loading_live_session')} /> : allExercisesComplete && !activeDraftExercise ? (
-        <section aria-labelledby="finish-ready-title" className="border-y border-[var(--border-subtle)] py-5">
+      {!recoveryLoaded ? <div role="status" className="min-h-24 animate-pulse rounded-xl bg-[var(--surface-subtle)]" aria-label={t('workout.loading_live_session')} /> : draft.exercises.length === 0 ? (
+        <section className="border-y border-[var(--border-subtle)] py-5">
+          <h1 className="text-2xl font-semibold">{t('workout.add_exercise')}</h1>
+        </section>
+      ) : allExercisesComplete && !activeDraftExercise ? (
+        <section aria-labelledby="finish-ready-title" className="wsp-finish-ready border-y border-[var(--border-subtle)] py-5">
           <h1 id="finish-ready-title" className="text-2xl font-bold tracking-[-0.02em] text-[var(--content-primary)]">{t('workout.finish_ready_title')}</h1>
           <p className="mt-2 text-sm text-[var(--content-secondary)]">{t('workout.finish_ready_message')}</p>
         </section>
       ) : !activeDraftExercise || !activeResolved ? <div role="status" className="min-h-24 animate-pulse rounded-xl bg-[var(--surface-subtle)]" aria-label={t('workout.loading_live_session')} /> : (
         <LiveExerciseStage
+          action={addAction}
           exercise={activeResolved}
           displayName={displayNameFor(activeResolved.id, activeResolved.name)}
           position={activeExerciseIndex + 1}
@@ -664,7 +741,9 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
               setNumber={row.setNumber}
               unit={unit}
               grouped
+              collapsible
               focusMode
+              current={row.id === currentSetRowId}
               paused={state.stage === 'paused'}
               showExerciseHeader={showExerciseHeader}
               isLastSet={isLastSet}
@@ -678,7 +757,9 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
                 : pendingInput
                   ? { weight: pendingInput.weightKg === null ? null : kgToDisplay(pendingInput.weightKg, unit), reps: pendingInput.reps, rpe: pendingInput.rpe, isWarmup: pendingInput.isWarmup }
                   : undefined}
-              restTargetSeconds={draftExercise?.restSeconds ?? getRestTarget(resolved.id, resolved.is_compound)}
+              restTargetSeconds={restTarget.seconds}
+              onRestTargetChange={restTarget.choose}
+              restTargetStorageFailed={restTarget.failed}
               onComplete={async (value: SetLoggerValue) => {
                 const weightKg = value.weight === null ? null : displayToKg(value.weight, unit);
                 const isPr = Boolean(resolved.is_compound) && !value.isWarmup && weightKg !== null && weightKg > (prMap[row.exerciseId] ?? 0);
@@ -744,6 +825,16 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
         </LiveExerciseStage>
       )}
 
+      {!activeDraftExercise ? addAction : null}
+      {pickerOpen ? <ExercisePicker
+        exercises={exercises} recentIds={[]} lang={lang}
+        addedExerciseIds={draft.exercises.map((exercise) => exercise.exerciseId)}
+        liveSession
+        selectionPending={addingExercise}
+        onSelect={(exercise) => { void appendExercise(exercise); }}
+        onClose={() => { if (!addInFlight.current) setPickerOpen(false); }}
+      /> : null}
+
       {recoveryError ? (
         <div role="alert" className="rounded-xl bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]">
           <p>{t('workout.recovery_failed')}</p>
@@ -753,11 +844,11 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
       {failedMutations.size > 0 ? (
         <div role="alert" className="rounded-xl bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]">
           <p>{t('workout.mutation_failed')}</p>
-          <button type="button" onClick={retryRecovery} className="mt-2 min-h-11 underline">{t('workout.retry_recovery')}</button>
+          <button type="button" onClick={() => { if (failedMutations.has('append-exercise')) setRecoveryAttempt((attempt) => attempt + 1); else retryRecovery(); }} className="mt-2 min-h-11 underline">{t('workout.retry_recovery')}</button>
         </div>
       ) : null}
 
-      <button type="button" onClick={() => requestFinish()} disabled={savingFinish || mutationBlocked} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[var(--status-danger-bg)] font-semibold text-[var(--status-danger-fg)] disabled:opacity-50"><Square size={17} aria-hidden="true" />{t('workout.finish')}</button>
+      <button type="button" onClick={() => requestFinish()} disabled={savingFinish || mutationBlocked} className="live-workout__finish inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[var(--status-danger-bg)] font-semibold text-[var(--status-danger-fg)] disabled:opacity-50"><Square size={17} aria-hidden="true" />{t('workout.finish')}</button>
       {blockedReason === 'pending' && !finishOpen ? <p role="status" className="text-center text-xs leading-5 text-[var(--content-secondary)]">{t('workout.finish_blocked_pending')}</p> : null}
 
       {finishOpen ? (

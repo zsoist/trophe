@@ -16,6 +16,7 @@ import { localeForLanguage } from '@/lib/i18n-locale';
 import type { WorkoutSession } from '@/lib/types';
 import { muscleColor, exerciseDisplayName } from './muscle-groups';
 import { kgToDisplay, useWeightUnit } from '@/lib/workout/units';
+import './workout-exploration-v2.css';
 
 interface ExpandedSetRow {
   id: string;
@@ -81,7 +82,7 @@ export default function RecentSessionCard({
   }, [sets, lang, t]);
 
   return (
-    <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+    <div className="wk2 recent-session card" style={{ padding: 0, overflow: 'hidden' }}>
       <motion.button
         whileTap={{ scale: 0.98 }}
         onClick={toggle}

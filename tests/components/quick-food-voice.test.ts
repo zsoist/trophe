@@ -40,6 +40,7 @@ vi.mock('@/lib/i18n', () => ({
     lang: 'en',
     t: (key: string) => ({
       'food.quick_placeholder': 'What did you eat?',
+      'food.quick_submit_aria': 'Analyze meal',
       'food.voice': 'Voice',
       'food.voice_start_aria': 'Start voice input',
       'food.voice_stop': 'Stop',
@@ -103,6 +104,14 @@ describe('QuickFoodInput voice behavior', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+  });
+
+  it('gives the icon-only quick text submit button an accessible name', () => {
+    renderInput();
+
+    const submit = screen.getByRole('button', { name: 'Analyze meal' });
+    expect(submit.getAttribute('aria-label')).toBe('Analyze meal');
+    expect((submit as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('uses recorded fallback when native speech recognition is unavailable', () => {

@@ -21,5 +21,5 @@ export function WorkoutSummaryMetrics({ sessions, unit = 'kg' }: { sessions: Wor
     { label: t('workout.analytics_summary_lifted_volume'), value: t('workout.analytics_summary_volume_value', { value: number.format(kgToDisplay(volume, unit)), unit }) },
     { label: t('workout.analytics_summary_personal_records'), value: t(prs === 1 ? 'workout.analytics_summary_pr_value' : 'workout.analytics_summary_prs_value', { count: number.format(prs) }) },
   ];
-  return <section aria-label={t('workout.analytics_summary_label')} className="grid grid-cols-2 gap-x-4 gap-y-5 border-y border-[var(--border-default)] py-4 sm:grid-cols-4">{metrics.map((metric) => <div key={metric.label}><p className="text-xs text-[var(--content-muted)]">{metric.label}</p><p className="mt-1 text-lg font-semibold tabular-nums text-[var(--content-primary)]">{metric.value}</p></div>)}</section>;
+  return <section aria-label={t('workout.analytics_summary_label')} className="wk2 grid grid-cols-2 gap-x-4 gap-y-5 border-y border-[var(--border-default)] py-4 sm:grid-cols-4">{metrics.map((metric) => <div key={metric.label}><p className="text-xs text-[var(--content-muted)]">{metric.label}</p><p className="mt-1 text-lg font-semibold tabular-nums text-[var(--content-primary)]">{metric.value}</p></div>)}</section>;
 }

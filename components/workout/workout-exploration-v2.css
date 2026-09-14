@@ -1,0 +1,1018 @@
+/*
+ * Workout V2 — exploration surfaces (library · results · detail · atlas · history · analytics)
+ *
+ * Scoped component stylesheet for the DS2-owned consumers. Every surface that
+ * opts in carries the `.wk2` marker class on its own root element, so the
+ * rules below win over the legacy primitives on specificity without touching
+ * any shared/global stylesheet.
+ *
+ * Tokens: prefer the V2 package tokens (`--wk-*`, owned by AG1) when present,
+ * then the existing product semantic tokens, then a literal fallback so the
+ * V2 look is correct before the shared token wiring lands.
+ */
+
+.wk2 {
+  --wv2-bg: var(--wk-bg, var(--workout-canvas, var(--bg-primary, #101211)));
+  --wv2-surface: var(--wk-surface, var(--workout-surface, var(--surface-1, #191c1a)));
+  --wv2-raised: var(--wk-tray, var(--workout-surface-raised, #242925));
+  --wv2-line: var(--wk-line, var(--workout-rail, var(--border-subtle, rgba(255, 255, 255, 0.07))));
+  --wv2-text: var(--wk-text, var(--content-primary, #f3f4ef));
+  --wv2-muted: var(--wk-muted, var(--content-muted, #a7aea7));
+  --wv2-secondary: var(--wk-muted, var(--content-secondary, #c9cec7));
+  --wv2-gold: var(--wk-gold, var(--action-primary, #c6ad7b));
+  --wv2-on-gold: var(--wk-on-gold, var(--on-action-primary, #181c16));
+  --wv2-tint: var(--wk-tint, color-mix(in srgb, var(--wv2-gold) 12%, transparent));
+  --wv2-danger: var(--wk-danger, var(--status-danger-fg, #ed9c96));
+  --wv2-radius-lg: 28px;
+  --wv2-radius: var(--wk-radius, 22px);
+  --wv2-radius-sm: 14px;
+  --wv2-ease: var(--wk-ease, var(--workout-motion-ease, cubic-bezier(0.32, 0.72, 0, 1)));
+  --wv2-figure-radius: 17px;
+  color: var(--wv2-text);
+  font-weight: 450;
+  letter-spacing: -0.01em;
+}
+
+/* ── Shared V2 building blocks ─────────────────────────────────────────── */
+
+.wk2 h1.wk2-title {
+  margin: 0;
+  font-size: clamp(1.75rem, 4.6vw, 2.75rem);
+  font-weight: 650;
+  letter-spacing: -0.035em;
+  line-height: 1.08;
+}
+
+.wk2 .wk2-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--wv2-muted);
+  font-size: 13px;
+  letter-spacing: 0;
+}
+
+/* Double shell: only for featured / media surfaces. */
+.wk2 .wk2-shell {
+  padding: 5px;
+  border-radius: var(--wv2-radius-lg);
+  background: var(--wv2-raised);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* Inset CTA: stable width, trailing icon disc, action-led feedback. */
+.wk2 .wk2-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 54px;
+  padding: 7px 7px 7px 20px;
+  border: 0;
+  border-radius: 28px;
+  background: var(--wv2-gold);
+  color: var(--wv2-on-gold);
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition: transform 150ms var(--wv2-ease), background-color 180ms var(--wv2-ease);
+}
+
+.wk2 .wk2-cta__core {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--wv2-on-gold) 12%, transparent);
+  transition: transform 300ms var(--wv2-ease), background-color 180ms var(--wv2-ease);
+}
+
+.wk2 .wk2-cta:hover .wk2-cta__core { transform: translateX(2px); }
+.wk2 .wk2-cta:active { transform: scale(0.975); }
+.wk2 .wk2-cta:disabled { opacity: 0.6; cursor: default; }
+.wk2 .wk2-cta:disabled .wk2-cta__core,
+.wk2 .wk2-cta:disabled:hover .wk2-cta__core { transform: none; }
+
+.wk2 .wk2-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 48px;
+  padding: 0 1.1rem;
+  border: 0;
+  border-radius: 24px;
+  background: var(--wv2-surface);
+  box-shadow: inset 0 0 0 1px var(--wv2-line);
+  color: var(--wv2-text);
+  font: inherit;
+  font-weight: 550;
+  cursor: pointer;
+}
+
+/* ── Exercise detail (route + sheet) ───────────────────────────────────── */
+
+.wk2.exercise-detail {
+  display: block;
+  max-width: 60rem;
+  margin-inline: auto;
+  color: var(--wv2-text);
+}
+
+.wk2 .exercise-detail__hero {
+  position: relative;
+  margin-bottom: 1.25rem;
+  padding: 5px;
+  border-radius: var(--wv2-radius-lg);
+  background: var(--wv2-raised);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.wk2 .exercise-detail__hero .exercise-motion,
+.wk2 .exercise-detail__hero .exercise-motion__poster,
+.wk2 .exercise-detail__hero .exercise-motion__video {
+  border-radius: var(--wv2-figure-radius);
+}
+
+.wk2 .exercise-detail__media-meta {
+  position: absolute;
+  top: 0.85rem;
+  left: 0.85rem;
+  z-index: 2;
+}
+
+.wk2 .exercise-detail__identity { margin-bottom: 1.25rem; }
+.wk2 .exercise-detail__identity h1 {
+  margin: 0;
+  font-size: clamp(1.75rem, 5vw, 2.6rem);
+  font-weight: 650;
+  letter-spacing: -0.035em;
+  line-height: 1.06;
+  overflow-wrap: anywhere;
+}
+
+.wk2 .exercise-detail__identity-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.9rem;
+  margin-top: 0.55rem;
+  color: var(--wv2-muted);
+  font-size: 0.875rem;
+}
+
+.wk2 .exercise-detail__identity-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.wk2 .exercise-detail__phase {
+  padding: 1rem 0 0.25rem;
+  border-top: 1px solid var(--wv2-line);
+}
+
+.wk2 .exercise-detail__phase h2,
+.wk2 .exercise-detail__section h2 {
+  margin: 0 0 0.6rem;
+  color: var(--wv2-muted);
+  font-size: 0.75rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.wk2 .exercise-detail__phase-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.wk2 .exercise-detail__phase-controls button {
+  min-height: 44px;
+  padding: 0 1rem;
+  border: 1px solid var(--wv2-line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--wv2-secondary);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 180ms var(--wv2-ease), color 180ms var(--wv2-ease), border-color 180ms var(--wv2-ease);
+}
+
+.wk2 .exercise-detail__phase-controls button[aria-pressed='true'] {
+  border-color: var(--wv2-gold);
+  background: var(--wv2-tint);
+  color: var(--wv2-gold);
+}
+
+.wk2 .exercise-detail__phase > p[role='status'] {
+  margin: 0.85rem 0 0;
+  padding: 0.85rem 1rem;
+  border-radius: var(--wv2-radius-sm);
+  background: var(--wv2-surface);
+  color: var(--wv2-secondary);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.wk2 .exercise-detail__body {
+  display: grid;
+  gap: 1.5rem;
+  margin-top: 1.75rem;
+}
+
+.wk2 .exercise-detail__anatomy {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.wk2 .exercise-detail__anatomy-empty {
+  display: grid;
+  gap: 0.6rem;
+  place-items: start;
+  padding: 1.25rem;
+  border-radius: var(--wv2-radius);
+  background: var(--wv2-surface);
+  color: var(--wv2-muted);
+}
+
+.wk2 .exercise-detail__section {
+  padding: 1.1rem 0 0.35rem;
+  border-top: 1px solid var(--wv2-line);
+}
+
+.wk2 .exercise-detail__instructions .exercise-detail__section:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.wk2 .exercise-detail__equipment {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0 0 0.9rem;
+}
+
+.wk2 .exercise-detail__equipment > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--wv2-radius-sm);
+  background: var(--wv2-surface);
+}
+
+.wk2 .exercise-detail__equipment dt {
+  color: var(--wv2-muted);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.wk2 .exercise-detail__equipment dd { margin: 0; font-weight: 600; }
+
+.wk2 .exercise-detail__guidance-row { margin-bottom: 0.9rem; }
+
+.wk2 .exercise-detail__guidance-row h3 {
+  margin: 0 0 0.4rem;
+  color: var(--wv2-text);
+  font-size: 0.9375rem;
+  font-weight: 650;
+}
+
+.wk2 .exercise-detail__guidance-row p {
+  margin: 0 0 0.35rem;
+  color: var(--wv2-secondary);
+  font-size: 0.9375rem;
+  line-height: 1.55;
+}
+
+.wk2 .exercise-detail__empty,
+.wk2 .exercise-detail__language-note {
+  color: var(--wv2-muted);
+  font-size: 0.8125rem;
+}
+
+.wk2 .exercise-detail__safety {
+  padding: 1rem;
+  border-radius: var(--wv2-radius);
+  border-top: 0;
+  background: var(--wv2-surface);
+}
+
+.wk2 .exercise-detail__safety h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--wv2-text);
+  font-size: 0.9375rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.wk2 .exercise-detail__evidence-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.wk2 .exercise-detail__record,
+.wk2 .exercise-detail__history {
+  padding: 1rem;
+  border-radius: var(--wv2-radius);
+  background: var(--wv2-surface);
+}
+
+.wk2 .exercise-detail__record h3,
+.wk2 .exercise-detail__history h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.5rem;
+  color: var(--wv2-muted);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.wk2 .exercise-detail__record p {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.wk2 .exercise-detail__history-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--wv2-line);
+  font-size: 0.875rem;
+}
+
+.wk2 .exercise-detail__history-row time { color: var(--wv2-muted); }
+.wk2 .exercise-detail__history-row strong { font-variant-numeric: tabular-nums; }
+
+.wk2 .exercise-detail__action { margin-top: 1.5rem; }
+.wk2 .exercise-detail__action .wk2-cta { width: min(100%, 22rem); }
+
+@media (min-width: 900px) {
+  .wk2 .exercise-detail__body {
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.25fr);
+    align-items: start;
+    gap: 2.25rem;
+  }
+
+  .wk2 .exercise-detail__evidence-grid {
+    grid-template-columns: minmax(0, 0.6fr) minmax(0, 1.4fr);
+  }
+}
+
+/* ── Exercise motion (poster → explicit play) ──────────────────────────── */
+
+.wk2 .exercise-motion {
+  position: relative;
+  margin: 0;
+  overflow: hidden;
+  border-radius: var(--wv2-figure-radius);
+  background: var(--wv2-surface);
+}
+
+.wk2 .exercise-motion__poster,
+.wk2 .exercise-motion__video {
+  display: block;
+  width: 100%;
+  max-height: 22rem;
+  object-fit: contain;
+  background: var(--wv2-surface);
+}
+
+.wk2 .exercise-motion__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.6rem 0.75rem;
+  color: var(--wv2-muted);
+  font-size: 0.75rem;
+}
+
+.wk2 .exercise-motion__controls button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0 1rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--wv2-gold);
+  color: var(--wv2-on-gold);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.wk2 .exercise-motion__controls button:disabled { opacity: 0.55; cursor: default; }
+
+/* ── Results list ──────────────────────────────────────────────────────── */
+
+.wk2.exercise-results {
+  margin-top: 0.75rem;
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--wv2-radius);
+  background: var(--wv2-surface);
+  box-shadow: inset 0 0 0 1px var(--wv2-line);
+}
+
+.wk2.exercise-results > article {
+  min-height: 4.5rem;
+  padding: 0.5rem 0.75rem;
+  gap: 0.625rem;
+  border-bottom: 1px solid var(--wv2-line);
+}
+
+.wk2.exercise-results > article:last-child { border-bottom: 0; }
+
+.wk2.exercise-results img {
+  width: 4rem;
+  height: 4rem;
+  border-radius: var(--wv2-radius-sm);
+  background: var(--wv2-raised);
+}
+
+.wk2.exercise-results h3 {
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+/* Provenance stays truthful but reads as quiet secondary detail, not a loud pill. */
+.wk2 .exercise-results .exercise-media-badge {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--wv2-muted);
+  font-family: inherit;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.3;
+  text-transform: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wk2.exercise-results article button:last-of-type {
+  border-radius: 999px;
+  font-weight: 650;
+}
+
+.wk2.exercise-results article button:disabled {
+  background: var(--wv2-tint);
+  color: var(--wv2-gold);
+  opacity: 1;
+}
+
+/* ── Equipment filter / chips ──────────────────────────────────────────── */
+
+.wk2 .equipment-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+
+.wk2 .equipment-filter__label {
+  color: var(--wv2-muted);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.wk2 .equipment-filter__control { position: relative; min-width: 0; }
+
+.wk2 .equipment-filter__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0 0.9rem;
+  border: 1px solid var(--wv2-line);
+  border-radius: 999px;
+  background: var(--wv2-surface);
+  color: var(--wv2-text);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.wk2 .equipment-filter__menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  min-width: 12rem;
+  max-height: 18rem;
+  overflow-y: auto;
+  padding: 0.35rem;
+  border-radius: var(--wv2-radius-sm);
+  background: var(--wv2-raised);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+}
+
+.wk2 .equipment-filter__menu button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 0.75rem;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--wv2-text);
+  font: inherit;
+  font-size: 0.875rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.wk2 .equipment-filter__menu button[aria-selected='true'] { color: var(--wv2-gold); }
+
+/* Compact equipment control inside the picker utility row. Keeps the label as
+   the accessible name only — no uppercase eyebrow above the results. */
+.wk2 .equipment-filter--compact { margin-top: 0; flex-shrink: 0; }
+.wk2 .equipment-filter--compact .equipment-filter__trigger { padding: 0 0.75rem; }
+
+/* ── Picker search + compact utility row ───────────────────────────────── */
+
+/* 22px icon inset 16px, text starts at 48px so typed text never sits under it.
+   Specificity intentionally beats the shared `.input-dark` padding without
+   layout-shifting focus rings. */
+.wk2 .workout-picker-search .workout-picker-search__input.input-dark {
+  padding-inline-start: 48px;
+  padding-inline-end: 48px;
+}
+
+/* The labelled app control owns clearing; avoid a second native WebKit cross. */
+.wk2 .workout-picker-search__input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.wk2 .workout-picker-search__icon {
+  left: 16px;
+  width: 22px;
+  height: 22px;
+}
+
+.wk2 .workout-picker-utility {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 48px;
+}
+
+.wk2 .workout-picker-utility__summary {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.wk2 .workout-picker-utility__title {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--wv2-text);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  outline: none;
+}
+
+.wk2 .workout-picker-utility__count {
+  flex-shrink: 0;
+  margin: 0;
+  color: var(--wv2-muted);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Muscle atlas ──────────────────────────────────────────────────────── */
+
+.wk2.muscle-atlas {
+  padding: 1rem;
+  border: 0;
+  border-radius: var(--wv2-radius);
+  background: var(--wv2-surface);
+  box-shadow: inset 0 0 0 1px var(--wv2-line);
+}
+
+.wk2.muscle-atlas--compact {
+  padding: 1rem;
+  border-radius: var(--wv2-radius);
+}
+
+.wk2 .muscle-atlas__header h2 {
+  margin: 0 0 0.3rem;
+  font-size: 1.05rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.wk2 .muscle-atlas__header p,
+.wk2 .muscle-atlas__summary { color: var(--wv2-muted); font-size: 0.8125rem; }
+
+.wk2 .muscle-atlas__views {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: 999px;
+  background: var(--wv2-raised);
+}
+
+.wk2 .muscle-atlas__views button {
+  min-height: 40px;
+  padding: 0 0.85rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--wv2-secondary);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.wk2 .muscle-atlas__views button[aria-pressed='true'] {
+  background: var(--wv2-surface);
+  color: var(--wv2-gold);
+  box-shadow: inset 0 0 0 1px var(--wv2-line);
+}
+
+.wk2 .muscle-atlas__figure-wrap {
+  margin-top: 0.85rem;
+  border-radius: var(--wv2-figure-radius);
+  background: color-mix(in srgb, var(--wv2-raised) 70%, transparent);
+}
+
+.wk2 .muscle-atlas__tools {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.wk2 .muscle-atlas__tools button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid var(--wv2-line);
+  border-radius: var(--wv2-radius-sm);
+  background: var(--wv2-raised);
+  color: var(--wv2-secondary);
+  cursor: pointer;
+}
+
+.wk2 .muscle-atlas__tools button:disabled { opacity: 0.45; cursor: default; }
+
+.wk2 .muscle-atlas__roles li button {
+  min-height: 48px;
+  border-radius: var(--wv2-radius-sm);
+}
+
+.wk2 .muscle-atlas__roles li.is-selected button {
+  background: var(--wv2-tint);
+  color: var(--wv2-text);
+}
+
+/* ── Plan muscle summary ───────────────────────────────────────────────── */
+
+.wk2.plan-muscle-summary {
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--wv2-radius);
+  background: var(--wv2-surface);
+  box-shadow: inset 0 0 0 1px var(--wv2-line);
+}
+
+.wk2 .plan-muscle-summary__facts {
+  padding: 1rem 1rem 0.5rem;
+  color: var(--wv2-text);
+}
+
+.wk2 .plan-muscle-summary__facts strong { font-size: 1rem; font-weight: 650; }
+.wk2 .plan-muscle-summary__facts span { color: var(--wv2-muted); font-size: 0.8125rem; }
+
+.wk2 .plan-muscle-summary__heading h2 { font-size: 1.05rem; font-weight: 650; letter-spacing: -0.02em; }
+.wk2 .plan-muscle-summary__heading span { color: var(--wv2-muted); }
+.wk2 .plan-muscle-summary__loads li { min-height: 40px; }
+.wk2 .plan-muscle-summary__loads i { background: var(--wv2-gold); }
+
+/* ── Layout wrappers for the exploration routes ────────────────────────── */
+
+.wk2.exercise-detail-route,
+.wk2.exercise-browser-route {
+  display: block;
+  width: 100%;
+}
+
+/* ── History (recent session card) ─────────────────────────────────────── */
+
+.wk2.recent-session {
+  border-radius: var(--wv2-radius);
+  background: var(--wv2-surface);
+  box-shadow: inset 0 0 0 1px var(--wv2-line);
+}
+
+.wk2.recent-session button[aria-expanded] { min-height: 56px; }
+
+/* ── Analytics surfaces ────────────────────────────────────────────────── */
+
+.wk2.workout-analytics {
+  color: var(--wv2-text);
+}
+
+.wk2.workout-analytics section {
+  border-color: var(--wv2-line);
+}
+
+.wk2.workout-analytics .wk2-analytics-card {
+  padding: 1rem;
+  border-radius: var(--wv2-radius);
+  background: var(--wv2-surface);
+  box-shadow: inset 0 0 0 1px var(--wv2-line);
+}
+
+/* ── Atlas home (region entry · viewer · region details) ───────────────── */
+
+.wk2.workout-muscle-home {
+  padding: 1.15rem;
+  border: 0;
+  border-radius: var(--wv2-radius);
+  background: var(--wv2-surface);
+  box-shadow: inset 0 0 0 1px var(--wv2-line);
+  color: var(--wv2-text);
+}
+
+.wk2.workout-muscle-home h2 { font-weight: 650; letter-spacing: -0.02em; }
+
+.wk2 .workout-muscle-eyebrow {
+  color: var(--wv2-muted);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.wk2 .workout-muscle-tabs,
+.wk2 .workout-muscle-views {
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--wv2-raised);
+}
+
+.wk2 .workout-muscle-tabs button,
+.wk2 .workout-muscle-views button {
+  min-height: 44px;
+  border-radius: 999px;
+  color: var(--wv2-secondary);
+  font-weight: 600;
+}
+
+.wk2 .workout-muscle-tabs button[aria-pressed='true'],
+.wk2 .workout-muscle-views button[aria-pressed='true'] {
+  background: var(--wv2-surface);
+  color: var(--wv2-gold);
+  box-shadow: inset 0 0 0 1px var(--wv2-line);
+}
+
+.wk2 .workout-muscle-views > button:last-child { min-width: 44px; min-height: 44px; }
+
+.wk2 .workout-muscle-figure {
+  border-radius: var(--wv2-figure-radius);
+  background: color-mix(in srgb, var(--wv2-raised) 70%, transparent);
+}
+
+.wk2 .workout-muscle-lazy { min-height: 15rem; }
+
+.wk2 .workout-muscle-lazy button,
+.wk2 .workout-muscle-action > button {
+  min-height: 50px;
+  border-radius: 999px;
+  background: var(--wv2-gold);
+  color: var(--wv2-on-gold);
+  font-weight: 650;
+}
+
+.wk2 .workout-muscle-section {
+  border: 0;
+  border-radius: var(--wv2-radius-sm);
+  background: color-mix(in srgb, var(--wv2-raised) 45%, transparent);
+}
+
+.wk2 .workout-muscle-group-toggle[aria-expanded='true'] {
+  background: var(--wv2-tint);
+}
+
+.wk2 .workout-muscle-section li button {
+  min-height: 48px;
+  border-top-color: var(--wv2-line);
+}
+
+.wk2 .workout-muscle-role {
+  background: var(--wv2-raised);
+}
+
+@media (min-width: 1024px) {
+  .wk2 .workout-muscle-body {
+    grid-template-columns: minmax(260px, 0.85fr) minmax(0, 1.15fr);
+    gap: 1.75rem;
+  }
+}
+
+/* ── Reduced motion ────────────────────────────────────────────────────── */
+
+/* ── Anatomy explorer / atlas shell (V2 surfaces) ──────────────────────── */
+
+.wk2.anatomy-explorer {
+  color: var(--wv2-text);
+}
+
+.wk2 .anatomy-workspace,
+.wk2 .anatomy-stage {
+  border: 0;
+  border-radius: var(--wv2-radius);
+  background: var(--wv2-surface);
+  box-shadow: inset 0 0 0 1px var(--wv2-line);
+}
+
+.wk2 .anatomy-viewbar,
+.wk2 .anatomy-view-picker,
+.wk2 .anatomy-view-options,
+.wk2 .anatomy-selection-bar,
+.wk2 .anatomy-region-tabs,
+.wk2 .anatomy-group-selector,
+.wk2 .anatomy-training-groups,
+.wk2 .anatomy-training-controls {
+  border: 0;
+  border-radius: var(--wv2-radius-sm);
+  background: var(--wv2-raised);
+}
+
+.wk2 .anatomy-icon-button,
+.wk2 .anatomy-zoom button,
+.wk2 .anatomy-view-options button,
+.wk2 .anatomy-view-picker button,
+.wk2 .anatomy-region-tabs button,
+.wk2 .anatomy-group-selector button,
+.wk2 .anatomy-muscle-options button,
+.wk2 .anatomy-exercise-button,
+.wk2 .anatomy-training-controls button {
+  min-height: 44px;
+  border-radius: 999px;
+  color: var(--wv2-secondary);
+  font-weight: 600;
+}
+
+.wk2 .anatomy-icon-button[aria-pressed='true'],
+.wk2 .anatomy-view-options button[aria-pressed='true'],
+.wk2 .anatomy-region-tabs button[aria-pressed='true'],
+.wk2 .anatomy-group-selector button[aria-pressed='true'],
+.wk2 .anatomy-muscle-options button[aria-pressed='true'] {
+  background: var(--wv2-tint);
+  color: var(--wv2-gold);
+}
+
+.wk2 .anatomy-poster {
+  border-radius: var(--wv2-figure-radius);
+}
+
+.wk2 .anatomy-muscle-preview {
+  border-radius: var(--wv2-radius);
+  background: var(--wv2-surface);
+  box-shadow: inset 0 0 0 1px var(--wv2-line);
+}
+
+.wk2 .anatomy-provenance {
+  border-radius: var(--wv2-radius-sm);
+  background: var(--wv2-raised);
+  color: var(--wv2-muted);
+}
+
+.wk2 .atlas-entry-card {
+  min-height: 56px;
+  border: 0;
+  border-radius: var(--wv2-radius);
+  background: var(--wv2-surface);
+  box-shadow: inset 0 0 0 1px var(--wv2-line);
+  color: var(--wv2-text);
+}
+
+.wk2 .atlas-exercise-row {
+  min-height: 60px;
+  border: 0;
+  border-radius: var(--wv2-radius-sm);
+  background: var(--wv2-surface);
+  box-shadow: inset 0 -1px var(--wv2-line);
+}
+
+.wk2 .atlas-exercise-thumbnail {
+  border-radius: var(--wv2-radius-sm);
+  background: var(--wv2-raised);
+}
+
+.wk2 .atlas-exercise-dialog,
+.wk2 .atlas-information-dialog {
+  padding: 6px;
+  border: 0;
+  border-radius: var(--wv2-radius-lg);
+  background: var(--wv2-raised);
+}
+
+.wk2 .atlas-exercise-sheet,
+.wk2 .atlas-information {
+  border-radius: var(--wv2-radius);
+  background: var(--wv2-surface);
+  color: var(--wv2-text);
+}
+
+/* ── Reduced motion ────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .wk2 *,
+  .wk2 *::before,
+  .wk2 *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Session-only picker: keep the live workout behind a compact add sheet. */
+.workout-live-picker {
+  inset: auto 0 0; height: min(82dvh, 780px); max-width: 620px; margin-inline: auto;
+  border: 1px solid var(--border-subtle); border-bottom: 0; border-radius: 24px 24px 0 0;
+  box-shadow: 0 0 0 100vmax #0008; overflow: hidden;
+}
+.workout-live-picker > [role=status] { position: absolute; top: 4px; right: 52px; z-index: 20; }
+.workout-live-picker [data-exercise-picker-scroll-content] { padding-top: 12px; padding-bottom: 24px !important; }
+/* Discrete category rail: horizontal touch/keyboard scroll kept, visual track
+   reduced to a thin unobtrusive bar instead of a gray band under the chips. */
+.workout-live-picker__groups {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 0 6px;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--content-muted) 40%, transparent) transparent;
+}
+.workout-live-picker__groups::-webkit-scrollbar { height: 4px; }
+.workout-live-picker__groups::-webkit-scrollbar-track { background: transparent; }
+.workout-live-picker__groups::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--content-muted) 40%, transparent);
+}
+.workout-live-picker__groups button { min-height: 44px; flex-shrink: 0; padding: 0 16px; border: 1px solid var(--border-subtle); border-radius: 999px; font-size: 14px; }
+.workout-live-picker__groups button[aria-pressed=true] { background: #d1b573; color: #151714; }
+.workout-live-picker__return { min-height: 54px; margin: 12px 16px max(12px, env(safe-area-inset-bottom)); border: 1px solid var(--border-subtle); border-radius: 18px; font-weight: 600; }
+.workout-live-picker :where(button,input,select):focus-visible { outline: 2px solid #d1b573; outline-offset: 2px; }
+
+.workout-live-picker .exercise-results { margin-top: 12px; }
+.workout-live-picker .exercise-results > article { padding: 10px 12px; gap: 10px; }
+.workout-live-picker .exercise-results img { width: 64px; height: 64px; }
+.workout-live-picker .exercise-results h3 { white-space: normal; font-size: 14px; line-height: 1.35; }
+.workout-live-picker .exercise-results article button:last-of-type { width: 44px; height: 44px; padding: 0; flex-shrink: 0; }
+.workout-live-picker .exercise-results article button:last-of-type > svg { display: block; }
+.workout-live-picker .exercise-results article button:last-of-type > span { display: none; }
+
+.workout-editorial-cover figure { margin: 0; }
+.workout-editorial-cover img { width: 100%; max-height: 320px; object-fit: contain; background: #171916; }
+.workout-editorial-cover figcaption { padding: 8px 12px; font-size: 12px; color: var(--content-secondary); }
+.workout-editorial-cover summary { min-height: 48px; padding: 12px 16px; cursor: pointer; font-weight: 600; }
+
+.live-workout .rest-target__group { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
+.live-workout .rest-target__choice { flex-shrink: 0; }
+.exercise-set-summary { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 44px; gap: 12px; font-size: 14px; color: var(--content-secondary); }
+.live-workout .exercise-set-logger .wsp-action { background: linear-gradient(105deg, #e2c78a, #c5a065); color: #151714; }

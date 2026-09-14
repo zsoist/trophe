@@ -10,8 +10,8 @@ import {FoodQuantityPanel} from '@/components/assistant/FoodQuantityPanel';
 import type {PhotoFoodTransport} from '@/components/assistant/photo-food-client';
 import type {PhotoFoodOperation} from '@/agents/coach-assistant/photo-food-actions';
 const id=()=>crypto.randomUUID(),conversation=id(),attachment=id(),observation=id(),hash='a'.repeat(64);
-function fixture(){const controller=new PhotoFoodController();let proposalId='';let saved:Awaited<ReturnType<PhotoFoodTransport>>;const transport=vi.fn<PhotoFoodTransport>(async op=>{
- if(op.operation==='photo.food.read')return {version:'coach-assistant.v2',storage:'offline_fixture',ok:true,snapshot:{observationId:observation,attachmentId:attachment,source:'offline_fixture',trust:'untrusted_image_data',reviewRequired:true,items:[{index:0,version:hash,foodName:'Fixture rice',estimatedGrams:100,estimatedCalories:130,confidence:.7,accuracyNote:'Estimate'}]}};
+function fixture(identityStatus:'identified'|'uncertain'|'unassessed'='identified'){const controller=new PhotoFoodController();let proposalId='';let saved:Awaited<ReturnType<PhotoFoodTransport>>;const transport=vi.fn<PhotoFoodTransport>(async op=>{
+ if(op.operation==='photo.food.read')return {version:'coach-assistant.v2',storage:'offline_fixture',ok:true,snapshot:{observationId:observation,attachmentId:attachment,source:'offline_fixture',trust:'untrusted_image_data',reviewRequired:true,items:[{index:0,version:hash,foodName:'Fixture rice',identityStatus,estimatedGrams:100,estimatedCalories:130,confidence:.7,accuracyNote:'Estimate'}]}};
  if(op.operation==='photo.food.propose'){proposalId=id();return {version:'coach-assistant.v2',storage:'offline_fixture',ok:true,proposal:{id:proposalId,hash:'b'.repeat(64),action:'food.photo.create',resource:{kind:'food_entry',id:proposalId,version:hash},before:null,after:{...op.after,foodName:'Fixture rice',calories:195,proteinG:4,carbsG:42,fatG:.5,fiberG:.6,sugarG:0,confidence:.7,source:'photo_ai',nutrition:'estimated',portion:'explicit_user'},evidence:{observationId:observation,observationRevision:id(),attachmentId:attachment,imageDigest:'c'.repeat(64),itemIndex:0,source:'offline_fixture',trust:'untrusted_image_data'},precondition:hash,expiresAt:new Date(Date.now()+300000).toISOString(),reviewRequired:true}};
  }
  if(op.operation==='photo.food.apply'){saved={version:'coach-assistant.v2',storage:'isolated_database_fixture',evaluation:{mode:'isolated_authorized_fixture',observation:'offline_fixture',visionVerified:false,paidApiCalls:0},ok:true,receipt:{id:id(),actionId:op.actionId,proposalId,status:'applied',action:'food.photo.create',resourceVersion:'1',recordedAt:new Date().toISOString()},refresh:{entryId:proposalId,loggedDate:'2026-09-08',previousVersion:hash,version:'1',strategy:'refetch'}};return saved;}
@@ -19,6 +19,213 @@ function fixture(){const controller=new PhotoFoodController();let proposalId='';
  });return {controller,transport};}
 afterEach(()=>cleanup());
 it('labels the offline observation, writes only after confirmation and renders the canonical Food readback',async()=>{const {controller,transport}=fixture(),food=new FoodQuantityController();const foodTransport=vi.fn<FoodTransport>(async op=>{if(!('entryId' in op))throw new Error('invalid food operation');return {version:'coach-assistant.v2',storage:'database',ok:true,snapshot:{entryId:op.entryId,version:'1',loggedDate:'2026-09-08',foodName:'Fixture rice',foodId:null,source:'photo_ai',sourceId:observation,grams:150,quantity:150,calories:195,proteinG:4,carbsG:42,fatG:.5,fiberG:.6,sugarG:0}};});await controller.select(attachment,conversation,transport);function View(){const state=React.useSyncExternalStore(controller.subscribe,controller.snapshot),foodState=React.useSyncExternalStore(food.subscribe,food.snapshot);return <I18nProvider defaultLang="en"><PhotoFoodPanel controller={controller} state={state} transport={transport} onReceipt={entryId=>food.select(entryId,conversation,foodTransport)}/>{foodState.entryId&&<FoodQuantityPanel controller={food} state={foodState} transport={foodTransport}/>}</I18nProvider>}render(<View/>);expect(screen.getByText(/Offline test observation/)).toBeTruthy();fireEvent.change(screen.getByLabelText('Grams'),{target:{value:'150'}});fireEvent.click(screen.getByRole('button',{name:'Review food entry'}));await screen.findByRole('button',{name:'Confirm and save food'});expect(screen.getByRole('table').textContent).toContain('100150');expect(transport.mock.calls.filter(([op])=>op.operation==='photo.food.apply')).toHaveLength(0);fireEvent.click(screen.getByRole('button',{name:'Confirm and save food'}));await screen.findByText('Current entry · 150 g · 195 kcal');expect(controller.snapshot().refreshEntryId).toBeTruthy();expect(transport.mock.calls.map(([op])=>op.operation)).toEqual(['photo.food.read','photo.food.propose','photo.food.apply']);expect(foodTransport.mock.calls.map(([op])=>op.operation)).toEqual(['food.read']);});
-it('cancels a read without accepting late data',async()=>{const controller=new PhotoFoodController();let resolve!:(value:Awaited<ReturnType<PhotoFoodTransport>>)=>void;const transport:PhotoFoodTransport=()=>new Promise(done=>{resolve=done;});const selecting=controller.select(attachment,conversation,transport);controller.cancel();resolve({version:'coach-assistant.v2',storage:'offline_fixture',ok:true,snapshot:{observationId:observation,attachmentId:attachment,source:'offline_fixture',trust:'untrusted_image_data',reviewRequired:true,items:[{index:0,version:hash,foodName:'Rice',estimatedGrams:100,estimatedCalories:100,confidence:.5,accuracyNote:''}]}});await selecting;expect(controller.snapshot().snapshot).toBeNull();});
+it('cancels a read without accepting late data',async()=>{const controller=new PhotoFoodController();let resolve!:(value:Awaited<ReturnType<PhotoFoodTransport>>)=>void;const transport:PhotoFoodTransport=()=>new Promise(done=>{resolve=done;});const selecting=controller.select(attachment,conversation,transport);controller.cancel();resolve({version:'coach-assistant.v2',storage:'offline_fixture',ok:true,snapshot:{observationId:observation,attachmentId:attachment,source:'offline_fixture',trust:'untrusted_image_data',reviewRequired:true,items:[{index:0,version:hash,foodName:'Rice',identityStatus:'identified',estimatedGrams:100,estimatedCalories:100,confidence:.5,accuracyNote:''}]}});await selecting;expect(controller.snapshot().snapshot).toBeNull();});
 it('recovers a lost apply with the same action id and never writes twice',async()=>{const {controller,transport}=fixture();await controller.select(attachment,conversation,transport);await controller.propose({loggedDate:'2026-09-08',mealType:'lunch',grams:150},transport);const actual=transport.getMockImplementation()!;transport.mockImplementation(async(op,signal)=>{const result=await actual(op,signal);if(op.operation==='photo.food.apply')throw Error('lost');return result;});await controller.apply(transport);expect(controller.snapshot().uncertain).toBe(true);await controller.check(transport);const apply=transport.mock.calls.find(([op])=>op.operation==='photo.food.apply')![0] as Extract<PhotoFoodOperation,{operation:'photo.food.apply'}>;const receipt=transport.mock.calls.find(([op])=>op.operation==='photo.food.receipt')![0] as Extract<PhotoFoodOperation,{operation:'photo.food.receipt'}>;expect(receipt.actionId).toBe(apply.actionId);expect(transport.mock.calls.filter(([op])=>op.operation==='photo.food.apply')).toHaveLength(1);expect(controller.snapshot().receipt?.status).toBe('applied');});
 it('invalidates an unconfirmed proposal when the conversation changes',async()=>{const {controller,transport}=fixture();await controller.select(attachment,conversation,transport);await controller.propose({loggedDate:'2026-09-08',mealType:'lunch',grams:150},transport);expect(controller.snapshot().proposal).toBeTruthy();controller.moveConversation(id());expect(controller.snapshot()).toMatchObject({attachmentId:null,snapshot:null,proposal:null,receipt:null,uncertain:false});await controller.apply(transport);await controller.check(transport);expect(transport.mock.calls.filter(([op])=>op.operation==='photo.food.apply'||op.operation==='photo.food.receipt')).toHaveLength(0);});
+
+it.each(['uncertain','unassessed'] as const)('keeps %s identities readable without a proposal or write',async identityStatus=>{
+ const {controller,transport}=fixture(identityStatus);await controller.select(attachment,conversation,transport);
+ const openLog=vi.fn();function View(){const state=React.useSyncExternalStore(controller.subscribe,controller.snapshot);return <I18nProvider defaultLang="en"><PhotoFoodPanel controller={controller} state={state} transport={transport} onOpenFoodLog={openLog}/></I18nProvider>}
+ render(<View/>);
+ expect(screen.getByText('Estimate')).toBeTruthy();
+ expect(screen.getByRole('button',{name:identityStatus==='uncertain'?'Unidentified component 1 · Possible identification':'Unidentified component 1 · Identity not reviewed'})).toBeTruthy();
+ expect(screen.queryByLabelText('Grams')).toBeNull();
+ expect(screen.queryByRole('button',{name:'Review food entry'})).toBeNull();
+ expect(screen.getByRole('link',{name:'Open food log'}).getAttribute('href')).toBe('/dashboard/log');
+ await controller.propose({loggedDate:'2026-09-08',mealType:'lunch',grams:150},transport);
+ await controller.apply(transport);
+ expect(transport.mock.calls.map(([op])=>op.operation)).toEqual(['photo.food.read']);
+ expect(controller.snapshot().error).toBe('identity_clarification_required');
+});
+it('allows selecting an identified item while leaving an uncertain component unsaved',async()=>{
+ const {controller,transport}=fixture();const original=transport.getMockImplementation()!;
+ transport.mockImplementation(async(op,signal)=>{const result=await original(op,signal);if(result.ok&&'snapshot'in result)result.snapshot.items.push({...result.snapshot.items[0],index:1,identityStatus:'uncertain',foodName:'Brown component'});return result;});
+ await controller.select(attachment,conversation,transport);controller.choose(1);
+ await controller.propose({loggedDate:'2026-09-08',mealType:'lunch',grams:150},transport);
+ expect(controller.snapshot().proposal).toBeNull();controller.choose(0);
+ await controller.propose({loggedDate:'2026-09-08',mealType:'lunch',grams:150},transport);
+ expect(controller.snapshot().proposal?.after.foodName).toBe('Fixture rice');
+ expect(transport.mock.calls.filter(([op])=>op.operation==='photo.food.propose')).toHaveLength(1);
+ expect(transport.mock.calls.some(([op])=>op.operation==='photo.food.apply')).toBe(false);
+});
+it('keeps a lost apply pinned when the receipt is not found, then recovers the original receipt on a later check',async()=>{
+ const {controller,transport}=fixture();await controller.select(attachment,conversation,transport);await controller.propose({loggedDate:'2026-09-08',mealType:'lunch',grams:150},transport);
+ const actual=transport.getMockImplementation()!;
+ transport.mockImplementation(async(op,signal)=>{const result=await actual(op,signal);if(op.operation==='photo.food.apply')throw Error('lost');return result;});
+ await controller.apply(transport);expect(controller.snapshot().uncertain).toBe(true);
+ // A missing receipt is absence at lookup time, not proof the delayed apply cannot commit: keep the
+ // pinned envelope and uncertainty, and never retry the mutation automatically.
+ transport.mockImplementation(async(op,signal)=>{if(op.operation==='photo.food.receipt')return {version:'coach-assistant.v2',storage:'database',ok:false,error:'not_found'};return actual(op,signal);});
+ await controller.check(transport);
+ expect(controller.snapshot().uncertain).toBe(true);
+ expect(transport.mock.calls.filter(([op])=>op.operation==='photo.food.apply')).toHaveLength(1);
+ const blocked=transport.mock.calls.length;await controller.propose({loggedDate:'2026-09-08',mealType:'dinner',grams:150},transport);
+ expect(transport.mock.calls.length).toBe(blocked);
+ // A later Check recovers the original, still-immutable action id and the delayed receipt.
+ transport.mockImplementation(actual);
+ await controller.check(transport);
+ const receiptIds=transport.mock.calls.filter(([op])=>op.operation==='photo.food.receipt').map(([op])=>op as Extract<PhotoFoodOperation,{operation:'photo.food.receipt'}>).map(op=>op.actionId);
+ expect(new Set(receiptIds).size).toBe(1);
+ expect(controller.snapshot().receipt?.status).toBe('applied');
+ expect(controller.snapshot().uncertain).toBe(false);
+});
+it('releases a definitively refused review so the panel stays dismissible',async()=>{
+ const {controller,transport}=fixture();await controller.select(attachment,conversation,transport);await controller.propose({loggedDate:'2026-09-08',mealType:'lunch',grams:150},transport);
+ const actual=transport.getMockImplementation()!;
+ transport.mockImplementation(async(op,signal)=>{if(op.operation==='photo.food.apply')return {version:'coach-assistant.v2',storage:'database',ok:false,error:'expired'};return actual(op,signal);});
+ await controller.apply(transport);
+ expect(controller.snapshot()).toMatchObject({uncertain:false,error:'expired',receipt:null});
+ expect(controller.snapshot().proposal).toBeTruthy();
+ function View(){const state=React.useSyncExternalStore(controller.subscribe,controller.snapshot);return <I18nProvider defaultLang="en"><PhotoFoodPanel controller={controller} state={state} transport={transport}/></I18nProvider>}
+ render(<View/>);
+ expect(screen.getByText('This photo has expired. Add it again if you want a new analysis.')).toBeTruthy();
+ fireEvent.click(screen.getByRole('button',{name:'Close saved change'}));
+ expect(controller.snapshot()).toMatchObject({attachmentId:null,snapshot:null,proposal:null,receipt:null,error:null});
+ expect(transport.mock.calls.filter(([op])=>op.operation==='photo.food.apply')).toHaveLength(1);
+});
+it('recovers the original receipt on a later check after a receipt lookup failure',async()=>{
+ const {controller,transport}=fixture();await controller.select(attachment,conversation,transport);await controller.propose({loggedDate:'2026-09-08',mealType:'lunch',grams:150},transport);
+ const actual=transport.getMockImplementation()!;
+ transport.mockImplementation(async(op,signal)=>{const result=await actual(op,signal);if(op.operation==='photo.food.apply')throw Error('committed response lost');return result;});
+ await controller.apply(transport);
+ transport.mockImplementation(async(op,signal)=>op.operation==='photo.food.receipt'?{version:'coach-assistant.v2',storage:'database',ok:false,error:'forbidden'}:actual(op,signal));
+ await controller.check(transport);
+ expect(controller.snapshot().uncertain).toBe(true);
+ const blocked=transport.mock.calls.filter(([op])=>op.operation==='photo.food.apply').length;
+ await controller.propose({loggedDate:'2026-09-08',mealType:'dinner',grams:150},transport);
+ expect(transport.mock.calls.filter(([op])=>op.operation==='photo.food.apply')).toHaveLength(blocked);
+ transport.mockImplementation(actual);
+ await controller.check(transport);
+ const receiptIds=transport.mock.calls.filter(([op])=>op.operation==='photo.food.receipt').map(([op])=>op as Extract<PhotoFoodOperation,{operation:'photo.food.receipt'}>).map(op=>op.actionId);
+ expect(receiptIds.every(actionId=>actionId===receiptIds[0])).toBe(true);
+ expect(controller.snapshot().receipt?.status).toBe('applied');
+ expect(controller.snapshot().uncertain).toBe(false);
+});
+
+it.each(['forbidden','not_connected','invalid_input'] as const)('AG4 receipt lookup %s cannot release a potentially committed action',async error=>{
+ const {controller,transport}=fixture();await controller.select(attachment,conversation,transport);await controller.propose({loggedDate:'2026-09-08',mealType:'lunch',grams:150},transport);
+ const actual=transport.getMockImplementation()!;
+ transport.mockImplementation(async(op,signal)=>{const result=await actual(op,signal);if(op.operation==='photo.food.apply')throw Error('committed response lost');return result;});
+ await controller.apply(transport);
+ transport.mockImplementation(async(op,signal)=>op.operation==='photo.food.receipt'?{version:'coach-assistant.v2',storage:'database',ok:false,error}:actual(op,signal));
+ await controller.check(transport);
+ expect(controller.snapshot().uncertain).toBe(true);
+ const before=transport.mock.calls.length;await controller.propose({loggedDate:'2026-09-08',mealType:'dinner',grams:150},transport);expect(transport.mock.calls.length).toBe(before);
+});
+
+type ApplyOp=Extract<PhotoFoodOperation,{operation:'photo.food.apply'}>;
+type ReceiptOp=Extract<PhotoFoodOperation,{operation:'photo.food.receipt'}>;
+// Stateful harness modelling the real writer's receipt-first idempotency: an apply with an already
+// recorded actionId returns the stored receipt instead of committing again. No DB concurrency is
+// claimed here; the service-level contract is exercised offline in photo-food-service.test.ts.
+function retryFixture(){const controller=new PhotoFoodController();let proposalId='';const commits:ApplyOp[]=[];const receipts=new Map<string,Awaited<ReturnType<PhotoFoodTransport>>>();
+ const stored=(actionId:string)=>({version:'coach-assistant.v2' as const,storage:'isolated_database_fixture' as const,evaluation:{mode:'isolated_authorized_fixture' as const,observation:'offline_fixture' as const,visionVerified:false as const,paidApiCalls:0 as const},ok:true as const,receipt:{id:id(),actionId,proposalId,status:'applied' as const,action:'food.photo.create' as const,resourceVersion:'1',recordedAt:new Date().toISOString()},refresh:{entryId:proposalId,loggedDate:'2026-09-08',previousVersion:hash,version:'1',strategy:'refetch' as const}});
+ const transport=vi.fn<PhotoFoodTransport>(async op=>{
+  if(op.operation==='photo.food.read')return {version:'coach-assistant.v2',storage:'offline_fixture',ok:true,snapshot:{observationId:observation,attachmentId:attachment,source:'offline_fixture',trust:'untrusted_image_data',reviewRequired:true,items:[{index:0,version:hash,foodName:'Fixture rice',identityStatus:'identified',estimatedGrams:100,estimatedCalories:130,confidence:.7,accuracyNote:'Estimate'}]}};
+  if(op.operation==='photo.food.propose'){proposalId=id();return {version:'coach-assistant.v2',storage:'offline_fixture',ok:true,proposal:{id:proposalId,hash:'b'.repeat(64),action:'food.photo.create',resource:{kind:'food_entry',id:proposalId,version:hash},before:null,after:{...op.after,foodName:'Fixture rice',calories:195,proteinG:4,carbsG:42,fatG:.5,fiberG:.6,sugarG:0,confidence:.7,source:'photo_ai',nutrition:'estimated',portion:'explicit_user'},evidence:{observationId:observation,observationRevision:id(),attachmentId:attachment,imageDigest:'c'.repeat(64),itemIndex:0,source:'offline_fixture',trust:'untrusted_image_data'},precondition:hash,expiresAt:new Date(Date.now()+300000).toISOString(),reviewRequired:true}};}
+  if(op.operation==='photo.food.apply'){const prior=receipts.get(op.actionId);if(prior)return prior;commits.push(op);const result=stored(op.actionId);receipts.set(op.actionId,result);return result;}
+  return receipts.get(op.actionId)??{version:'coach-assistant.v2',storage:'database',ok:false,error:'not_found'};
+ });return {controller,transport,commits,receipts};}
+
+it('keeps a lost apply pinned with no retry until Check proves the receipt missing, then retries the same immutable envelope once',async()=>{
+ const f=retryFixture(),{controller,transport}=f;await controller.select(attachment,conversation,transport);await controller.propose({loggedDate:'2026-09-08',mealType:'lunch',grams:150},transport);
+ const actual=transport.getMockImplementation()!;
+ // The original request never reached the writer: it never commits and the acknowledgement is lost.
+ transport.mockImplementation(async(op,signal)=>{if(op.operation==='photo.food.apply')throw Error('offline-before-commit');return actual(op,signal);});
+ await controller.apply(transport);
+ expect(controller.snapshot()).toMatchObject({uncertain:true,receiptMissing:false,receipt:null});
+ expect(f.commits).toHaveLength(0);
+ // Before any Check there is no explicit retry and dismissal stays blocked.
+ controller.dismiss();
+ expect(controller.snapshot().uncertain).toBe(true);
+ transport.mockImplementation(actual);
+ await controller.check(transport);
+ expect(controller.snapshot()).toMatchObject({uncertain:true,receiptMissing:true,receipt:null});
+ const appliesBefore=transport.mock.calls.filter(([op])=>op.operation==='photo.food.apply');
+ expect(appliesBefore).toHaveLength(1);
+ expect(await controller.retry(transport)).toBe(true);
+ expect(f.commits).toHaveLength(1);
+ const applies=transport.mock.calls.filter(([op])=>op.operation==='photo.food.apply').map(([op])=>op as ApplyOp);
+ expect(applies).toHaveLength(2);
+ expect(applies[1]).toEqual(applies[0]);
+ expect(applies[1].actionId).toBe(applies[0].actionId);
+ expect(controller.snapshot()).toMatchObject({receipt:{status:'applied'},uncertain:false,receiptMissing:false});
+});
+it('offers an explicitly labelled retry only after a checked missing receipt, keeps Check read-only and guards duplicate clicks',async()=>{
+ const f=retryFixture(),{controller,transport}=f;await controller.select(attachment,conversation,transport);await controller.propose({loggedDate:'2026-09-08',mealType:'lunch',grams:150},transport);
+ const actual=transport.getMockImplementation()!;
+ transport.mockImplementation(async(op,signal)=>{if(op.operation==='photo.food.apply')throw Error('offline-before-commit');return actual(op,signal);});
+ await controller.apply(transport);
+ function View(){const state=React.useSyncExternalStore(controller.subscribe,controller.snapshot);return <I18nProvider defaultLang="en"><PhotoFoodPanel controller={controller} state={state} transport={transport}/></I18nProvider>}
+ render(<View/>);
+ expect(screen.getByRole('button',{name:'Check saved change'})).toBeTruthy();
+ expect(screen.queryByRole('button',{name:'Retry saving the same confirmed food'})).toBeNull();
+ transport.mockImplementation(actual);
+ fireEvent.click(screen.getByRole('button',{name:'Check saved change'}));
+ expect(await screen.findByRole('button',{name:'Retry saving the same confirmed food'})).toBeTruthy();
+ expect(screen.getByRole('button',{name:'Check saved change'})).toBeTruthy();
+ expect(f.commits).toHaveLength(0);
+ let release!:(value:void)=>void;const gate=new Promise<void>(resolve=>{release=resolve;});
+ transport.mockImplementation(async(op,signal)=>{if(op.operation==='photo.food.apply'){await gate;return actual(op,signal);}return actual(op,signal);});
+ fireEvent.click(screen.getByRole('button',{name:'Retry saving the same confirmed food'}));
+ fireEvent.click(screen.getByRole('button',{name:'Retry saving the same confirmed food'}));
+ release();
+ await screen.findByText(/Food saved/);
+ expect(f.commits).toHaveLength(1);
+ expect(transport.mock.calls.filter(([op])=>op.operation==='photo.food.apply')).toHaveLength(2);
+});
+it('reconciles a late original with a second read-only Check without a second write or a new action identity',async()=>{
+ const f=retryFixture(),{controller,transport}=f;await controller.select(attachment,conversation,transport);await controller.propose({loggedDate:'2026-09-08',mealType:'lunch',grams:150},transport);
+ const actual=transport.getMockImplementation()!;
+ // The original committed but its acknowledgement was lost and the receipt is not visible yet.
+ transport.mockImplementation(async(op,signal)=>{const result=await actual(op,signal);if(op.operation==='photo.food.apply')throw Error('lost ack');return result;});
+ await controller.apply(transport);
+ expect(controller.snapshot().uncertain).toBe(true);
+ let hidden=true;
+ transport.mockImplementation(async(op,signal)=>{if(op.operation==='photo.food.receipt'&&hidden)return {version:'coach-assistant.v2',storage:'database',ok:false,error:'not_found'};return actual(op,signal);});
+ await controller.check(transport);
+ expect(controller.snapshot().receiptMissing).toBe(true);
+ await controller.check(transport);
+ expect(controller.snapshot().receipt).toBeNull();
+ expect(transport.mock.calls.filter(([op])=>op.operation==='photo.food.apply')).toHaveLength(1);
+ hidden=false;
+ await controller.check(transport);
+ expect(controller.snapshot()).toMatchObject({receipt:{status:'applied'},uncertain:false,receiptMissing:false});
+ expect(f.commits).toHaveLength(1);
+ const lookups=transport.mock.calls.filter(([op])=>op.operation==='photo.food.receipt').map(([op])=>op as ReceiptOp);
+ expect(lookups.length).toBeGreaterThanOrEqual(3);
+ expect(new Set(lookups.map(op=>op.actionId)).size).toBe(1);
+});
+it.each(['forbidden','expired','version_conflict','not_connected','invalid_input','identity_clarification_required'] as const)('a retry outcome of %s never falsely releases the pinned recovery',async error=>{
+ const f=retryFixture(),{controller,transport}=f;await controller.select(attachment,conversation,transport);await controller.propose({loggedDate:'2026-09-08',mealType:'lunch',grams:150},transport);
+ const actual=transport.getMockImplementation()!;
+ transport.mockImplementation(async(op,signal)=>{if(op.operation==='photo.food.apply')throw Error('offline-before-commit');return actual(op,signal);});
+ await controller.apply(transport);transport.mockImplementation(actual);await controller.check(transport);
+ expect(controller.snapshot()).toMatchObject({uncertain:true,receiptMissing:true});
+ transport.mockImplementation(async(op,signal)=>op.operation==='photo.food.apply'?{version:'coach-assistant.v2',storage:'database',ok:false,error}:actual(op,signal));
+ expect(await controller.retry(transport)).toBe(true);
+ expect(controller.snapshot()).toMatchObject({uncertain:true,receiptMissing:true,receipt:null});
+ expect(f.commits).toHaveLength(0);
+ // Check stays read-only and the pinned recovery remains available.
+ transport.mockImplementation(actual);
+ await controller.check(transport);
+ expect(controller.snapshot()).toMatchObject({uncertain:true,receiptMissing:true,receipt:null});
+ expect(transport.mock.calls.filter(([op])=>op.operation==='photo.food.apply')).toHaveLength(2);
+ expect(await controller.retry(transport)).toBe(true);
+ expect(controller.snapshot().receipt?.status).toBe('applied');
+ expect(f.commits).toHaveLength(1);
+});
+it('drops a stale retry completion when the conversation is replaced',async()=>{
+ const f=retryFixture(),{controller,transport}=f;await controller.select(attachment,conversation,transport);await controller.propose({loggedDate:'2026-09-08',mealType:'lunch',grams:150},transport);
+ const actual=transport.getMockImplementation()!;
+ transport.mockImplementation(async(op,signal)=>{if(op.operation==='photo.food.apply')throw Error('offline-before-commit');return actual(op,signal);});
+ await controller.apply(transport);transport.mockImplementation(actual);await controller.check(transport);
+ expect(controller.snapshot().receiptMissing).toBe(true);
+ let release!:(value:void)=>void;const gate=new Promise<void>(resolve=>{release=resolve;});
+ transport.mockImplementation(async(op,signal)=>{if(op.operation==='photo.food.apply'){await gate;return actual(op,signal);}return actual(op,signal);});
+ const retrying=controller.retry(transport);
+ controller.moveConversation(id());
+ release();await retrying;
+ expect(controller.snapshot()).toMatchObject({attachmentId:null,snapshot:null,receipt:null,uncertain:false,receiptMissing:false});
+ expect(f.commits).toHaveLength(1);
+});

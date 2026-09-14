@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import './workout-v2.css';
 import { WorkoutWorkspaceHeader } from '@/components/workout/workspace/WorkoutWorkspaceHeader';
 import { WorkoutWorkspaceProvider } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
 import { WorkoutRouteTransition } from '@/components/workout/workspace/WorkoutRouteTransition';

@@ -3,6 +3,9 @@ import { handleCoachRequest } from '@/agents/coach-assistant/handler';
 import { createServerRepository } from '@/agents/coach-assistant/server-repository';
 
 export const runtime = 'nodejs';
+// One governed photo observation plus one Luna response share this existing
+// route. The application deadline remains lower and owns cancellation.
+export const maxDuration = 120;
 
 export async function POST(request: NextRequest) {
   return handleCoachRequest(request, {
@@ -10,6 +13,32 @@ export async function POST(request: NextRequest) {
     createIsolatedEngine: async () => {
       const { createIsolatedCoachEngineBinding } = await import('@/agents/coach-assistant/isolated-engine');
       return createIsolatedCoachEngineBinding(process.env);
+    },
+    createReferenceReviewService: async reference => {
+      const [{db},{createTextFoodService},{foodReferenceReviewOutput}]=await Promise.all([import('@/db/client'),import('@/agents/coach-assistant/text-food-service'),import('@/agents/coach-assistant/food-reference-review')]);
+      return createTextFoodService(db,async()=>{const output=foodReferenceReviewOutput(reference);if(!output)throw new Error('invalid_input');return output;});
+    },
+    createNutritionAdviceEstimator: async (actorId,turnId) => {
+      const { createPrivateNutritionAdviceEstimator } = await import('@/agents/coach-assistant/private-nutrition-advice');
+      return createPrivateNutritionAdviceEstimator(process.env,actorId,turnId);
+    },
+    createFoodReferenceFallback: async (actorId, turnId) => {
+      const { createPrivateFoodReferenceFallback } = await import('@/agents/coach-assistant/private-food-reference-runtime');
+      return createPrivateFoodReferenceFallback(process.env, actorId, turnId);
+    },
+    createGovernedEngine: async (actorId: string) => {
+      const [{ db }, { invokeStructuredProvider }, { createPilotBudgetStore }, { createGovernedCoachEngineBinding }] = await Promise.all([
+        import('@/db/client'),
+        import('@/agents/runtime/providers/structured'),
+        import('@/lib/workout/pilot-budget-service'),
+        import('@/agents/coach-assistant/governed-engine'),
+      ]);
+      return createGovernedCoachEngineBinding({
+        env: process.env,
+        actorId,
+        persistentStore: createPilotBudgetStore(db, actorId),
+        transport: invokeStructuredProvider,
+      });
     },
     guard: async () => {
       const { guardAiRoute } = await import('@/lib/security/api-guard');
@@ -30,8 +59,15 @@ export async function POST(request: NextRequest) {
       const { db } = await import('@/db/client');
       const { createCoachChatService } = await import('@/agents/coach-assistant/chat-service');
       const { createCoachChatCleanup } = await import('@/agents/coach-assistant/chat-cleanup');
-      return createCoachChatService(db, createCoachChatCleanup(db));
+      const attachments = process.env.COACH_ASSISTANT_PRIVATE_ATTACHMENTS_ENABLED === '1'
+        ? await import('@/agents/coach-assistant/private-photo-runtime').then(module => module.createPrivateAttachmentRouteService(process.env))
+        : undefined;
+      return createCoachChatService(db, createCoachChatCleanup(db, attachments));
     },
+    ...(process.env.COACH_ASSISTANT_PRIVATE_ATTACHMENTS_ENABLED === '1' ? { createAttachmentService: async () => {
+      const { createPrivateAttachmentRouteService } = await import('@/agents/coach-assistant/private-photo-runtime');
+      return createPrivateAttachmentRouteService(process.env);
+    } } : {}),
     createFoodPreferenceService: async () => {
       const { db } = await import('@/db/client');
       const { createFoodPreferenceService } = await import('@/agents/coach-assistant/food-preference-service');
@@ -42,11 +78,19 @@ export async function POST(request: NextRequest) {
       const { createFoodQuantityService } = await import('@/agents/coach-assistant/food-service');
       return createFoodQuantityService(db);
     },
-    ...(process.env.COACH_ASSISTANT_ISOLATED_PHOTO_FOOD_ENABLED === '1' ? { createPhotoFoodService: async (operation:unknown) => {
+    createTextFoodService: async (actorId:string) => {
+      const { createPrivateTextFoodService } = await import('@/agents/coach-assistant/private-text-food-runtime');
+      return createPrivateTextFoodService(process.env, actorId);
+    },
+    createPhotoFoodService: async (operation:unknown, actorId:string) => {
+      if (process.env.COACH_ASSISTANT_PRIVATE_ATTACHMENTS_ENABLED === '1') {
+        const { createGovernedPrivatePhotoFoodService } = await import('@/agents/coach-assistant/private-photo-runtime');
+        return createGovernedPrivatePhotoFoodService(process.env, actorId);
+      }
       const { db } = await import('@/db/client');
       const { createIsolatedPhotoFoodRouteService } = await import('@/agents/coach-assistant/isolated-photo-food-route');
       return createIsolatedPhotoFoodRouteService(process.env,db,operation);
-    }} : {}),
+    },
     createProgressService: async () => {
       const { db } = await import('@/db/client');
       const { createProgressService } = await import('@/agents/coach-assistant/progress-service');
@@ -72,3 +116,13 @@ export async function POST(request: NextRequest) {
 
 /** Binary uploads share the exact private authentication/allowlist boundary. */
 export const PUT = POST;
+
+/** Read-only launcher visibility; admission is still enforced on every POST. */
+export async function GET() {
+  const {createSupabaseServerClient}=await import('@/lib/supabase/server');
+  const {sharedPilotRuntimeGate}=await import('@/lib/workout/shared-pilot-budget');
+  const client=await createSupabaseServerClient();
+  const {data,error}=await client.auth.getUser();
+  const available=!error&&Boolean(data.user)&&(['production','preview'].includes(process.env.VERCEL_ENV ?? '') ? sharedPilotRuntimeGate(process.env,data.user!.id).ok : process.env.NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED === '1');
+  return Response.json({available},{headers:{'Cache-Control':'private, no-store'}});
+}

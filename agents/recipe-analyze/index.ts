@@ -15,7 +15,7 @@ import { z } from 'zod';
 import { executeAiTask } from '../runtime';
 import { invokeStructuredProvider } from '../runtime/providers/structured';
 import type { RecipeAnalyzeInput, RecipeAnalyzeOutput } from '../schemas/recipe-analyze';
-import { isRecipeAnalyzeOutput } from '../schemas/recipe-analyze';
+import { RECIPE_ANALYZE_MAX_INPUT_CHARS, isRecipeAnalyzeOutput } from '../schemas/recipe-analyze';
 import { pick } from '../router';
 import { emitGenAISpan, estimateCostUsd } from '../observability/otel';
 import { normalizeRecipeWithLookup } from './normalize';
@@ -91,12 +91,7 @@ export async function run(
     beforeTransportAttempt?: (endpoint: string) => unknown;
   },
 ): Promise<RecipeAnalyzeRunResult> {
-  const MAX_INPUT_LENGTH = 4000;
-  const sanitizedText = input.text
-    .trim()
-    .slice(0, MAX_INPUT_LENGTH)
-    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
-
+  const trimmedText = input.text.trim();
   const servings = Math.max(1, Math.floor(input.servings || 1));
   const language = input.language ?? 'en';
 
@@ -114,6 +109,19 @@ export async function run(
     traceId: null as string | null,
     costUsd: 0,
   };
+
+  // Refuse — never silently truncate — text past the supported bound. Slicing
+  // here dropped every ingredient past the cut and returned nutrition for a
+  // different, smaller recipe the user never entered (silent wrong answer).
+  if (trimmedText.length > RECIPE_ANALYZE_MAX_INPUT_CHARS) {
+    return {
+      ok: false,
+      error: `text is too long (max ${RECIPE_ANALYZE_MAX_INPUT_CHARS} characters)`,
+      telemetry: baseTelemetry,
+    };
+  }
+
+  const sanitizedText = trimmedText.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
 
   if (!sanitizedText) {
     return {

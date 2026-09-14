@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import React from 'react';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const { push, startLiveSession } = vi.hoisted(() => ({
@@ -132,7 +132,7 @@ describe('Workout home v3', () => {
   });
   it('separates recorded muscles from the planned workout and switches to their view', () => {
     renderHome({ program: coachProgram, workedExerciseIds: ['row'] });
-    const home = screen.getByRole('region', { name: "Today's target" });
+    const home = screen.getByRole('region', { name: "Your muscle map" });
     fireEvent.click(within(home).getByRole('button', { name: /Worked today/ }));
     expect(within(home).queryByRole('button', { name: /^Latissimus dorsi primary muscle$/i })).toBeNull();
     fireEvent.click(within(home).getByRole('button', { name: /^Back \d/ }));
@@ -156,13 +156,13 @@ describe('Workout home v3', () => {
     expect(screen.getByText(message)).toBeTruthy();
     expect(screen.getByTestId('workout-primary-action')).toBeTruthy();
   });
-  it('makes a coach assignment, plan readiness, target, and review action immediately explicit', async () => {
+  it('makes a coach assignment, plan readiness, target, and direct start action immediately explicit', async () => {
     renderHome({ program: coachProgram, recommended: recommendation });
 
     expect(screen.getByText(/assigned by coach/i)).toBeTruthy();
     expect(screen.getByText(/ready to review/i)).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Coach Push' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /review plan/i }).hasAttribute('disabled')).toBe(false);
+    expect(screen.getByRole('button', { name: /train now/i }).hasAttribute('disabled')).toBe(false);
     expect(screen.queryByRole('button', { name: /finish workout/i })).toBeNull();
     expect(screen.getByTestId('atlas-region-pectoralis-major')).toBeTruthy();
     expect(screen.getByText('Lower strength')).toBeTruthy();
@@ -174,26 +174,26 @@ describe('Workout home v3', () => {
     expect(screen.getByRole('button', { name: /^Pectoralis major primary muscle$/i })).toBeTruthy();
   });
 
-  it('presents a deterministic recommendation for review without starting a live session', () => {
+  it('starts the offered recommendation only after explicit click and acknowledgment', async () => {
+    startLiveSession.mockResolvedValue({ ok: true, sessionId: 'accepted' });
     renderHome({ recommended: recommendation });
-
-    expect(screen.getByText(/recommended by trophē/i)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: /review plan/i }));
-
-    expect(push).toHaveBeenCalledWith('/dashboard/workout/review');
     expect(startLiveSession).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId('workout-primary-action'));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/dashboard/workout/live'));
+    expect(startLiveSession).toHaveBeenCalledTimes(1);
+    expect(startLiveSession.mock.calls[0][0].liveStructure.length).toBeGreaterThan(0);
   });
 
-  it('uses one build action when no assigned or recommended plan exists', () => {
+  it('starts an empty strength session directly when no plan exists', async () => {
+    startLiveSession.mockResolvedValue({ ok: true, sessionId: 'accepted-empty' });
     renderHome();
-
     const primaryActions = screen.getAllByTestId('workout-primary-action');
     expect(primaryActions).toHaveLength(1);
-    expect(primaryActions[0].textContent).toMatch(/build workout/i);
+    expect(primaryActions[0].textContent).toMatch(/train now/i);
     fireEvent.click(primaryActions[0]);
-
-    expect(push).toHaveBeenCalledWith('/dashboard/workout/exercises');
-    expect(startLiveSession).not.toHaveBeenCalled();
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/dashboard/workout/live'));
+    expect(startLiveSession).toHaveBeenCalledTimes(1);
+    expect(startLiveSession.mock.calls[0][0]).toMatchObject({ kind: 'strength', liveStructure: [] });
   });
 
   it('does not label a represented strength target as absent when template summary is empty', async () => {
@@ -248,7 +248,7 @@ describe('Workout home v3', () => {
     expect(screen.getByText('Cardio session · no named muscle target')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /pectoralis major|latissimus dorsi/i })).toBeNull();
     expect(screen.queryByText(/pectoralis major · primary target/i)).toBeNull();
-    expect(screen.getByTestId('workout-primary-action').textContent).toBe('Continue editing');
+    expect(screen.getByTestId('workout-primary-action').textContent).toBe('Train now');
     const todaySchedule = within(screen.getByRole('region', { name: 'Schedule' })).getAllByRole('listitem')[0];
     expect(within(todaySchedule).getByText('Easy run')).toBeTruthy();
     expect(within(todaySchedule).getByText('Your saved draft')).toBeTruthy();
@@ -278,26 +278,27 @@ describe('Workout home v3', () => {
     });
 
     expect(screen.getAllByTestId('workout-primary-action')).toHaveLength(1);
-    expect(screen.getByTestId('workout-primary-action').textContent).toMatch(/continue editing/i);
+    expect(screen.getByTestId('workout-primary-action').textContent).toMatch(/train now/i);
     expect(screen.queryByRole('button', { name: 'Review plan' })).toBeNull();
   });
 
   it('separates the model, muscle controls and primary action in normal flow', () => {
     renderHome({ program: coachProgram });
-    const home = screen.getByRole('region', { name: "Today's target" });
+    const home = screen.getByRole('region', { name: "Your muscle map" });
     expect(within(home).getByRole('group', { name: 'Training view' })).toBeTruthy();
     expect(within(home).getByRole('button', { name: /^Chest \d/ })).toBeTruthy();
     expect(home.querySelector('.workout-muscle-body')).toBeTruthy();
     const action = screen.getByTestId('workout-primary-action');
-    expect(home.contains(action)).toBe(true);
+    expect(action.compareDocumentPosition(home) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('marks the readiness, atlas, and primary action as one mobile first-viewport composition', () => {
+  it('puts the primary action and atlas before the secondary readiness context', () => {
     renderHome({ program: coachProgram });
 
     const composition = screen.getByTestId('workout-home-first-view');
     expect(composition.className).toContain('workout-home-first-view');
-    expect(within(composition).getByRole('region', { name: "Today's workout status" })).toBeTruthy();
+    const context = screen.getByRole('region', { name: "Today's workout status" });
+    expect(composition.compareDocumentPosition(context) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(within(composition).getByLabelText('Muscle activation atlas')).toBeTruthy();
     expect(within(composition).getByTestId('workout-primary-action')).toBeTruthy();
   });
@@ -357,4 +358,31 @@ describe('Workout home v3', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Resume workout' }));
     await waitFor(() => expect(push).toHaveBeenCalledWith('/dashboard/workout/live'));
   });
+});
+
+it.each(['accepted', 'rejected'] as const)('ignores a late %s start after leaving Home while preserving the start request', async outcome => {
+  let settle!: (value: unknown) => void;
+  startLiveSession.mockImplementation(() => new Promise(resolve => { settle = resolve; }));
+  const view = renderHome();
+  fireEvent.click(screen.getByTestId('workout-primary-action'));
+  await waitFor(() => expect(startLiveSession).toHaveBeenCalledTimes(1));
+  const envelope = structuredClone(startLiveSession.mock.calls[0][0]);
+  view.unmount();
+  await act(async () => settle(outcome === 'accepted' ? { ok: true, sessionId: 'late' } : { ok: false, kind: 'transient' }));
+  expect(push).not.toHaveBeenCalled();
+  expect(startLiveSession).toHaveBeenCalledTimes(1);
+  expect(startLiveSession.mock.calls[0][0]).toEqual(envelope);
+});
+
+it('retries a transient empty start with the same durable envelope after an explicit click', async () => {
+  startLiveSession.mockResolvedValueOnce({ ok: false, kind: 'transient' }).mockResolvedValueOnce({ ok: true, sessionId: 'retry-accepted' });
+  renderHome();
+  fireEvent.click(screen.getByTestId('workout-primary-action'));
+  const retry = await screen.findByRole('button', { name: 'Retry same start' });
+  await waitFor(() => expect(retry.hasAttribute('disabled')).toBe(false));
+  expect(push).not.toHaveBeenCalled();
+  fireEvent.click(retry);
+  await waitFor(() => expect(push).toHaveBeenCalledWith('/dashboard/workout/live'));
+  expect(startLiveSession).toHaveBeenCalledTimes(2);
+  expect(startLiveSession.mock.calls[1][0]).toEqual(startLiveSession.mock.calls[0][0]);
 });

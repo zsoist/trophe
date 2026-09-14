@@ -119,7 +119,8 @@ describe("Nik's food-logging feedback", () => {
     expect(source).toContain('getHumanPortionAmount({');
     expect(source).toContain('getGramsForHumanPortion({');
     expect(source).toContain('showClarificationQuestion');
-    expect(source).toContain('decimals={natural ? 2 : 0}');
+    // Fractional portions (bowl halves, litre tenths) must keep their decimals.
+    expect(source).toContain('decimals={natural || vol ? 2 : 0}');
   });
 
   it('keeps 13 g protein as a label fact while resolving the bar at 60 g', () => {

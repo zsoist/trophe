@@ -1,8 +1,10 @@
 import { COACH_CHAT_VERSION } from '@/agents/coach-assistant/chat-contract';
-import { readHistoryDelete, readHistoryEnvelope, readHistoryList, readHistoryPage, readHistoryThread, readHistoryThreadResult, type HistoryList, type HistoryPage } from '@/agents/coach-assistant/chat-result-reader';
+import { readHistoryDelete, readHistoryMessage, readHistoryEnvelope, readHistoryList, readHistoryPage, readHistoryThread, readHistoryThreadResult, type HistoryList, type HistoryPage } from '@/agents/coach-assistant/chat-result-reader';
 export type { HistoryList, HistoryPage } from '@/agents/coach-assistant/chat-result-reader';
+import type { ConversationRecoveryTransport } from './conversation-state';
 const thread = readHistoryThread;
 export interface HistoryTransport {
+  recover?: ConversationRecoveryTransport;
   remove?(threadId: string, signal: AbortSignal): Promise<{ thread: HistoryPage['thread']; cleanup: 'complete' | 'pending' }>;
   rename?(threadId: string, title: string, expectedRevision: string, signal: AbortSignal): Promise<HistoryPage['thread']>;
   create?(requestId: string, title: string, signal: AbortSignal): Promise<HistoryPage['thread']>;
@@ -19,6 +21,19 @@ async function request<T>(operation: object, readValue: (value: unknown) => T, s
 
 /** Historical text remains historical text; it never creates a live response or a finality proof. */
 export const requestHistory: HistoryTransport = {
+  async recover(threadId, turnId, signal) {
+    return request({ operation: 'recover', threadId, turnId }, value => {
+      if (!value || typeof value !== 'object') throw new Error('history_mismatch');
+      const result = value as Record<string, unknown>;
+      const thread = readHistoryThread(result.thread), user = readHistoryMessage(result.user);
+      const status = result.status;
+      if (thread.id !== threadId || thread.state !== 'active' || result.turnId !== turnId || user.turnId !== turnId || user.role !== 'user'
+        || !['settled', 'failed', 'inflight'].includes(String(status))) throw new Error('history_mismatch');
+      const assistant = result.assistant === null ? null : readHistoryMessage(result.assistant);
+      if (status === 'settled' ? !assistant || assistant.turnId !== turnId || assistant.role !== 'assistant' || assistant.sequence <= user.sequence : assistant !== null) throw new Error('history_mismatch');
+      return { thread, status: status as 'settled' | 'failed' | 'inflight', user, assistant };
+    }, signal);
+  },
   async remove(threadId, signal) {
     const result = await request({ operation: 'delete', threadId, reviewed: true }, readHistoryDelete, signal);
     if (result.thread.id !== threadId || result.thread.state === 'active' || (result.cleanup === 'complete') !== (result.thread.state === 'deleted')) throw new Error('history_mismatch');

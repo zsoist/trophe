@@ -212,6 +212,19 @@ afterEach(() => {
 });
 
 describe("exercise discovery atlas and plan tray", () => {
+  it('opens live additions directly in results while pending selection cannot dispatch another add', () => {
+    const onSelect = vi.fn();
+    const onClose = vi.fn();
+    const view = render(<ExercisePicker exercises={EXERCISES} recentIds={[]} lang="en" liveSession selectionPending onSelect={onSelect} onClose={onClose} />);
+    expect(screen.getByRole('dialog').classList.contains('workout-live-picker')).toBe(true);
+    expect(screen.queryByText('What are you training?')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Add Barbell Bench Press' }));
+    expect(onSelect).not.toHaveBeenCalled();
+    view.rerender(<ExercisePicker exercises={EXERCISES} recentIds={[]} lang="en" liveSession onSelect={onSelect} onClose={onClose} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Add Barbell Bench Press' }));
+    expect(onSelect).toHaveBeenCalledWith(EXERCISES[0]);
+  });
+
   it("starts from a selectable atlas without revealing the full exercise catalogue", () => {
     renderPicker();
 
@@ -258,7 +271,7 @@ describe("exercise discovery atlas and plan tray", () => {
     );
     expect(row.getAttribute("data-media-tier")).toBe("verified-technique");
     expect(within(row).getByText("Exact technique poster")).toBeTruthy();
-    expect(within(row).getByText("Primary")).toBeTruthy();
+    expect(within(row).getByText("Primary: Chest")).toBeTruthy();
     expect(within(row).getByText("Barbell")).toBeTruthy();
     expect(poster.getAttribute("loading")).toBe("lazy");
     expect(poster.getAttribute("decoding")).toBe("async");

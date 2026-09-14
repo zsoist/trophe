@@ -9,8 +9,9 @@ the controller also revokes its object URL and stops answer playback.
 
 `VoiceTranscriptionTransport` is injected. The private Workout review injects an
 explicit `synthetic_fixture` whose text states that it did not come from the recording;
-it does not imitate STT quality or call a provider. Product routes keep transcription
-unconnected in this slice.
+it does not imitate STT quality or call a provider. A Preview pilot may connect the
+same UI to governed STT with `NEXT_PUBLIC_COACH_VOICE_LIVE_ENABLED=1`; the server
+still requires its private live, paid-AI, allowlist and non-production gates.
 
 Reviewed text uses the P6 server contract and preserves the original turn id. The UI
 preflights ambiguous alternatives such as “15 or 50” with the same browser-safe helper

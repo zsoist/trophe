@@ -1,0 +1,40 @@
+/*
+ * Set logger motion contract (AG2 implementation.md §Motion):
+ *   • row expand / "more options": 220ms transform + 160ms opacity
+ *   • rest panel start/end: 220ms fade
+ *   • failed write: 160ms fade
+ * Transform + opacity only, no layout animation, and every motion collapses to
+ * an instant static swap under reduced motion.
+ */
+.exercise-set-logger__more {
+  animation: exercise-set-logger-more 220ms var(--workout-motion-ease, cubic-bezier(.16, 1, .3, 1));
+}
+
+@keyframes exercise-set-logger-more {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.exercise-set-logger__rest {
+  animation: exercise-set-logger-rest 220ms var(--workout-motion-ease, cubic-bezier(.16, 1, .3, 1));
+}
+
+@keyframes exercise-set-logger-rest {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.exercise-set-logger__failed {
+  animation: exercise-set-logger-failed 160ms ease-out;
+}
+
+@keyframes exercise-set-logger-failed {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .exercise-set-logger__more,
+  .exercise-set-logger__rest,
+  .exercise-set-logger__failed { animation: none; }
+}

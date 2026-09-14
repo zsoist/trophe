@@ -2,6 +2,10 @@ import type { CoachVoiceResult } from '@/agents/coach-assistant/voice-contract';
 import type { ReviewedVoiceTurnResult } from '@/agents/coach-assistant/voice-turn';
 import type { CoachConversationRequest } from '@/agents/coach-assistant/contracts';
 
+export function coachVoiceTranscriptionEnabled(flags: { fixture?: string; live?: string }) {
+  return flags.fixture === '1' || flags.live === '1';
+}
+
 export type VoiceRecording = { blob: Blob; durationMs: number };
 export type VoiceTranscriptionTransport = (
   recording: VoiceRecording,

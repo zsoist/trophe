@@ -6,6 +6,8 @@ import { useI18n } from '@/lib/i18n';
 import { ATLAS_GEOMETRY, atlasPathsFor, atlasViewportFor, resolveAtlasHit, silhouettePathsFor } from '@/lib/workout/atlas-geometry';
 import type { AtlasViewport } from '@/lib/workout/atlas-geometry';
 import { anatomyLabelKey, type AnatomyMuscleId, type AnatomyView, type MuscleActivation, type MuscleRole } from '@/lib/workout/anatomy';
+import { IconMinus, IconPlus, IconReset } from './exploration-icons';
+import './workout-exploration-v2.css';
 
 export interface MuscleAtlasProps {
   activations: MuscleActivation[];
@@ -14,11 +16,28 @@ export interface MuscleAtlasProps {
   compact?: boolean;
   homeCompact?: boolean;
   viewOverride?: AnatomyView;
+  /** A parent camera owns controls in both 3D and fallback modes. */
+  camera?: { zoom: number };
 }
 
 const ROLE_LABEL_KEYS: Record<MuscleRole, string> = { primary: 'workout.info_primary', secondary: 'workout.info_secondary', stabilizer: 'workout.info_stabilizer' };
 const ROLE_ARIA_LABEL_KEYS: Record<MuscleRole, string> = { primary: 'workout.atlas_role_primary', secondary: 'workout.atlas_role_secondary', stabilizer: 'workout.atlas_role_stabilizer' };
 type ActivationCopy = Pick<MuscleActivation, 'id' | 'role' | 'confidence' | 'group'>;
+// Magnification reuses the same geometry union as the renderer: each step mirrors
+// the 3D viewer's 0.8 distance factor (1 / 0.8 = 1.25x), so both surfaces zoom alike.
+const MAX_ZOOM_STEPS = 4;
+const zoomScale = (steps: number) => 1.25 ** steps;
+function zoomViewport(base: AtlasViewport, steps: number): AtlasViewport {
+  if (steps <= 0) return base;
+  const width = base.width / zoomScale(steps);
+  const height = base.height / zoomScale(steps);
+  return {
+    minX: base.minX + (base.width - width) / 2,
+    minY: base.minY + (base.height - height) / 2,
+    width,
+    height,
+  };
+}
 // A group estimate highlights the same region but is named by its muscle group and
 // never described as a specific primary muscle.
 const isGroupEstimate = (activation: ActivationCopy) => activation.confidence === 'group';
@@ -65,10 +84,12 @@ function pointerToAtlasPoint(svg: SVGSVGElement, event: ReactPointerEvent<SVGSVG
   ];
 }
 
-export function MuscleAtlas({ activations, selected = null, onSelect, compact = false, homeCompact = false, viewOverride }: MuscleAtlasProps) {
+export function MuscleAtlas({ activations, selected = null, onSelect, compact = false, homeCompact = false, viewOverride, camera }: MuscleAtlasProps) {
   const { t } = useI18n();
   const selectedActivation = activations.find((activation) => activation.id === selected);
   const [internalView, setView] = useState<AnatomyView>(() => selected ? ATLAS_GEOMETRY[selected].view : 'front');
+  const [internalZoom, setZoom] = useState(0);
+  const zoom = camera ? Math.max(0, Math.min(12, camera.zoom)) : internalZoom;
   const view = viewOverride ?? internalView;
   const appliedSelected = useRef<AnatomyMuscleId | null>(selected);
   const visibleActivations = useMemo(() => activations.filter((activation) => ATLAS_GEOMETRY[activation.id].view === view), [activations, view]);
@@ -76,9 +97,9 @@ export function MuscleAtlas({ activations, selected = null, onSelect, compact = 
   const selectedGeometry = selected ? ATLAS_GEOMETRY[selected] : null;
   const summaryId = `muscle-atlas-summary-${useId().replaceAll(':', '')}`;
   const hitRadius = homeCompact ? 10 : 7;
-  const viewport = atlasViewportFor(view, hitRadius);
+  const viewport = useMemo(() => zoomViewport(atlasViewportFor(view, hitRadius), zoom), [view, hitRadius, zoom]);
   const companionView: AnatomyView = view === 'front' ? 'back' : 'front';
-  const companionViewport = atlasViewportFor(companionView, hitRadius);
+  const companionViewport = useMemo(() => zoomViewport(atlasViewportFor(companionView, hitRadius), zoom), [companionView, hitRadius, zoom]);
   const companionActivations = activations.filter((activation) => ATLAS_GEOMETRY[activation.id].view === companionView);
   const atlasSummary = selectedActivation && selectedGeometry
     ? <><strong>{t(anatomyLabelKey(selectedActivation))}</strong>, {t(roleAriaKey(selectedActivation))}. {selectedGeometry.sourceKind === 'deep-location-guide' ? <span className="muscle-atlas__deep-detail">{`${t('workout.atlas_deep_marker')}. ${t('workout.atlas_deep_guide_detail', { muscle: t(anatomyLabelKey(selectedActivation)) })}`}</span> : t('workout.atlas_surface_contour')}</>
@@ -87,6 +108,11 @@ export function MuscleAtlas({ activations, selected = null, onSelect, compact = 
   const selectActivation = (activation: MuscleActivation) => {
     setView(ATLAS_GEOMETRY[activation.id].view);
     onSelect(activation.id);
+  };
+
+  const resetView = () => {
+    setZoom(0);
+    setView(selected ? ATLAS_GEOMETRY[selected].view : 'front');
   };
 
   const handleAtlasPointer = (event: ReactPointerEvent<SVGSVGElement>) => {
@@ -112,8 +138,8 @@ export function MuscleAtlas({ activations, selected = null, onSelect, compact = 
     }
   }, [selected]);
 
-  return <section className={`muscle-atlas${compact ? ' muscle-atlas--compact' : ''}${homeCompact ? ' muscle-atlas--home-compact' : ''}`} aria-label={t('workout.atlas_label')}>
-    {!compact ? <div className="muscle-atlas__header"><div><h2>{t('workout.atlas_focus_title')}</h2><p>{t('workout.atlas_focus_hint')}</p></div><ViewControls view={view} setView={setView} t={t} /></div> : <ViewControls view={view} setView={setView} t={t} compact />}
+  return <section className={`wk2 muscle-atlas${compact ? ' muscle-atlas--compact' : ''}${homeCompact ? ' muscle-atlas--home-compact' : ''}`} aria-label={t('workout.atlas_label')}>
+    {!camera && (!compact ? <div className="muscle-atlas__header"><div><h2>{t('workout.atlas_focus_title')}</h2><p>{t('workout.atlas_focus_hint')}</p></div><ViewControls view={view} setView={setView} t={t} /></div> : <ViewControls view={view} setView={setView} t={t} compact />)}
     {!compact ? <p id={summaryId} className="muscle-atlas__summary" aria-live="polite">{atlasSummary}</p> : <p id={summaryId} className="muscle-atlas__screen-reader-table" aria-live="polite">{atlasSummary}</p>}
     {selectedActivation && selectedGeometry?.view !== view ? <p role="status" className="muscle-atlas__summary">{t('anatomy.other_view_selection')}</p> : null}
     <div className="muscle-atlas__figure-wrap" {...(homeCompact ? { 'data-atlas-wide-pair': 'true' } : {})}><svg key={view} className={`muscle-atlas__figure muscle-atlas__figure--${view}`} height={homeCompact ? 228 : 296} viewBox={`${viewport.minX} ${viewport.minY} ${viewport.width} ${viewport.height}`} role="group" aria-describedby={summaryId} aria-label={t(view === 'front' ? 'workout.atlas_front_map' : 'workout.atlas_back_map')} onPointerUp={handleAtlasPointer}>
@@ -128,6 +154,11 @@ export function MuscleAtlas({ activations, selected = null, onSelect, compact = 
           : atlasPathsFor(activation.id).map((path) => <path key={path.id} d={path.path} />)}
       </g>)}
     </svg> : null}</div>
+    {!camera && <div className="muscle-atlas__tools" role="group" aria-label={t('workout.atlas_view_label')}>
+      <button type="button" disabled={zoom >= MAX_ZOOM_STEPS} aria-label={t('anatomy.zoom_in')} onClick={() => setZoom((current) => Math.min(MAX_ZOOM_STEPS, current + 1))}><IconPlus size={18} /></button>
+      <button type="button" disabled={zoom <= 0} aria-label={t('anatomy.zoom_out')} onClick={() => setZoom((current) => Math.max(0, current - 1))}><IconMinus size={18} /></button>
+      <button type="button" aria-label={t('anatomy.reset')} onClick={resetView}><IconReset size={17} /></button>
+    </div>}
     <ul className="muscle-atlas__roles" aria-label={t('workout.atlas_roles_label')}>
       {roleActivations.map((activation) => {
         const side = t(ATLAS_GEOMETRY[activation.id].view === 'front' ? 'workout.atlas_side_front' : 'workout.atlas_side_back');

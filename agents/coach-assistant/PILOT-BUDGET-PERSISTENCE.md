@@ -1,9 +1,31 @@
 # Pilot reservation core and persistent writer contract
 
+## LIVE-01 authorization delta — 2026-09-08
+
+The active pilot limit is US$3 per America/Bogota calendar day, shared by
+the team, environments and modalities through one durable authority. Ordinary
+admission stops at US$2.70 to retain an overrun margin. This supersedes every
+zero-dollar statement below. It does not create a production migration or prove
+that a hosted authority has been provisioned.
+
+Every attempt persists its server-derived `admissionDay`. The active ledger is
+today's settled usage plus every open reserved/dispatched/unknown amount, including
+attempts admitted on prior days. At a natural day change, settled historical usage
+leaves the active total; open reservations remain charged. Rows and history are
+never deleted or reset by midnight. `accountingBlocked` also survives the boundary.
+
+The canonical private table accepts exactly one `ask-trophe-shared` configuration
+row and stores the current ledger day. The transaction lock serializes rollover,
+reserve, dispatch and settlement. All pilot modalities and environments must point
+to this same hosted database row; separate deployments or pilot IDs are not
+compliant. The isolated acceptance script owns data rows only. It validates the
+migrated columns/indexes, inserts generated IDs, deletes only those IDs and verifies
+that the canonical schema survives cleanup.
+
 Implementation: pilot-budget.ts. AG3 owns pure decisions and the validating port
 adapter. AG1 owns the persistent transaction writer and any schema/root changes.
-There is no production in-memory ledger. reserveCoachPilotAttempt denies at the
-current zero-dollar cap before touching the port; no transport is connected.
+There is no production in-memory ledger. `reserveCoachPilotAttempt` now delegates
+to the durable store under the active program cap; no live provider call has run.
 
 ## Shared interface
 
@@ -64,9 +86,8 @@ attempt or auto-create another attempt to conceal the uncertain one.
 After known usage, settle atomically replaces the reserved charge. Matching repeated
 settlement is idempotent; changed usage conflicts for explicit investigation. A cap
 reduced to zero blocks an unstarted dispatch even if it was reserved previously.
-Current server-facing reserve remains disabled at US$0 regardless of fixture caps.
 
-## Required database acceptance, still pending
+## Required database acceptance
 
 Concurrent reserve attempts across separate transactions/processes cannot exceed
 the cumulative cap. Concurrent claim_dispatch yields exactly one permit. Duplicate
@@ -76,9 +97,20 @@ Failed receipt/row writes roll back the charge and row together. Unknown consump
 is retained; measured overrun is charged. A manual cap reduction blocks dispatch.
 No automatic day-boundary reset or unknown-expiry release is allowed.
 
-The current test Map is explicitly a serialized injected test port: it proves core
-and adapter behavior, not SQL exclusion, crash durability, auth or production spend.
-AG1's isolated SQL tests must establish those properties before a paid pilot decision.
+Provider failures persist a strict diagnostic under `metadata.coachPilot.providerFailure`:
+category, numeric HTTP status when known, allowlisted provider code/type/request ID,
+whether usage was present, and an optional timeout phase (`pre_provider`,
+`provider_pending`, or `post_provider`). The phase records runtime progress only;
+`provider_pending` does not prove that a network request reached the provider.
+Free-form messages, response bodies, prompts, keys and arbitrary provider fields are
+never stored. The attempt remains `unknown` at its full reservation and is never
+retried automatically. Older rows without this optional diagnostic remain valid.
+
+The test Map is explicitly a serialized injected port: it proves core and adapter
+behavior, not SQL exclusion, crash durability, auth or production spend. The
+disposable loopback PostgreSQL suite now passes concurrency, restart, rollback,
+authority, midnight and accounting-retention checks. Hosted provisioning remains a
+separate release gate.
 
 ## Accounting quarantine and current dispatch authorization
 

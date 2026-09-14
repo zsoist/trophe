@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import pg from 'pg';
 import { expect, request as apiRequest, test } from '@playwright/test';
 import { blockPaidRequests, loginAs } from './helpers/auth';
+import { boundedEngineErrorCode } from './helpers/engine-diagnostic';
 
 test.skip(process.env.E2E_COACH_ENGINE !== '1', 'Exclusive disposable engine runner');
 test('authenticated HTTP engine uses current authorized profile with explicit fixture provenance', async ({ page }) => {
@@ -30,12 +31,40 @@ test('authenticated HTTP engine uses current authorized profile with explicit fi
     };
     const ledgerBefore = await ledger();
     const response = await page.context().request.post('/api/coach-assistant', { data: body });
-    expect(response.status()).toBe(200);
     const result = await response.json();
+    if (response.status() !== 200) {
+      const schema = (await pool.query(`SELECT
+        to_regclass('private.coach_action_proposals') IS NOT NULL AS proposals,
+        to_regclass('private.coach_action_receipts') IS NOT NULL AS receipts,
+        to_regclass('private.coach_chat_threads') IS NOT NULL AS chat_threads,
+        to_regclass('private.coach_chat_turns') IS NOT NULL AS chat_turns,
+        to_regclass('public.memory_chunks') IS NOT NULL AS memory_chunks`)).rows[0];
+      process.stdout.write(`${JSON.stringify({
+        event: 'coach_engine_http_diagnostic',
+        status: response.status(),
+        errorCode: boundedEngineErrorCode(result?.error?.code),
+        runtime: {
+          isolatedEngine: process.env.COACH_ASSISTANT_ISOLATED_ENGINE_ENABLED === '1',
+          authorizedRecords: process.env.COACH_ASSISTANT_DATA_SOURCE === 'authorized_records',
+          paidAiAllowed: process.env.TROPHE_ALLOW_PAID_AI === '1',
+          previewActorBound: process.env.COACH_ASSISTANT_PREVIEW_USER_IDS === actor,
+          rateBypassBound: process.env.AI_RATE_LIMIT_BYPASS_USER_IDS === actor,
+        },
+        schema: {
+          proposals: Boolean(schema.proposals),
+          receipts: Boolean(schema.receipts),
+          chatThreads: Boolean(schema.chat_threads),
+          chatTurns: Boolean(schema.chat_turns),
+          memoryChunks: Boolean(schema.memory_chunks),
+        },
+      })}\n`);
+    }
+    expect(response.status(), boundedEngineErrorCode(result?.error?.code)).toBe(200);
     expect(result).toMatchObject({ ok: true, version: 'coach-assistant.v2', dataSource: 'authorized_records',
       evaluation: { transport: 'injected_fixture', records: 'authorized_records', semanticQualityVerified: false },
       snapshot: { subjectId: actor }, profile: { source: 'authorized_profile' }, proposals: [], receipts: [] });
-    expect(result.output.answer).toContain('Isolated transport fixture');
+    expect(result.output.answer).toBe('Reviewing recorded context can help organize a useful discussion.');
+    expect(result.output.answer).not.toContain('Isolated transport fixture');
     expect(result.profile.preferences).toEqual({ durationMinutes: before.workout_preferences.durationMinutes });
     expect((await pool.query('SELECT workout_preferences FROM public.client_profiles WHERE user_id=$1', [actor])).rows[0]).toEqual(before);
     expect((await page.context().request.post('/api/coach-assistant', { data: { ...body, context: { surface: 'workout', includeScreen: true, clientId: randomUUID() } } })).status()).toBe(403);
@@ -60,7 +89,8 @@ test('authenticated HTTP engine uses current authorized profile with explicit fi
     expect(exerciseResult.proposals).toEqual([]);
     expect(exerciseResult.receipts).toEqual([]);
     await panel.getByRole('button', { name: `Remove screen selection: ${exercise.name}`, exact: true }).click();
-    await expect(panel.getByRole('checkbox', { name: /Include this screen/ })).not.toBeChecked();
+    await expect(panel.getByRole('button', { name: 'Include this screen', exact: true })).toBeVisible();
+    await expect(panel.getByRole('button', { name: `Remove screen selection: ${exercise.name}`, exact: true })).toHaveCount(0);
     const selectedContext = { surface: 'atlas', includeScreen: true, anatomy: { group: 'chest', subgroup: 'serratus-anterior', legRegion: 'all' } };
     const selectedResponse = await page.context().request.post('/api/coach-assistant', { data: { ...body, turnId: randomUUID(), context: selectedContext } });
     expect(selectedResponse.status()).toBe(200);

@@ -176,7 +176,10 @@ describe('premium exercise detail', () => {
   it('leads with truthful controlled motion, then phases, named anatomy, setup, guidance, evidence, and action', () => {
     render(<ExerciseDetail exercise={bench} userId={null} onAdd={vi.fn()} />);
 
-    expect(screen.getByRole('button', { name: 'Pause demonstration' })).toBeTruthy();
+    // V2: opening the detail (route or sheet) never autoplays. The exact motion
+    // is a poster until the user explicitly asks for it.
+    expect(screen.getByRole('button', { name: 'Play demonstration' })).toBeTruthy();
+    expect(vi.mocked(HTMLMediaElement.prototype.play)).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: 'Setup phase' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Work phase' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Finish phase' })).toBeTruthy();

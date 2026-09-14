@@ -1,9 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { AlertTriangle, Calculator, Check, ChevronDown, Info, Link2, Trash2, Undo2 } from 'lucide-react';
+import { AlertTriangle, Calculator, Check, ChevronDown, Info, Link2, Loader2, Trash2, Undo2 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import type { WeightUnit } from '@/lib/workout/units';
+import { RestTargetControl } from '@/components/workout/workspace/RestTargetControl';
+import './exercise-set-logger.css';
 
 export interface SetLoggerExercise {
   id: string;
@@ -33,8 +35,17 @@ interface ExerciseSetLoggerProps {
   initialSetId?: string | null;
   initialCompletedAt?: string | null;
   restTargetSeconds?: number;
+  /**
+   * When provided, a per-exercise rest picker renders on the exercise's header
+   * row (one control per exercise). The parent persists the choice against
+   * `exercise.id` via the canonical setRestTarget/getRestTarget storage.
+   */
+  onRestTargetChange?: (seconds: number) => void;
+  /** Honest state: the last rest selection could not be durably stored. */
+  restTargetStorageFailed?: boolean;
   disabled?: boolean;
   grouped?: boolean;
+  collapsible?: boolean;
   showExerciseHeader?: boolean;
   isLastSet?: boolean;
   onComplete(value: SetLoggerValue): Promise<string | null>;
@@ -46,6 +57,8 @@ interface ExerciseSetLoggerProps {
   onRemove?: () => void;
   /** Gives the active live exercise larger, keyboard-friendly set controls. */
   focusMode?: boolean;
+  /** Marks the one set the athlete is currently on; rendered as the featured row. */
+  current?: boolean;
   paused?: boolean;
   /** Parent-owned, session-scoped clock state survives a one-stage remount. */
   restSnapshot?: RestClockSnapshot;
@@ -81,8 +94,11 @@ export function ExerciseSetLogger({
   initialSetId = null,
   initialCompletedAt = null,
   restTargetSeconds = 90,
+  onRestTargetChange,
+  restTargetStorageFailed = false,
   disabled = false,
   grouped = false,
+  collapsible = false,
   showExerciseHeader = true,
   isLastSet = false,
   onComplete,
@@ -93,6 +109,7 @@ export function ExerciseSetLogger({
   onSuperset,
   onRemove,
   focusMode = false,
+  current = false,
   paused = false,
   restSnapshot: suppliedRestSnapshot,
   onRestSnapshotChange,
@@ -105,7 +122,11 @@ export function ExerciseSetLogger({
   const [setId, setSetId] = useState<string | null>(initialSetId);
   const [completedSetNumber, setCompletedSetNumber] = useState<number | null>(initialSetId ? setNumber : null);
   const [saving, setSaving] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  // Honest failed state: a completion the controller did not acknowledge. The
+  // row stays editable for retry; no success state is shown.
+  const [completeFailed, setCompleteFailed] = useState(false);
   const [restComplete, setRestComplete] = useState(false);
   const [restAnnouncement, setRestAnnouncement] = useState<RestAnnouncement>(null);
   const [undoCooldown, setUndoCooldown] = useState(false);
@@ -183,6 +204,12 @@ export function ExerciseSetLogger({
     const currentSnapshot = snapshotRef.current;
     if (!setId || !currentSnapshot) return;
     const now = Date.now();
+    // A recovered timer may already have reached its target, even while paused.
+    if (elapsedAt(currentSnapshot, now) >= restTargetSeconds * 1_000) {
+      commitRestSnapshot(null);
+      setRestComplete(true);
+      return;
+    }
     if (paused && currentSnapshot.running) {
       commitRestSnapshot({ elapsedMs: elapsedAt(currentSnapshot, now), capturedAt: now, running: false });
       return;
@@ -210,6 +237,7 @@ export function ExerciseSetLogger({
   const toggleComplete = async () => {
     if (saving || disabled || (setId && undoCooldown)) return;
     setSaving(true);
+    setCompleteFailed(false);
     try {
       if (setId) {
         const removed = onUndo ? await onUndo(setId) : false;
@@ -239,21 +267,34 @@ export function ExerciseSetLogger({
         commitRestSnapshot({ elapsedMs: 0, capturedAt: Date.now(), running: !paused }, savedId);
       }
     } catch {
-      // The row remains editable and retryable.
+      // The row remains editable and retryable; surface the failure explicitly.
+      setCompleteFailed(true);
     } finally {
       setSaving(false);
     }
   };
 
   const completed = Boolean(setId);
+  // Thin rest track: width is derived from the real snapshot elapsed time
+  // (already advancing at 1Hz) — never a second animation clock.
+  const restProgressPercent = activeRestSnapshot && restTargetSeconds > 0
+    ? Math.min(100, Math.round((activeRestSnapshot.elapsedMs / (restTargetSeconds * 1_000)) * 100))
+    : 0;
   return (
     <article
       data-set-row
       data-exercise-id={exercise.id}
-      className={grouped
+      data-current={current ? 'true' : undefined}
+      className={`exercise-set-logger ${grouped
         ? `${showExerciseHeader ? 'rounded-t-2xl border-t' : ''} ${isLastSet ? 'rounded-b-2xl' : ''} border-x border-b border-[var(--border-subtle)] bg-[var(--surface-raised)] p-3`
-        : 'rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-3'}
+        : 'rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-3'}`}
     >
+      {collapsible && !current ? <button type="button" className="exercise-set-summary" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>
+        <span>{t('workout.set_number', { n: setNumber })}</span>
+        <span>{weight && reps ? `${weight} ${unit} × ${reps}` : t('workout.reps')}</span>
+        {setId ? <Check size={16} aria-hidden="true" /> : <ChevronDown size={16} aria-hidden="true" />}
+      </button> : null}
+      <div hidden={collapsible && !current && !expanded}>
       {showExerciseHeader ? <div className="mb-3 flex items-center justify-between gap-3">
         <div>
           {!focusMode ? <h3 className="font-semibold text-[var(--content-primary)]">{exercise.name}</h3> : null}
@@ -271,20 +312,25 @@ export function ExerciseSetLogger({
         </button>
       </div> : <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--content-muted)]">{t('workout.set_number', { n: setNumber })}</p>}
 
-      <div className={grouped ? 'grid grid-cols-3 gap-2' : 'grid grid-cols-2 gap-3'}>
-        <label className="text-sm font-medium text-[var(--content-secondary)]">
+      <div className={`exercise-set-logger__grid ${grouped && !focusMode ? 'grid grid-cols-3 gap-2' : 'grid grid-cols-2 gap-3'}`}>
+        <label className="exercise-set-logger__field text-sm font-medium text-[var(--content-secondary)]">
           {t('workout.weight_in_unit', { unit })}
-          <input type="number" min="0" step="any" inputMode="decimal" disabled={completed || disabled} aria-label={t('workout.weight_in_unit', { unit })} value={weight} onChange={(event) => setWeight(event.target.value)} className={`input-dark mt-1 w-full font-mono tabular-nums ${focusMode ? 'min-h-14 text-lg' : 'min-h-12 text-base'}`} />
+          <input type="number" min="0" step="any" inputMode="decimal" disabled={completed || disabled} aria-label={t('workout.weight_in_unit', { unit })} value={weight} onChange={(event) => setWeight(event.target.value)} className={`input-dark mt-1 w-full font-mono tabular-nums ${focusMode ? 'min-h-16 text-3xl' : 'min-h-12 text-base'}`} />
+          <span className="wsp-unit" aria-hidden="true">{unit}</span>
         </label>
         <label className="text-sm font-medium text-[var(--content-secondary)]">
           {t('workout.reps')}
-          <input type="number" min="1" step="1" inputMode="numeric" disabled={completed || disabled} aria-label={t('workout.reps')} value={reps} onChange={(event) => setReps(event.target.value)} className={`input-dark mt-1 w-full font-mono tabular-nums ${focusMode ? 'min-h-14 text-lg' : 'min-h-12 text-base'}`} />
+          <input type="number" min="1" step="1" inputMode="numeric" disabled={completed || disabled} aria-label={t('workout.reps')} value={reps} onChange={(event) => setReps(event.target.value)} className={`input-dark mt-1 w-full font-mono tabular-nums ${focusMode ? 'min-h-16 text-3xl' : 'min-h-12 text-base'}`} />
         </label>
-        {grouped ? <label className="text-sm font-medium text-[var(--content-secondary)]">
+        {grouped && !focusMode ? <label className="text-sm font-medium text-[var(--content-secondary)]">
           {t('workout.rpe_optional')}
           <input type="number" min="1" max="10" step="0.5" inputMode="decimal" disabled={completed || disabled} aria-label={t('workout.rpe_optional')} value={rpe} onChange={(event) => setRpe(event.target.value)} className="input-dark mt-1 min-h-12 w-full font-mono text-base tabular-nums" />
         </label> : null}
       </div>
+      {grouped && focusMode ? <details className="mt-2 text-sm text-[var(--content-secondary)]">
+        <summary className="min-h-11 cursor-pointer py-3">{t('workout.rpe_optional')}{rpe ? ` · ${rpe}` : ''}</summary>
+        <input type="number" min="1" max="10" step="0.5" inputMode="decimal" disabled={completed || disabled} aria-label={t('workout.rpe_optional')} value={rpe} onChange={(event) => setRpe(event.target.value)} className="input-dark min-h-12 w-full font-mono text-base tabular-nums" />
+      </details> : null}
       <div className={grouped ? 'mt-2' : 'mt-3 grid grid-cols-[minmax(0,1fr)_minmax(9rem,1.4fr)] gap-3'}>
         {!grouped ? (
         <label className="text-sm font-medium text-[var(--content-secondary)]">
@@ -296,31 +342,54 @@ export function ExerciseSetLogger({
             <Undo2 size={17} aria-hidden="true" />{saving ? t('workout.saving') : t('workout.undo_set')}
           </button>
         ) : (
-          <button type="button" disabled={saving || disabled} onClick={() => void toggleComplete()} className={`${grouped ? '' : 'mt-6'} btn-gold inline-flex w-full items-center justify-center gap-2 rounded-xl disabled:opacity-50 ${focusMode ? 'min-h-14 text-lg' : 'min-h-12'}`}>
-            <Check size={17} aria-hidden="true" />{saving ? t('workout.saving') : t('workout.complete_set')}
+          <button type="button" data-state={saving ? 'pending' : 'idle'} disabled={saving || disabled} onClick={() => void toggleComplete()} className={`${grouped ? '' : 'mt-6'} btn-gold wsp-action inline-flex w-full items-center gap-2 rounded-xl disabled:opacity-50 ${focusMode ? 'min-h-14 text-lg' : 'min-h-12'}`}>
+            <span>{saving ? t('workout.saving') : t('workout.complete_set')}</span>
+            <span className="wsp-disc" aria-hidden="true">{saving ? <Loader2 className="wsp-spin" size={18} /> : <Check size={18} />}</span>
           </button>
         )}
       </div>
+      {completeFailed ? (
+        <p role="alert" className="exercise-set-logger__failed mt-2 inline-flex items-center gap-2 rounded-xl border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] px-3 py-2 text-sm text-[var(--status-danger-fg)]">
+          <AlertTriangle size={16} aria-hidden="true" />
+          {t('workout.save_failed')}
+        </p>
+      ) : null}
       <label className="mt-3 inline-flex min-h-11 items-center gap-2 text-sm text-[var(--content-secondary)]">
         <input type="checkbox" disabled={completed || disabled} checked={isWarmup} onChange={(event) => setIsWarmup(event.target.checked)} />
         {t('workout.warmup')}
       </label>
 
+      {onRestTargetChange && showExerciseHeader ? (
+        <RestTargetControl
+          exerciseName={exercise.name}
+          value={restTargetSeconds}
+          disabled={disabled}
+          storageFailed={restTargetStorageFailed}
+          onSelect={onRestTargetChange}
+        />
+      ) : null}
+
+      </div>
       {completed && activeRestSnapshot !== null ? (
         // role="timer" is implicitly aria-live="off": the per-second count is visible but never read aloud.
-        <p role="timer" aria-label={t('workout.rest_timer_label')} className="mt-2 rounded-xl bg-[var(--status-success-bg)] px-3 py-2 text-sm text-[var(--status-success-fg)]">
-          {t('workout.resting')} · <span className="font-mono tabular-nums">{Math.floor(activeRestSnapshot.elapsedMs / 1_000)}s / {restTargetSeconds}s</span>
-        </p>
+        <div role="timer" aria-label={t('workout.rest_timer_label')} className="exercise-set-logger__rest mt-2 rounded-xl bg-[var(--status-success-bg)] px-3 py-2 text-sm text-[var(--status-success-fg)]">
+          <span className="exercise-set-logger__rest-values">
+            {t('workout.resting')} · <span className="font-mono tabular-nums">{Math.floor(activeRestSnapshot.elapsedMs / 1_000)}s / {restTargetSeconds}s</span>
+          </span>
+          <span className="exercise-set-logger__rest-track" aria-hidden="true">
+            <span className="exercise-set-logger__rest-fill" style={{ width: `${restProgressPercent}%` }} />
+          </span>
+        </div>
       ) : completed && restComplete ? (
-        <p className="mt-2 rounded-xl bg-[var(--status-success-bg)] px-3 py-2 text-sm font-medium text-[var(--status-success-fg)]">{t('workout.rest_complete')}</p>
+        <p className="exercise-set-logger__rest mt-2 rounded-xl bg-[var(--status-success-bg)] px-3 py-2 text-sm font-medium text-[var(--status-success-fg)]">{t('workout.rest_complete')}</p>
       ) : null}
       {/* One polite announcement on rest start and one at the target; the region exists before it changes so it is reliably read. */}
       <p className="sr-only" aria-live="polite" aria-atomic="true">
         {restAnnouncement === 'started' ? t('workout.rest_started', { n: restTargetSeconds }) : restAnnouncement === 'complete' ? t('workout.rest_complete') : null}
       </p>
 
-      {showExerciseHeader && moreOpen ? (
-        <div className="mt-3 grid grid-cols-2 gap-2 border-t border-[var(--border-subtle)] pt-3">
+      {showExerciseHeader && moreOpen && (!collapsible || current || expanded) ? (
+        <div className="exercise-set-logger__more mt-3 grid grid-cols-2 gap-2 border-t border-[var(--border-subtle)] pt-3">
           <button type="button" disabled={disabled} onClick={onTechnique} className="btn-ghost inline-flex min-h-11 items-center gap-2 rounded-xl px-3"><Info size={16} aria-hidden="true" />{t('workout.info_technique')}</button>
           <button type="button" disabled={disabled} onClick={onPain} className="btn-ghost inline-flex min-h-11 items-center gap-2 rounded-xl px-3"><AlertTriangle size={16} aria-hidden="true" />{t('workout.report_pain')}</button>
           {exercise.equipment === 'barbell' ? <button type="button" disabled={disabled} onClick={() => onPlateCalculator?.(parsedNumber(weight))} className="btn-ghost inline-flex min-h-11 items-center gap-2 rounded-xl px-3"><Calculator size={16} aria-hidden="true" />{t('workout.plate_title')}</button> : null}

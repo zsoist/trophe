@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
-import { taskFallbacks, taskPolicies, type RoutingPolicy } from '@/agents/router/policies';
+import { HAIKU_MODEL, taskPolicies, type RoutingPolicy } from '@/agents/router/policies';
 import { estimateUsageCost } from '@/agents/runtime/cost';
 import { classifyAiError, isFallbackEligible } from '@/agents/runtime/error-classification';
 import { providerErrorTelemetry } from '@/agents/runtime/provider-error';
@@ -46,11 +46,20 @@ interface AttemptOutcome {
 
 function policyFor(provider: OfflineContractProvider): RoutingPolicy {
   if (provider === 'openai') return taskPolicies.food_parse;
-  const policy = taskFallbacks.food_parse;
-  if (!policy || policy.provider !== 'anthropic') {
-    throw new Error('food_parse Anthropic fallback policy is not configured');
-  }
-  return policy;
+  // The live router has no Anthropic fallback. This explicit policy exists
+  // solely so historical, injected offline fixtures remain auditable.
+  return {
+    provider: 'anthropic',
+    model: HAIKU_MODEL,
+    costClass: 'cheap',
+    latencyClass: 'fast',
+    cacheSystem: true,
+    maxTokens: 1024,
+    timeoutMs: 25_000,
+    maxInputChars: 12_000,
+    maxCostUsd: 0.02,
+    promptVersion: 'offline-legacy-anthropic-contract',
+  };
 }
 
 function makeFixtureTransport(

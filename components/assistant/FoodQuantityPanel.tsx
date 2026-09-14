@@ -14,7 +14,7 @@ export function FoodQuantityPanel({ controller, state, transport }: { controller
   return <section className={styles.foodReview} aria-label={t('global_coach.food_quantity')}>
     <h3>{state.entry?.foodName ?? t('global_coach.food_quantity')}</h3>
     {state.entry && <p>{t('global_coach.food_current', { grams: state.entry.grams ?? '—', calories: state.entry.calories })}</p>}
-    {saved && <p role="status">{t('global_coach.food_saved')}</p>}
+    {saved && <div className={styles.receipt}><p role="status">{t('global_coach.food_saved')}</p></div>}
     {saved && <button type="button" onClick={() => controller.dismiss()}>{t('global_coach.food_done')}</button>}
     {state.uncertain || state.receipt && state.error ? <button type="button" disabled={state.pending} onClick={() => void controller.check(transport)}>{t('global_coach.food_check')}</button> : proposal ? <>
       <table><caption>{t('global_coach.food_review')}</caption><thead><tr><th scope="col">{t('global_coach.food_value')}</th><th scope="col">{t('global_coach.food_before')}</th><th scope="col">{t('global_coach.food_after')}</th></tr></thead><tbody>

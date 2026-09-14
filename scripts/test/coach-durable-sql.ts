@@ -70,13 +70,20 @@ async function cleanupFixtureAudit() {
 }
 
 async function main() {
+  const bootstrapActor = async () => {
+    await pool.query('UPDATE public.client_profiles SET workout_preferences=$2::jsonb WHERE user_id=$1', [actorId, JSON.stringify(defaultWorkoutPreferences)]);
+    await pool.query("INSERT INTO public.organization_members(org_id,user_id,role) VALUES ($1,$2,'client'),($1,$3,'coach') ON CONFLICT(org_id,user_id) DO UPDATE SET role=EXCLUDED.role", [organizationId, actorId, coachId]);
+  };
+  if (process.argv[2] === 'bootstrap') {
+    await bootstrapActor();
+    check = 'durable_actor_bootstrap'; pass(); return;
+  }
   if (process.argv[2] === 'recover') {
     check = 'receipt_recovery_new_process';
     const result = await execute({ ...header(), operation: 'receipt', actionId: process.env.COACH_SQL_ACTION! });
     assert.equal(result.ok, true); assert.equal(result.receipt?.id, process.env.COACH_SQL_RECEIPT); pass(); return;
   }
-  await pool.query('UPDATE public.client_profiles SET workout_preferences=$2::jsonb WHERE user_id=$1', [actorId, JSON.stringify(defaultWorkoutPreferences)]);
-  await pool.query("INSERT INTO public.organization_members(org_id,user_id,role) VALUES ($1,$2,'client'),($1,$3,'coach') ON CONFLICT(org_id,user_id) DO UPDATE SET role=EXCLUDED.role", [organizationId, actorId, coachId]);
+  await bootstrapActor();
   await pool.query(await readFile('db/isolated/coach-durable-actions.sql', 'utf8')); installed = true;
 
   check = 'concurrent_same_action_one_mutation_receipt';
@@ -171,6 +178,7 @@ async function main() {
     E2E_CLIENT_ID: actorId, NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED: '1', NEXT_PUBLIC_COACH_ASSISTANT_ENABLED: '0',
     COACH_ASSISTANT_ENABLED: '1', COACH_ASSISTANT_MODE: 'offline', COACH_ASSISTANT_DATA_SOURCE: 'authorized_records',
     COACH_ASSISTANT_DURABLE_ACTIONS_ENABLED: '1', COACH_ASSISTANT_ISOLATED_ACTIONS_ENABLED: '0', COACH_ASSISTANT_PREVIEW_USER_IDS: actorId,
+    AI_RATE_LIMIT_BYPASS_USER_IDS: actorId,
   };
   const http = spawnSync(process.execPath, ['node_modules/@playwright/test/cli.js', 'test', '--config', 'playwright.coach.config.ts', '--workers=1', 'e2e/coach-durable.spec.ts'], { stdio: 'inherit', env: httpEnv });
   // The test writes observed IDs before forwarding an apply, including failed cases.

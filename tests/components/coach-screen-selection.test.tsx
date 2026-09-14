@@ -32,7 +32,8 @@ it('sends current hints, preserves earlier turns, detaches via the chip and neve
   const transport = vi.fn(async (request: CoachConversationRequest) => response(request));
   const view = render(<I18nProvider defaultLang="en"><GlobalCoach identity="A" example={transport} /></I18nProvider>);
   fireEvent.click(screen.getByRole('button', { name: 'Ask Trophē' }));
-  expect(screen.getByRole('button', { name: 'Remove screen selection: Chest' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Saved conversations' }));
+  expect(screen.getByRole('checkbox', { name: 'Include this screen · Chest' })).toBeTruthy();
   const send = async () => {
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Explain this' } });
     fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
@@ -45,7 +46,7 @@ it('sends current hints, preserves earlier turns, detaches via the chip and neve
   await send();
   expect(transport.mock.calls[1][0].context?.anatomy).toEqual({ group: 'back' });
   expect(transport.mock.calls[0][0].context?.anatomy?.group).toBe('chest');
-  fireEvent.click(screen.getByRole('button', { name: 'Remove screen selection: Back' }));
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Include this screen · Back' }));
   await send();
   expect(transport.mock.calls[2][0].context).toMatchObject({ includeScreen: false });
   expect(transport.mock.calls[2][0].context).not.toHaveProperty('anatomy');

@@ -4,6 +4,7 @@ import {
 } from '@/agents/schemas/food-parse';
 
 export type PhotoAnalysisFood = {
+  identity_status?: 'identified' | 'uncertain' | 'unassessed';
   name: string;
   estimated_grams: number;
   estimated_calories: number;
@@ -34,6 +35,8 @@ export function normalizePhotoAnalysisFoods(input: unknown): PhotoAnalysisFood[]
   return input.flatMap((candidate) => {
     if (!candidate || typeof candidate !== 'object') return [];
     const food = candidate as Record<string, unknown>;
+    const identity = food.identity_status ?? 'unassessed';
+    if (identity !== 'identified' && identity !== 'uncertain' && identity !== 'unassessed') return [];
     const name = typeof food.name === 'string' ? food.name.trim() : '';
     if (name.length === 0 || name.length > 200) return [];
     if (!boundedNumber(food.estimated_grams, 0.1, 10_000)) return [];
@@ -55,6 +58,7 @@ export function normalizePhotoAnalysisFoods(input: unknown): PhotoAnalysisFood[]
       : '';
 
     return [{
+      identity_status: identity as 'identified' | 'uncertain' | 'unassessed',
       name,
       estimated_grams: food.estimated_grams,
       estimated_calories: food.estimated_calories,

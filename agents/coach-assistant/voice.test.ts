@@ -38,6 +38,11 @@ describe('isolated coach voice adapter without paid STT',()=>{
     expect(await transcribeCoachAudio(file(),{...input,durationMs:30001},{...options(),offlineTranscriber:transport})).toMatchObject({error:'invalid_input'});
     expect(transport).not.toHaveBeenCalled();
   });
+  it('accepts a live transcriber only for authorized records and labels its output as untrusted provider text',async()=>{
+    const config=options();config.repository.dataSource='authorized_records';
+    const result=await transcribeCoachAudio(file(),input,{...config,offlineTranscriber:provider(),transcriptSource:'provider_transcript'});
+    expect(result).toMatchObject({ok:true,transcript:{source:'provider_transcript',trust:'untrusted_transcript'}});
+  });
   it('discards a transcript after revocation and cancels a stalled provider',async()=>{
     const config=options();let revoked=false;const auth=config.repository.authorize;
     config.repository.authorize=async(...args)=>{if(revoked)throw new Error('forbidden');return auth(...args);};

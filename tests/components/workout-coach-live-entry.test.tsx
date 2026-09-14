@@ -29,8 +29,8 @@ vi.mock('@/lib/supabase', () => ({ supabase: {
 
 import { WorkoutCoachEntry } from '@/components/workout/workspace/WorkoutCoachEntry';
 
-beforeEach(() => { process.env.NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED = '1'; HTMLElement.prototype.scrollTo = vi.fn(); });
-afterEach(() => { cleanup(); delete process.env.NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED; requestConversation.mockClear(); });
+beforeEach(() => { vi.stubGlobal('fetch',vi.fn(async()=>Response.json({available:true}))); process.env.NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED = '1'; HTMLElement.prototype.scrollTo = vi.fn(); });
+afterEach(() => { vi.unstubAllGlobals(); cleanup(); delete process.env.NEXT_PUBLIC_COACH_EVERYWHERE_ENABLED; requestConversation.mockClear(); });
 
 function DraftHarness() {
   const workspace = useWorkoutWorkspace();
@@ -53,6 +53,7 @@ it('reviews and applies an accepted draft intent when no authorized profile is r
   await screen.findByText('I prepared a 35-minute dumbbell alternative for review.');
   expect(requestConversation.mock.calls[0][0].context?.workspace?.version).toMatch(/^[a-f0-9]{64}$/);
   expect(requestConversation.mock.calls[0][0].context?.surface).toBe('plan');
+  fireEvent.click(screen.getByRole('button', { name: 'Saved conversations' }));
   fireEvent.click(screen.getByText('Your profile & memory'));
   expect(await screen.findByRole('button', { name: 'Confirm change' })).toBeTruthy();
   expect(screen.getByRole('region', { name: 'After' }).textContent).toContain('Push now · 35 min · Dumbbells');

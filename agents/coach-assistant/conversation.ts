@@ -1,10 +1,18 @@
+import { nutritionIntent, conversationLanguage } from './nutrition-intent';
+import { foodReferenceReviewIntent,adviceOptionIndex } from './food-reference-review';
+import { recalculateFoodReference } from './food-reference-continuity';
+import { renderNativeFoodReference } from './food-reference-native-render';
+import { TEXT_FOOD_SERVER_DEADLINE_MS } from './text-food-deadline';
+import { textFoodIntakeIntent } from './text-food-intent';
+import { renderFoodReferences } from './food-reference';
 import { medicalBoundary } from './medical-boundary';
 import { prepareConversationCapability } from './capability-conversation';
 import type { CoachCapabilityRegistry } from './capability-registry';
 import { parseFoodPreferences } from '@/lib/food/preferences';
 import { createSelectionContext } from './selection-context';
 import { isIsolatedEngineBoundary, type IsolatedEngineBoundary } from './isolated-engine-boundary';
-import { generateOpenConversation, type OfflineConversationProvider, type OfflineInterpretationReview } from './open-conversation';
+import { isGovernedPilotBoundary, type GovernedPilotBoundary } from './governed-engine-boundary';
+import { generateOpenConversation, photoReviewOnlyOutput, OpenConversationOutputError, type ConversationFoodChange, type ConversationFoodSelection, type ConversationPhotoObservation, type OfflineConversationProvider, type OfflineInterpretationReview } from './open-conversation';
 import { createHash, randomUUID } from 'node:crypto';
 import { selectConversationScope, evidenceMatchesScope } from './conversation-scope';
 import { COACH_CONVERSATION_VERSION } from './contracts';
@@ -12,7 +20,7 @@ import type { CoachCapability, CoachConversationResponse, CoachErrorCode } from 
 import { conversationRequestSchema } from './schema';
 import { run } from './index';
 import type { RunOptions } from './index';
-import { conversationScope, scopeConversationInput, windowFor } from './context';
+import { conversationScope, scopeConversationInput, windowForConversation, windowFor } from './context';
 import { workoutPreferencesSchema } from '@/lib/workout/preferences';
 import { COACH_PRICING_VERSION } from './economics';
 import { COACH_PROMPT_VERSION } from './prompt.v3';
@@ -22,7 +30,7 @@ const disconnectedSurfaceCapabilities = (): CoachCapability[] =>
     .map(key => ({ key, status: 'not_connected', reason: `${key}_service_not_connected` }));
 
 /** History is a hint for a window/domain, never a source of facts or authority. */
-export async function runConversation(raw: unknown, options: RunOptions & { capabilityRegistry?:CoachCapabilityRegistry; isolatedActionsEnabled?:boolean; workoutSetIntentsEnabled?:boolean; foodQuantityIntentsEnabled?:boolean; offlineConversationProvider?:OfflineConversationProvider; offlineInterpretationReview?:OfflineInterpretationReview; offlineCandidateEvaluation?:boolean; isolatedFixtureBoundary?:IsolatedEngineBoundary; filterMemoryHistory?:(input:import('./contracts').CoachConversationRequest)=>import('./contracts').CoachConversationRequest }): Promise<CoachConversationResponse> {
+export async function runConversation(raw: unknown, options: RunOptions & { capabilityRegistry?:CoachCapabilityRegistry; isolatedActionsEnabled?:boolean; workoutSetIntentsEnabled?:boolean; foodQuantityIntentsEnabled?:boolean; foodSelection?:ConversationFoodSelection; foodChange?:ConversationFoodChange; offlineConversationProvider?:OfflineConversationProvider; offlineInterpretationReview?:OfflineInterpretationReview; offlineCandidateEvaluation?:boolean; isolatedFixtureBoundary?:IsolatedEngineBoundary; governedPilotBoundary?:GovernedPilotBoundary; candidateActionsEnabled?:boolean; filterMemoryHistory?:(input:import('./contracts').CoachConversationRequest)=>import('./contracts').CoachConversationRequest; resolvePhotoObservations?:(input:import('./contracts').CoachConversationRequest,signal:AbortSignal)=>Promise<ConversationPhotoObservation[]> }): Promise<CoachConversationResponse> {
   const start = performance.now();
   const parsed = conversationRequestSchema.safeParse(raw);
   const response: CoachConversationResponse = {
@@ -34,15 +42,18 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
   const controller = new AbortController();
   const abort = () => controller.abort(new Error('cancelled'));
   if(options.signal.aborted) abort(); else options.signal.addEventListener('abort',abort,{once:true});
-  const budget = Math.min(45000,Math.max(1,options.deadlineMs ?? 45000));
+  const ceiling=parsed.success&&parsed.data.attachments?.length===1&&parsed.data.attachments[0].kind==='image'?90000:options.resolveTextFoodIntake&&parsed.success&&textFoodIntakeIntent(parsed.data.message)?TEXT_FOOD_SERVER_DEADLINE_MS:45000;
+  const budget = Math.min(ceiling,Math.max(1,options.deadlineMs ?? ceiling));
   const timer = setTimeout(()=>controller.abort(new Error('deadline')),budget);
+  const adviceEstimator:RunOptions['estimateMealAdvice']=options.estimateMealAdvice?((choices,language,signal,constraints)=>options.estimateMealAdvice!(choices,language,signal,{...constraints,timeoutMs:Math.max(1,Math.floor(budget-(performance.now()-start)-3000))})):undefined;
   let boundary: (()=>void) | undefined;
+  const diagnosticStage:{value:'authorization'|'photo_read'|'context_preparation'}={value:'authorization'};
   try {
     if(!parsed.success) throw new Error('invalid_input');
     const input = parsed.data;
     const work = async () => {
       controller.signal.throwIfAborted();
-      if(options.mode==='model'&&(!options.offlineConversationProvider||options.repository.dataSource!=='synthetic'&&!isIsolatedEngineBoundary(options.isolatedFixtureBoundary,options.offlineConversationProvider)))throw new Error('budget_blocked');
+      if(options.mode==='model'&&(!options.offlineConversationProvider||options.repository.dataSource!=='synthetic'&&!isIsolatedEngineBoundary(options.isolatedFixtureBoundary,options.offlineConversationProvider)&&!isGovernedPilotBoundary(options.governedPilotBoundary,options.offlineConversationProvider)))throw new Error('budget_blocked');
       const subject = input.context?.clientId ?? options.actorId;
       const authorized = await options.repository.authorize(options.actorId,subject,controller.signal);
       controller.signal.throwIfAborted();
@@ -56,21 +67,75 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
         if(JSON.stringify(fresh)!==JSON.stringify(authorized)) throw new Error('forbidden');
         return fresh;
       }};
-      if(options.capabilityRegistry&&options.mode==='model'&&!Object.values(medicalBoundary(scopedInput.message)).some(Boolean)){
-        response.snapshot={id:randomUUID(),capturedAt:options.now.toISOString(),subjectId:subject,organizationId:authorized.organizationId,...scope,surface:scopedInput.context?.includeScreen?scopedInput.context.surface:null,screenIncluded:!!scopedInput.context?.includeScreen,language:authorized.language,units:{weight:'kg',energy:'kcal',protein:'g'},window:windowFor(selectConversationScope(scopedInput).intent,authorized.timezone,options.now),capabilities:[]};
-        response.output={answer:'',evidenceRefs:[],limitations:['capability_turn_no_aggregate_reads'],suggestions:[],escalation:{required:false,reason:null,draft:null}};
+      if(options.foodReferenceFollowUp&&authorized.actorId===authorized.subjectId){
+        const recalculated=recalculateFoodReference(options.foodReferenceFollowUp,scopedInput.message,authorized.language.startsWith('es'));
+        if(recalculated){
+          response.snapshot={id:randomUUID(),capturedAt:options.now.toISOString(),subjectId:subject,organizationId:authorized.organizationId,...scope,surface:scopedInput.context?.includeScreen?scopedInput.context.surface:null,screenIncluded:!!scopedInput.context?.includeScreen,language:conversationLanguage(scopedInput.message,authorized.language,scopedInput.history),units:{weight:'kg',energy:'kcal',protein:'g'},window:windowForConversation(scopedInput,'today','food',authorized.timezone,options.now),capabilities:[]};
+          response.capabilityResult={tool:'food.reference',status:'read',result:recalculated.result,applied:false};
+          response.output={answer:recalculated.answer,evidenceRefs:[],limitations:[],suggestions:[],escalation:{required:false,reason:null,draft:null}};
+          await authorizedRepository.authorize(options.actorId,subject,controller.signal);controller.signal.throwIfAborted();response.ok=true;return;
+        }
+      }
+      if(authorized.actorId===authorized.subjectId&&options.foodReferenceFollowUp&&options.prepareFoodReferenceReview&&foodReferenceReviewIntent(scopedInput.message)&&!scopedInput.attachments?.length){
+        const reference=options.foodReferenceFollowUp;
+        const selected=adviceOptionIndex(scopedInput.message);
+        if(reference.kind==='advice'&&((selected===null&&reference.meals.length>1)||(selected!==null&&!reference.meals[selected]))){response.output={answer:conversationLanguage(scopedInput.message,authorized.language,scopedInput.history)==='es'?'Elige el número de una opción para revisarla antes de guardar.':'Choose an option number to review before saving.',evidenceRefs:[],limitations:[],suggestions:[],escalation:{required:false,reason:null,draft:null}};response.capabilityResult={tool:'food.reference',status:'read',result:reference,applied:false};response.snapshot={id:randomUUID(),capturedAt:options.now.toISOString(),subjectId:subject,organizationId:authorized.organizationId,...scope,surface:null,screenIncluded:false,language:conversationLanguage(scopedInput.message,authorized.language,scopedInput.history),units:{weight:'kg',energy:'kcal',protein:'g'},window:windowForConversation(scopedInput,'today','food',authorized.timezone,options.now),capabilities:[]};await authorizedRepository.authorize(options.actorId,subject,controller.signal);controller.signal.throwIfAborted();response.ok=true;return;}
+        const intake=await options.prepareFoodReferenceReview(scopedInput,reference.kind==='advice'&&selected!==null?{...reference,selected}:reference,controller.signal);
+        if(intake){
+          response.snapshot={id:randomUUID(),capturedAt:options.now.toISOString(),subjectId:subject,organizationId:authorized.organizationId,...scope,surface:scopedInput.context?.includeScreen?scopedInput.context.surface:null,screenIncluded:!!scopedInput.context?.includeScreen,language:conversationLanguage(scopedInput.message,authorized.language,scopedInput.history),units:{weight:'kg',energy:'kcal',protein:'g'},window:windowForConversation(scopedInput,'today','food',authorized.timezone,options.now),capabilities:[]};
+          response.textFood=intake;
+          response.output={answer:conversationLanguage(scopedInput.message,authorized.language,scopedInput.history)==='es'?intake.ok?'Revisa la misma referencia, la porción y la fecha antes de confirmar. Todavía no se ha registrado.':'No pude preparar la revisión. No se registró nada.':intake.ok?'Review the same reference, portion and date before confirming. It has not been logged yet.':'I could not prepare the review. Nothing was logged.',evidenceRefs:[],limitations:['text_food_review_required'],suggestions:[],escalation:{required:false,reason:null,draft:null}};
+          await authorizedRepository.authorize(options.actorId,subject,controller.signal);controller.signal.throwIfAborted();response.ok=true;return;
+        }
+      }
+      let photoObservations:ConversationPhotoObservation[]=[];
+      if(scopedInput.attachments?.length){
+        diagnosticStage.value='photo_read';
+        if(options.mode!=='model'||!options.resolvePhotoObservations)throw new Error('attachment_analysis_failed');
+        photoObservations=await options.resolvePhotoObservations(scopedInput,controller.signal);
+        if(photoObservations.length!==scopedInput.attachments.length)throw new Error('attachment_analysis_failed');
+        await authorizedRepository.authorize(options.actorId,subject,controller.signal);controller.signal.throwIfAborted();
+      }
+      if(options.resolveTextFoodIntake&&!scopedInput.attachments?.length&&!Object.values(medicalBoundary(scopedInput.message)).some(Boolean)) {
+        const intake=await options.resolveTextFoodIntake(scopedInput,controller.signal);
+        if(intake){
+          await authorizedRepository.authorize(options.actorId,subject,controller.signal);controller.signal.throwIfAborted();
+          const language=textFoodIntakeIntent(scopedInput.message)?.language??authorized.language;
+          response.snapshot={id:randomUUID(),capturedAt:options.now.toISOString(),subjectId:subject,organizationId:authorized.organizationId,...scope,surface:scopedInput.context?.includeScreen?scopedInput.context.surface:null,screenIncluded:!!scopedInput.context?.includeScreen,language,units:{weight:'kg',energy:'kcal',protein:'g'},window:windowForConversation(scopedInput,'today','food',authorized.timezone,options.now),capabilities:[]};
+          const ready=intake.ok&&'draft'in intake;
+          response.textFood=intake;
+          response.output={answer:language.startsWith('es')
+            ?ready?'Revisa los alimentos, las porciones y la fecha antes de confirmar. Todavía no he registrado esta comida.':'No pude preparar esta comida. Puedes registrarla desde Food; no se guardó ningún alimento.'
+            :ready?'Review the foods, portions and date before confirming. I have not logged this meal yet.':'I could not prepare this meal. You can log it from Food; no food was saved.',evidenceRefs:[],limitations:['text_food_review_required','text_food_usage_in_shared_ledger'],suggestions:[],escalation:{required:false,reason:null,draft:null}};
+          // Native parser usage is settled in the shared ledger, outside the chat
+          // generation transport. Never report this independent work as free.
+          response.telemetry.costUsd=null;response.ok=true;return;
+        }
+      }
+      diagnosticStage.value='context_preparation';
+      const foodContextReady = Boolean(options.foodSelection || options.foodChange || photoObservations.length);
+      const onlyFoodReference = options.capabilityRegistry?.available().every(tool => tool === 'food.reference');
+      if(options.capabilityRegistry&&nutritionIntent(scopedInput)!=='advise'&&!(foodContextReady&&onlyFoodReference)&&options.mode==='model'&&!Object.values(medicalBoundary(scopedInput.message)).some(Boolean)){
         const selectorInput=options.filterMemoryHistory?.(scopedInput)??{...scopedInput,history:scopedInput.history?.filter(item=>item.role==='user'&&item.kind!=='memory_summary')};
+        const selectedScope=selectConversationScope(selectorInput);
+        response.snapshot={id:randomUUID(),capturedAt:options.now.toISOString(),subjectId:subject,organizationId:authorized.organizationId,...scope,surface:scopedInput.context?.includeScreen?scopedInput.context.surface:null,screenIncluded:!!scopedInput.context?.includeScreen,language:conversationLanguage(scopedInput.message,authorized.language,scopedInput.history),units:{weight:'kg',energy:'kcal',protein:'g'},window:windowForConversation(scopedInput,selectedScope.intent,selectedScope.domain,authorized.timezone,options.now),capabilities:[]};
+        response.output={answer:'',evidenceRefs:[],limitations:['capability_turn_no_aggregate_reads'],suggestions:[],escalation:{required:false,reason:null,draft:null}};
         await prepareConversationCapability(selectorInput,response,options.offlineConversationProvider!,options.capabilityRegistry,authorizedRepository,authorized,controller.signal);
+        if(response.capabilityResult?.tool==='food.reference'){
+          response.output={answer:renderNativeFoodReference(response.capabilityResult.result,authorized.language.startsWith('es'))??renderFoodReferences(response.capabilityResult.result,authorized.language.startsWith('es'),scopedInput.message),evidenceRefs:[],limitations:[],suggestions:[],escalation:{required:false,reason:null,draft:null}};
+          await authorizedRepository.authorize(options.actorId,subject,controller.signal);controller.signal.throwIfAborted();response.ok=true;return;
+        }
         if(response.capabilityResult?.tool!=='none'){
-          await generateOpenConversation(selectorInput,response,options.offlineConversationProvider!,controller.signal,options.offlineInterpretationReview,options.offlineCandidateEvaluation,options.isolatedFixtureBoundary,false,false);
+          await generateOpenConversation(selectorInput,response,options.offlineConversationProvider!,controller.signal,options.offlineInterpretationReview,options.offlineCandidateEvaluation,options.isolatedFixtureBoundary,false,false,options.governedPilotBoundary,options.candidateActionsEnabled,undefined,photoObservations,adviceEstimator);
           await authorizedRepository.authorize(options.actorId,subject,controller.signal);controller.signal.throwIfAborted();response.ok=true;return;
         }
       }
       const selection=createSelectionContext(authorizedRepository,scopedInput.context,authorized);
       const repository=selection.repository;
       const {intent,surface,exerciseId,domain}=selectConversationScope(options.filterMemoryHistory?.(scopedInput)??scopedInput);
+      const selectedWindow=nutritionIntent(scopedInput)==='advise'?windowFor('today',authorized.timezone,options.now):windowForConversation(scopedInput,intent,domain,authorized.timezone,options.now);
       const result = await run({message:scopedInput.message,intent,clientId:scopedInput.context?.clientId,exerciseId}, {
-        ...options, mode:'offline', repository, signal:controller.signal, deadlineMs:Math.max(1,budget-(performance.now()-start)),
+        ...options, mode:'offline', repository, window:selectedWindow, signal:controller.signal, deadlineMs:Math.max(1,budget-(performance.now()-start)),
       });
       controller.signal.throwIfAborted();
       const priorTelemetry=response.telemetry;response.telemetry={...result.telemetry};
@@ -78,6 +143,15 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
       if(response.telemetry.dataReads>4)throw new Error('context_limit');
       if(!result.ok) { response.error=result.error; return; }
       response.evidence = result.evidence.filter(f=>evidenceMatchesScope(f.source,domain));
+      if(options.foodChange&&domain==='food') {
+        const change=options.foodChange;
+        const sourceIds=[change.entryId,change.receiptId],window=selectedWindow;
+        const changeEvidence=[
+          {id:'food.change.previousQuantity',source:'nutrition' as const,sourceIds,window,completeness:'complete' as const,statement:`The previous confirmed Food quantity was ${change.previousGrams} g.`,value:change.previousGrams,unit:'g'},
+          {id:'food.change.currentQuantity',source:'nutrition' as const,sourceIds,window,completeness:'complete' as const,statement:`The confirmed Food quantity is ${change.grams} g. This is the canonical refetched state after the applied receipt.`,value:change.grams,unit:'g'},
+        ];
+        const ids=new Set(changeEvidence.map(item=>item.id));response.evidence=[...changeEvidence,...response.evidence.filter(item=>!ids.has(item.id))].slice(0,24);
+      }
       const medical = result.output?.escalation.required && ['urgent_symptoms','medical_question','medical_context'].includes(result.output.escalation.reason ?? '');
       const capabilities: CoachCapability[] = [
         ...(['food_records','workout_records','active_plan'] as const).map(key=>({key,status:result.evidence.some(f=>key==='food_records'?f.source==='nutrition':key==='active_plan'?f.source==='plan':f.source==='workout')?'available' as const:'unknown' as const,reason:result.evidence.some(f=>key==='food_records'?f.source==='nutrition':key==='active_plan'?f.source==='plan':f.source==='workout')?'authorized_records':'no_supported_records'})),
@@ -85,8 +159,9 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
         ...(['model','profile','memory','images','voice','actions','progress'] as const).map(key=>({key,status:'not_connected' as const,reason:key==='model'?'paid_provider_disabled':'service_not_connected'})),
         ...disconnectedSurfaceCapabilities(),
       ];
-      response.snapshot = {id:randomUUID(),capturedAt:options.now.toISOString(),subjectId:authorized.subjectId,organizationId:authorized.organizationId,...scope,surface,screenIncluded:surface!==null,language:authorized.language,units:{weight:'kg',energy:'kcal',protein:'g'},window:windowFor(intent,authorized.timezone,options.now),capabilities};
+      response.snapshot = {id:randomUUID(),capturedAt:options.now.toISOString(),subjectId:authorized.subjectId,organizationId:authorized.organizationId,...scope,surface,screenIncluded:surface!==null,language:conversationLanguage(scopedInput.message,authorized.language,scopedInput.history),units:{weight:'kg',energy:'kcal',protein:'g'},window:selectedWindow,capabilities};
       response.snapshot.selection=selection.snapshot();
+      if(photoObservations.length){const images=capabilities.find(c=>c.key==='images')!;images.status='available';images.reason='validated_photo_analysis';}
       if(response.snapshot.selection){const screen=capabilities.find(c=>c.key==='screen_entity')!;screen.status='available';screen.reason='server_resolved_selection';}
       response.attachments = (scopedInput.attachments ?? []).map(item=>({...item,status:'not_connected'}));
       const facts = response.evidence.map(f=>f.statement).join('\n');
@@ -106,6 +181,16 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
             if(row.foodPreference.profileId!==subject)throw new Error('forbidden');
             response.foodPreference={...row.foodPreference,preferences:parseFoodPreferences(row.foodPreference.preferences)};
           }
+          if(row.nutritionTargets){
+            for(const [field,unit,label] of [['calories','kcal','calorías'],['proteinG','g protein','proteína']] as const){
+              const value=row.nutritionTargets[field];
+              if(typeof value==='number'&&Number.isFinite(value)&&value>0&&value<=(field==='calories'?15000:1000)){
+                const es=response.snapshot.language.startsWith('es');
+                response.evidence.push({id:`nutrition.target.${field}`,source:'nutrition',sourceIds:[subject],window,completeness:'complete',value,unit,
+                  statement:es?`Objetivo diario guardado de ${label}: ${value} ${field==='proteinG'?'g':unit}.`:`Stored daily ${field==='proteinG'?'protein':'calorie'} target: ${value} ${unit}.`});
+              }
+            }
+          }
           const preferences=workoutPreferencesSchema.safeParse(row.preferences);
           if(preferences.success) {
             response.profile={language:authorized.language,timezone:authorized.timezone,units:response.snapshot.units,preferences:{durationMinutes:preferences.data.durationMinutes},version:row.preferencesVersion??createHash('sha256').update(JSON.stringify(preferences.data)).digest('hex'),source:options.repository.dataSource==='synthetic'?'isolated_fixture':'authorized_profile'};
@@ -123,7 +208,19 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
         }
       }
       if(options.mode==='model'&&!medical) {
-        await generateOpenConversation(options.filterMemoryHistory?.(scopedInput)??scopedInput,response,options.offlineConversationProvider!,controller.signal,options.offlineInterpretationReview,options.offlineCandidateEvaluation,options.isolatedFixtureBoundary,options.workoutSetIntentsEnabled,options.foodQuantityIntentsEnabled);
+        try {
+        await generateOpenConversation(options.filterMemoryHistory?.(scopedInput)??scopedInput,response,options.offlineConversationProvider!,controller.signal,options.offlineInterpretationReview,options.offlineCandidateEvaluation,options.isolatedFixtureBoundary,options.workoutSetIntentsEnabled,options.foodQuantityIntentsEnabled,options.governedPilotBoundary,options.candidateActionsEnabled,options.foodSelection,photoObservations,adviceEstimator);
+        } catch(error) {
+          // Reject invalid companion output without losing an already
+          // authorized observation. Never release rejected prose or retry a model.
+          if(!(error instanceof OpenConversationOutputError)||!photoObservations.length||response.capabilityResult&&response.capabilityResult.tool!=='none')throw error;
+          controller.signal.throwIfAborted();
+          const qaDiagnostic=process.env.COACH_ASSISTANT_OUTPUT_DIAGNOSTICS_ENABLED==='1'&&process.env.VERCEL_ENV==='preview'&&error.diagnostic
+            ?{...error.diagnostic,correlation:createHash('sha256').update(`${response.conversationId}:${response.turnId}`).digest('hex').slice(0,16)}:undefined;
+          console.warn(JSON.stringify({event:'coach_conversation_output_rejected',code:error.diagnosticCode,...(qaDiagnostic?{diagnostic:qaDiagnostic}:{})}));
+          response.output=photoReviewOnlyOutput(response.snapshot?.language.startsWith('es')??false);
+          response.actionIntents=[];delete response.explanations;delete response.textFood;
+        }
         await repository.authorize(options.actorId,subject,controller.signal);
         controller.signal.throwIfAborted();
       }
@@ -135,10 +232,20 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
       if(controller.signal.aborted)boundary();
     })]);
   } catch(error) {
-    const allowed = ['invalid_input','forbidden','unauthenticated','invalid_timezone','budget_blocked','context_limit','invalid_output','provider_unavailable'];
+    if(error instanceof OpenConversationOutputError){
+      const qaDiagnostic=process.env.COACH_ASSISTANT_OUTPUT_DIAGNOSTICS_ENABLED==='1'&&process.env.VERCEL_ENV==='preview'&&error.diagnostic
+        ?{...error.diagnostic,correlation:createHash('sha256').update(`${response.conversationId}:${response.turnId}`).digest('hex').slice(0,16)}
+        :undefined;
+      console.warn(JSON.stringify({event:'coach_conversation_output_rejected',code:error.diagnosticCode,...(qaDiagnostic?{diagnostic:qaDiagnostic}:{})}));
+    }
+    const allowed = ['invalid_input','forbidden','unauthenticated','invalid_timezone','budget_blocked','context_limit','invalid_output','provider_unavailable','attachment_analysis_failed'];
     const code: CoachErrorCode = controller.signal.aborted ? options.signal.aborted?'cancelled':'deadline' : error instanceof Error && allowed.includes(error.message)?error.message as CoachErrorCode:'query_failed';
-    response.error={code,retryable:code==='query_failed'||code==='deadline'||code==='provider_unavailable'};
-    response.ok=false;response.snapshot=null;response.evidence=[];response.actionIntents=[];delete response.capabilityResult;delete response.output;delete response.profile;delete response.foodPreference;delete response.memories;delete response.explanations;
+    if(options.mode==='model'&&response.telemetry.modelCalls===0&&process.env.COACH_ASSISTANT_OUTPUT_DIAGNOSTICS_ENABLED==='1'&&process.env.VERCEL_ENV==='preview'){
+      const category=code==='deadline'?'deadline':code==='context_limit'?'context_limit':diagnosticStage.value==='photo_read'?'photo_read_failure':null;
+      if(category)console.warn(JSON.stringify({event:'coach_conversation_pretransport_failed',code,diagnostic:{stage:diagnosticStage.value,category,correlation:createHash('sha256').update(`${response.conversationId}:${response.turnId}`).digest('hex').slice(0,16)}}));
+    }
+    response.error={code,retryable:code==='query_failed'||code==='deadline'||code==='provider_unavailable'||code==='attachment_analysis_failed'};
+    response.ok=false;response.snapshot=null;response.evidence=[];response.actionIntents=[];delete response.capabilityResult;delete response.output;delete response.profile;delete response.foodPreference;delete response.memories;delete response.explanations;delete response.textFood;
   } finally {
     clearTimeout(timer);options.signal.removeEventListener('abort',abort);
     if(boundary)controller.signal.removeEventListener('abort',boundary);

@@ -48,6 +48,27 @@ async function completeSetWithFakeTimers(props: Partial<React.ComponentProps<typ
 }
 
 describe('ExerciseSetLogger', () => {
+  it('retains unsaved values when a set is collapsed and expanded', () => {
+    const props={exercise:{id:'bench',name:'Bench Press'},setNumber:1,unit:'kg' as const,grouped:true,focusMode:true,collapsible:true,onComplete:vi.fn()};
+    const view=render(<ExerciseSetLogger {...props} current />);
+    const input=screen.getByLabelText('Weight in kg');
+    fireEvent.change(input,{target:{value:'42.5'}});
+    view.rerender(<ExerciseSetLogger {...props} current={false} />);
+    expect(screen.queryByRole('spinbutton',{name:'Weight in kg'})).toBeNull();
+    fireEvent.click(view.container.querySelector('.exercise-set-summary')!);
+    expect(screen.getByRole('spinbutton',{name:'Weight in kg'})).toBe(input);
+    expect((input as HTMLInputElement).value).toBe('42.5');
+  });
+
+  it('settles an expired recovered rest while paused without replaying haptics', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-25T12:10:00.000Z'));
+    const { vibrate } = stubHaptics(false);
+    render(<ExerciseSetLogger exercise={{ id: 'bench', name: 'Bench Press' }} setNumber={1} unit="kg" paused initialSetId="persisted-set" initialCompletedAt="2026-08-25T12:00:00.000Z" restTargetSeconds={90} onComplete={vi.fn()} />);
+    expect(screen.queryByRole('timer')).toBeNull();
+    expect(screen.getByText('Rest complete')).toBeTruthy();
+    expect(vibrate).not.toHaveBeenCalled();
+  });
   it('uses explicit set labels and hides secondary tools under More', () => {
     render(<ExerciseSetLogger exercise={{ id: 'bench', name: 'Bench Press', isCompound: true, equipment: 'barbell' }} setNumber={1} unit="kg" onComplete={vi.fn()} />);
     expect(screen.getByLabelText('Weight in kg')).toBeTruthy();

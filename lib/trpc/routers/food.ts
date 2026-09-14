@@ -93,6 +93,7 @@ export const foodRouter = router({
             userId: ctx.user!.id,
             foodName: input.foodName,
             mealType: input.mealType,
+            mealSlot: input.mealSlot,
             calories: input.calories,
             proteinG: input.proteinG,
             carbsG: input.carbsG,

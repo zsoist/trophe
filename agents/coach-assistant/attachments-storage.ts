@@ -9,12 +9,19 @@ const scopeSchema=z.object({actorId:uuid,subjectId:uuid,organizationId:uuid,conv
 export type AttachmentStorageScope=z.infer<typeof scopeSchema>;
 export const attachmentObjectPath=(raw:AttachmentStorageScope)=>{const s=scopeSchema.parse(raw);if(s.actorId!==s.subjectId)throw new Error('forbidden');return `${s.organizationId}/${s.subjectId}/${s.conversationId}/${s.attachmentId}.jpg`;};
 const hash=(bytes:Uint8Array)=>createHash('sha256').update(bytes).digest('hex');
-/** Existing Supabase SDK, isolated endpoint only. Never creates a bucket or reads env.
+const PROD_STORAGE_PROJECT_REF='iwbpzwmidzvpiofnqexd';
+const QA_STORAGE_PROJECT_REF='nhawdvqqxscwxbpngaql';
+/** Existing Supabase SDK, limited to loopback or the explicit private QA project
+ * in a preview deployment. Never creates a bucket or reads env.
  * Injected fetch tests exercise SDK requests; they are not a real Storage server.
  */
-export function createPrivateCoachImageStorage(config:{url:string;serviceKey:string;bucket:string;fetchImpl?:typeof fetch}){
+export function createPrivateCoachImageStorage(config:{url:string;serviceKey:string;bucket:string;fetchImpl?:typeof fetch;deploymentEnvironment?:string;productionCohort?:readonly string[]}){
  const endpoint=new URL(config.url);
- if(endpoint.protocol!=='http:'||!['127.0.0.1','localhost','[::1]'].includes(endpoint.hostname)||endpoint.username||endpoint.password||endpoint.search||endpoint.hash||endpoint.pathname!=='/'||!/^coach-attachments-[a-z0-9-]+$/.test(config.bucket)||!config.serviceKey)throw new Error('invalid_isolated_storage_config');
+ const loopback=endpoint.protocol==='http:'&&['127.0.0.1','localhost','[::1]'].includes(endpoint.hostname);
+ const production=endpoint.origin===`https://${PROD_STORAGE_PROJECT_REF}.supabase.co`&&config.deploymentEnvironment==='production'&&Boolean(config.productionCohort?.length)&&config.productionCohort!.length<=16&&config.productionCohort!.every(id=>uuid.safeParse(id).success);
+ const qaPreview=endpoint.origin===`https://${QA_STORAGE_PROJECT_REF}.supabase.co`&&config.deploymentEnvironment==='preview';
+ if((!(loopback&&config.deploymentEnvironment!=='production')&&!qaPreview&&!production)||endpoint.username||endpoint.password||endpoint.search||endpoint.hash||endpoint.pathname!=='/'||!/^coach-attachments-[a-z0-9-]+$/.test(config.bucket)||!config.serviceKey)throw new Error('invalid_isolated_storage_config');
+ const pathFor=(scope:AttachmentStorageScope)=>{if(production&&!config.productionCohort!.includes(scope.actorId))throw new Error('forbidden');return attachmentObjectPath(scope);};
  const clientFor=(signal:AbortSignal)=>createClient(endpoint.origin,config.serviceKey,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},global:{fetch:(input,init)=>{const inherited=init?.signal??(input instanceof Request?input.signal:undefined);return (config.fetchImpl??fetch)(input,{...init,signal:inherited?AbortSignal.any([signal,inherited]):signal});}}});
  async function privateBucket(signal:AbortSignal){
   signal.throwIfAborted();const result=await clientFor(signal).storage.getBucket(config.bucket);signal.throwIfAborted();
@@ -28,15 +35,15 @@ export function createPrivateCoachImageStorage(config:{url:string;serviceKey:str
  async function storedDigest(path:string,signal:AbortSignal){return hash(await storedBytes(path,signal));}
  return {bucket:config.bucket,
   async readNormalized(scope:AttachmentStorageScope,expectedDigest:string,signal:AbortSignal,authorize:()=>Promise<void>){
-   const path=attachmentObjectPath(scope);if(!/^[a-f0-9]{64}$/.test(expectedDigest))throw new Error('invalid_input');await authorize();await privateBucket(signal);
+   const path=pathFor(scope);if(!/^[a-f0-9]{64}$/.test(expectedDigest))throw new Error('invalid_input');await authorize();await privateBucket(signal);
    const bytes=await storedBytes(path,signal);if(hash(bytes)!==expectedDigest)throw new Error('storage_unavailable');await authorize();signal.throwIfAborted();return bytes.slice();
   },
   async assertStored(scope:AttachmentStorageScope,expectedDigest:string,signal:AbortSignal,authorize:()=>Promise<void>){
-   const path=attachmentObjectPath(scope);await authorize();await privateBucket(signal);
+   const path=pathFor(scope);await authorize();await privateBucket(signal);
    if(await storedDigest(path,signal)!==expectedDigest)throw new Error('storage_unavailable');await authorize();signal.throwIfAborted();
   },
   async put(scope:AttachmentStorageScope,bytes:Uint8Array,mime:CoachImageMime,signal:AbortSignal,authorize:()=>Promise<void>){
-   const path=attachmentObjectPath(scope);signal.throwIfAborted();
+   const path=pathFor(scope);signal.throwIfAborted();
    const image=await normalizeCoachImage(bytes,mime,signal);await authorize();await privateBucket(signal);signal.throwIfAborted();
    const normalizedDigest=hash(image.bytes);
    const result=await clientFor(signal).storage.from(config.bucket).upload(path,image.bytes,{contentType:'image/jpeg',cacheControl:'0',upsert:false});
@@ -50,12 +57,12 @@ export function createPrivateCoachImageStorage(config:{url:string;serviceKey:str
    return {path,sourceDigest:hash(bytes),normalizedDigest,metadata:image.metadata};
   },
   async remove(scope:AttachmentStorageScope,signal:AbortSignal){
-   const path=attachmentObjectPath(scope);await privateBucket(signal);
+   const path=pathFor(scope);await privateBucket(signal);
    const result=await clientFor(signal).storage.from(config.bucket).remove([path]);signal.throwIfAborted();if(result.error)throw new Error('storage_unavailable');
   },
   async signedRead(scope:AttachmentStorageScope,expiresIn:number,signal:AbortSignal,authorize:()=>Promise<void>){
    if(!Number.isInteger(expiresIn)||expiresIn<1||expiresIn>60)throw new Error('invalid_input');
-   const path=attachmentObjectPath(scope);await authorize();await privateBucket(signal);
+   const path=pathFor(scope);await authorize();await privateBucket(signal);
    const result=await clientFor(signal).storage.from(config.bucket).createSignedUrl(path,expiresIn);signal.throwIfAborted();
    if(result.error||!result.data?.signedUrl)throw new Error('storage_unavailable');const url=new URL(result.data.signedUrl);
    if(url.origin!==endpoint.origin||url.pathname!==`/storage/v1/object/sign/${config.bucket}/${path}`||!url.searchParams.get('token'))throw new Error('storage_unavailable');

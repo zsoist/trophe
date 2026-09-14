@@ -128,7 +128,7 @@ export function RetrospectiveWorkoutLogger({ userId, draft, exercises, onSaveReq
   };
 
   return (
-    <section className="space-y-4">
+    <section className="wsp-log-panel space-y-4">
       <label className="block text-sm font-medium text-[var(--content-secondary)]">
         {t('workout.strength_duration')}
         <input type="number" min="1" inputMode="numeric" aria-label={t('workout.strength_duration')} value={durationMinutes} onChange={(event) => setDurationMinutes(Math.max(1, Number(event.target.value) || 1))} className="input-dark mt-1 min-h-12 w-full text-base" />

@@ -310,7 +310,8 @@ it('publishes the actual muscle selection and clears or normalizes it when chang
   await waitFor(() => expect((serratus as HTMLButtonElement).disabled).toBe(false));
   fireEvent.click(serratus);
   fireEvent.click(screen.getByRole("button", { name: "Ask Trophē" }));
-  expect(screen.getByRole("button", { name: "Remove screen selection: Serratus anterior" })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Saved conversations' }));
+  expect(screen.getByRole('checkbox', { name: 'Include this screen · Serratus anterior' })).toBeTruthy();
   expect(screenSelectionSnapshot()?.anatomy).toMatchObject({ group: 'chest', subgroup: 'serratus-anterior' });
   expect(coachAnatomyHintSchema.safeParse(screenSelectionSnapshot()?.anatomy).success).toBe(true);
   fireEvent.click(serratus);
@@ -327,5 +328,6 @@ it('publishes the actual muscle selection and clears or normalizes it when chang
   fireEvent.click(screen.getByRole('button', { name: 'Groups' }));
   fireEvent.click(screen.getByRole('button', { name: 'Whole body' }));
   expect(screenSelectionSnapshot()).toBeNull();
-  expect(screen.queryByRole("button", { name: /Remove screen selection:/ })).toBeNull();
+  expect(screen.queryByRole('checkbox', { name: /Include this screen · Serratus anterior/ })).toBeNull();
+  expect(screen.getByRole('checkbox', { name: 'Include this screen · Muscle Atlas' })).toBeTruthy();
 });

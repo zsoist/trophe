@@ -38,7 +38,9 @@ test('reviewed measurement survives a lost response and refetches the canonical 
   const responseFor = (operation: string) => page.waitForResponse(response => new URL(response.url()).pathname === '/api/coach-assistant' && response.request().method() === 'POST' && response.request().postDataJSON().operation === operation);
   await loginAs(page, 'client'); await page.goto('/dashboard/progress');
   await page.getByRole('button', { name: 'Ask Trophē', exact: true }).click(); const panel = page.locator('#global-coach');
-  const reading = responseFor('progress.read'); await panel.locator('summary').filter({ hasText: 'Progress measurements' }).click();
+  const reading = responseFor('progress.read');
+  if (await panel.getByRole('button', { name: 'Saved conversations', exact: true }).getAttribute('aria-expanded') === 'false') await panel.getByRole('button', { name: 'Saved conversations', exact: true }).click();
+  await panel.locator('summary').filter({ hasText: 'Progress measurements' }).click();
   const initialResponse = await reading; expect(initialResponse.status()).toBe(200); const initial = await initialResponse.json();
   expect(initial).toMatchObject({ ok: true, snapshot: { subjectId: process.env.COACH_SQL_ACTOR, window: { days: 90, timezone: 'America/Bogota' } } });
   const values = { measuredDate: initial.snapshot.window.end as string, weightKg: 73.25, bodyFatPct: 17.5, waistCm: 80.75 };
@@ -54,6 +56,8 @@ test('reviewed measurement survives a lost response and refetches the canonical 
   await expect(panel.getByRole('button', { name: 'Check change status', exact: true })).toBeVisible();
   await expect(panel.getByText('Measurement saved and refreshed.', { exact: true })).toHaveCount(0);
   await panel.getByRole('button', { name: 'New conversation', exact: true }).click();
+  if (await panel.getByRole('button', { name: 'Saved conversations', exact: true }).getAttribute('aria-expanded') === 'false') await panel.getByRole('button', { name: 'Saved conversations', exact: true }).click();
+  await panel.locator('summary').filter({ hasText: 'Progress measurements' }).click();
   await expect(panel.getByRole('button', { name: 'Check change status', exact: true })).toBeVisible(); expect(applyCount).toBe(1);
   const checking = responseFor('measurement.receipt'), refreshing = responseFor('progress.read');
   await panel.getByRole('button', { name: 'Check change status', exact: true }).click();

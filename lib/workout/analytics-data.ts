@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Exercise, WorkoutSession, WorkoutSet } from '@/lib/types';
+import { localDateStr } from '@/lib/utils/dates';
 
 export interface TerminalSession {
   id: string;
@@ -103,10 +104,6 @@ export function chunkIds(ids: string[], size = 500): string[][] {
   return chunks;
 }
 
-function localDateKey(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-}
-
 /** Expand every active program's weekday recurrence for one local calendar month. */
 export function expandScheduledDates(programs: AnalyticsProgram[], month: string): string[] {
   const [year, monthNumber] = month.split('-').map(Number);
@@ -118,7 +115,7 @@ export function expandScheduledDates(programs: AnalyticsProgram[], month: string
     const weekdays = new Set((program.workout_program_days ?? []).map((day) => day.weekday));
     if (!weekdays.size) continue;
     for (let date = new Date(first); date <= last; date.setDate(date.getDate() + 1)) {
-      const key = localDateKey(date);
+      const key = localDateStr(date);
       if ((!program.starts_on || key >= program.starts_on) && weekdays.has(date.getDay())) scheduled.add(key);
     }
   }

@@ -42,6 +42,21 @@ describe('private route contract', () => {
     const synthetic=await (await handleCoachRequest(req(body),{...config,env:{...config.env,COACH_ASSISTANT_DATA_SOURCE:'synthetic'}})).json();
     expect(synthetic.uploads).toBeUndefined();
   });
+  it('routes private attachment metadata and advertises durable photo analysis only behind both QA flags',async()=>{
+    const actor='a2c5ec63-6f35-4671-b4f1-6644ca9d739c',organizationId='aac3a82e-898c-4907-b9b9-75133bb6d27f';
+    const repository=fixtureRepository();repository.dataSource='authorized_records';repository.authorize=async()=>({actorId:actor,subjectId:actor,organizationId,timezone:'UTC',language:'en'});
+    const operation=vi.fn(async()=>({version:'coach-assistant.v2' as const,storage:'private_storage' as const,analysis:'not_connected' as const,ok:true,state:'prepared' as const,attachment:{id:'bbc3a82e-898c-4907-b9b9-75133bb6d27f',kind:'image' as const,status:'pending' as const},uploadToken:'a'.repeat(64)}));
+    const createAttachmentService=vi.fn(()=>({operation,upload:vi.fn(),cleanup:vi.fn()}));
+    const config={...deps,guard:async()=>({userId:actor}),createRepository:()=>repository,createAttachmentService,createPhotoFoodService:vi.fn(),env:{...env,COACH_ASSISTANT_PREVIEW_USER_IDS:actor,COACH_ASSISTANT_DATA_SOURCE:'authorized_records',COACH_ASSISTANT_PRIVATE_ATTACHMENTS_ENABLED:'1',COACH_ASSISTANT_PHOTO_FOOD_ACTIONS_ENABLED:'1'}};
+    const prepared=await (await handleCoachRequest(req({version:'coach-assistant.v2',operation:'attachment.prepare',conversationId:actor,requestId:organizationId,mime:'image/jpeg',bytes:120}),config)).json();
+    expect(prepared).toMatchObject({ok:true,storage:'private_storage',state:'prepared'});
+    expect(operation).toHaveBeenCalledWith({actorId:actor,subjectId:actor,organizationId},expect.objectContaining({operation:'attachment.prepare',requestId:organizationId}),expect.any(AbortSignal));
+    const conversationConfig={...config,guard:async()=>({userId:'synthetic-client'}),createRepository:()=>{const fixture=fixtureRepository();fixture.dataSource='authorized_records';return fixture;},env:{...config.env,COACH_ASSISTANT_PREVIEW_USER_IDS:'synthetic-client'}};
+    const conversation=await (await handleCoachRequest(req({version:'coach-assistant.v2',conversationId:actor,turnId:organizationId,message:'Today?'}),conversationConfig)).json();
+    expect(conversation.uploads).toMatchObject({images:true,storage:'private_storage',analysis:'validated_photo_analysis'});
+    const withoutAnalysis=await (await handleCoachRequest(req({version:'coach-assistant.v2',conversationId:actor,turnId:organizationId,message:'Today?'}),{...conversationConfig,createPhotoFoodService:undefined,env:{...conversationConfig.env,COACH_ASSISTANT_PHOTO_FOOD_ACTIONS_ENABLED:'0'}})).json();
+    expect(withoutAnalysis.uploads).toMatchObject({storage:'private_storage',analysis:'not_connected'});
+  });
   it('cancels an interrupted binary request without fabricating a completed attachment',async()=>{
     const abort=new AbortController();
     const stream=new ReadableStream<Uint8Array>({start(controller){controller.enqueue(new Uint8Array([137,80]));}});

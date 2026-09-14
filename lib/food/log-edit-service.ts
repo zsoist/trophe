@@ -4,7 +4,9 @@ import { TRPCError } from '@trpc/server';
 import { foodLog, foodParseCorrections } from '@/db/schema/food';
 import { foods } from '@/db/schema/foods';
 import type { Context } from '@/lib/trpc/context';
+import type { MealType } from '@/lib/types';
 import { safeErrorMetadata } from '@/lib/security/safe-error-log';
+import { mealSlotMatchesMealType } from './meal-slot';
 
 export type FoodLogRow = typeof foodLog.$inferSelect;
 export type FoodEditDatabase=Pick<Context['db'],'select'|'update'|'insert'|'execute'>;
@@ -55,6 +57,17 @@ export const editFieldsSchema = z.object({
   fatG: z.number().min(0).max(1000).optional(),
   fiberG: z.number().min(0).max(1000).optional(),
   sugarG: z.number().min(0).max(1000).optional(),
+  /** Explicit slot correction (0089). Omitted = leave the row's slot unchanged. */
+  mealSlot: z.enum([
+    'breakfast',
+    'lunch',
+    'dinner',
+    'snack_am',
+    'snack_pm',
+    'snack',
+    'pre_workout',
+    'post_workout',
+  ]).optional(),
 });
 export type EditFields = z.infer<typeof editFieldsSchema>;
 export const foodQuantityChangeSchema=editFieldsSchema.pick({grams:true}).required();
@@ -106,10 +119,42 @@ export async function deriveFoodLogEdit(database:Pick<FoodEditDatabase,'select'>
     }
   }
 
+  // A grams edit must be applied consistently to the macros. When the entry has
+  // neither a canonical food row (per-100g) nor a measured gram baseline, and the
+  // caller did not supply the core macros explicitly, there is no per-gram
+  // reference to scale from: writing qty_g alone would persist a mass the macros
+  // do not reflect (e.g. 250 g stored with the original serving's calories), and a
+  // later quantity edit would then scale from that bogus mass. Reject instead of
+  // silently corrupting the row. An explicit calories+protein+carbs+fat set is the
+  // caller's assertion of the nutrition for that mass, so it is allowed.
+  const explicitCoreMacros =
+    input.calories != null &&
+    input.proteinG != null &&
+    input.carbsG != null &&
+    input.fatG != null;
+  if (input.grams != null && derived === null && factor === null && !explicitCoreMacros) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'This entry has no measured gram baseline to scale from — edit the quantity or the macros instead.',
+    });
+  }
+
   const scaled = (v: number | null, kcal = false): number | null => {
     if (factor == null || v == null) return v;
     return kcal ? Math.round(v * factor) : round1(v * factor);
   };
+
+  // A slot correction must stay consistent with the row's meal type. Reject an
+  // invalid combination before writing; omitted = unchanged.
+  if (
+    input.mealSlot !== undefined &&
+    (existing.mealType == null || !mealSlotMatchesMealType(input.mealSlot, existing.mealType as MealType))
+  ) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'mealSlot must be consistent with the entry meal type',
+    });
+  }
 
   const next = {
     foodName: input.foodName ?? existing.foodName,
@@ -121,7 +166,21 @@ export async function deriveFoodLogEdit(database:Pick<FoodEditDatabase,'select'>
     fatG: input.fatG ?? derived?.fatG ?? scaled(existing.fatG),
     fiberG: input.fiberG ?? derived?.fiberG ?? scaled(existing.fiberG),
     sugarG: input.sugarG ?? derived?.sugarG ?? scaled(existing.sugarG),
+    ...(input.mealSlot!==undefined||existing.mealSlot!==undefined?{mealSlot:input.mealSlot??existing.mealSlot}:{}),
   };
+
+  // Keep qty_g consistent with a quantity-only edit. Scaling the macros by the
+  // quantity ratio while freezing qty_g left rows self-contradictory (2 × 355 g
+  // can stored as 355 g with doubled macros), and a later grams edit then scaled
+  // from the stale baseline — doubling or halving twice. The mass tracks the
+  // portion whenever the row already carries a measured gram value.
+  if (input.grams == null && input.quantity != null && factor != null && existing.qtyG != null) {
+    const existingQtyG = Number(existing.qtyG);
+    if (Number.isFinite(existingQtyG) && existingQtyG > 0) {
+      const scaledQtyG = existingQtyG * factor;
+      next.qtyG = String(Math.round(scaledQtyG * 100) / 100);
+    }
+  }
 
   return next;
 }

@@ -66,6 +66,7 @@ import { mappingForMuscle } from "@/lib/anatomy/mapping";
 import { muscleLabel, type AnatomyMuscleId } from "@/lib/workout/anatomy";
 import { fetchAtlasManifest } from "@/lib/anatomy/validation";
 import "./anatomy.css";
+import "./../workout/workout-exploration-v2.css";
 const AtlasCanvas = dynamic(() => import("./AtlasCanvas"), { ssr: false });
 const SYSTEM_ICONS = [
   Bone,
@@ -349,7 +350,7 @@ export default function AnatomyExplorer({
       : [];
   return (
     <main
-      className={`anatomy-explorer ${workoutMode ? "anatomy-workout-mode" : ""}`}
+      className={`wk2 anatomy-explorer ${workoutMode ? "anatomy-workout-mode" : ""}`}
     >
       <header className={workoutMode ? "anatomy-brand-header" : undefined}>
         {workoutMode && (

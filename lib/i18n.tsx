@@ -8,7 +8,7 @@ import { createContext, useContext, useState, useCallback, useEffect, type React
 import { anatomyTranslations } from './locales/anatomy';
 import type { Language, CoreLanguage } from './types';
 import { interpolateTranslation } from './i18n-interpolate';
-import { coreWorkoutAnalyticsTranslations, WORKOUT_ANALYTICS_COPY_KEYS as WORKOUT_ANALYTICS_NEW_COPY_KEYS } from './locales/workout-analytics';
+import { coreWorkoutAnalyticsTranslations, WORKOUT_ANALYTICS_COPY_KEYS as WORKOUT_ANALYTICS_NEW_COPY_KEYS } from './locales/workout-analytics-core';
 
 /** Exact Task 9 copy surface, including established shared navigation/history keys. */
 export const WORKOUT_ANALYTICS_COPY_KEYS = [
@@ -184,6 +184,7 @@ export const translations: Record<string, Record<CoreLanguage, string>> = {
   'food.retry': { en: 'Retry', es: 'Reintentar', el: 'Επανάληψη' },
   'food.log_load_failed': { en: 'Your food log could not be loaded — try again', es: 'No se pudo cargar tu registro de comida — inténtalo de nuevo', el: 'Δεν ήταν δυνατή η φόρτωση του ημερολογίου φαγητού — δοκίμασε ξανά' },
   'food.delete_failed': { en: 'Food could not be removed — your log was refreshed', es: 'No se pudo eliminar la comida — tu registro se actualizó', el: 'Δεν ήταν δυνατή η αφαίρεση του φαγητού — το ημερολόγιό σου ανανεώθηκε' },
+  'food.restore_failed': { en: 'Restoration could not be confirmed. Check the updated food log.', es: 'No se pudo confirmar la restauración. Revisa el registro de alimentos actualizado.', el: 'Δεν ήταν δυνατή η επιβεβαίωση της επαναφοράς. Ελέγξτε το ενημερωμένο ημερολόγιο τροφίμων.' },
   'food.save_failed': { en: 'Your meal was not saved — review it and try again', es: 'Tu comida no se guardó — revísala e inténtalo de nuevo', el: 'Το γεύμα σου δεν αποθηκεύτηκε — έλεγξέ το και δοκίμασε ξανά' },
   'food.session_expired': { en: 'Your session expired — refresh and sign in again', es: 'Tu sesión caducó — actualiza e inicia sesión de nuevo', el: 'Η συνεδρία σου έληξε — ανανέωσε και συνδέσου ξανά' },
   'food.invalid_entry': { en: 'This meal has an invalid value — review it and try again', es: 'Esta comida tiene un valor no válido — revísala e inténtalo de nuevo', el: 'Αυτό το γεύμα έχει μη έγκυρη τιμή — έλεγξέ το και δοκίμασε ξανά' },
@@ -621,6 +622,10 @@ export const translations: Record<string, Record<CoreLanguage, string>> = {
 
   // ── Guided workout — client rebuild (overhaul/workout-branded-premium) ──
   'workout.program_today':    { en: '{program} · Today', es: '{program} · Hoy', el: '{program} · Σήμερα' },
+  'workout.your_workout': { en: 'Your workout', es: 'Tu entrenamiento', el: 'Η προπόνησή σου' },
+  'workout.editorial_equipment': { en: 'Equipment illustration', es: 'Ilustración del equipo', el: 'Εικονογράφηση εξοπλισμού' },
+  'workout.muscle_map': { en: 'Your muscle map', es: 'Tu mapa muscular', el: 'Ο μυϊκός σου χάρτης' },
+  'workout.train_now': { en: 'Train now', es: 'Entrenar ahora', el: 'Προπονήσου τώρα' },
   'workout.start_workout':    { en: 'Start workout', es: 'Iniciar entreno', el: 'Έναρξη προπόνησης' },
   'workout.loading':          { en: 'Loading…', es: 'Cargando…', el: 'Φόρτωση…' },
   'workout.also_today':       { en: 'Also today', es: 'También hoy', el: 'Επίσης σήμερα' },
@@ -1638,6 +1643,7 @@ export const translations: Record<string, Record<CoreLanguage, string>> = {
 
   // ── Recipe analyzer ──
   'food.recipe_timeout': { en: 'Recipe analysis timed out — please try again', es: 'El análisis de la receta tardó demasiado — inténtalo de nuevo', el: 'Η ανάλυση της συνταγής καθυστέρησε πολύ — δοκίμασε ξανά' },
+  'food.recipe_analysis_failed': { en: 'Analysis failed — please try again', es: 'El análisis falló — inténtalo de nuevo', el: 'Η ανάλυση απέτυχε — δοκίμασε ξανά' },
   'food.analyze_recipe': { en: 'Analyze recipe', es: 'Analizar receta', el: 'Ανάλυση συνταγής' },
   'food.analyze_recipe_aria': { en: 'Analyze a recipe', es: 'Analizar una receta', el: 'Ανάλυση συνταγής' },
 

@@ -50,6 +50,8 @@ export function createPrivateAttachmentService(database:typeof db,storage:Privat
     await tx.execute(sql`SET LOCAL statement_timeout='15000ms'`);await authorize(tx,scope,signal);
     if(op.operation==='attachment.prepare'){
      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`coach-attachments:${storage.bucket}`},0))`);
+     const expired=await tx.execute(sql`SELECT uploads.*,uploads.expires_at::text AS expires_at,uploads.expires_at<=clock_timestamp() AS expired FROM private.coach_attachment_uploads uploads WHERE uploads.bucket=${storage.bucket} AND uploads.actor_id=${scope.actorId}::uuid AND uploads.subject_id=${scope.subjectId}::uuid AND uploads.organization_id=${scope.organizationId}::uuid AND uploads.state<>'removed' AND uploads.expires_at<=clock_timestamp() ORDER BY uploads.expires_at,uploads.id LIMIT 6 FOR UPDATE SKIP LOCKED`);
+     for(const raw of expired.rows){const stale=parsedRow(raw);await storage.remove(storageScope(stale),signal);await authorize(tx,scope,signal);await tx.execute(sql`UPDATE private.coach_attachment_uploads SET state='removed',metadata=NULL WHERE id=${stale.id}::uuid`);}
      const requestId=op.requestId??randomUUID();const prior=await tx.execute(sql`SELECT *,expires_at::text,expires_at<=clock_timestamp() AS expired FROM private.coach_attachment_uploads WHERE actor_id=${scope.actorId}::uuid AND request_id=${requestId}::uuid FOR UPDATE`);
      if(prior.rows.length){const row=parsedRow(prior.rows[0]);if(row.subject_id!==scope.subjectId||row.organization_id!==scope.organizationId||row.conversation_id!==op.conversationId||row.mime!==op.mime||row.input_bytes!==op.bytes)throw new Rejected('idempotency_conflict');if(row.expired||row.state==='removed')throw new Rejected('expired');if(digest(token(row))!==row.upload_token_hash)throw new Rejected('uncertain');if(row.state==='available')await storage.assertStored(storageScope(row),row.normalized_digest!,signal,()=>authorize(tx,scope,signal));return {...view(row),uploadToken:token(row)};}
      // Reserve the full normalized-file cap until actual deletion, even expired.
@@ -106,7 +108,7 @@ export function createPrivateAttachmentService(database:typeof db,storage:Privat
   /** Internal bounded janitor; not an actor-selectable HTTP operation. */
   async cleanup(signal:AbortSignal):Promise<{ok:boolean;removed:number}>{
    try{return await database.transaction(async tx=>{
-    const rows=await tx.execute(sql`SELECT *,expires_at::text,expires_at<=clock_timestamp() AS expired FROM private.coach_attachment_uploads WHERE bucket=${storage.bucket} AND state<>'removed' AND expires_at<=clock_timestamp() ORDER BY expires_at,id LIMIT 10 FOR UPDATE SKIP LOCKED`);
+    const rows=await tx.execute(sql`SELECT uploads.*,uploads.expires_at::text AS expires_at,uploads.expires_at<=clock_timestamp() AS expired FROM private.coach_attachment_uploads uploads WHERE uploads.bucket=${storage.bucket} AND uploads.state<>'removed' AND uploads.expires_at<=clock_timestamp() ORDER BY uploads.expires_at,uploads.id LIMIT 10 FOR UPDATE SKIP LOCKED`);
     let removed=0;for(const raw of rows.rows){const row=parsedRow(raw);await storage.remove(storageScope(row),signal);await tx.execute(sql`UPDATE private.coach_attachment_uploads SET state='removed',metadata=NULL WHERE id=${row.id}::uuid`);removed++;}signal.throwIfAborted();return {ok:true,removed};
    });}catch{return {ok:false,removed:0};}
   },

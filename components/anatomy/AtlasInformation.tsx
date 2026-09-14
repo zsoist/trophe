@@ -12,7 +12,7 @@ function InformationDialog({ children, onClose }: { children: ReactNode; onClose
     dialog.showModal();
     return () => { dialog.close(); previous?.focus({ preventScroll: true }); };
   }, []);
-  return createPortal(<dialog ref={ref} className="atlas-information-dialog" aria-label={t('anatomy.info')} onCancel={event => { event.preventDefault(); onClose(); }} onClick={event => { if (event.target === event.currentTarget) onClose(); }}><header><h2>{t('anatomy.info')}</h2><button onClick={onClose} aria-label={t('anatomy.close_info')}><X size={20} /></button></header>{children}</dialog>, document.body);
+  return createPortal(<dialog ref={ref} className="wk2 atlas-information-dialog" aria-label={t('anatomy.info')} onCancel={event => { event.preventDefault(); onClose(); }} onClick={event => { if (event.target === event.currentTarget) onClose(); }}><header><h2>{t('anatomy.info')}</h2><button onClick={onClose} aria-label={t('anatomy.close_info')}><X size={20} /></button></header>{children}</dialog>, document.body);
 }
 export function AtlasInformation({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);

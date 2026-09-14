@@ -28,7 +28,9 @@ import PainFlagModal from './PainFlagModal';
 import ExerciseInfoSheet from './ExerciseInfoSheet';
 import { muscleColor, exerciseDisplayName } from './muscle-groups';
 import { useWeightUnit, kgToDisplay, displayToKg } from '@/lib/workout/units';
-import { getRestTarget } from '@/lib/workout/rest-targets';
+import { RestTargetControl } from '@/components/workout/workspace/RestTargetControl';
+import { useRestTarget } from '@/components/workout/workspace/useRestTarget';
+import '@/components/workout/workspace/workout-session-premium.css';
 import {
   createWorkoutSession,
   deleteWorkoutSet,
@@ -131,7 +133,10 @@ function minutesSince(start: number): number {
 function RestBar({ startedAt, targetS, onDismiss }: { startedAt: number; targetS: number; onDismiss: () => void }) {
   const { t } = useI18n();
   const reducedMotion = useReducedMotion();
-  const [elapsed, setElapsed] = useState(0);
+  // Seed from the wall clock: the bar is remounted when the lifter browses
+  // forward/back (the exercise card transition swaps the subtree), so deriving
+  // the initial value from `startedAt` keeps the running rest from flashing 0:00.
+  const [elapsed, setElapsed] = useState(() => Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -251,13 +256,28 @@ export default function GuidedSession({
   const [phase, setPhase] = useState<'active' | 'finish'>('active');
   const [finishStats, setFinishStats] = useState<FinishStats | null>(null);
   const [finishing, setFinishing] = useState(false);
-  const [restStartedAt, setRestStartedAt] = useState<number | null>(null);
-  const [restTargetS, setRestTargetS] = useState(90);
+  // The in-flight rest belongs to the exercise that STARTED it, not to whichever
+  // exercise is currently browsed: `startedAt` keeps the elapsed clock running
+  // across forward/back navigation, while `exerciseId` resolves the countdown
+  // target from the originating exercise's canonical rest override.
+  const [activeRest, setActiveRest] = useState<{ exerciseId: string; startedAt: number } | null>(null);
   const [painFlags, setPainFlags] = useState<PainFlag[]>([]);
   const [painModalExerciseId, setPainModalExerciseId] = useState<string | null>(null);
   // 10/10 wave: display unit + exercise info sheet (full row fetched on demand).
   const [unit] = useWeightUnit();
   const [infoExercise, setInfoExercise] = useState<Exercise | null>(null);
+  // Per-exercise rest override (canonical getRestTarget/setRestTarget storage),
+  // read for the exercise currently in view so a change reflects immediately and
+  // survives navigation/remount.
+  const restTarget = useRestTarget(exercises[currentIdx]?.ref.exercise_id, exercises[currentIdx]?.info?.isCompound);
+  // Countdown target for the exercise that started the in-flight rest. Read live
+  // through the same canonical hook so an intentional change to THAT exercise's
+  // rest duration retargets the running bar, while browsing other exercises does
+  // not (the browsed exercise's own target must never leak into the running rest).
+  const restOriginExercise = activeRest
+    ? exercises.find((e) => e.ref.exercise_id === activeRest.exerciseId) ?? null
+    : null;
+  const originRestTarget = useRestTarget(activeRest?.exerciseId, restOriginExercise?.info?.isCompound);
 
   const openInfo = async (exerciseId: string) => {
     const { data } = await supabase.from('exercises').select('*').eq('id', exerciseId).maybeSingle();
@@ -412,8 +432,7 @@ export default function GuidedSession({
       reps: reps !== null ? String(reps) : set.reps,
       rpe: rpe !== null ? String(rpe) : set.rpe,
     });
-    setRestTargetS(getRestTarget(exId, exercise.info?.isCompound));
-    setRestStartedAt(Date.now());
+    setActiveRest({ exerciseId: exId, startedAt: Date.now() });
   };
 
   const addExtraSet = (exIdx: number) => {
@@ -507,7 +526,7 @@ export default function GuidedSession({
     }
     setFinishStats(stats);
     setFinishing(false);
-    setRestStartedAt(null);
+    setActiveRest(null);
     setPhase('finish');
   };
 
@@ -531,7 +550,7 @@ export default function GuidedSession({
   // ═══ Finish screen ═════════════════════════════════════════════════════
   if (phase === 'finish' && finishStats) {
     return (
-      <div className="max-w-md lg:max-w-2xl mx-auto px-4 pt-6 pb-8">
+      <div className="guided-session max-w-md lg:max-w-2xl mx-auto px-4 pt-6 pb-8">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -637,7 +656,7 @@ export default function GuidedSession({
   const firstOpenIdx = ex.sets.findIndex((s) => !s.completed);
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--canvas)' }}>
+    <div className="guided-session min-h-screen" style={{ background: 'var(--canvas)' }}>
       {/* Sticky guided header: exit + name + elapsed + progress */}
       <div className="sticky top-0 z-40 glass-elevated px-4 pt-3 pb-2">
         <div className="max-w-md lg:max-w-2xl mx-auto">
@@ -733,6 +752,16 @@ export default function GuidedSession({
                 >
                   <AlertTriangle size={15} className="text-[var(--status-danger-fg)]" />
                 </button>
+              </div>
+
+              {/* Per-exercise rest duration — persists through the canonical rest-target storage */}
+              <div className="px-4 pb-1">
+                <RestTargetControl
+                  exerciseName={exName}
+                  value={restTarget.seconds}
+                  storageFailed={restTarget.failed}
+                  onSelect={restTarget.choose}
+                />
               </div>
 
               {/* Coach notes on this exercise */}
@@ -912,8 +941,8 @@ export default function GuidedSession({
 
             {/* Rest timer between sets */}
             <AnimatePresence>
-              {restStartedAt !== null && (
-                <RestBar key={restStartedAt} startedAt={restStartedAt} targetS={restTargetS} onDismiss={() => setRestStartedAt(null)} />
+              {activeRest !== null && (
+                <RestBar key={activeRest.startedAt} startedAt={activeRest.startedAt} targetS={originRestTarget.seconds} onDismiss={() => setActiveRest(null)} />
               )}
             </AnimatePresence>
 
@@ -955,8 +984,8 @@ export default function GuidedSession({
               className="btn-gold flex-1 rounded-2xl flex items-center justify-center gap-2 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
               style={{ height: 52, fontSize: 14, fontWeight: 800, opacity: finishing ? 0.7 : 1 }}
             >
-              <Trophy size={16} />
-              {finishing ? t('workout.saving') : t('workout.finish')}
+              <span className="wsp-disc" aria-hidden="true"><Trophy size={16} /></span>
+              <span>{finishing ? t('workout.saving') : t('workout.finish')}</span>
             </motion.button>
           ) : (
             <motion.button
@@ -965,8 +994,8 @@ export default function GuidedSession({
               className="btn-gold flex-1 rounded-2xl flex items-center justify-center gap-2 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
               style={{ height: 52, fontSize: 14, fontWeight: 800 }}
             >
-              {t('workout.next_exercise')}
-              <ChevronRight size={18} />
+              <span>{t('workout.next_exercise')}</span>
+              <span className="wsp-disc" aria-hidden="true"><ChevronRight size={18} /></span>
             </motion.button>
           )}
           {!isLast && completedCount > 0 && (

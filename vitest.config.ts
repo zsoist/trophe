@@ -9,6 +9,7 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
+    setupFiles: ['tests/setup/jsdom-storage.ts'],
     include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx', 'lib/**/*.test.ts', 'agents/**/*.test.ts'],
     coverage: {
       provider: 'v8',

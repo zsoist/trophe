@@ -8,6 +8,8 @@ import { localToday, localDateStr } from '../../../lib/utils/dates';
 export const REVIEW_USER = '00000000-0000-4000-8000-000000000001';
 export const REVIEW_STORAGE_KEY = 'trophe:private-workout-review:v1';
 export const reviewExercises: Exercise[] = ATLAS_EXERCISES.map((exercise, index) => ({ ...exercise, muscle_group: exercise.muscle_group as Exercise['muscle_group'], id: `00000000-0000-4000-8001-${String(index + 1).padStart(12, '0')}`, created_by: null, created_at: '2026-01-01T12:00:00Z', is_template: true }));
+// Explicit sample row for the private editorial review, not a database catalogue update.
+reviewExercises.push({ id: '00000000-0000-4000-8001-999999999999', name: 'Smith Machine Bench Press', name_es: 'Press de banca en máquina Smith', name_el: null, muscle_group: 'chest', secondary_muscles: ['triceps', 'shoulders'], equipment: 'Machine', is_compound: true, is_template: true, created_by: null, created_at: '2026-01-01T12:00:00Z' });
 export function exerciseNamed(name: string) {
   const exercise = reviewExercises.find(item => item.name === name);
   if (!exercise) throw new Error(`Review fixture missing: ${name}`);

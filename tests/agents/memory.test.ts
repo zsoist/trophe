@@ -11,7 +11,7 @@
  *   7. Unit: readMemory() formatMemoryBlock output structure
  *   8. Unit: scoreChunk() allergies ranked higher than observations
  *   9. Unit: loadCoachBlocks() returns empty string when no blocks
- *  10. Router: memory_extract → Gemini structured output, memory_embed → Voyage
+ *  10. Router: memory_extract → Luna text output, memory_embed → Voyage
  *
  * Integration tests (4–6) are skipped if DB is unreachable (no PGPASSWORD in env).
  */
@@ -173,10 +173,10 @@ describe('loadCoachBlocks() unit', () => {
 // ── 10. Router: memory task policies ──────────────────────────────────────
 
 describe('router: memory task policies', () => {
-  it('keeps health-context memory extraction on Anthropic', () => {
+  it('keeps memory extraction on the Luna product lane', () => {
     const policy = pick('memory_extract');
-    expect(policy.provider).toBe('anthropic');
-    expect(policy.model).toBe('claude-haiku-4-5-20251001');
+    expect(policy.provider).toBe('openai');
+    expect(policy.model).toBe('gpt-5.6-luna');
     expect(policy.costClass).toBe('cheap');
   });
 

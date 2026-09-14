@@ -394,7 +394,7 @@ export type StartLiveSessionResult = { ok: true; sessionId: string } | Persisten
 export async function startLiveSession(input: StartLiveSessionInput): Promise<StartLiveSessionResult> {
   // The RPC rejects these shapes unconditionally, so the answer is already definitive.
   if (!input.idempotencyKey.trim() || !input.draftFingerprint.trim() || !/^\d{4}-\d{2}-\d{2}$/.test(input.sessionDate)
-    || !input.name.trim() || (input.kind === 'strength' ? input.liveStructure.length === 0 : input.liveStructure.length !== 0)) {
+    || !input.name.trim() || (input.kind === 'cardio' && input.liveStructure.length !== 0)) {
     return { ok: false, kind: 'rejected', code: 'invalid_request' };
   }
   try {

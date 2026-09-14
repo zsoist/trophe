@@ -34,6 +34,7 @@ import {
 import { ExerciseResults } from './ExerciseResults';
 import { MuscleAtlas } from './MuscleAtlas';
 import { WorkoutPlanTray } from './WorkoutPlanTray';
+import './workout-exploration-v2.css';
 
 // Discovery regions are body-area selectors: each stands for a muscle group, so they
 // are labelled by group and never presented as a specific primary muscle.
@@ -95,12 +96,14 @@ function trapFocus(event: ReactKeyboardEvent<HTMLElement>, container: HTMLElemen
 
 function PickerFrame({
   presentation,
+  liveSession = false,
   pickerRef,
   reducedMotion,
   label,
   children,
 }: {
   presentation: 'dialog' | 'page';
+  liveSession?: boolean;
   pickerRef: RefObject<HTMLDivElement | null>;
   reducedMotion: boolean | null;
   label: string;
@@ -118,7 +121,7 @@ function PickerFrame({
         initial={reducedMotion ? false : { opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={reducedMotion ? undefined : { opacity: 0 }}
-        className="fixed inset-0 z-[var(--z-modal,60)] flex flex-col safe-bottom bg-[var(--canvas)] outline-none"
+        className={`wk2 workout-dialog fixed inset-0 z-[var(--z-modal,60)] flex flex-col safe-bottom bg-[var(--canvas)] outline-none ${liveSession ? "workout-live-picker" : ""}`}
         style={{ isolation: 'isolate' }}
       >
         {children}
@@ -134,7 +137,7 @@ function PickerFrame({
       initial={reducedMotion ? false : { opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={reducedMotion ? undefined : { opacity: 0 }}
-      className="flex min-h-[calc(100dvh-8rem)] flex-col bg-[var(--canvas)] outline-none"
+      className="wk2 flex min-h-[calc(100dvh-8rem)] flex-col bg-[var(--canvas)] outline-none"
       style={{ isolation: 'isolate' }}
     >
       {children}
@@ -295,12 +298,15 @@ function EquipmentFilter({
   onChange,
   label,
   allLabel,
+  compact = false,
 }: {
   value: string;
   options: string[];
   onChange: (value: string) => void;
   label: string;
   allLabel: string;
+  /** Compact variant for the picker utility row: the label stays as the accessible name only. */
+  compact?: boolean;
 }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
@@ -309,8 +315,8 @@ function EquipmentFilter({
     : equipmentLabel(t, value);
 
   return (
-    <div className="equipment-filter">
-      <span className="equipment-filter__label">{label}</span>
+    <div className={compact ? 'equipment-filter equipment-filter--compact' : 'equipment-filter'}>
+      {compact ? null : <span className="equipment-filter__label">{label}</span>}
       <div className="equipment-filter__control">
         <button
           type="button"
@@ -369,7 +375,11 @@ export default function ExercisePicker({
   replacementExerciseName,
   atlasContext,
   initialAtlasFilter,
+  selectionPending = false,
+  liveSession = false,
 }: {
+  selectionPending?: boolean;
+  liveSession?: boolean;
   exercises: Exercise[];
   recentIds: string[];
   onSelect: (ex: Exercise) => void;
@@ -439,16 +449,16 @@ export default function ExercisePicker({
 
   useEffect(() => {
     if (!canUseDom) return;
-    const frame = requestAnimationFrame(() => firstAreaRef.current?.focus({ preventScroll: true }));
+    const frame = requestAnimationFrame(() => (liveSession ? inputRef.current : firstAreaRef.current)?.focus({ preventScroll: true }));
     return () => cancelAnimationFrame(frame);
-  }, [canUseDom]);
+  }, [canUseDom, liveSession]);
 
   const nameOf = (ex: Exercise) => exerciseDisplayName(ex, lang);
   const addedIds = new Set([...addedExerciseIds, ...optimisticAddedIds]);
 
   const q = search.trim().toLowerCase();
   const selectedArea = WORKOUT_BODY_AREAS.find((area) => area.key === selectedAreaKey) ?? null;
-  const isLanding = q === '' && selectedArea === null;
+  const isLanding = !liveSession && q === '' && selectedArea === null;
   const recentRank = new Map(recentIds.map((id, index) => [id, index]));
   const matchesSearch = (ex: Exercise) => [
     nameOf(ex),
@@ -458,11 +468,12 @@ export default function ExercisePicker({
     ex.equipment,
   ].some((value) => value?.toLowerCase().includes(q));
 
+  const catalogue = liveSession ? exercises.filter(exercise => exercise.muscle_group !== 'cardio') : exercises;
   const areaPool = q !== ''
-    ? exercises.filter(matchesSearch)
+    ? catalogue.filter(matchesSearch)
     : selectedArea
-      ? exercises.filter((ex) => selectedArea.muscles.includes(ex.muscle_group))
-      : [];
+      ? catalogue.filter((ex) => selectedArea.muscles.includes(ex.muscle_group))
+      : liveSession ? catalogue : [];
   const musclePool = filterMuscle === 'all'
     ? areaPool
     : areaPool.filter((ex) => ex.muscle_group === filterMuscle);
@@ -483,7 +494,7 @@ export default function ExercisePicker({
     });
 
   const pick = (ex: Exercise) => {
-    if (addedIds.has(ex.id)) return;
+    if (selectionPending || addedIds.has(ex.id)) return;
     if (presentation === 'page' && onAddToDraft) {
       setOptimisticAddedIds((current) => new Set(current).add(ex.id));
       onAddToDraft(ex.id);
@@ -540,20 +551,27 @@ export default function ExercisePicker({
   const picker = (
     <PickerFrame
       presentation={presentation}
+      liveSession={liveSession}
       pickerRef={pickerRef}
       reducedMotion={reducedMotion}
       label={t('workout.add_exercise')}
     >
+      {selectionPending ? <p role="status" className="px-4 py-3">{t('workout.saving')}</p> : null}
       <div className="sticky top-0 z-10 border-b border-[var(--border-subtle)] bg-[var(--surface-overlay)]/95 backdrop-blur-xl">
-        <div className="mx-auto w-full max-w-3xl px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
+        <div className="mx-auto w-full max-w-3xl px-4 pb-2.5 pt-[calc(0.75rem+env(safe-area-inset-top))]">
           <div className="flex items-center gap-3">
             <button onClick={onClose} aria-label={t('workout.picker_close')} className="flex min-h-11 min-w-11 items-center justify-center rounded-xl bg-[var(--action-secondary)] text-[var(--content-secondary)] transition-colors hover:bg-[var(--surface-active)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] motion-reduce:transition-none">
               <X size={20} style={{ color: 'var(--content-secondary)' }} />
             </button>
             <h2 className="text-base font-semibold text-[var(--content-primary)]">{t('workout.picker_title')}</h2>
           </div>
-          <div className="relative mt-3">
-            <Search size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--content-muted)]" />
+          <div className="workout-picker-search relative mt-2.5">
+            {/* 22px icon inset at 16px; the input reserves 48px inline-start so typed text never sits under it. */}
+            <Search
+              size={22}
+              aria-hidden="true"
+              className="workout-picker-search__icon pointer-events-none absolute top-1/2 -translate-y-1/2 text-[var(--content-muted)]"
+            />
             <input
               ref={inputRef}
               type="search"
@@ -564,7 +582,7 @@ export default function ExercisePicker({
                 setSearch(event.target.value);
                 setEquipmentFilter('all');
               }}
-              className="input-dark min-h-12 pl-10 pr-11 text-base"
+              className="workout-picker-search__input input-dark min-h-12 text-base"
             />
             {search && (
               <button
@@ -590,6 +608,10 @@ export default function ExercisePicker({
           className="mx-auto w-full max-w-3xl px-4 pt-6"
           style={{ paddingBottom: scrollPadding }}
         >
+          {liveSession && <div className="workout-live-picker__groups" role="group" aria-label={t('workout.picker_muscle_filter')}>
+            <button type="button" aria-pressed={selectedArea === null} onClick={returnToAreas}>{t('workout.all')}</button>
+            {WORKOUT_BODY_AREAS.filter(area => area.key !== 'cardio').map(area => <button type="button" key={area.key} aria-pressed={selectedAreaKey === area.key} onClick={() => chooseArea(area.key)}>{t(bodyAreaLabelKey(area.key))}</button>)}
+          </div>}
           {isLanding ? (
             <>
               {replacementExerciseName ? <p role="status" className="mb-4 rounded-xl border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] p-3 text-sm text-[var(--content-primary)]">{t('workout.replacement_active', { name: replacementExerciseName })}</p> : null}
@@ -661,7 +683,8 @@ export default function ExercisePicker({
             </>
           ) : (
             <>
-              <div className="flex items-start gap-3">
+              {/* One compact utility row: title + live count on the left, equipment filter on the right. */}
+              <div className="workout-picker-utility">
                 {selectedArea && !q && (
                   <button
                     type="button"
@@ -672,24 +695,34 @@ export default function ExercisePicker({
                     <ArrowLeft size={20} />
                   </button>
                 )}
-                <div className="min-w-0 flex-1 pt-1.5">
+                <div className="workout-picker-utility__summary">
                   <h1
                     ref={resultHeadingRef}
                     tabIndex={-1}
-                    className="text-xl font-semibold tracking-[-0.02em] text-[var(--content-primary)] outline-none sm:text-2xl"
+                    className="workout-picker-utility__title"
                   >
-                    {q
+                    {q || !selectedArea
                       ? t('workout.picker_search_results')
                       : t('workout.picker_result_title', { area: t(bodyAreaLabelKey(selectedArea!.key)) })}
                   </h1>
-                  <p aria-live="polite" className="mt-1 text-sm tabular-nums text-[var(--content-muted)]">
+                  <p aria-live="polite" className="workout-picker-utility__count">
                     {t('workout.picker_result_count', { n: filtered.length })}
                   </p>
                 </div>
+                {equipmentOptions.length > 1 && (
+                  <EquipmentFilter
+                    compact
+                    value={equipmentFilter}
+                    options={equipmentOptions}
+                    onChange={setEquipmentFilter}
+                    label={t('workout.picker_equipment')}
+                    allLabel={t('workout.picker_all_equipment')}
+                  />
+                )}
               </div>
 
               {selectedArea && !q && selectedArea.muscles.length > 1 && (
-                <div className="-mx-1 mt-5 flex gap-2 overflow-x-auto px-1 pb-1 scrollbar-hide" role="group" aria-label={t('workout.picker_muscle_filter')}>
+                <div className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-1 scrollbar-hide" role="group" aria-label={t('workout.picker_muscle_filter')}>
                   <button
                     type="button"
                     onClick={() => {
@@ -728,16 +761,6 @@ export default function ExercisePicker({
                 </div>
               )}
 
-              {equipmentOptions.length > 1 && (
-                <EquipmentFilter
-                  value={equipmentFilter}
-                  options={equipmentOptions}
-                  onChange={setEquipmentFilter}
-                  label={t('workout.picker_equipment')}
-                  allLabel={t('workout.picker_all_equipment')}
-                />
-              )}
-
               {filtered.length === 0 ? (
                 <div className="py-16 text-center">
                   <Dumbbell size={28} className="mx-auto text-[var(--content-muted)]" />
@@ -758,14 +781,14 @@ export default function ExercisePicker({
             </>
           )}
 
-          <button
+          {(!liveSession || onCustomCreated) && <button
             onClick={() => setShowCustomModal(true)}
             aria-label={t('workout.picker_custom')}
             className="mt-8 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--border-default)] bg-transparent px-4 text-sm font-semibold text-[var(--action-primary)] transition-colors hover:border-[var(--border-focus)] hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] motion-reduce:transition-none"
           >
             <Plus size={16} />
             <span><span className="font-normal text-[var(--content-muted)]">{t('workout.picker_custom_hint')} </span>{t('workout.picker_custom')}</span>
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -790,6 +813,7 @@ export default function ExercisePicker({
           />
         )}
       </AnimatePresence>
+      {liveSession && <button type="button" className="workout-live-picker__return" disabled={selectionPending} onClick={onClose}>{t('workout.keep_training')}</button>}
     </PickerFrame>
   );
 

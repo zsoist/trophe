@@ -24,7 +24,7 @@ import {
   WorkoutWorkspaceProvider,
   useWorkoutWorkspace,
 } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
-import { saveWorkspaceState, type WorkspaceStorage } from '@/lib/workout/workspace-storage';
+import { loadWorkspaceState, saveWorkspaceState, type WorkspaceStorage } from '@/lib/workout/workspace-storage';
 import { createInitialWorkspaceState, workoutWorkspaceReducer } from '@/lib/workout/workspace-state';
 
 class MemoryStorage {
@@ -500,4 +500,40 @@ it('rejects a reviewed draft while a live start is pending', async () => {
   const pending = current.state;
   act(() => current.applyReviewedDraft('nik', pending, { ...pending.draft!, name: 'Late change' }));
   expect(current.state).toBe(pending);
+});
+
+it('persists an empty strength start before transport and becomes live only after acknowledgment', async () => {
+  let resolve!: (value: { ok: true; sessionId: string }) => void;
+  startLiveSession.mockImplementation(() => new Promise(done => { resolve = done; }));
+  const storage = new MemoryStorage();
+  render(<ProviderHarness userId="nik" storage={storage} />);
+  await screen.findByRole('button', { name: 'Create Push draft' });
+  fireEvent.click(screen.getByRole('button', { name: 'Create Push draft' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Start live workout' }));
+  await waitFor(() => expect(startLiveSession).toHaveBeenCalledTimes(1));
+  expect(startLiveSession.mock.calls[0][0]).toMatchObject({ kind: 'strength', liveStructure: [] });
+  expect(loadWorkspaceState(storage, 'nik')?.startRequest).toEqual(startLiveSession.mock.calls[0][0]);
+  expect(screen.queryByText('Live')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Start live workout' }));
+  expect(startLiveSession).toHaveBeenCalledTimes(1);
+  await act(async () => resolve({ ok: true, sessionId: 'empty-strength-session' }));
+  expect(screen.getByText('Live')).toBeTruthy();
+});
+
+it('does not apply an old owner start acknowledgment to a replacement owner draft', async () => {
+  let resolve!: (value: { ok: true; sessionId: string }) => void;
+  startLiveSession.mockImplementation(() => new Promise(done => { resolve = done; }));
+  const storage = new MemoryStorage();
+  const view = render(<ProviderHarness userId="nik" storage={storage} />);
+  await screen.findByRole('button', { name: 'Create Push draft' });
+  fireEvent.click(screen.getByRole('button', { name: 'Create Push draft' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Start live workout' }));
+  await waitFor(() => expect(startLiveSession).toHaveBeenCalledTimes(1));
+  view.rerender(<ProviderHarness userId="peer" storage={storage} />);
+  await screen.findByRole('button', { name: 'Create Push draft' });
+  fireEvent.click(screen.getByRole('button', { name: 'Create Push draft' }));
+  await act(async () => resolve({ ok: true, sessionId: 'nik-session' }));
+  expect(screen.queryByText('Live')).toBeNull();
+  expect(loadWorkspaceState(storage, 'peer')?.sessionId).toBeNull();
+  expect(loadWorkspaceState(storage, 'nik')?.startRequest).toBeTruthy();
 });

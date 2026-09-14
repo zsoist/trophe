@@ -100,7 +100,7 @@ function isStartRequest(value: unknown): value is LiveStartRequestEnvelope {
     && typeof item.targetReps === 'string' && item.targetReps.trim().length > 0
     && (item.supersetGroup === null || (typeof item.supersetGroup === 'number' && Number.isInteger(item.supersetGroup) && item.supersetGroup > 0)));
   return validStructure
-    && (value.kind === 'strength' ? value.liveStructure.length > 0 : value.liveStructure.length === 0);
+    && (value.kind === 'strength' || value.liveStructure.length === 0);
 }
 
 function isPainFlag(value: unknown): boolean {

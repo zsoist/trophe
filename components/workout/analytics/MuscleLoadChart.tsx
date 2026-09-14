@@ -6,6 +6,7 @@ import { useI18n } from '@/lib/i18n';
 import { localeForLanguage } from '@/lib/i18n-locale';
 import { calculateMuscleLoad } from '@/lib/workout/muscle-load';
 import { resolveCuratedMuscleActivations, type AnatomyMuscleId } from '@/lib/workout/anatomy';
+import { localDateStr, localToday } from '@/lib/utils/dates';
 
 export type MuscleLoadRange = 'last' | 'week' | 'month' | 'all';
 export interface MuscleLoadEntry {
@@ -15,18 +16,14 @@ export interface MuscleLoadEntry {
   sets: Array<{ completed?: boolean; isWarmup?: boolean; is_warmup?: boolean }>;
 }
 
-function dateKey(date: Date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-}
-
 export function muscleLoadRangeStart(range: MuscleLoadRange, now: string) {
   const date = new Date(`${now}T12:00:00`);
   if (range === 'all' || range === 'last') return undefined;
   if (range === 'week') {
     date.setDate(date.getDate() - ((date.getDay() + 6) % 7));
-    return dateKey(date);
+    return localDateStr(date);
   }
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`;
+  return localDateStr(new Date(date.getFullYear(), date.getMonth(), 1));
 }
 
 /** Last uses the exact latest terminal session, even when it has no strength rows. */
@@ -50,7 +47,7 @@ const muscleCopyKey = (id: AnatomyMuscleId) => `workout.atlas_muscle_${id.replac
 export function MuscleLoadChart({
   data,
   range,
-  now = dateKey(new Date()),
+  now = localToday(),
   latestCompletedSessionId,
 }: {
   data: MuscleLoadEntry[];
@@ -80,10 +77,10 @@ export function MuscleLoadChart({
     const message = range === 'last' && latestCompletedSessionId
       ? t('workout.analytics_muscle_load_last_empty')
       : t('workout.analytics_muscle_load_empty');
-    return <section className="rounded-xl bg-[var(--surface-subtle)] p-4" aria-labelledby="muscle-load-title"><h2 id="muscle-load-title" className="text-base font-semibold text-[var(--content-primary)]">{t('workout.analytics_muscle_load_title')}</h2><p className="mt-3 text-sm text-[var(--content-muted)]">{message}</p></section>;
+    return <section className="wk2 wk2-analytics-card rounded-xl bg-[var(--surface-subtle)] p-4" aria-labelledby="muscle-load-title"><h2 id="muscle-load-title" className="text-base font-semibold text-[var(--content-primary)]">{t('workout.analytics_muscle_load_title')}</h2><p className="mt-3 text-sm text-[var(--content-muted)]">{message}</p></section>;
   }
 
-  return <section className="rounded-xl bg-[var(--surface-subtle)] p-4" aria-labelledby="muscle-load-title">
+  return <section className="wk2 wk2-analytics-card rounded-xl bg-[var(--surface-subtle)] p-4" aria-labelledby="muscle-load-title">
     <div className="mb-4 flex items-center gap-2"><BarChart3 size={17} className="text-[var(--action-primary)]" /><h2 id="muscle-load-title" className="text-base font-semibold text-[var(--content-primary)]">{t('workout.analytics_muscle_load_title')}</h2></div>
     <div role="img" aria-label={t('workout.analytics_muscle_load_chart', { range: rangeName })} className="space-y-3">{values.map(([id, value]) => {
       const label = t(muscleCopyKey(id));

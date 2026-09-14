@@ -481,12 +481,12 @@ const BRAND_TOKEN_STOPWORDS = new Set([
 ]);
 
 const BRANDED_INTENT_MARKERS: Array<{ query: RegExp; candidate: RegExp }> = [
-  { query: /\b(?:mcdonalds?|big mac|mcnuggets?|egg mcmuffin)\b/, candidate: /\b(?:mcdonalds?|big mac|mcnuggets?|egg mcmuffin|mcdonalds_)\b/ },
-  { query: /\b(?:burger king|whopper)\b/, candidate: /\b(?:burger king|whopper|burger_king_)\b/ },
+  { query: /\b(?:mcdonalds?|big macs?|mcnuggets?|egg mcmuffins?)\b/, candidate: /\b(?:mcdonalds?|big macs?|mcnuggets?|egg mcmuffins?|mcdonalds_)\b/ },
+  { query: /\b(?:burger king|whoppers?)\b/, candidate: /\b(?:burger king|whoppers?|burger_king_)\b/ },
   { query: /\b(?:starbucks)\b/, candidate: /\b(?:starbucks)\b/ },
-  { query: /\b(?:coke|coca cola)\b/, candidate: /\b(?:coca cola|coca_cola)\b/ },
-  { query: /\b(?:pepsi)\b/, candidate: /\b(?:pepsi)\b/ },
-  { query: /\b(?:red bull)\b/, candidate: /\b(?:red bull|red_bull)\b/ },
+  { query: /\b(?:cokes?|coca colas?)\b/, candidate: /\b(?:coca colas?|coca_cola)\b/ },
+  { query: /\b(?:pepsis?)\b/, candidate: /\b(?:pepsis?)\b/ },
+  { query: /\b(?:red bulls?)\b/, candidate: /\b(?:red bulls?|red_bull)\b/ },
   { query: /\b(?:sprite)\b/, candidate: /\b(?:sprite)\b/ },
   { query: /\b(?:fanta)\b/, candidate: /\b(?:fanta)\b/ },
   { query: /\b(?:tropicana)\b/, candidate: /\b(?:tropicana)\b/ },
@@ -623,6 +623,30 @@ const UNIT_SYNONYMS: Record<string, string> = {
   'boîte': 'can', 'boîtes': 'can',
   'filet': 'fillet', 'filets': 'fillet',
 };
+
+export type DirectMetricUnitBasis = 'measured_mass' | 'density_assumption';
+
+/** Resolves direct metric input without consulting food serving metadata.
+ * Volume uses the existing water-density approximation and remains explicitly
+ * distinguishable from measured mass. */
+export function resolveDirectMetricUnit(unit: string): {
+  gramsPerUnit: number;
+  basis: DirectMetricUnitBasis;
+} | null {
+  const raw = unit.toLowerCase().trim();
+  const normalizedUnit = UNIT_SYNONYMS[raw] ?? raw;
+  if (normalizedUnit === 'g') return { gramsPerUnit: 1, basis: 'measured_mass' };
+  if (normalizedUnit === 'kg') return { gramsPerUnit: 1_000, basis: 'measured_mass' };
+  if (normalizedUnit === '100g') return { gramsPerUnit: 100, basis: 'measured_mass' };
+  if (normalizedUnit === 'ml') return { gramsPerUnit: 1, basis: 'density_assumption' };
+  if (normalizedUnit === 'cl') return { gramsPerUnit: 10, basis: 'density_assumption' };
+  if (normalizedUnit === 'dl') return { gramsPerUnit: 100, basis: 'density_assumption' };
+  if (normalizedUnit === 'l') return { gramsPerUnit: 1_000, basis: 'density_assumption' };
+  if (normalizedUnit === 'fl oz' || normalizedUnit === 'floz') {
+    return { gramsPerUnit: 30, basis: 'density_assumption' };
+  }
+  return null;
+}
 
 // Beverage detection: canonical keys containing these tokens indicate liquid foods
 // where "piece" should resolve to a liquid container unit (can > bottle > glass > cup).
@@ -832,18 +856,9 @@ async function resolveUnit(
   const raw = unit.toLowerCase().trim();
   const normalizedUnit = UNIT_SYNONYMS[raw] ?? raw;
 
-  // Explicit metric mass is authoritative and must never fall back to a food's
-  // default serving. Otherwise "100 g" can become 100 default servings.
-  if (normalizedUnit === 'g') return { id: null, gramsPerUnit: 1 };
-  if (normalizedUnit === 'kg') return { id: null, gramsPerUnit: 1_000 };
-  if (normalizedUnit === '100g') return { id: null, gramsPerUnit: 100 };
-
-  // Metric volume → grams (density ≈1 for water-based beverages/liquids)
-  if (normalizedUnit === 'ml') return { id: null, gramsPerUnit: 1 };
-  if (normalizedUnit === 'cl') return { id: null, gramsPerUnit: 10 };
-  if (normalizedUnit === 'dl') return { id: null, gramsPerUnit: 100 };
-  if (normalizedUnit === 'l') return { id: null, gramsPerUnit: 1_000 };
-  if (normalizedUnit === 'fl oz' || normalizedUnit === 'floz') return { id: null, gramsPerUnit: 30 };
+  // Direct metric quantities must never fall back to a food's serving size.
+  const directMetric = resolveDirectMetricUnit(normalizedUnit);
+  if (directMetric) return { id: null, gramsPerUnit: directMetric.gramsPerUnit };
 
   // Standard pours for alcohol: a "glass" of wine is 150ml (not the 240ml water
   // cup that the generic glass→cup synonym implies); champagne flute 125ml;

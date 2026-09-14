@@ -1,4 +1,5 @@
 import {describe,it,expect} from 'vitest';
+import type { FoodReferenceSnapshot } from './food-reference-continuity';
 import {randomUUID} from 'node:crypto';
 import {PgDialect} from 'drizzle-orm/pg-core';
 import type {SQL} from 'drizzle-orm';
@@ -10,10 +11,10 @@ import {fixtureRepository} from './fixtures';
 import type {CoachRepository} from './repository';
 const scope=():CoachChatScope=>({actorId:randomUUID(),subjectId:'',organizationId:randomUUID(),actorRole:'client'});
 interface ThreadRow {id:string;actorId:string;subjectId:string;organizationId:string;actorRole:string;request_id:string;create_hash:string;title:string;state:string;created_at:string;revision:string;next_sequence:number;access_revoked:boolean}
-interface TurnRow {threadId:string;id:string;turn_id:string;request_id:string;role:string;sequence:number;revision:string;content_hash:string;pipeline_version:string|null;current:boolean}
+interface TurnRow {threadId:string;id:string;turn_id:string;request_id:string;role:string;sequence:number;revision:string;content_hash:string;pipeline_version:string|null;current:boolean;outcome:'inflight'|'failed'|'settled'}
 /** A stateful SQL double runs the real service and bound statements, not PostgreSQL. */
 function backend(){
- const dialect=new PgDialect(),threads=new Map<string,ThreadRow>(),turns=new Map<string,TurnRow>(),contents=new Map<string,{owner:string;session:string;agent:string;role:string;content:string}>(),valid=new Set<string>(),queries:string[]=[];
+ const dialect=new PgDialect(),threads=new Map<string,ThreadRow>(),turns=new Map<string,TurnRow>(),contents=new Map<string,{owner:string;session:string;agent:string;role:string;content:string;tool_calls?:unknown}>(),valid=new Set<string>(),queries:string[]=[];
  let connected=true;
  const samescope=(t:ThreadRow,p:unknown[])=>[t.actorId,t.subjectId,t.organizationId,t.actorRole].every((x,i)=>x===p[i]);
  const database={transaction:async(work:(tx:{execute:(s:SQL)=>Promise<unknown>})=>Promise<unknown>)=>{
@@ -33,25 +34,29 @@ function backend(){
    }
    if(s.startsWith('UPDATE private.coach_chat_threads')){
     const t=threads.get(String(p.at(-1)))!;if(!t)throw new Error('missing thread');
-    if(s.includes('next_sequence=next_sequence+1')){t.next_sequence++;t.revision=String(Number(t.revision)+1);return rows([{sequence:t.next_sequence}]);}
+    if(s.includes('next_sequence=next_sequence+1')){t.next_sequence++;t.revision=String(Number(t.revision)+1);if(s.includes('title='))t.title=String(p[0]);return rows([{sequence:t.next_sequence}]);}
     if(s.includes("state='cleanup_pending'")){t.state='cleanup_pending';t.title='';t.revision=String(Number(t.revision)+1);}
     else if(s.includes("state='deleted'"))t.state='deleted';else {t.title=String(p[0]);t.revision=String(Number(t.revision)+1);}return rows([]);
    }
-   if(s.startsWith('INSERT INTO public.agent_conversation')){const [id,owner,agent,session,role,content]=p as string[];contents.set(id,{owner,agent,session,role,content});return rows([]);}
-   if(s.startsWith('INSERT INTO private.coach_chat_turns')){const [threadId,id,turn_id,request_id,role,sequence,revision,content_hash,pipeline_version]=p;turns.set(String(id),{threadId:String(threadId),id:String(id),turn_id:String(turn_id),request_id:String(request_id),role:String(role),sequence:Number(sequence),revision:String(revision),content_hash:String(content_hash),pipeline_version:pipeline_version as string|null,current:true});return rows([]);}
-   if(s.startsWith('UPDATE private.coach_chat_turns')){turns.get(String(p[1]))!.current=false;return rows([]);}
+   if(s.startsWith('INSERT INTO public.agent_conversation')){const [id,owner,agent,session,role,content,tool_calls]=p as string[];contents.set(id,{owner,agent,session,role,content,tool_calls:tool_calls?JSON.parse(tool_calls):null});return rows([]);}
+   if(s.startsWith('INSERT INTO private.coach_chat_turns')){const [threadId,id,turn_id,request_id,role,sequence,revision,content_hash,pipeline_version,outcome]=p;turns.set(String(id),{threadId:String(threadId),id:String(id),turn_id:String(turn_id),request_id:String(request_id),role:String(role),sequence:Number(sequence),revision:String(revision),content_hash:String(content_hash),pipeline_version:pipeline_version as string|null,current:true,outcome:String(outcome) as TurnRow['outcome']});return rows([]);}
+   if(s.startsWith('UPDATE private.coach_chat_turns')){
+    if(s.includes("outcome='failed'")){const turn=[...turns.values()].find(t=>t.threadId===p[0]&&t.turn_id===p[1]&&t.role==='user');if(turn)turn.outcome='failed';return rows(turn?[{content_id:turn.id}]:[]);}
+    if(s.includes("outcome='settled'")){const turn=[...turns.values()].find(t=>t.threadId===p[0]&&t.turn_id===p[1]&&t.role==='user');if(turn)turn.outcome='settled';return rows(turn?[{content_id:turn.id}]:[]);}
+    turns.get(String(p[1]))!.current=false;return rows([]);
+   }
    if(s.startsWith('DELETE FROM public.agent_conversation')){for(const t of turns.values())if(t.threadId===p[0]&&contents.get(t.id)?.owner===p[1])contents.delete(t.id);return rows([]);}
    if(s.includes('t LEFT JOIN public.agent_conversation')){
     expect(s).toContain('c.role=t.role');expect(p.slice(1,4)).toEqual([threads.get(String(p[0]))!.actorId,p[0],COACH_CHAT_NAMESPACE]);
     let all=[...turns.values()].filter(t=>t.threadId===p[0]);
     if(s.includes('t.request_id='))all=all.filter(t=>t.request_id===p[4]);
     else if(s.includes('t.content_id='))all=all.filter(t=>t.id===p[4]);
-    else if(s.includes('t.turn_id='))all=all.filter(t=>t.turn_id===p[4]&&t.role===(s.includes("t.role='user'")?'user':p[5]));
+    else if(s.includes('t.turn_id='))all=all.filter(t=>t.turn_id===p[4]&&(!s.includes('t.role=')||t.role===(s.includes("t.role='user'")?'user':p[5])));
     if(s.includes('t.current=true'))all=all.filter(t=>t.current);
     if(s.includes("t.role='assistant'"))all=all.filter(t=>t.role==='assistant');
     if(s.includes('t.sequence>'))all=all.filter(t=>t.sequence>Number(p[4]));
     if(s.includes("t.pipeline_version='coach-assistant.v2'"))all=all.filter(t=>t.pipeline_version==='coach-assistant.v2');
-    return rows(all.sort((a,b)=>a.sequence-b.sequence).slice(0,Number(p.at(-1))).map(t=>({...t,id:contents.has(t.id)?t.id:null,content:contents.get(t.id)?.content??null,created_at:'2026-09-07 12:00:00+00'})));
+    return rows(all.sort((a,b)=>a.sequence-b.sequence).slice(0,Number(p.at(-1))).map(t=>({...t,id:contents.has(t.id)?t.id:null,content:contents.get(t.id)?.content??null,tool_calls:contents.get(t.id)?.tool_calls,created_at:'2026-09-07 12:00:00+00'})));
    }
    throw new Error('unhandled SQL '+s);
   }});}catch(error){threads.clear();turns.clear();contents.clear();for(const [k,v] of snapshots[0] as Map<string,ThreadRow>)threads.set(k,v);for(const [k,v] of snapshots[1] as Map<string,TurnRow>)turns.set(k,v);for(const [k,v] of snapshots[2] as typeof contents)contents.set(k,v);throw error;}
@@ -64,9 +69,9 @@ async function create(x:ReturnType<typeof setup>,requestId=randomUUID(),title='M
  const r=await x.service.execute(x.s,{version:COACH_CHAT_VERSION,operation:'create',requestId,title},signal());expect(r.ok).toBe(true);if(!r.ok||!('thread'in r.value))throw new Error('create failed');return {thread:r.value.thread,requestId};
 }
 const user=async(x:ReturnType<typeof setup>,threadId:string,turnId=randomUUID(),text='Cómo fue mi semana')=>{const requestId=randomUUID();const op={version:COACH_CHAT_VERSION,operation:'append_user',threadId,turnId,requestId,text};const r=await x.service.execute(x.s,op,signal());expect(r.ok).toBe(true);return {op,r};};
-async function final(s:CoachChatScope,threadId:string,turnId:string,message:string){
+async function final(s:CoachChatScope,threadId:string,turnId:string,message:string,foodReferenceFollowUp?:FoodReferenceSnapshot){
  const empty=async()=>({rows:[],truncated:false});const repository:CoachRepository={...fixtureRepository(),authorize:async()=>({actorId:s.actorId,subjectId:s.subjectId,organizationId:s.organizationId,timezone:'UTC',language:'es'}),nutrition:empty,plan:empty,workouts:empty,exercise:empty,personalContext:empty};
- const r=await runVerifiedChatFinal({version:'coach-assistant.v2',conversationId:threadId,turnId,message},{actorId:s.actorId,repository,mode:'offline',now:new Date('2026-09-07T12:00:00Z'),signal:signal()},s);expect(r.final).not.toBeNull();return r.final!;
+ const r=await runVerifiedChatFinal({version:'coach-assistant.v2',conversationId:threadId,turnId,message},{actorId:s.actorId,repository,mode:'offline',foodReferenceFollowUp,now:new Date('2026-09-07T12:00:00Z'),signal:signal()},s);expect(r.final).not.toBeNull();return r.final!;
 }
 describe('durable coach chat service using injected SQL',()=>{
  it('creates idempotently, paginates stable thread keys and renames with CAS',async()=>{
@@ -89,6 +94,23 @@ describe('durable coach chat service using injected SQL',()=>{
   const proof=await final(x.s,a.thread.id,u.op.turnId,u.op.text),requestId=randomUUID();const r=await x.service.appendFinal(x.s,{threadId:a.thread.id,requestId},proof,signal());expect(r).toMatchObject({ok:true,value:{message:{role:'assistant'},replayed:false}});
   expect(await x.service.appendFinal(x.s,{threadId:a.thread.id,requestId},proof,signal())).toMatchObject({ok:true,value:{replayed:true}});expect(x.b.contents.size).toBe(2);expect(await x.service.appendFinal(x.s,{threadId:a.thread.id,requestId:randomUUID()},proof,signal())).toMatchObject({error:'idempotency_conflict'});
   const wrong=await final(x.s,a.thread.id,u.op.turnId,'Otra pregunta');expect(await x.service.appendFinal(x.s,{threadId:a.thread.id,requestId:randomUUID()},wrong,signal())).toMatchObject({error:'idempotency_conflict'});
+ });
+ it('recovers an uncertain turn by exact IDs without another generation or write',async()=>{
+  const x=setup(),a=await create(x,randomUUID(),'New conversation'),turnId=randomUUID();
+  await user(x,a.thread.id,turnId,'  Cuánto me falta   de proteína hoy  ');
+  expect(x.b.threads.get(a.thread.id)?.title).toBe('Cuánto me falta de proteína hoy');
+  const sizes=()=>({contents:x.b.contents.size,turns:x.b.turns.size});
+  const before=sizes();
+  expect(await x.service.execute(x.s,{version:COACH_CHAT_VERSION,operation:'recover',threadId:a.thread.id,turnId},signal())).toMatchObject({ok:true,value:{thread:{id:a.thread.id},turnId,status:'inflight',user:{turnId,role:'user'},assistant:null}});
+  expect(sizes()).toEqual(before);
+  await (x.service as unknown as {markFailed(scope:CoachChatScope,threadId:string,turnId:string,signal:AbortSignal):Promise<unknown>}).markFailed(x.s,a.thread.id,turnId,signal());
+  expect(await x.service.execute(x.s,{version:COACH_CHAT_VERSION,operation:'recover',threadId:a.thread.id,turnId},signal())).toMatchObject({ok:true,value:{turnId,status:'failed',assistant:null}});
+  const secondTurn=randomUUID(),second=await user(x,a.thread.id,secondTurn,'¿Qué ves en esta foto?'),proof=await final(x.s,a.thread.id,secondTurn,second.op.text);
+  await x.service.appendFinal(x.s,{threadId:a.thread.id,requestId:randomUUID()},proof,signal());
+  const settledSizes=sizes();
+  expect(await x.service.execute(x.s,{version:COACH_CHAT_VERSION,operation:'recover',threadId:a.thread.id,turnId:secondTurn},signal())).toMatchObject({ok:true,value:{turnId:secondTurn,status:'settled',user:{turnId:secondTurn,role:'user'},assistant:{turnId:secondTurn,role:'assistant'}}});
+  expect(sizes()).toEqual(settledSizes);
+  expect(await x.service.execute(x.s,{version:COACH_CHAT_VERSION,operation:'recover',threadId:a.thread.id,turnId:randomUUID()},signal())).toMatchObject({error:'not_found'});
  });
  it('looks up exact final text for current session and invalidates regeneration/deletion/logout',async()=>{
   const x=setup(),a=await create(x),u=await user(x,a.thread.id),proof=await final(x.s,a.thread.id,u.op.turnId,u.op.text);const first=await x.service.appendFinal(x.s,{threadId:a.thread.id,requestId:randomUUID()},proof,signal());if(!first.ok||!('message'in first.value))throw new Error();
@@ -114,4 +136,19 @@ describe('durable coach chat service using injected SQL',()=>{
   const x=setup();x.b.setConnected(false);expect(await x.service.execute(x.s,{version:COACH_CHAT_VERSION,operation:'list'},signal())).toMatchObject({error:'not_connected'});expect(x.b.threads.size).toBe(0);
   expect(await x.service.execute(x.s,{version:COACH_CHAT_VERSION,operation:'append_user',threadId:randomUUID(),requestId:randomUUID(),turnId:randomUUID(),text:'x',role:'system',final:true},signal())).toMatchObject({error:'invalid_input'});
  });
+});
+
+it('persists structured references atomically and rejects metadata tampering while speech stays compatible',async()=>{
+ const x=setup(),a=await create(x),u=await user(x,a.thread.id,randomUUID(),'200 g');
+ const snapshot:FoodReferenceSnapshot={kind:'catalogue',options:[{referenceId:'chicken',name:'Chicken breast, cooked',brand:null,source:'usda',quality:'lab_verified',preparation:'cooked',kcalPer100g:165,proteinPer100g:31,conversions:[]}]};
+ const proof=await final(x.s,a.thread.id,u.op.turnId,u.op.text,snapshot);
+ const stored=await x.service.appendFinal(x.s,{threadId:a.thread.id,requestId:randomUUID()},proof,signal());
+ expect(stored.ok).toBe(true);if(!stored.ok||!('message'in stored.value))throw new Error('not stored');
+ const messageId=stored.value.message.id;
+ expect(await x.service.lookupFoodReference(x.s,a.thread.id,messageId,signal())).toMatchObject({ok:true,value:snapshot});
+ expect(await x.service.lookupFinal(x.s,a.thread.id,messageId,signal())).toMatchObject({ok:true,value:{text:stored.value.message.text}});
+ const content=x.b.contents.get(messageId)!;
+ const metadata=content.tool_calls as Array<{output:FoodReferenceSnapshot}>;
+ if(metadata[0].output.kind!=='catalogue')throw new Error('wrong kind');metadata[0].output.options[0].kcalPer100g=999;
+ expect(await x.service.lookupFoodReference(x.s,a.thread.id,messageId,signal())).toMatchObject({ok:false,error:'uncertain'});
 });

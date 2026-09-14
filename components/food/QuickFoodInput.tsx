@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useId } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Send, Camera, Barcode, Loader2, Mic, MicOff, Plus, CheckCircle2, RotateCcw, X, HelpCircle } from 'lucide-react';
-import { useI18n } from '@/lib/i18n';
+import { useFoodI18n as useI18n } from '@/components/food/useFoodI18n';
 import { supabase } from '@/lib/supabase';
 import { trpcClient } from '@/lib/trpc/client';
 import type { MealType } from '@/lib/types';
+import type { CanonicalMealSlot } from '@/lib/food/meal-slot';
 import type { ParsedFoodItem } from '@/app/api/food/parse/route';
 import { isParsedFoodItem } from '@/agents/schemas/food-parse';
 import { validateManualNutrition } from '@/lib/food/manual-entry';
@@ -36,6 +37,12 @@ import { buildReviewedFoodLogEntries } from '@/lib/food/reviewed-log-entry';
 interface QuickFoodInputProps {
   userId: string;
   mealType: MealType;
+  /**
+   * Explicit slot chosen by the card the user tapped (e.g. 'snack_pm'). Persisted
+   * verbatim so an afternoon snack is never re-derived from created_at. Absent =
+   * the coarse meal type is stored (generic, never guessed).
+   */
+  mealSlot?: CanonicalMealSlot;
   date: string;
   /** Batch-logged row ids (from `.select('id')`) ride along so the page can offer batch undo. */
   onLogged: (ids?: string[]) => void;
@@ -104,8 +111,11 @@ const RECORDING_ERROR_KEYS: Record<RecordingError, string> = {
 type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
 type RetryAction = 'text' | 'photo' | 'voice';
 
-export default function QuickFoodInput({ userId, mealType, date, onLogged, showCalories = false, manualOnly = false }: QuickFoodInputProps) {
+export default function QuickFoodInput({ userId, mealType, mealSlot, date, onLogged, showCalories = false, manualOnly = false }: QuickFoodInputProps) {
   const { t, lang } = useI18n();
+  // Unique per-instance prefix so the manual-form labels stay associated with
+  // their own inputs even when several QuickFoodInput mounts coexist.
+  const manualFieldId = useId();
   const reducedMotion = useReducedMotion();
   const [text, setText] = useState('');
   const [showBarcode, setShowBarcode] = useState(false);
@@ -133,11 +143,20 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lastTextRef = useRef('');
+  const textOperationRef = useRef<{ text: string; language: string; id: string } | null>(null);
   const lastFileRef = useRef<File | null>(null);
+  const photoOperationRef = useRef<{ file: File; conversationId: string; turnId: string } | null>(null);
   /** Snapshot of the parse result at confirm-entry — flywheel diffs confirmed values against it. */
   const originalItemsRef = useRef<ParsedFoodItem[]>([]);
   const parseBusyRef = useRef(false);
   const retryActionRef = useRef<RetryAction>('text');
+  /**
+   * A parse result belongs to the day+meal it was started on. The epoch is bumped
+   * whenever that context changes so an in-flight request can never settle a
+   * stale review onto the newly selected date (see the context effect below).
+   */
+  const parseEpochRef = useRef(0);
+  const reviewContextRef = useRef(`${userId}\u0000${date}\u0000${mealType}\u0000${mealSlot ?? ''}`);
 
   // 429 Retry-After countdown — Retry stays disabled until it reaches 0.
   useEffect(() => {
@@ -183,6 +202,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
       setError(t('food.err_too_long', { max: MAX_PARSE_INPUT }));
       return;
     }
+    const epoch = parseEpochRef.current;
     parseBusyRef.current = true;
     retryActionRef.current = 'text';
     setError(null);
@@ -198,14 +218,21 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
       const controller = new AbortController();
       requestTimeout = setTimeout(() => controller.abort(), 45000); // 45s — composites need more time
 
+      if (textOperationRef.current?.text !== value || textOperationRef.current.language !== lang) {
+        textOperationRef.current = { text: value, language: lang, id: crypto.randomUUID() };
+      }
       const res = await fetch('/api/food/parse', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-request-id': textOperationRef.current.id },
         body: JSON.stringify({ text: value, language: PARSE_LANGUAGES.has(lang) ? lang : 'en' }),
         signal: controller.signal,
       });
 
       const data = await res.json();
+      // The selected day/meal changed while this request was in flight — drop the
+      // result so a stale review can never render against (or confirm into) the
+      // newly selected date.
+      if (epoch !== parseEpochRef.current) return;
 
       if (!res.ok) {
         if (res.status === 429) {
@@ -253,18 +280,23 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
       setInputSource('text');
       setMode('confirming');
     } catch (err) {
+      if (epoch !== parseEpochRef.current) return;
       if (err instanceof DOMException && err.name === 'AbortError') {
         setError(t('food.err_timeout'));
       } else {
-        setError('Failed to parse food — check your connection');
+        setError(t('food.parse_failed_connection'));
       }
       setRetryCount(prev => prev + 1);
       setMode('idle');
     } finally {
       if (requestTimeout) clearTimeout(requestTimeout);
       clearTimeout(slowTimer);
-      setSlowParse(false);
-      parseBusyRef.current = false;
+      // Only unwind state that still belongs to this request epoch; a newer
+      // context (or parse) owns parseBusyRef now.
+      if (epoch === parseEpochRef.current) {
+        setSlowParse(false);
+        parseBusyRef.current = false;
+      }
     }
   };
 
@@ -294,15 +326,22 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
 
   const processImageFile = async (file: File) => {
     if (!file.type.startsWith('image/')) {
-      setError('Please choose an image file.');
+      setError(t('food.photo_invalid_type'));
       return;
     }
     if (parseBusyRef.current || logging) return;
+    const epoch = parseEpochRef.current;
     parseBusyRef.current = true;
     setError(null);
     retryActionRef.current = 'photo';
     setMode('photo_analyzing');
     lastFileRef.current = file;
+    // A retry of the same upload retains its admission identity. A new file or
+    // changed owner/day/meal starts a separate operation.
+    if (photoOperationRef.current?.file !== file) {
+      photoOperationRef.current = { file, conversationId: crypto.randomUUID(), turnId: crypto.randomUUID() };
+    }
+    const operation = photoOperationRef.current;
     let requestTimeout: ReturnType<typeof setTimeout> | null = null;
 
     // Create preview thumbnail
@@ -315,18 +354,24 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
       // upload so the API receives a bounded JPEG regardless of source format.
       const base64 = await resizeAndEncode(file, 1600);
       const mediaType = 'image/jpeg';
+      if (epoch !== parseEpochRef.current) return;
 
       const controller = new AbortController();
       requestTimeout = setTimeout(() => controller.abort(), 20000); // 20s for photo
 
       const res = await fetch('/api/ai/photo-analyze', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-coach-conversation-id': operation.conversationId,
+          'x-coach-turn-id': operation.turnId,
+        },
         body: JSON.stringify({ imageBase64: base64, mediaType }),
         signal: controller.signal,
       });
 
       const data = await res.json();
+      if (epoch !== parseEpochRef.current) return;
 
       if (!res.ok || !Array.isArray(data.foods) || data.foods.length === 0) {
         if (res.status === 429) {
@@ -361,16 +406,17 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
       setInputSource('photo');
       setMode('confirming');
     } catch (err) {
+      if (epoch !== parseEpochRef.current) return;
       if (err instanceof DOMException && err.name === 'AbortError') {
-        setError('Photo analysis timed out — try again');
+        setError(t('food.photo_timeout'));
       } else {
-        setError('Failed to analyze photo — check your connection');
+        setError(t('food.photo_failed_connection'));
       }
       setRetryCount(prev => prev + 1);
       setMode('idle');
     } finally {
       if (requestTimeout) clearTimeout(requestTimeout);
-      parseBusyRef.current = false;
+      if (epoch === parseEpochRef.current) parseBusyRef.current = false;
     }
   };
 
@@ -536,9 +582,9 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
     });
     if (!validated.ok) {
       const messages = {
-        calories_out_of_range: 'Enter calories between 1 and 10,000.',
-        macro_out_of_range: 'Protein, carbs, and fat must each be between 0 and 1,000 g.',
-        name_too_long: 'Keep the food name under 200 characters.',
+        calories_out_of_range: t('food.err_manual_calories_range'),
+        macro_out_of_range: t('food.err_manual_macro_range'),
+        name_too_long: t('food.err_manual_name_long'),
       } as const;
       setError(messages[validated.code]);
       return;
@@ -551,7 +597,8 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
       user_id: userId,
       logged_date: date,
       meal_type: mealType,
-      food_name: value.name || `Quick add — ${value.calories} kcal`,
+      meal_slot: mealSlot ?? mealType,
+      food_name: value.name || t('food.quick_add_fallback', { kcal: value.calories }),
       quantity: 1,
       unit: 'serving',
       calories: value.calories,
@@ -596,7 +643,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
   const handleConfirm = async (items: ParsedFoodItem[]) => {
     if (logging || items.length === 0) return;
     if (!items.every(isParsedFoodItem)) {
-      setError('One or more items has an invalid amount. Adjust the portion and try again.');
+      setError(t('food.err_item_amount'));
       return;
     }
     setLogging(true);
@@ -609,6 +656,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
         userId,
         date,
         mealType,
+        mealSlot,
         inputSource,
         items,
       });
@@ -716,6 +764,38 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
     setError(null);
     setRetryCount(0);
   };
+
+  /**
+   * Switching the selected day (or meal) must abandon any review/parse started
+   * for the previous context. Without this, an open review carried across a date
+   * change would confirm its items into the NEWLY selected date (a silent
+   * mis-dated log), and an in-flight parse would settle onto the wrong day.
+   * The epoch bump makes any still-running request a no-op.
+   */
+  useEffect(() => {
+    const context = `${userId}\u0000${date}\u0000${mealType}\u0000${mealSlot ?? ''}`;
+    if (reviewContextRef.current === context) return;
+    reviewContextRef.current = context;
+    parseEpochRef.current += 1;
+    photoOperationRef.current = null;
+    textOperationRef.current = null;
+    lastFileRef.current = null;
+    voiceSessionRef.current?.cancel();
+    voiceSessionRef.current = null;
+    transcriptionAbortRef.current?.abort();
+    transcriptionAbortRef.current = null;
+    parseBusyRef.current = false;
+    setParsedItems([]);
+    setClarificationQuestion(null);
+    setParseWarnings([]);
+    setPhotoPreview(null);
+    setQuestionText(null);
+    setQuestionAnswer('');
+    originalItemsRef.current = [];
+    setMode('idle');
+    setError(null);
+    setRetryCount(0);
+  }, [userId, date, mealType, mealSlot]);
 
   /** Submit an answer to the empty-items clarification question — re-parses "original — answer". */
   const submitQuestionChoice = (answerValue: string) => {
@@ -827,14 +907,14 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
             }}
             placeholder={t('food.answer_placeholder')}
             className="input-dark flex-1 text-sm py-2 text-base"
-            aria-label="Answer the clarification question"
+            aria-label={t('food.answer_aria')}
             autoFocus
           />
           <button
             onClick={submitQuestionAnswer}
             disabled={!questionAnswer.trim()}
             className="btn-gold px-4 text-sm flex items-center gap-1 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-            aria-label="Submit answer"
+            aria-label={t('food.answer_submit_aria')}
           >
             <Send size={14} />
           </button>
@@ -908,14 +988,15 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
           type="text"
           value={manualName}
           onChange={(e) => setManualName(e.target.value)}
-          placeholder="Food name (optional)"
+          placeholder={t('food.manual_name_placeholder')}
           className="input-dark w-full text-sm py-2 text-base"
           maxLength={200}
         />
         <div className="grid grid-cols-4 gap-2">
           <div>
-            <label className="text-xs text-[var(--content-muted)] mb-0.5 block">kcal *</label>
+            <label htmlFor={`${manualFieldId}-kcal`} className="text-xs text-[var(--content-muted)] mb-0.5 block">{t('food.manual_kcal_label')}</label>
             <input
+              id={`${manualFieldId}-kcal`}
               type="number"
               value={manualCal}
               onChange={(e) => setManualCal(e.target.value)}
@@ -929,8 +1010,9 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
             />
           </div>
           <div>
-            <label className="text-xs text-[var(--content-muted)] mb-0.5 block">Protein</label>
+            <label htmlFor={`${manualFieldId}-protein`} className="text-xs text-[var(--content-muted)] mb-0.5 block">{t('food.edit.protein')}</label>
             <input
+              id={`${manualFieldId}-protein`}
               type="number"
               value={manualProtein}
               onChange={(e) => setManualProtein(e.target.value)}
@@ -943,8 +1025,9 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
             />
           </div>
           <div>
-            <label className="text-xs text-[var(--content-muted)] mb-0.5 block">Carbs</label>
+            <label htmlFor={`${manualFieldId}-carbs`} className="text-xs text-[var(--content-muted)] mb-0.5 block">{t('food.edit.carbs')}</label>
             <input
+              id={`${manualFieldId}-carbs`}
               type="number"
               value={manualCarbs}
               onChange={(e) => setManualCarbs(e.target.value)}
@@ -957,8 +1040,9 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
             />
           </div>
           <div>
-            <label className="text-xs text-[var(--content-muted)] mb-0.5 block">Fat</label>
+            <label htmlFor={`${manualFieldId}-fat`} className="text-xs text-[var(--content-muted)] mb-0.5 block">{t('food.edit.fat')}</label>
             <input
+              id={`${manualFieldId}-fat`}
               type="number"
               value={manualFat}
               onChange={(e) => setManualFat(e.target.value)}
@@ -1041,6 +1125,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
         <button
           onClick={() => handleParseText()}
           disabled={!text.trim() || mode !== 'idle'}
+          aria-label={t('food.quick_submit_aria')}
           className="btn-gold px-4 text-sm flex items-center gap-1 self-end min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
         >
           {mode === 'parsing' || mode === 'photo_analyzing' ? (
@@ -1057,10 +1142,10 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
           onClick={() => fileInputRef.current?.click()}
           disabled={mode !== 'idle'}
           className="flex items-center gap-1.5 text-[var(--content-muted)] hover:gold-text text-xs transition-colors py-1 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-          aria-label="Take or upload a food photo"
+          aria-label={t('food.photo_pick_aria')}
         >
           <Camera size={14} />
-          Photo
+          {t('food.action_photo')}
         </button>
         <button
           onClick={voiceActive ? stopVoiceInput : startVoiceInput}
@@ -1077,15 +1162,15 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
           className="flex items-center gap-1.5 text-[var(--content-muted)] hover:gold-text text-xs transition-colors py-1 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
         >
           <Plus size={14} />
-          Custom
+          {t('general.custom')}
         </button>
         <button
           onClick={() => setShowBarcode(true)}
           className="flex items-center gap-1.5 text-[var(--content-muted)] hover:gold-text text-xs transition-colors py-1 ml-auto min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-          aria-label="Scan a barcode"
+          aria-label={t('food.barcode_scan_aria')}
         >
           <Barcode size={14} />
-          Barcode
+          {t('food.action_barcode')}
         </button>
       </div>
 
@@ -1094,6 +1179,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
           userId={userId}
           selectedDate={date}
           defaultMealType={mealType}
+          defaultMealSlot={mealSlot}
           isOpen={showBarcode}
           onClose={() => setShowBarcode(false)}
           onLogged={onLogged}

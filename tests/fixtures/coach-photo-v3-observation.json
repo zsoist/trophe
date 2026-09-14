@@ -1,0 +1,58 @@
+[
+  {
+    "name": "White rice",
+    "source": "ai_estimate",
+    "confidence": 0.62,
+    "accuracy_note": "Visually recognizable as cooked white rice; portion is estimated from the plate with no scale, and some rice may be obscured.",
+    "estimated_fat_g": 1,
+    "estimated_grams": 220,
+    "identity_status": "identified",
+    "estimated_carbs_g": 62,
+    "estimated_fiber_g": 1,
+    "estimated_sugar_g": 0,
+    "estimated_calories": 285,
+    "estimated_protein_g": 6
+  },
+  {
+    "name": "Mixed shredded vegetables with red and green pieces",
+    "source": "ai_estimate",
+    "confidence": 0.48,
+    "accuracy_note": "Visible shredded orange, pale, red, and green components appear to be a mixed vegetable preparation, but exact ingredients and dressing/oil cannot be distinguished. Possible identities include carrot, cabbage, and peppers; please clarify if needed. Weight is estimated without a scale.",
+    "estimated_fat_g": 1,
+    "estimated_grams": 130,
+    "identity_status": "uncertain",
+    "estimated_carbs_g": 14,
+    "estimated_fiber_g": 4,
+    "estimated_sugar_g": 6,
+    "estimated_calories": 70,
+    "estimated_protein_g": 2
+  },
+  {
+    "name": "Dark grilled-looking pieces",
+    "source": "ai_estimate",
+    "confidence": 0.38,
+    "accuracy_note": "Dark browned pieces are visible, but the protein type, cut, and preparation cannot be reliably identified from the blurry image. Possible identities include meat or a plant-based protein; please clarify. Weight and added fat are estimated without a scale.",
+    "estimated_fat_g": 17,
+    "estimated_grams": 120,
+    "identity_status": "uncertain",
+    "estimated_carbs_g": 4,
+    "estimated_fiber_g": 0,
+    "estimated_sugar_g": 1,
+    "estimated_calories": 250,
+    "estimated_protein_g": 20
+  },
+  {
+    "name": "Pale creamy mixture",
+    "source": "ai_estimate",
+    "confidence": 0.35,
+    "accuracy_note": "A pale creamy component is visible near the rice, but its ingredients and sauce identity cannot be distinguished. Possible identities include a dairy-based sauce or another creamy mixture; please clarify. Weight is estimated without a scale.",
+    "estimated_fat_g": 6,
+    "estimated_grams": 60,
+    "identity_status": "uncertain",
+    "estimated_carbs_g": 5,
+    "estimated_fiber_g": 0,
+    "estimated_sugar_g": 2,
+    "estimated_calories": 90,
+    "estimated_protein_g": 3
+  }
+]

@@ -15,6 +15,8 @@ import { ExerciseProgressChart } from './ExerciseProgressChart';
 import { MuscleLoadChart, type MuscleLoadRange } from './MuscleLoadChart';
 import { WorkoutSummaryMetrics } from './WorkoutSummaryMetrics';
 import { kgToDisplay, useWeightUnit } from '@/lib/workout/units';
+import { localToday } from '@/lib/utils/dates';
+import '../workout-exploration-v2.css';
 import {
   expandScheduledDates,
   loadWorkoutAnalyticsData,
@@ -29,10 +31,6 @@ const emptyData: WorkoutAnalyticsData = {
   issues: { schedule: false, measurements: false, historyTruncated: false, measurementsTruncated: false },
 };
 
-function localDateKey(date = new Date()) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-}
-
 export default function WorkoutAnalyticsSurface() {
   const router = useRouter();
   const { lang, t } = useI18n();
@@ -42,7 +40,7 @@ export default function WorkoutAnalyticsSurface() {
   const [error, setError] = useState(false);
   const [range, setRange] = useState<MuscleLoadRange>('week');
   const [exerciseId, setExerciseId] = useState('');
-  const today = localDateKey();
+  const today = localToday();
   const [selectedDate, setSelectedDate] = useState(today);
   const [unit] = useWeightUnit();
   const requestId = useRef(0);
@@ -123,7 +121,7 @@ export default function WorkoutAnalyticsSurface() {
   const date = useMemo(() => new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'short', day: 'numeric' }), [locale]);
   const ranges: MuscleLoadRange[] = ['last', 'week', 'month', 'all'];
 
-  return <div data-testid="training-progress-canvas" className="min-h-screen bg-[var(--workout-canvas)] pb-[calc(7rem+env(safe-area-inset-bottom))]">
+  return <div data-testid="training-progress-canvas" className="wk2 workout-analytics min-h-screen bg-[var(--workout-canvas)] pb-[calc(7rem+env(safe-area-inset-bottom))]">
     <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:py-8">
       <header className="mb-7 flex items-end justify-between gap-4 lg:mb-9">
         <div>

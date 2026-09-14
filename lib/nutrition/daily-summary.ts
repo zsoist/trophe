@@ -6,7 +6,18 @@ export interface SugarSummary {
   missingEntries: number;
 }
 
-export interface DailyNutritionEntry {
+interface NutrientProvenance {
+  source?: string | null;
+  food_id?: string | null;
+}
+
+// Older text estimates without a canonical food reference stored placeholders.
+// Do not rewrite those rows or infer nutrient values from the food's name.
+function unverifiedLegacyZero(entry: NutrientProvenance, value: number | null): boolean {
+  return value === 0 && entry.source === 'natural_language' && entry.food_id === null;
+}
+
+export interface DailyNutritionEntry extends NutrientProvenance {
   food_name: string;
   protein_g: number | null;
   fiber_g: number | null;
@@ -26,12 +37,19 @@ export interface DailyNutritionNote {
   text: string;
 }
 
-export function summarizeSugar(entries: Array<{ sugar_g: number | null }>): SugarSummary {
+export function summarizeSugar(entries: Array<{ sugar_g: number | null } & NutrientProvenance>): SugarSummary {
   if (entries.length === 0) {
     return { totalGrams: null, completeness: 'unknown', missingEntries: 0 };
   }
 
-  const known = entries.filter((entry) => entry.sugar_g !== null);
+  // A missing nutrient is not a zero. Treat anything that is not a finite
+  // number (null, undefined from a column that was never written, or NaN from a
+  // bad row) as unknown so the day is reported partial/unknown rather than
+  // silently summing the gap as 0 g.
+  const known = entries.filter(
+    (entry) => typeof entry.sugar_g === 'number' && Number.isFinite(entry.sugar_g)
+      && !unverifiedLegacyZero(entry, entry.sugar_g),
+  );
   const missingEntries = entries.length - known.length;
   if (known.length === 0) {
     return { totalGrams: null, completeness: 'unknown', missingEntries };
@@ -61,11 +79,11 @@ export function buildDailyNutritionNote({
 
   const sugar = summarizeSugar(entries);
   if (sugar.completeness !== 'complete') {
-    const noun = sugar.missingEntries === 1 ? 'entry is' : 'entries are';
+    const noun = sugar.missingEntries === 1 ? 'entry lacks' : 'entries lack';
     return {
       tone: 'info',
       icon: 'i-zap',
-      text: `Total sugar is incomplete because ${sugar.missingEntries} logged ${noun} missing that value.`,
+      text: `Total sugar is incomplete because ${sugar.missingEntries} logged ${noun} verified sugar data.`,
     };
   }
 
@@ -80,7 +98,8 @@ export function buildDailyNutritionNote({
     };
   }
 
-  if (entries.length >= 3 && totalFiber < 10) {
+  const fiberComplete = entries.every(entry => typeof entry.fiber_g === 'number' && Number.isFinite(entry.fiber_g) && !unverifiedLegacyZero(entry, entry.fiber_g));
+  if (fiberComplete && entries.length >= 3 && totalFiber < 10) {
     return {
       tone: 'attention',
       icon: 'i-leaf',
@@ -104,7 +123,11 @@ export function buildDailyNutritionNote({
     };
   }
 
-  const uniqueFoods = new Set(entries.map((entry) => entry.food_name.trim().toLowerCase()).filter(Boolean));
+  const uniqueFoods = new Set(
+    entries
+      .map((entry) => entry.food_name.replace(/\s+/g, ' ').trim().toLowerCase())
+      .filter(Boolean),
+  );
   if (uniqueFoods.size >= 6) {
     return {
       tone: 'positive',

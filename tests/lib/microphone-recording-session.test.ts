@@ -250,3 +250,11 @@ describe('audio recording session', () => {
     expect(secondStop).toHaveBeenCalledOnce();
   });
 });
+
+describe('capture acquisition categories', () => {
+  it.each([['NotSupportedError', 'unsupported'], ['NotAllowedError', 'permission-denied'], ['SecurityError', 'permission-denied'], ['NotReadableError', 'start-failed']] as const)('maps %s without exposing browser exception text', async (name, expected) => {
+    const onError = vi.fn();
+    startAudioRecordingSession({ maxDurationMs: 30000, onRequesting: vi.fn(), onRecording: vi.fn(), onComplete: vi.fn(), onError, acquireStream: async () => { throw Object.assign(new Error('private device details'), { name }); } });
+    await vi.waitFor(() => expect(onError).toHaveBeenCalledExactlyOnceWith(expected));
+  });
+});

@@ -20,6 +20,14 @@ function fixture() {
   return {repository,service,signal:new AbortController().signal};
 }
 describe('Food grams adapter with injected shared service (no SQL or macro-calculation evidence)',()=>{
+  it('authorizes a selected entry lookup without trusting a client-supplied previous quantity',async()=>{
+    const deps=fixture();
+    const resolve={version:base.version,conversationId:base.conversationId,turnId:base.turnId,operation:'food.resolve' as const,entryHintId:entry};
+    vi.mocked(deps.service.execute).mockResolvedValue({version:base.version,storage:'database',ok:true,snapshot:{...before,entryId:entry,version:'7'}});
+    const result=await executeFoodQuantityAction(actor,resolve,deps.repository,deps.service,deps.signal);
+    expect(result).toMatchObject({ok:true,snapshot:{entryId:entry,grams:250,version:'7'}});
+    expect(deps.service.execute).toHaveBeenCalledExactlyOnceWith({actorId:actor,subjectId:actor,organizationId:id(8),operation:resolve,signal:deps.signal});
+  });
   it('returns the shared service review of 250g to 150g and delegates validation/calculation',async()=>{
     const deps=fixture();const result=await executeFoodQuantityAction(actor,propose,deps.repository,deps.service,deps.signal);
     expect(result).toMatchObject({ok:true,proposal:{before:{grams:250,calories:500},after:{grams:150,calories:300},reviewRequired:true}});

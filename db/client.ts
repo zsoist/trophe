@@ -26,6 +26,7 @@
 
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
+import { resolveSupabaseSsl } from './ssl';
 
 // In production, DATABASE_URL MUST be set to the Supabase Transaction pooler URL.
 // Fail hard if missing — silent fallback to localhost would cause every query to
@@ -36,6 +37,7 @@ const connectionString = process.env.DATABASE_URL || (
     ? (() => { throw new Error('[db/client] DATABASE_URL is required in production'); })()
     : 'postgresql://postgres:postgres@127.0.0.1:54322/postgres'
 );
+const ssl = resolveSupabaseSsl({ connectionString });
 
 declare global {
   // Reuse the pool across hot reloads in `next dev` to avoid leak warnings.
@@ -46,6 +48,7 @@ const pool =
   global.__trophe_pg_pool ??
   new Pool({
     connectionString,
+    ...(ssl ? { ssl } : {}),
     // Conservative defaults; tune after Phase 4 ingestion benchmarks.
     max: 10,
     idleTimeoutMillis: 30_000,

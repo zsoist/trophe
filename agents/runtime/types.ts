@@ -29,6 +29,8 @@ export interface ProviderResult<T> {
   latencyMs: number;
   rawStatus: number;
   providerGenerationId?: string;
+  /** Provider HTTP request identifier (for support/trace correlation, never a secret). */
+  requestId?: string;
 }
 
 export interface AiTaskContext {

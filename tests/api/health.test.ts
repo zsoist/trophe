@@ -18,8 +18,8 @@ describe('GET /api/health', () => {
     expect(body.routing.foodParse).toEqual({
       provider: 'openai',
       model: 'gpt-5.6-luna',
-      fallbackProvider: 'anthropic',
-      fallbackModel: 'claude-haiku-4-5-20251001',
+      fallbackProvider: null,
+      fallbackModel: null,
       promptVersion: 'food-parse-v9-luna',
     });
     expect(body).not.toHaveProperty('env');

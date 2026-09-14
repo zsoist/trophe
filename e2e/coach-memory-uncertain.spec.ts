@@ -53,6 +53,7 @@ test('committed memory response loss survives close and recovers by receipt with
   await page.getByRole('button', { name: 'Ask Trophē', exact: true }).click();
   const panel = page.locator('#global-coach');
   const initialRead = responseFor('memory.read');
+  if (await panel.getByRole('button', { name: 'Saved conversations', exact: true }).getAttribute('aria-expanded') === 'false') await panel.getByRole('button', { name: 'Saved conversations', exact: true }).click();
   await panel.locator('summary').filter({ hasText: 'Remembered context' }).click();
   expect((await initialRead).status()).toBe(200);
   const text = `Synthetic response-loss memory ${randomUUID()}`;
@@ -66,6 +67,7 @@ test('committed memory response loss survives close and recovers by receipt with
   await panel.getByRole('button', { name: 'Close Ask Trophē', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Ask Trophē', exact: true })).toBeFocused();
   await page.getByRole('button', { name: 'Ask Trophē', exact: true }).click();
+  if (await panel.getByRole('button', { name: 'Saved conversations', exact: true }).getAttribute('aria-expanded') === 'false') await panel.getByRole('button', { name: 'Saved conversations', exact: true }).click();
   await panel.locator('summary').filter({ hasText: 'Remembered context' }).click();
   await expect(panel.getByRole('button', { name: 'Check change status', exact: true })).toBeVisible();
   expect(applyCount).toBe(1);

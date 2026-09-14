@@ -96,7 +96,9 @@ test('public identity and login links meet the minimum target size in both theme
     for (const target of targets) {
       await page.goto(target.path);
 
-      const link = page.getByRole('link', { name: target.name, exact: true });
+      const links = page.getByRole('link', { name: target.name, exact: true });
+      await expect(links.first()).toBeVisible();
+      for (const link of await links.all()) {
       await expect(link).toBeVisible();
       const box = await link.boundingBox();
 
@@ -105,6 +107,7 @@ test('public identity and login links meet the minimum target size in both theme
       // pixel short after device-pixel rounding (for example 43.999992px).
       expect.soft(box!.width, `${target.path}: ${target.name} should be at least 44px wide`).toBeGreaterThanOrEqual(43.99);
       expect.soft(box!.height, `${target.path}: ${target.name} should be at least 44px tall`).toBeGreaterThanOrEqual(43.99);
+      }
     }
   }
 });

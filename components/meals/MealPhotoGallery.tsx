@@ -1,7 +1,7 @@
 'use client';
 /* eslint-disable @next/next/no-img-element */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Image as ImageIcon, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -24,6 +24,19 @@ export default function MealPhotoGallery({ userId }: MealPhotoGalleryProps) {
   const [expanded, setExpanded] = useState(false);
   const [selected, setSelected] = useState<PhotoEntry | null>(null);
   const [loading, setLoading] = useState(true);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  // The fullscreen viewer is a modal: Escape must dismiss it and focus must move
+  // into it so keyboard users are not stranded behind the overlay.
+  useEffect(() => {
+    if (!selected) return;
+    closeButtonRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setSelected(null);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [selected]);
 
   useEffect(() => {
     const load = async () => {
@@ -95,10 +108,14 @@ export default function MealPhotoGallery({ userId }: MealPhotoGalleryProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            role="dialog"
+            aria-modal="true"
+            aria-label={selected.food_name}
             className="fixed inset-0 z-50 bg-[var(--surface-overlay)] flex flex-col items-center justify-center p-4"
             onClick={() => setSelected(null)}
           >
             <button
+              ref={closeButtonRef}
               aria-label="Close fullscreen photo"
               onClick={(e) => {
                 e.stopPropagation();

@@ -57,8 +57,8 @@ export default function AtlasExercises({ target, onClose, libraryHref }: { targe
     dialog.showModal();
     return () => { dialog.close(); document.body.style.overflow = overflow; previous?.focus({ preventScroll: true }); };
   }, []);
-  return createPortal(<dialog ref={ref} className="atlas-exercise-dialog" data-detail={Boolean(exercise)} aria-labelledby={titleId} onCancel={event => { event.preventDefault(); onClose(); }} onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
-    <div className="atlas-exercise-sheet">
+  return createPortal(<dialog ref={ref} className="wk2 atlas-exercise-dialog" data-detail={Boolean(exercise)} aria-labelledby={titleId} onCancel={event => { event.preventDefault(); onClose(); }} onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
+    <div className="wk2 atlas-exercise-sheet">
       <header className="atlas-exercise-toolbar">
         {exercise ? <button aria-label={t('anatomy.exercises_back')} onClick={() => setExercise(null)}><ArrowLeft size={20} /></button> : <Dumbbell size={22} aria-hidden="true" />}
         <span>{target.label}</span><button autoFocus aria-label={t('workout.detail_close')} onClick={onClose}><X size={20} /></button>

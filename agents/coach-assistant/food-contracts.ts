@@ -11,7 +11,7 @@ export interface FoodQuantityProposal {
 }
 interface FoodOperationBase {version:'coach-assistant.v2';conversationId:string;turnId:string;clientId?:string}
 export type FoodQuantityOperation=FoodOperationBase&(
-  {operation:'food.resolve';entryHintId?:string;loggedDateHint?:string;expectedPreviousGrams:number}|
+  {operation:'food.resolve';entryHintId?:string;loggedDateHint?:string;expectedPreviousGrams?:number}|
   ({entryId:string}&(
     {operation:'food.read'}|
     {operation:'food.propose';resourceVersion:string;after:{grams:number}}|
@@ -24,5 +24,5 @@ export type FoodQuantityResult={version:'coach-assistant.v2';storage:'database'}
   {ok:false;error:'invalid_input'|'forbidden'|'not_found'|'ambiguous_selection'|'version_conflict'|'expired'|'idempotency_conflict'|'cancelled'|'uncertain'}|
   {ok:true;snapshot:FoodEntrySnapshot}|
   {ok:true;proposal:FoodQuantityProposal}|
-  {ok:true;receipt:CoachReceipt;refresh?:FoodQuantityRefresh}
+  {ok:true;receipt:CoachReceipt;refresh?:FoodQuantityRefresh;change?:{beforeGrams:number;afterGrams:number}}
 );

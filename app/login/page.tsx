@@ -47,7 +47,12 @@ function LoginForm() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [pendingEmail, setPendingEmail] = useState<string | null>(null); // 202 → check-email screen
+  const [hydrated, setHydrated] = useState(false);
   const strength = passwordStrength(password);
+
+  useEffect(() => {
+    queueMicrotask(() => setHydrated(true));
+  }, []);
 
   // Sync mode with URL param changes; surface the post-confirmation success notice (P1).
   useEffect(() => {
@@ -330,7 +335,7 @@ function LoginForm() {
 
             <Button
               type="submit"
-              disabled={loading}
+              disabled={!hydrated || loading}
               fullWidth
               className="gap-2"
             >

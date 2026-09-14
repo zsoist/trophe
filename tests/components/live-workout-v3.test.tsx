@@ -90,7 +90,10 @@ describe('LiveWorkout focused stage', () => {
     workspace = { ...workspace, state: { ...state, draft: { ...state.draft, exercises: state.draft.exercises.map(exercise => ({ ...exercise, restSeconds })) } } };
     render(<LiveWorkout exercises={[bench, row]} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Complete set' }));
-    expect(await screen.findByText(new RegExp(`/ ${restSeconds}s`))).toBeTruthy();
+    if (restSeconds === 0) {
+      expect(await screen.findByText('workout.rest_complete')).toBeTruthy();
+      expect(screen.queryByRole('timer')).toBeNull();
+    } else expect(await screen.findByText(new RegExp(`/ ${restSeconds}s`))).toBeTruthy();
   });
 
   it('keeps one current exercise in view with progress, target, set completion, rest, and the next exercise', async () => {
@@ -127,6 +130,7 @@ describe('LiveWorkout focused stage', () => {
     expect(await screen.findByText('Exercise 2 of 2')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Exercise 1, completed' }));
     expect(await screen.findByText('Exercise 1 of 2')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /60 kg × 8/ }));
     expect(screen.getByRole('button', { name: 'Undo set' })).toBeTruthy();
     expect(screen.queryByText('Dumbbell Row', { selector: 'h3' })).toBeNull();
   });

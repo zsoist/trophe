@@ -11,6 +11,7 @@ import { useI18n } from '@/lib/i18n';
 import { isWorkoutDraftReady, type WorkoutDraft } from '@/lib/workout/workspace-state';
 import { pushWorkoutRoute, WORKOUT_ROUTES } from '@/lib/workout/workspace-routes';
 import { useWorkoutRouteFocusSuppressed } from '@/components/workout/workspace/WorkoutRouteFocusContext';
+import './workout-session-premium.css';
 
 interface WorkoutReviewProps {
   exercises: WorkoutExerciseOption[];
@@ -85,7 +86,7 @@ export function WorkoutReview({ exercises, onSavePlan, onLogCompleted, saveState
 
       <section className="workout-plan-review__decisions" aria-label={t('workout.review_actions')}>
         <p>{t('workout.start_live_explanation')}</p>
-        <button type="button" disabled={!valid || starting} onClick={() => void startLive()} className="btn-gold"><Play size={17} aria-hidden="true" />{t(startLocked ? 'workout.retry_same_start' : 'workout.start_workout')}</button>
+        <button type="button" disabled={!valid || starting} onClick={() => void startLive()} className="btn-gold wsp-action"><span>{t(startLocked ? 'workout.retry_same_start' : 'workout.start_workout')}</span><span className="wsp-disc" aria-hidden="true"><Play size={18} /></span></button>
         <button type="button" disabled={!valid || startLocked} onClick={() => onLogCompleted(draft)} className="btn-ghost"><ClipboardCheck size={17} aria-hidden="true" />{t('workout.log_completed')}</button>
         <p className="workout-plan-editor__save-scope">{draft.kind === 'strength' ? t('workout.plan_save_scope') : t('workout.save_plan_strength_only')}</p>
         <button type="button" disabled={!valid || startLocked || draft.kind !== 'strength' || saveDisabled || saveState === 'pending'} onClick={() => void onSavePlan(draft)} className="btn-ghost"><Save size={17} aria-hidden="true" />{t(saveState === 'pending' ? 'workout.save_plan_pending' : 'workout.save_plan')}</button>

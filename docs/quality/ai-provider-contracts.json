@@ -1,6 +1,6 @@
 {
   "title": "offline provider-contract evaluation",
-  "generatedAt": "2026-07-29T17:52:22.909Z",
+  "generatedAt": "2026-09-12T05:03:48.750Z",
   "evidenceKind": "offline_provider_contract",
   "liveModelQualityEvidence": false,
   "networkPolicy": "injected_fixture_transports_only",
@@ -25,7 +25,7 @@
         "cacheWriteTokens": 0,
         "reasoningTokens": 0
       },
-      "estimatedCostUsd": 0.000264,
+      "estimatedCostUsd": 0.000052799999999999996,
       "passed": true,
       "leakedSentinel": false
     },
@@ -42,7 +42,7 @@
         "cacheWriteTokens": 40,
         "reasoningTokens": 3
       },
-      "estimatedCostUsd": 0.00025800000000000004,
+      "estimatedCostUsd": 0.000051599999999999994,
       "passed": true,
       "leakedSentinel": false
     },
@@ -73,7 +73,7 @@
         "cacheWriteTokens": 0,
         "reasoningTokens": 0
       },
-      "estimatedCostUsd": 0.000162,
+      "estimatedCostUsd": 0.0000324,
       "passed": true,
       "leakedSentinel": false
     },
@@ -90,7 +90,7 @@
         "cacheWriteTokens": 0,
         "reasoningTokens": 0
       },
-      "estimatedCostUsd": 0.000173,
+      "estimatedCostUsd": 0.0000346,
       "passed": true,
       "leakedSentinel": false
     },
@@ -138,7 +138,7 @@
         "cacheWriteTokens": 0,
         "reasoningTokens": 0
       },
-      "estimatedCostUsd": 0.000032000000000000005,
+      "estimatedCostUsd": 0.0000064,
       "passed": true,
       "leakedSentinel": false
     },
@@ -155,7 +155,7 @@
         "cacheWriteTokens": 0,
         "reasoningTokens": 0
       },
-      "estimatedCostUsd": 0.000048,
+      "estimatedCostUsd": 0.0000096,
       "passed": true,
       "leakedSentinel": false
     },

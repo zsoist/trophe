@@ -1,3 +1,4 @@
+import { textFoodResultSchema } from '@/agents/coach-assistant/text-food-contract';
 import { COACH_IMAGE_LIMITS, type CoachConversationResponse } from '@/agents/coach-assistant/contracts';
 import { readCoachResponse } from '@/components/workout/coach/client';
 import { readCoachMessageResult } from '@/agents/coach-assistant/message-result-reader';
@@ -83,6 +84,7 @@ export function readConversationResponse(value: unknown): CoachConversationRespo
     if (snapshot.capabilities.length > 20 || snapshot.capabilities.some(item => !item || typeof item !== 'object'
       || typeof item.key !== 'string' || !['available', 'unknown', 'unauthorized', 'not_connected'].includes(item.status))) throw new Error('invalid_output');
   }
+  if (row.textFood !== undefined && !textFoodResultSchema.safeParse(row.textFood).success) throw new Error('invalid_output');
   if (row.profile !== undefined) {
     const p = row.profile as Record<string, unknown>;
     if (!p || typeof p !== 'object' || typeof p.language !== 'string' || typeof p.timezone !== 'string' || typeof p.version !== 'string'
@@ -98,7 +100,9 @@ export function readConversationResponse(value: unknown): CoachConversationRespo
   if (row.uploads !== undefined) {
     const upload = row.uploads as Record<string, unknown>;
     const limits = upload?.limits as Record<string, unknown> | undefined;
-    if (!upload || upload.images !== true || upload.storage !== 'isolated_ephemeral' || upload.analysis !== 'not_connected' || !limits
+    if (!upload || upload.images !== true || !['isolated_ephemeral', 'private_storage'].includes(String(upload.storage))
+      || !['not_connected', 'validated_photo_analysis'].includes(String(upload.analysis))
+      || (upload.storage === 'isolated_ephemeral' && upload.analysis !== 'not_connected') || !limits
       || Object.entries(COACH_IMAGE_LIMITS).some(([key, value]) => limits[key] !== value)) throw new Error('invalid_upload_capability');
   }
   return value as CoachConversationResponse;

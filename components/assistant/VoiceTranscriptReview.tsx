@@ -22,7 +22,7 @@ export function VoiceTranscriptReview({ result, scope, onUse, onSend, onDiscard,
   const [sending, setSending] = useState(false);
   const prepared = prepareReviewedVoiceMessage(result, scope, text, true);
   return <section className={styles.attachments} aria-label={t('global_coach.voice_review')}>
-    <p>{t('global_coach.voice_fixture')}</p>
+    <p>{t(result.transcript.source === 'provider_transcript' ? 'global_coach.voice_provider' : 'global_coach.voice_fixture')}</p>
     <label>{t('global_coach.voice_edit')}<textarea rows={3} maxLength={2000} value={text} onChange={event => { setText(event.target.value); setError(false); setAmbiguous(false); }} /></label>
     <p>{t('global_coach.voice_review_help')}</p>
     {onSend ? <button type="button" disabled={!prepared.ok || sending} onClick={async () => {

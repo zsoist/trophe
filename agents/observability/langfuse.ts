@@ -50,13 +50,23 @@ export interface TraceResult {
 
 type TracedFn = (generation: LangfuseGenerationClient | null) => Promise<TraceResult>;
 
+function flushTelemetry(lf: Langfuse): void {
+  try {
+    void lf.flushAsync().catch(() => {
+      console.error('[langfuse] Failed to flush telemetry');
+    });
+  } catch {
+    console.error('[langfuse] Failed to flush telemetry');
+  }
+}
+
 /**
  * Wraps a single LLM call in a Langfuse generation span.
  * The `fn` callback receives the generation handle (or null if Langfuse is
  * disabled) and must return a TraceResult-shaped object.
  *
- * Always awaits `langfuse.flushAsync()` — critical for Next.js serverless
- * where the process may exit before background sends complete.
+ * Flushes Langfuse on a best-effort background path. Telemetry must never
+ * replace a provider result or prevent authoritative generation persistence.
  */
 export async function traced(
   input: TraceInput,
@@ -143,11 +153,12 @@ export async function traced(
       level: 'ERROR',
       statusMessage: message,
     });
-    await lf.flushAsync();
+    flushTelemetry(lf);
     throw err;
   }
 
-  // Flush before the serverless function exits.
-  await lf.flushAsync();
+  // Persistence and the user response are authoritative. A slow or unavailable
+  // telemetry sink must not consume their request deadline.
+  flushTelemetry(lf);
   return result;
 }

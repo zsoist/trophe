@@ -7,7 +7,7 @@ export function StructureProvenance({ manifest, conceptId }: { manifest: AtlasMa
   const { t } = useI18n();
   const authored = conceptId.startsWith('AUTHORED_') ? manifest.authored : undefined;
   const chunk = authored ? manifest.chunks.find(item => item.id === 'authored-core') : undefined;
-  return <div className="anatomy-provenance">
+  return <div className="wk2 anatomy-provenance">
     <p>{authored ? `${t('anatomy.authored_model')} · ${authored.author}` : `BodyParts3D · ${manifest.source.release}`}</p>
     <p>{authored ? t('anatomy.authored_review_pending') : t('anatomy.not_clinical')}</p>
     <p className="anatomy-hash">{conceptId} · {t('anatomy.version_identity')}: {authored ? chunk?.sha256 : manifest.release}</p>

@@ -45,6 +45,7 @@ export * from './measurements';
 export * from './api_usage';
 export * from './workouts';
 export * from './agent_runs';
+export * from './coach_pilot_budgets';
 export * from './foods';
 export * from './food_unit_conversions';
 export * from './food_aliases';
