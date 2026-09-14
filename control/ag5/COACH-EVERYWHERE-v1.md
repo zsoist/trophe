@@ -10,7 +10,7 @@ the corresponding server-side gate are all proven together.
 ## Current release
 
 - Branch: `codex/ag1-hotfix-ask-workout`
-- Commit: `e331d358` (`fix(food): parse conversational branded meals locally`)
+- Commit: pending `workout-empty-state` fix on top of `e331d358`
 - Production alias: `https://trophe.app`
 - Latest production deployment: `dpl_C1TH3sZSPsHQowvXHVd6AryqRZAZ`
 - Health canary: HTTP 200, database connected
@@ -29,7 +29,7 @@ the corresponding server-side gate are all proven together.
 | Food proposal/apply/receipt/refetch | `text-food-service.ts`, `food-service.ts`, `TextFoodReview.tsx` | Offline-tested / preview evidence | Production `0087–0090` contract and flags remain HOLD |
 | Voice capture/transcript/live audio | `components/assistant/LiveVoiceControl.tsx`, `lib/voice-live`, lifecycle tests | Integrated / offline-tested | Authenticated production live and reviewed-voice smoke required |
 | Images/private analysis | attachment and photo-food services plus UI contracts | Offline-tested / gated | Private bucket, signing key, schema and production flag remain HOLD |
-| Workout manual flow | `WorkoutWorkspaceProvider`, `WorkoutHome`, builder/review/live routes | Integrated / tested | Authenticated production smoke required |
+| Workout manual flow | `WorkoutWorkspaceProvider`, `WorkoutHome`, builder/review/live routes; `NOT_FOUND` recommendation now stays a neutral empty state | Integrated / tested | Authenticated production smoke required |
 | Muscle Atlas premium release | `contracts/anatomy/releases.json` (`active: null`) | HOLD | Do not activate until asset provenance, mapping, security, device and AG2/AG4 evidence exist |
 | Parallel nutrition search | `lib/food/nutrition-search*.ts`, bounded fast-mode tests | Integrated / offline-tested | Production key and authorized search smoke are separate from model budget |
 | Tenant / client isolation | repository authorization, RLS/HTTP holdouts and QA evidence | Offline-tested / QA HTTP evidence | No production claim without a real authenticated identity |
@@ -82,4 +82,3 @@ Keep BD-02/PR124, migrations `0082–0085` and the later private Coach contracts
 Atlas/media publication and universal production rollout under HOLD. The
 production URL is healthy, but that health check does not certify the gated
 capabilities above.
-

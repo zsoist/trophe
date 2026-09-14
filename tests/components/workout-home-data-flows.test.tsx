@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 const harness = vi.hoisted(() => ({
   repeatId: '',
   programData: null as unknown,
+  recommendationError: null as unknown,
   failureTable: '' as string,
   repeatedKind: 'strength' as 'strength' | 'cardio',
   push: vi.fn(),
@@ -33,7 +34,7 @@ vi.mock('@/lib/utils/dates', () => ({ localToday: () => '2026-08-24' }));
 vi.mock('@/lib/trpc/client', () => ({
   trpc: { workouts: {
     program: { mine: { useQuery: () => ({ data: harness.programData, isLoading: false, error: null }) } },
-    recommendation: { mine: { useQuery: () => ({ data: null, isLoading: false, error: null }) } },
+    recommendation: { mine: { useQuery: () => ({ data: null, isLoading: false, error: harness.recommendationError }) } },
   } },
 }));
 vi.mock('@/components/workout/workout-persistence', () => ({ createWorkoutSession: harness.createWorkoutSession, startWorkoutSessionAtomic: harness.startWorkoutSessionAtomic }));
@@ -159,6 +160,7 @@ afterEach(() => {
   cleanup();
   harness.repeatId = '';
   harness.programData = null;
+  harness.recommendationError = null;
   harness.failureTable = '';
   harness.repeatedKind = 'strength';
   harness.push.mockReset();
@@ -338,6 +340,15 @@ describe('Workout home data flows', () => {
 
     expect(await screen.findByRole('button', { name: 'workout.train_now' })).toBeTruthy();
     expect((await screen.findByRole('alert')).textContent).toContain('workout.support_data_load_failed');
+    expect(screen.queryByText('workout.program_load_failed')).toBeNull();
+  });
+
+  it('treats an unassigned recommendation as an empty state instead of a load failure', async () => {
+    harness.recommendationError = { data: { code: 'NOT_FOUND' } };
+
+    renderPage();
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'workout.train_now' })).toBeTruthy());
     expect(screen.queryByText('workout.program_load_failed')).toBeNull();
   });
 });

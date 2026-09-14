@@ -92,6 +92,11 @@ export default function WorkoutPage() {
     { localDate, localWeekday: todayWeekday },
     { staleTime: 60_000, retry: 1 },
   );
+  // A client without an assigned programme is a normal first-run state. The
+  // recommendation procedure uses NOT_FOUND for that case, so do not surface
+  // the generic red "program failed" banner when the user can still build a
+  // workout from the exercise library. Other errors remain visible.
+  const recommendationUnavailable = recommendationQuery.error?.data?.code === 'NOT_FOUND';
   const repeatId = searchParams.get('repeat');
 
   useEffect(() => {
@@ -301,7 +306,7 @@ export default function WorkoutPage() {
       programLoading={programQuery.isLoading}
       recommendationLoading={recommendationQuery.isLoading}
       programError={Boolean(programQuery.error)}
-      recommendationError={Boolean(recommendationQuery.error)}
+      recommendationError={Boolean(recommendationQuery.error && !recommendationUnavailable)}
       supportError={supportError}
       recents={recents}
       workedExerciseIds={workedExerciseIds}
