@@ -36,9 +36,9 @@ const fail = (error: Failure): TextFoodResult => ({ ok: false, error });
 
 async function authorize(tx: Tx, s: Scope) {
   s.signal.throwIfAborted();
-  const actor = await tx.execute(sql`SELECT actor.id FROM public.profiles actor JOIN public.client_profiles cp ON cp.user_id=actor.id JOIN public.organization_members member ON member.user_id=actor.id WHERE actor.id=${s.actorId}::uuid AND actor.id=${s.subjectId}::uuid AND actor.role::text='client' AND member.role::text='client' AND member.org_id=${s.organizationId}::uuid FOR SHARE OF actor,cp,member`);
+  const actor = await tx.execute(sql`SELECT actor.id FROM public.profiles actor JOIN public.client_profiles cp ON cp.user_id=actor.id JOIN public.organization_members member ON member.user_id=actor.id WHERE actor.id=${s.actorId}::uuid AND actor.id=${s.subjectId}::uuid AND member.role::text=actor.role::text AND member.org_id=${s.organizationId}::uuid FOR SHARE OF actor,cp,member`);
   if (actor.rows.length !== 1) throw new Rejected('forbidden');
-  const thread = await tx.execute(sql`SELECT id FROM private.coach_chat_threads WHERE id=${s.operation.conversationId}::uuid AND actor_id=${s.actorId}::uuid AND subject_id=${s.subjectId}::uuid AND organization_id=${s.organizationId}::uuid AND actor_role='client' AND state='active' AND access_revoked=false FOR SHARE`);
+  const thread = await tx.execute(sql`SELECT id FROM private.coach_chat_threads WHERE id=${s.operation.conversationId}::uuid AND actor_id=${s.actorId}::uuid AND subject_id=${s.subjectId}::uuid AND organization_id=${s.organizationId}::uuid AND actor_role=(SELECT role::text FROM public.profiles WHERE id=${s.actorId}::uuid) AND state='active' AND access_revoked=false FOR SHARE`);
   if (thread.rows.length !== 1) throw new Rejected('forbidden');
 }
 async function capacity(tx: Tx, s: Scope) {

@@ -52,8 +52,9 @@ export default function AccountCoach({ professional = false, contextSlot, worksp
   }, [identity, subjectId]);
   // The key synchronously discards the old subject's surface and pending response.
   const durableVoice = process.env.NEXT_PUBLIC_COACH_CHAT_HISTORY_ENABLED === '1';
+  const liveVoice = process.env.NEXT_PUBLIC_COACH_VOICE_LIVE_ENABLED === '1';
   return identity && admittedIdentity === identity ? <GlobalCoach key={`${identity}:${subjectId ?? identity}`} professional={professional} identity={identity} subjectId={subjectId} contextSlot={contextSlot} workspaceHint={workspaceHint}
-    voiceSlot={durableVoice && !professional ? props => <LiveVoiceControl conversationId={props.conversationId} prepareConversation={props.prepareConversation} onQuery={props.onQuery} onTranscript={props.onTranscript} onLiveCommentary={props.onLiveCommentary} /> : undefined}
+    voiceSlot={liveVoice && !professional ? props => <LiveVoiceControl conversationId={props.conversationId} prepareConversation={durableVoice ? props.prepareConversation : undefined} onQuery={props.onQuery} onTranscript={props.onTranscript} onLiveCommentary={props.onLiveCommentary} /> : undefined}
     voiceTranscriptionTransport={durableVoice && coachVoiceTranscriptionEnabled({
       fixture: process.env.NEXT_PUBLIC_COACH_VOICE_FIXTURE_ENABLED,
       live: process.env.NEXT_PUBLIC_COACH_VOICE_LIVE_ENABLED,

@@ -12,7 +12,7 @@ export async function executeCoachChatAction(actorId: string, raw: unknown, repo
     signal.throwIfAborted();
     const context = await repository.authorize(actorId, actorId, signal);
     if (context.actorId !== actorId || context.subjectId !== actorId) return fail('forbidden');
-    return await service.execute({ actorId, subjectId: actorId, organizationId: context.organizationId, actorRole: 'client' }, raw, signal);
+    return await service.execute({ actorId, subjectId: actorId, organizationId: context.organizationId, actorRole: context.actorRole ?? 'client' }, raw, signal);
   } catch (error) {
     return fail(signal.aborted ? 'cancelled' : error instanceof Error && ['unauthenticated', 'forbidden'].includes(error.message) ? 'forbidden' : 'uncertain');
   }

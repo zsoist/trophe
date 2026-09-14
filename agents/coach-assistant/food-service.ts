@@ -31,7 +31,7 @@ async function authorize(tx:Transaction,scope:Scope) {
     JOIN public.client_profiles cp ON cp.user_id=actor.id
     JOIN public.organization_members member ON member.user_id=actor.id
     WHERE actor.id=${scope.actorId}::uuid AND actor.id=${scope.subjectId}::uuid
-      AND actor.role::text='client' AND member.role::text='client' AND member.org_id=${scope.organizationId}::uuid
+      AND member.role::text=actor.role::text AND member.org_id=${scope.organizationId}::uuid
     FOR SHARE OF actor,cp,member`);
   if(found.rows.length!==1)throw new Rejected('forbidden');
   scope.signal.throwIfAborted();
