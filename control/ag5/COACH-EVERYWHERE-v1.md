@@ -10,19 +10,20 @@ the corresponding server-side gate are all proven together.
 ## Current release
 
 - Branch: `codex/ag1-hotfix-ask-workout`
-- Runtime changes represented in the latest production deployment: `fdb98b62`
-  (`polish(ask): animate coach panel close lifecycle`), including the
+- Runtime changes represented in the latest production deployment: `e5bf3b33`
+  (`fix(food): recover catalogue meals after provider failure`), including the
+  Ask panel close lifecycle (`fdb98b62`),
   memory receipt-content verification (`b965be61`), meal-planning intent
   routing (`698da756`), AG2 attachment zoom and launcher/Atlas interaction
   polish (`438ec058`, `92843904`, `341a84d4`), the reflexive Spanish intent
   fix (`77e2df9f`), the bounded time-prefixed Spanish intake fast path
   (`b4bb5b17`) and the neutral Workout empty state (`8ab66da4`)
 - Production alias: `https://trophe.app`
-- Latest runtime production deployment: `dpl_E9Zv4xMNpUWAsAYvVRTEBnzYNa6s`
-- Preview/deployment URL: `https://trophe-nyjmka52q-2p6y54z6w9-4465s-projects.vercel.app`
+- Latest runtime production deployment: `dpl_A6BKoYgG4PmYujHF5YVzqbSdppYV`
+- Preview/deployment URL: `https://trophe-cldgijngi-2p6y54z6w9-4465s-projects.vercel.app`
 - Health canary: HTTP 200, database connected; no production 5xx logs in the
   post-deploy window
-- Release verification: focused Ask/Food/Workout suites **106 files, 973
+- Release verification: focused Ask/Food/Workout suites **107 files, 988
   tests passed, 2 skipped**, typecheck and remote Vercel build passed. The
   repository-wide verification still has one intentionally isolated PostgreSQL
   suite that cannot run without a local database; it is not claimed as passed.
@@ -31,6 +32,11 @@ the corresponding server-side gate are all proven together.
   `/api/food/parse` rejected an unauthenticated POST with 401, protected
   dashboard/coach routes redirected to login, and the production 5xx log query
   returned no entries.
+- Food resilience: an admitted-provider failure now attempts the same
+  deterministic catalogue resolver as the denied-pilot path; a recognized
+  meal returns without retry or paid fallback, while unknown food keeps the
+  stable error response. Covered by the production-route test and the local
+  branded-meal suite.
 - Final independent DS4 recheck: **21 files, 245 tests passed** across advice,
   Food/Search and voice lifecycle, with no paid calls. This is a narrower
   repeat of the recorded focused run above; it does not replace the required
