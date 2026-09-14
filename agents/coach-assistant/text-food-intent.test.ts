@@ -15,6 +15,10 @@ describe('bounded new meal interpretation intent', () => {
     expect(textFoodIntakeIntent(text)).toBeNull();
   });
 
+  it.each(['Me comí dos Big Macs', 'Me comi dos Big Macs'])('recognizes reflexive Spanish meal statements for %s', text => {
+    expect(textFoodIntakeIntent(text)).toMatchObject({ text, language: 'es' });
+  });
+
   it('still starts intake for a plain past-tense consumption statement', () => {
     expect(textFoodIntakeIntent('I had a big breakfast, two eggs and toast')).toMatchObject({ language: 'en' });
   });
