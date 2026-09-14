@@ -15,7 +15,7 @@ describe('bounded new meal interpretation intent', () => {
     expect(textFoodIntakeIntent(text)).toBeNull();
   });
 
-  it.each(['Me comí dos Big Macs', 'Me comi dos Big Macs'])('recognizes reflexive Spanish meal statements for %s', text => {
+  it.each(['Me comí dos Big Macs', 'Me comi dos Big Macs', 'Hoy comí dos Big Macs', 'Anoche me comí dos Big Macs'])('recognizes natural Spanish meal statements for %s', text => {
     expect(textFoodIntakeIntent(text)).toMatchObject({ text, language: 'es' });
   });
 
