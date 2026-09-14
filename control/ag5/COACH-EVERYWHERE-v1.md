@@ -35,6 +35,9 @@ the corresponding server-side gate are all proven together.
   and attachment flags are not present. The variable's secret value and the
   current authenticated subject were not inferred, so no active-user claim is
   made from this inventory alone.
+- Route coverage contract `05193d9e` now enumerates the dashboard, workout and
+  coach layouts and prevents a future route from bypassing its single Coach
+  entry point; its two tests pass.
 
 ## Capability matrix
 
