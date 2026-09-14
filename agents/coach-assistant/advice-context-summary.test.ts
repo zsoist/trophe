@@ -63,10 +63,12 @@ describe('renderAdviceContextSummary', () => {
     expect(missing.evidenceRefs).toEqual(['nutrition.target.calories']);
   });
 
-  it('does not use weekly or foreign-window registered totals for subtraction', () => {
+  it('does not subtract weekly totals, but still reports the matching period', () => {
     const weekly = renderAdviceContextSummary([targetCalories(2000, { window: WEEK }), calories(1500, { window: WEEK })], WEEK, 'en');
-    expect(weekly.text).toBe('Stored daily target: 2000 kcal.');
-    expect(weekly.evidenceRefs).toEqual(['nutrition.target.calories']);
+    expect(weekly.text).toContain('Stored daily target: 2000 kcal.');
+    expect(weekly.text).toContain('Registered from 2026-09-07 to 2026-09-13 (7 days): 1500 kcal.');
+    expect(weekly.text).not.toContain('remaining');
+    expect(weekly.evidenceRefs).toEqual(['nutrition.target.calories', 'nutrition.calories']);
     const foreign = renderAdviceContextSummary([targetCalories(2000), calories(1500, { window: FOREIGN })], DAY, 'en');
     expect(foreign.text).toBe('Stored daily target: 2000 kcal.');
     expect(foreign.text).not.toContain('1500');
@@ -115,6 +117,30 @@ it('retains partial completeness for same-value duplicates and standalone totals
   expect(renderAdviceContextSummary([...facts].reverse(), DAY, 'en').text).toContain('(partial records)');
   expect(renderAdviceContextSummary([calories(1500, { completeness: 'partial' })], DAY, 'en').text).toContain('(partial records)');
 });
+
+describe('period coverage and partial qualifier placement', () => {
+  it('reports a multi-day recorded total without claiming a daily balance', () => {
+    const week = renderAdviceContextSummary([calories(4200, { window: WEEK })], WEEK, 'en');
+    expect(week.text).toBe('Registered from 2026-09-07 to 2026-09-13 (7 days): 4200 kcal.');
+    expect(week.text).not.toContain('No stored targets');
+    expect(week.evidenceRefs).toEqual(['nutrition.calories']);
+    const foreign = renderAdviceContextSummary([calories(4200, { window: FOREIGN })], WEEK, 'en');
+    expect(foreign.text).toBe('No stored targets or registered totals are available for this summary.');
+    expect(foreign.text).not.toContain('4200');
+  });
+
+  it('localizes period totals and keeps partial qualifiers inside the sentence', () => {
+    expect(renderAdviceContextSummary([calories(4200, { window: WEEK })], WEEK, 'es-MX').text)
+      .toBe('Registrados del 2026-09-07 al 2026-09-13 (7 días): 4200 kcal.');
+    expect(renderAdviceContextSummary([protein(300, { window: WEEK })], WEEK, 'el').text)
+      .toBe('Καταγεγραμμένα από 2026-09-07 έως 2026-09-13 (7 ημέρες): 300 g πρωτεΐνης.');
+    expect(renderAdviceContextSummary([calories(4200, { window: WEEK, completeness: 'partial' })], WEEK, 'en').text)
+      .toBe('Registered from 2026-09-07 to 2026-09-13 (7 days): 4200 kcal (partial records).');
+    expect(renderAdviceContextSummary([calories(1500, { completeness: 'partial' })], DAY, 'en').text)
+      .toBe('Registered for 2026-09-13: 1500 kcal (partial records).');
+  });
+});
+
 it('rejects foreign-source, empty-source and arithmetic-overflow facts', () => {
   const result=renderAdviceContextSummary([targetCalories(2000), calories(1500,{source:'workout'}), calories(1500,{sourceIds:[]}), protein(Number.MAX_VALUE)], DAY, 'en');
   expect(result.text).toBe('Stored daily target: 2000 kcal.');

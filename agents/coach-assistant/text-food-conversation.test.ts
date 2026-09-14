@@ -23,6 +23,23 @@ describe('new meal conversation boundary', () => {
     const resolveTextFoodIntake = async (input: { message: string }) => { if (!textFoodIntakeIntent(input.message)) return null; parse(); return { ok: false as const, error: 'not_connected' as const }; };
     await runConversation({ ...request, message: 'I will eat rice tomorrow' }, { ...f.options, resolveTextFoodIntake }); expect(parse).not.toHaveBeenCalled();
   });
+  it('answers an advice/status question from context instead of preparing a meal review', async () => {
+    const f = fixture(); const parsed: string[] = [];
+    const resolveTextFoodIntake = async (input: { message: string }) => {
+      if (!textFoodIntakeIntent(input.message)) return null;
+      parsed.push(input.message);
+      return { ok: false as const, error: 'not_connected' as const };
+    };
+    const result = await runConversation(
+      { ...request, message: 'I had a big breakfast, how am I doing today?' },
+      { ...f.options, resolveTextFoodIntake },
+    );
+    expect(parsed).toEqual([]);
+    expect(result.ok).toBe(true);
+    expect(result.textFood).toBeUndefined();
+    expect(result.output?.answer).toContain('Offline record summary');
+    expect(result.output?.answer).not.toContain('Review the foods');
+  });
   it('reauthorizes after intake and strips the draft if scope changes', async () => {
     const f = fixture(); let changed = false; const authorize = f.options.repository.authorize;
     f.options.repository.authorize = async (...args) => ({ ...await authorize(...args), organizationId: changed ? 'other-org' : 'synthetic-org' });

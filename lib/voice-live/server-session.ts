@@ -135,6 +135,19 @@ function cancelIterator(iterator: AsyncIterator<ProviderSessionEvent>): void {
   }
 }
 
+/**
+ * Give a buffered provider event one bounded event-loop turn to reach the
+ * consumer before a server initiated close marks the runtime closed. This is
+ * deliberately a single macrotask and never a retry or an unbounded wait.
+ */
+function yieldTurn(): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const timer = setTimeout(resolve, 0);
+    const t = timer as unknown as { unref?: () => void };
+    if (typeof t.unref === 'function') t.unref();
+  });
+}
+
 export interface OpenSessionResult {
   readonly sessionId: string;
   readonly transportSdp: string;
@@ -521,7 +534,11 @@ function createRuntime(args: {
         } finally {
           clear();
         }
-        // No session.closed -> finalize retains the full reserve (mark_unknown).
+        // The provider can buffer its own session.closed while closeSession is
+        // resolving. Let the already-delivered event be observed first so its
+        // final cumulative usage can settle the attempt. A quiet provider loses
+        // this single turn and still follows the conservative unknown path.
+        await yieldTurn();
         enterClosed();
         await runtime.finalize();
       })();

@@ -11,6 +11,9 @@ import type { CoachEvidence, CoachWindow } from './contracts';
  *  - Subtraction needs a stored target AND a registered total whose evidence
  *    window is the same SINGLE day. Weekly, foreign-window and duplicate
  *    conflicting evidence cannot support daily subtraction.
+ *  - A matching registered total is still shown for its own period when the
+ *    window spans multiple days; it is labelled explicitly and is never
+ *    presented as a daily balance.
  *  - Invalid facts (nonfinite, negative, zero target, wrong unit, non-number)
  *    are excluded.
  *  - It never infers consumption from logged/no rows and never claims a meal
@@ -65,7 +68,9 @@ function resolve(evidence: CoachEvidence[], id: string, unit: string, window: Co
 
 interface Copies {
   targetOnly: (target: string) => string;
-  registeredOnly: (date: string, registered: string) => string;
+  registeredDay: (date: string, registered: string) => string;
+  registeredRange: (range: string, days: number, registered: string) => string;
+  rangeOf: (start: string, end: string) => string;
   remaining: (target: string, registered: string, diff: string, date: string) => string;
   exceed: (target: string, registered: string, diff: string, date: string) => string;
   partial: string;
@@ -75,7 +80,9 @@ interface Copies {
 const COPIES: Record<Locale, Copies> = {
   en: {
     targetOnly: target => `Stored daily target: ${target}.`,
-    registeredOnly: (date, registered) => `Registered for ${date}: ${registered}.`,
+    registeredDay: (date, registered) => `Registered for ${date}: ${registered}`,
+    registeredRange: (range, days, registered) => `Registered ${range} (${days} days): ${registered}`,
+    rangeOf: (start, end) => `from ${start} to ${end}`,
     remaining: (target, registered, diff, date) => `Stored daily target ${target}, ${registered} registered for ${date}: ${diff} remaining against recorded totals`,
     exceed: (target, registered, diff, date) => `Stored daily target ${target}, ${registered} registered for ${date}: ${diff} over the stored target (registered exceeds target)`,
     partial: ' (partial records)',
@@ -83,7 +90,9 @@ const COPIES: Record<Locale, Copies> = {
   },
   es: {
     targetOnly: target => `Objetivo diario guardado: ${target}.`,
-    registeredOnly: (date, registered) => `Registrado el ${date}: ${registered}.`,
+    registeredDay: (date, registered) => `Registrado el ${date}: ${registered}`,
+    registeredRange: (range, days, registered) => `Registrados ${range} (${days} días): ${registered}`,
+    rangeOf: (start, end) => `del ${start} al ${end}`,
     remaining: (target, registered, diff, date) => `Objetivo diario guardado ${target}; ${registered} registradas el ${date}: quedan ${diff} frente a lo registrado`,
     exceed: (target, registered, diff, date) => `Objetivo diario guardado ${target}; ${registered} registradas el ${date}: ${diff} por encima del objetivo (lo registrado supera el objetivo)`,
     partial: ' (registros parciales)',
@@ -91,7 +100,9 @@ const COPIES: Record<Locale, Copies> = {
   },
   el: {
     targetOnly: target => `Αποθηκευμένος ημερήσιος στόχος: ${target}.`,
-    registeredOnly: (date, registered) => `Καταγεγραμμένα για ${date}: ${registered}.`,
+    registeredDay: (date, registered) => `Καταγεγραμμένα για ${date}: ${registered}`,
+    registeredRange: (range, days, registered) => `Καταγεγραμμένα ${range} (${days} ημέρες): ${registered}`,
+    rangeOf: (start, end) => `από ${start} έως ${end}`,
     remaining: (target, registered, diff, date) => `Αποθηκευμένος ημερήσιος στόχος ${target}, ${registered} καταγεγραμμένα για ${date}: υπολείπονται ${diff} σε σχέση με τα καταγεγραμμένα`,
     exceed: (target, registered, diff, date) => `Αποθηκευμένος ημερήσιος στόχος ${target}, ${registered} καταγεγραμμένα για ${date}: ${diff} πάνω από τον στόχο (τα καταγεγραμμένα υπερβαίνουν τον στόχο)`,
     partial: ' (μερικά δεδομένα)',
@@ -105,27 +116,34 @@ export function renderAdviceContextSummary(evidence: CoachEvidence[], window: Co
   const date = window.start;
   const lines: string[] = [];
   const evidenceRefs: string[] = [];
+  // Only an exact single-day window can support subtraction. A multi-day
+  // total remains useful context, but must be labelled as a period figure.
+  const singleDay = window.days === 1;
   for (const spec of METRICS) {
     const target = resolve(evidence, spec.targetId, spec.unit, window, false);
     const registered = resolve(evidence, spec.registeredId, spec.unit, window, true);
-    // Registered totals are only usable as a daily figure for the same single day.
-    const registeredFact = window.days === 1 ? registered.fact : null;
-    const registeredValue = registeredFact ? registered.value! : null;
-    if (target.fact && registeredFact && registeredValue !== null) {
+    if (target.fact && registered.fact && registered.value !== null && singleDay) {
       const targetText = amount(locale, spec.protein, target.value!);
-      const registeredText = amount(locale, spec.protein, registeredValue);
-      const difference = target.value! - registeredValue;
-      const partial = registeredFact.completeness === 'partial' ? copy.partial : '';
+      const registeredText = amount(locale, spec.protein, registered.value);
+      const difference = target.value! - registered.value;
+      const partial = registered.fact.completeness === 'partial' ? copy.partial : '';
       lines.push((difference < 0
         ? copy.exceed(targetText, registeredText, amount(locale, spec.protein, Math.abs(difference)), date)
         : copy.remaining(targetText, registeredText, amount(locale, spec.protein, difference), date)) + partial + '.');
-      evidenceRefs.push(target.fact.id, registeredFact.id);
-    } else if (target.fact) {
+      evidenceRefs.push(target.fact.id, registered.fact.id);
+      continue;
+    }
+    if (target.fact) {
       lines.push(copy.targetOnly(amount(locale, spec.protein, target.value!)));
       evidenceRefs.push(target.fact.id);
-    } else if (registeredFact && registeredValue !== null) {
-      lines.push(copy.registeredOnly(date, amount(locale, spec.protein, registeredValue)) + (registeredFact.completeness === 'partial' ? copy.partial : ''));
-      evidenceRefs.push(registeredFact.id);
+    }
+    if (registered.fact && registered.value !== null) {
+      const partial = registered.fact.completeness === 'partial' ? copy.partial : '';
+      const registeredText = amount(locale, spec.protein, registered.value);
+      lines.push((singleDay
+        ? copy.registeredDay(date, registeredText)
+        : copy.registeredRange(copy.rangeOf(window.start, window.end), window.days, registeredText)) + partial + '.');
+      evidenceRefs.push(registered.fact.id);
     }
   }
   return { text: lines.length ? lines.join('\n') : copy.absent, evidenceRefs };
