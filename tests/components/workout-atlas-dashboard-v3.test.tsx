@@ -257,6 +257,19 @@ describe('dashboard stage layout contract', () => {
   });
 });
 
+describe('atlas renderer observer fallback contract', () => {
+  const source = readFileSync(join(process.cwd(), 'components/anatomy/AtlasCanvas.tsx'), 'utf8');
+
+  it('keeps rendering when optional viewport observers are unavailable', () => {
+    expect(source).toContain('typeof ResizeObserver === "undefined" ? null : new ResizeObserver(resize)');
+    expect(source).toContain('typeof IntersectionObserver === "undefined" ? null : new IntersectionObserver');
+    expect(source).toContain('const windowResizeFallback = observer ? null : resize;');
+    expect(source).toContain('observer?.disconnect();');
+    expect(source).toContain('intersection?.disconnect();');
+    expect(source).toContain('window.removeEventListener("resize", windowResizeFallback);');
+  });
+});
+
 it('uses the same outer camera when no 3D source is available', () => {
   vi.stubEnv('NEXT_PUBLIC_ANATOMY_ATLAS_ENABLED', '0');
   try {

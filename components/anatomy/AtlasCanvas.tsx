@@ -464,9 +464,14 @@ export default function AtlasCanvas(props: CanvasProps) {
         draw();
       }
     };
-    const observer = new ResizeObserver(resize);
-    observer.observe(container);
-    const intersection = new IntersectionObserver((entries) => {
+    // Both observers are progressive enhancements. Embedded webviews and older browsers can
+    // still render the source-gated fallback when they do not expose one of these APIs; do not
+    // turn a missing observer into a renderer crash. Resize events keep the camera honest when
+    // ResizeObserver is unavailable, while the initial in-viewport state already permits loading
+    // without IntersectionObserver.
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(resize);
+    observer?.observe(container);
+    const intersection = typeof IntersectionObserver === "undefined" ? null : new IntersectionObserver((entries) => {
       inViewport = entries[0]?.isIntersecting ?? false;
       if (inViewport) {
         resumeTransition();
@@ -478,7 +483,9 @@ export default function AtlasCanvas(props: CanvasProps) {
         for (const request of requests.values()) request.abort();
       }
     });
-    intersection.observe(container);
+    intersection?.observe(container);
+    const windowResizeFallback = observer ? null : resize;
+    if (windowResizeFallback) window.addEventListener("resize", windowResizeFallback);
     const ray = new THREE.Raycaster(),
       pointer = new THREE.Vector2();
     let down: [number, number] | null = null;
@@ -549,9 +556,10 @@ export default function AtlasCanvas(props: CanvasProps) {
       runtime.current = null;
       cancelAnimationFrame(frame);
       for (const c of requests.values()) c.abort();
-      observer.disconnect();
+      observer?.disconnect();
       themeObserver.disconnect();
-      intersection.disconnect();
+      intersection?.disconnect();
+      if (windowResizeFallback) window.removeEventListener("resize", windowResizeFallback);
       document.removeEventListener("visibilitychange", visibility);
       cancelTransition();
       reducedMotion.removeEventListener("change", reduceMotion);
