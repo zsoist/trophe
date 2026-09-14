@@ -37,6 +37,12 @@ function query(result: unknown) {
   return value;
 }
 
+function rejectedQuery(error: unknown) {
+  const value = Promise.reject(error) as Promise<unknown> & Record<string, ReturnType<typeof vi.fn>>;
+  for (const method of ['from', 'where', 'limit', 'orderBy', 'innerJoin']) value[method] = vi.fn(() => value);
+  return value;
+}
+
 describe('workouts.preferences', () => {
   it('requires authentication and a version-1 preference payload', async () => {
     const createCaller = createCallerFactory(appRouter);
@@ -193,5 +199,21 @@ describe('workouts.recommendation.mine route contract', () => {
     await expect(caller.workouts.recommendation.mine({ localDate: '2026-09-02', localWeekday: 4 }))
       .rejects.toMatchObject({ code: 'BAD_REQUEST' });
     expect(select).not.toHaveBeenCalled();
+  });
+
+  it('keeps the recommendation route usable while production is missing 0082 preferences', async () => {
+    const missingColumn = Object.assign(new Error('column client_profiles.workout_preferences does not exist'), { code: '42703' });
+    const select = vi.fn()
+      .mockReturnValueOnce(rejectedQuery(missingColumn))
+      .mockReturnValueOnce(query([{ goal: 'muscle_gain', activityLevel: 'active', coachId: null }]))
+      .mockReturnValueOnce(query([]))
+      .mockReturnValueOnce(query([]))
+      .mockReturnValueOnce(query([]))
+      .mockReturnValueOnce(query([]));
+    const caller = createCallerFactory(appRouter)(context(CLIENT_ID, 'client', { select } as unknown as Context['db']));
+
+    await expect(caller.workouts.recommendation.mine({ localDate: '2026-09-02', localWeekday: 3 }))
+      .resolves.toEqual(expect.objectContaining({ source: 'recommendation', exercises: expect.any(Array) }));
+    expect(select).toHaveBeenCalledTimes(6);
   });
 });

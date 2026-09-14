@@ -127,6 +127,74 @@ const recommendationContextSchema = z.object({
   }
 });
 
+function databaseCode(error: unknown): string | null {
+  if (!error || typeof error !== 'object' || !('code' in error)) return null;
+  const value = (error as { code?: unknown }).code;
+  return typeof value === 'string' ? value : null;
+}
+
+/**
+ * Production can briefly run an older migration ledger while the application
+ * bundle already knows about a newer optional column. Only treat PostgreSQL's
+ * undefined-column error as a compatibility case; other database failures
+ * must still surface so we do not hide outages or authorization bugs.
+ */
+function isMissingColumnError(error: unknown): boolean {
+  const cause = error && typeof error === 'object' && 'cause' in error
+    ? (error as { cause?: unknown }).cause
+    : undefined;
+  return databaseCode(error) === '42703' || databaseCode(cause) === '42703';
+}
+
+type RecommendationProfile = {
+  goal: string | null;
+  activityLevel: string | null;
+  coachId: string | null;
+  workoutPreferences: unknown;
+};
+
+async function loadRecommendationProfile(db: Db, userId: string): Promise<RecommendationProfile | undefined> {
+  try {
+    const [profile] = await db
+      .select({
+        goal: clientProfiles.goal,
+        activityLevel: clientProfiles.activityLevel,
+        coachId: clientProfiles.coachId,
+        workoutPreferences: clientProfiles.workoutPreferences,
+      })
+      .from(clientProfiles)
+      .where(eq(clientProfiles.userId, userId))
+      .limit(1);
+    return profile;
+  } catch (error) {
+    if (!isMissingColumnError(error)) throw error;
+    const [legacyProfile] = await db
+      .select({
+        goal: clientProfiles.goal,
+        activityLevel: clientProfiles.activityLevel,
+        coachId: clientProfiles.coachId,
+      })
+      .from(clientProfiles)
+      .where(eq(clientProfiles.userId, userId))
+      .limit(1);
+    return legacyProfile ? { ...legacyProfile, workoutPreferences: null } : undefined;
+  }
+}
+
+async function loadWorkoutPreferences(db: Db, userId: string) {
+  try {
+    const [profile] = await db
+      .select({ workoutPreferences: clientProfiles.workoutPreferences })
+      .from(clientProfiles)
+      .where(eq(clientProfiles.userId, userId))
+      .limit(1);
+    return parseWorkoutPreferences(profile?.workoutPreferences);
+  } catch (error) {
+    if (!isMissingColumnError(error)) throw error;
+    return parseWorkoutPreferences(undefined);
+  }
+}
+
 // ── Router ─────────────────────────────────────────────────────────────────
 
 export const workoutsRouter = router({
@@ -298,12 +366,7 @@ export const workoutsRouter = router({
   preferences: router({
     /** The caller's persisted v1 intake, with safe defaults for pre-0082 rows. */
     mine: protectedProcedure.query(async ({ ctx }) => {
-      const [profile] = await ctx.db
-        .select({ workoutPreferences: clientProfiles.workoutPreferences })
-        .from(clientProfiles)
-        .where(eq(clientProfiles.userId, ctx.user!.id))
-        .limit(1);
-      return parseWorkoutPreferences(profile?.workoutPreferences);
+      return loadWorkoutPreferences(ctx.db, ctx.user!.id);
     }),
 
     /** A client edits their own document; an assigned coach may edit a client's document. */
@@ -341,16 +404,7 @@ export const workoutsRouter = router({
     mine: protectedProcedure
       .input(recommendationContextSchema)
       .query(async ({ ctx, input }) => {
-      const [profile] = await ctx.db
-        .select({
-          goal: clientProfiles.goal,
-          activityLevel: clientProfiles.activityLevel,
-          coachId: clientProfiles.coachId,
-          workoutPreferences: clientProfiles.workoutPreferences,
-        })
-        .from(clientProfiles)
-        .where(eq(clientProfiles.userId, ctx.user!.id))
-        .limit(1);
+      const profile = await loadRecommendationProfile(ctx.db, ctx.user!.id);
       if (!profile) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Client profile not found' });
       }
