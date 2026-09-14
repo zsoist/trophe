@@ -50,7 +50,7 @@ export function textFoodIntakeIntent(text: string): { text: string; language: 'e
     && !isAdviceOrQuestionUtterance(normalized);
   const englishRequest = /^(?:(?:please\s+)?log\s+(?!it\b|that\b|this\b|my\b)|(?:i\s+want\s+to|i(?:'d|\s+would)\s+like\s+to|i\s+need\s+to)\s+(?:log|record|add)\s+(?!it\b|that\b|this\b|my\b))/i.test(normalized);
   if (englishIngestion || englishRequest) return { text: normalized, language: 'en' };
-  const spanishIngestion = /^(?:(?:yo\s+)?(?:comí|comi|almorcé|almorce|cené|cene|desayuné|desayune|bebí|bebi)\s+|acabo de (?:comer|beber)\s+)/i.test(normalized)
+  const spanishIngestion = /^(?:(?:yo\s+)?(?:me\s+)?(?:comí|comi|almorcé|almorce|cené|cene|desayuné|desayune|bebí|bebi)\s+|acabo de (?:comer|beber)\s+)/i.test(normalized)
     && !isAdviceOrQuestionUtterance(normalized);
   const spanishRequest = /^(?:(?:por favor\s+)?registra\s+(?!eso\b|esto\b|mi\b|lo\b)|(?:quiero|quisiera|necesito|deseo|me\s+gustaría)\s+(?:registrar|anotar|apuntar)\s+(?!eso\b|esto\b|mi\b|lo\b))/i.test(normalized);
   if (spanishIngestion || spanishRequest) return { text: normalized, language: 'es' };
