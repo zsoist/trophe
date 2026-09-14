@@ -4,6 +4,7 @@ import { NextRequest } from 'next/server';
 const mocks = vi.hoisted(() => ({
   guardAiRoute: vi.fn(),
   run: vi.fn(),
+  tryLocalFoodParse: vi.fn(),
   gate: vi.fn(() => ({ok:true,pilotId:'pilot',store:{}})),
   transport: vi.fn(),
   provider: vi.fn(),
@@ -12,7 +13,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/security/api-guard', () => ({ guardAiRoute: mocks.guardAiRoute }));
-vi.mock('@/agents/food-parse', () => ({ run: mocks.run }));
+vi.mock('@/agents/food-parse', () => ({ run: mocks.run, tryLocalFoodParse: mocks.tryLocalFoodParse }));
 vi.mock('@/agents/runtime/persistence', () => ({
   annotateGenerationMetadata: mocks.annotateGenerationMetadata,
 }));
@@ -38,6 +39,7 @@ function request(body: unknown, headers?: Record<string, string>) {
 describe('POST /api/food/parse', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.tryLocalFoodParse.mockResolvedValue(null);
     mocks.guardAiRoute.mockResolvedValue({ ok: true, userId: 'user-1', rateLimitBypassed: false });
     mocks.annotateGenerationMetadata.mockResolvedValue(undefined);
   });
@@ -224,4 +226,19 @@ it('rejects denied deployed Food before invoking its parser', async()=>{
  mocks.gate.mockReturnValueOnce({ok:false,pilotId:'',store:{}});
  expect((await POST(request({text:'egg',language:'en'}))).status).toBe(503);
  expect(mocks.run).not.toHaveBeenCalled();
+});
+it('keeps deterministic catalogue foods loggable when the paid pilot is denied', async()=>{
+ vi.clearAllMocks();vi.stubEnv('VERCEL_ENV','production');
+ mocks.guardAiRoute.mockResolvedValue({ok:true,userId:'actor',rateLimitBypassed:false});
+ mocks.gate.mockReturnValueOnce({ok:false,pilotId:'',store:{}});
+ mocks.tryLocalFoodParse.mockResolvedValueOnce({
+   items:[{food_name:'McDONALD\'S, BIG MAC',quantity:1,unit:'piece'}],
+   needs_clarification:false,
+   clarification_question:null,
+ });
+ const response=await POST(request({text:'1 Big Mac',language:'en'}));
+ expect(response.status).toBe(200);
+ expect(await response.json()).toMatchObject({items:[{food_name:"McDONALD'S, BIG MAC"}]});
+ expect(mocks.run).not.toHaveBeenCalled();
+ expect(mocks.tryLocalFoodParse).toHaveBeenCalledWith({text:'1 Big Mac',language:'en'});
 });

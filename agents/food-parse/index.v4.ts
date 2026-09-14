@@ -921,6 +921,101 @@ export function shouldRequestClarification(text: string): boolean {
   return false;
 }
 
+/**
+ * Resolve a conservative meal locally without spending a provider attempt.
+ *
+ * The deployed API still has to gate paid/model work, but a denied or busy
+ * pilot must not prevent deterministic catalogue entries from being logged.
+ * Keeping this as a separate helper lets the API admit this zero-cost path
+ * before it creates a governed provider reservation.
+ */
+export async function tryLocalFoodParse(
+  input: FoodParseInput,
+): Promise<FoodParseOutput | null> {
+  const trimmedText = input.text.trim();
+  const sanitizedText = trimmedText.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+  const language = input.language ?? 'en';
+  const localCandidates = extractLocalFoodCandidates(sanitizedText);
+  if (!localCandidates) return null;
+
+  try {
+    // Keep the user-facing brand spelling at the catalogue boundary. The
+    // local extractor intentionally lowercases its grammar tokens, while the
+    // normal model path preserves explicitly named brands.
+    const lookupName = (candidate: (typeof localCandidates)[number]) =>
+      candidate.foodName === 'big mac' ? 'Big Mac' : candidate.foodName;
+    const localLookups = await lookupFoodBatch(localCandidates.map(candidate => ({
+      foodName: lookupName(candidate),
+      unit: candidate.unit,
+      region: regionForLanguage(language),
+      intentText: sanitizedText,
+    })));
+
+    if (!localLookups.every((lookup) => lookup !== null)) return null;
+
+    const localItems: ParsedFoodItem[] = localCandidates.map((candidate, index) => {
+      const lookup = localLookups[index]!;
+      const macros = lookup.macros(candidate.quantity);
+      const grams = lookup.gramsTotal(candidate.quantity);
+      const hasFoodSpecificConversion = lookup.conversionId !== null;
+      const confidence = candidate.portionExplicit
+        ? (hasFoodSpecificConversion ? 0.95 : 0.85)
+        : (hasFoodSpecificConversion ? 0.75 : 0.60);
+      const caloriesRange = candidate.portionExplicit
+        ? undefined
+        : {
+            min: Math.round(macros.kcal * 0.7 * 10) / 10,
+            center: macros.kcal,
+            max: Math.round(macros.kcal * 1.4 * 10) / 10,
+          };
+
+      return {
+        raw_text: candidate.rawText,
+        food_name: lookup.food.nameEn,
+        name_localized: candidate.nameLocalized,
+        quantity: candidate.quantity,
+        unit: candidate.unit,
+        grams,
+        calories: macros.kcal,
+        protein_g: macros.protein,
+        carbs_g: macros.carb,
+        fat_g: macros.fat,
+        fiber_g: macros.fiber ?? 0,
+        sugar_g: Math.round(
+          (lookup.food.sugarPer100g ?? 0) * grams / 100 * 100,
+        ) / 100,
+        confidence,
+        source: 'local_db',
+        portion_explicit: candidate.portionExplicit,
+        calories_range: caloriesRange,
+        brand: lookup.food.brand ?? null,
+        db_source: lookup.food.source ?? null,
+        data_quality: lookup.food.dataQuality ?? null,
+        db_food_id: lookup.food.id ?? null,
+      };
+    });
+    const hasImplicitPortions = localCandidates.some(
+      candidate => !candidate.portionExplicit,
+    );
+
+    return {
+      items: localItems,
+      needs_clarification: hasImplicitPortions,
+      clarification_question: hasImplicitPortions
+        ? clarificationQuestion(language)
+        : null,
+      warnings: hasImplicitPortions
+        ? ['Portions estimated — confirm before saving']
+        : undefined,
+    };
+  } catch (err) {
+    // A lookup failure is not a parse result. Preserve the full pipeline
+    // fallback without logging the user's meal text.
+    console.error('[food-parse] local fast path unavailable', safeErrorMetadata(err));
+    return null;
+  }
+}
+
 // ── Region boost mapping (per-language) ─────────────────────────────────────
 // Used for DB ranking boosts only. Unknown languages fall back to 'US'; a
 // region code with no matching rows simply means the boost never fires, so
@@ -1153,94 +1248,18 @@ export async function run(
   // the canonical foods database. If grammar or retrieval is uncertain, fall
   // through untouched to the full AI-assisted pipeline.
   const localFastPathStartedAt = performance.now();
-  const localCandidates = extractLocalFoodCandidates(sanitizedText);
-  if (localCandidates) {
-    try {
-      // Keep the user-facing brand spelling at the catalogue boundary. The
-      // local extractor intentionally lowercases its grammar tokens, while
-      // the normal model path preserves the explicitly named brand (for
-      // example, `Big Mac`). Passing the same branded identity through both
-      // paths keeps lookup ranking, telemetry and review records consistent.
-      const lookupName = (candidate: (typeof localCandidates)[number]) =>
-        candidate.foodName === 'big mac' ? 'Big Mac' : candidate.foodName;
-      const localLookups = await lookupFoodBatch(localCandidates.map(candidate => ({
-        foodName: lookupName(candidate),
-        unit: candidate.unit,
-        region: regionForLanguage(language),
-        intentText: sanitizedText,
-      })));
-
-      if (localLookups.every((lookup) => lookup !== null)) {
-        const localItems: ParsedFoodItem[] = localCandidates.map((candidate, index) => {
-          const lookup = localLookups[index]!;
-          const macros = lookup.macros(candidate.quantity);
-          const grams = lookup.gramsTotal(candidate.quantity);
-          const hasFoodSpecificConversion = lookup.conversionId !== null;
-          const confidence = candidate.portionExplicit
-            ? (hasFoodSpecificConversion ? 0.95 : 0.85)
-            : (hasFoodSpecificConversion ? 0.75 : 0.60);
-          const caloriesRange = candidate.portionExplicit
-            ? undefined
-            : {
-                min: Math.round(macros.kcal * 0.7 * 10) / 10,
-                center: macros.kcal,
-                max: Math.round(macros.kcal * 1.4 * 10) / 10,
-              };
-
-          return {
-            raw_text: candidate.rawText,
-            food_name: lookup.food.nameEn,
-            name_localized: candidate.nameLocalized,
-            quantity: candidate.quantity,
-            unit: candidate.unit,
-            grams,
-            calories: macros.kcal,
-            protein_g: macros.protein,
-            carbs_g: macros.carb,
-            fat_g: macros.fat,
-            fiber_g: macros.fiber ?? 0,
-            sugar_g: Math.round(
-              (lookup.food.sugarPer100g ?? 0) * grams / 100 * 100,
-            ) / 100,
-            confidence,
-            source: 'local_db',
-            portion_explicit: candidate.portionExplicit,
-            calories_range: caloriesRange,
-            brand: lookup.food.brand ?? null,
-            db_source: lookup.food.source ?? null,
-            data_quality: lookup.food.dataQuality ?? null,
-            db_food_id: lookup.food.id ?? null,
-          };
-        });
-        const hasImplicitPortions = localCandidates.some(
-          candidate => !candidate.portionExplicit,
-        );
-
-        return {
-          ok: true,
-          output: {
-            items: localItems,
-            needs_clarification: hasImplicitPortions,
-            clarification_question: hasImplicitPortions
-              ? clarificationQuestion(language)
-              : null,
-            warnings: hasImplicitPortions
-              ? ['Portions estimated — confirm before saving']
-              : undefined,
-          },
-          telemetry: {
-            ...emptyTelemetry,
-            latencyMs: Math.round(performance.now() - localFastPathStartedAt),
-            rawStatus: 200,
-            dbHits: localItems.length,
-          },
-        };
-      }
-    } catch (err) {
-      // A local lookup failure is not a parse result. Preserve the established
-      // full pipeline fallback without logging the user's meal text.
-      console.error('[food-parse] local fast path unavailable', safeErrorMetadata(err));
-    }
+  const localOutput = await tryLocalFoodParse({ text: sanitizedText, language });
+  if (localOutput) {
+    return {
+      ok: true,
+      output: localOutput,
+      telemetry: {
+        ...emptyTelemetry,
+        latencyMs: Math.round(performance.now() - localFastPathStartedAt),
+        rawStatus: 200,
+        dbHits: localOutput.items.length,
+      },
+    };
   }
 
   // ── Step 0: RAG pre-search — give the LLM DB reference data ───────────────

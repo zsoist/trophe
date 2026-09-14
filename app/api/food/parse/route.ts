@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { guardAiRoute } from '@/lib/security/api-guard';
-import { run } from '@/agents/food-parse';
+import { run, tryLocalFoodParse } from '@/agents/food-parse';
 import { annotateGenerationMetadata } from '@/agents/runtime/persistence';
 import { safeErrorMetadata } from '@/lib/security/safe-error-log';
 import { z } from 'zod';
@@ -124,7 +124,15 @@ export async function POST(request: NextRequest) {
         import('@/db/client'), import('@/lib/workout/pilot-budget-service'), import('@/lib/workout/shared-pilot-budget'), import('@/agents/coach-assistant/governed-transport'), import('@/agents/coach-assistant/text-food-parser'), import('@/agents/runtime/providers/structured'),
       ]);
       const runtime = createSharedPilotBudgetRuntime(process.env, guard.userId, createPilotBudgetStore(db, guard.userId));
-      if (!runtime.ok) return NextResponse.json({ code: 'ai_busy', error: 'Food analysis is unavailable. You can enter food manually.', items: [] }, { status: 503 });
+      if (!runtime.ok) {
+        // A deterministic catalogue hit is safe and free of provider spend.
+        // Keep logging common foods available when the paid pilot is disabled,
+        // over its cohort, or temporarily out of budget; only model-dependent
+        // entries should be blocked by the shared gate.
+        const localOutput = await tryLocalFoodParse({ text, language });
+        if (localOutput) return NextResponse.json(localOutput);
+        return NextResponse.json({ code: 'ai_busy', error: 'Food analysis is unavailable. You can enter food manually.', items: [] }, { status: 503 });
+      }
       const turnId = z.string().uuid().safeParse(requestId);
       const operationId = turnId.success ? turnId.data : randomUUID();
       const { transport } = createGovernedCoachTransport({ pilotId: runtime.pilotId, actorId: guard.userId, turnId: operationId,
