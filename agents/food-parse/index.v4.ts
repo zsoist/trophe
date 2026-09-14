@@ -1156,8 +1156,15 @@ export async function run(
   const localCandidates = extractLocalFoodCandidates(sanitizedText);
   if (localCandidates) {
     try {
+      // Keep the user-facing brand spelling at the catalogue boundary. The
+      // local extractor intentionally lowercases its grammar tokens, while
+      // the normal model path preserves the explicitly named brand (for
+      // example, `Big Mac`). Passing the same branded identity through both
+      // paths keeps lookup ranking, telemetry and review records consistent.
+      const lookupName = (candidate: (typeof localCandidates)[number]) =>
+        candidate.foodName === 'big mac' ? 'Big Mac' : candidate.foodName;
       const localLookups = await lookupFoodBatch(localCandidates.map(candidate => ({
-        foodName: candidate.foodName,
+        foodName: lookupName(candidate),
         unit: candidate.unit,
         region: regionForLanguage(language),
         intentText: sanitizedText,
