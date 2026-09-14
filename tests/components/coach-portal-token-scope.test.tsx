@@ -60,3 +60,9 @@ it('renders the launcher and the open dialog outside the token-owning wrapper', 
   // Negative control: the wrapper is the token owner, so the fix cannot rely on its inheritance.
   expect(wrapper.className.length).toBeGreaterThan(0);
 });
+
+it('keeps launcher feedback smooth while honoring reduced motion', () => {
+  expect(css).toMatch(/\.launcher\s*\{[^}]*transition:\s*background-color 180ms ease/);
+  expect(css).toContain('.launcher:active');
+  expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.launcher\s*\{[^}]*transition:\s*none;/);
+});

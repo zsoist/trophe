@@ -210,8 +210,19 @@
    and the launcher/panel are portaled outside `.root`, so each portal root is matched directly. */
 :global(.light) .root, :global(.light) .launcher, :global(.light) .panel { --ask-confirmed: #087344; }
 
-.launcher { gap: .55rem; min-height: 44px; padding: .55rem .8rem; border: 1px solid var(--at-line); border-radius: 999px; background: color-mix(in srgb, var(--at-bg) 88%, transparent); color: var(--at-text); font-size: .8125rem; font-weight: 650; box-shadow: 0 10px 30px rgba(0, 0, 0, .18); }
+.launcher { gap: .55rem; min-height: 44px; padding: .55rem .8rem; border: 1px solid var(--at-line); border-radius: 999px; background: color-mix(in srgb, var(--at-bg) 88%, transparent); color: var(--at-text); font-size: .8125rem; font-weight: 650; box-shadow: 0 10px 30px rgba(0, 0, 0, .18); transition: background-color 180ms ease, border-color 180ms ease, box-shadow 180ms ease, color 180ms ease, transform 180ms ease; }
 .launcher svg { color: var(--at-gold); }
+
+.launcher:active { transform: scale(.98); }
+
+@media (hover: hover) and (pointer: fine) {
+  .launcher:hover { background-color: color-mix(in srgb, var(--at-gold) 10%, var(--at-bg)); border-color: color-mix(in srgb, var(--at-gold) 42%, var(--at-line)); box-shadow: 0 12px 34px rgba(0, 0, 0, .24); transform: translateY(-1px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .launcher { transition: none; }
+  .launcher:active { transform: none; }
+}
 
 /* Full-height mobile surface; a readable desktop card. */
 .panel { border: 1px solid var(--at-line); border-radius: 22px; background: color-mix(in srgb, var(--at-bg) 96%, transparent); animation: coach-rise 220ms var(--at-ease); }
