@@ -262,10 +262,13 @@
 .attachmentZoom[open] { cursor: zoom-out; }
 .attachmentZoom summary { list-style: none; display: block; }
 .attachmentZoom summary::-webkit-details-marker { display: none; }
-.attachmentExpanded { position: fixed; z-index: 60; inset: 0; display: grid; place-items: center; padding: 1.5rem; background: rgba(0, 0, 0, .62); }
+.attachmentExpanded { position: fixed; z-index: 60; inset: 0; display: grid; place-items: center; padding: 1.5rem; background: rgba(0, 0, 0, .62); animation: coach-attachment-in 220ms var(--at-ease, cubic-bezier(.22, 1, .36, 1)); transform: translateZ(0); }
 /* Local dismissal: a dismissible backdrop plus an explicit 44px close control over the image. */
 .attachmentBackdrop { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; border-radius: 0; background: transparent; }
-.attachmentExpanded img { position: relative; z-index: 1; width: auto; height: auto; max-width: min(92vw, 40rem); max-height: 80dvh; border-radius: 14px; object-fit: contain; }
+.attachmentExpanded img { position: relative; z-index: 1; width: auto; height: auto; max-width: min(92vw, 40rem); max-height: 80dvh; border-radius: 14px; object-fit: contain; animation: coach-attachment-image-in 260ms var(--at-ease, cubic-bezier(.22, 1, .36, 1)); transform: translateZ(0); }
+
+@keyframes coach-attachment-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes coach-attachment-image-in { from { opacity: .45; transform: scale(.965) translateZ(0); } to { opacity: 1; transform: scale(1) translateZ(0); } }
 .attachmentClose { position: absolute; z-index: 2; top: max(1rem, env(safe-area-inset-top, 0px)); right: 1rem; display: grid; width: 44px; height: 44px; place-items: center; border: 1px solid color-mix(in srgb, #fff 38%, transparent); border-radius: 999px; background: rgba(12, 12, 12, .68); color: #f5f2ec; }
 .attachmentClose:focus-visible { outline: 2px solid #f5f2ec; outline-offset: 2px; }
 
@@ -295,7 +298,7 @@
   .log { padding-block: .75rem; }
 }
 
-@media (prefers-reduced-motion: reduce) { .panel { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .panel, .attachmentExpanded, .attachmentExpanded img { animation: none; } }
 .latestButton { align-self: center; width: fit-content; margin: 0 auto .4rem; border: 1px solid var(--at-line); border-radius: 999px; background: color-mix(in srgb, var(--at-surface) 92%, transparent); color: var(--at-text); }
 .panel[data-history="true"] .latestButton { display: none; }
 

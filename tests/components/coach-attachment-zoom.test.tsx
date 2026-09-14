@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 import React, { useSyncExternalStore } from 'react';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { AttachmentController } from '@/components/assistant/attachment-state';
@@ -86,4 +88,15 @@ it('lets Escape close the surrounding dialog after the enlarged preview is dismi
   expect(details.hasAttribute('open')).toBe(false);
   fireEvent.keyDown(summary, { key: 'Escape' });
   expect(parentEscape).toHaveBeenCalledTimes(1);
+});
+
+it('gives the enlarged preview a GPU-friendly entrance with a reduced-motion escape hatch', () => {
+  const css = readFileSync(join(process.cwd(), 'components/assistant/GlobalCoach.module.css'), 'utf8');
+
+  expect(css).toMatch(/\.attachmentExpanded\s*\{[^}]*animation:\s*coach-attachment-in\s+220ms/);
+  expect(css).toMatch(/\.attachmentExpanded img\s*\{[^}]*animation:\s*coach-attachment-image-in\s+260ms/);
+  expect(css).toMatch(/@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*?\.panel,\s*\.attachmentExpanded,\s*\.attachmentExpanded img\s*\{\s*animation:\s*none;/);
+  // The zoom only animates opacity/transform; it cannot trigger layout work while the image opens.
+  expect(css).toMatch(/@keyframes coach-attachment-image-in\s*\{[^}]*transform:\s*scale\(/);
+  expect(css).not.toMatch(/@keyframes coach-attachment-image-in\s*\{[^}]*?(?:width|height|top|left):/);
 });
