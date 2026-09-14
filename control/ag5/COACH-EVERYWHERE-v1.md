@@ -10,12 +10,17 @@ the corresponding server-side gate are all proven together.
 ## Current release
 
 - Branch: `codex/ag1-hotfix-ask-workout`
-- Commit: `8ab66da4` (`fix(workout): treat unassigned recommendation as empty state`)
+- Commit: `41cea36b` (`fix(food): accept Spanish time-prefixed intake`), including
+  the AG2 Atlas interaction polish (`341a84d4`), the reflexive Spanish intake
+  fix (`77e2df9f`) and the neutral Workout empty state (`8ab66da4`)
 - Production alias: `https://trophe.app`
-- Latest production deployment: `dpl_C1TH3sZSPsHQowvXHVd6AryqRZAZ`
-- Health canary: HTTP 200, database connected
-- Release verification: `docs/quality/verification-summary.json` — typecheck,
-  lint, test and build passed
+- Latest production deployment: `dpl_1H6fPFWsACbet6S2PCarWXENi7bb`
+- Health canary: HTTP 200, database connected; no production 5xx logs in the
+  post-deploy window
+- Release verification: focused Ask/Food/Workout suites **101 files, 905
+  tests passed, 2 skipped**, typecheck and remote Vercel build passed. The
+  repository-wide verification still has one intentionally isolated PostgreSQL
+  suite that cannot run without a local database; it is not claimed as passed.
 
 ## Capability matrix
 
@@ -25,7 +30,7 @@ the corresponding server-side gate are all proven together.
 | Profile-grounded conversation | `agents/coach-assistant/context.ts`, `conversation.ts`, `open-conversation.ts`; advice/context tests | Offline-tested / integrated | Live authorized-records smoke required |
 | Controlled memory read/change | `memory-*` contracts/services, proposal/version/receipt tests | Offline-tested / HTTP contract | Production migrations and memory gate remain HOLD |
 | Food read and canonical macros | `agents/food-parse/index.v4.ts`, canonical lookup, local fast path | API route integrated; local path active | Full Ask text-food actions require held schema/flags |
-| Natural branded meal input | `local-fast-path.ts`; 24 parser files, 227 passed | Active in production deploy | Unknown catalogue entries intentionally fail closed |
+| Natural branded meal input | `local-fast-path.ts`, `text-food-intent.ts`; branded and reflexive/time-prefixed Spanish intake tests | Active in production deploy | Unknown catalogue entries intentionally fail closed |
 | Food proposal/apply/receipt/refetch | `text-food-service.ts`, `food-service.ts`, `TextFoodReview.tsx` | Offline-tested / preview evidence | Production `0087–0090` contract and flags remain HOLD |
 | Voice capture/transcript/live audio | `components/assistant/LiveVoiceControl.tsx`, `lib/voice-live`, lifecycle tests | Integrated / offline-tested | Authenticated production live and reviewed-voice smoke required |
 | Images/private analysis | attachment and photo-food services plus UI contracts | Offline-tested / gated | Private bucket, signing key, schema and production flag remain HOLD |
