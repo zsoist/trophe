@@ -70,6 +70,21 @@
 .workout-muscle-tools button:focus-visible,
 .workout-muscle-camera button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+/* Keep state changes spatially calm: colour, elevation and the group chevron
+   resolve on the compositor without making the anatomy viewer reflow. */
+.workout-muscle-home :is(
+  .workout-muscle-tabs button,
+  .workout-muscle-tools button,
+  .workout-muscle-camera button,
+  .workout-muscle-group-toggle,
+  .workout-muscle-section li button,
+  .workout-muscle-detail > button,
+  .workout-muscle-action > button
+) {
+  transition: background-color 180ms ease, border-color 180ms ease, box-shadow 180ms ease, color 180ms ease, transform 180ms ease;
+}
+.workout-muscle-group-toggle > svg { transition: transform 180ms ease; }
+
 .workout-anatomy-model.anatomy-stage { height: var(--workout-stage-h); padding: 0; background: transparent; border-radius: 0; }
 .workout-anatomy-model .anatomy-canvas { height: 100%; min-height: 0; }
 .workout-model-loading { position: absolute; bottom: 10px; left: 0; right: 0; text-align: center; font-size: 12px; color: var(--text-secondary); }
@@ -132,6 +147,19 @@
 .workout-muscle-action { margin-top: 16px; }
 .workout-muscle-action > button { min-height: 48px; width: 100%; border: 0; border-radius: 12px; background: var(--accent); color: var(--bg-primary); font: inherit; font-weight: 650; }
 .workout-muscle-home button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .workout-muscle-home :is(
+    .workout-muscle-tabs button,
+    .workout-muscle-tools button,
+    .workout-muscle-camera button,
+    .workout-muscle-group-toggle,
+    .workout-muscle-group-toggle > svg,
+    .workout-muscle-section li button,
+    .workout-muscle-detail > button,
+    .workout-muscle-action > button
+  ) { transition: none; }
+}
 
 /* ── Existing 2D compact map: the honest, source-compatible fallback ───── */
 .workout-model-fallback .muscle-atlas__views, .workout-model-fallback .muscle-atlas__roles, .workout-model-fallback .muscle-atlas__summary { display: none; }

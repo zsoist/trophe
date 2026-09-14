@@ -249,6 +249,12 @@ describe('dashboard stage layout contract', () => {
     const detailBlock = css.slice(css.indexOf('.workout-muscle-detail {'), css.indexOf('.workout-muscle-detail__copy'));
     expect(detailBlock).not.toContain('position: absolute');
   });
+
+  it('gives atlas controls a smooth interaction contract with a reduced-motion escape hatch', () => {
+    expect(css).toContain('transition: background-color 180ms ease, border-color 180ms ease, box-shadow 180ms ease, color 180ms ease, transform 180ms ease;');
+    expect(css).toContain('@media (prefers-reduced-motion: reduce)');
+    expect(css).toContain('transition: none;');
+  });
 });
 
 it('uses the same outer camera when no 3D source is available', () => {
