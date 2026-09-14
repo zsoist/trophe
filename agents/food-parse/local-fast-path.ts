@@ -62,6 +62,27 @@ const FOOD_ALIASES = new Map<string, string>([
   ['peanut butter', 'peanut butter'],
   ['fries', 'french fries'],
   ['french fries', 'french fries'],
+  // Common branded/restaurant and regional entries are already resolved by
+  // the canonical catalogue. Keep these aliases here so a simple meal such as
+  // "1 Big Mac and two cans of beer" does not spend a provider call just to
+  // split two unambiguous catalogue lookups.
+  ['big mac', 'big mac'],
+  ['big macs', 'big mac'],
+  ['beer', 'beer'],
+  ['beers', 'beer'],
+  ['cerveza', 'beer'],
+  ['coca cola', 'coca cola'],
+  ['coca-cola', 'coca cola'],
+  ['coke', 'coca cola'],
+  ['empanada', 'empanada'],
+  ['empanadas', 'empanada'],
+]);
+
+const COUNT_WORDS = new Map<string, number>([
+  ['one', 1], ['a', 1], ['an', 1], ['two', 2], ['three', 3], ['four', 4],
+  ['five', 5], ['six', 6], ['seven', 7], ['eight', 8], ['nine', 9], ['ten', 10],
+  ['un', 1], ['una', 1], ['uno', 1], ['dos', 2], ['tres', 3], ['cuatro', 4],
+  ['cinco', 5], ['seis', 6], ['siete', 7], ['ocho', 8], ['nueve', 9], ['diez', 10],
 ]);
 
 const GENERIC_COOKED_STEAK_PATTERN =
@@ -96,13 +117,17 @@ const UNIT_ALIASES = new Map<string, string>([
   ['slices', 'slice'],
   ['piece', 'piece'],
   ['pieces', 'piece'],
+  ['can', 'can'],
+  ['cans', 'can'],
+  ['lata', 'can'],
+  ['latas', 'can'],
 ]);
 
 const UNIT_PATTERN =
-  /^(g|grams?|kg|kilograms?|ml|millilit(?:er|re)s?|l|lit(?:er|re)s?|cups?|tbsp|tablespoons?|tsp|teaspoons?|slices?|pieces?)\b/i;
+  /^(g|grams?|kg|kilograms?|ml|millilit(?:er|re)s?|l|lit(?:er|re)s?|cups?|tbsp|tablespoons?|tsp|teaspoons?|slices?|pieces?|cans?|latas?)\b/i;
 
 function splitSegments(text: string): Segment[] {
-  const separator = /\s*(,|;)\s*|\s+(and|with)\s+/gi;
+  const separator = /\s*(,|;)\s*|\s+(and|with|y|con)\s+/gi;
   const segments: Segment[] = [];
   let cursor = 0;
   let joinedBy: Segment['joinedBy'] = 'start';
@@ -111,7 +136,7 @@ function splitSegments(text: string): Segment[] {
     const index = match.index ?? cursor;
     const value = text.slice(cursor, index).trim();
     if (value) segments.push({ text: value, joinedBy });
-    joinedBy = match[2]?.toLowerCase() === 'with'
+    joinedBy = match[2]?.toLowerCase() === 'with' || match[2]?.toLowerCase() === 'con'
       ? 'with'
       : match[2]?.toLowerCase() === 'and'
         ? 'and'
@@ -125,6 +150,8 @@ function splitSegments(text: string): Segment[] {
 }
 
 function parseQuantity(token: string): number | null {
+  const word = COUNT_WORDS.get(token.toLowerCase());
+  if (word !== undefined) return word;
   if (token.includes('/')) {
     const [numerator, denominator] = token.split('/').map(Number);
     if (!Number.isFinite(numerator) || !Number.isFinite(denominator) || denominator <= 0) {
@@ -143,7 +170,7 @@ function parseSegment(segment: Segment): LocalFoodCandidate | null {
     .replace(/[.!?]+$/g, '')
     .trim();
 
-  const quantityMatch = remainder.match(/^(\d+(?:\.\d+)?|\d+\/\d+)\s*/);
+  const quantityMatch = remainder.match(new RegExp(`^(${[...COUNT_WORDS.keys()].sort((a, b) => b.length - a.length).join('|')}|\\d+(?:\\.\\d+)?|\\d+\\/\\d+)(?:\\s+|(?=[a-z]))`, 'i'));
   const quantityWasExplicit = quantityMatch !== null;
   let quantity = quantityMatch ? parseQuantity(quantityMatch[1]) : 1;
   if (quantity === null || quantity <= 0 || quantity > 10_000) return null;

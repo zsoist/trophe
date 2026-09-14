@@ -68,6 +68,59 @@ describe('local food parse fast path', () => {
     ]);
   });
 
+  it('splits branded and beverage count words without a provider call', () => {
+    expect(extractLocalFoodCandidates('1 Big Mac and two cans of beer')).toEqual([
+      expect.objectContaining({
+        foodName: 'big mac',
+        quantity: 1,
+        unit: 'piece',
+        portionExplicit: true,
+      }),
+      expect.objectContaining({
+        foodName: 'beer',
+        quantity: 2,
+        unit: 'can',
+        portionExplicit: true,
+      }),
+    ]);
+  });
+
+  it('accepts Spanish count words and common restaurant aliases', () => {
+    expect(extractLocalFoodCandidates('dos Big Macs y una cerveza')).toEqual([
+      expect.objectContaining({ foodName: 'big mac', quantity: 2, unit: 'piece', portionExplicit: true }),
+      expect.objectContaining({ foodName: 'beer', quantity: 1, unit: 'piece', portionExplicit: true }),
+    ]);
+  });
+
+  it('resolves branded meals to canonical catalogue rows and real container weights', async () => {
+    const beforeTransportAttempt = vi.fn(() => {
+      throw new Error('paid provider transport must not run');
+    });
+
+    const result = await run(
+      { text: '1 Big Mac and two cans of beer', language: 'en' },
+      { beforeTransportAttempt },
+    );
+
+    expect(beforeTransportAttempt).not.toHaveBeenCalled();
+    expect(result.ok).toBe(true);
+    expect(result.output?.items).toEqual([
+      expect.objectContaining({
+        food_name: "McDONALD'S, BIG MAC",
+        brand: "McDonald's",
+        grams: 215,
+        unit: 'piece',
+        source: 'local_db',
+      }),
+      expect.objectContaining({
+        food_name: 'Alcoholic beverage, beer, regular, all',
+        grams: 710,
+        unit: 'can',
+        source: 'local_db',
+      }),
+    ]);
+  });
+
   it.each([
     ['steak', 1, 'piece', false],
     ['1 steak', 1, 'piece', false],

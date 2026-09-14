@@ -1325,7 +1325,12 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'nachos': 'nachos with cheese',
 
   // ── Restaurant shorthand ──
-  'big mac': 'Big Mac',
+  // These names have duplicate generic/retail rows in the catalogue. Resolve
+  // explicit branded or packaged mentions to the verified canonical rows so a
+  // short exact name cannot outrank the row carrying the real conversion
+  // (Big Mac 215 g, beer can 355 g, Coca-Cola can 355 g).
+  'big mac': "McDONALD'S, BIG MAC",
+  'big macs': "McDONALD'S, BIG MAC",
   'mcchicken': 'McChicken',
   'egg mcmuffin': 'Egg McMuffin',
   'whopper': 'Whopper',
@@ -1357,6 +1362,12 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'black coffee': 'Beverages, coffee, brewed, prepared with tap water',
   'cafe': 'Beverages, coffee, brewed, prepared with tap water',
   'café': 'Beverages, coffee, brewed, prepared with tap water',
+  'beer': 'Alcoholic beverage, beer, regular, all',
+  'beers': 'Alcoholic beverage, beer, regular, all',
+  'cerveza': 'Alcoholic beverage, beer, regular, all',
+  'coca cola': 'COCA-COLA, COLA',
+  'coca-cola': 'COCA-COLA, COLA',
+  'coke': 'COCA-COLA, COLA',
 
   // ── Phase 3: route regional/composite dishes to the correct existing row ──
   // Each target is a verified exact nameEn (checked against the live DB). The
