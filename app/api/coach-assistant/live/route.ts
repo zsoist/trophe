@@ -29,7 +29,11 @@ async function authorizeConversation(actorId: string, conversationId: string, si
   const context = await createServerRepository(pool).authorize(actorId, actorId, signal);
   const scope = { actorId, subjectId: actorId, organizationId: context.organizationId, actorRole: conversationScope(context).actorRole };
   const read = await createCoachChatService(db).execute(scope, { version: COACH_CHAT_VERSION, operation: 'read', threadId: conversationId, limit: 1 }, signal);
-  if (!read.ok) throw new Error('conversation_unavailable');
+  // Live voice can run in the bounded in-memory Ask surface before durable chat
+  // history is promoted. The repository authorization above still binds the
+  // actor and organization; a missing private chat contract means only that
+  // there is no persisted thread to read, not that the actor is unauthenticated.
+  if (!read.ok && read.error !== 'not_connected') throw new Error('conversation_unavailable');
   return context;
 }
 

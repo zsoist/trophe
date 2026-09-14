@@ -43,8 +43,10 @@ export async function authorizeCoachChat(tx:Tx,scope:CoachChatScope,signal:Abort
  JOIN public.client_profiles cp ON cp.user_id=s.id
  JOIN public.organization_members sm ON sm.user_id=s.id AND sm.org_id=am.org_id
  WHERE a.id=${scope.actorId}::uuid AND a.role::text=${scope.actorRole} AND am.role::text=${scope.actorRole}
- AND s.role::text='client' AND sm.role::text='client'
- AND ((a.id=s.id AND a.role::text='client') OR (a.role::text IN ('coach','admin','super_admin') AND cp.coach_id=a.id))
+ AND (
+   (a.id=s.id AND s.role::text=${scope.actorRole} AND sm.role::text=${scope.actorRole})
+   OR (s.role::text='client' AND sm.role::text='client' AND a.role::text IN ('coach','admin','super_admin') AND cp.coach_id=a.id)
+ )
  FOR SHARE OF a,am,s,cp,sm`);
  if(r.rows.length!==1)throw new Rejected('forbidden');signal.throwIfAborted();
 }

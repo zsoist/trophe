@@ -21,6 +21,12 @@ describe('coach request authority', () => {
     expect(() => authorizeSubject(coach, { ...subject, coachId: 'other' })).toThrow('forbidden');
     expect(() => authorizeSubject({ ...coach, role: 'super_admin' }, { ...subject, coachId: 'other' })).toThrow('forbidden');
   });
+  it('keeps an administrative account inside its own self scope', () => {
+    const admin = { id: 'admin', role: 'super_admin' as const, organizationIds: ['org-a'] };
+    const own = { id: 'admin', coachId: null, organizationIds: ['org-a'], timezone: 'America/Bogota', language: 'es' };
+    expect(authorizeSubject(admin, own)).toMatchObject({ actorId: 'admin', subjectId: 'admin', actorRole: 'super_admin', access: 'self' });
+    expect(conversationScope(authorizeSubject(admin, own))).toMatchObject({ actorRole: 'super_admin', access: 'self' });
+  });
   it('derives a distinct cache boundary per professional subject and drops cross-subject browser state',()=>{
     const coach={id:'coach',role:'coach',organizationIds:['org-a']};
     const a=authorizeSubject(coach,{id:'a',coachId:'coach',organizationIds:['org-a'],timezone:'UTC',language:'en'});

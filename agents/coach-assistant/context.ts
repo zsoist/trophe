@@ -29,7 +29,10 @@ export function authorizeSubject(actor: Actor | null, subject: Subject | null): 
   if(!actorRoles.includes(actor.role as CoachActorRole))throw new Error('forbidden');
   const actorRole=actor.role as CoachActorRole;
   const sharedOrg = actor.organizationIds.find(org => subject.organizationIds.includes(org));
-  const own = actorRole === 'client' && actor.id === subject.id;
+  // A user's own profile remains a self scope even when the account also has
+  // an administrative role. This keeps the access boundary subject-scoped:
+  // professional roles still require an assignment for another subject.
+  const own = actor.id === subject.id;
   const assigned = ['coach', 'admin', 'super_admin'].includes(actorRole) && subject.coachId === actor.id;
   if (!sharedOrg || (!own && !assigned)) throw new Error('forbidden');
   return { actorId: actor.id, subjectId: subject.id, organizationId: sharedOrg, timezone: subject.timezone, language: subject.language,actorRole,access:own?'self':'assigned_professional' };
