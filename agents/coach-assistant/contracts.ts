@@ -171,6 +171,9 @@ export type CoachActionIntent = CoachDraftUpdateIntent | CoachWorkoutSetUpdateIn
 export interface CoachConversationResponse {
   capabilityResult?:import('./capability-registry').CapabilityResult;
   foodPreference?:import('./food-preference-contracts').FoodPreferenceSnapshot;
+  /** Authorized body/profile context for grounded advice. It is deliberately
+   * separate from the workout-preference card and never counts as evidence. */
+  bodyProfile?: CoachBodyProfileCard;
   version: typeof COACH_CONVERSATION_VERSION;
   conversationId: string;
   turnId: string;
@@ -198,6 +201,16 @@ export interface CoachProfileCard {
   units: { weight: 'kg'; energy: 'kcal'; protein: 'g' };
   preferences: { durationMinutes: 20 | 30 | 45 | 60 };
   version: string;
+  source: 'authorized_profile' | 'isolated_fixture';
+}
+export interface CoachBodyProfileCard {
+  age: number | null;
+  sex: string | null;
+  heightCm: number | null;
+  weightKg: number | null;
+  bodyFatPct: number | null;
+  activityLevel: string | null;
+  goal: string | null;
   source: 'authorized_profile' | 'isolated_fixture';
 }
 export interface CoachMemoryCard {

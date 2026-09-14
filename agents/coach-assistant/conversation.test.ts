@@ -27,6 +27,15 @@ describe('authorized shared conversation broker',()=>{
     expect(result.memories?.[0].confirmation).toBe('unconfirmed');
     expect(result.output?.answer).not.toContain('afternoons');
   });
+  it('loads authorized body facts for grounded recommendations without treating them as records',async()=>{
+    const opts=options();opts.repository.dataSource='authorized_records';
+    opts.repository.personalContext=async()=>({truncated:false,rows:[{userId:opts.actorId,preferences:{},bodyProfile:{age:29,sex:'male',heightCm:176,weightKg:68,bodyFatPct:null,activityLevel:'light',goal:'muscle_gain'},memories:[]}]});
+    const result=await runConversation({...request,message:'What should I eat for dinner?'},opts);
+    expect(result.ok).toBe(true);
+    expect(result.bodyProfile).toMatchObject({age:29,sex:'male',heightCm:176,weightKg:68,activityLevel:'light',goal:'muscle_gain',source:'authorized_profile'});
+    expect(result.evidence.some(f=>f.id.includes('bodyProfile'))).toBe(false);
+    expect(result.snapshot?.capabilities.find(c=>c.key==='profile')).toMatchObject({status:'available',reason:'authorized_body_profile'});
+  });
   it('clears all cards and facts when the personal context contains a foreign owner',async()=>{
     const opts=options();
     opts.repository.personalContext=async()=>({truncated:false,rows:[{userId:'foreign',preferences:defaultWorkoutPreferences,memories:[]}]});

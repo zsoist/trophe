@@ -65,7 +65,17 @@ export function createServerRepository(pool: ReadPool): CoachRepository {
       return authorizeSubject(rows[0]?.actor ?? null, rows[0]?.subject ?? null);
     },
     personalContext: args => bounded<PersonalContextRow>(args, `
-      SELECT cp.user_id AS "userId", to_jsonb(cp)->'workout_preferences' AS preferences,
+      SELECT cp.user_id AS "userId",
+        jsonb_build_object(
+          'age', cp.age,
+          'sex', cp.sex,
+          'heightCm', cp.height_cm,
+          'weightKg', cp.weight_kg,
+          'bodyFatPct', cp.body_fat_pct,
+          'activityLevel', cp.activity_level,
+          'goal', cp.goal
+        ) AS "bodyProfile",
+        to_jsonb(cp)->'workout_preferences' AS preferences,
         jsonb_build_object('calories',to_jsonb(cp)->'target_calories','proteinG',to_jsonb(cp)->'target_protein_g') AS "nutritionTargets",
         coalesce((SELECT jsonb_agg(memory) FROM (
           SELECT m.id,m.user_id AS "userId",left(m.fact_text,500) AS text,m.source,m.created_at::text AS "createdAt",m.scope,

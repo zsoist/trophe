@@ -16,7 +16,7 @@ import { generateOpenConversation, photoReviewOnlyOutput, OpenConversationOutput
 import { createHash, randomUUID } from 'node:crypto';
 import { selectConversationScope, evidenceMatchesScope } from './conversation-scope';
 import { COACH_CONVERSATION_VERSION } from './contracts';
-import type { CoachCapability, CoachConversationResponse, CoachErrorCode } from './contracts';
+import type { CoachBodyProfileCard, CoachCapability, CoachConversationResponse, CoachErrorCode } from './contracts';
 import { conversationRequestSchema } from './schema';
 import { run } from './index';
 import type { RunOptions } from './index';
@@ -28,6 +28,41 @@ import { COACH_PROMPT_VERSION } from './prompt.v3';
 const disconnectedSurfaceCapabilities = (): CoachCapability[] =>
   (['messages', 'intake', 'booking', 'supplements', 'form_check'] as const)
     .map(key => ({ key, status: 'not_connected', reason: `${key}_service_not_connected` }));
+
+/**
+ * Validate body facts at the repository boundary before they reach a model.
+ * Profile values are useful context for recommendations, but they are never
+ * treated as meal/workout evidence and we do not invent missing values.
+ */
+function authorizedBodyProfile(
+  value: import('./repository').PersonalContextRow['bodyProfile'],
+  dataSource: 'synthetic' | 'authorized_records',
+): CoachBodyProfileCard | undefined {
+  if (!value) return undefined;
+  const bounded = (candidate: unknown, min: number, max: number): number | null =>
+    typeof candidate === 'number' && Number.isFinite(candidate) && candidate >= min && candidate <= max
+      ? candidate
+      : null;
+  const text = (candidate: unknown, allowed?: readonly string[]): string | null => {
+    if (typeof candidate !== 'string' || candidate.length > 64) return null;
+    const normalized = candidate.trim().toLowerCase();
+    if (!normalized || (allowed && !allowed.includes(normalized))) return null;
+    return normalized;
+  };
+  const bodyProfile: CoachBodyProfileCard = {
+    age: bounded(value.age, 0, 130),
+    sex: text(value.sex, ['male', 'female', 'other', 'unknown']),
+    heightCm: bounded(value.heightCm, 80, 250),
+    weightKg: bounded(value.weightKg, 20, 300),
+    bodyFatPct: bounded(value.bodyFatPct, 0, 75),
+    activityLevel: text(value.activityLevel, ['sedentary', 'light', 'moderate', 'active', 'very_active']),
+    goal: text(value.goal, ['fat_loss', 'muscle_gain', 'maintenance', 'recomp', 'endurance', 'health']),
+    source: dataSource === 'synthetic' ? 'isolated_fixture' : 'authorized_profile',
+  };
+  return Object.values(bodyProfile).some(value => value !== null && value !== bodyProfile.source)
+    ? bodyProfile
+    : undefined;
+}
 
 /** History is a hint for a window/domain, never a source of facts or authority. */
 export async function runConversation(raw: unknown, options: RunOptions & { capabilityRegistry?:CoachCapabilityRegistry; isolatedActionsEnabled?:boolean; workoutSetIntentsEnabled?:boolean; foodQuantityIntentsEnabled?:boolean; foodSelection?:ConversationFoodSelection; foodChange?:ConversationFoodChange; offlineConversationProvider?:OfflineConversationProvider; offlineInterpretationReview?:OfflineInterpretationReview; offlineCandidateEvaluation?:boolean; isolatedFixtureBoundary?:IsolatedEngineBoundary; governedPilotBoundary?:GovernedPilotBoundary; candidateActionsEnabled?:boolean; filterMemoryHistory?:(input:import('./contracts').CoachConversationRequest)=>import('./contracts').CoachConversationRequest; resolvePhotoObservations?:(input:import('./contracts').CoachConversationRequest,signal:AbortSignal)=>Promise<ConversationPhotoObservation[]> }): Promise<CoachConversationResponse> {
@@ -177,6 +212,13 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
         const row=personal.rows[0];
         if(row) {
           if(row.userId!==subject || row.memories.some(memory=>memory.userId!==subject))throw new Error('forbidden');
+          const bodyProfile = authorizedBodyProfile(row.bodyProfile, options.repository.dataSource);
+          if (bodyProfile) {
+            response.bodyProfile = bodyProfile;
+            const capability = capabilities.find(c=>c.key==='profile')!;
+            capability.status = 'available';
+            capability.reason = 'authorized_body_profile';
+          }
           if(row.foodPreference){
             if(row.foodPreference.profileId!==subject)throw new Error('forbidden');
             response.foodPreference={...row.foodPreference,preferences:parseFoodPreferences(row.foodPreference.preferences)};
@@ -198,7 +240,12 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
             if(options.isolatedActionsEnabled && subject===options.actorId && options.repository.dataSource==='authorized_records') {
               const actions=capabilities.find(c=>c.key==='actions')!;actions.status='available';actions.reason='isolated_ephemeral_self_preferences';
             }
-          } else {const capability=capabilities.find(c=>c.key==='profile')!;capability.status='unknown';capability.reason='preferences_not_recorded';}
+          } else {
+            const capability=capabilities.find(c=>c.key==='profile')!;
+            if (capability.status !== 'available') {
+              capability.status='unknown';capability.reason='preferences_not_recorded';
+            }
+          }
           if(row.memoriesRead!==false) {
           response.memories=row.memories.slice(0,10).map(memory=>({id:memory.id,text:memory.text.slice(0,500),source:memory.source,createdAt:memory.createdAt,scope:memory.scope,version:memory.version,confirmation:memory.confirmation??'unconfirmed'}));
           const memoryCapability=capabilities.find(c=>c.key==='memory')!;memoryCapability.status=response.memories.length?'available':'unknown';memoryCapability.reason=response.memories.length?(response.memories.every(m=>m.confirmation==='confirmed')?'authorized_confirmed_thread_memories':'authorized_unconfirmed_memories'):'no_active_memories';
@@ -245,7 +292,7 @@ export async function runConversation(raw: unknown, options: RunOptions & { capa
       if(category)console.warn(JSON.stringify({event:'coach_conversation_pretransport_failed',code,diagnostic:{stage:diagnosticStage.value,category,correlation:createHash('sha256').update(`${response.conversationId}:${response.turnId}`).digest('hex').slice(0,16)}}));
     }
     response.error={code,retryable:code==='query_failed'||code==='deadline'||code==='provider_unavailable'||code==='attachment_analysis_failed'};
-    response.ok=false;response.snapshot=null;response.evidence=[];response.actionIntents=[];delete response.capabilityResult;delete response.output;delete response.profile;delete response.foodPreference;delete response.memories;delete response.explanations;delete response.textFood;
+    response.ok=false;response.snapshot=null;response.evidence=[];response.actionIntents=[];delete response.capabilityResult;delete response.output;delete response.profile;delete response.bodyProfile;delete response.foodPreference;delete response.memories;delete response.explanations;delete response.textFood;
   } finally {
     clearTimeout(timer);options.signal.removeEventListener('abort',abort);
     if(boundary)controller.signal.removeEventListener('abort',boundary);

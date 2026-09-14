@@ -32,6 +32,17 @@ describe('open v2 conversation with explicit synthetic provider',()=>{
     const payload=JSON.parse(call.prompt);expect(payload.history).toEqual(request.history);
     expect(call.prompt).not.toContain('synthetic-client');expect(call.prompt).not.toContain('synthetic-org');
   });
+  it('passes validated body profile context to the model without identity fields',async()=>{
+    const base=options();
+    base.repository.personalContext=async()=>({truncated:false,rows:[{userId:base.actorId,preferences:{},bodyProfile:{age:29,sex:'male',heightCm:176,weightKg:68,bodyFatPct:null,activityLevel:'light',goal:'muscle_gain'},memories:[]}]});
+    const transport=provider((output,payload)=>{
+      expect(payload.bodyProfile).toMatchObject({age:29,sex:'male',heightCm:176,weightKg:68,activityLevel:'light',goal:'muscle_gain',source:'isolated_fixture'});
+      expect(JSON.stringify(payload.bodyProfile)).not.toContain(base.actorId);
+      return output;
+    });
+    const result=await runConversation({...request,message:'What should I eat for dinner?'},{...base,offlineConversationProvider:transport});
+    expect(result.ok).toBe(true);
+  });
   it.each([
     (output:typeof prose)=>({...output,evidenceRefs:['missing-fact']}),
     (output:typeof prose)=>({...output,entityRefs:['entity:999']}),
