@@ -11,11 +11,12 @@ import { ATTEMPT_ID, CONTEXT, FakeBudgetStore, FakeDeadline, FakeTransport, RATE
 
 const NOW = 1_000_000;
 
-/** Wait until the runtime reaches `closed` (bounded microtask pumping). */
+/** Wait for the runtime's authoritative close signal with a bounded timeout. */
 async function awaitClosed(session: LiveSessionRuntime): Promise<void> {
-  for (let i = 0; i < 50 && session.state() !== 'closed'; i += 1) {
-    await new Promise((resolve) => setImmediate(resolve));
-  }
+  await Promise.race([
+    session.closed,
+    new Promise<void>((resolve) => setTimeout(resolve, 5_000)),
+  ]);
   assert.equal(session.state(), 'closed');
 }
 
