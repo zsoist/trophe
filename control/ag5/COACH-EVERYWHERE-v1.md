@@ -10,7 +10,7 @@ the corresponding server-side gate are all proven together.
 ## Current release
 
 - Branch: `codex/ag1-hotfix-ask-workout`
-- Commit: pending `workout-empty-state` fix on top of `e331d358`
+- Commit: `8ab66da4` (`fix(workout): treat unassigned recommendation as empty state`)
 - Production alias: `https://trophe.app`
 - Latest production deployment: `dpl_C1TH3sZSPsHQowvXHVd6AryqRZAZ`
 - Health canary: HTTP 200, database connected
