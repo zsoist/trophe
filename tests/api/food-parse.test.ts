@@ -220,6 +220,34 @@ it.each(['production','preview'])('admits deployed %s Food through shared per-ph
  expect(mocks.run).toHaveBeenCalledWith(expect.anything(),expect.objectContaining({providerTransport:mocks.provider,maxProviderAttempts:1,allowSchemaRepair:false}));
  expect(mocks.complete).toHaveBeenCalled();
 });
+it('uses the deterministic catalogue after an admitted provider failure without a retry', async () => {
+ vi.clearAllMocks();vi.stubEnv('VERCEL_ENV','production');
+ mocks.guardAiRoute.mockResolvedValue({ok:true,userId:'actor',rateLimitBypassed:false});
+ mocks.transport.mockReturnValue({transport:mocks.provider});
+ mocks.run.mockResolvedValue({
+   ok:false,
+   error:'provider unavailable',
+   telemetry:{rawStatus:502,model:'gpt-5.6-luna',traceId:'generation-provider-failed'},
+ });
+ mocks.tryLocalFoodParse.mockResolvedValueOnce({
+   items:[{food_name:'McDONALD\'S, BIG MAC',quantity:1,unit:'piece'}],
+   needs_clarification:false,
+   clarification_question:null,
+ });
+ mocks.complete.mockImplementationOnce(() => { throw new Error('failed transport must not assert completion'); });
+
+ const response=await POST(request({text:'1 Big Mac',language:'en'}));
+
+ expect(response.status).toBe(200);
+ expect(await response.json()).toMatchObject({items:[{food_name:"McDONALD'S, BIG MAC"}]});
+ expect(mocks.provider).not.toHaveBeenCalled();
+ expect(mocks.complete).not.toHaveBeenCalled();
+ expect(mocks.annotateGenerationMetadata).toHaveBeenCalledWith('generation-provider-failed', {
+   canarySegment:'consumer-luna-week-1',
+   localFallback:'catalogue_after_provider_failure',
+   apiOutcome:'success',
+ });
+});
 it('rejects denied deployed Food before invoking its parser', async()=>{
  vi.clearAllMocks();vi.stubEnv('VERCEL_ENV','production');
  mocks.guardAiRoute.mockResolvedValue({ok:true,userId:'actor',rateLimitBypassed:false});

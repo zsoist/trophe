@@ -157,10 +157,23 @@ export async function POST(request: NextRequest) {
         ...governedOptions,
       },
     );
-    assertAdmitted?.();
     const t = result.telemetry;
 
     if (!result.ok) {
+      // A provider can fail after the shared pilot has admitted the request.
+      // Common catalogue foods are still safe to resolve locally, so keep the
+      // same zero-cost fallback used by a denied pilot. Do this before the
+      // transport completion assertion: that assertion intentionally latches a
+      // failed provider closed and must never turn a recoverable catalogue hit
+      // into a generic 500 or trigger another paid attempt.
+      const localOutput = await tryLocalFoodParse({ text, language }).catch(() => null);
+      if (localOutput) {
+        await recordFinalOutcome(t.traceId, 'success', {
+          ...telemetryMetadata,
+          localFallback: 'catalogue_after_provider_failure',
+        });
+        return NextResponse.json(localOutput);
+      }
       const failure = classifyParseFailure(result.error ?? '', t.rawStatus, result.errorCode);
       // Full detail server-side only (console + telemetry keep the raw error).
       console.error('[food-parse] failed', {
@@ -178,6 +191,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Only successful model output may satisfy the admitted transport. A
+    // failed transport is handled above without asserting completion.
+    assertAdmitted?.();
     await recordFinalOutcome(t.traceId, 'success', telemetryMetadata);
     return NextResponse.json(result.output);
   } catch (error) {
