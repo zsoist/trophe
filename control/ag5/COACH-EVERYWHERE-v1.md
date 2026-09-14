@@ -10,8 +10,9 @@ the corresponding server-side gate are all proven together.
 ## Current release
 
 - Branch: `codex/ag1-hotfix-ask-workout`
-- Runtime changes represented in the latest production deployment: `e5bf3b33`
-  (`fix(food): recover catalogue meals after provider failure`), including the
+- Runtime changes represented in the latest production deployment: `d438b4cb`
+  (`fix(workout): guard atlas observer fallbacks`), including food recovery
+  (`e5bf3b33`),
   Ask panel close lifecycle (`fdb98b62`),
   memory receipt-content verification (`b965be61`), meal-planning intent
   routing (`698da756`), AG2 attachment zoom and launcher/Atlas interaction
@@ -19,8 +20,8 @@ the corresponding server-side gate are all proven together.
   fix (`77e2df9f`), the bounded time-prefixed Spanish intake fast path
   (`b4bb5b17`) and the neutral Workout empty state (`8ab66da4`)
 - Production alias: `https://trophe.app`
-- Latest runtime production deployment: `dpl_A6BKoYgG4PmYujHF5YVzqbSdppYV`
-- Preview/deployment URL: `https://trophe-cldgijngi-2p6y54z6w9-4465s-projects.vercel.app`
+- Latest runtime production deployment: `dpl_9tQPS2ppdTAXu7ei8VDMvZgG7L2L`
+- Preview/deployment URL: `https://trophe-as0ehavhg-2p6y54z6w9-4465s-projects.vercel.app`
 - Health canary: HTTP 200, database connected; no production 5xx logs in the
   post-deploy window
 - Release verification: focused Ask/Food/Workout suites **107 files, 988
@@ -37,6 +38,10 @@ the corresponding server-side gate are all proven together.
   meal returns without retry or paid fallback, while unknown food keeps the
   stable error response. Covered by the production-route test and the local
   branded-meal suite.
+- Atlas resilience: `AtlasCanvas` now treats viewport observers as progressive
+  enhancements and uses a window-resize fallback when `ResizeObserver` is not
+  available; `IntersectionObserver` absence no longer crashes rendering. The
+  premium Atlas release and its activation gate remain HOLD.
 - Final independent DS4 recheck: **21 files, 245 tests passed** across advice,
   Food/Search and voice lifecycle, with no paid calls. This is a narrower
   repeat of the recorded focused run above; it does not replace the required
@@ -44,7 +49,8 @@ the corresponding server-side gate are all proven together.
 - Latest DS follow-up checks: AG2 attachment zoom **6/6** plus panel lifecycle
   coverage (global coach suite and attachment suite **27/27**), AG3
   intent-routing **61/61** plus memory receipt verification **11/11**,
-  TypeScript, ESLint focal and diff checks passed; no paid calls.
+  AG2 Atlas observer contract **13/13**, TypeScript, ESLint focal and diff
+  checks passed; no paid calls.
 - Production environment inventory was rechecked read-only: the cohort
   allowlist variable exists, while the private history/action/reviewed-voice
   and attachment flags are not present. The variable's secret value and the
