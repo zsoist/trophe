@@ -30,6 +30,11 @@ the corresponding server-side gate are all proven together.
   authenticated production smoke.
 - Latest DS follow-up checks: AG2 attachment zoom **6/6**, AG3 intent-routing
   **61/61**, TypeScript, ESLint focal and diff checks passed; no paid calls.
+- Production environment inventory was rechecked read-only: the cohort
+  allowlist variable exists, while the private history/action/reviewed-voice
+  and attachment flags are not present. The variable's secret value and the
+  current authenticated subject were not inferred, so no active-user claim is
+  made from this inventory alone.
 
 ## Capability matrix
 
