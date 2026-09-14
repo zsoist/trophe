@@ -17,6 +17,7 @@ Set in **Vercel → Project Settings → Environment Variables** (Production sco
 | `SUPABASE_SERVICE_ROLE_KEY` | Prod only | Server-only full-DB access. **NEVER `NEXT_PUBLIC_`** |
 | `DATABASE_URL` | Prod + local | Runtime connection. Vercel uses Supavisor transaction mode (`:6543`); local uses `127.0.0.1:54322`. |
 | `DIRECT_URL` | Prod only | Migration/backup connection. Use direct connection or Supavisor session mode (`:5432`), never transaction mode. |
+| `SUPABASE_CA_CERT` | Prod only | Supabase Root 2021 CA PEM. Required by the server client for verified TLS; keep encrypted in Vercel. |
 | `OPENAI_API_KEY` | Prod + local | GPT-5.6 Luna — consumer structured-text primary |
 | `DEEPSEEK_API_KEY` | Prod + local | DeepSeek V4 Flash — synthetic factory lane only |
 | `ANTHROPIC_API_KEY` | Prod + local | Haiku 4.5 — consumer fallback, health context, and vision |
