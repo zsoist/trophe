@@ -28,6 +28,9 @@ the corresponding server-side gate are all proven together.
   tests passed, 2 skipped**, typecheck and remote Vercel build passed. The
   repository-wide verification still has one intentionally isolated PostgreSQL
   suite that cannot run without a local database; it is not claimed as passed.
+- Full repository ESLint exits with code 0; it reports 77 existing warnings
+  (mostly React effect set-state guidance and intentionally unused test-fake
+  parameters), with no new lint errors from the release.
 - Post-deploy route checks: `/api/health` returned 200 with `db: connected`,
   `/api/coach-assistant` returned the expected unauthenticated `available:false`,
   `/api/food/parse` rejected an unauthenticated POST with 401, protected
@@ -62,6 +65,10 @@ the corresponding server-side gate are all proven together.
 - An authenticated smoke was attempted without exposing credentials: both
   local QA/super account records returned Supabase `401`, so Ask/Food/Workout
   production behavior remains unverified for a real identity.
+- Independent AG4 release recheck confirms `dpl_9tQPS2ppdTAXu7ei8VDMvZgG7L2L`
+  is READY and safe for anonymous canary/fail-closed behavior, while the full
+  Coach Everywhere and premium Atlas activation remain NOT READY under the
+  explicit HOLD boundaries below.
 
 ## Capability matrix
 
