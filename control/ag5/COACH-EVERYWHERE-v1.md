@@ -23,6 +23,10 @@ the corresponding server-side gate are all proven together.
 - Post-deployment hardening now included in production: voice waveform renderer
   gating for short viewports (`c262f0f4`) and browser/server datetime-schema
   parity for Coach result readers (`540396e7`).
+- Branch-only gated review hardening: Atlas source changes now clear the prior
+  manifest, failure and progress state before loading the next reviewed source
+  (`72ecec71`, `08989578`). This improves private review isolation and is not a
+  public Atlas activation.
 - Production alias: `https://trophe.app`
 - Latest runtime production deployment: `dpl_493Axd7tsNimr7raUPqgwnYQbDST`
 - Preview/deployment URL: `https://trophe-5ktmq8xkn-2p6y54z6w9-4465s-projects.vercel.app`
@@ -75,6 +79,9 @@ the corresponding server-side gate are all proven together.
   in a mixed meal is outside the catalogue, so the UI never records only a
   partial meal. Meal-slot routing remains explicit and does not derive from
   `created_at` or timezone.
+- Latest AG2 gated Atlas check: five focused files, **45 tests passed**,
+  typecheck, lint and diff checks clean. The release still has no public
+  manifest and remains `active: null`.
 - Production environment inventory was rechecked read-only: the cohort
   allowlist variable exists, while the private history/action/reviewed-voice
   and attachment flags are not present. The variable's secret value and the
