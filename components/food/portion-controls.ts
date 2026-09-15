@@ -172,7 +172,9 @@ export function getPortionDisplayAmount(grams: number, gramsPerDisplayUnit: numb
   if (!Number.isFinite(gramsPerDisplayUnit) || gramsPerDisplayUnit <= 0) return grams;
   const display = grams / gramsPerDisplayUnit;
   return display >= 10
-    ? Math.round(display)
+    // Keep suggested volume choices practical (350/500/700 ml) when density
+    // conversion lands between whole units, while preserving fractional litres.
+    ? Math.round(display / 5) * 5
     : Math.round(display * 10) / 10;
 }
 

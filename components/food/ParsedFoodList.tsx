@@ -120,7 +120,11 @@ export function getVolumeStepAmount(unit: string): number {
 /** Round a volume amount without flattening sub-unit values (0.33 l stays 0.33). */
 function roundVolumeDisplay(amount: number): number {
   if (!Number.isFinite(amount)) return amount;
-  if (amount >= 10) return Math.round(amount);
+  // Portion choices are intentionally practical (350/500/700 ml) even when
+  // food density makes the internal gram conversion land a fraction off that
+  // target (for example 365 g ÷ 1.04 g/ml = 350.96 ml). Keep the original
+  // display unit readable while preserving fractional litre values below ten.
+  if (amount >= 10) return Math.round(amount / 5) * 5;
   if (amount >= 1) return Math.round(amount * 10) / 10;
   return Math.round(amount * 100) / 100;
 }

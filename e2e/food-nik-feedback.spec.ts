@@ -55,9 +55,9 @@ test.describe("Nik's rendered food-logging regressions", () => {
     await expect(page.getByText('Small')).toBeVisible();
     await expect(page.getByText('Medium')).toBeVisible();
     await expect(page.getByText('Large')).toBeVisible();
-    await expect(page.getByText('350 g')).toBeVisible();
-    await expect(page.getByText('500 g')).toBeVisible();
-    await expect(page.getByText('700 g')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Small .*350 g/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Medium .*500 g/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Large .*700 g/ })).toBeVisible();
     await expect(page.getByRole('button', { name: /take photo/i })).toBeVisible();
 
     const amount = page.getByRole('spinbutton', { name: /amount/i });
@@ -79,9 +79,9 @@ test.describe("Nik's rendered food-logging regressions", () => {
     await page.getByPlaceholder(/What did you eat/).fill('500 ml soup');
     await page.getByPlaceholder(/What did you eat/).press('Enter');
 
-    await expect(page.getByText('350 ml')).toBeVisible();
-    await expect(page.getByText('500 ml')).toBeVisible();
-    await expect(page.getByText('700 ml')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Small .*350 ml/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Medium .*500 ml/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Large .*700 ml/ })).toBeVisible();
   });
 
   test('question-only clarification offers size answers and a photo path', async ({ page }) => {

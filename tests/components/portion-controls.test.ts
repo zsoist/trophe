@@ -36,6 +36,11 @@ describe('portion size choices', () => {
     expect(getPortionDisplayAmount(182, 1.04)).toBe(175);
     expect(getPortionDisplayAmount(700, 1_000)).toBe(0.7);
   });
+
+  it('keeps practical volume choices stable when density introduces a fraction', () => {
+    expect(getPortionDisplayAmount(365, 1.04)).toBe(350);
+    expect(getPortionDisplayAmount(730, 1.04)).toBe(700);
+  });
 });
 
 describe('portion clarification questions', () => {
