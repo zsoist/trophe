@@ -14,5 +14,8 @@ export const object=(fields:Record<string,JsonCheck>,optional:readonly string[]=
 // Parity with installed Zod v4 UUID and calendar-aware datetime(offset:true).
 export const uuid=pattern(/^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$/);
 const dateSource=String.raw`(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))`;
-export const datetime=pattern(new RegExp(`^${dateSource}T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|[+-](?:[01]\\d|2[0-3]):[0-5]\\d))$`));
+// Zod v4's `datetime({ offset: true })` requires seconds. Keep the browser
+// reader fail-closed so a response accepted here is also accepted by the
+// authoritative server result schema.
+export const datetime=pattern(new RegExp(`^${dateSource}T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|[+-](?:[01]\\d|2[0-3]):[0-5]\\d))$`));
 export const hash=pattern(/^[a-f0-9]{64}$/);
