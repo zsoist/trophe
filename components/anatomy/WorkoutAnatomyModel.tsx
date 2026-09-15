@@ -36,6 +36,7 @@ export function WorkoutAnatomyModel({ activations, selected, onSelect, view, col
     // state while the next reviewed manifest is loading. This matters for the
     // private review wrapper, which can swap manifests without remounting the
     // workspace; product routes remain closed by the release gate.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- source changes must clear stale geometry before loading the next release
     setManifest(null);
     setFailed(false);
     setProgress([0, 0]);
