@@ -68,6 +68,13 @@ the corresponding server-side gate are all proven together.
   server/client first render identical, resolves the viewport before paint and
   prevents a hidden `requestAnimationFrame` loop. Neither change enables a
   held capability or makes an authenticated production claim.
+- Final DS3 Food audit reproduced the reported branded meal locally:
+  `1 Big Mac and two cans of beer` resolves through the deterministic catalogue
+  path (Big Mac 215 g; beer 710 g) without a provider call or cost. The red
+  `AI had trouble` state remains an honest fail-closed response when any item
+  in a mixed meal is outside the catalogue, so the UI never records only a
+  partial meal. Meal-slot routing remains explicit and does not derive from
+  `created_at` or timezone.
 - Production environment inventory was rechecked read-only: the cohort
   allowlist variable exists, while the private history/action/reviewed-voice
   and attachment flags are not present. The variable's secret value and the
