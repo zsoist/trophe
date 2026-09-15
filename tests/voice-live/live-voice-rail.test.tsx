@@ -101,7 +101,7 @@ it('runs no waveform loop under reduced motion, but animates the real level othe
   const raf = vi.fn(() => 1);
   vi.stubGlobal('requestAnimationFrame', raf);
   vi.stubGlobal('cancelAnimationFrame', vi.fn());
-  (window as unknown as { matchMedia: unknown }).matchMedia = vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
+  (window as unknown as { matchMedia: unknown }).matchMedia = vi.fn((query: string) => ({ matches: query === '(prefers-reduced-motion: reduce)', addEventListener: vi.fn(), removeEventListener: vi.fn() }));
   await openRail({ phase: 'live', meterSupported: true, inputLevel: 0.6, inputLevelUpdatedAtMs: Date.now(), transcript: [] });
   expect(screen.getByRole('img', { name: t('global_coach.live_waveform') })).toBeTruthy();
   expect(raf).not.toHaveBeenCalled();
@@ -109,6 +109,25 @@ it('runs no waveform loop under reduced motion, but animates the real level othe
   (window as unknown as { matchMedia: unknown }).matchMedia = vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
   await openRail({ phase: 'live', meterSupported: true, inputLevel: 0.6, inputLevelUpdatedAtMs: Date.now(), transcript: [] });
   await waitFor(() => expect(raf).toHaveBeenCalled());
+});
+
+it('does not mount the hidden waveform renderer on short viewports', async () => {
+  const raf = vi.fn(() => 1);
+  vi.stubGlobal('requestAnimationFrame', raf);
+  vi.stubGlobal('cancelAnimationFrame', vi.fn());
+  const matchMedia = vi.fn((query: string) => ({
+    matches: query === '(max-height: 560px)',
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  }));
+  (window as unknown as { matchMedia: unknown }).matchMedia = matchMedia;
+
+  await openRail({ phase: 'live', meterSupported: true, inputLevel: 0.6, inputLevelUpdatedAtMs: Date.now(), transcript: [] });
+
+  expect(matchMedia).toHaveBeenCalledWith('(max-height: 560px)');
+  expect(screen.queryByRole('img', { name: t('global_coach.live_waveform') })).toBeNull();
+  expect(screen.getByRole('button', { name: t('global_coach.live_end') })).toBeTruthy();
+  expect(raf).not.toHaveBeenCalled();
 });
 
 it('keeps a subscribed consumer animating through sustained equal-amplitude samples and expires it once samples stop', async () => {

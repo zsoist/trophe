@@ -17,7 +17,7 @@
  * (`ask-trophe-wave.ts`) and its pure snapshot mapping (`ask-trophe-visual.ts`). Amplitudes are
  * consumed as fresh measurements, never recycled from every snapshot or animation frame.
  */
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { AudioLines } from 'lucide-react';
 import type { LiveCommentaryPort, LiveQueryCorrelation, LiveTranscriptRow } from '@/lib/voice-live/client-types';
 import { useGlobalCoachI18n } from './useGlobalCoachI18n';
@@ -25,6 +25,11 @@ import { AskTropheIcon } from './ask-trophe-icons';
 import { mountAskTropheWave, type AskTropheWaveHandle } from './ask-trophe-wave';
 import { askTropheViewState, connectAskTropheVisual } from './ask-trophe-visual';
 import styles from './LiveVoiceControl.module.css';
+
+// Resolve the viewport media query before the first browser paint while keeping server markup
+// identical to the client render. This prevents a hidden short-viewport wave from mounting for a
+// frame without calling useLayoutEffect during SSR.
+const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 // ---------------------------------------------------------------------------------------------
 // Transcript streaming: pure, display-only helpers. Voice rows are appended to the ONE existing
@@ -340,12 +345,39 @@ function LiveVoiceRail({ runtime, onTranscript }: { runtime: LiveVoiceRuntimePor
   const live = state.phase === 'live';
   const muted = state.microphoneMuted === true;
   const [waveHost, setWaveHost] = useState<HTMLDivElement | null>(null);
+  // The CSS collapses the waveform below 560px so the status and controls stay visible. Keep the
+  // renderer unmounted there too: a hidden SVG must not keep a live requestAnimationFrame loop.
+  // Resolve the media query during the first client render so short viewports never mount the
+  // waveform for even one frame. This is a client-only rail (inside the lazy coach surface), so
+  // the browser check does not change a server-rendered page shell.
+  // Keep the first server/client render identical. The layout effect below resolves the query
+  // before paint and only then permits the real renderer to mount.
+  const [waveVisible, setWaveVisible] = useState(false);
+  const [waveQueryReady, setWaveQueryReady] = useState(false);
   const wave = useRef<AskTropheWaveHandle | null>(null);
   const visual = useRef<ReturnType<typeof connectAskTropheVisual> | null>(null);
   // Phase/status is derived from the engine snapshot on EVERY render, independently of whether a
   // renderer is mounted. An unsupported microphone analyser must never freeze the status line, and
   // a valid output trace must still render when only the input meter is unavailable.
   const viewState = askTropheViewState(state);
+
+  useIsomorphicLayoutEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      setWaveVisible(true);
+      setWaveQueryReady(true);
+      return;
+    }
+    const query = window.matchMedia('(max-height: 560px)');
+    const update = () => setWaveVisible(!query.matches);
+    update();
+    setWaveQueryReady(true);
+    if (typeof query.addEventListener === 'function') query.addEventListener('change', update);
+    else query.addListener?.(update);
+    return () => {
+      if (typeof query.removeEventListener === 'function') query.removeEventListener('change', update);
+      else query.removeListener?.(update);
+    };
+  }, []);
 
   // One renderer per mounted rail. Unmount, conversation change and subject change dispose it,
   // so a late callback from an old session can never paint the new surface.
@@ -440,7 +472,7 @@ function LiveVoiceRail({ runtime, onTranscript }: { runtime: LiveVoiceRuntimePor
         <div className={styles.waveWrap}>
           {/* Decorative progress arc: it never represents an audio level. */}
           <svg className={styles.thinkingArc} viewBox="0 0 400 56" aria-hidden="true" focusable="false"><path d="M0 30C80 30 98 14 150 22S232 52 280 28 352 28 400 30" /></svg>
-          {(!live || rendererSupported) && <div className={styles.waveHost} ref={setWaveHost} role="img" aria-label={t(meterSupported ? 'global_coach.live_waveform' : 'global_coach.live_waveform_output')} />}
+          {waveQueryReady && waveVisible && (!live || rendererSupported) && <div className={styles.waveHost} ref={setWaveHost} role="img" aria-label={t(meterSupported ? 'global_coach.live_waveform' : 'global_coach.live_waveform_output')} />}
         </div>
         {/* Keep the channel notice in normal flow, including when short viewports hide the wave. */}
         {live && !meterSupported && <p className={styles.mutedNotice}>{t('global_coach.live_no_level')}</p>}
