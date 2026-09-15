@@ -10,8 +10,9 @@ the corresponding server-side gate are all proven together.
 ## Current release
 
 - Branch: `codex/ag1-hotfix-ask-workout`
-- Runtime changes represented in the latest production deployment: `d438b4cb`
-  (`fix(workout): guard atlas observer fallbacks`), including food recovery
+- Runtime changes represented in the latest production deployment: `c262f0f4`
+  (`fix(voice): avoid hidden waveform animation on short viewports`), including
+  reader schema parity (`540396e7`), Atlas observer fallbacks (`d438b4cb`), food recovery
   (`e5bf3b33`),
   Ask panel close lifecycle (`fdb98b62`),
   memory receipt-content verification (`b965be61`), meal-planning intent
@@ -19,13 +20,12 @@ the corresponding server-side gate are all proven together.
   polish (`438ec058`, `92843904`, `341a84d4`), the reflexive Spanish intent
   fix (`77e2df9f`), the bounded time-prefixed Spanish intake fast path
   (`b4bb5b17`) and the neutral Workout empty state (`8ab66da4`)
-- Post-deployment hardening on the branch: voice waveform renderer gating for
-  short viewports (`c262f0f4`) and browser/server datetime-schema parity for
-  Coach result readers (`540396e7`). These are verified integration changes;
-  they are not yet in the currently deployed runtime.
+- Post-deployment hardening now included in production: voice waveform renderer
+  gating for short viewports (`c262f0f4`) and browser/server datetime-schema
+  parity for Coach result readers (`540396e7`).
 - Production alias: `https://trophe.app`
-- Latest runtime production deployment: `dpl_9tQPS2ppdTAXu7ei8VDMvZgG7L2L`
-- Preview/deployment URL: `https://trophe-as0ehavhg-2p6y54z6w9-4465s-projects.vercel.app`
+- Latest runtime production deployment: `dpl_493Axd7tsNimr7raUPqgwnYQbDST`
+- Preview/deployment URL: `https://trophe-5ktmq8xkn-2p6y54z6w9-4465s-projects.vercel.app`
 - Health canary: HTTP 200, database connected; no production 5xx logs in the
   post-deploy window
 - Release verification: focused Ask/Food/Workout suites **107 files, 989
@@ -40,6 +40,8 @@ the corresponding server-side gate are all proven together.
   `/api/food/parse` rejected an unauthenticated POST with 401, protected
   dashboard/coach routes redirected to login, and the production 5xx log query
   returned no entries.
+- The latest redeploy built successfully with Next.js/Vercel TypeScript checks,
+  is `READY`, and retains the same health/guard behavior.
 - Food resilience: an admitted-provider failure now attempts the same
   deterministic catalogue resolver as the denied-pilot path; a recognized
   meal returns without retry or paid fallback, while unknown food keeps the
@@ -75,7 +77,7 @@ the corresponding server-side gate are all proven together.
 - An authenticated smoke was attempted without exposing credentials: both
   local QA/super account records returned Supabase `401`, so Ask/Food/Workout
   production behavior remains unverified for a real identity.
-- Independent AG4 release recheck confirms `dpl_9tQPS2ppdTAXu7ei8VDMvZgG7L2L`
+- Independent AG4 release recheck confirms `dpl_493Axd7tsNimr7raUPqgwnYQbDST`
   is READY and safe for anonymous canary/fail-closed behavior, while the full
   Coach Everywhere and premium Atlas activation remain NOT READY under the
   explicit HOLD boundaries below.
