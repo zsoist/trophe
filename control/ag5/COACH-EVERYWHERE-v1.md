@@ -51,10 +51,12 @@ the corresponding server-side gate are all proven together.
   enhancements and uses a window-resize fallback when `ResizeObserver` is not
   available; `IntersectionObserver` absence no longer crashes rendering. The
   premium Atlas release and its activation gate remain HOLD.
-- Final independent DS4 recheck: **21 files, 245 tests passed** across advice,
-  Food/Search and voice lifecycle, with no paid calls. This is a narrower
-  repeat of the recorded focused run above; it does not replace the required
-  authenticated production smoke.
+- Final independent DS4 recheck of `dpl_493Axd7tsNimr7raUPqgwnYQbDST`: Vercel
+  `READY`; public pages 200; protected dashboard/coach and Food/Coach/Live
+  endpoints fail closed (307/401); `/api/health` 200 with `db=connected`; no
+  production 5xx logs in the last 15 minutes. This is anonymous release
+  evidence only and does not replace the required authenticated production
+  smoke.
 - Latest DS follow-up checks: AG2 attachment zoom **6/6** plus panel lifecycle
   coverage (global coach suite and attachment suite **27/27**), AG3
   intent-routing **61/61** plus memory receipt verification **11/11**,
@@ -78,9 +80,9 @@ the corresponding server-side gate are all proven together.
   local QA/super account records returned Supabase `401`, so Ask/Food/Workout
   production behavior remains unverified for a real identity.
 - Independent AG4 release recheck confirms `dpl_493Axd7tsNimr7raUPqgwnYQbDST`
-  is READY and safe for anonymous canary/fail-closed behavior, while the full
-  Coach Everywhere and premium Atlas activation remain NOT READY under the
-  explicit HOLD boundaries below.
+  is READY and safe for anonymous canary/fail-closed behavior; its specific
+  voice waveform suite is **20/20**. The full Coach Everywhere and premium
+  Atlas activation remain NOT READY under the explicit HOLD boundaries below.
 
 ## Capability matrix
 
