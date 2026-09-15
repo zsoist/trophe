@@ -24,7 +24,7 @@ the corresponding server-side gate are all proven together.
 - Preview/deployment URL: `https://trophe-as0ehavhg-2p6y54z6w9-4465s-projects.vercel.app`
 - Health canary: HTTP 200, database connected; no production 5xx logs in the
   post-deploy window
-- Release verification: focused Ask/Food/Workout suites **107 files, 988
+- Release verification: focused Ask/Food/Workout suites **107 files, 989
   tests passed, 2 skipped**, typecheck and remote Vercel build passed. The
   repository-wide verification still has one intentionally isolated PostgreSQL
   suite that cannot run without a local database; it is not claimed as passed.
