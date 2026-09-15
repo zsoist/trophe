@@ -32,6 +32,13 @@ export function WorkoutAnatomyModel({ activations, selected, onSelect, view, col
   const [attempt, setAttempt] = useState(0);
   const { t } = useI18n();
   useEffect(() => {
+    // A source change must not retain a previous release's geometry or failure
+    // state while the next reviewed manifest is loading. This matters for the
+    // private review wrapper, which can swap manifests without remounting the
+    // workspace; product routes remain closed by the release gate.
+    setManifest(null);
+    setFailed(false);
+    setProgress([0, 0]);
     if (!manifestUrl) return;
     let active = true;
     const controller = new AbortController();
