@@ -19,6 +19,10 @@ the corresponding server-side gate are all proven together.
   polish (`438ec058`, `92843904`, `341a84d4`), the reflexive Spanish intent
   fix (`77e2df9f`), the bounded time-prefixed Spanish intake fast path
   (`b4bb5b17`) and the neutral Workout empty state (`8ab66da4`)
+- Post-deployment hardening on the branch: voice waveform renderer gating for
+  short viewports (`c262f0f4`) and browser/server datetime-schema parity for
+  Coach result readers (`540396e7`). These are verified integration changes;
+  they are not yet in the currently deployed runtime.
 - Production alias: `https://trophe.app`
 - Latest runtime production deployment: `dpl_9tQPS2ppdTAXu7ei8VDMvZgG7L2L`
 - Preview/deployment URL: `https://trophe-as0ehavhg-2p6y54z6w9-4465s-projects.vercel.app`
@@ -54,6 +58,12 @@ the corresponding server-side gate are all proven together.
   intent-routing **61/61** plus memory receipt verification **11/11**,
   AG2 Atlas observer contract **13/13**, TypeScript, ESLint focal and diff
   checks passed; no paid calls.
+- Latest DS2/DS3 follow-up: voice rail **20/20** after fixing the first-render
+  short-viewport race; result-reader contract suite **39/39** across the reader
+  families; typecheck and `git diff --check` pass. The voice fix now keeps the
+  server/client first render identical, resolves the viewport before paint and
+  prevents a hidden `requestAnimationFrame` loop. Neither change enables a
+  held capability or makes an authenticated production claim.
 - Production environment inventory was rechecked read-only: the cohort
   allowlist variable exists, while the private history/action/reviewed-voice
   and attachment flags are not present. The variable's secret value and the
